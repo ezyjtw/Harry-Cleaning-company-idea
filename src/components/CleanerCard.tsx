@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Cleaner } from "@/lib/types";
 import StarRating from "./StarRating";
+import AvailableNowBadge from "./AvailableNowBadge";
 
 export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
   return (
@@ -30,12 +31,22 @@ export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
               {cleaner.rating} ({cleaner.reviewCount} reviews)
             </span>
           </div>
+          {cleaner.availableNow && (
+            <div className="mt-2">
+              <AvailableNowBadge responseTime={cleaner.responseTime} />
+            </div>
+          )}
         </div>
         <div className="text-right">
           <span className="text-2xl font-bold text-gray-900">
             ${cleaner.hourlyRate}
           </span>
           <span className="text-sm text-gray-500">/hr</span>
+          {cleaner.availableNow && (
+            <div className="mt-1 text-xs text-gray-400">
+              ${cleaner.sameDayRate}/hr same-day
+            </div>
+          )}
         </div>
       </div>
       <p className="mt-3 line-clamp-2 text-sm text-gray-600">{cleaner.bio}</p>

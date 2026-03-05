@@ -1,33 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { getCleanerById } from "@/lib/mock-data";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getCleanerById, savedAddresses, pastBookings } from "@/lib/mock-data";
 import StarRating from "@/components/StarRating";
+import AvailableNowBadge from "@/components/AvailableNowBadge";
 
 const SERVICE_TYPES = [
   { value: "standard", label: "Standard Cleaning", multiplier: 1 },
   { value: "deep", label: "Deep Cleaning", multiplier: 1.5 },
   { value: "move-in-out", label: "Move In/Out Cleaning", multiplier: 2 },
   { value: "office", label: "Office Cleaning", multiplier: 1.3 },
+  { value: "last-minute", label: "Last-Minute Cleaning", multiplier: 1.0 },
 ];
 
 export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isExpress = searchParams.get("express") === "true";
   const cleaner = getCleanerById(params.id);
+
+  const today = new Date().toISOString().split("T")[0];
 
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
-    address: "",
-    date: "",
+    address: savedAddresses.find((a) => a.isDefault)?.address ?? "",
+    selectedSavedAddress: savedAddresses.find((a) => a.isDefault)?.id ?? "",
+    date: isExpress ? today : "",
     time: "",
     duration: 2,
-    serviceType: "standard",
+    serviceType: isExpress ? "last-minute" : "standard",
     notes: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [showRebook, setShowRebook] = useState(false);
 
   if (!cleaner) {
     return (
@@ -37,8 +45,36 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }
 
+  const isLastMinute = form.serviceType === "last-minute" || isExpress;
+  const rate = isLastMinute ? cleaner.sameDayRate : cleaner.hourlyRate;
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
-  const totalPrice = cleaner.hourlyRate * form.duration * selectedService.multiplier;
+  const totalPrice = rate * form.duration * selectedService.multiplier;
+
+  const handleSavedAddress = (addressId: string) => {
+    const saved = savedAddresses.find((a) => a.id === addressId);
+    if (saved) {
+      setForm({ ...form, address: saved.address, selectedSavedAddress: addressId });
+    }
+  };
+
+  const handleRebook = (bookingId: string) => {
+    const booking = pastBookings.find((b) => b.id === bookingId);
+    if (booking) {
+      const serviceMap: Record<string, string> = {
+        "Deep Cleaning": "deep",
+        "Standard Cleaning": "standard",
+        "Move In/Out Cleaning": "move-in-out",
+        "Office Cleaning": "office",
+      };
+      setForm({
+        ...form,
+        address: booking.address,
+        duration: booking.duration,
+        serviceType: serviceMap[booking.serviceType] || "standard",
+      });
+      setShowRebook(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +85,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         cleanerId: cleaner.id,
         ...form,
         totalPrice,
+        isLastMinute,
       }),
     });
 
@@ -64,11 +101,21 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           &#10003;
         </div>
         <h1 className="mt-6 text-3xl font-bold text-gray-900">
-          Booking Confirmed!
+          {isLastMinute ? "Express Booking Sent!" : "Booking Confirmed!"}
         </h1>
         <p className="mt-4 text-gray-600">
-          Your booking with {cleaner.name} has been submitted. You&apos;ll receive a
-          confirmation email shortly at {form.email}.
+          {isLastMinute ? (
+            <>
+              Your last-minute booking request has been sent to {cleaner.name}.
+              They typically respond within <strong>{cleaner.responseTime}</strong>.
+              You&apos;ll receive a confirmation at {form.email}.
+            </>
+          ) : (
+            <>
+              Your booking with {cleaner.name} has been submitted. You&apos;ll receive a
+              confirmation email shortly at {form.email}.
+            </>
+          )}
         </p>
         <div className="mt-6 rounded-lg bg-gray-50 p-6 text-left">
           <div className="grid gap-2 text-sm">
@@ -92,6 +139,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <span className="text-gray-500">Duration</span>
               <span className="font-medium">{form.duration} hours</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Rate</span>
+              <span className="font-medium">
+                ${rate}/hr {isLastMinute && "(same-day rate)"}
+              </span>
+            </div>
             <div className="mt-2 flex justify-between border-t pt-2">
               <span className="font-medium text-gray-900">Total</span>
               <span className="text-lg font-bold text-brand-600">
@@ -112,7 +165,25 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-gray-900">Book a Cleaning</h1>
+      <h1 className="text-3xl font-bold text-gray-900">
+        {isExpress ? "Express Booking" : "Book a Cleaning"}
+      </h1>
+
+      {/* Express banner */}
+      {isExpress && cleaner.availableNow && (
+        <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-4">
+          <div className="flex items-center gap-3">
+            <AvailableNowBadge responseTime={cleaner.responseTime} />
+            <span className="text-sm text-green-700">
+              Same-day rate: <strong>${cleaner.sameDayRate}/hr</strong>
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-green-600">
+            {cleaner.name} is available now and typically responds within {cleaner.responseTime}.
+            Your booking will be prioritized.
+          </p>
+        </div>
+      )}
 
       {/* Cleaner summary */}
       <div className="mt-6 flex items-center gap-4 rounded-lg bg-gray-50 p-4">
@@ -127,9 +198,47 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               {cleaner.rating} ({cleaner.reviewCount} reviews)
             </span>
             <span>&middot; ${cleaner.hourlyRate}/hr</span>
+            {isLastMinute && (
+              <span className="text-green-600 font-medium">
+                &middot; ${cleaner.sameDayRate}/hr today
+              </span>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Quick rebook */}
+      {pastBookings.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowRebook(!showRebook)}
+            className="text-sm font-medium text-brand-600 hover:text-brand-700"
+          >
+            {showRebook ? "Hide past bookings" : "Quick rebook from a past booking"}
+          </button>
+          {showRebook && (
+            <div className="mt-3 space-y-2">
+              {pastBookings.map((booking) => (
+                <button
+                  key={booking.id}
+                  onClick={() => handleRebook(booking.id)}
+                  className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-brand-300 hover:bg-brand-50 transition"
+                >
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-gray-900">
+                      {booking.serviceType} with {booking.cleanerName}
+                    </span>
+                    <span className="text-sm text-gray-500">{booking.date}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {booking.address} &middot; {booking.duration}h &middot; ${booking.totalPrice}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
         {/* Contact info */}
@@ -178,12 +287,32 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <label className="block text-sm font-medium text-gray-700">
                 Address
               </label>
+              {savedAddresses.length > 0 && (
+                <div className="mt-1 mb-2 flex flex-wrap gap-2">
+                  {savedAddresses.map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onClick={() => handleSavedAddress(addr.id)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        form.selectedSavedAddress === addr.id
+                          ? "bg-brand-600 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {addr.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <input
                 type="text"
                 required
                 value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                onChange={(e) =>
+                  setForm({ ...form, address: e.target.value, selectedSavedAddress: "" })
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
               />
             </div>
           </div>
@@ -277,9 +406,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm text-gray-500">
-                ${cleaner.hourlyRate}/hr &times; {form.duration}h &times;{" "}
-                {selectedService.multiplier}x ({selectedService.label})
+                ${rate}/hr &times; {form.duration}h
+                {selectedService.multiplier !== 1 && (
+                  <> &times; {selectedService.multiplier}x ({selectedService.label})</>
+                )}
               </span>
+              {isLastMinute && (
+                <div className="mt-1 text-xs text-green-600">
+                  Same-day rate applied
+                </div>
+              )}
             </div>
             <div className="text-2xl font-bold text-brand-600">
               ${totalPrice.toFixed(2)}
@@ -289,9 +425,13 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
         <button
           type="submit"
-          className="w-full rounded-lg bg-brand-600 py-3 text-lg font-semibold text-white hover:bg-brand-700"
+          className={`w-full rounded-lg py-3 text-lg font-semibold text-white ${
+            isLastMinute
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-brand-600 hover:bg-brand-700"
+          }`}
         >
-          Confirm Booking
+          {isLastMinute ? "Send Express Booking" : "Confirm Booking"}
         </button>
       </form>
     </div>

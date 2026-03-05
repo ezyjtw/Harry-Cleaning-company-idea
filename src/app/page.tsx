@@ -4,6 +4,7 @@ import { cleaners } from "@/lib/mock-data";
 
 export default function HomePage() {
   const topCleaners = cleaners.slice(0, 3);
+  const availableNowCount = cleaners.filter((c) => c.availableNow).length;
 
   return (
     <>
@@ -38,6 +39,31 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Available Now banner */}
+      {availableNowCount > 0 && (
+        <section className="bg-green-600">
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
+                </span>
+                <p className="text-sm font-semibold text-white">
+                  {availableNowCount} cleaners available for same-day booking right now
+                </p>
+              </div>
+              <Link
+                href="/cleaners?available=now"
+                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50"
+              >
+                Book for Today
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* How it works */}
       <section className="bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -54,12 +80,12 @@ export default function HomePage() {
               {
                 step: "2",
                 title: "Book",
-                desc: "Choose your date, time, and service type. Confirm your booking in just a few clicks.",
+                desc: "Choose your date, time, and service type. Use saved addresses and past bookings for one-tap rebooking.",
               },
               {
                 step: "3",
-                title: "Enjoy",
-                desc: "Sit back while your cleaner works their magic. Rate and review after the job is done.",
+                title: "Rate & Rebook",
+                desc: "Rate your cleaner across multiple categories. Cleaners rate you too — building trust both ways.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
@@ -92,6 +118,47 @@ export default function HomePage() {
             {topCleaners.map((cleaner) => (
               <CleanerCard key={cleaner.id} cleaner={cleaner} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust features */}
+      <section className="bg-white py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-center text-3xl font-bold text-gray-900">
+            Built on Trust
+          </h2>
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-2xl">
+                &#9733;
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Two-Way Ratings</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Customers and cleaners rate each other. Category ratings for
+                thoroughness, punctuality, communication, and value.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl">
+                &#10003;
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Verified Reviews</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Only completed bookings can generate reviews. Cleaners can reply
+                to feedback publicly. No fake reviews.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl">
+                &#9889;
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Last-Minute Booking</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                See who&apos;s available right now. Express book for same-day cleaning
+                with instant cleaner notifications.
+              </p>
+            </div>
           </div>
         </div>
       </section>

@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cleaners, searchCleaners } from "@/lib/mock-data";
+import { cleaners, searchCleaners, getAvailableNowCleaners } from "@/lib/mock-data";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
+  const availableNow = searchParams.get("available_now");
+
+  let results = cleaners;
 
   if (query) {
-    return NextResponse.json(searchCleaners(query));
+    results = searchCleaners(query);
   }
 
-  return NextResponse.json(cleaners);
+  if (availableNow === "true") {
+    results = results.filter((c) => c.availableNow);
+  }
+
+  return NextResponse.json(results);
 }
 
 export async function POST(request: NextRequest) {
