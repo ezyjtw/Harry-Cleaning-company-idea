@@ -122,13 +122,58 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* AI Estimator highlight */}
+      <section className="bg-gradient-to-br from-brand-50 to-white py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Not sure what you need?
+            </h2>
+            <p className="mt-4 text-lg text-gray-600">
+              Our AI estimator figures it out for you. Tell us your room count,
+              sizes, and condition — and we&apos;ll recommend the right service,
+              duration, and show you the exact price. No guesswork.
+            </p>
+            <div className="mt-8 inline-flex items-center gap-6 rounded-xl bg-white border border-gray-200 p-6 text-left">
+              <div>
+                <div className="text-sm font-semibold text-gray-700">You describe</div>
+                <div className="mt-1 text-sm text-gray-500">3 bed, 2 bath, kitchen — moderate condition</div>
+              </div>
+              <div className="text-2xl text-gray-300">&rarr;</div>
+              <div>
+                <div className="text-sm font-semibold text-gray-700">AI recommends</div>
+                <div className="mt-1 text-sm text-brand-600 font-medium">Standard Clean, 3h, ~$115</div>
+              </div>
+            </div>
+            <div className="mt-6">
+              <Link
+                href="/cleaners"
+                className="inline-block rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700"
+              >
+                Try It Now
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Trust features */}
       <section className="bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-center text-3xl font-bold text-gray-900">
-            Built on Trust
+            Built on Trust &amp; Transparency
           </h2>
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
+          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-gray-200 p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl">
+                $
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Only 10% Fee</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                We take just 10% — half the industry standard. Cleaners keep
+                more, you pay less. Every penny is shown upfront.
+              </p>
+            </div>
             <div className="rounded-xl border border-gray-200 p-6 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-2xl">
                 &#9733;
@@ -140,13 +185,13 @@ export default function HomePage() {
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl">
-                &#10003;
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-2xl">
+                &#10024;
               </div>
-              <h3 className="mt-4 font-semibold text-gray-900">Verified Reviews</h3>
+              <h3 className="mt-4 font-semibold text-gray-900">AI Estimator</h3>
               <p className="mt-2 text-sm text-gray-600">
-                Only completed bookings can generate reviews. Cleaners can reply
-                to feedback publicly. No fake reviews.
+                Describe your rooms and our AI recommends the service type,
+                duration, and shows an exact price — no guessing.
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 p-6 text-center">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Cleaner } from "@/lib/types";
+import { PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import StarRating from "./StarRating";
 import AvailableNowBadge from "./AvailableNowBadge";
 
@@ -62,7 +63,7 @@ export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
       </div>
       <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
         <span>{cleaner.yearsExperience} years experience</span>
-        <span>{cleaner.completedJobs} jobs completed</span>
+        <span>Only {PLATFORM_FEE_PERCENT}% fee</span>
       </div>
     </Link>
   );

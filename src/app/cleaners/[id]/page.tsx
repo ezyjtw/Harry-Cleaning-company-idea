@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cleaners, getCleanerById, getReviewsForCleaner } from "@/lib/mock-data";
+import { PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import StarRating from "@/components/StarRating";
 import CategoryRatingBar from "@/components/CategoryRatingBar";
 import AvailableNowBadge from "@/components/AvailableNowBadge";
@@ -60,6 +61,9 @@ export default function CleanerProfilePage({
           <div className="text-3xl font-bold text-gray-900">
             ${cleaner.hourlyRate}
             <span className="text-base font-normal text-gray-500">/hr</span>
+          </div>
+          <div className="mt-1 text-xs text-gray-400">
+            + {PLATFORM_FEE_PERCENT}% platform fee
           </div>
           {cleaner.availableNow && (
             <div className="mt-1 text-sm text-gray-500">

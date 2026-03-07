@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getCleanerById, savedAddresses, pastBookings } from "@/lib/mock-data";
+import { getPriceBreakdown, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import StarRating from "@/components/StarRating";
 import AvailableNowBadge from "@/components/AvailableNowBadge";
+import CleaningEstimator from "@/components/CleaningEstimator";
 
 const SERVICE_TYPES = [
   { value: "standard", label: "Standard Cleaning", multiplier: 1 },
@@ -48,7 +50,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const isLastMinute = form.serviceType === "last-minute" || isExpress;
   const rate = isLastMinute ? cleaner.sameDayRate : cleaner.hourlyRate;
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
-  const totalPrice = rate * form.duration * selectedService.multiplier;
+  const priceBreakdown = getPriceBreakdown(rate, form.duration, selectedService.multiplier);
 
   const handleSavedAddress = (addressId: string) => {
     const saved = savedAddresses.find((a) => a.id === addressId);
@@ -76,6 +78,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     }
   };
 
+  const handleEstimateApply = (duration: number, serviceType: string) => {
+    setForm({ ...form, duration, serviceType });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const response = await fetch("/api/bookings", {
@@ -84,7 +90,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({
         cleanerId: cleaner.id,
         ...form,
-        totalPrice,
+        totalPrice: priceBreakdown.total,
+        cleanerEarnings: priceBreakdown.cleanerEarnings,
+        platformFee: priceBreakdown.platformFee,
         isLastMinute,
       }),
     });
@@ -139,17 +147,27 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <span className="text-gray-500">Duration</span>
               <span className="font-medium">{form.duration} hours</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Rate</span>
-              <span className="font-medium">
-                ${rate}/hr {isLastMinute && "(same-day rate)"}
-              </span>
-            </div>
-            <div className="mt-2 flex justify-between border-t pt-2">
-              <span className="font-medium text-gray-900">Total</span>
-              <span className="text-lg font-bold text-brand-600">
-                ${totalPrice.toFixed(2)}
-              </span>
+            <div className="mt-2 border-t pt-2 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Cleaner earns</span>
+                <span className="font-medium text-green-600">
+                  ${priceBreakdown.cleanerEarnings.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">
+                  Platform fee ({PLATFORM_FEE_PERCENT}%)
+                </span>
+                <span className="font-medium text-gray-500">
+                  ${priceBreakdown.platformFee.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between border-t pt-1">
+                <span className="font-medium text-gray-900">You pay</span>
+                <span className="text-lg font-bold text-brand-600">
+                  ${priceBreakdown.total.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -190,7 +208,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 text-xl font-bold text-brand-700">
           {cleaner.name.charAt(0)}
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="font-semibold text-gray-900">{cleaner.name}</h2>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <StarRating rating={cleaner.rating} />
@@ -205,6 +223,19 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             )}
           </div>
         </div>
+        <div className="text-right text-xs text-gray-400">
+          Only {PLATFORM_FEE_PERCENT}% platform fee
+        </div>
+      </div>
+
+      {/* AI Estimator */}
+      <div className="mt-6">
+        <CleaningEstimator
+          cleanerRate={cleaner.hourlyRate}
+          sameDayRate={cleaner.sameDayRate}
+          isLastMinute={isLastMinute}
+          onEstimateApply={handleEstimateApply}
+        />
       </div>
 
       {/* Quick rebook */}
@@ -353,9 +384,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 }
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
               >
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((h) => (
+                {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
                   <option key={h} value={h}>
-                    {h} hour{h > 1 ? "s" : ""}
+                    {h} hour{h !== 1 ? "s" : ""}
                   </option>
                 ))}
               </select>
@@ -401,26 +432,47 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           />
         </div>
 
-        {/* Price summary */}
+        {/* Transparent price breakdown */}
         <div className="rounded-lg bg-gray-50 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-gray-500">
-                ${rate}/hr &times; {form.duration}h
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+            Transparent Pricing
+          </h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">
+                Cleaner rate: ${rate}/hr &times; {form.duration}h
                 {selectedService.multiplier !== 1 && (
-                  <> &times; {selectedService.multiplier}x ({selectedService.label})</>
+                  <> &times; {selectedService.multiplier}x</>
                 )}
               </span>
-              {isLastMinute && (
-                <div className="mt-1 text-xs text-green-600">
-                  Same-day rate applied
-                </div>
-              )}
+              <span className="font-medium text-green-600">
+                ${priceBreakdown.cleanerEarnings.toFixed(2)}
+              </span>
             </div>
-            <div className="text-2xl font-bold text-brand-600">
-              ${totalPrice.toFixed(2)}
+            <div className="flex justify-between">
+              <span className="text-gray-500">
+                Platform fee ({PLATFORM_FEE_PERCENT}%)
+              </span>
+              <span className="text-gray-500">
+                ${priceBreakdown.platformFee.toFixed(2)}
+              </span>
+            </div>
+            {isLastMinute && (
+              <div className="text-xs text-green-600">
+                Same-day rate applied
+              </div>
+            )}
+            <div className="flex justify-between border-t border-gray-200 pt-2">
+              <span className="font-semibold text-gray-900">Total</span>
+              <span className="text-2xl font-bold text-brand-600">
+                ${priceBreakdown.total.toFixed(2)}
+              </span>
             </div>
           </div>
+          <p className="mt-2 text-xs text-gray-400">
+            {cleaner.name} receives ${priceBreakdown.cleanerEarnings.toFixed(2)} directly.
+            Our {PLATFORM_FEE_PERCENT}% fee keeps the platform running — no hidden charges, ever.
+          </p>
         </div>
 
         <button
