@@ -7,6 +7,8 @@ import { getPriceBreakdown, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import StarRating from "@/components/StarRating";
 import AvailableNowBadge from "@/components/AvailableNowBadge";
 import CleaningEstimator from "@/components/CleaningEstimator";
+import VerificationBadge from "@/components/VerificationBadge";
+import { shouldUseEscrow } from "@/lib/trust";
 
 const SERVICE_TYPES = [
   { value: "standard", label: "Standard Cleaning", multiplier: 1 },
@@ -51,6 +53,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const rate = isLastMinute ? cleaner.sameDayRate : cleaner.hourlyRate;
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
   const priceBreakdown = getPriceBreakdown(rate, form.duration, selectedService.multiplier);
+
+  // Check if this is a first-time booking with this cleaner (for escrow)
+  const hasBookedBefore = pastBookings.some((b) => b.cleanerId === cleaner.id);
+  const useEscrow = shouldUseEscrow(!hasBookedBefore);
 
   const handleSavedAddress = (addressId: string) => {
     const saved = savedAddresses.find((a) => a.id === addressId);
@@ -473,6 +479,49 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             {cleaner.name} receives ${priceBreakdown.cleanerEarnings.toFixed(2)} directly.
             Our {PLATFORM_FEE_PERCENT}% fee keeps the platform running — no hidden charges, ever.
           </p>
+        </div>
+
+        {/* Escrow info for first-time bookings */}
+        {useEscrow && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-3">
+              <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <h4 className="text-sm font-semibold text-amber-800">
+                  Escrow Protection — First Booking
+                </h4>
+                <p className="mt-1 text-xs text-amber-700">
+                  Since this is your first time booking with {cleaner.name}, your payment
+                  will be held in secure escrow. It&apos;s only released after you confirm
+                  the job is complete (or automatically after 24 hours). This protects
+                  you from scams and protects the cleaner from non-payment.
+                </p>
+                <div className="mt-2 flex items-center gap-4 text-xs text-amber-600">
+                  <span>&#10003; Payment held safely</span>
+                  <span>&#10003; You confirm before release</span>
+                  <span>&#10003; Dispute option available</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Verification badge */}
+        <div className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <VerificationBadge
+              identityVerified={cleaner.identityVerified}
+              backgroundChecked={cleaner.backgroundChecked}
+              size="md"
+            />
+          </div>
+          {cleaner.identityVerified && (
+            <span className="text-xs text-gray-500">
+              Arrival photo will confirm identity
+            </span>
+          )}
         </div>
 
         <button

@@ -10,6 +10,8 @@ export interface Cleaner {
   specialties: string[];
   location: string;
   verified: boolean;
+  identityVerified: boolean;
+  backgroundChecked: boolean;
   yearsExperience: number;
   completedJobs: number;
   availability: string[];
@@ -37,10 +39,14 @@ export interface Booking {
   duration: number;
   serviceType: "standard" | "deep" | "move-in-out" | "office" | "last-minute";
   notes: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled" | "disputed";
   totalPrice: number;
   isLastMinute: boolean;
+  escrowStatus: EscrowStatus;
+  isFirstBookingWithCleaner: boolean;
 }
+
+export type EscrowStatus = "held" | "released" | "refunded" | "disputed" | "none";
 
 export interface Review {
   id: string;
@@ -80,4 +86,72 @@ export interface PastBooking {
   address: string;
   duration: number;
   totalPrice: number;
+}
+
+// ─── Identity Verification ───────────────────────────────────
+
+export interface IdentityVerification {
+  id: string;
+  userId: string;
+  userType: "cleaner" | "customer";
+  status: "pending" | "verified" | "rejected" | "expired";
+  submittedAt: string;
+  verifiedAt?: string;
+  documentType: "passport" | "drivers-license" | "national-id";
+  selfieMatch: boolean;
+  livePhotoRequired: boolean; // for arrival verification
+}
+
+export type VerificationLevel = "unverified" | "basic" | "full";
+
+// ─── Escrow ──────────────────────────────────────────────────
+
+export interface EscrowTransaction {
+  id: string;
+  bookingId: string;
+  amount: number;
+  cleanerAmount: number;
+  platformFee: number;
+  status: EscrowStatus;
+  heldAt: string;
+  releasedAt?: string;
+  releaseCondition: "auto-24h" | "customer-confirmed" | "dispute-resolved";
+  isFirstBooking: boolean;
+}
+
+// ─── Disputes ────────────────────────────────────────────────
+
+export type DisputeReason =
+  | "no-show-cleaner"
+  | "no-show-customer"
+  | "poor-quality"
+  | "property-damage"
+  | "incorrect-duration"
+  | "safety-concern"
+  | "payment-issue"
+  | "other";
+
+export type DisputeStatus = "open" | "under-review" | "resolved-customer" | "resolved-cleaner" | "resolved-split" | "escalated";
+
+export interface Dispute {
+  id: string;
+  bookingId: string;
+  filedBy: "customer" | "cleaner";
+  filedByName: string;
+  reason: DisputeReason;
+  description: string;
+  evidence: DisputeEvidence[];
+  status: DisputeStatus;
+  resolution?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  escrowAction?: "release" | "refund" | "split";
+}
+
+export interface DisputeEvidence {
+  id: string;
+  type: "photo" | "video" | "text" | "timestamp";
+  description: string;
+  uploadedAt: string;
+  uploadedBy: "customer" | "cleaner";
 }

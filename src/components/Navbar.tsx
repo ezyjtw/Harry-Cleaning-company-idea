@@ -35,6 +35,12 @@ export default function Navbar() {
             Become a Cleaner
           </Link>
           <Link
+            href="/verify"
+            className="text-sm font-medium text-gray-600 hover:text-brand-600"
+          >
+            Get Verified
+          </Link>
+          <Link
             href="/login"
             className="text-sm font-medium text-gray-600 hover:text-brand-600"
           >

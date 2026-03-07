@@ -5,6 +5,7 @@ import { PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import StarRating from "@/components/StarRating";
 import CategoryRatingBar from "@/components/CategoryRatingBar";
 import AvailableNowBadge from "@/components/AvailableNowBadge";
+import VerificationBadge from "@/components/VerificationBadge";
 
 export function generateStaticParams() {
   return cleaners.map((c) => ({ id: c.id }));
@@ -30,11 +31,11 @@ export default function CleanerProfilePage({
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-gray-900">{cleaner.name}</h1>
-            {cleaner.verified && (
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-                Verified
-              </span>
-            )}
+            <VerificationBadge
+              identityVerified={cleaner.identityVerified}
+              backgroundChecked={cleaner.backgroundChecked}
+              size="md"
+            />
           </div>
           <p className="mt-1 text-gray-500">{cleaner.location}</p>
           <div className="mt-2 flex items-center gap-2">

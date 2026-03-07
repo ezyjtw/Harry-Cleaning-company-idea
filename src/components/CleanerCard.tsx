@@ -3,6 +3,7 @@ import { Cleaner } from "@/lib/types";
 import { PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import StarRating from "./StarRating";
 import AvailableNowBadge from "./AvailableNowBadge";
+import VerificationBadge from "./VerificationBadge";
 
 export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
   return (
@@ -19,11 +20,10 @@ export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
             <h3 className="truncate text-lg font-semibold text-gray-900 group-hover:text-brand-700">
               {cleaner.name}
             </h3>
-            {cleaner.verified && (
-              <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                Verified
-              </span>
-            )}
+            <VerificationBadge
+              identityVerified={cleaner.identityVerified}
+              backgroundChecked={cleaner.backgroundChecked}
+            />
           </div>
           <p className="text-sm text-gray-500">{cleaner.location}</p>
           <div className="mt-1 flex items-center gap-2">
