@@ -1,3 +1,5 @@
+export type CleanerTier = "standard" | "premium" | "elite";
+
 export interface Cleaner {
   id: string;
   name: string;
@@ -8,6 +10,8 @@ export interface Cleaner {
   sameDayRate: number;
   bio: string;
   specialties: string[];
+  languages: string[];
+  tier: CleanerTier;
   location: string;
   verified: boolean;
   identityVerified: boolean;
@@ -18,6 +22,8 @@ export interface Cleaner {
   availableNow: boolean;
   responseTime: string;
   categoryRatings: CategoryRatings;
+  bringsProducts: boolean;
+  productFee: number; // additional cost if cleaner brings products
 }
 
 export interface CategoryRatings {
@@ -154,4 +160,46 @@ export interface DisputeEvidence {
   description: string;
   uploadedAt: string;
   uploadedBy: "customer" | "cleaner";
+}
+
+// ─── Booking Flow ───────────────────────────────────────────
+
+export type ServiceCategory =
+  | "regular"
+  | "one-off"
+  | "same-day"
+  | "deep"
+  | "airbnb"
+  | "end-of-tenancy";
+
+export type BookingFrequency = "weekly" | "biweekly" | "one-time";
+
+export type KeyAccess = "i-will-be-home" | "key-under-mat" | "lockbox" | "with-concierge" | "other";
+
+export interface RoomConfig {
+  bedrooms: number;
+  bathrooms: number;
+  livingAreas: number;
+  kitchen: boolean;
+  additionals: string[]; // e.g. "Conservatory", "Garage", "Utility Room"
+}
+
+export interface BookingFormData {
+  serviceCategory: ServiceCategory;
+  rooms: RoomConfig;
+  suggestedHours: number;
+  selectedHours: number;
+  focusAreas: string[];
+  cleanerBringsProducts: boolean;
+  frequency: BookingFrequency;
+  email: string;
+  joinMailingList: boolean;
+  keyAccess: KeyAccess;
+  keyAccessNote: string;
+  scheduling: "specific" | "flexible";
+  preferredDates: string[];
+  preferredTimeSlots: string[];
+  selectedCleanerId: string;
+  acceptSubstitute: boolean;
+  specialInstructions: string;
 }
