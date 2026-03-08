@@ -73,7 +73,7 @@ export default function Footer() {
         </div>
         <div className="mt-8 border-t border-gray-200 pt-8 text-center">
           <p className="text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Sparkle. All rights reserved.
+            &copy; {new Date().getFullYear()} The Cleaner Exchange. All rights reserved.
           </p>
         </div>
       </div>

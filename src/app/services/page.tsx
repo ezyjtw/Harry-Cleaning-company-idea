@@ -6,21 +6,21 @@ const services: {
   title: string;
   description: string;
   icon: string;
-  popular?: boolean;
+  featured?: boolean;
 }[] = [
   {
     id: "regular",
     title: "Regular Cleaning",
     description:
-      "Recurring weekly or biweekly cleans to keep your home consistently fresh. Lock in a lower rate with a regular schedule.",
+      "Recurring weekly or fortnightly cleans to keep your home consistently fresh. Lock in a lower rate with a regular schedule.",
     icon: "&#128694;",
-    popular: true,
+    featured: true,
   },
   {
     id: "one-off",
     title: "One-Off Cleaning",
     description:
-      "A single clean for when you need a refresh. No commitment, no subscription — just a sparkling home.",
+      "A single clean for when you need a refresh. No commitment, no subscription — just a spotless home.",
     icon: "&#10024;",
   },
   {
@@ -54,6 +54,9 @@ const services: {
 ];
 
 export default function ServicesPage() {
+  const featured = services.find((s) => s.featured);
+  const others = services.filter((s) => !s.featured);
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="text-center">
@@ -65,18 +68,34 @@ export default function ServicesPage() {
         </p>
       </div>
 
-      <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {services.map((service) => (
+      {/* Featured: Regular Cleaning */}
+      {featured && (
+        <Link
+          href={`/services/${featured.id}`}
+          className="group mt-10 flex flex-col items-center rounded-2xl border-2 border-brand-200 bg-gradient-to-b from-brand-50 to-white p-10 text-center shadow-sm transition hover:border-brand-500 hover:shadow-lg sm:p-14"
+        >
+          <div
+            className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-100 text-5xl transition group-hover:bg-brand-200"
+            dangerouslySetInnerHTML={{ __html: featured.icon }}
+          />
+          <h2 className="mt-6 text-2xl font-bold text-gray-900 group-hover:text-brand-700 sm:text-3xl">
+            {featured.title}
+          </h2>
+          <p className="mt-3 max-w-md text-gray-600">{featured.description}</p>
+          <span className="mt-6 inline-block rounded-lg bg-brand-600 px-8 py-3 text-sm font-semibold text-white transition group-hover:bg-brand-700">
+            Get a Quote
+          </span>
+        </Link>
+      )}
+
+      {/* Other services */}
+      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {others.map((service) => (
           <Link
             key={service.id}
             href={`/services/${service.id}`}
-            className="group relative flex flex-col rounded-2xl border-2 border-gray-200 bg-white p-6 transition hover:border-brand-500 hover:shadow-lg"
+            className="group flex flex-col rounded-2xl border-2 border-gray-200 bg-white p-6 transition hover:border-brand-500 hover:shadow-lg"
           >
-            {service.popular && (
-              <span className="absolute -top-3 right-4 rounded-full bg-brand-600 px-3 py-0.5 text-xs font-semibold text-white">
-                Most Popular
-              </span>
-            )}
             <div
               className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-50 text-3xl transition group-hover:bg-brand-100"
               dangerouslySetInnerHTML={{ __html: service.icon }}
@@ -88,7 +107,7 @@ export default function ServicesPage() {
               {service.description}
             </p>
             <span className="mt-4 text-sm font-semibold text-brand-600 group-hover:text-brand-700">
-              Select &rarr;
+              Get a Quote &rarr;
             </span>
           </Link>
         ))}

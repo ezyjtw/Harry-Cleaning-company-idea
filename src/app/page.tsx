@@ -3,169 +3,147 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <>
-      {/* Hero with role selection */}
-      <section className="bg-gradient-to-br from-brand-50 to-white">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-          <div className="mx-auto max-w-3xl text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-              Your home deserves to{" "}
-              <span className="text-brand-600">sparkle</span>
-            </h1>
-            <p className="mt-6 text-lg text-gray-600 sm:text-xl">
-              Find trusted, independent cleaners in your area. Book in minutes,
-              pay securely, and enjoy a spotless home.
-            </p>
+      {/* Hero banner */}
+      <section className="bg-brand-600">
+        <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-24 lg:px-8">
+          <h1 className="text-4xl font-extrabold uppercase tracking-wider text-white sm:text-5xl lg:text-6xl">
+            The Cleaner Exchange
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+            Find trusted, independent cleaners in your area. Book in minutes,
+            pay securely, enjoy a spotless home.
+          </p>
+        </div>
+      </section>
 
-            <div className="mt-12">
-              <p className="text-sm font-medium uppercase tracking-wider text-gray-500">
-                I am a...
-              </p>
-              <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:justify-center">
-                {/* Customer card */}
-                <Link
-                  href="/services"
-                  className="group relative flex flex-col items-center rounded-2xl border-2 border-gray-200 bg-white px-10 py-10 shadow-sm transition hover:border-brand-500 hover:shadow-lg sm:w-72"
-                >
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-100 text-4xl transition group-hover:bg-brand-200">
-                    &#127968;
-                  </div>
-                  <h2 className="mt-5 text-xl font-bold text-gray-900">
-                    Customer
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-500 text-center">
-                    I need my home or property cleaned
-                  </p>
-                  <span className="mt-6 inline-block rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition group-hover:bg-brand-700">
-                    Book a Clean
-                  </span>
-                </Link>
+      {/* Services */}
+      <section className="bg-white py-16">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">
+            What type of clean do you need?
+          </h2>
 
-                {/* Cleaner card */}
-                <Link
-                  href="/join"
-                  className="group relative flex flex-col items-center rounded-2xl border-2 border-gray-200 bg-white px-10 py-10 shadow-sm transition hover:border-green-500 hover:shadow-lg sm:w-72"
-                >
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl transition group-hover:bg-green-200">
-                    &#129529;
-                  </div>
-                  <h2 className="mt-5 text-xl font-bold text-gray-900">
-                    Cleaner
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-500 text-center">
-                    I want to offer my cleaning services
-                  </p>
-                  <span className="mt-6 inline-block rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white transition group-hover:bg-green-700">
-                    Join as a Cleaner
-                  </span>
-                </Link>
-              </div>
+          {/* Regular Cleaning — hero card */}
+          <Link
+            href="/services/regular"
+            className="group mt-10 flex flex-col items-center rounded-2xl border-2 border-brand-200 bg-gradient-to-b from-brand-50 to-white p-10 text-center shadow-sm transition hover:border-brand-500 hover:shadow-lg sm:p-14"
+          >
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-100 text-5xl transition group-hover:bg-brand-200">
+              &#128694;
             </div>
+            <h3 className="mt-6 text-2xl font-bold text-gray-900 group-hover:text-brand-700 sm:text-3xl">
+              Regular Cleaning
+            </h3>
+            <p className="mt-3 max-w-md text-gray-600">
+              Recurring weekly or fortnightly cleans to keep your home
+              consistently fresh. Lock in a lower rate with a regular schedule.
+            </p>
+            <span className="mt-6 inline-block rounded-lg bg-brand-600 px-8 py-3 text-sm font-semibold text-white transition group-hover:bg-brand-700">
+              Get a Quote
+            </span>
+          </Link>
+
+          {/* Other services */}
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              {
+                id: "one-off",
+                title: "One-Off Cleaning",
+                icon: "&#10024;",
+              },
+              {
+                id: "same-day",
+                title: "Same Day Cleaning",
+                icon: "&#9889;",
+              },
+              {
+                id: "deep",
+                title: "Deep Cleaning",
+                icon: "&#128171;",
+              },
+              {
+                id: "airbnb",
+                title: "AirBnB Cleaning",
+                icon: "&#127968;",
+              },
+              {
+                id: "end-of-tenancy",
+                title: "End of Tenancy Cleaning",
+                icon: "&#128230;",
+              },
+            ].map((svc) => (
+              <Link
+                key={svc.id}
+                href={`/services/${svc.id}`}
+                className="group flex flex-col items-center rounded-xl border border-gray-200 bg-white p-5 text-center transition hover:border-brand-400 hover:shadow-md"
+              >
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-2xl transition group-hover:bg-brand-100"
+                  dangerouslySetInnerHTML={{ __html: svc.icon }}
+                />
+                <h4 className="mt-3 text-sm font-semibold text-gray-900 group-hover:text-brand-700">
+                  {svc.title}
+                </h4>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="bg-white py-20">
+      <section className="bg-gray-50 py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-3xl font-bold text-gray-900">
+          <h2 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">
             How It Works
           </h2>
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
+          <div className="mt-10 grid gap-8 md:grid-cols-3">
             {[
               {
                 step: "1",
-                title: "Choose Your Service",
-                desc: "Regular, one-off, deep clean, AirBnB turnaround, or end of tenancy. Tell us what you need.",
+                title: "Tell Us What You Need",
+                desc: "Enter your postcode, tell us your rooms, and we\u2019ll suggest the right amount of time.",
               },
               {
                 step: "2",
-                title: "Customise & Book",
-                desc: "Tell us your rooms, pick your hours, choose a cleaner you like, and find a time that works.",
+                title: "Choose Your Cleaner",
+                desc: "Browse cleaners in your area with reviews, languages, and availability. Pick one you like.",
               },
               {
                 step: "3",
                 title: "Sit Back & Relax",
-                desc: "Your vetted cleaner arrives on time. Rate them after, and rebook with one tap.",
+                desc: "Your cleaner arrives on time. Rate them after, and rebook with one tap.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 text-xl font-bold text-brand-700">
                   {item.step}
                 </div>
-                <h3 className="mt-4 text-xl font-semibold text-gray-900">
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-gray-600">{item.desc}</p>
+                <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Trust features */}
-      <section className="bg-gray-50 py-20">
+      {/* Trust */}
+      <section className="bg-white py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-3xl font-bold text-gray-900">
-            Built on Trust &amp; Transparency
-          </h2>
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl">
-                $
-              </div>
-              <h3 className="mt-4 font-semibold text-gray-900">Only 10% Fee</h3>
-              <p className="mt-2 text-sm text-gray-600">
-                We take just 10% — half the industry standard. Cleaners keep
-                more, you pay less.
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-2xl">
-                &#9733;
-              </div>
-              <h3 className="mt-4 font-semibold text-gray-900">Vetted Cleaners</h3>
-              <p className="mt-2 text-sm text-gray-600">
-                Every cleaner is verified with ID checks and reviews from real
-                customers.
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-2xl">
-                &#128274;
-              </div>
-              <h3 className="mt-4 font-semibold text-gray-900">Secure Payments</h3>
-              <p className="mt-2 text-sm text-gray-600">
-                Escrow protection on first bookings. Your money is safe until
-                the job is done.
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl">
-                &#128197;
-              </div>
-              <h3 className="mt-4 font-semibold text-gray-900">Flexible Scheduling</h3>
-              <p className="mt-2 text-sm text-gray-600">
-                Pick an exact time or tell us you&apos;re flexible. We&apos;ll
-                find the best fit.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="bg-brand-700 py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 text-center md:grid-cols-4">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { value: "2,500+", label: "Trusted Cleaners" },
-              { value: "50,000+", label: "Happy Customers" },
-              { value: "4.8", label: "Average Rating" },
-              { value: "120,000+", label: "Cleanings Completed" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <div className="text-3xl font-bold text-white">{stat.value}</div>
-                <div className="mt-1 text-sm text-brand-200">{stat.label}</div>
+              { icon: "\u00A3", title: "Only 10% Fee", desc: "Cleaners keep more, you pay less." },
+              { icon: "\u2605", title: "Vetted Cleaners", desc: "ID-checked and reviewed by real customers." },
+              { icon: "\uD83D\uDD12", title: "Secure Payments", desc: "Escrow protection on first bookings." },
+              { icon: "\uD83D\uDCC5", title: "Flexible Scheduling", desc: "Pick a time or let us find the best fit." },
+            ].map((f) => (
+              <div key={f.title} className="text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-2xl">
+                  {f.icon}
+                </div>
+                <h3 className="mt-3 font-semibold text-gray-900">{f.title}</h3>
+                <p className="mt-1 text-sm text-gray-600">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -173,23 +151,20 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-white py-20">
+      <section className="bg-brand-600 py-14">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">
             Ready for a spotless home?
           </h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Join thousands of happy customers who trust Sparkle for their
-            cleaning needs.
+          <p className="mt-3 text-white/80">
+            Join thousands of happy customers who trust The Cleaner Exchange.
           </p>
-          <div className="mt-8">
-            <Link
-              href="/services"
-              className="inline-block rounded-lg bg-brand-600 px-8 py-3 text-lg font-semibold text-white shadow-sm hover:bg-brand-700"
-            >
-              Get Started
-            </Link>
-          </div>
+          <Link
+            href="/services/regular"
+            className="mt-6 inline-block rounded-lg bg-white px-8 py-3 text-lg font-semibold text-brand-700 shadow-sm hover:bg-brand-50"
+          >
+            Get Started
+          </Link>
         </div>
       </section>
     </>
