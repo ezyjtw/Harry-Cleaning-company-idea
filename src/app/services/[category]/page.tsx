@@ -133,7 +133,7 @@ export default function BookingWizardPage({
   const oneOffSurcharge = frequency === "one-time" && isRegular ? 0.05 : 0;
 
   const priceBreakdown = useMemo(() => {
-    const rate = selectedCleaner?.hourlyRate ?? 30;
+    const rate = selectedCleaner?.hourlyRate ?? 18;
     const multiplier = SERVICE_MULTIPLIERS[category] ?? 1;
     const breakdown = getPriceBreakdown(rate, effectiveHours, multiplier);
     const discount = breakdown.total * frequencyDiscount;
@@ -399,7 +399,7 @@ export default function BookingWizardPage({
                   Guide price
                 </span>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  &pound;18–&pound;35 per hour
+                  Starting at &pound;18/hr
                 </p>
               </div>
               <div className="text-right">
