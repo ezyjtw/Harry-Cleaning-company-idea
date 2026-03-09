@@ -137,9 +137,8 @@ export default function HomePage() {
       {/* Trust */}
       <section className="bg-white py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-8 sm:grid-cols-3">
             {[
-              { icon: "\u00A3", title: "Only 10% Fee", desc: "Cleaners keep more, you pay less." },
               { icon: "\u2605", title: "Vetted Cleaners", desc: "ID-checked and reviewed by real customers." },
               { icon: "\uD83D\uDD12", title: "Secure Payments", desc: "Escrow protection on first bookings." },
               { icon: "\uD83D\uDCC5", title: "Flexible Scheduling", desc: "Pick a time or let us find the best fit." },
