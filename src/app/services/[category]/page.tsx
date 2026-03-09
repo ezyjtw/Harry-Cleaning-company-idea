@@ -319,7 +319,7 @@ export default function BookingWizardPage({
                   Cleaner brings products
                 </p>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  +&pound;{PRODUCT_FEE} per clean
+                  Additional &pound;5 charge
                 </p>
               </button>
             </div>
@@ -338,7 +338,7 @@ export default function BookingWizardPage({
                 [
                   { value: "weekly" as BookingFrequency, label: "Weekly", tag: "Save 10%" },
                   { value: "biweekly" as BookingFrequency, label: "Fortnightly", tag: "Save 5%" },
-                  { value: "one-time" as BookingFrequency, label: "One-Off", tag: isRegular ? "Guide price +5%" : null },
+                  { value: "one-time" as BookingFrequency, label: "One-Off", tag: "No extra charge" },
                 ] as const
               ).map((opt) => (
                 <button
@@ -356,11 +356,7 @@ export default function BookingWizardPage({
                   </p>
                   {opt.tag && (
                     <p
-                      className={`mt-0.5 text-xs font-medium ${
-                        opt.value === "one-time"
-                          ? "text-amber-600"
-                          : "text-green-600"
-                      }`}
+                      className="mt-0.5 text-xs font-medium text-green-600"
                     >
                       {opt.tag}
                     </p>
@@ -390,7 +386,7 @@ export default function BookingWizardPage({
                 className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
               />
               <span className="text-sm text-gray-600">
-                Send me cleaning tips, offers, and updates
+                Tick here to recieve promotional offers
               </span>
             </label>
           </div>
