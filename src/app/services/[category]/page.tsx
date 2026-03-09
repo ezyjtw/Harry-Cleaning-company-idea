@@ -726,7 +726,17 @@ export default function BookingWizardPage({
               )}
               <SummaryRow
                 label="Key access"
-                value={keyAccess.replace(/-/g, " ")}
+                value={
+                  keyAccess === "lockbox"
+                    ? "Keybox"
+                    : keyAccess === "key-under-mat"
+                    ? keyAccessNote
+                      ? keyAccessNote.charAt(0).toUpperCase() + keyAccessNote.slice(1)
+                      : "Key hidden"
+                    : keyAccess === "i-will-be-home"
+                    ? "Someone will be in"
+                    : "Concierge"
+                }
               />
 
               <div className="border-t border-gray-200 pt-3 mt-3 space-y-2">
@@ -736,14 +746,6 @@ export default function BookingWizardPage({
                   </span>
                   <span className="font-medium text-green-600">
                     &pound;{priceBreakdown.cleanerEarnings.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">
-                    Platform fee ({PLATFORM_FEE_PERCENT}%)
-                  </span>
-                  <span className="text-gray-500">
-                    &pound;{priceBreakdown.platformFee.toFixed(2)}
                   </span>
                 </div>
                 {productCost > 0 && (
