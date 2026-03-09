@@ -238,48 +238,6 @@ export default function BookingWizardPage({
                 min={0}
                 max={5}
               />
-              <div className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={rooms.kitchen}
-                    onChange={(e) =>
-                      setRooms({ ...rooms, kitchen: e.target.checked })
-                    }
-                    className="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                  />
-                  <span className="font-medium text-gray-700">Kitchen</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="text-xs font-medium text-gray-500 mb-2">
-                Additional areas
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ADDITIONAL_ROOMS.map((room) => (
-                  <button
-                    key={room}
-                    type="button"
-                    onClick={() => {
-                      setRooms({
-                        ...rooms,
-                        additionals: rooms.additionals.includes(room)
-                          ? rooms.additionals.filter((r) => r !== room)
-                          : [...rooms.additionals, room],
-                      });
-                    }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                      rooms.additionals.includes(room)
-                        ? "bg-brand-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {room}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
