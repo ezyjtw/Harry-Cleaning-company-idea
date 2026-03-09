@@ -253,7 +253,7 @@ export default function BookingWizardPage({
               </p>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
+              {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((h) => (
                 <button
                   key={h}
                   type="button"
