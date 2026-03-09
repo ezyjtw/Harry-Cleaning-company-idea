@@ -338,7 +338,7 @@ export default function BookingWizardPage({
                 [
                   { value: "weekly" as BookingFrequency, label: "Weekly", tag: "Save 10%" },
                   { value: "biweekly" as BookingFrequency, label: "Fortnightly", tag: "Save 5%" },
-                  { value: "one-time" as BookingFrequency, label: "One-Off", tag: "No extra charge" },
+                  { value: "one-time" as BookingFrequency, label: "One-Off", tag: null },
                 ] as const
               ).map((opt) => (
                 <button
@@ -394,9 +394,14 @@ export default function BookingWizardPage({
           {/* Guide price */}
           <div className="rounded-xl bg-gray-50 border border-gray-200 p-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-900">
-                Guide price
-              </span>
+              <div>
+                <span className="text-sm font-semibold text-gray-900">
+                  Guide price
+                </span>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  &pound;18–&pound;35 per hour
+                </p>
+              </div>
               <div className="text-right">
                 <span className="text-2xl font-bold text-brand-600">
                   &pound;{priceBreakdown.discountedTotal.toFixed(2)}
@@ -420,8 +425,7 @@ export default function BookingWizardPage({
               </p>
             )}
             <p className="mt-2 text-xs text-gray-400">
-              Final price depends on your chosen cleaner&apos;s rate. Only{" "}
-              {PLATFORM_FEE_PERCENT}% platform fee — no hidden charges.
+              Final price depends on your chosen cleaner&apos;s rate. No hidden charges.
             </p>
           </div>
 
