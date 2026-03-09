@@ -10,8 +10,9 @@ export default function HomePage() {
             The Cleaner Exchange
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
-            Find trusted, independent cleaners in your area. Book in minutes,
-            pay securely, enjoy a spotless home.
+            Our mission is to connect you with trusted, vetted cleaners in your
+            area — so you can find the right person for your home, someone you
+            can rely on and trust.
           </p>
         </div>
       </section>
