@@ -36,8 +36,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/icons/rena-logo.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/icons/rena-logo.png" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
+        <link rel="icon" href="/icons/favicon-16x16.png" type="image/png" sizes="16x16" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="flex min-h-screen flex-col">
         <ServiceWorkerRegistration />
