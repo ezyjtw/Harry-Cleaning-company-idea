@@ -6,19 +6,18 @@ export default function HomePage() {
       {/* Hero banner */}
       <section className="relative bg-brand-600">
         <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/hero-banner.jpg')" }}
+          className="absolute inset-0 bg-cover"
+          style={{ backgroundImage: "url('/images/hero-banner.jpg')", backgroundPosition: "70% center" }}
         />
         <div className="absolute inset-0 bg-black/50" />
-        <div className="relative mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-32 lg:px-8">
-          <h1 className="text-4xl font-extrabold uppercase tracking-wider text-white sm:text-5xl lg:text-6xl drop-shadow-lg">
-            Rena
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90 drop-shadow">
-            Our mission is to connect you with trusted, vetted cleaners in your
-            area — so you can find the right person for your home, someone you
-            can rely on and trust.
-          </p>
+        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-32 lg:px-8">
+          <div className="max-w-xl">
+            <p className="mt-4 text-lg text-white/90 drop-shadow sm:text-xl">
+              Our mission is to connect you with trusted, vetted cleaners in your
+              area — so you can find the right person for your home, someone you
+              can rely on and trust.
+            </p>
+          </div>
         </div>
       </section>
 
