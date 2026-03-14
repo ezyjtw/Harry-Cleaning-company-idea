@@ -16,7 +16,7 @@ export default function HomePage() {
               RENA
             </h1>
             <p className="mt-2 text-lg font-semibold text-white/90 drop-shadow sm:mt-3 sm:text-2xl lg:text-3xl">
-              &mdash; Choose the cleaner that&apos;s right for you
+              Choose the cleaner that&apos;s right for you
             </p>
             <p className="mt-4 hidden max-w-md text-base text-white/80 drop-shadow sm:block sm:text-lg">
               Our mission is to connect you with trusted, vetted cleaners in your
