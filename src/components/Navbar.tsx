@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -11,15 +10,7 @@ export default function Navbar() {
     <header className="bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/icons/rena-logo.png"
-            alt="Rena logo"
-            width={44}
-            height={44}
-            className="h-11 w-11"
-            priority
-          />
-          <span className="text-2xl font-extrabold uppercase tracking-wide text-brand-700">
+          <span className="text-xl font-extrabold uppercase tracking-wide text-brand-700">
             Rena
           </span>
         </Link>

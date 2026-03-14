@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -12,15 +11,7 @@ export default function HomePage() {
         />
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-32 lg:px-8">
-          <Image
-            src="/icons/rena-logo.png"
-            alt="Rena logo"
-            width={160}
-            height={160}
-            className="mx-auto h-32 w-32 drop-shadow-lg sm:h-40 sm:w-40"
-            priority
-          />
-          <h1 className="mt-4 text-4xl font-extrabold uppercase tracking-wider text-white sm:text-5xl lg:text-6xl drop-shadow-lg">
+          <h1 className="text-4xl font-extrabold uppercase tracking-wider text-white sm:text-5xl lg:text-6xl drop-shadow-lg">
             Rena
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90 drop-shadow">
