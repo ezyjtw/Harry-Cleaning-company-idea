@@ -79,60 +79,54 @@ export default function Navbar() {
       {/* Full-width dropdown panel */}
       {menuOpen && (
         <nav className="border-t border-gray-200 bg-white shadow-lg">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <div className="grid gap-8 sm:grid-cols-2">
-              {/* Client flow */}
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  I need a cleaner
-                </h3>
-                <div className="mt-3 flex flex-col gap-1">
-                  <Link
-                    href="/services"
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Book a Clean
-                  </Link>
-                  <Link
-                    href="/cleaners"
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Find Cleaners
-                  </Link>
-                  <Link
-                    href="/how-it-works"
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    How It Works
-                  </Link>
-                </div>
-              </div>
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+            {/* Client flow */}
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              I need a cleaner
+            </h3>
+            <div className="mt-2 flex flex-col gap-1">
+              <Link
+                href="/services"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Book a Clean
+              </Link>
+              <Link
+                href="/cleaners"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Find Cleaners
+              </Link>
+              <Link
+                href="/how-it-works"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                How It Works
+              </Link>
+            </div>
 
-              {/* Cleaner flow */}
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  I&apos;m a cleaner
-                </h3>
-                <div className="mt-3 flex flex-col gap-1">
-                  <Link
-                    href="/join"
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Become a Cleaner
-                  </Link>
-                  <Link
-                    href="/dashboard"
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Cleaner Dashboard
-                  </Link>
-                </div>
-              </div>
+            {/* Cleaner flow */}
+            <h3 className="mt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              I&apos;m a cleaner
+            </h3>
+            <div className="mt-2 flex flex-col gap-1">
+              <Link
+                href="/join"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Become a Cleaner
+              </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Cleaner Dashboard
+              </Link>
             </div>
           </div>
         </nav>
