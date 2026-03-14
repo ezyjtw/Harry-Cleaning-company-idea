@@ -10,7 +10,7 @@ export default function HomePage() {
           style={{ backgroundImage: "url('/images/hero-banner.jpg')", backgroundPosition: "70% center" }}
         />
         <div className="absolute inset-0 bg-black/50" />
-        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-32 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-4 py-32 sm:px-6 sm:py-44 lg:px-8 lg:py-52">
           <div className="max-w-xl">
             <h1 className="text-3xl font-extrabold text-white drop-shadow-lg sm:text-4xl lg:text-5xl">
               RENA
