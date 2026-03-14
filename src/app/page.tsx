@@ -10,12 +10,15 @@ export default function HomePage() {
           style={{ backgroundImage: "url('/images/hero-banner.jpg')", backgroundPosition: "70% center" }}
         />
         <div className="absolute inset-0 bg-black/50" />
-        <div className="relative mx-auto max-w-7xl px-4 py-32 sm:px-6 sm:py-44 lg:px-8 lg:py-52">
-          <div className="max-w-xl">
-            <h1 className="text-3xl font-extrabold text-white drop-shadow-lg sm:text-4xl lg:text-5xl">
-              RENA <span className="font-normal">&mdash;</span> <span className="font-semibold">Choose the cleaner that&apos;s right for you</span>
+        <div className="relative mx-auto flex min-h-[60vh] max-w-7xl items-center px-6 py-16 sm:min-h-[70vh] sm:px-8 sm:py-24 lg:px-10">
+          <div className="max-w-lg">
+            <h1 className="text-4xl font-extrabold uppercase tracking-wide text-white drop-shadow-lg sm:text-5xl lg:text-6xl">
+              RENA
             </h1>
-            <p className="mt-4 hidden text-lg text-white/90 drop-shadow sm:block sm:text-xl">
+            <p className="mt-2 text-lg font-semibold text-white/90 drop-shadow sm:mt-3 sm:text-2xl lg:text-3xl">
+              &mdash; Choose the cleaner that&apos;s right for you
+            </p>
+            <p className="mt-4 hidden max-w-md text-base text-white/80 drop-shadow sm:block sm:text-lg">
               Our mission is to connect you with trusted, vetted cleaners in your
               area — so you can find the right person for your home, someone you
               can rely on and trust.
