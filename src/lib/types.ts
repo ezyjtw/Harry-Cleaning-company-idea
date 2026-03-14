@@ -184,6 +184,79 @@ export interface RoomConfig {
   additionals: string[]; // e.g. "Conservatory", "Garage", "Utility Room"
 }
 
+// ─── Notifications ──────────────────────────────────────────
+
+export type NotificationType =
+  | "booking_confirmed"
+  | "booking_cancelled"
+  | "booking_reminder"
+  | "cleaner_assigned"
+  | "payment_received"
+  | "review_received"
+  | "message_received"
+  | "dispute_update";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  data?: Record<string, string>;
+  createdAt: string;
+}
+
+// ─── Messages ────────────────────────────────────────────────
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  bookingId?: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  participantId: string;
+  participantName: string;
+  participantPhoto?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
+// ─── Payments ────────────────────────────────────────────────
+
+export interface Payment {
+  id: string;
+  bookingId: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "completed" | "failed" | "refunded";
+  stripePaymentId?: string;
+  refundAmount?: number;
+  createdAt: string;
+}
+
+// ─── Admin ───────────────────────────────────────────────────
+
+export interface DashboardStats {
+  totalBookings: number;
+  activeCleaners: number;
+  totalRevenue: number;
+  pendingDisputes: number;
+  bookingsThisWeek: number;
+  newSignups: number;
+}
+
+export type UserRole = "CLIENT" | "CLEANER" | "ADMIN";
+
+// ─── Booking Flow ───────────────────────────────────────────
+
 export interface BookingFormData {
   serviceCategory: ServiceCategory;
   rooms: RoomConfig;

@@ -76,7 +76,7 @@ export function generateEstimate(details: HomeDetails): CleaningEstimate {
     const sizeMultiplier = SIZE_MULTIPLIER[room.size] ?? 1;
     const condMultiplier = CONDITION_MULTIPLIER[room.condition] ?? 1;
 
-    let minutes = Math.round(base * sizeMultiplier * condMultiplier);
+    const minutes = Math.round(base * sizeMultiplier * condMultiplier);
 
     let note = "";
     if (room.condition === "heavy") {

@@ -1,0 +1,292 @@
+import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'About Rena — Our Mission to Transform Home Cleaning',
+  description:
+    'Learn about Rena, the cleaning marketplace that puts cleaners first with just a 10% platform fee. Discover our mission, values, and how we vet every cleaner.',
+  openGraph: {
+    title: 'About Rena — Our Mission to Transform Home Cleaning',
+    description:
+      'Learn about Rena, the cleaning marketplace that puts cleaners first with just a 10% platform fee.',
+  },
+}
+
+const stats = [
+  { label: 'Vetted Cleaners', value: '2,500+' },
+  { label: 'Happy Customers', value: '15,000+' },
+  { label: 'Bookings Completed', value: '85,000+' },
+  { label: 'Average Rating', value: '4.8/5' },
+]
+
+const values = [
+  {
+    title: 'Transparency',
+    description:
+      'No hidden fees, no surprise charges. Every price is shown upfront so you know exactly what you are paying and cleaners know exactly what they are earning.',
+    icon: (
+      <svg className="h-8 w-8 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Fairness',
+    description:
+      'We charge just 10% — less than half what other platforms take. This means cleaners earn more and customers pay less. Everyone wins.',
+    icon: (
+      <svg className="h-8 w-8 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Trust & Safety',
+    description:
+      'Every cleaner is ID-verified and background-checked. Escrow payments protect first bookings, and our review system keeps standards high.',
+    icon: (
+      <svg className="h-8 w-8 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Community',
+    description:
+      'We are building a community where cleaners are valued professionals. Better treatment leads to better service for everyone.',
+    icon: (
+      <svg className="h-8 w-8 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+      </svg>
+    ),
+  },
+]
+
+export default function AboutPage() {
+  return (
+    <div>
+      {/* Hero */}
+      <section className="bg-brand-600 py-20">
+        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            Cleaning Done Right, for Everyone
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-white/90">
+            Rena is a cleaning marketplace built on a simple idea: cleaners
+            deserve better, and customers deserve transparency. We connect
+            trusted professionals with homeowners who value quality.
+          </p>
+        </div>
+      </section>
+
+      {/* Mission */}
+      <section className="py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900">Our Mission</h2>
+          <div className="mt-6 space-y-4 text-lg text-gray-600 leading-relaxed">
+            <p>
+              The cleaning industry is broken. Traditional agencies take 20-30%
+              of what customers pay, leaving cleaners with less than they
+              deserve. Customers often have no say in who cleans their home, and
+              there is little accountability when things go wrong.
+            </p>
+            <p>
+              We started Rena to fix this. Our platform takes just a 10%
+              commission — enough to run a great service, but low enough that
+              cleaners keep the vast majority of their earnings. This attracts
+              the best cleaners, which means a better experience for you.
+            </p>
+            <p>
+              We believe that when cleaners are treated fairly, they do better
+              work. When customers can choose their cleaner and see real reviews,
+              they get a service they can trust. Rena is where those two things
+              meet.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How Rena is Different */}
+      <section className="bg-gray-50 py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900">
+            How Rena is Different
+          </h2>
+          <div className="mt-10 grid gap-8 md:grid-cols-2">
+            <div className="rounded-xl bg-white p-8 shadow-sm">
+              <h3 className="text-lg font-bold text-red-600">
+                Traditional Agencies
+              </h3>
+              <ul className="mt-4 space-y-3 text-gray-600">
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <span>20-30% commission fees</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <span>No choice in who cleans your home</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <span>Opaque pricing structures</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <span>Limited accountability</span>
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl bg-white p-8 shadow-sm ring-2 ring-brand-500">
+              <h3 className="text-lg font-bold text-brand-600">Rena</h3>
+              <ul className="mt-4 space-y-3 text-gray-600">
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  <span>Only 10% platform fee</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  <span>You choose your cleaner</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  <span>Fully transparent pricing</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  <span>Real reviews and verified cleaners</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Vetting Process */}
+      <section className="py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900">
+            Our Cleaner Vetting Process
+          </h2>
+          <p className="mt-4 text-lg text-gray-600">
+            Every cleaner on Rena goes through a rigorous multi-step
+            verification process before they can accept bookings.
+          </p>
+          <div className="mt-10 space-y-8">
+            {[
+              {
+                step: '1',
+                title: 'Identity Verification',
+                desc: 'Government-issued photo ID is verified to confirm the cleaner is who they say they are.',
+              },
+              {
+                step: '2',
+                title: 'Background Check',
+                desc: 'A comprehensive background check is conducted through our trusted partner to ensure safety.',
+              },
+              {
+                step: '3',
+                title: 'Right to Work',
+                desc: 'We verify that every cleaner has the legal right to work in the United Kingdom.',
+              },
+              {
+                step: '4',
+                title: 'Insurance Verification',
+                desc: 'Cleaners must provide proof of public liability insurance before they can accept bookings.',
+              },
+              {
+                step: '5',
+                title: 'Ongoing Quality Monitoring',
+                desc: 'Cleaner performance is continuously monitored through customer reviews and ratings. Consistently low-rated cleaners are removed from the platform.',
+              },
+            ].map((item) => (
+              <div key={item.step} className="flex gap-6">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 font-bold text-white">
+                  {item.step}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1 text-gray-600">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Values */}
+      <section className="bg-gray-50 py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-center text-3xl font-bold text-gray-900">
+            Our Values
+          </h2>
+          <div className="mt-10 grid gap-8 sm:grid-cols-2">
+            {values.map((value) => (
+              <div
+                key={value.title}
+                className="rounded-xl bg-white p-6 shadow-sm"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50">
+                  {value.icon}
+                </div>
+                <h3 className="mt-4 text-lg font-bold text-gray-900">
+                  {value.title}
+                </h3>
+                <p className="mt-2 text-gray-600">{value.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Stats */}
+      <section className="py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-center text-3xl font-bold text-gray-900">
+            Rena by the Numbers
+          </h2>
+          <div className="mt-10 grid grid-cols-2 gap-8 md:grid-cols-4">
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-3xl font-bold text-brand-600">
+                  {stat.value}
+                </p>
+                <p className="mt-1 text-sm font-medium text-gray-600">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="bg-brand-600 py-14">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+            Ready to experience the difference?
+          </h2>
+          <p className="mt-3 text-white/80">
+            Join thousands of customers and cleaners who trust Rena.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <Link
+              href="/cleaners"
+              className="inline-block rounded-lg bg-white px-8 py-3 font-semibold text-brand-700 shadow-sm hover:bg-brand-50 transition-colors"
+            >
+              Find a Cleaner
+            </Link>
+            <Link
+              href="/join"
+              className="inline-block rounded-lg border-2 border-white px-8 py-3 font-semibold text-white hover:bg-white/10 transition-colors"
+            >
+              Join as a Cleaner
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}

@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#7c3aed",
+  "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
@@ -23,8 +23,13 @@
     }
   ],
   "categories": ["lifestyle", "utilities"],
-  "screenshots": [],
   "shortcuts": [
+    {
+      "name": "Book a Clean",
+      "short_name": "Book",
+      "url": "/services",
+      "description": "Book a cleaning service"
+    },
     {
       "name": "Find Cleaners",
       "short_name": "Cleaners",
@@ -32,10 +37,10 @@
       "description": "Browse available cleaners"
     },
     {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "url": "/dashboard",
-      "description": "View your cleaner dashboard"
+      "name": "My Bookings",
+      "short_name": "Bookings",
+      "url": "/account/bookings",
+      "description": "View your bookings"
     }
   ]
 }

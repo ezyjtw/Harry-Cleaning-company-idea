@@ -20,17 +20,26 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  // Close menu on route change (escape key)
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, []);
+
   return (
     <header className="relative z-50 bg-white shadow-sm" ref={menuRef}>
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+        <Link href="/" className="flex items-center gap-2" aria-label="Rena home">
           <span className="text-xl font-extrabold uppercase tracking-wide text-brand-700">
             Rena
           </span>
         </Link>
 
-        {/* Right side: Login/Signup + menu toggle */}
-        <div className="flex items-center gap-4">
+        {/* Right side */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <Link
             href="/login"
             className="text-sm font-medium text-gray-600 hover:text-brand-700"
@@ -39,7 +48,7 @@ export default function Navbar() {
           </Link>
           <Link
             href="/signup"
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            className="rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700 sm:px-4"
           >
             Sign Up
           </Link>
@@ -47,14 +56,16 @@ export default function Navbar() {
           {/* Menu button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-            className="ml-1 flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 hover:text-brand-700"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-brand-700 touch-target sm:ml-1"
           >
             <svg
               className="h-5 w-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               {menuOpen ? (
                 <path
@@ -78,51 +89,68 @@ export default function Navbar() {
 
       {/* Full-width dropdown panel */}
       {menuOpen && (
-        <nav className="border-t border-gray-200 bg-white shadow-lg">
-          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <nav
+          className="animate-slide-down border-t border-gray-200 bg-white shadow-lg"
+          aria-label="Main navigation"
+        >
+          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
             {/* Client flow */}
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
               I need a cleaner
             </h3>
-            <div className="mt-2 flex flex-col gap-1">
+            <div className="mt-2 flex flex-col gap-0.5">
               <Link
                 href="/services"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
                 onClick={() => setMenuOpen(false)}
               >
                 Book a Clean
               </Link>
               <Link
                 href="/cleaners"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
                 onClick={() => setMenuOpen(false)}
               >
                 Find Cleaners
               </Link>
               <Link
                 href="/how-it-works"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
                 onClick={() => setMenuOpen(false)}
               >
                 How It Works
               </Link>
+              <Link
+                href="/pricing"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Pricing
+              </Link>
+              <Link
+                href="/faq"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                FAQ
+              </Link>
             </div>
 
             {/* Cleaner flow */}
-            <h3 className="mt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-gray-400">
               I&apos;m a cleaner
             </h3>
-            <div className="mt-2 flex flex-col gap-1">
+            <div className="mt-2 flex flex-col gap-0.5">
               <Link
                 href="/join"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
                 onClick={() => setMenuOpen(false)}
               >
                 Become a Cleaner
               </Link>
               <Link
-                href="/dashboard"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700"
+                href="/cleaner"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
                 onClick={() => setMenuOpen(false)}
               >
                 Cleaner Dashboard

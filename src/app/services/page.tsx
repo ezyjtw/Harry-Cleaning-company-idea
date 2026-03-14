@@ -1,5 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ServiceCategory } from "@/lib/types";
+
+export const metadata: Metadata = {
+  title: "Our Services",
+  description:
+    "Browse our range of cleaning services — from regular weekly cleans to deep end-of-tenancy jobs. Book in minutes.",
+};
 
 const services: {
   id: ServiceCategory;
@@ -58,60 +65,66 @@ export default function ServicesPage() {
   const others = services.filter((s) => !s.featured);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-          What type of clean do you need?
-        </h1>
-        <p className="mt-3 text-gray-600">
-          Select a service to get started with your booking.
-        </p>
-      </div>
+    <>
+      <section className="bg-gray-50 py-12 sm:py-16">
+        <div className="container-page text-center">
+          <h1>What type of clean do you need?</h1>
+          <p className="mx-auto mt-3 max-w-xl text-gray-600">
+            Select a service to get started with your booking.
+          </p>
+        </div>
+      </section>
 
-      {/* Featured: Regular Cleaning */}
-      {featured && (
-        <Link
-          href={`/services/${featured.id}`}
-          className="group mt-10 flex flex-col items-center rounded-2xl border-2 border-brand-200 bg-gradient-to-b from-brand-50 to-white p-10 text-center shadow-sm transition hover:border-brand-500 hover:shadow-lg sm:p-14"
-        >
-          <div
-            className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-100 text-5xl transition group-hover:bg-brand-200"
-            dangerouslySetInnerHTML={{ __html: featured.icon }}
-          />
-          <h2 className="mt-6 text-2xl font-bold text-gray-900 group-hover:text-brand-700 sm:text-3xl">
-            {featured.title}
-          </h2>
-          <p className="mt-3 max-w-md text-gray-600">{featured.description}</p>
-          <span className="mt-6 inline-block rounded-lg bg-brand-600 px-8 py-3 text-sm font-semibold text-white transition group-hover:bg-brand-700">
-            Get a Quote
-          </span>
-        </Link>
-      )}
+      <section className="section bg-white">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          {/* Featured: Regular Cleaning */}
+          {featured && (
+            <Link
+              href={`/services/${featured.id}`}
+              className="group flex flex-col items-center rounded-2xl border-2 border-brand-200 bg-gradient-to-b from-brand-50 to-white p-8 text-center shadow-sm transition hover:border-brand-500 hover:shadow-lg sm:p-12"
+            >
+              <div
+                className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-100 text-4xl transition group-hover:bg-brand-200 sm:h-24 sm:w-24 sm:text-5xl"
+                dangerouslySetInnerHTML={{ __html: featured.icon }}
+              />
+              <h2 className="mt-5 text-xl font-bold text-gray-900 group-hover:text-brand-700 sm:text-2xl">
+                {featured.title}
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-gray-600 sm:text-base">
+                {featured.description}
+              </p>
+              <span className="mt-5 inline-block rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition group-hover:bg-brand-700 sm:px-8 sm:py-3">
+                Get a Quote
+              </span>
+            </Link>
+          )}
 
-      {/* Other services */}
-      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {others.map((service) => (
-          <Link
-            key={service.id}
-            href={`/services/${service.id}`}
-            className="group flex flex-col rounded-2xl border-2 border-gray-200 bg-white p-6 transition hover:border-brand-500 hover:shadow-lg"
-          >
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-50 text-3xl transition group-hover:bg-brand-100"
-              dangerouslySetInnerHTML={{ __html: service.icon }}
-            />
-            <h2 className="mt-4 text-lg font-bold text-gray-900 group-hover:text-brand-700">
-              {service.title}
-            </h2>
-            <p className="mt-2 flex-1 text-sm text-gray-600">
-              {service.description}
-            </p>
-            <span className="mt-4 text-sm font-semibold text-brand-600 group-hover:text-brand-700">
-              Get a Quote &rarr;
-            </span>
-          </Link>
-        ))}
-      </div>
-    </div>
+          {/* Other services */}
+          <div className="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 lg:grid-cols-3">
+            {others.map((service) => (
+              <Link
+                key={service.id}
+                href={`/services/${service.id}`}
+                className="group flex flex-col rounded-xl border-2 border-gray-200 bg-white p-5 transition hover:border-brand-500 hover:shadow-lg sm:p-6"
+              >
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-2xl transition group-hover:bg-brand-100 sm:h-14 sm:w-14 sm:text-3xl"
+                  dangerouslySetInnerHTML={{ __html: service.icon }}
+                />
+                <h2 className="mt-3 text-base font-bold text-gray-900 group-hover:text-brand-700 sm:mt-4 sm:text-lg">
+                  {service.title}
+                </h2>
+                <p className="mt-1.5 flex-1 text-sm text-gray-600">
+                  {service.description}
+                </p>
+                <span className="mt-3 text-sm font-semibold text-brand-600 group-hover:text-brand-700 sm:mt-4">
+                  Get a Quote &rarr;
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

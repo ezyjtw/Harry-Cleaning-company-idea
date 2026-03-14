@@ -1,0 +1,227 @@
+'use client'
+
+import { useState } from 'react'
+import type { Metadata } from 'next'
+
+const faqCategories = [
+  {
+    name: 'General',
+    questions: [
+      {
+        q: 'What is Rena?',
+        a: 'Rena is a cleaning marketplace that connects you with trusted, vetted independent cleaners in your area. We make it easy to find, book, and pay for professional cleaning services — all in one place.',
+      },
+      {
+        q: 'How is Rena different from other cleaning services?',
+        a: 'Unlike traditional cleaning agencies, Rena lets you choose your cleaner based on real reviews, ratings, and availability. We only charge a 10% platform fee — far lower than the 20-30% industry standard — which means better rates for you and higher earnings for cleaners.',
+      },
+      {
+        q: 'What areas does Rena cover?',
+        a: 'Rena currently operates across major cities in the United Kingdom. Enter your postcode on the homepage to see available cleaners in your area. We are expanding to new locations regularly.',
+      },
+      {
+        q: 'Do I need to create an account to book?',
+        a: 'Yes, a free account is required to make bookings. This allows us to securely process payments, maintain your booking history, and enable communication with your cleaner.',
+      },
+    ],
+  },
+  {
+    name: 'Booking',
+    questions: [
+      {
+        q: 'How do I book a cleaner?',
+        a: 'Simply browse cleaners in your area, select one you like, choose your service type, date, and time, then confirm your booking. You will receive an instant confirmation once the cleaner accepts.',
+      },
+      {
+        q: 'Can I book a same-day clean?',
+        a: 'Yes! Look for cleaners with the "Available Now" badge. Same-day bookings are subject to cleaner availability and may include a small surcharge.',
+      },
+      {
+        q: 'Can I request a specific cleaner for recurring bookings?',
+        a: 'Absolutely. Once you have found a cleaner you love, you can book them on a recurring weekly, fortnightly, or monthly schedule. Regular bookings often come at a discounted rate.',
+      },
+      {
+        q: 'How far in advance should I book?',
+        a: 'We recommend booking at least 48 hours in advance for the best availability. However, same-day bookings are available depending on cleaner availability in your area.',
+      },
+    ],
+  },
+  {
+    name: 'Pricing',
+    questions: [
+      {
+        q: 'How much does a cleaning cost?',
+        a: 'Pricing varies by cleaner, service type, and duration. Cleaners set their own hourly rates, typically ranging from £12 to £25 per hour. You will always see the total price before confirming your booking.',
+      },
+      {
+        q: 'Are there any hidden fees?',
+        a: 'No. Rena has a transparent pricing model. The price shown at checkout is the price you pay. Our 10% platform fee is already included in the quoted total — there are no surprise charges.',
+      },
+      {
+        q: 'Do regular bookings cost less?',
+        a: 'Many cleaners offer discounted rates for recurring bookings (weekly or fortnightly). The discount is shown on each cleaner\'s profile so you can compare before booking.',
+      },
+    ],
+  },
+  {
+    name: 'Cleaners',
+    questions: [
+      {
+        q: 'How are cleaners vetted?',
+        a: 'Every cleaner on Rena goes through a multi-step verification process including identity verification, background checks, proof of right to work, and reference checks. Only cleaners who pass all steps earn the "Verified" badge.',
+      },
+      {
+        q: 'Can I leave a review for my cleaner?',
+        a: 'Yes, after every completed booking you can rate your cleaner on overall quality, thoroughness, punctuality, and communication. Reviews help other customers and reward great cleaners.',
+      },
+      {
+        q: 'What if I am not happy with the clean?',
+        a: 'We offer a satisfaction guarantee. If you are not satisfied, contact us within 24 hours and we will arrange a re-clean at no extra cost or issue a full refund. See our Guarantees page for details.',
+      },
+      {
+        q: 'Do cleaners bring their own supplies?',
+        a: 'This varies by cleaner and is noted on their profile. Many cleaners bring standard cleaning supplies, but you can discuss specific requirements or preferences through our messaging system before the booking.',
+      },
+    ],
+  },
+  {
+    name: 'Payments',
+    questions: [
+      {
+        q: 'How do payments work?',
+        a: 'Payments are processed securely through our platform. For first-time bookings with a new cleaner, your payment is held in escrow and only released after the job is completed to your satisfaction.',
+      },
+      {
+        q: 'What payment methods do you accept?',
+        a: 'We accept all major credit and debit cards (Visa, Mastercard, American Express) as well as Apple Pay and Google Pay. All payments are processed through Stripe for maximum security.',
+      },
+      {
+        q: 'When am I charged?',
+        a: 'You are charged when your booking is confirmed. For escrow-protected bookings, the funds are held securely and released to the cleaner once the job is marked as complete.',
+      },
+    ],
+  },
+  {
+    name: 'Safety',
+    questions: [
+      {
+        q: 'Is it safe to let a cleaner into my home?',
+        a: 'Safety is our top priority. All cleaners are ID-verified and background-checked. Our review system provides transparency, and our escrow payment system protects you on first bookings with new cleaners.',
+      },
+      {
+        q: 'Are cleaners insured?',
+        a: 'Yes. All cleaners on the Rena platform are required to have public liability insurance. In the unlikely event of accidental damage, you are covered. See our Guarantees page for full details.',
+      },
+      {
+        q: 'How do I report a problem?',
+        a: 'You can raise a dispute directly through your booking page, or contact our support team. We take all concerns seriously and aim to resolve disputes within 48 hours.',
+      },
+    ],
+  },
+]
+
+export default function FAQPage() {
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({})
+
+  const toggleItem = (key: string) => {
+    setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+          Frequently Asked Questions
+        </h1>
+        <p className="mt-4 text-lg text-gray-600">
+          Everything you need to know about using Rena. Can&apos;t find your
+          answer?{' '}
+          <a href="mailto:support@rena.com" className="text-brand-600 hover:text-brand-700 underline">
+            Contact our support team
+          </a>
+          .
+        </p>
+      </div>
+
+      <div className="mt-16 space-y-12">
+        {faqCategories.map((category) => (
+          <section key={category.name} aria-labelledby={`faq-${category.name.toLowerCase()}`}>
+            <h2
+              id={`faq-${category.name.toLowerCase()}`}
+              className="text-2xl font-bold text-gray-900 border-b border-gray-200 pb-3"
+            >
+              {category.name}
+            </h2>
+            <dl className="mt-6 space-y-0 divide-y divide-gray-200">
+              {category.questions.map((item, idx) => {
+                const key = `${category.name}-${idx}`
+                const isOpen = openItems[key] || false
+
+                return (
+                  <div key={key} className="py-4">
+                    <dt>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between text-left"
+                        onClick={() => toggleItem(key)}
+                        aria-expanded={isOpen}
+                        aria-controls={`answer-${key}`}
+                      >
+                        <span className="text-base font-semibold text-gray-900">
+                          {item.q}
+                        </span>
+                        <span className="ml-6 flex-shrink-0">
+                          <svg
+                            className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${
+                              isOpen ? 'rotate-180' : ''
+                            }`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </span>
+                      </button>
+                    </dt>
+                    {isOpen && (
+                      <dd
+                        id={`answer-${key}`}
+                        className="mt-3 text-base text-gray-600 leading-relaxed"
+                      >
+                        {item.a}
+                      </dd>
+                    )}
+                  </div>
+                )
+              })}
+            </dl>
+          </section>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="mt-16 rounded-xl bg-brand-50 p-8 text-center">
+        <h3 className="text-xl font-bold text-gray-900">
+          Still have questions?
+        </h3>
+        <p className="mt-2 text-gray-600">
+          Our support team is here to help. Get in touch and we will get back to
+          you within 24 hours.
+        </p>
+        <a
+          href="mailto:support@rena.com"
+          className="mt-4 inline-block rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700 transition-colors"
+        >
+          Contact Support
+        </a>
+      </div>
+    </div>
+  )
+}

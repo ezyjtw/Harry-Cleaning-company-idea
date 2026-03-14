@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  CLIENT
+  CLEANER
+  ADMIN
+}
+
+enum CleanerTier {
+  STARTER
+  BRONZE
+  SILVER
+  GOLD
+  ELITE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationType {
+  BOOKING_REQUEST
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_COMPLETED
+  PAYMENT_RECEIVED
+  PAYMENT_SENT
+  NEW_MESSAGE
+  NEW_REVIEW
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+  ACCOUNT_UPDATE
+  SYSTEM
+}
+
+// ─── NextAuth Models ─────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Models ─────────────────────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String?
+  name           String?
+  phone          String?
+  role           Role      @default(CLIENT)
+  emailVerified  DateTime?
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  cleanerProfile CleanerProfile?
+  addresses      Address[]
+  bookingsAsClient  Booking[]  @relation("ClientBookings")
+  bookingsAsCleaner Booking[]  @relation("CleanerBookings")
+  reviewsGiven      Review[]   @relation("ReviewsGiven")
+  reviewsReceived   Review[]   @relation("ReviewsReceived")
+  sentMessages      Message[]  @relation("SentMessages")
+  receivedMessages  Message[]  @relation("ReceivedMessages")
+  notifications     Notification[]
+  disputesRaised    Dispute[]  @relation("DisputesRaised")
+
+  @@index([email])
+  @@index([role])
+}
+
+model CleanerProfile {
+  id                    String      @id @default(cuid())
+  userId                String      @unique
+  bio                   String?     @db.Text
+  hourlyRate            Decimal     @default(15.00) @db.Decimal(10, 2)
+  specialties           String[]
+  tier                  CleanerTier @default(STARTER)
+  verified              Boolean     @default(false)
+  documentsUploaded     Boolean     @default(false)
+  backgroundCheckPassed Boolean     @default(false)
+  location              String?
+  latitude              Float?
+  longitude             Float?
+  radius                Int         @default(10) // miles
+  availableNow          Boolean     @default(false)
+  responseTime          Int?        // average response time in minutes
+  completedJobs         Int         @default(0)
+  rating                Decimal     @default(0) @db.Decimal(3, 2)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilitySlots AvailabilitySlot[]
+
+  @@index([userId])
+  @@index([tier])
+  @@index([verified])
+  @@index([availableNow])
+  @@index([location])
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String?  // e.g. "Home", "Office"
+  line1     String
+  line2     String?
+  city      String
+  postcode  String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([userId])
+  @@index([postcode])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  clientId        String
+  cleanerId       String
+  addressId       String
+  serviceType     String        // e.g. "standard", "deep", "end-of-tenancy", "move-in"
+  status          BookingStatus @default(PENDING)
+  date            DateTime
+  startTime       String        // e.g. "09:00"
+  duration         Decimal       @db.Decimal(4, 2) // hours
+  rooms           Json?         // { "bedrooms": 2, "bathrooms": 1, "kitchen": true, ... }
+  extras          String[]      // e.g. ["oven", "fridge", "windows"]
+  frequency       String?       // e.g. "one-off", "weekly", "fortnightly", "monthly"
+  totalPrice      Decimal       @db.Decimal(10, 2)
+  platformFee     Decimal       @db.Decimal(10, 2)
+  cleanerEarnings Decimal       @db.Decimal(10, 2)
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  client   User    @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  cleaner  User    @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
+  address  Address @relation(fields: [addressId], references: [id])
+  review   Review?
+  messages Message[]
+  payment  Payment?
+  dispute  Dispute?
+
+  @@index([clientId])
+  @@index([cleanerId])
+  @@index([status])
+  @@index([date])
+  @@index([createdAt])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  bookingId     String   @unique
+  clientId      String
+  cleanerId     String
+  rating        Decimal  @db.Decimal(2, 1) // 1.0 - 5.0
+  thoroughness  Decimal? @db.Decimal(2, 1)
+  punctuality   Decimal? @db.Decimal(2, 1)
+  communication Decimal? @db.Decimal(2, 1)
+  text          String?  @db.Text
+  reply         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  client  User    @relation("ReviewsGiven", fields: [clientId], references: [id], onDelete: Cascade)
+  cleaner User    @relation("ReviewsReceived", fields: [cleanerId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([cleanerId])
+  @@index([rating])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  senderId  String
+  receiverId String
+  bookingId String?
+  content   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  sender   User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([bookingId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  bookingId       String        @unique
+  stripePaymentId String?       @unique
+  amount          Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  refundAmount    Decimal?      @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([stripePaymentId])
+}
+
+model Dispute {
+  id          String        @id @default(cuid())
+  bookingId   String        @unique
+  raisedById  String
+  reason      String
+  description String        @db.Text
+  status      DisputeStatus @default(OPEN)
+  resolution  String?       @db.Text
+  createdAt   DateTime      @default(now())
+  resolvedAt  DateTime?
+  updatedAt   DateTime      @updatedAt
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy User    @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([raisedById])
+  @@index([status])
+}
+
+model AvailabilitySlot {
+  id               String @id @default(cuid())
+  cleanerProfileId String
+  dayOfWeek        Int    // 0 = Sunday, 6 = Saturday
+  startTime        String // e.g. "09:00"
+  endTime          String // e.g. "17:00"
+
+  cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([cleanerProfileId])
+  @@index([dayOfWeek])
+}
