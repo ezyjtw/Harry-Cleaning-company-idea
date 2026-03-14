@@ -1,0 +1,290 @@
+import { prisma } from '@/lib/db/prisma';
+
+import { TravelTimeService } from './travel-time.service';
+import type { LocationCoords } from './travel-time.service';
+
+// ─── Types ──────────────────────────────────────────────────────
+
+export interface MatchingCriteria {
+  date: Date;
+  startTime: string;
+  duration: number;
+  serviceType: string;
+  postcode: string;
+  location?: LocationCoords;
+  clientId?: string; // For repeat cleaner prioritization
+  preferredCleanerId?: string;
+}
+
+export interface CleanerMatch {
+  cleanerId: string;
+  userId: string;
+  name: string;
+  rating: number;
+  hourlyRate: number;
+  tier: string;
+  totalScore: number;
+  scores: {
+    rating: number;
+    distance: number;
+    reliability: number;
+    completionRate: number;
+    responseSpeed: number;
+    repeatBonus: number;
+  };
+  distanceKm: number;
+  estimatedTravelMinutes: number;
+  isRepeatCleaner: boolean;
+  isAvailable: boolean;
+}
+
+export interface MatchingResult {
+  matches: CleanerMatch[];
+  totalCandidates: number;
+  filtersSummary: {
+    availableCount: number;
+    inServiceAreaCount: number;
+    qualifiedCount: number;
+  };
+}
+
+// ─── Weights ────────────────────────────────────────────────────
+
+const WEIGHTS = {
+  rating: 0.3, // 30%
+  distance: 0.2, // 20%
+  reliability: 0.15, // 15%
+  completionRate: 0.15, // 15%
+  responseSpeed: 0.1, // 10%
+  repeatBonus: 0.1, // 10%
+};
+
+// ─── Service ────────────────────────────────────────────────────
+
+export class MatchingService {
+  /**
+   * Find and rank cleaners for a booking
+   */
+  static async findMatches(criteria: MatchingCriteria): Promise<MatchingResult> {
+    // 1. Get all active, verified cleaners
+    const allCleaners = await prisma.cleanerProfile.findMany({
+      where: {
+        verified: true,
+        user: { isDeleted: false, accountStatus: 'ACTIVE' },
+      },
+      include: {
+        user: true,
+        availabilitySlots: true,
+      },
+    });
+
+    const totalCandidates = allCleaners.length;
+
+    // 2. Filter by availability (day of week)
+    const dayOfWeek = criteria.date.getDay();
+    const availableCleaners = allCleaners.filter((cleaner) =>
+      cleaner.availabilitySlots.some((slot) => {
+        if (slot.dayOfWeek !== dayOfWeek) return false;
+        const slotStart = this.timeToMinutes(slot.startTime);
+        const slotEnd = this.timeToMinutes(slot.endTime);
+        const bookingStart = this.timeToMinutes(criteria.startTime);
+        const bookingEnd = bookingStart + criteria.duration * 60;
+        return bookingStart >= slotStart && bookingEnd <= slotEnd;
+      })
+    );
+
+    // 3. Filter by service area (postcode prefix match)
+    const bookingPrefix = criteria.postcode.split(' ')[0].toUpperCase();
+    const inServiceArea = availableCleaners.filter((cleaner) => {
+      if (!cleaner.location) return true; // If no location set, show to all
+      const areas = cleaner.location.split(',').map((a) => a.trim().toUpperCase());
+      return areas.some((area) => bookingPrefix.startsWith(area) || area.startsWith(bookingPrefix));
+    });
+
+    // 4. Filter by service type qualification
+    const qualified = inServiceArea.filter((cleaner) => {
+      if (!cleaner.specialties || cleaner.specialties.length === 0) return true;
+      // Map service type to specialty
+      const serviceTypeMap: Record<string, string> = {
+        standard: 'Regular Cleaning',
+        deep: 'Deep Cleaning',
+        'end-of-tenancy': 'End of Tenancy',
+        airbnb: 'AirBnB Turnover',
+        office: 'Office Cleaning',
+      };
+      const specialty = serviceTypeMap[criteria.serviceType];
+      return !specialty || cleaner.specialties.includes(specialty);
+    });
+
+    // 5. Check for overlapping bookings
+    const startOfDay = new Date(criteria.date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(criteria.date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingBookings = await prisma.booking.findMany({
+      where: {
+        date: { gte: startOfDay, lte: endOfDay },
+        status: { notIn: ['CANCELLED'] },
+        cleanerId: { in: qualified.map((c) => c.userId) },
+      },
+    });
+
+    const bookingsByCleanerId = new Map<string, typeof existingBookings>();
+    for (const booking of existingBookings) {
+      const list = bookingsByCleanerId.get(booking.cleanerId) ?? [];
+      list.push(booking);
+      bookingsByCleanerId.set(booking.cleanerId, list);
+    }
+
+    // 6. Check repeat cleaner status
+    let repeatCleanerIds = new Set<string>();
+    if (criteria.clientId) {
+      const previousBookings = await prisma.booking.findMany({
+        where: {
+          clientId: criteria.clientId,
+          status: 'COMPLETED',
+        },
+        select: { cleanerId: true },
+        distinct: ['cleanerId'],
+      });
+      repeatCleanerIds = new Set(previousBookings.map((b) => b.cleanerId));
+    }
+
+    // 7. Score and rank
+    const bookingStart = this.timeToMinutes(criteria.startTime);
+    const bookingEnd = bookingStart + criteria.duration * 60;
+
+    const matches: CleanerMatch[] = qualified.map((cleaner) => {
+      // Check availability (no overlapping bookings)
+      const cleanerBookings = bookingsByCleanerId.get(cleaner.userId) ?? [];
+      const isAvailable = !cleanerBookings.some((b) => {
+        const bStart = this.timeToMinutes(b.startTime);
+        const bEnd = bStart + Number(b.duration) * 60;
+        return bookingStart < bEnd && bookingEnd > bStart;
+      });
+
+      // Calculate distance
+      let distanceKm = 0;
+      let travelMinutes = 0;
+      if (criteria.location && cleaner.latitude && cleaner.longitude) {
+        const cleanerCoords: LocationCoords = {
+          latitude: cleaner.latitude,
+          longitude: cleaner.longitude,
+        };
+        const travel = TravelTimeService.estimateTravelTime(cleanerCoords, criteria.location);
+        distanceKm = travel.distanceKm;
+        travelMinutes = travel.durationMinutes;
+      }
+
+      const isRepeat = repeatCleanerIds.has(cleaner.userId);
+
+      // Score components (all normalized to 0-1)
+      const ratingScore = Number(cleaner.rating) / 5;
+      const distanceScore =
+        distanceKm > 0 ? Math.max(0, 1 - distanceKm / (cleaner.serviceRadius || 10)) : 0.5;
+      const reliabilityScore = (100 - Number(cleaner.cancellationRate || 0)) / 100;
+      const completionRateScore = Number(cleaner.completionRate || 100) / 100;
+      const responseSpeedScore = cleaner.responseSpeed
+        ? Math.max(0, 1 - cleaner.responseSpeed / 3600) // Normalized: 0-1 hour response
+        : 0.5;
+      const repeatBonus = isRepeat ? 1.0 : 0;
+
+      // Weighted total
+      const totalScore =
+        ratingScore * WEIGHTS.rating +
+        distanceScore * WEIGHTS.distance +
+        reliabilityScore * WEIGHTS.reliability +
+        completionRateScore * WEIGHTS.completionRate +
+        responseSpeedScore * WEIGHTS.responseSpeed +
+        repeatBonus * WEIGHTS.repeatBonus;
+
+      return {
+        cleanerId: cleaner.id,
+        userId: cleaner.userId,
+        name: cleaner.user.name ?? 'Unknown',
+        rating: Number(cleaner.rating),
+        hourlyRate: Number(cleaner.hourlyRate),
+        tier: cleaner.tier,
+        totalScore: Math.round(totalScore * 1000) / 1000,
+        scores: {
+          rating: Math.round(ratingScore * 100) / 100,
+          distance: Math.round(distanceScore * 100) / 100,
+          reliability: Math.round(reliabilityScore * 100) / 100,
+          completionRate: Math.round(completionRateScore * 100) / 100,
+          responseSpeed: Math.round(responseSpeedScore * 100) / 100,
+          repeatBonus,
+        },
+        distanceKm,
+        estimatedTravelMinutes: travelMinutes,
+        isRepeatCleaner: isRepeat,
+        isAvailable,
+      };
+    });
+
+    // Sort: available first, then by score
+    matches.sort((a, b) => {
+      if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
+      return b.totalScore - a.totalScore;
+    });
+
+    // Preferred cleaner boost — move to top if available
+    if (criteria.preferredCleanerId) {
+      const prefIdx = matches.findIndex(
+        (m) => m.userId === criteria.preferredCleanerId && m.isAvailable
+      );
+      if (prefIdx > 0) {
+        const [preferred] = matches.splice(prefIdx, 1);
+        matches.unshift(preferred);
+      }
+    }
+
+    return {
+      matches,
+      totalCandidates,
+      filtersSummary: {
+        availableCount: availableCleaners.length,
+        inServiceAreaCount: inServiceArea.length,
+        qualifiedCount: qualified.length,
+      },
+    };
+  }
+
+  /**
+   * Auto-select the best available cleaner
+   */
+  static async autoAssign(criteria: MatchingCriteria): Promise<CleanerMatch | null> {
+    const result = await this.findMatches(criteria);
+    const available = result.matches.filter((m) => m.isAvailable);
+    return available.length > 0 ? available[0] : null;
+  }
+
+  /**
+   * Get match score explanation for a specific cleaner
+   */
+  static explainScore(match: CleanerMatch): string[] {
+    const explanations: string[] = [];
+
+    if (match.scores.rating >= 0.9) explanations.push('Exceptional rating (4.5+/5)');
+    else if (match.scores.rating >= 0.8) explanations.push('Excellent rating (4.0+/5)');
+
+    if (match.scores.distance >= 0.8) explanations.push('Very close to your location');
+    else if (match.scores.distance >= 0.5) explanations.push('Within reasonable distance');
+
+    if (match.scores.reliability >= 0.95)
+      explanations.push('Highly reliable (low cancellation rate)');
+
+    if (match.scores.completionRate >= 0.95) explanations.push('Excellent job completion rate');
+
+    if (match.scores.responseSpeed >= 0.8) explanations.push('Fast response times');
+
+    if (match.isRepeatCleaner) explanations.push('Has cleaned for you before');
+
+    return explanations;
+  }
+
+  private static timeToMinutes(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+}

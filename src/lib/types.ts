@@ -1,4 +1,4 @@
-export type CleanerTier = "standard" | "premium" | "elite";
+export type CleanerTier = 'standard' | 'premium' | 'elite';
 
 export interface Cleaner {
   id: string;
@@ -43,16 +43,16 @@ export interface Booking {
   date: string;
   time: string;
   duration: number;
-  serviceType: "standard" | "deep" | "move-in-out" | "office" | "last-minute";
+  serviceType: 'standard' | 'deep' | 'move-in-out' | 'office' | 'last-minute';
   notes: string;
-  status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled" | "disputed";
+  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'disputed';
   totalPrice: number;
   isLastMinute: boolean;
   escrowStatus: EscrowStatus;
   isFirstBookingWithCleaner: boolean;
 }
 
-export type EscrowStatus = "held" | "released" | "refunded" | "disputed" | "none";
+export type EscrowStatus = 'held' | 'released' | 'refunded' | 'disputed' | 'none';
 
 export interface Review {
   id: string;
@@ -99,16 +99,16 @@ export interface PastBooking {
 export interface IdentityVerification {
   id: string;
   userId: string;
-  userType: "cleaner" | "customer";
-  status: "pending" | "verified" | "rejected" | "expired";
+  userType: 'cleaner' | 'customer';
+  status: 'pending' | 'verified' | 'rejected' | 'expired';
   submittedAt: string;
   verifiedAt?: string;
-  documentType: "passport" | "drivers-license" | "national-id";
+  documentType: 'passport' | 'drivers-license' | 'national-id';
   selfieMatch: boolean;
   livePhotoRequired: boolean; // for arrival verification
 }
 
-export type VerificationLevel = "unverified" | "basic" | "full";
+export type VerificationLevel = 'unverified' | 'basic' | 'full';
 
 // ─── Escrow ──────────────────────────────────────────────────
 
@@ -121,28 +121,34 @@ export interface EscrowTransaction {
   status: EscrowStatus;
   heldAt: string;
   releasedAt?: string;
-  releaseCondition: "auto-24h" | "customer-confirmed" | "dispute-resolved";
+  releaseCondition: 'auto-24h' | 'customer-confirmed' | 'dispute-resolved';
   isFirstBooking: boolean;
 }
 
 // ─── Disputes ────────────────────────────────────────────────
 
 export type DisputeReason =
-  | "no-show-cleaner"
-  | "no-show-customer"
-  | "poor-quality"
-  | "property-damage"
-  | "incorrect-duration"
-  | "safety-concern"
-  | "payment-issue"
-  | "other";
+  | 'no-show-cleaner'
+  | 'no-show-customer'
+  | 'poor-quality'
+  | 'property-damage'
+  | 'incorrect-duration'
+  | 'safety-concern'
+  | 'payment-issue'
+  | 'other';
 
-export type DisputeStatus = "open" | "under-review" | "resolved-customer" | "resolved-cleaner" | "resolved-split" | "escalated";
+export type DisputeStatus =
+  | 'open'
+  | 'under-review'
+  | 'resolved-customer'
+  | 'resolved-cleaner'
+  | 'resolved-split'
+  | 'escalated';
 
 export interface Dispute {
   id: string;
   bookingId: string;
-  filedBy: "customer" | "cleaner";
+  filedBy: 'customer' | 'cleaner';
   filedByName: string;
   reason: DisputeReason;
   description: string;
@@ -151,30 +157,30 @@ export interface Dispute {
   resolution?: string;
   createdAt: string;
   resolvedAt?: string;
-  escrowAction?: "release" | "refund" | "split";
+  escrowAction?: 'release' | 'refund' | 'split';
 }
 
 export interface DisputeEvidence {
   id: string;
-  type: "photo" | "video" | "text" | "timestamp";
+  type: 'photo' | 'video' | 'text' | 'timestamp';
   description: string;
   uploadedAt: string;
-  uploadedBy: "customer" | "cleaner";
+  uploadedBy: 'customer' | 'cleaner';
 }
 
 // ─── Booking Flow ───────────────────────────────────────────
 
 export type ServiceCategory =
-  | "regular"
-  | "one-off"
-  | "same-day"
-  | "deep"
-  | "airbnb"
-  | "end-of-tenancy";
+  | 'regular'
+  | 'one-off'
+  | 'same-day'
+  | 'deep'
+  | 'airbnb'
+  | 'end-of-tenancy';
 
-export type BookingFrequency = "weekly" | "biweekly" | "one-time";
+export type BookingFrequency = 'weekly' | 'biweekly' | 'one-time';
 
-export type KeyAccess = "i-will-be-home" | "key-under-mat" | "lockbox" | "with-concierge" | "other";
+export type KeyAccess = 'i-will-be-home' | 'key-under-mat' | 'lockbox' | 'with-concierge' | 'other';
 
 export interface RoomConfig {
   bedrooms: number;
@@ -187,14 +193,14 @@ export interface RoomConfig {
 // ─── Notifications ──────────────────────────────────────────
 
 export type NotificationType =
-  | "booking_confirmed"
-  | "booking_cancelled"
-  | "booking_reminder"
-  | "cleaner_assigned"
-  | "payment_received"
-  | "review_received"
-  | "message_received"
-  | "dispute_update";
+  | 'booking_confirmed'
+  | 'booking_cancelled'
+  | 'booking_reminder'
+  | 'cleaner_assigned'
+  | 'payment_received'
+  | 'review_received'
+  | 'message_received'
+  | 'dispute_update';
 
 export interface Notification {
   id: string;
@@ -236,7 +242,7 @@ export interface Payment {
   bookingId: string;
   amount: number;
   currency: string;
-  status: "pending" | "completed" | "failed" | "refunded";
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
   stripePaymentId?: string;
   refundAmount?: number;
   createdAt: string;
@@ -253,7 +259,7 @@ export interface DashboardStats {
   newSignups: number;
 }
 
-export type UserRole = "CLIENT" | "CLEANER" | "ADMIN";
+export type UserRole = 'CLIENT' | 'CLEANER' | 'ADMIN';
 
 // ─── Booking Flow ───────────────────────────────────────────
 
@@ -269,10 +275,103 @@ export interface BookingFormData {
   joinMailingList: boolean;
   keyAccess: KeyAccess;
   keyAccessNote: string;
-  scheduling: "specific" | "flexible";
+  scheduling: 'specific' | 'flexible';
   preferredDates: string[];
   preferredTimeSlots: string[];
   selectedCleanerId: string;
   acceptSubstitute: boolean;
   specialInstructions: string;
+}
+
+// ─── Account & Verification ────────────────────────────────
+export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+export type VerificationStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type ReviewVisibility = 'VISIBLE' | 'HIDDEN' | 'FLAGGED';
+
+// ─── Extended Booking Status ───────────────────────────────
+export type BookingStatusExtended =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'ACCEPTED'
+  | 'EN_ROUTE'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'REVIEWED'
+  | 'CANCELLED';
+
+// ─── Availability Override ─────────────────────────────────
+export interface AvailabilityOverride {
+  id: string;
+  cleanerProfileId: string;
+  date: string;
+  isBlocked: boolean;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+}
+
+// ─── Audit Log ─────────────────────────────────────────────
+export interface AuditLogEntry {
+  id: string;
+  userId?: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  metadata?: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+}
+
+// ─── Pricing Zone ──────────────────────────────────────────
+export interface PricingZone {
+  id: string;
+  name: string;
+  postcodePrefix: string;
+  multiplier: number;
+  travelFee: number;
+  isActive: boolean;
+}
+
+// ─── Background Job ────────────────────────────────────────
+export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type JobType =
+  | 'SEND_EMAIL'
+  | 'SEND_SMS'
+  | 'PROCESS_PAYMENT'
+  | 'SEND_REMINDER'
+  | 'REQUEST_REVIEW';
+
+export interface BackgroundJobRecord {
+  id: string;
+  type: JobType;
+  payload: Record<string, unknown>;
+  status: JobStatus;
+  attempts: number;
+  maxAttempts: number;
+  lastError?: string;
+  scheduledAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+// ─── Cleaner Matching ──────────────────────────────────────
+export interface CleanerMatchScore {
+  cleanerId: string;
+  totalScore: number;
+  ratingScore: number;
+  distanceScore: number;
+  reliabilityScore: number;
+  completionRateScore: number;
+  responseSpeedScore: number;
+  isRepeatCleaner: boolean;
+}
+
+// ─── Surge Pricing ─────────────────────────────────────────
+export interface SurgePricingInfo {
+  isActive: boolean;
+  multiplier: number;
+  reason: 'peak_demand' | 'low_supply' | 'holiday' | 'none';
+  expiresAt?: string;
 }

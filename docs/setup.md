@@ -176,6 +176,148 @@ npx prisma migrate reset
 
 **Warning:** This deletes all data in the database.
 
+## 9. Pre-commit Hooks
+
+The project uses **Husky** and **lint-staged** to enforce code quality before every commit.
+
+### Setup
+
+Pre-commit hooks are installed automatically when you run `npm install`. If hooks are not running, initialise them manually:
+
+```bash
+npx husky install
+```
+
+### What Runs on Commit
+
+lint-staged is configured to run the following on staged files:
+
+- **TypeScript/JavaScript files (`.ts`, `.tsx`, `.js`, `.jsx`):** ESLint with auto-fix, then Prettier formatting
+- **CSS files:** Prettier formatting
+- **Prisma schema:** `prisma format`
+
+```bash
+# To manually run lint-staged (useful for debugging)
+npx lint-staged
+```
+
+### Skipping Hooks (not recommended)
+
+In rare cases where you need to bypass hooks:
+
+```bash
+git commit --no-verify -m "emergency fix"
+```
+
+## 10. Environment Validation
+
+The application validates all required environment variables at startup. If any required variable is missing or malformed, the server will fail to start with a descriptive error message.
+
+Validated variables include:
+
+| Variable                 | Required        | Validation                                   |
+| ------------------------ | --------------- | -------------------------------------------- |
+| `DATABASE_URL`           | Yes             | Must be a valid PostgreSQL connection string |
+| `NEXTAUTH_URL`           | Yes             | Must be a valid URL                          |
+| `NEXTAUTH_SECRET`        | Yes             | Must be at least 32 characters               |
+| `STRIPE_SECRET_KEY`      | Production only | Must start with `sk_`                        |
+| `STRIPE_PUBLISHABLE_KEY` | Production only | Must start with `pk_`                        |
+| `NEXT_PUBLIC_APP_URL`    | Yes             | Must be a valid URL                          |
+
+The validation logic is located in `src/lib/config/env-validation.ts`. To test your environment configuration without starting the server:
+
+```bash
+npx ts-node src/lib/config/env-validation.ts
+```
+
+## 11. Running Tests with Coverage
+
+### Full Test Suite with Coverage Report
+
+```bash
+# Run all tests with coverage
+npx jest --coverage
+
+# Generate an HTML coverage report
+npx jest --coverage --coverageReporters=html
+
+# Open the report (macOS)
+open coverage/index.html
+```
+
+### Coverage Thresholds
+
+The project enforces minimum coverage thresholds configured in `jest.config.ts`:
+
+| Metric     | Threshold |
+| ---------- | --------- |
+| Branches   | 70%       |
+| Functions  | 75%       |
+| Lines      | 80%       |
+| Statements | 80%       |
+
+If coverage drops below these thresholds, the test command will exit with a non-zero status.
+
+### Running Specific Test Categories
+
+```bash
+# Unit tests only
+npx jest --testPathPattern='__tests__/lib'
+
+# Service layer tests
+npx jest --testPathPattern='__tests__/services'
+
+# API route tests
+npx jest --testPathPattern='__tests__/api'
+```
+
+## 12. Infrastructure Setup Notes
+
+### Memory Cache
+
+The in-memory cache (`src/lib/infrastructure/cache.ts`) works out of the box with no external dependencies. Configuration options can be adjusted in `src/lib/config.ts`:
+
+- **Default TTL:** 5 minutes
+- **Max entries:** 1000
+- **Eviction policy:** LRU (least recently used)
+
+For production deployments with multiple instances, consider replacing the in-memory cache with Redis by implementing the same cache interface.
+
+### Background Job Processor
+
+The job processor (`src/lib/infrastructure/job-processor.ts`) runs in-process during development. Jobs are processed from an in-memory queue.
+
+```bash
+# Jobs are processed automatically when the server starts.
+# To monitor queued jobs in development, check the structured logs:
+npm run dev 2>&1 | grep "job-processor"
+```
+
+For production, configure an external job queue (e.g., BullMQ with Redis) by setting:
+
+```env
+REDIS_URL="redis://localhost:6379"
+JOB_QUEUE_PROVIDER="redis"
+```
+
+### Error Monitoring
+
+Error monitoring (`src/lib/infrastructure/error-monitoring.ts`) logs to the structured logger in development. For production, integrate with an external service by setting:
+
+```env
+ERROR_MONITORING_DSN="https://your-sentry-or-similar-dsn"
+```
+
+### Structured Logger
+
+The logger (`src/lib/infrastructure/logger.ts`) outputs JSON-formatted logs. Control verbosity with:
+
+```env
+LOG_LEVEL="debug"   # Options: debug, info, warn, error
+```
+
+In development, logs are pretty-printed. In production (`NODE_ENV=production`), logs are compact JSON for log aggregation services.
+
 ## Common Issues
 
 ### "Cannot find module '@prisma/client'"
@@ -227,14 +369,14 @@ npx prisma generate
 
 ## Useful Commands Reference
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run linter |
-| `npx prisma studio` | Database browser |
-| `npx prisma migrate dev` | Run migrations |
-| `npx prisma generate` | Generate Prisma client |
-| `npx prisma migrate reset` | Reset database |
-| `npx jest --watch` | Run tests in watch mode |
+| Command                    | Description             |
+| -------------------------- | ----------------------- |
+| `npm run dev`              | Start dev server        |
+| `npm run build`            | Production build        |
+| `npm run start`            | Start production server |
+| `npm run lint`             | Run linter              |
+| `npx prisma studio`        | Database browser        |
+| `npx prisma migrate dev`   | Run migrations          |
+| `npx prisma generate`      | Generate Prisma client  |
+| `npx prisma migrate reset` | Reset database          |
+| `npx jest --watch`         | Run tests in watch mode |

@@ -26,8 +26,11 @@ enum CleanerTier {
 enum BookingStatus {
   PENDING
   CONFIRMED
+  ACCEPTED
+  EN_ROUTE
   IN_PROGRESS
   COMPLETED
+  REVIEWED
   CANCELLED
 }
 
@@ -59,6 +62,25 @@ enum NotificationType {
   DISPUTE_RESOLVED
   ACCOUNT_UPDATE
   SYSTEM
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum ReviewVisibility {
+  VISIBLE
+  HIDDEN
+  FLAGGED
 }
 
 // ─── NextAuth Models ─────────────────────────────────────────────────────────
@@ -105,69 +127,89 @@ model VerificationToken {
 // ─── Core Models ─────────────────────────────────────────────────────────────
 
 model User {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  passwordHash   String?
-  name           String?
-  phone          String?
-  role           Role      @default(CLIENT)
-  emailVerified  DateTime?
-  image          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id               String        @id @default(cuid())
+  email            String        @unique
+  passwordHash     String?
+  name             String?
+  phone            String?
+  role             Role          @default(CLIENT)
+  emailVerified    DateTime?
+  image            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  accountStatus    AccountStatus @default(ACTIVE)
+  isDeleted        Boolean       @default(false)
+  deletedAt        DateTime?
+  lastLoginAt      DateTime?
+  emailVerifiedAt  DateTime?
+  failedLoginCount Int           @default(0)
+  isSuspended      Boolean       @default(false)
+  lockedUntil      DateTime?
 
-  accounts       Account[]
-  sessions       Session[]
-  cleanerProfile CleanerProfile?
-  addresses      Address[]
-  bookingsAsClient  Booking[]  @relation("ClientBookings")
-  bookingsAsCleaner Booking[]  @relation("CleanerBookings")
-  reviewsGiven      Review[]   @relation("ReviewsGiven")
-  reviewsReceived   Review[]   @relation("ReviewsReceived")
-  sentMessages      Message[]  @relation("SentMessages")
-  receivedMessages  Message[]  @relation("ReceivedMessages")
+  accounts          Account[]
+  sessions          Session[]
+  cleanerProfile    CleanerProfile?
+  addresses         Address[]
+  bookingsAsClient  Booking[]       @relation("ClientBookings")
+  bookingsAsCleaner Booking[]       @relation("CleanerBookings")
+  reviewsGiven      Review[]        @relation("ReviewsGiven")
+  reviewsReceived   Review[]        @relation("ReviewsReceived")
+  sentMessages      Message[]       @relation("SentMessages")
+  receivedMessages  Message[]       @relation("ReceivedMessages")
   notifications     Notification[]
-  disputesRaised    Dispute[]  @relation("DisputesRaised")
+  disputesRaised    Dispute[]       @relation("DisputesRaised")
 
   @@index([email])
   @@index([role])
 }
 
 model CleanerProfile {
-  id                    String      @id @default(cuid())
-  userId                String      @unique
-  bio                   String?     @db.Text
-  hourlyRate            Decimal     @default(15.00) @db.Decimal(10, 2)
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  bio                   String?            @db.Text
+  hourlyRate            Decimal            @default(15.00) @db.Decimal(10, 2)
   specialties           String[]
-  tier                  CleanerTier @default(STARTER)
-  verified              Boolean     @default(false)
-  documentsUploaded     Boolean     @default(false)
-  backgroundCheckPassed Boolean     @default(false)
+  tier                  CleanerTier        @default(STARTER)
+  verified              Boolean            @default(false)
+  documentsUploaded     Boolean            @default(false)
+  backgroundCheckPassed Boolean            @default(false)
   location              String?
   latitude              Float?
   longitude             Float?
-  radius                Int         @default(10) // miles
-  availableNow          Boolean     @default(false)
-  responseTime          Int?        // average response time in minutes
-  completedJobs         Int         @default(0)
-  rating                Decimal     @default(0) @db.Decimal(3, 2)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  radius                Int                @default(10) // miles
+  availableNow          Boolean            @default(false)
+  responseTime          Int? // average response time in minutes
+  completedJobs         Int                @default(0)
+  rating                Decimal            @default(0) @db.Decimal(3, 2)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  serviceRadius         Int                @default(10)
+  travelFee             Decimal            @default(0) @db.Decimal(10, 2)
+  cancellationRate      Decimal            @default(0) @db.Decimal(5, 2)
+  completionRate        Decimal            @default(100) @db.Decimal(5, 2)
+  responseSpeed         Int? // average response speed in seconds
+  verificationStatus    VerificationStatus @default(UNVERIFIED)
+  identityVerifiedAt    DateTime?
+  verificationMeta      Json?
+  totalJobsCompleted    Int                @default(0)
+  availabilitySummary   String?            @db.Text
 
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  availabilitySlots AvailabilitySlot[]
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilitySlots     AvailabilitySlot[]
+  availabilityOverrides AvailabilityOverride[]
 
   @@index([userId])
   @@index([tier])
   @@index([verified])
   @@index([availableNow])
   @@index([location])
+  @@index([rating])
 }
 
 model Address {
   id        String   @id @default(cuid())
   userId    String
-  label     String?  // e.g. "Home", "Office"
+  label     String? // e.g. "Home", "Office"
   line1     String
   line2     String?
   city      String
@@ -184,28 +226,37 @@ model Address {
 }
 
 model Booking {
-  id              String        @id @default(cuid())
-  clientId        String
-  cleanerId       String
-  addressId       String
-  serviceType     String        // e.g. "standard", "deep", "end-of-tenancy", "move-in"
-  status          BookingStatus @default(PENDING)
-  date            DateTime
-  startTime       String        // e.g. "09:00"
-  duration         Decimal       @db.Decimal(4, 2) // hours
-  rooms           Json?         // { "bedrooms": 2, "bathrooms": 1, "kitchen": true, ... }
-  extras          String[]      // e.g. ["oven", "fridge", "windows"]
-  frequency       String?       // e.g. "one-off", "weekly", "fortnightly", "monthly"
-  totalPrice      Decimal       @db.Decimal(10, 2)
-  platformFee     Decimal       @db.Decimal(10, 2)
-  cleanerEarnings Decimal       @db.Decimal(10, 2)
-  notes           String?       @db.Text
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                 String        @id @default(cuid())
+  clientId           String
+  cleanerId          String
+  addressId          String
+  serviceType        String // e.g. "standard", "deep", "end-of-tenancy", "move-in"
+  status             BookingStatus @default(PENDING)
+  date               DateTime
+  startTime          String // e.g. "09:00"
+  duration           Decimal       @db.Decimal(4, 2) // hours
+  rooms              Json? // { "bedrooms": 2, "bathrooms": 1, "kitchen": true, ... }
+  extras             String[] // e.g. ["oven", "fridge", "windows"]
+  frequency          String? // e.g. "one-off", "weekly", "fortnightly", "monthly"
+  totalPrice         Decimal       @db.Decimal(10, 2)
+  platformFee        Decimal       @db.Decimal(10, 2)
+  cleanerEarnings    Decimal       @db.Decimal(10, 2)
+  notes              String?       @db.Text
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  acceptedAt         DateTime?
+  checkedInAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?       @db.Text
+  cleanerNotes       String?       @db.Text
+  adminNotes         String?       @db.Text
+  checklistCompleted Boolean       @default(false)
+  arrivalConfirmed   Boolean       @default(false)
 
-  client   User    @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
-  cleaner  User    @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
-  address  Address @relation(fields: [addressId], references: [id])
+  client   User      @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  cleaner  User      @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
+  address  Address   @relation(fields: [addressId], references: [id])
   review   Review?
   messages Message[]
   payment  Payment?
@@ -216,21 +267,26 @@ model Booking {
   @@index([status])
   @@index([date])
   @@index([createdAt])
+  @@index([cleanerId, date])
 }
 
 model Review {
-  id            String   @id @default(cuid())
-  bookingId     String   @unique
-  clientId      String
-  cleanerId     String
-  rating        Decimal  @db.Decimal(2, 1) // 1.0 - 5.0
-  thoroughness  Decimal? @db.Decimal(2, 1)
-  punctuality   Decimal? @db.Decimal(2, 1)
-  communication Decimal? @db.Decimal(2, 1)
-  text          String?  @db.Text
-  reply         String?  @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String           @id @default(cuid())
+  bookingId         String           @unique
+  clientId          String
+  cleanerId         String
+  rating            Decimal          @db.Decimal(2, 1) // 1.0 - 5.0
+  thoroughness      Decimal?         @db.Decimal(2, 1)
+  punctuality       Decimal?         @db.Decimal(2, 1)
+  communication     Decimal?         @db.Decimal(2, 1)
+  text              String?          @db.Text
+  reply             String?          @db.Text
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  isModerated       Boolean          @default(false)
+  visibility        ReviewVisibility @default(VISIBLE)
+  isVerifiedBooking Boolean          @default(true)
+  isDisputed        Boolean          @default(false)
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   client  User    @relation("ReviewsGiven", fields: [clientId], references: [id], onDelete: Cascade)
@@ -239,16 +295,17 @@ model Review {
   @@index([clientId])
   @@index([cleanerId])
   @@index([rating])
+  @@index([visibility])
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  senderId  String
+  id         String   @id @default(cuid())
+  senderId   String
   receiverId String
-  bookingId String?
-  content   String   @db.Text
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  bookingId  String?
+  content    String   @db.Text
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   sender   User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
@@ -316,7 +373,7 @@ model Dispute {
 model AvailabilitySlot {
   id               String @id @default(cuid())
   cleanerProfileId String
-  dayOfWeek        Int    // 0 = Sunday, 6 = Saturday
+  dayOfWeek        Int // 0 = Sunday, 6 = Saturday
   startTime        String // e.g. "09:00"
   endTime          String // e.g. "17:00"
 
@@ -324,4 +381,82 @@ model AvailabilitySlot {
 
   @@index([cleanerProfileId])
   @@index([dayOfWeek])
+}
+
+model AvailabilityOverride {
+  id               String   @id @default(cuid())
+  cleanerProfileId String
+  date             DateTime @db.Date
+  isBlocked        Boolean  @default(true)
+  startTime        String? // if partial day, e.g. "09:00"
+  endTime          String? // if partial day, e.g. "13:00"
+  reason           String? // e.g. "Holiday", "Personal"
+  createdAt        DateTime @default(now())
+
+  cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([cleanerProfileId, date])
+  @@index([cleanerProfileId])
+  @@index([date])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String // e.g. "BOOKING_CREATED", "PAYMENT_PROCESSED"
+  entityType String // e.g. "Booking", "Payment", "User"
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model PricingRule {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  multiplier  Decimal   @default(1.0) @db.Decimal(5, 2)
+  isActive    Boolean   @default(true)
+  validFrom   DateTime?
+  validUntil  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model PricingZone {
+  id             String  @id @default(cuid())
+  name           String // e.g. "Central London", "Greater London"
+  postcodePrefix String  @unique // e.g. "SW1", "E1"
+  multiplier     Decimal @default(1.0) @db.Decimal(4, 2)
+  travelFee      Decimal @default(0) @db.Decimal(10, 2)
+  isActive       Boolean @default(true)
+
+  @@index([postcodePrefix])
+  @@index([isActive])
+}
+
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  type        String // e.g. "SEND_EMAIL", "PROCESS_PAYMENT", "SEND_REMINDER"
+  payload     Json
+  status      String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  lastError   String?   @db.Text
+  scheduledAt DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@index([type])
+  @@index([scheduledAt])
 }
