@@ -15,7 +15,7 @@ export default function HomePage() {
             <h1 className="text-3xl font-extrabold text-white drop-shadow-lg sm:text-4xl lg:text-5xl">
               RENA <span className="font-normal">&mdash;</span> <span className="font-semibold">Choose the cleaner that&apos;s right for you</span>
             </h1>
-            <p className="mt-4 text-lg text-white/90 drop-shadow sm:text-xl">
+            <p className="mt-4 hidden text-lg text-white/90 drop-shadow sm:block sm:text-xl">
               Our mission is to connect you with trusted, vetted cleaners in your
               area — so you can find the right person for your home, someone you
               can rely on and trust.
