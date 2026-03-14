@@ -13,11 +13,8 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-7xl px-4 py-32 sm:px-6 sm:py-44 lg:px-8 lg:py-52">
           <div className="max-w-xl">
             <h1 className="text-3xl font-extrabold text-white drop-shadow-lg sm:text-4xl lg:text-5xl">
-              RENA
+              RENA <span className="font-normal">&mdash;</span> <span className="font-semibold">Choose the cleaner that&apos;s right for you</span>
             </h1>
-            <p className="mt-2 text-xl font-semibold text-white drop-shadow sm:text-2xl">
-              Choose the cleaner that&apos;s right for you
-            </p>
             <p className="mt-4 text-lg text-white/90 drop-shadow sm:text-xl">
               Our mission is to connect you with trusted, vetted cleaners in your
               area — so you can find the right person for your home, someone you
