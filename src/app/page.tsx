@@ -12,7 +12,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-32 lg:px-8">
           <h1 className="text-4xl font-extrabold uppercase tracking-wider text-white sm:text-5xl lg:text-6xl drop-shadow-lg">
-            The Cleaner Exchange
+            Rena
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90 drop-shadow">
             Our mission is to connect you with trusted, vetted cleaners in your
@@ -162,7 +162,7 @@ export default function HomePage() {
             Ready for a spotless home?
           </h2>
           <p className="mt-3 text-white/80">
-            Join thousands of happy customers who trust The Cleaner Exchange.
+            Join thousands of happy customers who trust Rena.
           </p>
           <Link
             href="/services/regular"

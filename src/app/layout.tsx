@@ -6,14 +6,14 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import InstallPrompt from "@/components/InstallPrompt";
 
 export const metadata: Metadata = {
-  title: "The Cleaner Exchange — Find Trusted Cleaners Near You",
+  title: "Rena Cleaning Network — Find Trusted Cleaners Near You",
   description:
     "Find trusted, independent cleaners in your area. Book in minutes, pay securely, and enjoy a spotless home.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "The Cleaner Exchange",
+    title: "Rena Cleaning Network",
   },
   formatDetection: {
     telephone: false,
