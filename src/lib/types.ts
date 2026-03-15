@@ -375,3 +375,153 @@ export interface SurgePricingInfo {
   reason: 'peak_demand' | 'low_supply' | 'holiday' | 'none';
   expiresAt?: string;
 }
+
+// ─── Provider System ─────────────────────────────────────────
+
+export type ProviderType = 'INDIVIDUAL' | 'COMPANY';
+
+export interface Provider {
+  id: string;
+  type: ProviderType;
+  companyId?: string;
+  createdAt: string;
+}
+
+// ─── Company ─────────────────────────────────────────────────
+
+export type CompanyVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+
+export interface Company {
+  id: string;
+  ownerId: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  website?: string;
+  phone?: string;
+  email?: string;
+  registrationNumber?: string;
+  verificationStatus: CompanyVerificationStatus;
+  staffCount: number;
+  operatingAreas: string[];
+  specialties: string[];
+  insuranceVerified: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CompanyDashboardStats {
+  totalBookings: number;
+  completedBookings: number;
+  activeCleaners: number;
+  totalRevenue: number;
+  averageRating: number;
+  cancellationRate: number;
+  bookingsThisWeek: number;
+  revenueThisMonth: number;
+}
+
+// ─── Team Management ─────────────────────────────────────────
+
+export type TeamMemberRole = 'OWNER' | 'MANAGER' | 'CLEANER';
+
+export interface TeamMember {
+  id: string;
+  companyId: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  role: TeamMemberRole;
+  isActive: boolean;
+  canAcceptJobs: boolean;
+  joinedAt: string;
+}
+
+// ─── Complaint System ────────────────────────────────────────
+
+export type ComplaintCategory =
+  | 'NO_SHOW'
+  | 'POOR_QUALITY'
+  | 'PROPERTY_DAMAGE'
+  | 'INCORRECT_DURATION'
+  | 'SAFETY_CONCERN'
+  | 'PAYMENT_ISSUE'
+  | 'UNPROFESSIONAL'
+  | 'OTHER';
+
+export type ComplaintSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface ComplaintInput {
+  bookingId: string;
+  category: ComplaintCategory;
+  severity?: ComplaintSeverity;
+  subject: string;
+  description: string;
+}
+
+export interface ComplaintRecord {
+  id: string;
+  bookingId: string;
+  filedById: string;
+  category: ComplaintCategory;
+  severity: ComplaintSeverity;
+  subject: string;
+  description: string;
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED';
+  resolution?: string;
+  refundAmount?: number;
+  isRedoClean: boolean;
+  evidence: EvidenceRecord[];
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+// ─── Evidence System ─────────────────────────────────────────
+
+export type EvidenceType = 'PHOTO' | 'VIDEO' | 'TEXT' | 'DOCUMENT';
+
+export interface EvidenceRecord {
+  id: string;
+  type: EvidenceType;
+  url: string;
+  fileName?: string;
+  description?: string;
+  uploadedAt: string;
+}
+
+export interface EvidenceUploadInput {
+  type: EvidenceType;
+  url: string;
+  fileName?: string;
+  description?: string;
+}
+
+// ─── Cleaner Job Actions ─────────────────────────────────────
+
+export type CleanerJobAction = 'ACCEPT' | 'REJECT' | 'CHECK_IN' | 'COMPLETE' | 'ADD_NOTES';
+
+export interface CleanerJobUpdate {
+  action: CleanerJobAction;
+  bookingId: string;
+  notes?: string;
+}
+
+// ─── Notification Channels ──────────────────────────────────
+
+export type NotificationChannel = 'EMAIL' | 'SMS' | 'PUSH';
+
+export interface NotificationPreferences {
+  userId: string;
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+  pushSubscription?: PushSubscriptionData;
+}
+
+export interface PushSubscriptionData {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}

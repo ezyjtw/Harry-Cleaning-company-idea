@@ -83,6 +83,49 @@ enum ReviewVisibility {
   FLAGGED
 }
 
+enum ProviderType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum CompanyVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum TeamMemberRole {
+  OWNER
+  MANAGER
+  CLEANER
+}
+
+enum ComplaintCategory {
+  NO_SHOW
+  POOR_QUALITY
+  PROPERTY_DAMAGE
+  INCORRECT_DURATION
+  SAFETY_CONCERN
+  PAYMENT_ISSUE
+  UNPROFESSIONAL
+  OTHER
+}
+
+enum ComplaintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EvidenceType {
+  PHOTO
+  VIDEO
+  TEXT
+  DOCUMENT
+}
+
 // ─── NextAuth Models ─────────────────────────────────────────────────────────
 
 model Account {
@@ -158,6 +201,9 @@ model User {
   receivedMessages  Message[]       @relation("ReceivedMessages")
   notifications     Notification[]
   disputesRaised    Dispute[]       @relation("DisputesRaised")
+  ownedCompany      Company?        @relation("CompanyOwner")
+  teamMemberships   TeamMember[]
+  complaints        Complaint[]     @relation("ComplaintsFiled")
 
   @@index([email])
   @@index([role])
@@ -194,7 +240,10 @@ model CleanerProfile {
   totalJobsCompleted    Int                @default(0)
   availabilitySummary   String?            @db.Text
 
+  providerId            String?
+
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider              Provider?              @relation(fields: [providerId], references: [id])
   availabilitySlots     AvailabilitySlot[]
   availabilityOverrides AvailabilityOverride[]
 
@@ -204,6 +253,7 @@ model CleanerProfile {
   @@index([availableNow])
   @@index([location])
   @@index([rating])
+  @@index([providerId])
 }
 
 model Address {
@@ -254,13 +304,17 @@ model Booking {
   checklistCompleted Boolean       @default(false)
   arrivalConfirmed   Boolean       @default(false)
 
+  providerId         String?
+
   client   User      @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
   cleaner  User      @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
   address  Address   @relation(fields: [addressId], references: [id])
+  provider Provider? @relation(fields: [providerId], references: [id])
   review   Review?
   messages Message[]
   payment  Payment?
   dispute  Dispute?
+  complaints Complaint[]
 
   @@index([clientId])
   @@index([cleanerId])
@@ -268,6 +322,7 @@ model Booking {
   @@index([date])
   @@index([createdAt])
   @@index([cleanerId, date])
+  @@index([providerId])
 }
 
 model Review {
@@ -362,8 +417,9 @@ model Dispute {
   resolvedAt  DateTime?
   updatedAt   DateTime      @updatedAt
 
-  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  raisedBy User    @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
+  booking  Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy User             @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
+  evidence DisputeEvidence[]
 
   @@index([bookingId])
   @@index([raisedById])
@@ -459,4 +515,127 @@ model BackgroundJob {
   @@index([status])
   @@index([type])
   @@index([scheduledAt])
+}
+
+// ─── Provider System ─────────────────────────────────────────────────────────
+
+model Provider {
+  id        String       @id @default(cuid())
+  type      ProviderType @default(INDIVIDUAL)
+  companyId String?      @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  company  Company?         @relation(fields: [companyId], references: [id])
+  cleaners CleanerProfile[]
+  bookings Booking[]
+
+  @@index([type])
+  @@index([companyId])
+}
+
+model Company {
+  id                 String                    @id @default(cuid())
+  ownerId            String                    @unique
+  name               String
+  description        String?                   @db.Text
+  logo               String?
+  website            String?
+  phone              String?
+  email              String?
+  registrationNumber String?
+  verificationStatus CompanyVerificationStatus  @default(PENDING)
+  staffCount         Int                        @default(1)
+  operatingAreas     String[]
+  specialties        String[]
+  insuranceVerified  Boolean                    @default(false)
+  isActive           Boolean                    @default(true)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  owner    User         @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  provider Provider?
+  team     TeamMember[]
+
+  @@index([ownerId])
+  @@index([verificationStatus])
+  @@index([isActive])
+}
+
+model TeamMember {
+  id          String         @id @default(cuid())
+  companyId   String
+  userId      String
+  role        TeamMemberRole @default(CLEANER)
+  isActive    Boolean        @default(true)
+  canAcceptJobs Boolean      @default(false)
+  joinedAt    DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+// ─── Complaint & Evidence System ─────────────────────────────────────────────
+
+model Complaint {
+  id          String            @id @default(cuid())
+  bookingId   String
+  filedById   String
+  category    ComplaintCategory
+  severity    ComplaintSeverity @default(MEDIUM)
+  subject     String
+  description String            @db.Text
+  status      DisputeStatus     @default(OPEN)
+  resolution  String?           @db.Text
+  refundAmount Decimal?         @db.Decimal(10, 2)
+  isRedoClean Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  resolvedAt  DateTime?
+  updatedAt   DateTime          @updatedAt
+
+  booking  Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  filedBy  User                @relation("ComplaintsFiled", fields: [filedById], references: [id], onDelete: Cascade)
+  evidence ComplaintEvidence[]
+
+  @@index([bookingId])
+  @@index([filedById])
+  @@index([status])
+  @@index([category])
+  @@index([severity])
+}
+
+model ComplaintEvidence {
+  id          String       @id @default(cuid())
+  complaintId String
+  type        EvidenceType
+  url         String
+  fileName    String?
+  description String?      @db.Text
+  uploadedAt  DateTime     @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+model DisputeEvidence {
+  id         String       @id @default(cuid())
+  disputeId  String
+  type       EvidenceType
+  url        String
+  fileName   String?
+  description String?     @db.Text
+  uploadedBy String // userId
+  uploadedAt DateTime     @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId])
+  @@index([uploadedBy])
 }

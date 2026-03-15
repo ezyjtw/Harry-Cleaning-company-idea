@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import Link from 'next/link';
+import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -15,18 +15,18 @@ export default function Navbar() {
       }
     }
     if (menuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
   // Close menu on route change (escape key)
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === 'Escape') setMenuOpen(false);
     }
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
   return (
@@ -40,10 +40,7 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-gray-600 hover:text-brand-700"
-          >
+          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-brand-700">
             Log In
           </Link>
           <Link
@@ -56,7 +53,7 @@ export default function Navbar() {
           {/* Menu button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
             className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-brand-700 touch-target sm:ml-1"
           >
@@ -154,6 +151,20 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(false)}
               >
                 Cleaner Dashboard
+              </Link>
+            </div>
+
+            {/* Company flow */}
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Cleaning companies
+            </h3>
+            <div className="mt-2 flex flex-col gap-0.5">
+              <Link
+                href="/company"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Company Dashboard
               </Link>
             </div>
           </div>

@@ -2,19 +2,40 @@ import type { NotificationType, Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
 
+// ─── Types ──────────────────────────────────────────────────────
+
+export type NotificationChannel = 'EMAIL' | 'SMS' | 'PUSH' | 'IN_APP';
+
 export interface NotificationPayload {
   userId: string;
   type: NotificationType;
   title: string;
   body: string;
   data?: Record<string, string>;
+  channels?: NotificationChannel[];
+}
+
+export interface SMSConfig {
+  to: string;
+  body: string;
+}
+
+export interface PushConfig {
+  title: string;
+  body: string;
+  icon?: string;
+  badge?: string;
+  url?: string;
+  tag?: string;
 }
 
 export class EnhancedNotificationService {
   /**
-   * Create and deliver a notification
+   * Create and deliver a notification across multiple channels
    */
   static async send(payload: NotificationPayload) {
+    const channels = payload.channels ?? ['IN_APP', 'PUSH'];
+
     const notification = await prisma.notification.create({
       data: {
         userId: payload.userId,
@@ -25,9 +46,20 @@ export class EnhancedNotificationService {
       },
     });
 
-    // Queue push notification if user has enabled them
-    // This would integrate with web push or FCM
-    await this.queuePushNotification(payload);
+    // Deliver to each requested channel
+    const deliveryPromises: Promise<void>[] = [];
+
+    if (channels.includes('PUSH')) {
+      deliveryPromises.push(this.queuePushNotification(payload));
+    }
+    if (channels.includes('EMAIL')) {
+      deliveryPromises.push(this.queueEmailNotification(payload));
+    }
+    if (channels.includes('SMS')) {
+      deliveryPromises.push(this.queueSMSNotification(payload));
+    }
+
+    await Promise.allSettled(deliveryPromises);
 
     return notification;
   }
@@ -172,10 +204,39 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * Queue a push notification (placeholder for web push integration)
+   * Send booking-related notifications with appropriate channels
+   */
+  static async sendBookingNotification(
+    bookingId: string,
+    type: NotificationType,
+    title: string,
+    body: string,
+    recipientId: string
+  ) {
+    return this.send({
+      userId: recipientId,
+      type,
+      title,
+      body,
+      data: { bookingId },
+      channels: ['IN_APP', 'PUSH', 'EMAIL'],
+    });
+  }
+
+  /**
+   * Send urgent notification (all channels including SMS)
+   */
+  static async sendUrgent(payload: Omit<NotificationPayload, 'channels'>) {
+    return this.send({
+      ...payload,
+      channels: ['IN_APP', 'PUSH', 'EMAIL', 'SMS'],
+    });
+  }
+
+  /**
+   * Queue a push notification for web push delivery
    */
   private static async queuePushNotification(payload: NotificationPayload) {
-    // Queue as background job for actual push delivery
     try {
       await prisma.backgroundJob.create({
         data: {
@@ -185,14 +246,77 @@ export class EnhancedNotificationService {
             userId: payload.userId,
             title: payload.title,
             body: payload.body,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/icon-72x72.png',
+            data: payload.data,
           } as Prisma.InputJsonValue,
           scheduledAt: new Date(),
         },
       });
     } catch {
-      // Non-critical: log but don't fail
       // eslint-disable-next-line no-console
       console.error('[Notification] Failed to queue push notification');
+    }
+  }
+
+  /**
+   * Queue an email notification
+   */
+  private static async queueEmailNotification(payload: NotificationPayload) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { email: true, name: true },
+      });
+      if (!user) return;
+
+      await prisma.backgroundJob.create({
+        data: {
+          type: 'SEND_EMAIL',
+          payload: {
+            action: 'EMAIL_NOTIFICATION',
+            to: user.email,
+            recipientName: user.name ?? 'Customer',
+            subject: payload.title,
+            body: payload.body,
+            type: payload.type,
+            data: payload.data,
+          } as Prisma.InputJsonValue,
+          scheduledAt: new Date(),
+        },
+      });
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('[Notification] Failed to queue email notification');
+    }
+  }
+
+  /**
+   * Queue an SMS notification
+   */
+  private static async queueSMSNotification(payload: NotificationPayload) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { phone: true },
+      });
+      if (!user?.phone) return;
+
+      await prisma.backgroundJob.create({
+        data: {
+          type: 'SEND_SMS',
+          payload: {
+            action: 'SMS_NOTIFICATION',
+            to: user.phone,
+            body: `${payload.title}: ${payload.body}`,
+            type: payload.type,
+          } as Prisma.InputJsonValue,
+          scheduledAt: new Date(),
+        },
+      });
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('[Notification] Failed to queue SMS notification');
     }
   }
 }
