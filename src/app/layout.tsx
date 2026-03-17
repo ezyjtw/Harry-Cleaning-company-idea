@@ -55,6 +55,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="msapplication-TileColor" content="#2563EB" />
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400;500&display=swap"
+          rel="stylesheet"
+        />
         <link rel="preload" as="image" href="/images/hero-banner.jpg" fetchPriority="high" />
       </head>
       <body className="flex min-h-screen flex-col">
@@ -65,11 +71,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <ServiceWorkerRegistration />
-        <Navbar />
+        <div id="layout-nav">
+          <Navbar />
+        </div>
         <main id="main-content" className="flex-1" role="main">
           {children}
         </main>
-        <Footer />
+        <div id="layout-footer">
+          <Footer />
+        </div>
         <InstallPrompt />
         <AIChatWidget />
       </body>
