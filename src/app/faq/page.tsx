@@ -1,7 +1,6 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import type { Metadata } from 'next'
+import { useState } from 'react';
 
 const faqCategories = [
   {
@@ -59,7 +58,7 @@ const faqCategories = [
       },
       {
         q: 'Do regular bookings cost less?',
-        a: 'Many cleaners offer discounted rates for recurring bookings (weekly or fortnightly). The discount is shown on each cleaner\'s profile so you can compare before booking.',
+        a: "Many cleaners offer discounted rates for recurring bookings (weekly or fortnightly). The discount is shown on each cleaner's profile so you can compare before booking.",
       },
     ],
   },
@@ -118,110 +117,117 @@ const faqCategories = [
       },
     ],
   },
-]
+];
 
 export default function FAQPage() {
-  const [openItems, setOpenItems] = useState<Record<string, boolean>>({})
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
   const toggleItem = (key: string) => {
-    setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
+    setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-          Frequently Asked Questions
-        </h1>
-        <p className="mt-4 text-lg text-gray-600">
-          Everything you need to know about using Rena. Can&apos;t find your
-          answer?{' '}
-          <a href="mailto:support@rena.com" className="text-brand-600 hover:text-brand-700 underline">
-            Contact our support team
-          </a>
-          .
-        </p>
-      </div>
+    <div className="min-h-screen bg-cream">
+      <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h1 className="font-cormorant text-4xl font-light tracking-tight text-ink">
+            Frequently Asked Questions
+          </h1>
+          <p className="mt-4 font-jost text-lg font-light text-ink-2">
+            Everything you need to know about using Rena. Can&apos;t find your answer?{' '}
+            <a href="mailto:support@rena.com" className="text-gold hover:underline">
+              Contact our support team
+            </a>
+            .
+          </p>
+        </div>
 
-      <div className="mt-16 space-y-12">
-        {faqCategories.map((category) => (
-          <section key={category.name} aria-labelledby={`faq-${category.name.toLowerCase()}`}>
-            <h2
-              id={`faq-${category.name.toLowerCase()}`}
-              className="text-2xl font-bold text-gray-900 border-b border-gray-200 pb-3"
-            >
-              {category.name}
-            </h2>
-            <dl className="mt-6 space-y-0 divide-y divide-gray-200">
-              {category.questions.map((item, idx) => {
-                const key = `${category.name}-${idx}`
-                const isOpen = openItems[key] || false
+        <div className="mt-16 space-y-12">
+          {faqCategories.map((category) => (
+            <section key={category.name} aria-labelledby={`faq-${category.name.toLowerCase()}`}>
+              <div className="pb-3" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <div className="mb-2 h-px w-12 bg-gold" />
+                <h2
+                  id={`faq-${category.name.toLowerCase()}`}
+                  className="font-cormorant text-2xl font-light text-ink"
+                >
+                  {category.name}
+                </h2>
+              </div>
+              <dl className="mt-6 space-y-0" style={{ borderColor: 'rgba(14,14,12,0.1)' }}>
+                {category.questions.map((item, idx) => {
+                  const key = `${category.name}-${idx}`;
+                  const isOpen = openItems[key] || false;
 
-                return (
-                  <div key={key} className="py-4">
-                    <dt>
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between text-left"
-                        onClick={() => toggleItem(key)}
-                        aria-expanded={isOpen}
-                        aria-controls={`answer-${key}`}
-                      >
-                        <span className="text-base font-semibold text-gray-900">
-                          {item.q}
-                        </span>
-                        <span className="ml-6 flex-shrink-0">
-                          <svg
-                            className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${
-                              isOpen ? 'rotate-180' : ''
-                            }`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={2}
-                            stroke="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </span>
-                      </button>
-                    </dt>
-                    {isOpen && (
-                      <dd
-                        id={`answer-${key}`}
-                        className="mt-3 text-base text-gray-600 leading-relaxed"
-                      >
-                        {item.a}
-                      </dd>
-                    )}
-                  </div>
-                )
-              })}
-            </dl>
-          </section>
-        ))}
-      </div>
+                  return (
+                    <div
+                      key={key}
+                      className="py-4"
+                      style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      <dt>
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between text-left"
+                          onClick={() => toggleItem(key)}
+                          aria-expanded={isOpen}
+                          aria-controls={`answer-${key}`}
+                        >
+                          <span className="font-jost text-base font-normal text-ink">{item.q}</span>
+                          <span className="ml-6 flex-shrink-0">
+                            <svg
+                              className={`h-5 w-5 text-ink-3 transition-transform duration-200 ${
+                                isOpen ? 'rotate-180' : ''
+                              }`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={2}
+                              stroke="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </span>
+                        </button>
+                      </dt>
+                      {isOpen && (
+                        <dd
+                          id={`answer-${key}`}
+                          className="mt-3 font-jost text-base font-light text-ink-2 leading-relaxed"
+                        >
+                          {item.a}
+                        </dd>
+                      )}
+                    </div>
+                  );
+                })}
+              </dl>
+            </section>
+          ))}
+        </div>
 
-      {/* CTA */}
-      <div className="mt-16 rounded-xl bg-brand-50 p-8 text-center">
-        <h3 className="text-xl font-bold text-gray-900">
-          Still have questions?
-        </h3>
-        <p className="mt-2 text-gray-600">
-          Our support team is here to help. Get in touch and we will get back to
-          you within 24 hours.
-        </p>
-        <a
-          href="mailto:support@rena.com"
-          className="mt-4 inline-block rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700 transition-colors"
+        {/* CTA */}
+        <div
+          className="mt-16 bg-cream-2 p-8 text-center"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
         >
-          Contact Support
-        </a>
+          <h3 className="font-cormorant text-xl font-light text-ink">Still have questions?</h3>
+          <p className="mt-2 font-jost font-light text-ink-2">
+            Our support team is here to help. Get in touch and we will get back to you within 24
+            hours.
+          </p>
+          <a
+            href="mailto:support@rena.com"
+            className="mt-4 inline-block bg-ink px-6 py-3 font-jost font-normal text-cream transition-colors hover:opacity-90"
+          >
+            Contact Support
+          </a>
+        </div>
       </div>
     </div>
-  )
+  );
 }

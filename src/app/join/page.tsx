@@ -124,14 +124,19 @@ function toggleInArray(arr: string[], value: string): string[] {
 /* ------------------------------------------------------------------ */
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-sm font-medium text-gray-700">{children}</label>;
+  return (
+    <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+      {children}
+    </label>
+  );
 }
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+      className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
     />
   );
 }
@@ -154,9 +159,10 @@ function PillToggle({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-        active ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      className={`px-4 py-1.5 font-jost text-sm font-light transition ${
+        active ? 'bg-ink text-cream' : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
       }`}
+      style={active ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }}
     >
       {label}
     </button>
@@ -302,16 +308,16 @@ export default function JoinAsCleanerPage() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-3xl">
+      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2 text-3xl text-gold">
           &#10024;
         </div>
-        <h1 className="mt-6 text-3xl font-bold text-gray-900">Application Received!</h1>
-        <p className="mt-4 text-gray-600">
+        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Application Received!</h1>
+        <p className="mt-4 font-jost font-light text-ink-2">
           Thank you for applying to join Rena, {form.name}! We&apos;ll review your application and
           get back to you within 24-48 hours at {form.email}.
         </p>
-        <p className="mt-4 text-sm text-gray-500">
+        <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
           In the meantime, prepare for the verification process by having your ID and any cleaning
           certifications ready.
         </p>
@@ -327,9 +333,9 @@ export default function JoinAsCleanerPage() {
   if (!mounted) return null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-gray-900">Become a Cleaner</h1>
-      <p className="mt-2 text-gray-600">
+    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">
+      <h1 className="font-cormorant text-3xl font-light text-ink">Become a Cleaner</h1>
+      <p className="mt-2 font-jost font-light text-ink-2">
         Join our network of trusted cleaning professionals. Complete the steps below to get started.
       </p>
 
@@ -345,37 +351,34 @@ export default function JoinAsCleanerPage() {
                 <div className="flex w-full items-center">
                   {idx > 0 && (
                     <div
-                      className={`h-0.5 flex-1 ${
-                        idx <= currentStep ? 'bg-brand-600' : 'bg-gray-200'
-                      }`}
+                      className={`h-px flex-1 ${idx <= currentStep ? 'bg-gold' : 'bg-cream-2'}`}
                     />
                   )}
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center font-cormorant text-sm font-light transition ${
                       isCompleted
-                        ? 'bg-brand-600 text-white'
+                        ? 'bg-gold text-cream'
                         : isCurrent
-                          ? 'border-2 border-brand-600 bg-white text-brand-600'
-                          : 'border-2 border-gray-300 bg-white text-gray-400'
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2 text-ink-3'
                     }`}
+                    style={
+                      !isCompleted && !isCurrent
+                        ? { border: '0.5px solid rgba(14,14,12,0.1)' }
+                        : undefined
+                    }
                   >
                     {isCompleted ? '\u2713' : step.icon}
                   </div>
                   {idx < STEPS.length - 1 && (
                     <div
-                      className={`h-0.5 flex-1 ${
-                        idx < currentStep ? 'bg-brand-600' : 'bg-gray-200'
-                      }`}
+                      className={`h-px flex-1 ${idx < currentStep ? 'bg-gold' : 'bg-cream-2'}`}
                     />
                   )}
                 </div>
                 <span
-                  className={`hidden text-xs sm:block ${
-                    isCurrent
-                      ? 'font-semibold text-brand-700'
-                      : isCompleted
-                        ? 'text-brand-600'
-                        : 'text-gray-400'
+                  className={`hidden text-xs sm:block font-jost ${
+                    isCurrent ? 'font-normal text-ink' : isCompleted ? 'text-gold' : 'text-ink-3'
                   }`}
                 >
                   {step.label}
@@ -387,11 +390,14 @@ export default function JoinAsCleanerPage() {
       </nav>
 
       {/* ---------- Step content card ---------- */}
-      <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6 shadow-card animate-fade-in sm:p-8">
+      <div
+        className="mt-8 bg-cream-2 p-6 animate-fade-in sm:p-8"
+        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      >
         {/* ===== Step 0 – Personal ===== */}
         {currentStep === 0 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
+            <h2 className="font-cormorant text-xl font-light text-ink">Personal Information</h2>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -461,7 +467,7 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 1 – Experience ===== */}
         {currentStep === 1 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-gray-900">Experience &amp; Skills</h2>
+            <h2 className="font-cormorant text-xl font-light text-ink">Experience &amp; Skills</h2>
 
             <div>
               <Label>Years of Experience</Label>
@@ -526,7 +532,8 @@ export default function JoinAsCleanerPage() {
                 value={form.bio}
                 onChange={(e) => set('bio', e.target.value)}
                 placeholder="Tell potential customers about yourself, your experience, and what makes your service special..."
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
               <FieldError message={errors.bio} />
             </div>
@@ -536,13 +543,15 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 2 – Pricing ===== */}
         {currentStep === 2 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-gray-900">Pricing &amp; Availability</h2>
+            <h2 className="font-cormorant text-xl font-light text-ink">
+              Pricing &amp; Availability
+            </h2>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label>Hourly Rate (your net rate)</Label>
                 <div className="relative mt-1">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
                     &pound;
                   </span>
                   <input
@@ -552,10 +561,11 @@ export default function JoinAsCleanerPage() {
                     required
                     value={form.hourlyRate}
                     onChange={(e) => set('hourlyRate', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                   Customers will see a slightly higher rate to cover platform costs.
                 </p>
                 <FieldError message={errors.hourlyRate} />
@@ -564,7 +574,7 @@ export default function JoinAsCleanerPage() {
               <div>
                 <Label>Same-Day Rate</Label>
                 <div className="relative mt-1">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
                     &pound;
                   </span>
                   <input
@@ -574,7 +584,8 @@ export default function JoinAsCleanerPage() {
                     required
                     value={form.sameDayRate}
                     onChange={(e) => set('sameDayRate', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   />
                 </div>
                 <FieldError message={errors.sameDayRate} />
@@ -599,20 +610,27 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 3 – Identity ===== */}
         {currentStep === 3 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-gray-900">Identity Verification</h2>
+            <h2 className="font-cormorant text-xl font-light text-ink">Identity Verification</h2>
 
             <div>
               <Label>Photo ID</Label>
-              <p className="mt-0.5 text-xs text-gray-500">Passport or driving licence accepted.</p>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) set('photoIdFile', file.name);
-                }}
-                className="mt-2 block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
-              />
+              <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Passport or driving licence accepted.
+              </p>
+              <div
+                className="mt-2 bg-cream p-4"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) set('photoIdFile', file.name);
+                  }}
+                  className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                />
+              </div>
               {form.photoIdFile && (
                 <p className="mt-1 text-xs text-green-600">Selected: {form.photoIdFile}</p>
               )}
@@ -621,22 +639,30 @@ export default function JoinAsCleanerPage() {
 
             <div>
               <Label>DBS Certificate (optional)</Label>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) set('dbsCertFile', file.name);
-                }}
-                className="mt-2 block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
-              />
+              <div
+                className="mt-2 bg-cream p-4"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) set('dbsCertFile', file.name);
+                  }}
+                  className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                />
+              </div>
               {form.dbsCertFile && (
                 <p className="mt-1 text-xs text-green-600">Selected: {form.dbsCertFile}</p>
               )}
             </div>
 
-            <div className="rounded-lg bg-brand-50 px-4 py-3">
-              <p className="text-sm text-brand-700">
+            <div
+              className="bg-cream px-4 py-3"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <p className="font-jost text-sm font-light text-ink-2">
                 Your documents are encrypted and stored securely. They are only used for identity
                 verification purposes.
               </p>
@@ -647,11 +673,14 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 4 – Payout ===== */}
         {currentStep === 4 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-gray-900">Payout Setup</h2>
+            <h2 className="font-cormorant text-xl font-light text-ink">Payout Setup</h2>
 
-            <div className="rounded-lg bg-brand-50 px-4 py-4">
-              <h3 className="font-semibold text-brand-700">We use Stripe Connect for payouts</h3>
-              <p className="mt-2 text-sm text-gray-700">
+            <div
+              className="bg-cream px-4 py-4"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <h3 className="font-jost font-normal text-ink">We use Stripe Connect for payouts</h3>
+              <p className="mt-2 font-jost text-sm font-light text-ink-2">
                 Stripe is a secure, industry-leading payment platform. Once your application is
                 approved, you&apos;ll be redirected to Stripe to set up your payouts. This lets you
                 receive earnings directly into your bank account.
@@ -661,13 +690,16 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={() => setStripeMessage(true)}
-              className="w-full rounded-lg bg-brand-600 py-3 text-base font-semibold text-white hover:bg-brand-700 transition"
+              className="w-full bg-ink py-3 font-jost text-base font-normal text-cream hover:bg-ink/90 transition"
             >
               Set Up Stripe
             </button>
 
             {stripeMessage && (
-              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700 animate-fade-in">
+              <div
+                className="bg-cream px-4 py-3 font-jost text-sm font-light text-ink-2 animate-fade-in"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
                 Coming soon &mdash; Stripe Connect integration is under development. You can
                 continue with your application for now.
               </div>
@@ -678,89 +710,97 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 5 – Review & Submit ===== */}
         {currentStep === 5 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-900">Review &amp; Submit</h2>
+            <h2 className="font-cormorant text-xl font-light text-ink">Review &amp; Submit</h2>
 
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Personal */}
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-semibold text-brand-700">Personal</h3>
-                <dl className="mt-2 space-y-1 text-sm text-gray-700">
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                  Personal
+                </h3>
+                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
-                    <dt className="inline font-medium">Name:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Name:</dt>{' '}
                     <dd className="inline">{form.name}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Email:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Email:</dt>{' '}
                     <dd className="inline">{form.email}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Phone:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Phone:</dt>{' '}
                     <dd className="inline">{form.phone}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Postcode:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Postcode:</dt>{' '}
                     <dd className="inline">{form.postcode}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">DOB:</dt>{' '}
+                    <dt className="inline font-normal text-ink">DOB:</dt>{' '}
                     <dd className="inline">{form.dateOfBirth}</dd>
                   </div>
                 </dl>
               </div>
 
               {/* Experience */}
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-semibold text-brand-700">Experience</h3>
-                <dl className="mt-2 space-y-1 text-sm text-gray-700">
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                  Experience
+                </h3>
+                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
-                    <dt className="inline font-medium">Years:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Years:</dt>{' '}
                     <dd className="inline">{form.yearsExperience}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Services:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Services:</dt>{' '}
                     <dd className="inline">{form.serviceTypes.join(', ') || 'None'}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Specialties:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Specialties:</dt>{' '}
                     <dd className="inline">{form.specialties.join(', ') || 'None'}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Languages:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Languages:</dt>{' '}
                     <dd className="inline">{form.languages.join(', ') || 'None'}</dd>
                   </div>
                 </dl>
               </div>
 
               {/* Pricing */}
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-semibold text-brand-700">Pricing</h3>
-                <dl className="mt-2 space-y-1 text-sm text-gray-700">
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                  Pricing
+                </h3>
+                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
-                    <dt className="inline font-medium">Hourly:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Hourly:</dt>{' '}
                     <dd className="inline">&pound;{form.hourlyRate}/hr</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Same-day:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Same-day:</dt>{' '}
                     <dd className="inline">&pound;{form.sameDayRate}/hr</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">Hours/week:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Hours/week:</dt>{' '}
                     <dd className="inline">{form.hoursPerWeek}</dd>
                   </div>
                 </dl>
               </div>
 
               {/* Identity */}
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-semibold text-brand-700">Identity</h3>
-                <dl className="mt-2 space-y-1 text-sm text-gray-700">
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                  Identity
+                </h3>
+                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
-                    <dt className="inline font-medium">Photo ID:</dt>{' '}
+                    <dt className="inline font-normal text-ink">Photo ID:</dt>{' '}
                     <dd className="inline">{form.photoIdFile || 'Not uploaded'}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-medium">DBS:</dt>{' '}
+                    <dt className="inline font-normal text-ink">DBS:</dt>{' '}
                     <dd className="inline">{form.dbsCertFile || 'Not uploaded'}</dd>
                   </div>
                 </dl>
@@ -769,9 +809,11 @@ export default function JoinAsCleanerPage() {
 
             {/* Bio */}
             {form.bio && (
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-semibold text-brand-700">Bio</h3>
-                <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{form.bio}</p>
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">Bio</h3>
+                <p className="mt-1 font-jost text-sm font-light text-ink-2 whitespace-pre-line">
+                  {form.bio}
+                </p>
               </div>
             )}
 
@@ -781,18 +823,22 @@ export default function JoinAsCleanerPage() {
                 type="checkbox"
                 checked={form.agreedToTerms}
                 onChange={(e) => set('agreedToTerms', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                className="mt-0.5 h-4 w-4 accent-ink"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
-              <span className="text-sm text-gray-700">
+              <span className="font-jost text-sm font-light text-ink-2">
                 I agree to the{' '}
-                <span className="font-medium text-brand-600 underline">Terms &amp; Conditions</span>{' '}
-                and consent to a background check as part of the verification process.
+                <span className="font-normal text-ink underline">Terms &amp; Conditions</span> and
+                consent to a background check as part of the verification process.
               </span>
             </label>
             <FieldError message={errors.agreedToTerms} />
 
             {errors.submit && (
-              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div
+                className="bg-red-50 px-4 py-3 font-jost text-sm font-light text-red-700"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
                 {errors.submit}
               </div>
             )}
@@ -805,7 +851,8 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goBack}
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              className="px-5 py-2.5 font-jost text-sm font-normal text-ink hover:bg-cream transition"
+              style={{ border: '0.5px solid #0e0e0c' }}
             >
               Back
             </button>
@@ -817,7 +864,7 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goNext}
-              className="rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition"
+              className="bg-ink px-6 py-2.5 font-jost text-sm font-normal text-cream hover:bg-ink/90 transition"
             >
               Next
             </button>
@@ -826,7 +873,7 @@ export default function JoinAsCleanerPage() {
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition disabled:opacity-50"
+              className="bg-ink px-6 py-2.5 font-jost text-sm font-normal text-cream hover:bg-ink/90 transition disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Application'}
             </button>

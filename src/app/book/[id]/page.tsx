@@ -46,8 +46,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   if (!cleaner) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Cleaner not found</h1>
+      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
+        <h1 className="font-cormorant text-2xl font-light text-ink">Cleaner not found</h1>
       </div>
     );
   }
@@ -129,19 +129,20 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-3xl">
+      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2 text-3xl text-gold">
           &#10003;
         </div>
-        <h1 className="mt-6 text-3xl font-bold text-gray-900">
+        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">
           {isLastMinute ? 'Express Booking Sent!' : 'Booking Confirmed!'}
         </h1>
-        <p className="mt-4 text-gray-600">
+        <p className="mt-4 font-jost font-light text-ink-2">
           {isLastMinute ? (
             <>
               Your last-minute booking request has been sent to {cleaner.name}. They typically
-              respond within <strong>{cleaner.responseTime}</strong>. You&apos;ll receive a
-              confirmation at {form.email}.
+              respond within{' '}
+              <strong className="font-normal text-ink">{cleaner.responseTime}</strong>. You&apos;ll
+              receive a confirmation at {form.email}.
             </>
           ) : (
             <>
@@ -150,32 +151,35 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </>
           )}
         </p>
-        <div className="mt-6 rounded-lg bg-gray-50 p-6 text-left">
-          <div className="grid gap-2 text-sm">
+        <div
+          className="mt-6 bg-cream-2 p-6 text-left"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
+          <div className="grid gap-2 font-jost text-sm font-light">
             <div className="flex justify-between">
-              <span className="text-gray-500">Cleaner</span>
-              <span className="font-medium">{cleaner.name}</span>
+              <span className="text-ink-3">Cleaner</span>
+              <span className="font-normal text-ink">{cleaner.name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Service</span>
-              <span className="font-medium">{selectedService.label}</span>
+              <span className="text-ink-3">Service</span>
+              <span className="font-normal text-ink">{selectedService.label}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Date</span>
-              <span className="font-medium">{form.date}</span>
+              <span className="text-ink-3">Date</span>
+              <span className="font-normal text-ink">{form.date}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Time</span>
-              <span className="font-medium">{form.time}</span>
+              <span className="text-ink-3">Time</span>
+              <span className="font-normal text-ink">{form.time}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Duration</span>
-              <span className="font-medium">{form.duration} hours</span>
+              <span className="text-ink-3">Duration</span>
+              <span className="font-normal text-ink">{form.duration} hours</span>
             </div>
-            <div className="mt-2 border-t pt-2">
+            <div className="mt-2 pt-2" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
               <div className="flex justify-between">
-                <span className="font-medium text-gray-900">Total</span>
-                <span className="text-lg font-bold text-brand-600">
+                <span className="font-normal text-ink">Total</span>
+                <span className="font-cormorant text-lg font-light text-gold">
                   &pound;{priceBreakdown.total.toFixed(2)}
                 </span>
               </div>
@@ -184,7 +188,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </div>
         <button
           onClick={() => router.push('/cleaners')}
-          className="mt-8 rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700"
+          className="mt-8 bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
         >
           Browse More Cleaners
         </button>
@@ -193,21 +197,22 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-gray-900">
+    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">
+      <h1 className="font-cormorant text-3xl font-light text-ink">
         {isExpress ? 'Express Booking' : 'Book a Cleaning'}
       </h1>
 
       {/* Express banner */}
       {isExpress && cleaner.availableNow && (
-        <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-4">
+        <div className="mt-4 bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <div className="flex items-center gap-3">
             <AvailableNowBadge responseTime={cleaner.responseTime} />
-            <span className="text-sm text-green-700">
-              Same-day rate: <strong>${cleaner.sameDayRate}/hr</strong>
+            <span className="font-jost text-sm font-light text-ink-2">
+              Same-day rate:{' '}
+              <strong className="font-normal text-ink">${cleaner.sameDayRate}/hr</strong>
             </span>
           </div>
-          <p className="mt-2 text-sm text-green-600">
+          <p className="mt-2 font-jost text-sm font-light text-ink-2">
             {cleaner.name} is available now and typically responds within {cleaner.responseTime}.
             Your booking will be prioritized.
           </p>
@@ -215,26 +220,31 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Cleaner summary */}
-      <div className="mt-6 flex items-center gap-4 rounded-lg bg-gray-50 p-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 text-xl font-bold text-brand-700">
+      <div
+        className="mt-6 flex items-center gap-4 bg-cream-2 p-4"
+        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      >
+        <div className="flex h-14 w-14 items-center justify-center bg-ink font-cormorant text-xl font-light text-cream">
           {cleaner.name.charAt(0)}
         </div>
         <div className="flex-1">
-          <h2 className="font-semibold text-gray-900">{cleaner.name}</h2>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <h2 className="font-jost font-normal text-ink">{cleaner.name}</h2>
+          <div className="flex items-center gap-2 font-jost text-sm font-light text-ink-3">
             <StarRating rating={cleaner.rating} />
             <span>
               {cleaner.rating} ({cleaner.reviewCount} reviews)
             </span>
             <span>&middot; ${cleaner.hourlyRate}/hr</span>
             {isLastMinute && (
-              <span className="text-green-600 font-medium">
+              <span className="text-gold font-normal">
                 &middot; ${cleaner.sameDayRate}/hr today
               </span>
             )}
           </div>
         </div>
-        <div className="text-right text-xs text-gray-400">Trusted &amp; verified</div>
+        <div className="text-right font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+          Trusted &amp; verified
+        </div>
       </div>
 
       {/* AI Estimator */}
@@ -252,7 +262,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <div className="mt-6">
           <button
             onClick={() => setShowRebook(!showRebook)}
-            className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            className="font-jost text-sm font-normal text-gold hover:text-gold/80"
           >
             {showRebook ? 'Hide past bookings' : 'Quick rebook from a past booking'}
           </button>
@@ -262,15 +272,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <button
                   key={booking.id}
                   onClick={() => handleRebook(booking.id)}
-                  className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-brand-300 hover:bg-brand-50 transition"
+                  className="w-full text-left p-3 hover:bg-cream-2 transition"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
                   <div className="flex justify-between">
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="font-jost text-sm font-normal text-ink">
                       {booking.serviceType} with {booking.cleanerName}
                     </span>
-                    <span className="text-sm text-gray-500">{booking.date}</span>
+                    <span className="font-jost text-sm font-light text-ink-3">{booking.date}</span>
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 font-jost text-xs font-light text-ink-3">
                     {booking.address} &middot; {booking.duration}h &middot; ${booking.totalPrice}
                   </div>
                 </button>
@@ -282,24 +293,28 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
       {/* Guest / Account selection */}
       {bookingMode === null && (
-        <div className="mt-8 rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">How would you like to book?</h3>
+        <div className="mt-8 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h3 className="font-cormorant text-lg font-light text-ink mb-4">
+            How would you like to book?
+          </h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <button
               onClick={() => setBookingMode('guest')}
-              className="rounded-lg border-2 border-gray-200 p-4 text-left hover:border-brand-400 hover:bg-brand-50 transition"
+              className="p-4 text-left hover:bg-cream-2 transition"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
-              <p className="font-semibold text-gray-900">Continue as Guest</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="font-jost font-normal text-ink">Continue as Guest</p>
+              <p className="font-jost text-sm font-light text-ink-3 mt-1">
                 No account needed. We&apos;ll email you a link to manage your booking.
               </p>
             </button>
             <button
               onClick={() => setBookingMode('account')}
-              className="rounded-lg border-2 border-brand-200 bg-brand-50 p-4 text-left hover:border-brand-400 transition"
+              className="bg-cream-2 p-4 text-left hover:bg-cream-2/80 transition"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
-              <p className="font-semibold text-brand-700">Sign in / Create Account</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="font-jost font-normal text-ink">Sign in / Create Account</p>
+              <p className="font-jost text-sm font-light text-ink-3 mt-1">
                 Save your details, rebook easily, and track all your bookings.
               </p>
             </button>
@@ -313,46 +328,57 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       >
         {/* Contact info */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="font-cormorant text-lg font-light text-ink">
             Your Information
             {bookingMode === 'guest' && (
-              <span className="ml-2 text-sm font-normal text-gray-500">(Guest checkout)</span>
+              <span className="ml-2 font-jost text-sm font-light text-ink-3">(Guest checkout)</span>
             )}
           </h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Full Name
+              </label>
               <input
                 type="text"
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Email
+              </label>
               <input
                 type="email"
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 onBlur={handleEmailBlur}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Phone
+              </label>
               <input
                 type="tel"
                 required
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Address
+              </label>
               {savedAddresses.length > 0 && (
                 <div className="mt-1 mb-2 flex flex-wrap gap-2">
                   {savedAddresses.map((addr) => (
@@ -360,10 +386,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       key={addr.id}
                       type="button"
                       onClick={() => handleSavedAddress(addr.id)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                      className={`px-3 py-1 font-jost text-xs font-light transition ${
                         form.selectedSavedAddress === addr.id
-                          ? 'bg-brand-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
                       }`}
                     >
                       {addr.label}
@@ -378,7 +404,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 onChange={(e) =>
                   setForm({ ...form, address: e.target.value, selectedSavedAddress: '' })
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
           </div>
@@ -386,14 +413,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
         {/* Service details */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Service Details</h3>
+          <h3 className="font-cormorant text-lg font-light text-ink">Service Details</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Service Type</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Service Type
+              </label>
               <select
                 value={form.serviceType}
                 onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 {SERVICE_TYPES.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -403,11 +433,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Duration (hours)</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Duration (hours)
+              </label>
               <select
                 value={form.duration}
                 onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
                   <option key={h} value={h}>
@@ -417,23 +450,29 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Preferred Date</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Preferred Date
+              </label>
               <input
                 type="date"
                 required
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Preferred Time</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Preferred Time
+              </label>
               <input
                 type="time"
                 required
                 value={form.time}
                 onChange={(e) => setForm({ ...form, time: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
           </div>
@@ -441,7 +480,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
         {/* Notes */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
             Special Notes / Instructions
           </label>
           <textarea
@@ -449,16 +488,19 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             placeholder="Any special requests, access instructions, or areas to focus on..."
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
           />
         </div>
 
         {/* Price summary */}
-        <div className="rounded-lg bg-gray-50 p-4">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Price Summary</h4>
-          <div className="space-y-2 text-sm">
+        <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h4 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
+            Price Summary
+          </h4>
+          <div className="space-y-2 font-jost text-sm font-light">
             <div className="flex justify-between">
-              <span className="text-gray-500">
+              <span className="text-ink-3">
                 &pound;{rate}/hr &times; {form.duration}h
                 {selectedService.multiplier !== 1 && (
                   <>
@@ -467,30 +509,31 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   </>
                 )}
               </span>
-              <span className="font-medium text-gray-700">
-                &pound;{priceBreakdown.total.toFixed(2)}
-              </span>
+              <span className="font-normal text-ink">&pound;{priceBreakdown.total.toFixed(2)}</span>
             </div>
-            {isLastMinute && <div className="text-xs text-green-600">Same-day rate applied</div>}
-            <div className="flex justify-between border-t border-gray-200 pt-2">
-              <span className="font-semibold text-gray-900">Total</span>
-              <span className="text-2xl font-bold text-brand-600">
+            {isLastMinute && (
+              <div className="font-jost text-xs font-light text-gold">Same-day rate applied</div>
+            )}
+            <div
+              className="flex justify-between pt-2"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
+              <span className="font-normal text-ink">Total</span>
+              <span className="font-cormorant text-2xl font-light text-gold">
                 &pound;{priceBreakdown.total.toFixed(2)}
               </span>
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-400">Exact price shown. No hidden charges, ever.</p>
+          <p className="mt-2 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            Exact price shown. No hidden charges, ever.
+          </p>
         </div>
 
         {/* Escrow info for first-time bookings */}
         {useEscrow && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
             <div className="flex items-start gap-3">
-              <svg
-                className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
+              <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
@@ -498,16 +541,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 />
               </svg>
               <div>
-                <h4 className="text-sm font-semibold text-amber-800">
+                <h4 className="font-jost text-sm font-normal text-ink">
                   Escrow Protection — First Booking
                 </h4>
-                <p className="mt-1 text-xs text-amber-700">
+                <p className="mt-1 font-jost text-xs font-light text-ink-2">
                   Since this is your first time booking with {cleaner.name}, your payment will be
                   held in secure escrow. It&apos;s only released after you confirm the job is
                   complete (or automatically after 24 hours). This protects you from scams and
                   protects the cleaner from non-payment.
                 </p>
-                <div className="mt-2 flex items-center gap-4 text-xs text-amber-600">
+                <div className="mt-2 flex items-center gap-4 font-jost text-xs font-light text-gold">
                   <span>&#10003; Payment held safely</span>
                   <span>&#10003; You confirm before release</span>
                   <span>&#10003; Dispute option available</span>
@@ -518,7 +561,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Verification badge */}
-        <div className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+        <div
+          className="flex items-center justify-between bg-cream-2 px-4 py-3"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
           <div className="flex items-center gap-2">
             <VerificationBadge
               identityVerified={cleaner.identityVerified}
@@ -527,14 +573,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             />
           </div>
           {cleaner.identityVerified && (
-            <span className="text-xs text-gray-500">Arrival photo will confirm identity</span>
+            <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              Arrival photo will confirm identity
+            </span>
           )}
         </div>
 
         <button
           type="submit"
-          className={`w-full rounded-lg py-3 text-lg font-semibold text-white ${
-            isLastMinute ? 'bg-green-600 hover:bg-green-700' : 'bg-brand-600 hover:bg-brand-700'
+          className={`w-full py-3 font-jost text-lg font-normal text-cream ${
+            isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
           }`}
         >
           {isLastMinute ? 'Send Express Booking' : 'Confirm Booking'}
