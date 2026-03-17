@@ -144,7 +144,7 @@ export class AIApiService {
           duration: Number(b.duration),
           serviceType: b.serviceType,
           status: b.status,
-          address: `${b.address.line1}, ${b.address.postcode}`,
+          address: `${b.address?.line1 ?? ''}, ${b.address?.postcode ?? ''}`,
         })),
       },
     };
