@@ -72,7 +72,7 @@ export class EnhancedNotificationService {
       where: { id: bookingId },
       include: { client: true, cleaner: true },
     });
-    if (!booking) return;
+    if (!booking || !booking.clientId || !booking.cleanerId) return;
 
     // Notify customer
     await this.send({
@@ -114,7 +114,7 @@ export class EnhancedNotificationService {
    */
   static async sendArrivalAlert(bookingId: string) {
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-    if (!booking) return;
+    if (!booking || !booking.clientId) return;
 
     await this.send({
       userId: booking.clientId,
@@ -133,7 +133,7 @@ export class EnhancedNotificationService {
       where: { id: bookingId },
       include: { cleaner: true },
     });
-    if (!booking) return;
+    if (!booking || !booking.clientId) return;
 
     await this.send({
       userId: booking.clientId,
@@ -152,7 +152,7 @@ export class EnhancedNotificationService {
       where: { id: bookingId },
       include: { cleaner: true },
     });
-    if (!booking) return;
+    if (!booking || !booking.clientId) return;
 
     await this.send({
       userId: booking.clientId,
