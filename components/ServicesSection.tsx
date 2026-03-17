@@ -1,35 +1,43 @@
+import Link from 'next/link';
+
 const services = [
   {
+    id: 'regular',
     tag: 'Most popular',
     title: 'Regular cleaning',
     body: 'Weekly or fortnightly visits with your preferred cleaner, locked in at a consistent time.',
     price: 'From £18 / hr',
   },
   {
+    id: 'one-off',
     tag: 'Flexible',
     title: 'One-off clean',
     body: 'No subscription, no commitment. Book a single visit whenever your home needs attention.',
     price: 'From £18 / hr',
   },
   {
+    id: 'same-day',
     tag: 'Urgent',
     title: 'Same-day clean',
     body: 'Available cleaners in your area, booked within the hour. Ideal for last-minute needs.',
     price: 'From £22 / hr',
   },
   {
+    id: 'deep',
     tag: 'Thorough',
     title: 'Deep clean',
     body: 'Top-to-bottom. Inside appliances, skirting boards, and every corner you\u2019ve been putting off.',
     price: 'From £120',
   },
   {
+    id: 'end-of-tenancy',
     tag: 'Moving out',
     title: 'End of tenancy',
     body: 'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
     price: 'From £160',
   },
   {
+    id: 'airbnb',
     tag: 'Hosts',
     title: 'Airbnb cleaning',
     body: 'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
@@ -53,9 +61,10 @@ export default function ServicesSection() {
 
         <div className="grid grid-cols-3" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           {services.map((svc, i) => (
-            <div
+            <Link
               key={svc.title}
-              className="group p-8 transition-colors hover:bg-white"
+              href={`/services/${svc.id}`}
+              className="group block p-8 transition-colors hover:bg-white"
               style={{
                 borderRight: i % 3 !== 2 ? '0.5px solid rgba(14,14,12,0.1)' : undefined,
                 borderBottom: i < 3 ? '0.5px solid rgba(14,14,12,0.1)' : undefined,
@@ -71,7 +80,7 @@ export default function ServicesSection() {
               <p className="font-jost text-[13px] font-light text-ink-2">
                 {svc.price} <span className="text-gold">→</span>
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
