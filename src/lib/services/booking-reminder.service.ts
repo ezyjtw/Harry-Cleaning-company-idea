@@ -34,7 +34,7 @@ export class BookingReminderService {
         bookingId,
         type: 'customer_reminder',
         scheduledFor: customerReminder,
-        recipientId: booking.clientId,
+        recipientId: booking.clientId ?? '',
       });
     }
 
@@ -46,7 +46,7 @@ export class BookingReminderService {
         bookingId,
         type: 'cleaner_reminder',
         scheduledFor: cleanerReminder,
-        recipientId: booking.cleanerId,
+        recipientId: booking.cleanerId ?? '',
       });
     }
 
@@ -58,7 +58,7 @@ export class BookingReminderService {
         bookingId,
         type: 'arrival_alert',
         scheduledFor: arrivalAlert,
-        recipientId: booking.clientId,
+        recipientId: booking.clientId ?? '',
       });
     }
 
@@ -71,7 +71,7 @@ export class BookingReminderService {
       bookingId,
       type: 'review_request',
       scheduledFor: reviewRequest,
-      recipientId: booking.clientId,
+      recipientId: booking.clientId ?? '',
     });
 
     // Store reminders as background jobs
