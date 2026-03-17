@@ -1,15 +1,17 @@
-import Link from "next/link";
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
+import Link from 'next/link';
+
+import HeroQuoteWidget from '@/components/HeroQuoteWidget';
 
 export const metadata: Metadata = {
-  title: "Rena — Find Trusted Cleaners Near You",
+  title: 'Rena — Find Trusted Cleaners Near You',
   description:
-    "Connect with vetted, independent cleaners in your area. Book in minutes, pay securely, and enjoy a spotless home. Only 10% platform fee.",
+    'Connect with vetted, independent cleaners in your area. Book in minutes, pay securely, and enjoy a spotless home.',
   openGraph: {
-    title: "Rena — Find Trusted Cleaners Near You",
+    title: 'Rena — Find Trusted Cleaners Near You',
     description:
-      "Connect with vetted, independent cleaners in your area. Book in minutes, pay securely.",
-    type: "website",
+      'Connect with vetted, independent cleaners in your area. Book in minutes, pay securely.',
+    type: 'website',
   },
 };
 
@@ -22,7 +24,7 @@ export default function HomePage() {
           className="absolute inset-0 bg-cover"
           style={{
             backgroundImage: "url('/images/hero-banner.jpg')",
-            backgroundPosition: "70% center",
+            backgroundPosition: '70% center',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
@@ -35,23 +37,11 @@ export default function HomePage() {
               Choose the cleaner that&apos;s right for you
             </p>
             <p className="mt-4 hidden max-w-md text-base text-white/80 drop-shadow sm:block sm:text-lg">
-              Our mission is to connect you with trusted, vetted cleaners in
-              your area — so you can find the right person for your home,
-              someone you can rely on and trust.
+              Our mission is to connect you with trusted, vetted cleaners in your area — so you can
+              find the right person for your home, someone you can rely on and trust.
             </p>
-            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:gap-4">
-              <Link
-                href="/services"
-                className="btn-primary btn-lg text-center"
-              >
-                Book a Clean
-              </Link>
-              <Link
-                href="/how-it-works"
-                className="btn btn-lg border border-white/30 bg-white/10 text-center text-white backdrop-blur-sm hover:bg-white/20"
-              >
-                How It Works
-              </Link>
+            <div className="mt-6 sm:mt-8">
+              <HeroQuoteWidget />
             </div>
           </div>
         </div>
@@ -75,7 +65,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg">&#128176;</span>
-              <span>Only 10% Platform Fee</span>
+              <span>Fair, Transparent Pricing</span>
             </div>
           </div>
         </div>
@@ -87,8 +77,7 @@ export default function HomePage() {
           <div className="section-header">
             <h2>What type of clean do you need?</h2>
             <p className="mx-auto mt-3 max-w-2xl text-gray-600">
-              From regular weekly cleans to deep end-of-tenancy jobs, we&apos;ve
-              got you covered.
+              From regular weekly cleans to deep end-of-tenancy jobs, we&apos;ve got you covered.
             </p>
           </div>
 
@@ -104,8 +93,8 @@ export default function HomePage() {
               Regular Cleaning
             </h3>
             <p className="mt-2 max-w-md text-sm text-gray-600 sm:text-base">
-              Recurring weekly or fortnightly cleans to keep your home
-              consistently fresh. Lock in a lower rate with a regular schedule.
+              Recurring weekly or fortnightly cleans to keep your home consistently fresh. Lock in a
+              lower rate with a regular schedule.
             </p>
             <span className="mt-5 inline-block rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition group-hover:bg-brand-700 sm:px-8 sm:py-3">
               Get a Quote
@@ -115,11 +104,11 @@ export default function HomePage() {
           {/* Other services */}
           <div className="mt-6 grid gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
             {[
-              { id: "one-off", title: "One-Off Clean", icon: "&#10024;" },
-              { id: "same-day", title: "Same Day Clean", icon: "&#9889;" },
-              { id: "deep", title: "Deep Clean", icon: "&#128171;" },
-              { id: "airbnb", title: "AirBnB Clean", icon: "&#127968;" },
-              { id: "end-of-tenancy", title: "End of Tenancy", icon: "&#128230;" },
+              { id: 'one-off', title: 'One-Off Clean', icon: '&#10024;' },
+              { id: 'same-day', title: 'Same Day Clean', icon: '&#9889;' },
+              { id: 'deep', title: 'Deep Clean', icon: '&#128171;' },
+              { id: 'airbnb', title: 'AirBnB Clean', icon: '&#127968;' },
+              { id: 'end-of-tenancy', title: 'End of Tenancy', icon: '&#128230;' },
             ].map((svc) => (
               <Link
                 key={svc.id}
@@ -151,28 +140,26 @@ export default function HomePage() {
           <div className="grid gap-8 sm:grid-cols-3">
             {[
               {
-                step: "1",
-                title: "Tell Us What You Need",
-                desc: "Enter your postcode, tell us your rooms, and we\u2019ll suggest the right amount of time.",
+                step: '1',
+                title: 'Tell Us What You Need',
+                desc: 'Enter your postcode, tell us your rooms, and we\u2019ll suggest the right amount of time.',
               },
               {
-                step: "2",
-                title: "Choose Your Cleaner",
-                desc: "Browse cleaners in your area with reviews, languages, and availability. Pick one you like.",
+                step: '2',
+                title: 'Choose Your Cleaner',
+                desc: 'Browse cleaners in your area with reviews, languages, and availability. Pick one you like.',
               },
               {
-                step: "3",
-                title: "Sit Back & Relax",
-                desc: "Your cleaner arrives on time. Rate them after, and rebook with one tap.",
+                step: '3',
+                title: 'Sit Back & Relax',
+                desc: 'Your cleaner arrives on time. Rate them after, and rebook with one tap.',
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-xl font-bold text-white shadow-sm">
                   {item.step}
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  {item.title}
-                </h3>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">{item.title}</h3>
                 <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
               </div>
             ))}
@@ -189,27 +176,30 @@ export default function HomePage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
-                icon: "\u2605",
-                title: "Vetted Cleaners",
-                desc: "Every cleaner is ID-checked and reviewed by real customers before they join.",
+                icon: '\u2605',
+                title: 'Vetted Cleaners',
+                desc: 'Every cleaner is ID-checked and reviewed by real customers before they join.',
               },
               {
-                icon: "\uD83D\uDD12",
-                title: "Secure Payments",
-                desc: "Escrow protection on first bookings. Your money is safe until the job is done.",
+                icon: '\uD83D\uDD12',
+                title: 'Secure Payments',
+                desc: 'Escrow protection on first bookings. Your money is safe until the job is done.',
               },
               {
-                icon: "\uD83D\uDCC5",
-                title: "Flexible Scheduling",
-                desc: "Pick a time that works for you, or find cleaners available for same-day bookings.",
+                icon: '\uD83D\uDCC5',
+                title: 'Flexible Scheduling',
+                desc: 'Pick a time that works for you, or find cleaners available for same-day bookings.',
               },
               {
-                icon: "\uD83D\uDCB0",
-                title: "Fair Pricing",
-                desc: "Only 10% platform fee — cleaners keep more, you pay less compared to other platforms.",
+                icon: '\uD83D\uDCB0',
+                title: 'Fair Pricing',
+                desc: 'Competitive rates with no hidden fees. What you see is what you pay.',
               },
             ].map((f) => (
-              <div key={f.title} className="rounded-xl border border-gray-100 bg-gray-50 p-6 text-center">
+              <div
+                key={f.title}
+                className="rounded-xl border border-gray-100 bg-gray-50 p-6 text-center"
+              >
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-2xl">
                   {f.icon}
                 </div>
@@ -226,15 +216,20 @@ export default function HomePage() {
         <div className="container-page text-center">
           <h2 className="text-white">Are you a cleaner?</h2>
           <p className="mx-auto mt-3 max-w-xl text-gray-400">
-            Join Rena and keep 90% of what you earn. Set your own hours, choose
-            your clients, and grow your business with our platform.
+            Join Rena and set your own rates. Choose your hours, choose your clients, and grow your
+            business with our platform.
           </p>
-          <Link
-            href="/join"
-            className="btn-primary btn-lg mt-6 inline-block"
-          >
-            Become a Cleaner
-          </Link>
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">
+            <Link href="/join" className="btn-primary btn-lg inline-block">
+              Become a Cleaner
+            </Link>
+            <Link
+              href="/company"
+              className="inline-block rounded-lg border border-white/30 bg-white/10 px-8 py-3 text-lg font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+            >
+              Are you a cleaning company? Partner with us &rarr;
+            </Link>
+          </div>
         </div>
       </section>
 

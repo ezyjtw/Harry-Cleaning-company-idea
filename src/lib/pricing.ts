@@ -1,26 +1,54 @@
 // Platform fee configuration
-// Sparkle takes a low cut to keep pricing competitive and attract top cleaners.
-// Cleaners keep the majority of their earnings.
+// The fee is built into the displayed rate — customers see a single price.
+// Cleaners set their net rate, Rena multiplies by the margin factor.
 
-export const PLATFORM_FEE_PERCENT = 10; // 10% — significantly lower than industry standard 20-30%
+/** @server-only — do not import in client components */
+export const PLATFORM_FEE_PERCENT = 15;
 
-export function calculatePlatformFee(cleanerEarnings: number): number {
-  return Math.round(cleanerEarnings * (PLATFORM_FEE_PERCENT / 100) * 100) / 100;
+const MARGIN_FACTOR = 1 + PLATFORM_FEE_PERCENT / 100; // 1.15
+
+/**
+ * Convert a cleaner's net rate to the rate displayed to customers.
+ * Customer never sees a fee breakdown — the displayed rate IS the price.
+ */
+export function getDisplayedRate(cleanerNetRate: number): number {
+  return Math.round(cleanerNetRate * MARGIN_FACTOR * 100) / 100;
 }
 
-export function calculateTotalPrice(cleanerEarnings: number): number {
-  return cleanerEarnings + calculatePlatformFee(cleanerEarnings);
+/**
+ * From a displayed (customer-facing) total, extract the cleaner earnings.
+ */
+export function getCleanerEarnings(displayedTotal: number): number {
+  return Math.round((displayedTotal / MARGIN_FACTOR) * 100) / 100;
 }
 
-export function getPriceBreakdown(cleanerRate: number, duration: number, serviceMultiplier: number) {
-  const cleanerEarnings = cleanerRate * duration * serviceMultiplier;
-  const platformFee = calculatePlatformFee(cleanerEarnings);
-  const total = cleanerEarnings + platformFee;
+/**
+ * From a displayed total, extract the platform fee.
+ */
+export function getPlatformFee(displayedTotal: number): number {
+  return Math.round((displayedTotal - getCleanerEarnings(displayedTotal)) * 100) / 100;
+}
+
+/**
+ * Get price breakdown for internal/admin use.
+ * The customer only ever sees rate × hours = total.
+ */
+export function getPriceBreakdown(
+  displayedRate: number,
+  duration: number,
+  serviceMultiplier: number
+) {
+  const displayedTotal = Math.round(displayedRate * duration * serviceMultiplier * 100) / 100;
+  const cleanerEarnings = getCleanerEarnings(displayedTotal);
+  const platformFee = Math.round((displayedTotal - cleanerEarnings) * 100) / 100;
 
   return {
-    cleanerEarnings: Math.round(cleanerEarnings * 100) / 100,
-    platformFee: Math.round(platformFee * 100) / 100,
-    total: Math.round(total * 100) / 100,
+    displayedRate,
+    duration,
+    serviceMultiplier,
+    cleanerEarnings,
+    platformFee,
+    total: displayedTotal,
     platformFeePercent: PLATFORM_FEE_PERCENT,
   };
 }

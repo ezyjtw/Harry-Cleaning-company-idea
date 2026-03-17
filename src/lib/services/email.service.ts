@@ -1,3 +1,5 @@
+import { Resend } from 'resend';
+
 // ─── Types ──────────────────────────────────────────────────
 
 interface BookingEmailData {
@@ -29,25 +31,42 @@ interface PaymentEmailData {
   method: string;
 }
 
+// ─── Resend Client ──────────────────────────────────────────
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const FROM_EMAIL = process.env.FROM_EMAIL || 'Rena <noreply@rena.com>';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@rena.com';
+
 // ─── Helper ─────────────────────────────────────────────────
 
 async function sendEmail(to: string, subject: string, htmlBody: string): Promise<boolean> {
-  // TODO: Integrate with a real SMTP provider (e.g., SendGrid, AWS SES, Postmark)
-
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' || !resend) {
+    // eslint-disable-next-line no-console
     console.log('─────────────────────────────────────────');
+    // eslint-disable-next-line no-console
     console.log(`[Email] To: ${to}`);
+    // eslint-disable-next-line no-console
     console.log(`[Email] Subject: ${subject}`);
+    // eslint-disable-next-line no-console
     console.log(`[Email] Body preview: ${htmlBody.substring(0, 200)}...`);
+    // eslint-disable-next-line no-console
     console.log('─────────────────────────────────────────');
     return true;
   }
 
-  // Production: send via SMTP
-  // const transporter = nodemailer.createTransport({ ... });
-  // await transporter.sendMail({ from, to, subject, html: htmlBody });
-  console.log(`[Email] Would send email to ${to}: ${subject}`);
-  return true;
+  try {
+    await resend?.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html: htmlBody,
+    });
+    return true;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`[Email] Failed to send to ${to}:`, error);
+    return false;
+  }
 }
 
 // ─── Booking Emails ─────────────────────────────────────────
@@ -65,13 +84,12 @@ export async function sendBookingConfirmation(
       <li><strong>Date:</strong> ${booking.date}</li>
       <li><strong>Time:</strong> ${booking.time}</li>
       <li><strong>Address:</strong> ${booking.address}</li>
-      <li><strong>Total:</strong> £${booking.totalPrice.toFixed(2)}</li>
+      <li><strong>Total:</strong> &pound;${booking.totalPrice.toFixed(2)}</li>
     </ul>
     <p>Your payment is held securely in escrow until the job is completed.</p>
     <p>Thank you for choosing Rena Cleaning Network!</p>
   `;
 
-  console.log(`[Email] Sending booking confirmation to ${user.email}`);
   return sendEmail(user.email, subject, htmlBody);
 }
 
@@ -93,7 +111,6 @@ export async function sendBookingReminder(
     <p>Need to reschedule? Please let us know at least 4 hours in advance.</p>
   `;
 
-  console.log(`[Email] Sending booking reminder to ${user.email}`);
   return sendEmail(user.email, subject, htmlBody);
 }
 
@@ -110,7 +127,6 @@ export async function sendBookingCancellation(
     <p>We hope to see you again soon!</p>
   `;
 
-  console.log(`[Email] Sending booking cancellation to ${user.email}`);
   return sendEmail(user.email, subject, htmlBody);
 }
 
@@ -132,16 +148,12 @@ export async function sendCleanerAssignment(
     <p>Please confirm your availability as soon as possible.</p>
   `;
 
-  console.log(`[Email] Sending cleaner assignment to ${cleaner.email}`);
   return sendEmail(cleaner.email, subject, htmlBody);
 }
 
 // ─── Account Emails ─────────────────────────────────────────
 
-export async function sendPasswordReset(
-  email: string,
-  token: string
-): Promise<boolean> {
+export async function sendPasswordReset(email: string, token: string): Promise<boolean> {
   const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
   const subject = 'Reset your password - Rena Cleaning Network';
   const htmlBody = `
@@ -152,14 +164,10 @@ export async function sendPasswordReset(
     <p>If you did not request this, you can safely ignore this email.</p>
   `;
 
-  console.log(`[Email] Sending password reset to ${email}`);
   return sendEmail(email, subject, htmlBody);
 }
 
-export async function sendEmailVerification(
-  email: string,
-  token: string
-): Promise<boolean> {
+export async function sendEmailVerification(email: string, token: string): Promise<boolean> {
   const verifyLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify?token=${token}`;
   const subject = 'Verify your email - Rena Cleaning Network';
   const htmlBody = `
@@ -169,7 +177,6 @@ export async function sendEmailVerification(
     <p>This link will expire in 24 hours.</p>
   `;
 
-  console.log(`[Email] Sending email verification to ${email}`);
   return sendEmail(email, subject, htmlBody);
 }
 
@@ -185,7 +192,7 @@ export async function sendPaymentReceipt(
     <p>Hi ${user.name},</p>
     <p>Your payment has been processed successfully.</p>
     <ul>
-      <li><strong>Amount:</strong> £${payment.amount.toFixed(2)}</li>
+      <li><strong>Amount:</strong> &pound;${payment.amount.toFixed(2)}</li>
       <li><strong>Date:</strong> ${payment.date}</li>
       <li><strong>Booking:</strong> #${payment.bookingId}</li>
       <li><strong>Method:</strong> ${payment.method}</li>
@@ -195,6 +202,134 @@ export async function sendPaymentReceipt(
     <p>Thank you for using Rena Cleaning Network!</p>
   `;
 
-  console.log(`[Email] Sending payment receipt to ${user.email}`);
   return sendEmail(user.email, subject, htmlBody);
+}
+
+// ─── Contact Emails ─────────────────────────────────────────
+
+export async function sendContactConfirmation(
+  email: string,
+  name: string,
+  subject: string
+): Promise<boolean> {
+  const htmlBody = `
+    <h1>We received your message</h1>
+    <p>Hi ${name},</p>
+    <p>Thank you for contacting Rena Cleaning Network. We've received your enquiry regarding "<strong>${subject}</strong>".</p>
+    <p>Our support team will get back to you within 24 hours.</p>
+    <p>Best regards,<br/>The Rena Team</p>
+  `;
+
+  return sendEmail(email, 'We received your message - Rena', htmlBody);
+}
+
+export async function sendSupportAlert(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+  bookingRef?: string;
+}): Promise<boolean> {
+  const htmlBody = `
+    <h1>New Contact Form Submission</h1>
+    <ul>
+      <li><strong>Name:</strong> ${data.name}</li>
+      <li><strong>Email:</strong> ${data.email}</li>
+      ${data.phone ? `<li><strong>Phone:</strong> ${data.phone}</li>` : ''}
+      <li><strong>Subject:</strong> ${data.subject}</li>
+      ${data.bookingRef ? `<li><strong>Booking Ref:</strong> ${data.bookingRef}</li>` : ''}
+    </ul>
+    <h2>Message</h2>
+    <p>${data.message}</p>
+  `;
+
+  return sendEmail(SUPPORT_EMAIL, `[Support] ${data.subject} - from ${data.name}`, htmlBody);
+}
+
+// ─── Review Request Email ──────────────────────────────────
+
+export async function sendReviewRequest(
+  booking: BookingEmailData,
+  user: UserEmailData
+): Promise<boolean> {
+  const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard?review=${booking.id}`;
+  const subject = `How was your clean with ${booking.cleanerName}?`;
+  const htmlBody = `
+    <h1>How was your clean?</h1>
+    <p>Hi ${user.name},</p>
+    <p>Your ${booking.serviceType} clean with ${booking.cleanerName} on ${booking.date} has been completed.</p>
+    <p>We'd love to hear how it went! Your review helps other customers find great cleaners.</p>
+    <p><a href="${reviewLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Leave a Review</a></p>
+    <p>Thank you for using Rena!</p>
+  `;
+
+  return sendEmail(user.email, subject, htmlBody);
+}
+
+// ─── Guest Booking Email ────────────────────────────────────
+
+export async function sendGuestBookingConfirmation(
+  booking: BookingEmailData,
+  email: string,
+  guestName: string,
+  guestToken: string
+): Promise<boolean> {
+  const manageLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/guest?token=${guestToken}`;
+  const subject = `Booking confirmed - ${booking.date} at ${booking.time}`;
+  const htmlBody = `
+    <h1>Your booking is confirmed!</h1>
+    <p>Hi ${guestName},</p>
+    <p>Your ${booking.serviceType} cleaning has been confirmed.</p>
+    <ul>
+      <li><strong>Date:</strong> ${booking.date}</li>
+      <li><strong>Time:</strong> ${booking.time}</li>
+      <li><strong>Address:</strong> ${booking.address}</li>
+      <li><strong>Total:</strong> &pound;${booking.totalPrice.toFixed(2)}</li>
+    </ul>
+    <p>You can manage your booking using this link:</p>
+    <p><a href="${manageLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Manage Booking</a></p>
+    <p>This link is personal to you — please don't share it.</p>
+    <p>Thank you for choosing Rena Cleaning Network!</p>
+  `;
+
+  return sendEmail(email, subject, htmlBody);
+}
+
+// ─── Abandonment Email ──────────────────────────────────────
+
+export async function sendAbandonmentEmail(
+  email: string,
+  data: { cleanerName?: string; postcode?: string; personalizedMessage: string }
+): Promise<boolean> {
+  const subject = data.cleanerName
+    ? `Still looking for a cleaner? ${data.cleanerName} is available`
+    : 'Complete your booking with Rena';
+  const bookLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cleaners${data.postcode ? `?postcode=${data.postcode}` : ''}`;
+  const htmlBody = `
+    <p>${data.personalizedMessage}</p>
+    <p><a href="${bookLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Complete Your Booking</a></p>
+    <p style="font-size:12px;color:#999;">If you no longer wish to receive these emails, simply ignore this message.</p>
+  `;
+
+  return sendEmail(email, subject, htmlBody);
+}
+
+// ─── Team Invite Email ──────────────────────────────────────
+
+export async function sendTeamInvite(
+  email: string,
+  companyName: string,
+  inviteToken: string
+): Promise<boolean> {
+  const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/company/join?token=${inviteToken}`;
+  const subject = `You've been invited to join ${companyName} on Rena`;
+  const htmlBody = `
+    <h1>You've been invited!</h1>
+    <p>${companyName} has invited you to join their team on Rena Cleaning Network.</p>
+    <p><a href="${inviteLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Accept Invitation</a></p>
+    <p>This invitation will expire in 7 days.</p>
+  `;
+
+  return sendEmail(email, subject, htmlBody);
 }

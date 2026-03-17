@@ -54,7 +54,7 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
           </svg>
         </button>
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-900">Company Portal</span>
+          <span className="font-semibold text-gray-900">Partner Portal</span>
           <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
             Business
           </span>
@@ -87,9 +87,9 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
                 SC
               </div>
               <div>
-                <p className="font-semibold text-gray-900">Sparkle Co.</p>
+                <p className="font-semibold text-gray-900">Partner Co.</p>
                 <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                  Verified Business
+                  Verified Partner
                 </span>
               </div>
             </div>

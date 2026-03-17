@@ -1,9 +1,9 @@
-import { PLATFORM_FEE_PERCENT } from '@/lib/pricing';
+import { getCleanerEarnings, getPlatformFee } from '@/lib/pricing';
 
 // ─── Types ──────────────────────────────────────────────────────
 
 export interface PricingInput {
-  baseRate: number; // cleaner's hourly rate
+  baseRate: number; // displayed rate (already includes margin)
   duration: number; // hours
   serviceType: string;
   rooms?: { bedrooms: number; bathrooms: number; kitchen: boolean; livingAreas: number };
@@ -36,6 +36,7 @@ export interface PricingBreakdown {
 
 const SERVICE_MULTIPLIERS: Record<string, number> = {
   standard: 1.0,
+  regular: 1.0,
   deep: 1.5,
   'end-of-tenancy': 1.8,
   'move-in': 1.6,
@@ -47,9 +48,9 @@ const SERVICE_MULTIPLIERS: Record<string, number> = {
 };
 
 const ROOM_MULTIPLIERS = {
-  bedroom: { base: 0.15, perRoom: 0.15 }, // 15% per bedroom
-  bathroom: { base: 0.2, perRoom: 0.2 }, // 20% per bathroom (more intensive)
-  kitchen: 0.1, // 10% for kitchen
+  bedroom: { base: 0.15, perRoom: 0.15 },
+  bathroom: { base: 0.2, perRoom: 0.2 },
+  kitchen: 0.1,
   livingArea: { base: 0.1, perRoom: 0.1 },
 };
 
@@ -68,19 +69,17 @@ const EXTRA_PRICES: Record<string, number> = {
 
 const TIER_PREMIUMS: Record<string, number> = {
   STARTER: 0,
-  BRONZE: 0.05, // 5% premium
-  SILVER: 0.1, // 10% premium
-  GOLD: 0.15, // 15% premium
-  ELITE: 0.25, // 25% premium
+  BRONZE: 0.05,
+  SILVER: 0.1,
+  GOLD: 0.15,
+  ELITE: 0.25,
 };
 
 const LOCATION_ZONES: Record<string, number> = {
-  // Central London
   EC: 1.3,
   WC: 1.3,
   W1: 1.25,
   SW1: 1.3,
-  // Inner London
   N1: 1.15,
   E1: 1.15,
   SE1: 1.15,
@@ -89,14 +88,12 @@ const LOCATION_ZONES: Record<string, number> = {
   W8: 1.2,
   NW1: 1.15,
   NW3: 1.2,
-  // Mid London
   N: 1.1,
   E: 1.1,
   SE: 1.1,
   SW: 1.1,
   W: 1.1,
   NW: 1.1,
-  // Outer London
   BR: 1.0,
   CR: 1.0,
   DA: 1.0,
@@ -110,18 +107,21 @@ const LOCATION_ZONES: Record<string, number> = {
   UB: 1.0,
 };
 
-const URGENT_FEE_PERCENT = 0.2; // 20% for same-day bookings
+const URGENT_FEE_PERCENT = 0.2;
 
 // ─── Service ────────────────────────────────────────────────────
 
 export class PricingService {
   /**
-   * Calculate full pricing breakdown
+   * Calculate full pricing breakdown.
+   * baseRate is the displayed rate (margin already baked in).
+   * The total shown to the customer is simply the computed amount.
+   * Internally we extract cleaner earnings and platform fee.
    */
   static calculate(input: PricingInput): PricingBreakdown {
     const appliedDiscounts: string[] = [];
 
-    // 1. Base amount
+    // 1. Base amount (displayed rate × hours)
     const baseAmount = input.baseRate * input.duration;
 
     // 2. Room multiplier
@@ -153,7 +153,7 @@ export class PricingService {
       locationMultiplier = this.getLocationMultiplier(input.postcode);
     }
 
-    // 6. Surge pricing (time-based demand)
+    // 6. Surge pricing
     const surgeMultiplier = this.getSurgeMultiplier();
 
     // 7. Tier premium
@@ -169,8 +169,8 @@ export class PricingService {
       urgentFee = baseAmount * URGENT_FEE_PERCENT;
     }
 
-    // Calculate subtotal (cleaner earnings before platform fee)
-    const subtotal =
+    // Total displayed to customer (fee is invisible — already baked into the rate)
+    const total =
       Math.round(
         (baseAmount * roomMultiplier * serviceMultiplier * locationMultiplier * surgeMultiplier +
           extrasAmount +
@@ -179,10 +179,9 @@ export class PricingService {
           100
       ) / 100;
 
-    // Platform fee
-    const platformFee = Math.round(subtotal * (PLATFORM_FEE_PERCENT / 100) * 100) / 100;
-    const cleanerEarnings = subtotal;
-    const total = Math.round((subtotal + platformFee) * 100) / 100;
+    // Internal split (admin only)
+    const cleanerEarnings = getCleanerEarnings(total);
+    const platformFee = getPlatformFee(total);
 
     return {
       baseAmount: Math.round(baseAmount * 100) / 100,
@@ -193,8 +192,8 @@ export class PricingService {
       surgeMultiplier,
       tierPremium: Math.round(tierPremium * 100) / 100,
       urgentFee: Math.round(urgentFee * 100) / 100,
-      travelFee: 0, // Set by travel service
-      subtotal,
+      travelFee: 0,
+      subtotal: total,
       platformFee,
       cleanerEarnings,
       total,
@@ -202,60 +201,60 @@ export class PricingService {
     };
   }
 
-  /**
-   * Get location-based pricing multiplier from postcode
-   */
   static getLocationMultiplier(postcode: string): number {
     const prefix = postcode.toUpperCase().replace(/\s+/g, '');
-
-    // Try exact match first (e.g., "SW1")
     for (const [zone, multiplier] of Object.entries(LOCATION_ZONES)) {
       if (prefix.startsWith(zone)) {
         return multiplier;
       }
     }
-
-    return 1.0; // Default for unknown areas
+    return 1.0;
   }
 
-  /**
-   * Get demand-based surge multiplier
-   */
   static getSurgeMultiplier(): number {
     const now = new Date();
     const hour = now.getHours();
     const dayOfWeek = now.getDay();
 
-    // Peak hours: 9-11am and 2-4pm weekdays
     const isPeakHour = (hour >= 9 && hour <= 11) || (hour >= 14 && hour <= 16);
     const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
-    if (isPeakHour && isWeekday) return 1.1; // 10% surge
-    if (dayOfWeek === 0) return 1.15; // Sunday premium
+    if (isPeakHour && isWeekday) return 1.1;
+    if (dayOfWeek === 0) return 1.15;
     return 1.0;
   }
 
   /**
-   * Get a price estimate range
+   * Get a price estimate range for the hero widget and estimates
    */
-  static getEstimateRange(input: PricingInput): { min: number; max: number; average: number } {
+  static getEstimateRange(input: PricingInput): {
+    min: number;
+    max: number;
+    average: number;
+    estimatedHours: number;
+    cleanerCount?: number;
+  } {
     const breakdown = this.calculate(input);
     const min = Math.round(breakdown.total * 0.9 * 100) / 100;
     const max = Math.round(breakdown.total * 1.1 * 100) / 100;
-    return { min, max, average: breakdown.total };
+
+    // Estimate hours from rooms
+    let estimatedHours = input.duration;
+    if (input.rooms) {
+      estimatedHours = Math.max(2, input.rooms.bedrooms * 0.5 + input.rooms.bathrooms * 0.75 + 1);
+    }
+
+    return { min, max, average: breakdown.total, estimatedHours };
   }
 
-  /**
-   * Compare pricing with other platforms
-   */
   static getComparisonPricing(total: number): {
     rena: number;
     typicalAgency: number;
     otherPlatforms: number;
     savings: number;
   } {
-    const agencyMultiplier = 1.35; // Agencies charge 35% more on average
-    const otherPlatformMultiplier = 1.2; // Other platforms charge 20% more
+    const agencyMultiplier = 1.35;
+    const otherPlatformMultiplier = 1.2;
 
     return {
       rena: total,

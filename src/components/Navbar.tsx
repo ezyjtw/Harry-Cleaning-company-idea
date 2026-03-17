@@ -20,7 +20,7 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  // Close menu on route change (escape key)
+  // Close menu on escape key
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
       if (e.key === 'Escape') setMenuOpen(false);
@@ -131,6 +131,13 @@ export default function Navbar() {
               >
                 FAQ
               </Link>
+              <Link
+                href="/contact"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                Contact Us
+              </Link>
             </div>
 
             {/* Cleaner flow */}
@@ -154,9 +161,9 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* Company flow */}
+            {/* Partner / Company flow */}
             <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Cleaning companies
+              Partner with us
             </h3>
             <div className="mt-2 flex flex-col gap-0.5">
               <Link
@@ -164,7 +171,7 @@ export default function Navbar() {
                 className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
                 onClick={() => setMenuOpen(false)}
               >
-                Company Dashboard
+                Partner Dashboard
               </Link>
             </div>
           </div>

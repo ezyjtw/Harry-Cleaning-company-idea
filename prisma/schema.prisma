@@ -234,6 +234,8 @@ model CleanerProfile {
   cancellationRate      Decimal            @default(0) @db.Decimal(5, 2)
   completionRate        Decimal            @default(100) @db.Decimal(5, 2)
   responseSpeed         Int? // average response speed in seconds
+  postcode              String?
+  stripeAccountId       String?
   verificationStatus    VerificationStatus @default(UNVERIFIED)
   identityVerifiedAt    DateTime?
   verificationMeta      Json?
@@ -277,9 +279,13 @@ model Address {
 
 model Booking {
   id                 String        @id @default(cuid())
-  clientId           String
+  clientId           String?
   cleanerId          String
-  addressId          String
+  addressId          String?
+  guestEmail         String?
+  guestName          String?
+  guestPhone         String?
+  guestToken         String?       @unique
   serviceType        String // e.g. "standard", "deep", "end-of-tenancy", "move-in"
   status             BookingStatus @default(PENDING)
   date               DateTime
@@ -306,9 +312,9 @@ model Booking {
 
   providerId         String?
 
-  client   User      @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  client   User?     @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
   cleaner  User      @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
-  address  Address   @relation(fields: [addressId], references: [id])
+  address  Address?  @relation(fields: [addressId], references: [id])
   provider Provider? @relation(fields: [providerId], references: [id])
   review   Review?
   messages Message[]
@@ -323,6 +329,7 @@ model Booking {
   @@index([createdAt])
   @@index([cleanerId, date])
   @@index([providerId])
+  @@index([guestToken])
 }
 
 model Review {
@@ -638,4 +645,23 @@ model DisputeEvidence {
 
   @@index([disputeId])
   @@index([uploadedBy])
+}
+
+// ─── Abandoned Lead Tracking ─────────────────────────────────────────────────
+
+model AbandonedLead {
+  id          String    @id @default(cuid())
+  email       String
+  cleanerId   String?
+  postcode    String?
+  step        Int       @default(1)
+  emailSent   Boolean   @default(false)
+  lastEmailAt DateTime?
+  convertedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([email])
+  @@index([emailSent])
+  @@index([createdAt])
 }
