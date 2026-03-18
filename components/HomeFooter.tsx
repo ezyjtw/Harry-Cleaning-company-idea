@@ -11,11 +11,11 @@ const links = [
 
 export default function HomeFooter() {
   return (
-    <footer className="flex items-center justify-between bg-ink px-14 py-9">
+    <footer className="flex flex-col items-center gap-6 bg-ink px-5 py-8 md:flex-row md:justify-between md:px-14 md:py-9">
       <Link href="/" className="font-cormorant text-[20px] font-light tracking-widest text-cream">
         RENA
       </Link>
-      <div className="flex gap-7">
+      <div className="flex flex-wrap justify-center gap-4 md:gap-7">
         {links.map((link) => (
           <Link
             key={link.label}

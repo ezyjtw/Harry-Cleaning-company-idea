@@ -19,25 +19,28 @@ const reviews = [
 export default function ReviewsSection() {
   return (
     <section className="bg-ink">
-      <div className="mx-auto max-w-[1240px] px-14 py-20">
+      <div className="mx-auto max-w-[1240px] px-5 py-12 md:px-14 md:py-20">
         <div className="mb-3 flex items-center gap-3">
           <div className="h-px w-6 bg-gold-2" />
           <span className="font-jost text-[11px] uppercase tracking-[0.18em] text-gold-2">
             Reviews
           </span>
         </div>
-        <h2 className="mb-12 font-cormorant text-[42px] font-light leading-tight text-cream">
+        <h2 className="mb-8 font-cormorant text-[32px] font-light leading-tight text-cream md:mb-12 md:text-[42px]">
           What people <em className="text-cream">actually say</em>
         </h2>
 
-        <div className="grid grid-cols-3" style={{ border: '0.5px solid rgba(255,255,255,0.1)' }}>
+        <div
+          className="grid grid-cols-1 md:grid-cols-3"
+          style={{ border: '0.5px solid rgba(255,255,255,0.1)' }}
+        >
           {reviews.map((review, i) => (
             <div
               key={review.name}
-              className="p-8"
+              className="p-6 md:p-8"
               style={
                 i < reviews.length - 1
-                  ? { borderRight: '0.5px solid rgba(255,255,255,0.08)' }
+                  ? { borderBottom: '0.5px solid rgba(255,255,255,0.08)' }
                   : undefined
               }
             >

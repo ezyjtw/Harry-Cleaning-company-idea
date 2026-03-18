@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 
 const trustItems = [
@@ -430,8 +431,30 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="bg-cream px-14 py-24">
-      <div className="mx-auto grid max-w-[1240px] grid-cols-2 items-center gap-24">
+    <section className="relative bg-cream px-5 py-12 md:px-14 md:py-24">
+      {/* Hero banner background image — visible on larger screens */}
+      <div className="pointer-events-none absolute inset-0 hidden md:block">
+        <Image
+          src="/images/hero-banner.jpg"
+          alt=""
+          fill
+          className="object-cover opacity-[0.07]"
+          priority
+        />
+      </div>
+
+      <div className="relative mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-24">
+        {/* Mobile hero image */}
+        <div className="relative aspect-[16/9] w-full overflow-hidden md:hidden">
+          <Image
+            src="/images/hero-banner.jpg"
+            alt="Clean, bright home interior"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+
         {/* Left column */}
         <div>
           <div className="mb-7 flex items-center gap-3">
@@ -441,7 +464,7 @@ export default function HeroSection() {
             </span>
           </div>
 
-          <h1 className="mb-7 font-cormorant text-[68px] font-light leading-[1.05] text-ink">
+          <h1 className="mb-5 font-cormorant text-[42px] font-light leading-[1.05] text-ink md:mb-7 md:text-[68px]">
             A cleaner
             <br />
             you&apos;ll want
@@ -449,28 +472,28 @@ export default function HeroSection() {
             to <em className="text-gold">keep</em>
           </h1>
 
-          <p className="mb-11 max-w-[400px] font-jost text-[16px] font-light leading-[1.8] text-ink-2">
+          <p className="mb-8 max-w-[400px] font-jost text-[15px] font-light leading-[1.8] text-ink-2 md:mb-11 md:text-[16px]">
             Browse DBS-checked, personally vetted cleaners in your area. Read genuine reviews,
             choose someone you trust, and book in two minutes.
           </p>
 
-          <div className="mb-12 flex gap-3">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-12">
             <a
               href="/cleaners"
-              className="bg-ink px-7 py-3.5 font-jost text-[14px] font-normal text-cream"
+              className="bg-ink px-7 py-3.5 text-center font-jost text-[14px] font-normal text-cream"
             >
               Find cleaners near me
             </a>
             <a
               href="#how-it-works"
-              className="px-7 py-3.5 font-jost text-[14px] font-normal text-ink"
+              className="px-7 py-3.5 text-center font-jost text-[14px] font-normal text-ink"
               style={{ border: '0.5px solid #0e0e0c' }}
             >
               How it works
             </a>
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-4 md:gap-6">
             {trustItems.map((item) => (
               <div key={item.label} className="flex items-center gap-2">
                 <div
@@ -486,7 +509,7 @@ export default function HeroSection() {
         </div>
 
         {/* Right column — booking panel */}
-        <div className="bg-white p-10" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div className="bg-white p-6 md:p-10" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <StepDots current={step} />
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}

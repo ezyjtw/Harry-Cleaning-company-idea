@@ -7,14 +7,16 @@ const stats = [
 
 export default function StatsBar() {
   return (
-    <section className="flex justify-center bg-ink px-14 py-5">
+    <section className="grid grid-cols-2 gap-y-6 bg-ink px-5 py-6 md:flex md:justify-center md:px-14 md:py-5">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className={`px-12 text-center ${i < stats.length - 1 ? 'border-r border-white/10' : ''}`}
+          className={`px-4 text-center md:px-12 ${i % 2 === 0 ? 'border-r border-white/10 md:border-r-0' : ''} ${i < stats.length - 1 ? 'md:border-r md:border-white/10' : ''}`}
         >
-          <div className="font-cormorant text-[30px] font-light text-gold-2">{stat.value}</div>
-          <div className="mt-1 font-jost text-[11px] tracking-[0.09em] text-white/40">
+          <div className="font-cormorant text-[26px] font-light text-gold-2 md:text-[30px]">
+            {stat.value}
+          </div>
+          <div className="mt-1 font-jost text-[10px] tracking-[0.09em] text-white/40 md:text-[11px]">
             {stat.label}
           </div>
         </div>

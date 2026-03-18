@@ -48,26 +48,34 @@ const services = [
 export default function ServicesSection() {
   return (
     <section className="bg-cream-2">
-      <div className="mx-auto max-w-[1240px] px-14 py-20">
+      <div className="mx-auto max-w-[1240px] px-5 py-12 md:px-14 md:py-20">
         <div className="mb-3 flex items-center gap-3">
           <div className="h-px w-6 bg-gold" />
           <span className="font-jost text-[11px] uppercase tracking-[0.18em] text-gold">
             Services
           </span>
         </div>
-        <h2 className="mb-12 font-cormorant text-[42px] font-light leading-tight text-ink">
+        <h2 className="mb-8 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-12 md:text-[42px]">
           Whatever your home <em className="text-ink">needs</em>
         </h2>
 
-        <div className="grid grid-cols-3" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="grid grid-cols-1 md:grid-cols-3"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
           {services.map((svc, i) => (
             <Link
               key={svc.title}
               href={`/services/${svc.id}`}
-              className="group block p-8 transition-colors hover:bg-white"
+              className="group block p-6 transition-colors hover:bg-white md:p-8"
               style={{
                 borderRight: i % 3 !== 2 ? '0.5px solid rgba(14,14,12,0.1)' : undefined,
-                borderBottom: i < 3 ? '0.5px solid rgba(14,14,12,0.1)' : undefined,
+                borderBottom:
+                  i < services.length - 1
+                    ? '0.5px solid rgba(14,14,12,0.1)'
+                    : i < 3
+                      ? '0.5px solid rgba(14,14,12,0.1)'
+                      : undefined,
               }}
             >
               <p className="mb-3 font-jost text-[10px] uppercase tracking-[0.14em] text-gold">
