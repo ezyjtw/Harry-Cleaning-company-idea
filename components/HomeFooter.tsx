@@ -12,7 +12,10 @@ const links = [
 export default function HomeFooter() {
   return (
     <footer className="flex flex-col items-center gap-6 bg-ink px-5 py-8 md:flex-row md:justify-between md:px-14 md:py-9">
-      <Link href="/" className="font-cormorant text-[20px] font-light tracking-widest text-cream">
+      <Link
+        href="/"
+        className="font-cormorant text-[22px] font-semibold tracking-widest text-white"
+      >
         RENA
       </Link>
       <div className="flex flex-wrap justify-center gap-4 md:gap-7">
@@ -20,15 +23,13 @@ export default function HomeFooter() {
           <Link
             key={link.label}
             href={link.href}
-            className="font-jost text-[12px] font-light tracking-wide text-white/35"
+            className="font-jost text-[12px] tracking-wide text-white/40 transition-colors hover:text-white/60"
           >
             {link.label}
           </Link>
         ))}
       </div>
-      <span className="font-jost text-[12px] font-light tracking-wide text-white/25">
-        © 2026 Rena
-      </span>
+      <span className="font-jost text-[12px] tracking-wide text-white/25">© 2026 Rena</span>
     </footer>
   );
 }

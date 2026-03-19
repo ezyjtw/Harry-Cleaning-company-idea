@@ -1,10 +1,43 @@
 function ShieldIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
-        d="M7 1L2 3V6.5C2 9.5 4 12 7 13C10 12 12 9.5 12 6.5V3L7 1Z"
-        stroke="#b8975a"
-        strokeWidth="1"
+        d="M10 2L4 5V9.5C4 13.5 6.5 17 10 18.5C13.5 17 16 13.5 16 9.5V5L10 2Z"
+        stroke="#2F80ED"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.5 10L9.5 12L13 8"
+        stroke="#00BFA6"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IdIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="4" width="16" height="12" rx="2" stroke="#2F80ED" strokeWidth="1.5" />
+      <circle cx="8" cy="9" r="2" stroke="#00BFA6" strokeWidth="1.2" />
+      <path d="M12 8H16M12 11H15" stroke="#2F80ED" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProcessIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 6H16M4 10H16M4 14H11" stroke="#2F80ED" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M14 13L16 15L14 17"
+        stroke="#00BFA6"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -12,26 +45,15 @@ function ShieldIcon() {
 
 function LockIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="6" width="8" height="6" stroke="#b8975a" strokeWidth="1" />
-      <path d="M5 6V4C5 2.9 5.9 2 7 2C8.1 2 9 2.9 9 4V6" stroke="#b8975a" strokeWidth="1" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 7L6 10L11 4" stroke="#b8975a" strokeWidth="1.2" strokeLinecap="square" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="7" cy="7" r="5.5" stroke="#b8975a" strokeWidth="1" />
-      <path d="M7 4V7.5L9.5 9" stroke="#b8975a" strokeWidth="1" strokeLinecap="square" />
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="9" width="12" height="8" rx="2" stroke="#2F80ED" strokeWidth="1.5" />
+      <path
+        d="M7 9V6C7 4.34 8.34 3 10 3C11.66 3 13 4.34 13 6V9"
+        stroke="#2F80ED"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="10" cy="13" r="1" fill="#00BFA6" />
     </svg>
   );
 }
@@ -39,87 +61,84 @@ function ClockIcon() {
 const guarantees = [
   {
     icon: <ShieldIcon />,
-    title: 'DBS checked and ID verified',
-    body: 'Every cleaner passes identity and criminal record checks before their first booking.',
+    title: 'DBS checked',
+    body: 'Every cleaner passes a full criminal record check before they can take a single booking.',
+  },
+  {
+    icon: <IdIcon />,
+    title: 'ID verified',
+    body: 'Government-issued ID verified in person. You always know exactly who is coming to your home.',
+  },
+  {
+    icon: <ProcessIcon />,
+    title: 'Rigorous onboarding',
+    body: 'Interview, reference checks, and a trial clean. Only a fraction of applicants make it through.',
   },
   {
     icon: <LockIcon />,
-    title: 'Payment held until you\u2019re satisfied',
-    body: 'On first bookings, payment is only released once you confirm the job meets your standard.',
-  },
-  {
-    icon: <CheckIcon />,
-    title: 'Something not right? We\u2019ll fix it',
-    body: 'Contact us within 24 hours of any clean that didn\u2019t meet the standard and we\u2019ll rebook at no cost.',
-  },
-  {
-    icon: <ClockIcon />,
-    title: 'No lock-in, no hidden fees',
-    body: 'Cancel or reschedule with 24 hours\u2019 notice. The price you see is the price you pay.',
+    title: 'Fully insured',
+    body: 'Every booking is covered by our insurance policy. Your home and belongings are protected.',
   },
 ];
 
 export default function GuaranteeSection() {
   return (
     <section className="bg-cream">
-      <div className="mx-auto grid max-w-[1240px] grid-cols-2 gap-20 px-14 pb-20">
-        {/* Left */}
-        <div>
-          <div className="mb-3 flex items-center gap-3">
-            <div className="h-px w-6 bg-gold" />
-            <span className="font-jost text-[11px] uppercase tracking-[0.18em] text-gold">
-              Our promise
-            </span>
-          </div>
-          <h2 className="mb-6 font-cormorant text-[42px] font-light leading-tight text-ink">
-            You&apos;re covered, <em className="text-ink">every time</em>
-          </h2>
-          <p className="mb-10 max-w-[440px] font-jost text-[15px] font-light leading-[1.8] text-ink-2">
-            We don&apos;t simply list cleaners and hope for the best. Every booking is backed by
-            thorough vetting, secure payments, and a service guarantee that actually means
-            something.
-          </p>
-          <div className="flex gap-3">
-            <a
-              href="/book"
-              className="bg-ink px-7 py-3.5 font-jost text-[14px] font-normal text-cream"
-            >
-              Book a clean
-            </a>
-            <a
-              href="/guarantees"
-              className="px-7 py-3.5 font-jost text-[14px] font-normal text-ink"
-              style={{ border: '0.5px solid #0e0e0c' }}
-            >
-              Our guarantees
-            </a>
-          </div>
-        </div>
-
-        {/* Right */}
-        <div style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          {guarantees.map((g, i) => (
-            <div
-              key={g.title}
-              className="flex gap-4 px-6 py-5"
-              style={
-                i < guarantees.length - 1
-                  ? { borderBottom: '0.5px solid rgba(14,14,12,0.06)' }
-                  : undefined
-              }
-            >
-              <div
-                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
+        <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-20">
+          {/* Left */}
+          <div>
+            <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
+              Trust and safety
+            </p>
+            <h2 className="mb-5 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-6 md:text-[42px]">
+              Know who walks through your door
+            </h2>
+            <p className="mb-8 max-w-[440px] font-jost text-[15px] font-light leading-[1.8] text-ink-3 md:mb-10">
+              We only work with vetted, trusted cleaners who have passed a rigorous onboarding
+              process. Full background checks, verified identity, and insured on every visit.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <a
+                href="/book"
+                className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                {g.icon}
-              </div>
-              <div>
-                <h4 className="mb-1 font-jost text-[14px] font-normal text-ink">{g.title}</h4>
-                <p className="font-jost text-[13px] font-light leading-snug text-ink-3">{g.body}</p>
-              </div>
+                Book a clean
+              </a>
+              <a
+                href="/guarantees"
+                className="rounded-md px-7 py-3.5 text-center font-jost text-[14px] font-normal text-ink transition-colors hover:bg-cream-2"
+                style={{ border: '1px solid rgba(27,42,74,0.15)' }}
+              >
+                Our guarantees
+              </a>
             </div>
-          ))}
+          </div>
+
+          {/* Right */}
+          <div className="rounded-lg bg-white" style={{ border: '1px solid rgba(27,42,74,0.06)' }}>
+            {guarantees.map((g, i) => (
+              <div
+                key={g.title}
+                className="flex gap-4 px-6 py-5"
+                style={
+                  i < guarantees.length - 1
+                    ? { borderBottom: '1px solid rgba(27,42,74,0.06)' }
+                    : undefined
+                }
+              >
+                <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-lg bg-cream-2">
+                  {g.icon}
+                </div>
+                <div>
+                  <h4 className="mb-1 font-jost text-[14px] font-semibold text-ink">{g.title}</h4>
+                  <p className="font-jost text-[13px] font-light leading-snug text-ink-3">
+                    {g.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

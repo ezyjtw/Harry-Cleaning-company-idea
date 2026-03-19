@@ -19,15 +19,12 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section id="how-it-works" className="bg-cream">
-      <div className="mx-auto max-w-[1240px] px-5 py-12 md:px-14 md:py-20">
-        <div className="mb-3 flex items-center gap-3">
-          <div className="h-px w-6 bg-gold" />
-          <span className="font-jost text-[11px] uppercase tracking-[0.18em] text-gold">
-            How it works
-          </span>
-        </div>
-        <h2 className="mb-8 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
-          Booked and sorted <em className="text-ink">in minutes</em>
+      <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
+        <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
+          How it works
+        </p>
+        <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
+          Booked and sorted in minutes
         </h2>
 
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">
@@ -36,8 +33,8 @@ export default function HowItWorks() {
               <div className="mb-5 font-cormorant text-[56px] font-light leading-none text-cream-2">
                 {step.num}
               </div>
-              <div className="mb-5 h-px w-8 bg-gold" />
-              <h3 className="mb-2.5 font-jost text-[16px] font-normal text-ink">{step.title}</h3>
+              <div className="mb-5 h-[2px] w-8 rounded bg-gold" />
+              <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">{step.title}</h3>
               <p className="font-jost text-[14px] font-light leading-[1.7] text-ink-3">
                 {step.body}
               </p>

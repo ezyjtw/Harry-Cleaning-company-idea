@@ -55,10 +55,16 @@ function computeEstimate(
   return { low, high };
 }
 
-function GoldCheck() {
+function BlueCheck() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2 6L5 9L10 3" stroke="#b8975a" strokeWidth="1.5" strokeLinecap="square" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M3 7L6 10L11 4"
+        stroke="#2F80ED"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -69,8 +75,8 @@ function StepDots({ current }: { current: number }) {
       {[1, 2, 3, 4].map((s) => (
         <div key={s} className="flex items-center gap-3">
           <div
-            className={`h-[6px] w-[6px] transition-all duration-300 ${
-              s === current ? 'bg-ink scale-125' : s < current ? 'bg-gold' : 'bg-ink/10'
+            className={`h-[7px] w-[7px] rounded-full transition-all duration-300 ${
+              s === current ? 'scale-125 bg-gold' : s < current ? 'bg-gold-2' : 'bg-ink/10'
             }`}
           />
           {s < 4 && <div className={`h-px w-4 ${s < current ? 'bg-gold/40' : 'bg-ink/[0.06]'}`} />}
@@ -80,12 +86,11 @@ function StepDots({ current }: { current: number }) {
   );
 }
 
-/* ── Shared footer ────────────────────────────────────────────── */
 function PanelFooter() {
   return (
     <div
       className="flex justify-between pt-5"
-      style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+      style={{ borderTop: '1px solid rgba(27,42,74,0.06)' }}
     >
       <span className="font-jost text-[12px] font-light text-ink-3">
         From £18 / hr · No hidden fees
@@ -95,7 +100,6 @@ function PanelFooter() {
   );
 }
 
-/* ── Confirmed postcode bar (reused in steps 2-4) ─────────────── */
 function PostcodeBar({
   postcode,
   cleanerCount,
@@ -107,20 +111,15 @@ function PostcodeBar({
 }) {
   return (
     <div
-      className="mb-6 flex items-center gap-3 bg-cream-2 px-4 py-3"
-      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      className="mb-6 flex items-center gap-3 rounded-md bg-cream px-4 py-3"
+      style={{ border: '1px solid rgba(27,42,74,0.08)' }}
     >
-      <div
-        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center"
-        style={{ border: '0.5px solid #b8975a' }}
-      >
-        <GoldCheck />
+      <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gold/10">
+        <BlueCheck />
       </div>
-      <span className="flex-1 font-jost text-[13px] font-light text-ink">{postcode}</span>
+      <span className="flex-1 font-jost text-[13px] text-ink">{postcode}</span>
       {cleanerCount !== null && (
-        <span className="font-jost text-[11px] font-light text-gold">
-          {cleanerCount} cleaners nearby
-        </span>
+        <span className="font-jost text-[11px] text-gold-2">{cleanerCount} cleaners nearby</span>
       )}
       <button
         onClick={onChangeClick}
@@ -135,18 +134,15 @@ function PostcodeBar({
 export default function HeroSection() {
   const [step, setStep] = useState(1);
 
-  // Step 1
   const [postcode, setPostcode] = useState('');
   const [postcodeError, setPostcodeError] = useState('');
   const [confirmedPostcode, setConfirmedPostcode] = useState('');
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
 
-  // Step 2
   const [bedrooms, setBedrooms] = useState<number | null>(null);
   const [bathrooms, setBathrooms] = useState<number | null>(null);
   const [serviceType, setServiceType] = useState<ServiceType>('regular');
 
-  // Derived
   const estimate =
     bedrooms !== null && bathrooms !== null
       ? computeEstimate(bedrooms, bathrooms, serviceType)
@@ -180,14 +176,16 @@ export default function HeroSection() {
     setServiceType('regular');
   };
 
-  /* ── Step 1: Postcode ─────────────────────────────────────── */
   const renderStep1 = () => (
     <>
       <p className="mb-6 font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
         Get an instant quote
       </p>
 
-      <div className="flex" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+      <div
+        className="flex overflow-hidden rounded-md"
+        style={{ border: '1px solid rgba(27,42,74,0.12)' }}
+      >
         <input
           type="text"
           value={postcode}
@@ -197,29 +195,26 @@ export default function HeroSection() {
           }}
           onKeyDown={(e) => e.key === 'Enter' && handlePostcodeSubmit()}
           placeholder="Enter your postcode"
-          className="flex-1 bg-transparent px-4 py-3 font-jost text-[14px] font-light text-ink placeholder:text-ink-3 focus:outline-none"
+          className="flex-1 bg-transparent px-4 py-3 font-jost text-[14px] text-ink placeholder:text-ink-3 focus:outline-none"
         />
         <button
           onClick={handlePostcodeSubmit}
-          className="bg-ink px-6 font-jost text-[13px] font-normal text-cream"
+          className="bg-gold px-6 font-jost text-[13px] font-medium text-white"
         >
           Continue
         </button>
       </div>
 
       {postcodeError ? (
-        <p className="mb-7 mt-2 font-jost text-[12px] font-light text-red-500">{postcodeError}</p>
+        <p className="mb-7 mt-2 font-jost text-[12px] text-red-500">{postcodeError}</p>
       ) : (
-        <p className="mb-7 mt-2 font-jost text-[12px] font-light text-ink-3">
-          e.g. SW1A 1AA or E4 7AP
-        </p>
+        <p className="mb-7 mt-2 font-jost text-[12px] text-ink-3">e.g. SW1A 1AA or E4 7AP</p>
       )}
 
       <PanelFooter />
     </>
   );
 
-  /* ── Step 2: Home details + service type ───────────────────── */
   const renderStep2 = () => (
     <>
       <PostcodeBar
@@ -228,41 +223,38 @@ export default function HeroSection() {
         onChangeClick={handleBackToStep1}
       />
 
-      {/* Bedrooms */}
       <p className="mb-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">Bedrooms</p>
       <div className="mb-6 flex flex-wrap gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             onClick={() => setBedrooms(n)}
-            className={`px-4 py-2 font-jost text-[13px] font-light ${
-              bedrooms === n ? 'bg-ink text-cream' : 'text-ink-2'
+            className={`rounded-md px-4 py-2 font-jost text-[13px] ${
+              bedrooms === n ? 'bg-gold text-white' : 'text-ink-2'
             }`}
-            style={bedrooms !== n ? { border: '0.5px solid rgba(14,14,12,0.1)' } : undefined}
+            style={bedrooms !== n ? { border: '1px solid rgba(27,42,74,0.12)' } : undefined}
           >
             {n === 5 ? '5+' : n}
           </button>
         ))}
       </div>
 
-      {/* Bathrooms */}
       <p className="mb-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">Bathrooms</p>
       <div className="mb-6 flex flex-wrap gap-2">
         {[1, 2, 3, 4].map((n) => (
           <button
             key={n}
             onClick={() => setBathrooms(n)}
-            className={`px-4 py-2 font-jost text-[13px] font-light ${
-              bathrooms === n ? 'bg-ink text-cream' : 'text-ink-2'
+            className={`rounded-md px-4 py-2 font-jost text-[13px] ${
+              bathrooms === n ? 'bg-gold text-white' : 'text-ink-2'
             }`}
-            style={bathrooms !== n ? { border: '0.5px solid rgba(14,14,12,0.1)' } : undefined}
+            style={bathrooms !== n ? { border: '1px solid rgba(27,42,74,0.12)' } : undefined}
           >
             {n === 4 ? '4+' : n}
           </button>
         ))}
       </div>
 
-      {/* Service type */}
       <p className="mb-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
         What type of clean?
       </p>
@@ -271,32 +263,30 @@ export default function HeroSection() {
           <button
             key={key}
             onClick={() => setServiceType(key)}
-            className={`px-4 py-2 font-jost text-[13px] font-light ${
-              serviceType === key ? 'bg-ink text-cream' : 'text-ink-2'
+            className={`rounded-md px-4 py-2 font-jost text-[13px] ${
+              serviceType === key ? 'bg-gold text-white' : 'text-ink-2'
             }`}
-            style={serviceType !== key ? { border: '0.5px solid rgba(14,14,12,0.1)' } : undefined}
+            style={serviceType !== key ? { border: '1px solid rgba(27,42,74,0.12)' } : undefined}
           >
             {SERVICE_LABELS[key]}
           </button>
         ))}
       </div>
 
-      {/* CTA */}
       <button
         onClick={() => canProceedStep2 && setStep(3)}
-        className={`mb-6 w-full py-4 font-jost text-[13px] tracking-[0.08em] transition-opacity ${
-          canProceedStep2 ? 'bg-ink text-cream' : 'bg-ink/30 text-cream cursor-not-allowed'
+        className={`mb-6 w-full rounded-md py-4 font-jost text-[13px] tracking-[0.08em] transition-opacity ${
+          canProceedStep2 ? 'bg-gold text-white' : 'cursor-not-allowed bg-gold/30 text-white'
         }`}
         disabled={!canProceedStep2}
       >
-        Get estimate →
+        Get estimate
       </button>
 
       <PanelFooter />
     </>
   );
 
-  /* ── Step 3: Estimate ─────────────────────────────────────── */
   const renderStep3 = () => {
     if (!estimate) return null;
     return (
@@ -307,26 +297,24 @@ export default function HeroSection() {
           onChangeClick={handleBackToStep1}
         />
 
-        {/* Summary chips */}
         <div className="mb-6 flex flex-wrap gap-2">
           <span
-            className="px-3 py-1.5 font-jost text-[11px] font-light text-ink-2"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            className="rounded-md px-3 py-1.5 font-jost text-[11px] text-ink-2"
+            style={{ border: '1px solid rgba(27,42,74,0.1)' }}
           >
             {bedrooms} bed · {bathrooms} bath
           </span>
           <span
-            className="px-3 py-1.5 font-jost text-[11px] font-light text-ink-2"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            className="rounded-md px-3 py-1.5 font-jost text-[11px] text-ink-2"
+            style={{ border: '1px solid rgba(27,42,74,0.1)' }}
           >
             {SERVICE_LABELS[serviceType]}
           </span>
         </div>
 
-        {/* Estimate display */}
         <div
-          className="mb-7 px-6 py-6 text-center"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="mb-7 rounded-md px-6 py-6 text-center"
+          style={{ border: '1px solid rgba(27,42,74,0.08)', background: '#F7F9FC' }}
         >
           <p className="mb-2 font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
             Estimated cost
@@ -334,22 +322,22 @@ export default function HeroSection() {
           <p className="font-cormorant text-[44px] font-light leading-none text-ink">
             £{estimate.low} – £{estimate.high}
           </p>
-          <p className="mt-3 font-jost text-[12px] font-light text-ink-3">
+          <p className="mt-3 font-jost text-[12px] text-ink-3">
             Exact price shown when you choose your cleaner
           </p>
         </div>
 
         <button
           onClick={() => setStep(4)}
-          className="mb-3 w-full bg-ink py-4 font-jost text-[13px] tracking-[0.08em] text-cream"
+          className="mb-3 w-full rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white"
         >
-          Continue →
+          Continue
         </button>
 
         <button
           onClick={() => setStep(2)}
-          className="mb-6 w-full py-3 font-jost text-[13px] font-light text-ink-2"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="mb-6 w-full rounded-md py-3 font-jost text-[13px] text-ink-2"
+          style={{ border: '1px solid rgba(27,42,74,0.12)' }}
         >
           Adjust details
         </button>
@@ -359,7 +347,6 @@ export default function HeroSection() {
     );
   };
 
-  /* ── Step 4: Confirmation ──────────────────────────────────── */
   const renderStep4 = () => {
     if (!estimate) return null;
     const params = new URLSearchParams({
@@ -378,30 +365,31 @@ export default function HeroSection() {
         />
 
         <div className="mb-7 text-center">
-          {/* Checkmark */}
-          <div
-            className="mx-auto mb-5 flex h-[48px] w-[48px] items-center justify-center"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-          >
+          <div className="mx-auto mb-5 flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gold-2/10">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10L8 14L16 6" stroke="#b8975a" strokeWidth="1.5" strokeLinecap="square" />
+              <path
+                d="M4 10L8 14L16 6"
+                stroke="#00BFA6"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
 
-          <p className="mb-1 font-jost text-[15px] font-normal text-ink">
+          <p className="mb-1 font-jost text-[15px] font-medium text-ink">
             Ready to find your cleaner
           </p>
-          <p className="font-jost text-[13px] font-light text-ink-3">
+          <p className="font-jost text-[13px] text-ink-3">
             Browse {cleanerCount} cleaners near{' '}
             <span className="text-ink">{confirmedPostcode}</span> for a{' '}
             <span className="text-ink">{SERVICE_LABELS[serviceType].toLowerCase()} clean</span>
           </p>
         </div>
 
-        {/* Estimate reminder */}
         <div
-          className="mb-7 flex items-center justify-between px-5 py-4"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="mb-7 flex items-center justify-between rounded-md px-5 py-4"
+          style={{ border: '1px solid rgba(27,42,74,0.08)', background: '#F7F9FC' }}
         >
           <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
             Estimated
@@ -413,15 +401,12 @@ export default function HeroSection() {
 
         <a
           href={`/cleaners?${params.toString()}`}
-          className="mb-3 flex w-full items-center justify-center bg-ink py-4 font-jost text-[13px] tracking-[0.08em] text-cream"
+          className="mb-3 flex w-full items-center justify-center rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white"
         >
-          Choose a cleaner →
+          Choose a cleaner
         </a>
 
-        <button
-          onClick={handleReset}
-          className="mb-6 w-full py-2 font-jost text-[12px] font-light text-ink-3"
-        >
+        <button onClick={handleReset} className="mb-6 w-full py-2 font-jost text-[12px] text-ink-3">
           Start over
         </button>
 
@@ -431,90 +416,78 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative bg-cream px-5 py-12 md:px-14 md:py-24">
-      {/* Hero banner background image — visible on larger screens */}
-      <div className="pointer-events-none absolute inset-0 hidden md:block">
-        <Image
-          src="/images/hero-banner.jpg"
-          alt=""
-          fill
-          className="object-cover opacity-[0.07]"
-          priority
-        />
+    <section className="relative overflow-hidden">
+      {/* Background image */}
+      <div className="absolute inset-0">
+        <Image src="/images/hero-banner.jpg" alt="" fill className="object-cover" priority />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1B2A4A]/85 via-[#1B2A4A]/70 to-[#1B2A4A]/50" />
       </div>
 
-      <div className="relative mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-24">
-        {/* Mobile hero image */}
-        <div className="relative aspect-[16/9] w-full overflow-hidden md:hidden">
-          <Image
-            src="/images/hero-banner.jpg"
-            alt="Clean, bright home interior"
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
+      <div className="relative px-5 py-14 md:px-14 md:py-24">
+        <div className="mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-20">
+          {/* Left column */}
+          <div>
+            <p className="mb-5 font-jost text-[12px] uppercase tracking-[0.2em] text-white/60">
+              Trusted home cleaning
+            </p>
 
-        {/* Left column */}
-        <div>
-          <div className="mb-7 flex items-center gap-3">
-            <div className="h-px w-6 bg-gold" />
-            <span className="font-jost text-[11px] uppercase tracking-[0.18em] text-gold">
-              Home cleaning, elevated
-            </span>
-          </div>
+            <h1 className="mb-5 font-cormorant text-[44px] font-light leading-[1.1] text-white md:mb-7 md:text-[64px]">
+              A cleaner you
+              <br />
+              can <em className="text-gold-2">trust</em>
+            </h1>
 
-          <h1 className="mb-5 font-cormorant text-[42px] font-light leading-[1.05] text-ink md:mb-7 md:text-[68px]">
-            A cleaner
-            <br />
-            you&apos;ll want
-            <br />
-            to <em className="text-gold">keep</em>
-          </h1>
+            <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/70 md:mb-10 md:text-[16px]">
+              Browse DBS-checked, personally vetted cleaners in your area. Read genuine reviews,
+              choose someone you trust, and book in two minutes.
+            </p>
 
-          <p className="mb-8 max-w-[400px] font-jost text-[15px] font-light leading-[1.8] text-ink-2 md:mb-11 md:text-[16px]">
-            Browse DBS-checked, personally vetted cleaners in your area. Read genuine reviews,
-            choose someone you trust, and book in two minutes.
-          </p>
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">
+              <a
+                href="/cleaners"
+                className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+              >
+                Book a cleaner
+              </a>
+              <a
+                href="#how-it-works"
+                className="rounded-md border border-white/30 px-7 py-3.5 text-center font-jost text-[14px] font-normal text-white transition-colors hover:border-white/50"
+              >
+                How it works
+              </a>
+            </div>
 
-          <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-12">
-            <a
-              href="/cleaners"
-              className="bg-ink px-7 py-3.5 text-center font-jost text-[14px] font-normal text-cream"
-            >
-              Find cleaners near me
-            </a>
-            <a
-              href="#how-it-works"
-              className="px-7 py-3.5 text-center font-jost text-[14px] font-normal text-ink"
-              style={{ border: '0.5px solid #0e0e0c' }}
-            >
-              How it works
-            </a>
-          </div>
-
-          <div className="flex flex-wrap gap-4 md:gap-6">
-            {trustItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-2">
-                <div
-                  className="flex h-[18px] w-[18px] items-center justify-center"
-                  style={{ border: '0.5px solid #b8975a' }}
-                >
-                  <GoldCheck />
+            <div className="flex flex-wrap gap-4 md:gap-5">
+              {trustItems.map((item) => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-gold-2/20">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path
+                        d="M2 5L4 7L8 3"
+                        stroke="#00BFA6"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <span className="font-jost text-[12px] text-white/60">{item.label}</span>
                 </div>
-                <span className="font-jost text-[12px] font-light text-ink-3">{item.label}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Right column — booking panel */}
-        <div className="bg-white p-6 md:p-10" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <StepDots current={step} />
-          {step === 1 && renderStep1()}
-          {step === 2 && renderStep2()}
-          {step === 3 && renderStep3()}
-          {step === 4 && renderStep4()}
+          {/* Right column — booking panel */}
+          <div
+            className="rounded-lg bg-white p-6 shadow-soft md:p-10"
+            style={{ border: '1px solid rgba(27,42,74,0.06)' }}
+          >
+            <StepDots current={step} />
+            {step === 1 && renderStep1()}
+            {step === 2 && renderStep2()}
+            {step === 3 && renderStep3()}
+            {step === 4 && renderStep4()}
+          </div>
         </div>
       </div>
     </section>
