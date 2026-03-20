@@ -103,7 +103,7 @@ export default function ServicesSection() {
                 href={`/services/${services[active].id}`}
                 className="rounded-md bg-gold px-7 py-3 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                Learn more
+                Get a Quote
               </Link>
             </div>
           </div>
