@@ -259,8 +259,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <button
               key={s.value}
               onClick={() => {
-                setForm({ ...form, serviceType: s.value });
-                setStep('details');
+                router.push(`/services/${s.value}?cleaner=${params.id}`);
               }}
               className="group/card flex items-center justify-between p-5 text-left transition hover:bg-cream-2"
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
