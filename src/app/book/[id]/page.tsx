@@ -13,10 +13,10 @@ import { shouldUseEscrow } from '@/lib/trust';
 
 const SERVICE_TYPES = [
   {
-    value: 'standard',
-    label: 'Standard Cleaning',
+    value: 'regular',
+    label: 'Regular Cleaning',
     multiplier: 1,
-    description: 'Regular upkeep — dusting, hoovering, mopping, and surface cleaning.',
+    description: 'Routine upkeep — dusting, hoovering, mopping, and surface cleaning.',
   },
   {
     value: 'deep',
@@ -25,10 +25,10 @@ const SERVICE_TYPES = [
     description: 'A thorough top-to-bottom clean including behind appliances and inside cupboards.',
   },
   {
-    value: 'move-in-out',
-    label: 'Move In/Out Cleaning',
-    multiplier: 2,
-    description: 'End-of-tenancy standard clean to get your deposit back or start fresh.',
+    value: 'eco-friendly',
+    label: 'Eco-Friendly Cleaning',
+    multiplier: 1.1,
+    description: 'Non-toxic, plant-based products that are safe for your family and the planet.',
   },
   {
     value: 'office',
@@ -37,10 +37,16 @@ const SERVICE_TYPES = [
     description: 'Desks, floors, kitchens, and communal areas for your workspace.',
   },
   {
-    value: 'last-minute',
-    label: 'Last-Minute Cleaning',
-    multiplier: 1.0,
-    description: 'Need it today? Same-day availability at the standard rate.',
+    value: 'move-in-out',
+    label: 'Move-In/Out Cleaning',
+    multiplier: 2,
+    description: 'End-of-tenancy standard clean to get your deposit back or start fresh.',
+  },
+  {
+    value: 'pet-friendly',
+    label: 'Pet-Friendly Cleaning',
+    multiplier: 1.15,
+    description: 'Pet-safe products with fur removal, odour treatment, and stain care.',
   },
 ];
 
@@ -61,7 +67,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     date: isExpress ? today : '',
     time: '',
     duration: 2,
-    serviceType: isExpress ? 'last-minute' : 'standard',
+    serviceType: isExpress ? 'regular' : 'regular',
     notes: '',
   });
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
@@ -78,7 +84,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const isLastMinute = form.serviceType === 'last-minute' || isExpress;
+  const isLastMinute = isExpress;
   const rate = isLastMinute ? cleaner.sameDayRate : cleaner.hourlyRate;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
@@ -99,16 +105,18 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     const booking = pastBookings.find((b) => b.id === bookingId);
     if (booking) {
       const serviceMap: Record<string, string> = {
+        'Regular Cleaning': 'regular',
         'Deep Cleaning': 'deep',
-        'Standard Cleaning': 'standard',
-        'Move In/Out Cleaning': 'move-in-out',
+        'Eco-Friendly Cleaning': 'eco-friendly',
         'Office Cleaning': 'office',
+        'Move-In/Out Cleaning': 'move-in-out',
+        'Pet-Friendly Cleaning': 'pet-friendly',
       };
       setForm({
         ...form,
         address: booking.address,
         duration: booking.duration,
-        serviceType: serviceMap[booking.serviceType] || 'standard',
+        serviceType: serviceMap[booking.serviceType] || 'regular',
       });
       setShowRebook(false);
     }
