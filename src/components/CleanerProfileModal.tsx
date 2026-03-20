@@ -98,11 +98,6 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
                 &pound;{cleaner.hourlyRate}
               </span>
               <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
-              {cleaner.availableNow && (
-                <span className="ml-3 font-jost text-[12px] font-light text-ink-3">
-                  &pound;{cleaner.sameDayRate}/hr same-day
-                </span>
-              )}
             </div>
             <div className="flex gap-2">
               <Link
@@ -111,14 +106,6 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
               >
                 Book now
               </Link>
-              {cleaner.availableNow && (
-                <Link
-                  href={`/book/${cleaner.id}?express=true`}
-                  className="rounded-md bg-teal px-5 py-2.5 font-jost text-[13px] font-medium text-white transition-opacity hover:opacity-90"
-                >
-                  Book today
-                </Link>
-              )}
             </div>
           </div>
         </div>
