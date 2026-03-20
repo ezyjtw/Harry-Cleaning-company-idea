@@ -10,11 +10,11 @@ import type { Cleaner } from '@/lib/types';
 
 const SERVICE_FILTERS = [
   'All',
+  'Regular Cleaning',
+  'One-Off Clean',
   'Deep Cleaning',
-  'Eco-Friendly',
-  'Office Cleaning',
-  'Move-In/Out',
-  'Pet-Friendly',
+  'End of Tenancy',
+  'Airbnb Cleaning',
 ];
 
 type SortOption = 'rating' | 'price-low' | 'price-high' | 'reviews' | 'available-now' | 'distance';
@@ -48,10 +48,11 @@ function CleanersContent() {
     const serviceType = searchParams.get('serviceType');
     if (serviceType) {
       const filterMap: Record<string, string> = {
-        regular: 'All',
+        regular: 'Regular Cleaning',
+        'one-off': 'One-Off Clean',
         deep: 'Deep Cleaning',
-        'end-of-tenancy': 'All',
-        airbnb: 'All',
+        'end-of-tenancy': 'End of Tenancy',
+        airbnb: 'Airbnb Cleaning',
       };
       setFilter(filterMap[serviceType] || 'All');
     }
