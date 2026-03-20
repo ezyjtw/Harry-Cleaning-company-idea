@@ -19,34 +19,29 @@ const SERVICE_TYPES = [
     description: 'Routine upkeep — dusting, hoovering, mopping, and surface cleaning.',
   },
   {
+    value: 'one-off',
+    label: 'One-Off Clean',
+    multiplier: 1.2,
+    description: 'A single visit for when you need a one-time refresh of your space.',
+  },
+  {
     value: 'deep',
     label: 'Deep Cleaning',
     multiplier: 1.5,
     description: 'A thorough top-to-bottom clean including behind appliances and inside cupboards.',
   },
   {
-    value: 'eco-friendly',
-    label: 'Eco-Friendly Cleaning',
-    multiplier: 1.1,
-    description: 'Non-toxic, plant-based products that are safe for your family and the planet.',
-  },
-  {
-    value: 'office',
-    label: 'Office Cleaning',
-    multiplier: 1.3,
-    description: 'Desks, floors, kitchens, and communal areas for your workspace.',
-  },
-  {
-    value: 'move-in-out',
-    label: 'Move-In/Out Cleaning',
+    value: 'end-of-tenancy',
+    label: 'End of Tenancy Cleaning',
     multiplier: 2,
-    description: 'End-of-tenancy standard clean to get your deposit back or start fresh.',
+    description: 'Professional move-out clean to get your deposit back or prepare for new tenants.',
   },
   {
-    value: 'pet-friendly',
-    label: 'Pet-Friendly Cleaning',
-    multiplier: 1.15,
-    description: 'Pet-safe products with fur removal, odour treatment, and stain care.',
+    value: 'airbnb',
+    label: 'Airbnb Cleaning',
+    multiplier: 1.3,
+    description:
+      'Quick turnaround cleans between guests — fresh linen, restocked supplies, spotless spaces.',
   },
 ];
 
@@ -106,11 +101,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     if (booking) {
       const serviceMap: Record<string, string> = {
         'Regular Cleaning': 'regular',
+        'One-Off Clean': 'one-off',
         'Deep Cleaning': 'deep',
-        'Eco-Friendly Cleaning': 'eco-friendly',
-        'Office Cleaning': 'office',
-        'Move-In/Out Cleaning': 'move-in-out',
-        'Pet-Friendly Cleaning': 'pet-friendly',
+        'End of Tenancy Cleaning': 'end-of-tenancy',
+        'Airbnb Cleaning': 'airbnb',
       };
       setForm({
         ...form,
