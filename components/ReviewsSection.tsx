@@ -4,29 +4,39 @@ import { useState } from 'react';
 
 const reviews = [
   {
-    text: 'I loved being able to browse cleaners and actually choose who came to my home. I messaged Maria beforehand and knew straight away she was the right fit. She has been amazing.',
+    text: 'I browsed through about six cleaners before choosing Maria. Being able to read her reviews and message her beforehand made all the difference. She understood exactly how I like things done.',
     name: 'Amira J.',
     location: 'Walthamstow, E17',
+    highlight: 'Chose the perfect cleaner',
+    stars: 5,
   },
   {
-    text: 'Being able to read real reviews and talk to the cleaner before booking made all the difference. I found someone who understood exactly what I needed for my flat.',
+    text: 'Moved out of my flat last month and needed an end-of-tenancy clean. Booked through Rena on a Tuesday, had it done by Thursday. Landlord returned my full deposit without a single complaint.',
     name: 'Daniel R.',
     location: 'Hackney, E8',
+    highlight: 'Full deposit returned',
+    stars: 5,
   },
   {
-    text: 'I was nervous about letting a stranger in, but being able to pick my own cleaner and have a chat first completely put me at ease. Brilliant service and she is always on time.',
+    text: 'As a single mum working full-time, I needed someone reliable. My cleaner has come every fortnight for five months now and has never cancelled once. It is one less thing to worry about.',
     name: 'Sophie L.',
     location: 'Leyton, E10',
+    highlight: 'Consistent and reliable',
+    stars: 5,
   },
   {
-    text: 'The whole process was seamless. I chose a cleaner based on her reviews, spoke to her beforehand, and she has been cleaning my place fortnightly ever since. Could not recommend more.',
-    name: 'Priya K.',
+    text: 'I run three Airbnb properties and the turnaround cleaning was always stressful. Now I have a dedicated cleaner for each one through Rena. Guests consistently mention how spotless the place is.',
+    name: 'Marcus T.',
     location: 'Stratford, E15',
+    highlight: 'Airbnb host',
+    stars: 5,
   },
   {
-    text: 'What sold me was the ability to actually talk to the cleaner before they come round. I found someone who matched exactly what I was looking for. Five stars across the board.',
+    text: 'Had guests arriving in four hours and my flat was a state. Booked a same-day clean and someone turned up within 45 minutes. Absolute lifesaver. The place looked incredible.',
     name: 'James W.',
     location: 'Tottenham, N17',
+    highlight: 'Same-day save',
+    stars: 4,
   },
 ];
 
@@ -59,8 +69,14 @@ export default function ReviewsSection() {
                     className="rounded-lg p-8 md:p-12"
                     style={{ border: '1px solid rgba(255,255,255,0.08)' }}
                   >
-                    <div className="mb-5 font-jost text-[14px] tracking-[4px] text-gold-2">
-                      ★★★★★
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="rounded-full bg-white/5 px-3 py-1 font-jost text-[11px] uppercase tracking-wider text-gold-2">
+                        {review.highlight}
+                      </span>
+                      <span className="font-jost text-[13px] tracking-[3px] text-gold-2">
+                        {'★'.repeat(review.stars)}
+                        {'☆'.repeat(5 - review.stars)}
+                      </span>
                     </div>
                     <p className="mb-6 font-jost text-[16px] font-light leading-[1.9] text-white/70 md:text-[18px]">
                       &ldquo;{review.text}&rdquo;

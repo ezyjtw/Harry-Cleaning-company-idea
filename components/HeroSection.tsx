@@ -420,7 +420,7 @@ export default function HeroSection() {
       {/* Background image */}
       <div className="absolute inset-0">
         <Image src="/images/hero-banner.jpg" alt="" fill className="object-cover" priority />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#1B2A4A]/85 via-[#1B2A4A]/70 to-[#1B2A4A]/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1B2A4A]/70 via-[#1B2A4A]/50 to-[#1B2A4A]/30" />
       </div>
 
       <div className="relative px-5 py-14 md:px-14 md:py-24">
