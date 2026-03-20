@@ -20,15 +20,13 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
       {/* Top section */}
       <div className="flex items-start gap-4 px-5 pt-5 pb-4">
         {/* Avatar */}
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream font-cormorant text-[20px] font-semibold text-ink">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream font-jost text-[18px] font-semibold text-ink">
           {cleaner.name.charAt(0)}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate font-cormorant text-[18px] font-semibold text-ink">
-              {cleaner.name}
-            </h3>
+            <h3 className="truncate font-jost text-[16px] font-medium text-ink">{cleaner.name}</h3>
             <VerificationBadge
               identityVerified={cleaner.identityVerified}
               backgroundChecked={cleaner.backgroundChecked}
@@ -39,7 +37,7 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
 
         {/* Rate */}
         <div className="text-right">
-          <span className="font-cormorant text-[22px] font-semibold text-ink">
+          <span className="font-jost text-[20px] font-semibold text-ink">
             &pound;{cleaner.hourlyRate}
           </span>
           <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
