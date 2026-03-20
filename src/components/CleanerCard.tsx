@@ -1,23 +1,32 @@
-import Link from "next/link";
-import { Cleaner } from "@/lib/types";
-import { PLATFORM_FEE_PERCENT } from "@/lib/pricing";
-import StarRating from "./StarRating";
-import AvailableNowBadge from "./AvailableNowBadge";
-import VerificationBadge from "./VerificationBadge";
+import Link from 'next/link';
 
-export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
+import type { Cleaner } from '@/lib/types';
+
+import StarRating from './StarRating';
+import VerificationBadge from './VerificationBadge';
+
+interface CleanerCardProps {
+  cleaner: Cleaner;
+  onViewProfile?: () => void;
+}
+
+export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps) {
   return (
-    <Link
-      href={`/cleaners/${cleaner.id}`}
-      className="group block rounded-xl border border-gray-200 bg-white p-6 transition hover:border-brand-300 hover:shadow-lg"
+    <div
+      className="group flex cursor-pointer flex-col bg-white transition-shadow hover:shadow-md"
+      style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
+      onClick={onViewProfile}
     >
-      <div className="flex items-start gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
+      {/* Top section */}
+      <div className="flex items-start gap-4 px-5 pt-5 pb-4">
+        {/* Avatar */}
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream font-cormorant text-[20px] font-semibold text-ink">
           {cleaner.name.charAt(0)}
         </div>
+
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-lg font-semibold text-gray-900 group-hover:text-brand-700">
+            <h3 className="truncate font-cormorant text-[18px] font-semibold text-ink">
               {cleaner.name}
             </h3>
             <VerificationBadge
@@ -25,46 +34,65 @@ export default function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
               backgroundChecked={cleaner.backgroundChecked}
             />
           </div>
-          <p className="text-sm text-gray-500">{cleaner.location}</p>
-          <div className="mt-1 flex items-center gap-2">
-            <StarRating rating={cleaner.rating} />
-            <span className="text-sm text-gray-600">
-              {cleaner.rating} ({cleaner.reviewCount} reviews)
-            </span>
-          </div>
-          {cleaner.availableNow && (
-            <div className="mt-2">
-              <AvailableNowBadge responseTime={cleaner.responseTime} />
-            </div>
-          )}
+          <p className="font-jost text-[12px] font-light text-ink-3">{cleaner.location}</p>
         </div>
+
+        {/* Rate */}
         <div className="text-right">
-          <span className="text-2xl font-bold text-gray-900">
-            ${cleaner.hourlyRate}
+          <span className="font-cormorant text-[22px] font-semibold text-ink">
+            &pound;{cleaner.hourlyRate}
           </span>
-          <span className="text-sm text-gray-500">/hr</span>
-          {cleaner.availableNow && (
-            <div className="mt-1 text-xs text-gray-400">
-              ${cleaner.sameDayRate}/hr same-day
-            </div>
-          )}
+          <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-sm text-gray-600">{cleaner.bio}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {cleaner.specialties.map((s) => (
+
+      {/* Rating row */}
+      <div className="flex items-center gap-2 px-5">
+        <StarRating rating={cleaner.rating} />
+        <span className="font-jost text-[12px] font-light text-ink-2">
+          {cleaner.rating} ({cleaner.reviewCount})
+        </span>
+        {cleaner.availableNow && (
+          <span className="ml-auto flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
+            </span>
+            <span className="font-jost text-[11px] font-medium text-teal">Available today</span>
+          </span>
+        )}
+      </div>
+
+      {/* Bio */}
+      <p className="mt-3 line-clamp-2 px-5 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+        {cleaner.bio}
+      </p>
+
+      {/* Specialties */}
+      <div className="mt-3 flex flex-wrap gap-1.5 px-5">
+        {cleaner.specialties.slice(0, 3).map((s) => (
           <span
             key={s}
-            className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+            className="rounded-full bg-cream px-3 py-1 font-jost text-[11px] font-medium text-ink-2"
           >
             {s}
           </span>
         ))}
       </div>
-      <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-        <span>{cleaner.yearsExperience} years experience</span>
-        <span>Only {PLATFORM_FEE_PERCENT}% fee</span>
+
+      {/* Footer */}
+      <div className="mt-auto flex items-center justify-between border-t border-ink/5 px-5 py-3 mt-4">
+        <span className="font-jost text-[11px] font-light text-ink-3">
+          {cleaner.yearsExperience} yrs experience &middot; {cleaner.completedJobs} jobs
+        </span>
+        <Link
+          href={`/book/${cleaner.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="font-jost text-[11px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4 transition-colors hover:text-ink-2"
+        >
+          Book now
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }

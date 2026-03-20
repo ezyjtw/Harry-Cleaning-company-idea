@@ -4,174 +4,137 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+        setOpen(false);
       }
     }
-    if (menuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
+  }, [open]);
 
-  // Close menu on escape key
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false);
+      if (e.key === 'Escape') setOpen(false);
     }
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
   return (
-    <header className="relative z-50 bg-white shadow-sm" ref={menuRef}>
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-        <Link href="/" className="flex items-center gap-2" aria-label="Rena home">
-          <span className="text-xl font-extrabold uppercase tracking-wide text-brand-700">
-            Rena
-          </span>
+    <header
+      ref={menuRef}
+      className="bg-white"
+      style={{ borderBottom: '1px solid rgba(27,42,74,0.06)' }}
+    >
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5">
+        <Link
+          href="/"
+          className="font-cormorant text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
+        >
+          RENA
         </Link>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-brand-700">
-            Log In
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700 sm:px-4"
-          >
-            Sign Up
-          </Link>
-
-          {/* Menu button */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-            className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-brand-700 touch-target sm:ml-1"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              {menuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
-        </div>
+        {/* Hamburger icon */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex flex-col gap-1.5"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-expanded={open}
+        >
+          <span
+            className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? 'translate-y-[5px] rotate-45' : ''}`}
+          />
+          <span
+            className={`block h-[2px] w-6 rounded bg-ink transition-opacity ${open ? 'opacity-0' : ''}`}
+          />
+          <span
+            className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? '-translate-y-[5px] -rotate-45' : ''}`}
+          />
+        </button>
       </div>
 
-      {/* Full-width dropdown panel */}
-      {menuOpen && (
-        <nav
-          className="animate-slide-down border-t border-gray-200 bg-white shadow-lg"
-          aria-label="Main navigation"
-        >
-          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      {/* Dropdown menu */}
+      {open && (
+        <nav className="border-t border-ink/5 bg-white" aria-label="Main navigation">
+          <div className="mx-auto max-w-7xl px-5 py-6 md:px-14">
             {/* Client flow */}
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
               I need a cleaner
-            </h3>
-            <div className="mt-2 flex flex-col gap-0.5">
-              <Link
-                href="/services"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                Book a Clean
-              </Link>
-              <Link
-                href="/cleaners"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                Find Cleaners
-              </Link>
-              <Link
-                href="/how-it-works"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                How It Works
-              </Link>
-              <Link
-                href="/pricing"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                Pricing
-              </Link>
-              <Link
-                href="/faq"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                FAQ
-              </Link>
-              <Link
-                href="/contact"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                Contact Us
-              </Link>
+            </p>
+            <div className="mt-3 flex flex-col gap-1">
+              {[
+                { href: '/services', label: 'Book a Clean' },
+                { href: '/cleaners', label: 'Find Cleaners' },
+                { href: '#how-it-works', label: 'How It Works' },
+                { href: '/pricing', label: 'Pricing' },
+                { href: '/faq', label: 'FAQ' },
+                { href: '/contact', label: 'Contact Us' },
+              ].map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="rounded-md px-3 py-2.5 font-jost text-[15px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
 
             {/* Cleaner flow */}
-            <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <p className="mt-6 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
               I&apos;m a cleaner
-            </h3>
-            <div className="mt-2 flex flex-col gap-0.5">
+            </p>
+            <div className="mt-3 flex flex-col gap-1">
+              {[
+                { href: '/join', label: 'Become a Cleaner' },
+                { href: '/cleaner', label: 'Cleaner Dashboard' },
+              ].map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="rounded-md px-3 py-2.5 font-jost text-[15px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            {/* Partner flow */}
+            <p className="mt-6 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
+              Partner with us
+            </p>
+            <div className="mt-3 flex flex-col gap-1">
               <Link
-                href="/join"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
+                href="/company"
+                onClick={() => setOpen(false)}
+                className="rounded-md px-3 py-2.5 font-jost text-[15px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
               >
-                Become a Cleaner
-              </Link>
-              <Link
-                href="/cleaner"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
-              >
-                Cleaner Dashboard
+                Partner Dashboard
               </Link>
             </div>
 
-            {/* Partner / Company flow */}
-            <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Partner with us
-            </h3>
-            <div className="mt-2 flex flex-col gap-0.5">
+            {/* Auth links */}
+            <div className="mt-8 flex items-center gap-4">
               <Link
-                href="/company"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setMenuOpen(false)}
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
               >
-                Partner Dashboard
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setOpen(false)}
+                className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+              >
+                Sign up
               </Link>
             </div>
           </div>
