@@ -12,11 +12,36 @@ import { getPriceBreakdown } from '@/lib/pricing';
 import { shouldUseEscrow } from '@/lib/trust';
 
 const SERVICE_TYPES = [
-  { value: 'standard', label: 'Standard Cleaning', multiplier: 1 },
-  { value: 'deep', label: 'Deep Cleaning', multiplier: 1.5 },
-  { value: 'move-in-out', label: 'Move In/Out Cleaning', multiplier: 2 },
-  { value: 'office', label: 'Office Cleaning', multiplier: 1.3 },
-  { value: 'last-minute', label: 'Last-Minute Cleaning', multiplier: 1.0 },
+  {
+    value: 'standard',
+    label: 'Standard Cleaning',
+    multiplier: 1,
+    description: 'Regular upkeep — dusting, hoovering, mopping, and surface cleaning.',
+  },
+  {
+    value: 'deep',
+    label: 'Deep Cleaning',
+    multiplier: 1.5,
+    description: 'A thorough top-to-bottom clean including behind appliances and inside cupboards.',
+  },
+  {
+    value: 'move-in-out',
+    label: 'Move In/Out Cleaning',
+    multiplier: 2,
+    description: 'End-of-tenancy standard clean to get your deposit back or start fresh.',
+  },
+  {
+    value: 'office',
+    label: 'Office Cleaning',
+    multiplier: 1.3,
+    description: 'Desks, floors, kitchens, and communal areas for your workspace.',
+  },
+  {
+    value: 'last-minute',
+    label: 'Last-Minute Cleaning',
+    multiplier: 1.0,
+    description: 'Need it today? Same-day availability at the standard rate.',
+  },
 ];
 
 export default function BookingPage({ params }: { params: { id: string } }) {
@@ -39,6 +64,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     serviceType: isExpress ? 'last-minute' : 'standard',
     notes: '',
   });
+  const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
   const [submitted, setSubmitted] = useState(false);
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
@@ -196,9 +222,96 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }
 
+  if (step === 'service') {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">
+        {/* Cleaner summary at top */}
+        <div
+          className="flex items-center gap-4 bg-cream-2 p-4"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
+          <div className="flex h-14 w-14 items-center justify-center bg-ink font-cormorant text-xl font-light text-cream">
+            {cleaner.name.charAt(0)}
+          </div>
+          <div className="flex-1">
+            <h2 className="font-jost font-normal text-ink">{cleaner.name}</h2>
+            <div className="flex items-center gap-2 font-jost text-sm font-light text-ink-3">
+              <StarRating rating={cleaner.rating} />
+              <span>
+                {cleaner.rating} ({cleaner.reviewCount} reviews)
+              </span>
+              <span>&middot; &pound;{cleaner.hourlyRate}/hr</span>
+            </div>
+          </div>
+        </div>
+
+        <h1 className="mt-8 font-cormorant text-3xl font-light text-ink">
+          What kind of cleaning do you need?
+        </h1>
+        <p className="mt-2 font-jost text-sm font-light text-ink-2">
+          Choose a service to continue booking with {cleaner.name}.
+        </p>
+
+        <div className="mt-6 grid gap-3">
+          {SERVICE_TYPES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => {
+                setForm({ ...form, serviceType: s.value });
+                setStep('details');
+              }}
+              className="group/card flex items-center justify-between p-5 text-left transition hover:bg-cream-2"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <div className="min-w-0 flex-1">
+                <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
+                <p className="mt-1 font-jost text-[13px] font-light text-ink-2">{s.description}</p>
+              </div>
+              <div className="ml-6 shrink-0 text-right">
+                {s.multiplier !== 1 ? (
+                  <span className="font-jost text-[13px] font-light text-ink-3">
+                    {s.multiplier}x rate
+                  </span>
+                ) : (
+                  <span className="font-jost text-[13px] font-light text-ink-3">Standard rate</span>
+                )}
+              </div>
+              <svg
+                className="ml-3 h-5 w-5 shrink-0 text-ink-3 transition group-hover/card:translate-x-0.5 group-hover/card:text-ink"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">
-      <h1 className="font-cormorant text-3xl font-light text-ink">
+      {!isExpress && (
+        <button
+          onClick={() => setStep('service')}
+          className="flex items-center gap-1.5 font-jost text-[13px] font-light text-ink-3 hover:text-ink transition"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+          Change service type
+        </button>
+      )}
+      <h1 className="mt-2 font-cormorant text-3xl font-light text-ink">
         {isExpress ? 'Express Booking' : 'Book a Cleaning'}
       </h1>
 
