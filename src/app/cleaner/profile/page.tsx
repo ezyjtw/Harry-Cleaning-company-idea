@@ -41,6 +41,8 @@ export default function CleanerProfilePage() {
   ]);
   const [travelRadius, setTravelRadius] = useState('10');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English', 'Portuguese']);
+  const [customLanguages, setCustomLanguages] = useState<string[]>([]);
+  const [customLanguage, setCustomLanguage] = useState('');
   const [saved, setSaved] = useState(false);
 
   const toggleSpecialty = (s: string) => {
@@ -243,7 +245,7 @@ export default function CleanerProfilePage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Languages Spoken</h2>
           <div className="flex flex-wrap gap-2">
-            {languageOptions.map((l) => (
+            {[...languageOptions, ...customLanguages].map((l) => (
               <button
                 key={l}
                 onClick={() => toggleLanguage(l)}
@@ -256,6 +258,38 @@ export default function CleanerProfilePage() {
                 {l}
               </button>
             ))}
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-gray-500 mb-2">Don&apos;t see your language?</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={customLanguage}
+                onChange={(e) => setCustomLanguage(e.target.value)}
+                placeholder="e.g. Swahili"
+                className="w-48 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const lang = customLanguage.trim();
+                  if (
+                    lang &&
+                    !selectedLanguages.includes(lang) &&
+                    !languageOptions.includes(lang)
+                  ) {
+                    setCustomLanguages((prev) => [...prev, lang]);
+                    setSelectedLanguages((prev) => [...prev, lang]);
+                    setCustomLanguage('');
+                    setSaved(false);
+                  }
+                }}
+                disabled={!customLanguage.trim()}
+                className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
 
