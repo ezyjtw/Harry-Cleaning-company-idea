@@ -23,7 +23,7 @@ export default function HomeFooter() {
           <Link
             key={link.label}
             href={link.href}
-            className="font-jost text-[12px] tracking-wide text-white/40 transition-colors hover:text-white/60"
+            className="font-jost text-[12px] tracking-wide text-white/50 transition-colors hover:text-white/80"
           >
             {link.label}
           </Link>

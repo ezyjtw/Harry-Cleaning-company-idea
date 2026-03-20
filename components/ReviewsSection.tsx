@@ -85,7 +85,7 @@ export default function ReviewsSection() {
                       <span className="font-jost text-[14px] font-medium text-white">
                         {review.name}
                       </span>
-                      <span className="font-jost text-[13px] text-white/40">
+                      <span className="font-jost text-[13px] text-white/50">
                         {' '}
                         · {review.location}
                       </span>

@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {/* Customers */}
           <div>
-            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/40">
+            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
               For Customers
             </h3>
             <ul className="mt-4 space-y-2.5">
@@ -22,7 +22,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="font-jost text-[13px] font-light text-white/40 transition-colors hover:text-white/70"
+                    className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
                   >
                     {link.label}
                   </Link>
@@ -33,7 +33,7 @@ export default function Footer() {
 
           {/* Cleaners */}
           <div>
-            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/40">
+            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
               For Cleaners
             </h3>
             <ul className="mt-4 space-y-2.5">
@@ -45,7 +45,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="font-jost text-[13px] font-light text-white/40 transition-colors hover:text-white/70"
+                    className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
                   >
                     {link.label}
                   </Link>
@@ -56,7 +56,7 @@ export default function Footer() {
 
           {/* Company */}
           <div>
-            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/40">
+            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
               Company
             </h3>
             <ul className="mt-4 space-y-2.5">
@@ -68,7 +68,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="font-jost text-[13px] font-light text-white/40 transition-colors hover:text-white/70"
+                    className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
                   >
                     {link.label}
                   </Link>
@@ -79,7 +79,7 @@ export default function Footer() {
 
           {/* Legal */}
           <div>
-            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/40">
+            <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
               Legal
             </h3>
             <ul className="mt-4 space-y-2.5">
@@ -90,7 +90,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="font-jost text-[13px] font-light text-white/40 transition-colors hover:text-white/70"
+                    className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
                   >
                     {link.label}
                   </Link>
