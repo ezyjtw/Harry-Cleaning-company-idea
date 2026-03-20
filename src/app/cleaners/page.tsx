@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 
@@ -9,15 +8,15 @@ import CleanerProfileModal from '@/components/CleanerProfileModal';
 import { cleaners } from '@/lib/mock-data';
 import type { Cleaner } from '@/lib/types';
 
-const SERVICE_LINKS: { label: string; href: string }[] = [
-  { label: 'Regular Cleaning', href: '/services/regular' },
-  { label: 'One-Off Clean', href: '/services/one-off' },
-  { label: 'Deep Cleaning', href: '/services/deep' },
-  { label: 'End of Tenancy', href: '/services/end-of-tenancy' },
-  { label: 'Airbnb Cleaning', href: '/services/airbnb' },
+const SERVICE_FILTERS = [
+  'All',
+  'Regular Cleaning',
+  'One-Off Clean',
+  'Deep Cleaning',
+  'End of Tenancy',
+  'Airbnb Cleaning',
+  'Pet-Friendly',
 ];
-
-const SERVICE_FILTERS = ['All', 'Pet-Friendly'];
 
 type SortOption = 'rating' | 'price-low' | 'price-high' | 'reviews' | 'available-now' | 'distance';
 
@@ -238,16 +237,6 @@ function CleanersContent() {
               >
                 {f}
               </button>
-            ))}
-            <span className="w-px bg-ink/10" />
-            {SERVICE_LINKS.map((s) => (
-              <Link
-                key={s.href}
-                href={s.href}
-                className="rounded-full border border-ink/15 px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide text-ink transition hover:border-ink/30"
-              >
-                {s.label}
-              </Link>
             ))}
           </div>
         </div>
