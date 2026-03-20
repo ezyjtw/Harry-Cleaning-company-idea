@@ -62,7 +62,7 @@ export default function ServicesSection() {
         </h2>
 
         <div
-          className="grid grid-cols-1 gap-0 md:grid-cols-6"
+          className="grid grid-cols-2 gap-0 sm:grid-cols-3 md:grid-cols-6"
           style={{ border: '1px solid rgba(27,42,74,0.08)' }}
         >
           {services.map((svc, i) => (
@@ -72,11 +72,10 @@ export default function ServicesSection() {
               className={`p-5 text-left transition-all md:p-6 ${
                 active === i ? 'bg-cream-2' : 'bg-white hover:bg-cream'
               }`}
-              style={
-                i < services.length - 1
-                  ? { borderBottom: '1px solid rgba(27,42,74,0.06)', borderRight: undefined }
-                  : undefined
-              }
+              style={{
+                borderBottom: '1px solid rgba(27,42,74,0.06)',
+                borderRight: '1px solid rgba(27,42,74,0.06)',
+              }}
             >
               <p className="mb-1 font-jost text-[15px] font-semibold text-ink">{svc.title}</p>
               <p className="font-jost text-[12px] text-gold">{svc.price}</p>
