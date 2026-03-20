@@ -67,26 +67,15 @@ const STORAGE_KEY = 'rena-join-wizard';
 /*  Option lists                                                       */
 /* ------------------------------------------------------------------ */
 
-const SERVICE_TYPE_OPTIONS = [
-  'Standard',
-  'Deep',
-  'End of Tenancy',
-  'Move-in/out',
-  'AirBnB',
-  'Office',
-];
+const SERVICE_TYPE_OPTIONS = ['Standard', 'Deep', 'End of Tenancy', 'AirBnB'];
 
 const SPECIALTY_OPTIONS = [
   'Standard Cleaning',
   'Deep Cleaning',
   'Eco-Friendly',
   'Pet-Friendly',
-  'Office Cleaning',
-  'Move-In/Out',
   'Kitchen Specialist',
   'Bathroom Specialist',
-  'Organizing',
-  'Laundry & Ironing',
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -97,7 +86,6 @@ const LANGUAGE_OPTIONS = [
   'Polish',
   'Romanian',
   'Mandarin',
-  'Other',
 ];
 
 const STEPS = [
@@ -114,6 +102,48 @@ const STEPS = [
 /* ------------------------------------------------------------------ */
 
 const UK_POSTCODE_RE = /^([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}|GIR\s?0AA)$/i;
+
+// Common profanity / slur word list (lowercase) for basic client-side filtering
+const BLOCKED_WORDS = new Set([
+  'fuck',
+  'shit',
+  'ass',
+  'bitch',
+  'damn',
+  'cunt',
+  'dick',
+  'cock',
+  'piss',
+  'bastard',
+  'wanker',
+  'twat',
+  'bollocks',
+  'arsehole',
+  'asshole',
+  'motherfucker',
+  'nigger',
+  'nigga',
+  'faggot',
+  'retard',
+  'slut',
+  'whore',
+]);
+
+function containsProfanity(text: string): boolean {
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .split(/\s+/);
+  return words.some((w) => BLOCKED_WORDS.has(w));
+}
+
+function toTitleCase(text: string): string {
+  return text
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
 
 function toggleInArray(arr: string[], value: string): string[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -166,6 +196,65 @@ function PillToggle({
     >
       {label}
     </button>
+  );
+}
+
+function CustomAddInput({
+  placeholder,
+  onAdd,
+}: {
+  placeholder: string;
+  onAdd: (value: string) => void;
+}) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState('');
+
+  function handleAdd() {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (trimmed.length < 2) {
+      setError('Must be at least 2 characters');
+      return;
+    }
+    if (containsProfanity(trimmed)) {
+      setError('Please use appropriate language');
+      return;
+    }
+    setError('');
+    onAdd(trimmed);
+    setValue('');
+  }
+
+  return (
+    <div className="mt-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (error) setError('');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+          className="flex-1 px-3 py-1.5 font-jost text-sm font-light text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-ink/20"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          className="shrink-0 bg-ink px-4 py-1.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
+        >
+          Add
+        </button>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
 
@@ -564,7 +653,28 @@ export default function JoinAsCleanerPage() {
                     onClick={() => toggleArray('specialties', s)}
                   />
                 ))}
+                {/* Custom specialties added by user */}
+                {form.specialties
+                  .filter((s) => !SPECIALTY_OPTIONS.includes(s))
+                  .map((s) => (
+                    <PillToggle
+                      key={s}
+                      label={s}
+                      active={true}
+                      onClick={() => toggleArray('specialties', s)}
+                    />
+                  ))}
               </div>
+              {/* Add custom specialty */}
+              <CustomAddInput
+                placeholder="Add a specialty..."
+                onAdd={(value) => {
+                  const titled = toTitleCase(value);
+                  if (!form.specialties.includes(titled)) {
+                    setForm((prev) => ({ ...prev, specialties: [...prev.specialties, titled] }));
+                  }
+                }}
+              />
             </div>
 
             <div>
@@ -578,7 +688,28 @@ export default function JoinAsCleanerPage() {
                     onClick={() => toggleArray('languages', l)}
                   />
                 ))}
+                {/* Custom languages added by user */}
+                {form.languages
+                  .filter((l) => !LANGUAGE_OPTIONS.includes(l))
+                  .map((l) => (
+                    <PillToggle
+                      key={l}
+                      label={l}
+                      active={true}
+                      onClick={() => toggleArray('languages', l)}
+                    />
+                  ))}
               </div>
+              {/* Add custom language */}
+              <CustomAddInput
+                placeholder="Add a language..."
+                onAdd={(value) => {
+                  const titled = toTitleCase(value);
+                  if (!form.languages.includes(titled)) {
+                    setForm((prev) => ({ ...prev, languages: [...prev.languages, titled] }));
+                  }
+                }}
+              />
             </div>
 
             <div>
