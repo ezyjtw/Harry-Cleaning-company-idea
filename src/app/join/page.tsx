@@ -13,7 +13,7 @@ interface FormData {
   phone: string;
   postcode: string;
   dateOfBirth: string;
-  profilePhotoUrl: string;
+  profilePhoto: string; // base64 data URL from uploaded image
 
   // Step 1 – Experience
   yearsExperience: string;
@@ -43,7 +43,7 @@ const INITIAL_FORM: FormData = {
   phone: '',
   postcode: '',
   dateOfBirth: '',
-  profilePhotoUrl: '',
+  profilePhoto: '',
 
   yearsExperience: '',
   serviceTypes: [],
@@ -452,13 +452,70 @@ export default function JoinAsCleanerPage() {
                 <FieldError message={errors.dateOfBirth} />
               </div>
               <div>
-                <Label>Profile Photo URL</Label>
-                <Input
-                  type="url"
-                  placeholder="https://..."
-                  value={form.profilePhotoUrl}
-                  onChange={(e) => set('profilePhotoUrl', e.target.value)}
-                />
+                <Label>Profile Picture</Label>
+                <div className="mt-2 flex items-center gap-4">
+                  {/* Preview circle */}
+                  <div
+                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {form.profilePhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={form.profilePhoto}
+                        alt="Profile preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <svg
+                        className="h-6 w-6 text-ink-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="inline-block cursor-pointer bg-ink px-4 py-2 font-jost text-sm font-light text-cream transition hover:bg-ink/90">
+                      Upload photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                              set('profilePhoto', reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    {form.profilePhoto && (
+                      <button
+                        type="button"
+                        onClick={() => set('profilePhoto', '')}
+                        className="ml-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 underline hover:text-ink"
+                      >
+                        Remove
+                      </button>
+                    )}
+                    <p className="mt-1 font-jost text-[11px] text-ink-3">
+                      JPG, PNG or WebP. Max 5 MB.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -719,28 +776,40 @@ export default function JoinAsCleanerPage() {
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   Personal
                 </h3>
-                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
-                  <div>
-                    <dt className="inline font-normal text-ink">Name:</dt>{' '}
-                    <dd className="inline">{form.name}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-normal text-ink">Email:</dt>{' '}
-                    <dd className="inline">{form.email}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-normal text-ink">Phone:</dt>{' '}
-                    <dd className="inline">{form.phone}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-normal text-ink">Postcode:</dt>{' '}
-                    <dd className="inline">{form.postcode}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-normal text-ink">DOB:</dt>{' '}
-                    <dd className="inline">{form.dateOfBirth}</dd>
-                  </div>
-                </dl>
+                <div className="mt-2 flex items-start gap-3">
+                  {form.profilePhoto && (
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={form.profilePhoto}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <dl className="space-y-1 font-jost text-sm font-light text-ink-2">
+                    <div>
+                      <dt className="inline font-normal text-ink">Name:</dt>{' '}
+                      <dd className="inline">{form.name}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-normal text-ink">Email:</dt>{' '}
+                      <dd className="inline">{form.email}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-normal text-ink">Phone:</dt>{' '}
+                      <dd className="inline">{form.phone}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-normal text-ink">Postcode:</dt>{' '}
+                      <dd className="inline">{form.postcode}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-normal text-ink">DOB:</dt>{' '}
+                      <dd className="inline">{form.dateOfBirth}</dd>
+                    </div>
+                  </dl>
+                </div>
               </div>
 
               {/* Experience */}
