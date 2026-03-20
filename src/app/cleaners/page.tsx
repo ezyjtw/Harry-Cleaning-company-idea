@@ -15,6 +15,7 @@ const SERVICE_FILTERS = [
   'Deep Cleaning',
   'End of Tenancy',
   'Airbnb Cleaning',
+  'Pet-Friendly',
 ];
 
 type SortOption = 'rating' | 'price-low' | 'price-high' | 'reviews' | 'available-now' | 'distance';
