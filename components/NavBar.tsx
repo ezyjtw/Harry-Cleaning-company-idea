@@ -69,7 +69,7 @@ export default function NavBar() {
             {[
               { href: '/services', label: 'Book a Clean' },
               { href: '/cleaners', label: 'Find Cleaners' },
-              { href: '#how-it-works', label: 'How It Works' },
+              { href: '/#how-it-works', label: 'How It Works' },
               { href: '/pricing', label: 'Pricing' },
               { href: '/faq', label: 'FAQ' },
               { href: '/contact', label: 'Contact Us' },
