@@ -3,7 +3,6 @@ import Link from 'next/link';
 import type { Cleaner } from '@/lib/types';
 
 import StarRating from './StarRating';
-import VerificationBadge from './VerificationBadge';
 
 interface CleanerCardProps {
   cleaner: Cleaner;
@@ -27,10 +26,20 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate font-jost text-[16px] font-medium text-ink">{cleaner.name}</h3>
-            <VerificationBadge
-              identityVerified={cleaner.identityVerified}
-              backgroundChecked={cleaner.backgroundChecked}
-            />
+            {(cleaner.identityVerified || cleaner.backgroundChecked) && (
+              <svg
+                className="h-4 w-4 shrink-0 text-teal"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-label="Verified"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
           </div>
           <p className="font-jost text-[12px] font-light text-ink-3">{cleaner.location}</p>
         </div>
