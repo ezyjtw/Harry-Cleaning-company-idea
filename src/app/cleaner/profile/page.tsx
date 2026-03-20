@@ -39,7 +39,7 @@ export default function CleanerProfilePage() {
     'Deep Cleaning',
     'End of Tenancy',
   ]);
-  const [postcodes, setPostcodes] = useState('SW1, SW3, SW7, W1, W8, W11');
+  const [travelRadius, setTravelRadius] = useState('10');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English', 'Portuguese']);
   const [saved, setSaved] = useState(false);
 
@@ -213,24 +213,29 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
-        {/* Service areas */}
+        {/* Travel radius */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Service Areas</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Travel Radius</h2>
           <p className="text-sm text-gray-500 mb-3">
-            Enter the postcodes you cover, separated by commas
+            How many miles from your home location are you willing to travel for a job?
           </p>
-          <input
-            type="text"
-            value={postcodes}
-            onChange={(e) => {
-              setPostcodes(e.target.value);
-              setSaved(false);
-            }}
-            placeholder="e.g. SW1, SW3, W1, EC1"
-            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={travelRadius}
+              onChange={(e) => {
+                setTravelRadius(e.target.value);
+                setSaved(false);
+              }}
+              min="1"
+              max="50"
+              placeholder="e.g. 10"
+              className="w-32 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <span className="text-sm text-gray-500">miles</span>
+          </div>
           <p className="text-xs text-gray-400 mt-2">
-            Customers in these areas will be able to find you
+            Customers within this radius of your home will be able to find you
           </p>
         </div>
 
