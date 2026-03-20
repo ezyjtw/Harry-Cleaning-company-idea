@@ -12,6 +12,13 @@ const services = [
     price: 'From £18/hr',
   },
   {
+    id: 'same-day',
+    title: 'Same day cleaning',
+    description:
+      "Need a cleaner today? We'll match you with a vetted, available cleaner near you for a same-day visit.",
+    price: 'From £22/hr',
+  },
+  {
     id: 'one-off',
     title: 'One-off clean',
     description:
@@ -55,7 +62,7 @@ export default function ServicesSection() {
         </h2>
 
         <div
-          className="grid grid-cols-1 gap-0 md:grid-cols-5"
+          className="grid grid-cols-1 gap-0 md:grid-cols-6"
           style={{ border: '1px solid rgba(27,42,74,0.08)' }}
         >
           {services.map((svc, i) => (
