@@ -19,10 +19,10 @@ export default function NavBar() {
           RENA
         </Link>
 
-        {/* Mobile hamburger */}
+        {/* Hamburger icon — visible at all screen sizes */}
         <button
           onClick={() => setOpen(!open)}
-          className="flex flex-col gap-1.5 md:hidden"
+          className="flex flex-col gap-1.5"
           aria-label="Toggle menu"
         >
           <span
@@ -35,77 +35,43 @@ export default function NavBar() {
             className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? '-translate-y-[5px] -rotate-45' : ''}`}
           />
         </button>
-
-        {/* Desktop nav */}
-        <div className="hidden items-center gap-8 md:flex">
-          <Link
-            href="#how-it-works"
-            className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
-          >
-            How it works
-          </Link>
-          <Link
-            href="/services"
-            className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
-          >
-            Services
-          </Link>
-          <Link
-            href="/pricing"
-            className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
-          >
-            Pricing
-          </Link>
-          <Link
-            href="/join"
-            className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
-          >
-            For cleaners
-          </Link>
-          <Link
-            href="/book"
-            className="rounded-md bg-gold px-6 py-2.5 font-jost text-[13px] font-medium text-white transition-opacity hover:opacity-90"
-          >
-            Book a clean
-          </Link>
-        </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Dropdown menu */}
       {open && (
-        <div className="mt-4 flex flex-col gap-4 pb-2 md:hidden">
+        <div className="mt-4 flex flex-col gap-4 pb-2">
           <Link
             href="#how-it-works"
             onClick={() => setOpen(false)}
-            className="font-jost text-[15px] font-normal text-ink-2"
+            className="font-jost text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
           >
             How it works
           </Link>
           <Link
             href="/services"
             onClick={() => setOpen(false)}
-            className="font-jost text-[15px] font-normal text-ink-2"
+            className="font-jost text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
           >
             Services
           </Link>
           <Link
             href="/pricing"
             onClick={() => setOpen(false)}
-            className="font-jost text-[15px] font-normal text-ink-2"
+            className="font-jost text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
           >
             Pricing
           </Link>
           <Link
             href="/join"
             onClick={() => setOpen(false)}
-            className="font-jost text-[15px] font-normal text-ink-2"
+            className="font-jost text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
           >
             For cleaners
           </Link>
           <Link
             href="/book"
             onClick={() => setOpen(false)}
-            className="w-full rounded-md bg-gold py-3 text-center font-jost text-[14px] font-medium text-white"
+            className="w-full rounded-md bg-gold py-3 text-center font-jost text-[14px] font-medium text-white md:w-auto md:max-w-[200px]"
           >
             Book a clean
           </Link>
