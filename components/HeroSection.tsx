@@ -427,7 +427,7 @@ export default function HeroSection() {
         <div className="mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-20">
           {/* Left column */}
           <div>
-            <p className="mb-5 font-jost text-[12px] uppercase tracking-[0.2em] text-white/60">
+            <p className="mb-5 font-jost text-[12px] uppercase tracking-[0.2em] text-white/80">
               Trusted home cleaning
             </p>
 
@@ -437,7 +437,7 @@ export default function HeroSection() {
               can <em className="text-gold-2">trust</em>
             </h1>
 
-            <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/70 md:mb-10 md:text-[16px]">
+            <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
               Browse DBS-checked, personally vetted cleaners in your area. Read genuine reviews,
               choose someone you trust, and book in two minutes.
             </p>
@@ -471,7 +471,7 @@ export default function HeroSection() {
                       />
                     </svg>
                   </div>
-                  <span className="font-jost text-[12px] text-white/60">{item.label}</span>
+                  <span className="font-jost text-[12px] text-white/80">{item.label}</span>
                 </div>
               ))}
             </div>
