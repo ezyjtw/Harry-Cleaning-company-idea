@@ -106,18 +106,18 @@ function CleanersContent() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero header */}
-      <section className="bg-cream px-5 py-14 md:px-14 md:py-20">
+      <section className="bg-cream px-5 py-6 md:px-14 md:py-8">
         <div className="mx-auto max-w-7xl">
-          <h1 className="font-cormorant text-[36px] font-light leading-tight text-ink md:text-[52px]">
+          <h1 className="font-cormorant text-[28px] font-light leading-tight text-ink md:text-[36px]">
             Find a cleaner
           </h1>
-          <p className="mt-3 max-w-xl font-jost text-[15px] font-light leading-relaxed text-ink-2">
+          <p className="mt-1.5 max-w-xl font-jost text-[14px] font-light leading-relaxed text-ink-2">
             Browse our network of trusted, independent cleaning professionals — vetted, reviewed,
             and ready to help.
           </p>
 
           {/* Postcode search */}
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:max-w-lg">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:max-w-lg">
             <input
               type="text"
               placeholder="Enter your postcode"
