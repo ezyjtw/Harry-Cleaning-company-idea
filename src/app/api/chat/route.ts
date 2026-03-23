@@ -24,7 +24,7 @@ BOOKING & SCHEDULING
 PRICING
 - Regular cleaning: from £18/hr (cleaner sets their own rate, plus 5% service fee).
 - Deep cleaning: 1.45x the cleaner's rate.
-- One-off clean: 1.15x the cleaner's rate.
+- One-off clean: 1.10x the cleaner's rate (10% surge).
 - Same-day: 1.30x the cleaner's rate.
 - End of tenancy: fixed price from £175 (studio) to £550 (5 bed+). Cleaner paid at deep rate × hours × 1.10 bonus.
 - Airbnb turnovers: fixed price from £55 (studio) to £155 (4 bed+). Cleaner paid at deep rate × hours.

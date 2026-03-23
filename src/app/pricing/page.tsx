@@ -23,9 +23,9 @@ const serviceRates = [
   {
     type: 'One-Off Cleaning',
     description: 'Single visit, no recurring commitment',
-    rate: '\u00A316 \u2013 \u00A340/hr',
+    rate: '\u00A315 \u2013 \u00A339/hr',
     typical: '2\u20134 hours',
-    multiplier: '1.15x',
+    multiplier: '1.10x',
   },
   {
     type: 'Deep Cleaning',

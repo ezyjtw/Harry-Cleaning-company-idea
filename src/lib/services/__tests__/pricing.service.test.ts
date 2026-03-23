@@ -14,7 +14,7 @@ const mockPlatformConfig = [
   { key: 'customer_fee_pct', value: '0.05' },
   { key: 'deep_multiplier', value: '1.45' },
   { key: 'fortnightly_multiplier', value: '1.05' },
-  { key: 'one_off_multiplier', value: '1.15' },
+  { key: 'one_off_multiplier', value: '1.10' },
   { key: 'same_day_multiplier', value: '1.30' },
   { key: 'min_cleaner_rate', value: '14.00' },
   { key: 'max_cleaner_rate', value: '35.00' },
@@ -45,7 +45,7 @@ const mockServiceTypes: Record<
     slug: 'one-off',
     name: 'One-Off Cleaning',
     pricingModel: 'HOURLY',
-    baseMultiplier: 1.15,
+    baseMultiplier: 1.1,
     minimumHours: 2,
     fixedPrices: [],
     addons: [],
@@ -159,15 +159,15 @@ describe('PricingService — Hourly', () => {
     expect(q.cleanerEarns).toBe(45.36);
   });
 
-  it('one-off: applies 1.15 multiplier before fee split', async () => {
+  it('one-off: applies 1.10 multiplier before fee split', async () => {
     const q = await service.calculateQuote({
       serviceSlug: 'one-off',
       cleanerHourlyRate: 16,
       hours: 3,
     });
 
-    // 16 * 3 * 1.15 = 55.20
-    expect(q.cleanerGross).toBe(55.2);
+    // 16 * 3 * 1.10 = 52.80
+    expect(q.cleanerGross).toBe(52.8);
   });
 
   it('same-day: applies 1.30 multiplier before fee split', async () => {

@@ -14,7 +14,7 @@ const serviceTypes = [
     slug: 'one-off',
     name: 'One-Off Cleaning',
     pricingModel: 'HOURLY' as const,
-    baseMultiplier: 1.15,
+    baseMultiplier: 1.1,
     minimumHours: 2.0,
   },
   {
@@ -96,8 +96,8 @@ const platformConfig = [
   },
   {
     key: 'one_off_multiplier',
-    value: '1.15',
-    description: 'One-off booking premium',
+    value: '1.10',
+    description: 'One-off booking surge',
   },
   {
     key: 'fortnightly_multiplier',

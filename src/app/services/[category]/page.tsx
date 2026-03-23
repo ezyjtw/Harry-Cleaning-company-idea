@@ -47,7 +47,7 @@ const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
 
 /** Minimum cleaner rate (£14) × service multiplier, rounded down to nearest £ */
 const MIN_CLEANER_RATE = 14;
-const ONE_OFF_MULTIPLIER = 1.15;
+const ONE_OFF_MULTIPLIER = 1.1;
 const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
   regular: MIN_CLEANER_RATE, // £14
   'same-day': Math.floor(MIN_CLEANER_RATE * 1.3), // £18
@@ -55,7 +55,7 @@ const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
   airbnb: 0, // fixed-price
   'end-of-tenancy': 0, // fixed-price
 };
-const ONE_OFF_STARTING_RATE = Math.floor(MIN_CLEANER_RATE * ONE_OFF_MULTIPLIER); // £16
+const ONE_OFF_STARTING_RATE = Math.floor(MIN_CLEANER_RATE * ONE_OFF_MULTIPLIER); // £15
 
 /** Extract the area prefix from a UK postcode (e.g. "SW1A 1AA" → "SW") */
 function getPostcodeArea(postcode: string): string {
@@ -289,7 +289,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         : 0
     : 0;
 
-  // One-off bookings on the regular page use the 1.15x one-off multiplier
+  // One-off bookings on the regular page use the 1.10x one-off surge
   const isOneOffOnRegular = isRegular && frequency === 'one-off';
 
   const priceBreakdown = useMemo(() => {
@@ -317,7 +317,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           selectedCleaner?.sameDayRate ??
           Math.ceil(MIN_CLEANER_RATE * 1.3))
         : (preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? MIN_CLEANER_RATE);
-    // Apply 1.15x one-off multiplier when booking a one-off on the regular page
+    // Apply 1.10x one-off surge when booking a one-off on the regular page
     // Same-day uses 1.0 multiplier since the premium is already in sameDayRate
     const baseMultiplier = category === 'same-day' ? 1.0 : (SERVICE_MULTIPLIERS[category] ?? 1);
     const multiplier = isOneOffOnRegular ? ONE_OFF_MULTIPLIER : baseMultiplier;
@@ -704,8 +704,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 {(
                   [
-                    { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '1.15× rate' },
-                    { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Save 10%' },
+                    { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '+10% surge' },
+                    { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Best rate' },
                     { value: 'biweekly' as BookingFrequency, label: 'Fortnightly', tag: 'Save 5%' },
                   ] as const
                 ).map((opt) => (
@@ -725,7 +725,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </p>
                     {opt.tag && (
                       <p
-                        className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${frequency === opt.value ? 'text-cream/60' : 'text-gold'}`}
+                        className={`mt-1.5 font-jost text-[11px] font-medium ${frequency === opt.value ? 'text-cream/60' : opt.value === 'one-off' ? 'text-ink-3' : 'text-gold'}`}
                       >
                         {opt.tag}
                       </p>
@@ -848,7 +848,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 )}
                 {isOneOffOnRegular && (
                   <p className="mt-2 font-jost font-light text-xs text-ink-3 text-right">
-                    Includes 1.15&times; one-off rate. Save with a weekly or fortnightly schedule.
+                    Includes 10% one-off surge. Save with a weekly or fortnightly schedule.
                   </p>
                 )}
                 {!preSelectedCleaner && (
@@ -1094,10 +1094,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               label="Frequency"
               value={
                 frequency === 'weekly'
-                  ? 'Weekly (10% off)'
+                  ? 'Weekly (best rate)'
                   : frequency === 'biweekly'
                     ? 'Fortnightly (5% off)'
-                    : 'One-off'
+                    : 'One-off (+10% surge)'
               }
             />
             <SummaryRow

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     deep: 1.45,
     'end-of-tenancy': 1.45, // Fixed-price service — uses deep multiplier as approximation
     'same-day': 1.3,
-    'one-off': 1.15,
+    'one-off': 1.1,
     airbnb: 1.45, // Fixed-price service — uses deep multiplier as approximation
   };
   const hours = Math.max(2, bedrooms * 0.5 + bathrooms * 0.75 + 1);
