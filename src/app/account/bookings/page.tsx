@@ -116,7 +116,7 @@ export default function BookingsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-gray-900">My Bookings</h2>
         <Link
-          href="/book"
+          href="/services"
           className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
         >
           + New Booking

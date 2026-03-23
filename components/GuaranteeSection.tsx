@@ -100,7 +100,7 @@ export default function GuaranteeSection() {
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <a
-                href="/book"
+                href="/services"
                 className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
                 Book a clean
