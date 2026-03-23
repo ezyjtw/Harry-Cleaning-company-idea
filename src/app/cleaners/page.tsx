@@ -38,7 +38,7 @@ function CleanersContent() {
   const [postcode, setPostcode] = useState(searchParams.get('postcode') || '');
   const [postcodeSearch, setPostcodeSearch] = useState(searchParams.get('postcode') || '');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('All');
+  const [filters, setFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>(postcode ? 'distance' : 'rating');
   const [availableNowOnly, setAvailableNowOnly] = useState(false);
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
@@ -53,7 +53,8 @@ function CleanersContent() {
         'end-of-tenancy': 'End of Tenancy',
         airbnb: 'Airbnb Cleaning',
       };
-      setFilter(filterMap[serviceType] || 'All');
+      const mapped = filterMap[serviceType];
+      if (mapped) setFilters([mapped]);
     }
   }, [searchParams]);
 
@@ -79,8 +80,8 @@ function CleanersContent() {
         c.location.toLowerCase().includes(q) ||
         c.specialties.some((s) => s.toLowerCase().includes(q));
       const matchesFilter =
-        filter === 'All' ||
-        c.specialties.some((s) => s.toLowerCase().includes(filter.toLowerCase()));
+        filters.length === 0 ||
+        filters.every((f) => c.specialties.some((s) => s.toLowerCase().includes(f.toLowerCase())));
       const matchesAvailability = !availableNowOnly || c.availableNow;
       return matchesSearch && matchesFilter && matchesAvailability;
     })
@@ -223,19 +224,34 @@ function CleanersContent() {
               Available now
             </button>
             <span className="w-px bg-ink/10" />
-            {SERVICE_FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
-                  filter === f
-                    ? 'bg-ink text-cream'
-                    : 'border border-ink/15 text-ink hover:border-ink/30'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+            <button
+              onClick={() => setFilters([])}
+              className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
+                filters.length === 0
+                  ? 'bg-ink text-cream'
+                  : 'border border-ink/15 text-ink hover:border-ink/30'
+              }`}
+            >
+              All
+            </button>
+            {SERVICE_FILTERS.filter((f) => f !== 'All').map((f) => {
+              const isActive = filters.includes(f);
+              return (
+                <button
+                  key={f}
+                  onClick={() =>
+                    setFilters((prev) => (isActive ? prev.filter((x) => x !== f) : [...prev, f]))
+                  }
+                  className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
+                    isActive
+                      ? 'bg-ink text-cream'
+                      : 'border border-ink/15 text-ink hover:border-ink/30'
+                  }`}
+                >
+                  {f}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
