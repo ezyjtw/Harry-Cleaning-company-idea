@@ -31,7 +31,6 @@ function getEndTime(startTime: string, durationHours: number): string {
 
 const SERVICE_LABELS: Record<ServiceCategory, string> = {
   regular: 'Regular Cleaning',
-  'one-off': 'One-Off Cleaning',
   'same-day': 'Same Day Cleaning',
   deep: 'Deep Cleaning',
   airbnb: 'AirBnB Cleaning',
@@ -39,8 +38,7 @@ const SERVICE_LABELS: Record<ServiceCategory, string> = {
 };
 
 const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
-  regular: 1,
-  'one-off': 1.05,
+  regular: 1.1,
   'same-day': 1.2,
   deep: 1.5,
   airbnb: 1.1,
@@ -117,7 +115,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
-  const [frequency, setFrequency] = useState<BookingFrequency>(isRegular ? 'weekly' : 'one-time');
+  const [frequency, setFrequency] = useState<BookingFrequency>('weekly');
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
 
@@ -193,8 +191,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     return () => window.removeEventListener('popstate', handlePopState);
   }, [goBack]);
 
-  const frequencyDiscount = frequency === 'weekly' ? 0.1 : frequency === 'biweekly' ? 0.05 : 0;
-  const oneOffSurcharge = frequency === 'one-time' && isRegular ? 0.05 : 0;
+  const frequencyDiscount = isRegular
+    ? frequency === 'weekly'
+      ? 0.1
+      : frequency === 'biweekly'
+        ? 0.05
+        : 0
+    : 0;
 
   const priceBreakdown = useMemo(() => {
     const rawRate = preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? 18;
@@ -202,30 +205,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const multiplier = SERVICE_MULTIPLIERS[category] ?? 1;
     const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
     const discount = breakdown.listedSubtotal * frequencyDiscount;
-    const surcharge =
-      frequency === 'one-time' && isRegular ? breakdown.listedSubtotal * oneOffSurcharge : 0;
-    const cleaningSubtotal =
-      Math.round((breakdown.listedSubtotal - discount + surcharge) * 100) / 100;
+    const cleaningSubtotal = Math.round((breakdown.listedSubtotal - discount) * 100) / 100;
     const serviceFee = Math.round(cleaningSubtotal * 0.05 * 100) / 100;
     return {
       ...breakdown,
       listedHourlyRate,
       discount: Math.round(discount * 100) / 100,
-      surcharge: Math.round(surcharge * 100) / 100,
       cleaningSubtotal,
       displayServiceFee: serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
-  }, [
-    preSelectedCleaner,
-    selectedCleaner,
-    effectiveHours,
-    category,
-    frequencyDiscount,
-    frequency,
-    isRegular,
-    oneOffSurcharge,
-  ]);
+  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, frequencyDiscount]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
@@ -464,49 +454,48 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           </div>
 
-          {/* Frequency */}
-          <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              How often?
-            </h2>
-            {isRegular && (
+          {/* Frequency — only shown for Regular Cleaning */}
+          {isRegular && (
+            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                How often?
+              </h2>
               <p className="mt-2 font-jost font-light text-xs text-gold">
-                Save with a regular schedule — one-off cleans cost a little more.
+                Save with a regular schedule — weekly cleans get the best rate.
               </p>
-            )}
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {(
-                [
-                  { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Save 10%' },
-                  { value: 'biweekly' as BookingFrequency, label: 'Fortnightly', tag: 'Save 5%' },
-                  { value: 'one-time' as BookingFrequency, label: 'One-Off', tag: null },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setFrequency(opt.value)}
-                  className={`p-4 text-center transition ${
-                    frequency === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
-                  }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  <p
-                    className={`font-jost font-normal text-sm ${frequency === opt.value ? 'text-cream' : 'text-ink'}`}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Save 10%' },
+                    { value: 'biweekly' as BookingFrequency, label: 'Fortnightly', tag: 'Save 5%' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFrequency(opt.value)}
+                    className={`p-4 text-center transition ${
+                      frequency === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                    }`}
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
-                    {opt.label}
-                  </p>
-                  {opt.tag && (
                     <p
-                      className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${frequency === opt.value ? 'text-cream/60' : 'text-gold'}`}
+                      className={`font-jost font-normal text-sm ${frequency === opt.value ? 'text-cream' : 'text-ink'}`}
                     >
-                      {opt.tag}
+                      {opt.label}
                     </p>
-                  )}
-                </button>
-              ))}
+                    {opt.tag && (
+                      <p
+                        className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${frequency === opt.value ? 'text-cream/60' : 'text-gold'}`}
+                      >
+                        {opt.tag}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Email */}
           <div>
@@ -562,11 +551,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <p className="mt-2 font-jost font-light text-xs text-gold text-right">
                 {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount applied (-&pound;
                 {priceBreakdown.discount.toFixed(2)})
-              </p>
-            )}
-            {priceBreakdown.surcharge > 0 && (
-              <p className="mt-1 font-jost font-light text-xs text-ink-2 text-right">
-                One-off surcharge (+&pound;{priceBreakdown.surcharge.toFixed(2)})
               </p>
             )}
             {!preSelectedCleaner && (
@@ -808,13 +792,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
             <SummaryRow
               label="Frequency"
-              value={
-                frequency === 'weekly'
-                  ? 'Weekly (10% off)'
-                  : frequency === 'biweekly'
-                    ? 'Fortnightly (5% off)'
-                    : 'One-off'
-              }
+              value={frequency === 'weekly' ? 'Weekly (10% off)' : 'Fortnightly (5% off)'}
             />
             <SummaryRow
               label="Products"
@@ -875,14 +853,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </span>
                 </div>
               )}
-              {priceBreakdown.surcharge > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="font-jost font-light text-ink-3">One-off surcharge</span>
-                  <span className="font-jost font-light text-ink">
-                    +&pound;{priceBreakdown.surcharge.toFixed(2)}
-                  </span>
-                </div>
-              )}
               <div className="flex justify-between text-sm">
                 <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
                 <span className="font-jost font-light text-ink">
@@ -899,7 +869,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                 </span>
               </div>
-              {frequency !== 'one-time' && (
+              {isRegular && (
                 <p className="font-jost font-light text-xs text-ink-3">
                   Per clean. Cancel or pause your schedule anytime.
                 </p>
@@ -1701,14 +1671,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </span>
                   </div>
                 )}
-                {priceBreakdown.surcharge > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">One-off surcharge</span>
-                    <span className="font-jost font-light text-ink">
-                      +&pound;{priceBreakdown.surcharge.toFixed(2)}
-                    </span>
-                  </div>
-                )}
                 <div className="flex justify-between text-sm">
                   <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
                   <span className="font-jost font-light text-ink">
@@ -1725,7 +1687,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                   </span>
                 </div>
-                {frequency !== 'one-time' && (
+                {isRegular && (
                   <p className="font-jost font-light text-xs text-ink-3">
                     Per clean. Cancel or pause your schedule anytime.
                   </p>

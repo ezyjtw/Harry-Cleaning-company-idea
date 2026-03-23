@@ -42,19 +42,6 @@ const services: {
     price: 'From £22/hr',
   },
   {
-    id: 'one-off',
-    title: 'One-Off Cleaning',
-    summary: 'A single clean when you need a refresh. No commitment, no subscription.',
-    details: [
-      'Full clean of all rooms — kitchen, bathrooms, bedrooms, and living areas',
-      'Dusting, vacuuming, mopping, and surface cleaning throughout',
-      'Bathroom deep wipe including tiles, mirrors, and fixtures',
-      'Kitchen appliances wiped externally, worktops and sink scrubbed',
-      'No ongoing commitment — book as and when you need',
-    ],
-    price: 'From £18/hr',
-  },
-  {
     id: 'deep',
     title: 'Deep Cleaning',
     summary:

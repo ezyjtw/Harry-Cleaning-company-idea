@@ -25,12 +25,6 @@ const SERVICE_TYPES = [
     description: 'Need it today? Book a cleaner for a same-day visit at short notice.',
   },
   {
-    value: 'one-off',
-    label: 'One-Off Clean',
-    multiplier: 1.2,
-    description: 'A single visit for when you need a one-time refresh of your space.',
-  },
-  {
     value: 'deep',
     label: 'Deep Cleaning',
     multiplier: 1.5,
@@ -108,7 +102,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       const serviceMap: Record<string, string> = {
         'Regular Cleaning': 'regular',
         'Same Day Cleaning': 'same-day',
-        'One-Off Clean': 'one-off',
         'Deep Cleaning': 'deep',
         'End of Tenancy Cleaning': 'end-of-tenancy',
         'Airbnb Cleaning': 'airbnb',

@@ -21,13 +21,6 @@ const serviceRates = [
     multiplier: '1x',
   },
   {
-    type: 'One-Off Cleaning',
-    description: 'Single booking for a thorough clean',
-    rate: '\u00A315 \u2013 \u00A324/hr',
-    typical: '3\u20135 hours',
-    multiplier: '1x',
-  },
-  {
     type: 'Deep Cleaning',
     description: 'Intensive top-to-bottom cleaning',
     rate: '\u00A320 \u2013 \u00A333/hr',

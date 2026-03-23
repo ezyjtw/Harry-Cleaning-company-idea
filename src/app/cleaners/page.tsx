@@ -11,7 +11,6 @@ import type { Cleaner } from '@/lib/types';
 const SERVICE_FILTERS = [
   'All',
   'Regular Cleaning',
-  'One-Off Clean',
   'Deep Cleaning',
   'End of Tenancy',
   'Airbnb Cleaning',
@@ -50,7 +49,6 @@ function CleanersContent() {
     if (serviceType) {
       const filterMap: Record<string, string> = {
         regular: 'Regular Cleaning',
-        'one-off': 'One-Off Clean',
         deep: 'Deep Cleaning',
         'end-of-tenancy': 'End of Tenancy',
         airbnb: 'Airbnb Cleaning',

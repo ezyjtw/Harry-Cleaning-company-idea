@@ -172,15 +172,9 @@ export interface DisputeEvidence {
 
 // ─── Booking Flow ───────────────────────────────────────────
 
-export type ServiceCategory =
-  | 'regular'
-  | 'one-off'
-  | 'same-day'
-  | 'deep'
-  | 'airbnb'
-  | 'end-of-tenancy';
+export type ServiceCategory = 'regular' | 'same-day' | 'deep' | 'airbnb' | 'end-of-tenancy';
 
-export type BookingFrequency = 'weekly' | 'biweekly' | 'one-time';
+export type BookingFrequency = 'weekly' | 'biweekly';
 
 export type KeyAccess = 'i-will-be-home' | 'key-under-mat' | 'lockbox' | 'with-concierge' | 'other';
 

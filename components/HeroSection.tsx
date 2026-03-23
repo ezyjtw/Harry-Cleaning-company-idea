@@ -10,11 +10,10 @@ const trustItems = [
   { label: 'Verified reviews' },
 ];
 
-type ServiceType = 'regular' | 'deep' | 'end_of_tenancy' | 'airbnb' | 'one_off' | 'same_day';
+type ServiceType = 'regular' | 'deep' | 'end_of_tenancy' | 'airbnb' | 'same_day';
 
 const SERVICE_LABELS: Record<ServiceType, string> = {
   regular: 'Regular',
-  one_off: 'One-off',
   deep: 'Deep clean',
   end_of_tenancy: 'End of tenancy',
   airbnb: 'Airbnb',
@@ -23,7 +22,7 @@ const SERVICE_LABELS: Record<ServiceType, string> = {
 
 const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
   regular: 1,
-  one_off: 1,
+
   deep: 1.5,
   end_of_tenancy: 1.8,
   airbnb: 1.3,

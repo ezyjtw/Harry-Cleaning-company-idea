@@ -19,13 +19,6 @@ const services = [
     price: 'From £22/hr',
   },
   {
-    id: 'one-off',
-    title: 'One-off clean',
-    description:
-      'No subscription, no commitment. Book a single visit whenever your home needs attention.',
-    price: 'From £18/hr',
-  },
-  {
     id: 'deep',
     title: 'Deep cleaning',
     description:
@@ -62,7 +55,7 @@ export default function ServicesSection() {
         </h2>
 
         <div
-          className="grid grid-cols-2 gap-0 sm:grid-cols-3 md:grid-cols-6"
+          className="grid grid-cols-2 gap-0 sm:grid-cols-3 md:grid-cols-5"
           style={{ border: '1px solid rgba(27,42,74,0.08)' }}
         >
           {services.map((svc, i) => (
