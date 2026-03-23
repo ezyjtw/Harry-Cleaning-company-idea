@@ -58,52 +58,57 @@ const _ADDITIONAL_ROOMS = [
 
 const PRODUCT_FEE = 5; // £5 flat rate
 
-// ─── Fixed-price model for Airbnb & End of Tenancy ──────────
-const FIXED_PRICE_BASE: Record<string, number> = {
-  airbnb: 60,
-  'end-of-tenancy': 120,
+// ─── Fixed-price tables from spec (by bedroom count / property size) ──────────
+const EOT_FIXED_PRICES: Record<number, number> = {
+  0: 175, // Studio
+  1: 220,
+  2: 280,
+  3: 350,
+  4: 430,
+  5: 550, // 5+ bed
+};
+const AIRBNB_FIXED_PRICES: Record<number, number> = {
+  0: 55, // Studio
+  1: 75,
+  2: 95,
+  3: 120,
+  4: 155,
+  5: 155, // 5+ bed (same as 4-bed)
 };
 
-const FIXED_PRICE_PER_ROOM: Record<
-  string,
-  { bedroom: number; bathroom: number; livingArea: number; kitchen: number; additional: number }
-> = {
-  airbnb: { bedroom: 15, bathroom: 12, livingArea: 10, kitchen: 10, additional: 8 },
-  'end-of-tenancy': { bedroom: 25, bathroom: 20, livingArea: 15, kitchen: 18, additional: 12 },
+// Add-ons per spec — EOT: oven £40, carpet £45/room, windows £25, fridge £20
+// Airbnb: same-day turnaround £25, post-party deep clean £40
+// Cleaner keeps 85% of add-on revenue
+const EXTRA_SERVICES: Record<string, { id: string; label: string; price: number }[]> = {
+  'end-of-tenancy': [
+    { id: 'oven', label: 'Oven deep clean', price: 40 },
+    { id: 'carpet', label: 'Carpet deep clean (per room)', price: 45 },
+    { id: 'windows', label: 'Interior window clean', price: 25 },
+    { id: 'fridge', label: 'Fridge clean', price: 20 },
+  ],
+  airbnb: [
+    { id: 'same-day', label: 'Same-day turnaround (under 3hr notice)', price: 25 },
+    { id: 'post-party', label: 'Post-party deep clean', price: 40 },
+  ],
 };
-
-const EXTRA_SERVICES = [
-  { id: 'inside-oven', label: 'Inside Oven', price: { airbnb: 15, 'end-of-tenancy': 20 } },
-  { id: 'inside-fridge', label: 'Inside Fridge', price: { airbnb: 10, 'end-of-tenancy': 15 } },
-  { id: 'windows', label: 'Interior Windows', price: { airbnb: 15, 'end-of-tenancy': 20 } },
-  { id: 'carpet-clean', label: 'Carpet Cleaning', price: { airbnb: 25, 'end-of-tenancy': 30 } },
-  { id: 'wall-marks', label: 'Wall Mark Removal', price: { airbnb: 10, 'end-of-tenancy': 12 } },
-  { id: 'balcony', label: 'Balcony / Patio', price: { airbnb: 12, 'end-of-tenancy': 15 } },
-];
 
 function calculateFixedPrice(
   category: ServiceCategory,
   rooms: RoomConfig,
   extras: string[]
-): { baseFee: number; roomCharges: number; extrasTotal: number; total: number } {
-  const baseFee = FIXED_PRICE_BASE[category] ?? 0;
-  const rates = FIXED_PRICE_PER_ROOM[category];
-  if (!rates) return { baseFee: 0, roomCharges: 0, extrasTotal: 0, total: 0 };
-
-  const roomCharges =
-    rooms.bedrooms * rates.bedroom +
-    rooms.bathrooms * rates.bathroom +
-    rooms.livingAreas * rates.livingArea +
-    (rooms.kitchen ? rates.kitchen : 0) +
-    rooms.additionals.length * rates.additional;
+): { basePrice: number; extrasTotal: number; total: number } {
+  const priceTable = category === 'end-of-tenancy' ? EOT_FIXED_PRICES : AIRBNB_FIXED_PRICES;
+  const bedroomKey = Math.min(rooms.bedrooms, 5);
+  const basePrice = priceTable[bedroomKey] ?? 280;
 
   let extrasTotal = 0;
+  const categoryExtras = EXTRA_SERVICES[category] ?? [];
   for (const extraId of extras) {
-    const svc = EXTRA_SERVICES.find((e) => e.id === extraId);
-    if (svc) extrasTotal += svc.price[category as 'airbnb' | 'end-of-tenancy'] ?? 0;
+    const svc = categoryExtras.find((e) => e.id === extraId);
+    if (svc) extrasTotal += svc.price;
   }
 
-  return { baseFee, roomCharges, extrasTotal, total: baseFee + roomCharges + extrasTotal };
+  return { basePrice, extrasTotal, total: basePrice + extrasTotal };
 }
 
 const isFixedPrice = (cat: ServiceCategory) => cat === 'airbnb' || cat === 'end-of-tenancy';
@@ -262,13 +267,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const priceBreakdown = useMemo(() => {
     if (isFixedPrice(category) && fixedPriceQuote) {
-      // Fixed-price model for Airbnb & End of Tenancy
+      // Fixed-price model for Airbnb & End of Tenancy — flat price by property size
       const cleaningSubtotal = fixedPriceQuote.total;
       const serviceFee = Math.round(cleaningSubtotal * 0.05 * 100) / 100;
       return {
         isFixed: true as const,
-        baseFee: fixedPriceQuote.baseFee,
-        roomCharges: fixedPriceQuote.roomCharges,
+        basePrice: fixedPriceQuote.basePrice,
         extrasTotal: fixedPriceQuote.extrasTotal,
         cleaningSubtotal,
         displayServiceFee: serviceFee,
@@ -509,9 +513,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 Select any additional services you need — each is priced separately.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {EXTRA_SERVICES.map((svc) => {
+                {(EXTRA_SERVICES[category] ?? []).map((svc) => {
                   const isSelected = selectedExtras.includes(svc.id);
-                  const price = svc.price[category as 'airbnb' | 'end-of-tenancy'] ?? 0;
+                  const price = svc.price;
                   return (
                     <button
                       key={svc.id}
@@ -707,17 +711,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </span>
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">Base fee</span>
-                    <span className="text-ink">&pound;{fixedPriceQuote.baseFee.toFixed(2)}</span>
+                    <span className="font-light text-ink-3">
+                      {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
+                    </span>
+                    <span className="text-ink">&pound;{fixedPriceQuote.basePrice.toFixed(2)}</span>
                   </div>
-                  {fixedPriceQuote.roomCharges > 0 && (
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">Rooms</span>
-                      <span className="text-ink">
-                        &pound;{fixedPriceQuote.roomCharges.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
                   {fixedPriceQuote.extrasTotal > 0 && (
                     <div className="flex justify-between font-jost text-sm">
                       <span className="font-light text-ink-3">Extras</span>
@@ -1933,19 +1931,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 {priceBreakdown.isFixed && fixedPriceQuote ? (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">Base fee</span>
+                      <span className="font-jost font-light text-ink-3">
+                        {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
+                      </span>
                       <span className="font-jost font-normal text-ink">
-                        &pound;{fixedPriceQuote.baseFee.toFixed(2)}
+                        &pound;{fixedPriceQuote.basePrice.toFixed(2)}
                       </span>
                     </div>
-                    {fixedPriceQuote.roomCharges > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="font-jost font-light text-ink-3">Rooms</span>
-                        <span className="font-jost font-light text-ink">
-                          &pound;{fixedPriceQuote.roomCharges.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
                     {fixedPriceQuote.extrasTotal > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="font-jost font-light text-ink-3">Extras</span>

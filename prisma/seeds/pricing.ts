@@ -62,6 +62,7 @@ const fixedPrices = {
     { propertySize: 'TWO_BED' as const, estimatedHours: 2.5, customerPrice: 95 },
     { propertySize: 'THREE_BED' as const, estimatedHours: 3.5, customerPrice: 120 },
     { propertySize: 'FOUR_BED' as const, estimatedHours: 4.5, customerPrice: 155 },
+    { propertySize: 'FIVE_PLUS' as const, estimatedHours: 5, customerPrice: 155 },
   ],
 };
 

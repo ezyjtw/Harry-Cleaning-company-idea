@@ -10,22 +10,24 @@ const trustItems = [
   { label: 'Verified reviews' },
 ];
 
-type ServiceType = 'regular' | 'deep' | 'end_of_tenancy' | 'airbnb' | 'same_day';
+type ServiceType = 'regular' | 'one-off' | 'deep' | 'eot' | 'airbnb' | 'same-day';
 
 const SERVICE_LABELS: Record<ServiceType, string> = {
   regular: 'Regular',
+  'one-off': 'One-off',
   deep: 'Deep clean',
-  end_of_tenancy: 'End of tenancy',
+  eot: 'End of tenancy',
   airbnb: 'Airbnb',
-  same_day: 'Same day',
+  'same-day': 'Same day',
 };
 
 const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
   regular: 1,
+  'one-off': 1.15,
   deep: 1.45,
-  end_of_tenancy: 1.45, // EOT is fixed-price; use deep multiplier as rough approximation
-  airbnb: 1.45, // Airbnb is fixed-price; use deep multiplier as rough approximation
-  same_day: 1.3,
+  eot: 1.0, // fixed-price — multiplier not used
+  airbnb: 1.0, // fixed-price — multiplier not used
+  'same-day': 1.3,
 };
 
 const BASE_RATE = 25;
@@ -64,7 +66,7 @@ function computeEstimate(
   serviceType: ServiceType
 ): { low: number; high: number } {
   // EOT and Airbnb use fixed prices from the spec
-  if (serviceType === 'end_of_tenancy') {
+  if (serviceType === 'eot') {
     const price = EOT_FIXED_PRICES[Math.min(bedrooms, 5)] ?? 280;
     return { low: price, high: price };
   }
