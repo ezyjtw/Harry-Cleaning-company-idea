@@ -57,6 +57,30 @@ const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
 };
 const ONE_OFF_STARTING_RATE = Math.floor(MIN_CLEANER_RATE * ONE_OFF_MULTIPLIER); // £15
 
+/** Short label describing the rate type for the current service */
+const SERVICE_RATE_LABELS: Record<ServiceCategory, string> = {
+  regular: 'hourly rate',
+  'same-day': 'same-day rate',
+  deep: 'deep clean rate',
+  airbnb: 'fixed price',
+  'end-of-tenancy': 'fixed price',
+};
+
+/**
+ * Get the customer-facing listed rate for a cleaner on a given service.
+ * For same-day, uses the cleaner's dedicated sameDayRate.
+ * For other hourly services, applies the service multiplier to the base hourly rate.
+ */
+function getServiceListedRate(
+  cleaner: { hourlyRate: number; sameDayRate: number },
+  cat: ServiceCategory,
+  isOneOff: boolean
+): number {
+  if (cat === 'same-day') return getListedRate(cleaner.sameDayRate);
+  const multiplier = isOneOff ? ONE_OFF_MULTIPLIER : (SERVICE_MULTIPLIERS[cat] ?? 1);
+  return getListedRate(cleaner.hourlyRate * multiplier);
+}
+
 /** Extract the area prefix from a UK postcode (e.g. "SW1A 1AA" → "SW") */
 function getPostcodeArea(postcode: string): string {
   const match = postcode
@@ -825,7 +849,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </span>
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
                       {preSelectedCleaner
-                        ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr`
+                        ? `${preSelectedCleaner.name} — \u00A3${getServiceListedRate(preSelectedCleaner, category, isOneOffOnRegular).toFixed(2)}/hr`
                         : `Starting at \u00A3${isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}/hr`}
                     </p>
                   </div>
@@ -926,7 +950,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 {preSelectedCleaner.rating} ({preSelectedCleaner.reviewCount} reviews)
               </span>
               <span className="text-ink-3/30">|</span>
-              <span>&pound;{getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr</span>
+              <span>
+                &pound;
+                {getServiceListedRate(preSelectedCleaner, category, isOneOffOnRegular).toFixed(2)}
+                /hr ({SERVICE_RATE_LABELS[category]})
+              </span>
             </div>
           </div>
         </div>
@@ -1745,9 +1773,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="font-cormorant font-light text-lg text-ink">
-                          &pound;{getListedRate(c.hourlyRate).toFixed(2)}
+                          &pound;{getServiceListedRate(c, category, isOneOffOnRegular).toFixed(2)}
                         </span>
                         <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
+                        <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
+                          {isOneOffOnRegular ? 'one-off rate' : SERVICE_RATE_LABELS[category]}
+                        </p>
                       </div>
                     </div>
                     <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
@@ -1931,11 +1962,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                               </div>
                               <div className="shrink-0 text-right">
                                 <span className="font-cormorant font-light text-lg text-ink">
-                                  &pound;{getListedRate(c.hourlyRate).toFixed(2)}
+                                  &pound;
+                                  {getServiceListedRate(c, category, isOneOffOnRegular).toFixed(2)}
                                 </span>
                                 <span className="font-jost font-light text-[11px] text-ink-3">
                                   /hr
                                 </span>
+                                <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
+                                  {isOneOffOnRegular
+                                    ? 'one-off rate'
+                                    : SERVICE_RATE_LABELS[category]}
+                                </p>
                               </div>
                             </div>
                             <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
@@ -2004,9 +2041,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   {!isFixedPrice(category) && (
                     <div className="shrink-0 text-right">
                       <span className="font-cormorant font-light text-2xl text-ink">
-                        &pound;{getListedRate(sc.hourlyRate).toFixed(2)}
+                        &pound;{getServiceListedRate(sc, category, isOneOffOnRegular).toFixed(2)}
                       </span>
                       <span className="font-jost font-light text-xs text-ink-3">/hr</span>
+                      <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
+                        {isOneOffOnRegular ? 'one-off rate' : SERVICE_RATE_LABELS[category]}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -2321,7 +2361,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       {profileCleaner && (
         <CleanerProfileSlideOut
           cleaner={profileCleaner}
-          listedRate={getListedRate(profileCleaner.hourlyRate)}
+          listedRate={getServiceListedRate(profileCleaner, category, isOneOffOnRegular)}
+          rateLabel={isOneOffOnRegular ? 'one-off rate' : SERVICE_RATE_LABELS[category]}
           effectiveHours={effectiveHours}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {
@@ -2343,12 +2384,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 function CleanerProfileSlideOut({
   cleaner,
   listedRate,
+  rateLabel,
   effectiveHours,
   onClose,
   onBook,
 }: {
   cleaner: Cleaner;
   listedRate: number;
+  rateLabel: string;
   effectiveHours: number;
   onClose: () => void;
   onBook: () => void;
@@ -2449,6 +2492,7 @@ function CleanerProfileSlideOut({
               <span className="ml-3 font-jost text-[13px] font-light text-ink-3">
                 &pound;{(listedRate * effectiveHours).toFixed(2)} for {effectiveHours}h
               </span>
+              <p className="font-jost font-light text-[11px] text-ink-3 mt-0.5">{rateLabel}</p>
             </div>
             <button
               type="button"
