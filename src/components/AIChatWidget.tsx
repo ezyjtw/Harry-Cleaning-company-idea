@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Message {
@@ -10,7 +11,6 @@ interface Message {
 const SESSION_STORAGE_KEY = 'rena-chat-messages';
 const SESSION_COUNT_KEY = 'rena-chat-message-count';
 const MAX_MESSAGES_PER_SESSION = 30;
-const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 function loadMessages(): Message[] {
   if (typeof window === 'undefined') return [];
@@ -51,15 +51,16 @@ function incrementMessageCount(): number {
 }
 
 export default function AIChatWidget() {
+  const pathname = usePathname();
+  const isContactPage = pathname === '/contact';
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [_isAnimating, setIsAnimating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const proactiveShownRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasAutoOpenedRef = useRef(false);
 
   // Load messages from sessionStorage on mount
   useEffect(() => {
@@ -68,6 +69,17 @@ export default function AIChatWidget() {
       setMessages(stored);
     }
   }, []);
+
+  // Auto-open on contact page
+  useEffect(() => {
+    if (!isContactPage || hasAutoOpenedRef.current) return;
+    hasAutoOpenedRef.current = true;
+    const timer = setTimeout(() => {
+      setIsOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 350);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [isContactPage]);
 
   // Save messages to sessionStorage whenever they change
   useEffect(() => {
@@ -81,68 +93,12 @@ export default function AIChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Proactive inactivity message
-  const showProactiveMessage = useCallback(() => {
-    if (proactiveShownRef.current) return;
-    proactiveShownRef.current = true;
-
-    const proactiveMsg: Message = {
-      role: 'assistant',
-      content: "Need help choosing a cleaner? I can show you who's available in your area",
-    };
-
-    setMessages((prev) => {
-      const updated = [...prev, proactiveMsg];
-      saveMessages(updated);
-      return updated;
-    });
-
-    // Open the chat panel to show the message
-    if (!isOpen) {
-      setIsAnimating(true);
-      setIsOpen(true);
-    }
-  }, [isOpen]);
-
-  // Reset inactivity timer on any user interaction on the page
-  useEffect(() => {
-    // Don't set up if proactive message already shown
-    if (proactiveShownRef.current) return;
-
-    const resetTimer = () => {
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-      inactivityTimerRef.current = setTimeout(showProactiveMessage, INACTIVITY_TIMEOUT_MS);
-    };
-
-    // Start the timer
-    resetTimer();
-
-    // Reset on user activity
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    events.forEach((event) => window.addEventListener(event, resetTimer));
-
-    return () => {
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-      events.forEach((event) => window.removeEventListener(event, resetTimer));
-    };
-  }, [showProactiveMessage]);
-
-  const toggleChat = () => {
-    setIsAnimating(true);
+  const toggleChat = useCallback(() => {
     setIsOpen((prev) => !prev);
-    // Focus input when opening
     if (!isOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  };
-
-  const handleAnimationEnd = () => {
-    setIsAnimating(false);
-  };
+  }, [isOpen]);
 
   const sendMessage = async () => {
     const trimmed = input.trim();
@@ -211,43 +167,46 @@ export default function AIChatWidget() {
     <>
       {/* Chat Panel */}
       <div
-        className={`fixed bottom-20 right-4 z-50 flex flex-col rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden
-          w-[calc(100vw-2rem)] sm:w-[400px] h-[500px]
+        className={`fixed bottom-20 right-4 z-50 flex flex-col overflow-hidden
+          w-[calc(100vw-2rem)] sm:w-[400px] h-[520px]
           transition-all duration-300 ease-in-out origin-bottom-right
           ${isOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none'}
         `}
-        onTransitionEnd={handleAnimationEnd}
+        style={{ border: '0.5px solid rgba(14,14,12,0.1)', background: '#F7F9FC' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-brand-600 text-white flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0H9v2h2V9z"
-                  clipRule="evenodd"
-                />
-              </svg>
+        <div
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+          style={{ background: '#1B2A4A' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center font-cormorant text-lg font-light"
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#F7F9FC' }}
+            >
+              R
             </div>
             <div>
-              <h3 className="font-semibold text-sm">Rena Assistant</h3>
-              <p className="text-xs text-white/70">Online</p>
+              <h3 className="font-jost text-sm font-normal" style={{ color: '#F7F9FC' }}>
+                Rena Assistant
+              </h3>
+              <p
+                className="font-jost text-[10px] uppercase tracking-[0.1em]"
+                style={{ color: 'rgba(247,249,252,0.5)' }}
+              >
+                Online
+              </p>
             </div>
           </div>
           <button
             onClick={toggleChat}
-            className="p-1 rounded-full hover:bg-white/20 transition-colors"
+            className="p-1.5 transition-colors hover:opacity-70"
+            style={{ color: '#F7F9FC' }}
             aria-label="Close chat"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
+              className="h-4 w-4"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -261,11 +220,40 @@ export default function AIChatWidget() {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
-            <div className="text-center text-gray-400 text-sm mt-8">
-              <p className="font-medium text-gray-600 mb-1">Welcome to Rena Cleaning Network!</p>
-              <p>Ask me about our cleaning services, pricing, or finding a cleaner in your area.</p>
+            <div className="text-center mt-10 px-6">
+              <p className="font-cormorant text-xl font-light" style={{ color: '#1B2A4A' }}>
+                How can we help?
+              </p>
+              <p className="mt-2 font-jost text-xs font-light" style={{ color: '#7A8A9E' }}>
+                Ask about bookings, pricing, cleaner availability, or any issues with your service.
+              </p>
+              <div className="mt-6 space-y-2">
+                {[
+                  'I need help with a booking',
+                  'What are your prices?',
+                  'I have an issue with a cleaner',
+                  'How do I reschedule?',
+                ].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => {
+                      setInput(q);
+                      setTimeout(() => inputRef.current?.focus(), 50);
+                    }}
+                    className="block w-full px-4 py-2.5 text-left font-jost text-sm font-light transition hover:bg-cream-2"
+                    style={{
+                      color: '#1B2A4A',
+                      border: '0.5px solid rgba(14,14,12,0.1)',
+                      background: '#FFFFFF',
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -275,13 +263,21 @@ export default function AIChatWidget() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap
-                  ${
-                    msg.role === 'user'
-                      ? 'bg-brand-600 text-white rounded-br-md'
-                      : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md shadow-sm'
-                  }
-                `}
+                className="max-w-[80%] px-4 py-2.5 font-jost text-sm font-light leading-relaxed whitespace-pre-wrap"
+                style={
+                  msg.role === 'user'
+                    ? {
+                        background: '#1B2A4A',
+                        color: '#F7F9FC',
+                        borderRadius: '2px 2px 2px 2px',
+                      }
+                    : {
+                        background: '#FFFFFF',
+                        color: '#1B2A4A',
+                        border: '0.5px solid rgba(14,14,12,0.1)',
+                        borderRadius: '2px 2px 2px 2px',
+                      }
+                }
               >
                 {msg.content}
               </div>
@@ -291,11 +287,26 @@ export default function AIChatWidget() {
           {/* Typing Indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+              <div
+                className="px-4 py-3"
+                style={{
+                  background: '#FFFFFF',
+                  border: '0.5px solid rgba(14,14,12,0.1)',
+                }}
+              >
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]"
+                    style={{ background: '#7A8A9E' }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]"
+                    style={{ background: '#7A8A9E' }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:300ms]"
+                    style={{ background: '#7A8A9E' }}
+                  />
                 </div>
               </div>
             </div>
@@ -305,7 +316,7 @@ export default function AIChatWidget() {
         </div>
 
         {/* Input Area */}
-        <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
+        <div className="flex-shrink-0 p-3" style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}>
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -314,13 +325,19 @@ export default function AIChatWidget() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type your message..."
-              className="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="flex-1 px-4 py-2.5 font-jost text-sm font-light focus:outline-none"
+              style={{
+                color: '#1B2A4A',
+                background: '#FFFFFF',
+                border: '0.5px solid rgba(14,14,12,0.1)',
+              }}
               disabled={isLoading}
             />
             <button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="p-2.5 bg-brand-600 text-white rounded-full hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: '#1B2A4A', color: '#F7F9FC' }}
               aria-label="Send message"
             >
               <svg
@@ -339,15 +356,19 @@ export default function AIChatWidget() {
       {/* Floating Chat Button */}
       <button
         onClick={toggleChat}
-        className={`fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 transition-all duration-300 flex items-center justify-center hover:scale-110
-          ${isOpen ? 'rotate-90' : 'rotate-0'}
-        `}
+        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center transition-all duration-300 hover:opacity-80"
+        style={{
+          background: '#1B2A4A',
+          color: '#F7F9FC',
+          border: '0.5px solid rgba(14,14,12,0.1)',
+          boxShadow: '0 2px 15px -3px rgba(0, 0, 0, 0.12)',
+        }}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
         {isOpen ? (
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
+            className="h-5 w-5"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -360,7 +381,7 @@ export default function AIChatWidget() {
         ) : (
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
+            className="h-5 w-5"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
