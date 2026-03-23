@@ -25,7 +25,7 @@ const services: {
       'Beds made and light tidying',
       'Lock in a lower rate with a regular schedule — save up to 10%',
     ],
-    price: 'From £18/hr',
+    price: 'From £15.40/hr',
   },
   {
     id: 'same-day',
@@ -39,7 +39,7 @@ const services: {
       'Same high standards as a regular clean, just faster booking',
       'Subject to cleaner availability in your area',
     ],
-    price: 'From £22/hr',
+    price: 'From £20.02/hr',
   },
   {
     id: 'deep',
@@ -55,7 +55,7 @@ const services: {
       'Window sills and interior glass cleaned',
       'Ideal before or after a big event, or as a seasonal refresh',
     ],
-    price: 'From £25/hr',
+    price: 'From £22.33/hr',
   },
   {
     id: 'airbnb',
@@ -71,7 +71,7 @@ const services: {
       'Quick turnaround times to fit between check-out and check-in',
       'Consistent quality your guests will notice in their reviews',
     ],
-    price: 'From £60',
+    price: 'From £55',
   },
   {
     id: 'end-of-tenancy',
@@ -88,7 +88,7 @@ const services: {
       'Carpets vacuumed, hard floors mopped and edges done',
       'Skirting boards, light fittings, and switches cleaned throughout',
     ],
-    price: 'From £120',
+    price: 'From £175',
   },
 ];
 

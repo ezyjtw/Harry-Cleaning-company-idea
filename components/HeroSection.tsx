@@ -120,7 +120,7 @@ function PanelFooter() {
       style={{ borderTop: '1px solid rgba(27,42,74,0.06)' }}
     >
       <span className="font-jost text-[12px] font-light text-ink-3">
-        From £18 / hr · No hidden fees
+        From £15.40 / hr · No hidden fees
       </span>
       <span className="font-jost text-[12px] font-light text-ink-3">Cancel anytime</span>
     </div>

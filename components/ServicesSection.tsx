@@ -9,35 +9,35 @@ const services = [
     title: 'Regular cleaning',
     description:
       'Weekly or fortnightly visits with your preferred cleaner. Consistent quality at a time that works for you.',
-    price: 'From £18/hr',
+    price: 'From £15.40/hr',
   },
   {
     id: 'same-day',
     title: 'Same day cleaning',
     description:
       "Need a cleaner today? We'll match you with a vetted, available cleaner near you for a same-day visit.",
-    price: 'From £22/hr',
+    price: 'From £20.02/hr',
   },
   {
     id: 'deep',
     title: 'Deep cleaning',
     description:
       'Top-to-bottom. Inside appliances, skirting boards, and every corner. A thorough reset for your home.',
-    price: 'From £25/hr',
+    price: 'From £22.33/hr',
   },
   {
     id: 'end-of-tenancy',
     title: 'End of tenancy',
     description:
       'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
-    price: 'From £120',
+    price: 'From £175',
   },
   {
     id: 'airbnb',
     title: 'Airbnb cleaning',
     description:
       'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
-    price: 'From £60',
+    price: 'From £55',
   },
 ];
 
