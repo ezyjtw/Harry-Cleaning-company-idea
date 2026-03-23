@@ -147,12 +147,12 @@ export default function PricingPage() {
                 className="flex items-center justify-between pb-3"
                 style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <span className="font-jost font-light text-ink-2">Service fee (5%)</span>
-                <span className="font-normal text-ink font-jost">&pound;2.48</span>
+                <span className="font-jost font-light text-ink-2">Service fee (5% of total)</span>
+                <span className="font-normal text-ink font-jost">&pound;2.61</span>
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-lg font-normal text-ink font-cormorant">Total you pay</span>
-                <span className="text-lg font-normal text-gold font-cormorant">&pound;51.98</span>
+                <span className="text-lg font-normal text-gold font-cormorant">&pound;52.11</span>
               </div>
             </div>
             <p className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
