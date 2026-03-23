@@ -523,7 +523,6 @@ export default function JoinAsCleanerPage() {
         const parsed = JSON.parse(saved);
         if (parsed.form) {
           setForm((prev) => ({ ...prev, ...parsed.form }));
-          setShowForm(true);
         }
         if (typeof parsed.currentStep === 'number') setCurrentStep(parsed.currentStep);
       }
