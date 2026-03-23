@@ -48,7 +48,7 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
         {/* Rate */}
         <div className="text-right">
           <span className="font-jost text-[20px] font-semibold text-ink">
-            &pound;{getListedRate(cleaner.hourlyRate)}
+            &pound;{getListedRate(cleaner.hourlyRate).toFixed(2)}
           </span>
           <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
         </div>

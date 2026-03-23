@@ -41,6 +41,7 @@ function CleanersContent() {
   const [filters, setFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>(postcode ? 'distance' : 'rating');
   const [availableNowOnly, setAvailableNowOnly] = useState(false);
+  const [sameDayOnly, setSameDayOnly] = useState(false);
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null);
 
@@ -83,7 +84,8 @@ function CleanersContent() {
         filters.length === 0 ||
         filters.every((f) => c.specialties.some((s) => s.toLowerCase().includes(f.toLowerCase())));
       const matchesAvailability = !availableNowOnly || c.availableNow;
-      return matchesSearch && matchesFilter && matchesAvailability;
+      const matchesSameDay = !sameDayOnly || c.availableNow;
+      return matchesSearch && matchesFilter && matchesAvailability && matchesSameDay;
     })
     .sort((a, b) => {
       if (sort === 'available-now') {
@@ -222,6 +224,18 @@ function CleanersContent() {
               }`}
             >
               Available now
+            </button>
+            <button
+              onClick={() => {
+                setSameDayOnly(!sameDayOnly);
+              }}
+              className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
+                sameDayOnly
+                  ? 'bg-ink text-cream'
+                  : 'border border-ink/15 text-ink hover:border-ink/30'
+              }`}
+            >
+              Same Day
             </button>
             <span className="w-px bg-ink/10" />
             <button
