@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -15,6 +15,19 @@ import type {
   RoomConfig,
   Cleaner,
 } from '@/lib/types';
+
+/** Given a start time like "8:00 AM" and duration in hours, returns end time string */
+function getEndTime(startTime: string, durationHours: number): string {
+  const [time, period] = startTime.split(' ');
+  const [h, m] = time.split(':').map(Number);
+  let totalMinutes = ((h % 12) + (period === 'PM' ? 12 : 0)) * 60 + m;
+  totalMinutes += durationHours * 60;
+  const endH = Math.floor(totalMinutes / 60) % 24;
+  const endM = totalMinutes % 60;
+  const endPeriod = endH >= 12 ? 'PM' : 'AM';
+  const displayH = endH % 12 || 12;
+  return `${displayH}:${endM.toString().padStart(2, '0')} ${endPeriod}`;
+}
 
 const SERVICE_LABELS: Record<ServiceCategory, string> = {
   regular: 'Regular Cleaning',
@@ -113,6 +126,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [selectedCleanerId, setSelectedCleanerId] = useState(preSelectedCleanerId);
+  const [profileCleaner, setProfileCleaner] = useState<Cleaner | null>(null);
   const [acceptSubstitute, setAcceptSubstitute] = useState(true);
   const [keyAccess, setKeyAccess] = useState<KeyAccess>('i-will-be-home');
   const [keyAccessNote, setKeyAccessNote] = useState('');
@@ -188,6 +202,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       return toMin(a) - toMin(b);
     });
   }, [selectedDay]);
+
+  // Count cleaners available at each time slot for a given day
+  const cleanerCountsPerSlot = useMemo(() => {
+    if (!selectedDay) return {} as Record<string, number>;
+    const counts: Record<string, number> = {};
+    availableTimeSlotsForDay.forEach((slot) => {
+      counts[slot] = cleaners.filter(
+        (c) => c.timeSlots[selectedDay] && c.timeSlots[selectedDay].includes(slot)
+      ).length;
+    });
+    return counts;
+  }, [selectedDay, availableTimeSlotsForDay]);
 
   if (submitted) {
     return (
@@ -851,8 +877,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       </div>
 
       <div className="mt-10 space-y-10">
-        {/* Scheduling preference */}
-        {scheduling === null && (
+        {/* ── Scheduling preference choice ── */}
+        {scheduling === null && !selectedCleanerId && (
           <div>
             <h2 className="font-cormorant font-light text-xl text-ink">
               How would you like to book?
@@ -912,7 +938,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"
+                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
                     />
                   </svg>
                 </div>
@@ -927,13 +953,129 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         )}
 
-        {/* Set time selector */}
-        {scheduling === 'set-time' && (
+        {/* ════════════════════════════════════════════════════════════
+            FLOW A: Browse available cleaners (flexible)
+           ════════════════════════════════════════════════════════════ */}
+        {scheduling === 'flexible' && !selectedCleanerId && (
           <div>
             <div className="flex items-center justify-between">
-              <h2 className="font-cormorant font-light text-lg text-ink">
-                When do you need your cleaner?
-              </h2>
+              <div>
+                <h2 className="font-cormorant font-light text-xl text-ink">
+                  Available cleaners in your area
+                </h2>
+                <p className="mt-1 font-jost font-light text-sm text-ink-3">
+                  {cleaners.length} cleaners available &middot; click to view profile
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScheduling(null)}
+                className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
+              >
+                &larr; Back
+              </button>
+            </div>
+
+            {/* Tier legend */}
+            <div className="mt-6 flex flex-wrap gap-3">
+              {(['elite', 'premium', 'standard'] as const).map((tier) => (
+                <span
+                  key={tier}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-jost text-[11px] uppercase tracking-[0.1em] ${TIER_INFO[tier].color}`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  {TIER_INFO[tier].label}
+                </span>
+              ))}
+            </div>
+
+            {/* Cleaner grid */}
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {cleaners.map((c) => {
+                const tier = TIER_INFO[c.tier];
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setProfileCleaner(c)}
+                    className="group bg-cream p-5 text-left transition hover:bg-cream-2"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant transition"
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      >
+                        {c.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
+                          <span
+                            className={`px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
+                            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                          >
+                            {tier.label}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
+                          <StarRating rating={c.rating} />
+                          <span>
+                            {c.rating} ({c.reviewCount})
+                          </span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="font-cormorant font-light text-lg text-ink">
+                          &pound;{getListedRate(c.hourlyRate)}
+                        </span>
+                        <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
+                      </div>
+                    </div>
+                    <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                      {c.bio}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {c.specialties.slice(0, 3).map((s) => (
+                        <span
+                          key={s}
+                          className="bg-cream-2 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3"
+                          style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                    {c.availableNow && (
+                      <div className="mt-2.5 flex items-center gap-1.5">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
+                        </span>
+                        <span className="font-jost text-[11px] font-medium text-teal">
+                          Available now
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
+            FLOW B: Pick a date and time (set-time)
+           ════════════════════════════════════════════════════════════ */}
+        {scheduling === 'set-time' && !selectedCleanerId && (
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-cormorant font-light text-xl text-ink">Pick a date and time</h2>
+                <p className="mt-1 font-jost font-light text-sm text-ink-3">
+                  Your clean is {effectiveHours} hours &middot; select a day then a start time
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -941,12 +1083,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   setSelectedDay('');
                   setSelectedTime('');
                 }}
-                className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-ink transition"
+                className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
               >
-                Change preference
+                &larr; Back
               </button>
             </div>
-            <div className="mt-5 space-y-6">
+
+            <div className="mt-6 space-y-6">
+              {/* Day selector */}
               <div>
                 <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                   Day
@@ -980,28 +1124,48 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   })}
                 </div>
               </div>
+
+              {/* Time slots with cleaner counts */}
               {selectedDay && (
                 <div>
                   <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Available start times on {selectedDay}
+                    Available time slots on {selectedDay}
                   </label>
                   {availableTimeSlotsForDay.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {availableTimeSlotsForDay.map((slot) => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => setSelectedTime(slot)}
-                          className={`px-3 py-2 font-jost text-xs font-light transition ${
-                            selectedTime === slot
-                              ? 'bg-ink text-cream'
-                              : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                          }`}
-                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                        >
-                          {slot}
-                        </button>
-                      ))}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {availableTimeSlotsForDay.map((slot) => {
+                        const endTime = getEndTime(slot, effectiveHours);
+                        const count = cleanerCountsPerSlot[slot] || 0;
+                        const isSelected = selectedTime === slot;
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setSelectedTime(slot)}
+                            className={`flex items-center justify-between px-4 py-3.5 text-left transition ${
+                              isSelected
+                                ? 'bg-ink text-cream'
+                                : 'bg-cream text-ink hover:bg-cream-2'
+                            }`}
+                            style={{
+                              border: isSelected
+                                ? '1px solid #1B2A4A'
+                                : '0.5px solid rgba(14,14,12,0.1)',
+                            }}
+                          >
+                            <div>
+                              <span className="font-jost text-sm font-normal">
+                                {slot} &ndash; {endTime}
+                              </span>
+                            </div>
+                            <span
+                              className={`font-jost text-xs font-light ${isSelected ? 'text-cream/70' : 'text-ink-3'}`}
+                            >
+                              {count} cleaner{count !== 1 ? 's' : ''}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="mt-3 font-jost text-sm font-light text-ink-3">
@@ -1010,86 +1174,168 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   )}
                 </div>
               )}
+
+              {/* Show available cleaners for selected time slot */}
+              {selectedDay && selectedTime && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                      Available cleaners for {selectedTime} &ndash;{' '}
+                      {getEndTime(selectedTime, effectiveHours)} on {selectedDay}
+                    </label>
+                  </div>
+                  {availableCleaners.length > 0 ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {availableCleaners.map((c) => {
+                        const tier = TIER_INFO[c.tier];
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setProfileCleaner(c)}
+                            className="group bg-cream p-5 text-left transition hover:bg-cream-2"
+                            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                          >
+                            <div className="flex items-start gap-3.5">
+                              <div
+                                className="flex h-12 w-12 shrink-0 items-center justify-center bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant transition"
+                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                              >
+                                {c.name.charAt(0)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-jost font-normal text-sm text-ink">
+                                    {c.name}
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
+                                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                  >
+                                    {tier.label}
+                                  </span>
+                                </div>
+                                <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
+                                  <StarRating rating={c.rating} />
+                                  <span>
+                                    {c.rating} ({c.reviewCount})
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <span className="font-cormorant font-light text-lg text-ink">
+                                  &pound;{getListedRate(c.hourlyRate)}
+                                </span>
+                                <span className="font-jost font-light text-[11px] text-ink-3">
+                                  /hr
+                                </span>
+                              </div>
+                            </div>
+                            <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                              {c.bio}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div
+                      className="mt-3 bg-cream-2 p-6 text-center"
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      <p className="font-jost font-light text-sm text-ink-2">
+                        No cleaners available for this slot. Try a different time.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {scheduling === 'flexible' && (
-          <div className="flex items-center justify-between">
-            <h2 className="font-cormorant font-light text-lg text-ink">
-              All available cleaners in your area
-            </h2>
-            <button
-              type="button"
-              onClick={() => setScheduling(null)}
-              className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-ink transition"
-            >
-              Change preference
-            </button>
-          </div>
-        )}
-
-        {/* Cleaners list */}
-        {scheduling !== null && (
+        {/* ════════════════════════════════════════════════════════════
+            BOOKING PAGE (shown after selecting a cleaner from either flow)
+           ════════════════════════════════════════════════════════════ */}
+        {selectedCleanerId && selectedCleaner && (
           <>
-            {/* Tier legend */}
-            <div className="flex flex-wrap gap-3">
-              {(['elite', 'premium', 'standard'] as const).map((tier) => (
-                <span
-                  key={tier}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-jost text-[11px] uppercase tracking-[0.1em] ${TIER_INFO[tier].color}`}
+            {/* Selected cleaner header */}
+            <div>
+              <div className="flex items-center justify-between">
+                <h2 className="font-cormorant font-light text-xl text-ink">
+                  Complete your booking
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCleanerId('')}
+                  className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
+                >
+                  &larr; Choose a different cleaner
+                </button>
+              </div>
+
+              {/* Cleaner info card */}
+              <div
+                className="mt-5 flex items-start gap-4 bg-cream p-5"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
-                  {TIER_INFO[tier].label} — {TIER_INFO[tier].desc}
-                </span>
-              ))}
+                  {selectedCleaner.name.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-jost font-normal text-ink">{selectedCleaner.name}</span>
+                    <span
+                      className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${TIER_INFO[selectedCleaner.tier].color}`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {TIER_INFO[selectedCleaner.tier].label}
+                    </span>
+                    <VerificationBadge
+                      identityVerified={selectedCleaner.identityVerified}
+                      backgroundChecked={selectedCleaner.backgroundChecked}
+                    />
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
+                    <StarRating rating={selectedCleaner.rating} />
+                    <span>
+                      {selectedCleaner.rating} ({selectedCleaner.reviewCount} reviews)
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="font-cormorant font-light text-2xl text-ink">
+                    &pound;{priceBreakdown.listedHourlyRate}
+                  </span>
+                  <span className="font-jost font-light text-xs text-ink-3">/hr</span>
+                </div>
+              </div>
             </div>
 
-            {availableCleaners.length === 0 ? (
-              <div
-                className="bg-cream-2 p-8 text-center"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p className="font-jost font-light text-sm text-ink-2">
-                  No cleaners available on {selectedDay}. Try a different day or switch to flexible
-                  scheduling.
+            {/* Substitute cleaner */}
+            <label
+              className="flex items-start gap-4 bg-cream-2 p-5 cursor-pointer"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <input
+                type="checkbox"
+                checked={acceptSubstitute}
+                onChange={(e) => setAcceptSubstitute(e.target.checked)}
+                className="mt-0.5 h-5 w-5 border-ink-3 text-ink focus:ring-0"
+              />
+              <div>
+                <p className="font-jost font-normal text-sm text-ink">
+                  Happy with a substitute cleaner?
+                </p>
+                <p className="mt-1 font-jost font-light text-xs text-ink-3">
+                  If {selectedCleaner.name} cancels, we&apos;ll match you with another cleaner of
+                  the same rating ({selectedCleaner.rating}).
                 </p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {availableCleaners.map((cleaner) => (
-                  <CleanerDetailCard
-                    key={cleaner.id}
-                    cleaner={cleaner}
-                    selected={selectedCleanerId === cleaner.id}
-                    onSelect={() => setSelectedCleanerId(cleaner.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {selectedCleanerId && (
-              <label
-                className="flex items-start gap-4 bg-cream-2 p-5 cursor-pointer"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <input
-                  type="checkbox"
-                  checked={acceptSubstitute}
-                  onChange={(e) => setAcceptSubstitute(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 border-ink-3 text-ink focus:ring-0"
-                />
-                <div>
-                  <p className="font-jost font-normal text-sm text-ink">
-                    Happy with a substitute cleaner?
-                  </p>
-                  <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                    If {selectedCleaner?.name} cancels, we&apos;ll match you with another cleaner of
-                    the same rating ({selectedCleaner?.rating}).
-                  </p>
-                </div>
-              </label>
-            )}
+            </label>
 
             {/* Key access */}
             <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
@@ -1182,10 +1428,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     : 'Customer provides'
                 }
               />
-              {selectedCleaner && (
+              <SummaryRow
+                label="Cleaner"
+                value={`${selectedCleaner.name} (${TIER_INFO[selectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
+              />
+              {selectedDay && selectedTime && (
                 <SummaryRow
-                  label="Cleaner"
-                  value={`${selectedCleaner.name} (${TIER_INFO[selectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
+                  label="When"
+                  value={`${selectedDay}, ${selectedTime} — ${getEndTime(selectedTime, effectiveHours)}`}
                 />
               )}
               <SummaryRow
@@ -1209,7 +1459,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               >
                 <div className="flex justify-between text-sm">
                   <span className="font-jost font-light text-ink-3">
-                    Cleaning ({effectiveHours}h)
+                    Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}/hr)
                   </span>
                   <span className="font-jost font-normal text-ink">
                     &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
@@ -1268,19 +1518,305 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <button
               type="button"
               onClick={() => setSubmitted(true)}
-              disabled={!selectedCleanerId}
-              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
             >
               Submit Booking Request
             </button>
           </>
         )}
       </div>
+
+      {/* ── Cleaner profile slide-out ── */}
+      {profileCleaner && (
+        <CleanerProfileSlideOut
+          cleaner={profileCleaner}
+          listedRate={getListedRate(profileCleaner.hourlyRate)}
+          effectiveHours={effectiveHours}
+          onClose={() => setProfileCleaner(null)}
+          onBook={() => {
+            setSelectedCleanerId(profileCleaner.id);
+            setProfileCleaner(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Sub-components ──────────────────────────────────────────
+
+function CleanerProfileSlideOut({
+  cleaner,
+  listedRate,
+  effectiveHours,
+  onClose,
+  onBook,
+}: {
+  cleaner: Cleaner;
+  listedRate: number;
+  effectiveHours: number;
+  onClose: () => void;
+  onBook: () => void;
+}) {
+  const reviews = getReviewsForCleaner(cleaner.id);
+  const tier = TIER_INFO[cleaner.tier];
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Slide-out panel */}
+      <div className="relative z-10 w-full max-w-lg overflow-y-auto bg-white shadow-2xl animate-slide-up sm:animate-none">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center text-ink-3 transition-colors hover:text-ink"
+          aria-label="Close"
+        >
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Header */}
+        <div className="bg-cream px-6 py-8">
+          <div className="flex items-start gap-4">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center bg-white font-cormorant text-[26px] font-semibold text-ink"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              {cleaner.name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-cormorant text-[24px] font-semibold leading-tight text-ink">
+                  {cleaner.name}
+                </h2>
+                <span
+                  className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  {tier.label}
+                </span>
+                <VerificationBadge
+                  identityVerified={cleaner.identityVerified}
+                  backgroundChecked={cleaner.backgroundChecked}
+                  size="md"
+                />
+              </div>
+              <p className="mt-1 font-jost text-[13px] font-light text-ink-3">{cleaner.location}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <StarRating rating={cleaner.rating} />
+                <span className="font-jost text-[13px] font-light text-ink-2">
+                  {cleaner.rating} ({cleaner.reviewCount} reviews)
+                </span>
+              </div>
+              {cleaner.availableNow && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
+                  </span>
+                  <span className="font-jost text-[12px] font-medium text-teal">
+                    Available today &middot; responds in {cleaner.responseTime}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Price + Book now */}
+          <div className="mt-6 flex items-end justify-between">
+            <div>
+              <span className="font-cormorant text-[28px] font-semibold text-ink">
+                &pound;{listedRate}
+              </span>
+              <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
+              <span className="ml-3 font-jost text-[13px] font-light text-ink-3">
+                &pound;{(listedRate * effectiveHours).toFixed(2)} for {effectiveHours}h
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onBook}
+              className="bg-ink px-6 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+            >
+              Book now
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-8">
+          {/* Bio */}
+          <p className="font-jost text-[14px] font-light leading-relaxed text-ink-2">
+            {cleaner.bio}
+          </p>
+
+          {/* Specialties */}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {cleaner.specialties.map((s) => (
+              <span
+                key={s}
+                className="rounded-full bg-cream px-3 py-1 font-jost text-[12px] font-medium text-ink-2"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+
+          {/* Stats */}
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { value: `${cleaner.yearsExperience}`, label: 'Years exp.' },
+              { value: `${cleaner.completedJobs}`, label: 'Jobs done' },
+              { value: `${cleaner.rating}`, label: 'Avg rating' },
+              { value: cleaner.responseTime, label: 'Response' },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <div className="font-cormorant text-[22px] font-semibold text-ink">
+                  {stat.value}
+                </div>
+                <div className="font-jost text-[11px] font-light text-ink-3">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Detailed ratings */}
+          <div className="mt-8">
+            <h3 className="font-cormorant text-[18px] font-semibold text-ink">Ratings</h3>
+            <div className="mt-4 space-y-3">
+              {[
+                { label: 'Thoroughness', value: cleaner.categoryRatings.thoroughness },
+                { label: 'Punctuality', value: cleaner.categoryRatings.punctuality },
+                { label: 'Communication', value: cleaner.categoryRatings.communication },
+                { label: 'Value', value: cleaner.categoryRatings.value },
+              ].map((r) => (
+                <div key={r.label} className="flex items-center gap-3">
+                  <span className="w-28 font-jost text-[13px] font-light text-ink-2">
+                    {r.label}
+                  </span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-cream-2">
+                    <div
+                      className="h-full rounded-full bg-ink"
+                      style={{ width: `${(r.value / 5) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-8 text-right font-jost text-[13px] font-medium text-ink">
+                    {r.value.toFixed(1)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Availability */}
+          <div className="mt-8">
+            <h3 className="font-cormorant text-[18px] font-semibold text-ink">Availability</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                <span
+                  key={day}
+                  className={`rounded-full px-3.5 py-1.5 font-jost text-[12px] font-medium ${
+                    cleaner.availability.includes(day) ? 'bg-ink text-cream' : 'bg-cream text-ink-3'
+                  }`}
+                >
+                  {day}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Languages */}
+          {cleaner.languages.length > 0 && (
+            <div className="mt-6">
+              <h3 className="font-cormorant text-[18px] font-semibold text-ink">Languages</h3>
+              <p className="mt-2 font-jost text-[13px] font-light text-ink-2">
+                {cleaner.languages.join(', ')}
+              </p>
+            </div>
+          )}
+
+          {/* Reviews */}
+          {reviews.length > 0 && (
+            <div className="mt-8">
+              <h3 className="font-cormorant text-[18px] font-semibold text-ink">
+                Reviews ({reviews.length})
+              </h3>
+              <div className="mt-4 space-y-4">
+                {reviews.slice(0, 4).map((review) => (
+                  <div key={review.id} className="border-t border-ink/5 pt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-jost text-[13px] font-medium text-ink">
+                          {review.customerName}
+                        </span>
+                        {review.verified && (
+                          <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-teal">
+                            Verified
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-jost text-[11px] font-light text-ink-3">
+                        {review.date}
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <StarRating rating={review.rating} />
+                    </div>
+                    <p className="mt-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                      {review.comment}
+                    </p>
+                    {review.cleanerReply && (
+                      <div className="mt-3 rounded-md bg-cream px-4 py-3">
+                        <p className="font-jost text-[12px] font-medium text-ink">
+                          {cleaner.name} replied
+                        </p>
+                        <p className="mt-1 font-jost text-[12px] font-light text-ink-2">
+                          {review.cleanerReply}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bottom book button */}
+          <div className="mt-8 border-t border-ink/5 pt-6">
+            <button
+              type="button"
+              onClick={onBook}
+              className="w-full bg-ink py-3.5 font-jost text-[12px] uppercase tracking-[0.1em] text-cream transition hover:bg-gold"
+            >
+              Book {cleaner.name} &middot; &pound;{listedRate}/hr
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Counter({
   label,
@@ -1321,147 +1857,6 @@ function Counter({
         >
           +
         </button>
-      </div>
-    </div>
-  );
-}
-
-function CleanerDetailCard({
-  cleaner,
-  selected,
-  onSelect,
-}: {
-  cleaner: Cleaner;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const tier = TIER_INFO[cleaner.tier];
-  const reviews = getReviewsForCleaner(cleaner.id);
-
-  return (
-    <div
-      className={`transition ${selected ? 'bg-cream-2' : 'bg-cream hover:bg-cream-2'}`}
-      style={{ border: selected ? '1px solid #0e0e0c' : '0.5px solid rgba(14,14,12,0.1)' }}
-    >
-      <button type="button" onClick={onSelect} className="w-full p-5 text-left">
-        <div className="flex items-start gap-4">
-          <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-          >
-            {cleaner.name.charAt(0)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-jost font-normal text-ink">{cleaner.name}</span>
-              <span
-                className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                {tier.label}
-              </span>
-              <VerificationBadge
-                identityVerified={cleaner.identityVerified}
-                backgroundChecked={cleaner.backgroundChecked}
-              />
-            </div>
-            <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
-              <StarRating rating={cleaner.rating} />
-              <span>
-                {cleaner.rating} ({cleaner.reviewCount} reviews)
-              </span>
-              <span className="text-ink-3/30">|</span>
-              <span>{cleaner.yearsExperience} yrs exp</span>
-              <span className="text-ink-3/30">|</span>
-              <span>{cleaner.completedJobs} jobs</span>
-            </div>
-            <p className="mt-2 font-jost font-light text-sm text-ink-2 line-clamp-2">
-              {cleaner.bio}
-            </p>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {cleaner.languages.map((lang) => (
-                <span
-                  key={lang}
-                  className="bg-cream-2 px-2 py-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-2"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  {lang}
-                </span>
-              ))}
-            </div>
-            <div className="mt-2.5 flex items-center gap-3 font-jost font-light text-xs text-ink-3">
-              <span>
-                Available:{' '}
-                <span className="font-normal text-ink-2">{cleaner.availability.join(', ')}</span>
-              </span>
-              {cleaner.availableNow && (
-                <span className="flex items-center gap-1 text-gold font-normal">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping bg-gold/40" />
-                    <span className="relative inline-flex h-2 w-2 bg-gold" />
-                  </span>
-                  Available now
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <span className="font-cormorant font-light text-xl text-ink">
-              &pound;{getListedRate(cleaner.hourlyRate)}
-            </span>
-            <span className="font-jost font-light text-xs text-ink-3">/hr</span>
-            {selected && (
-              <div className="mt-2 font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                &#10003; Selected
-              </div>
-            )}
-          </div>
-        </div>
-      </button>
-
-      {/* Expandable reviews */}
-      <div className="px-5 py-3" style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}>
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-ink transition"
-        >
-          {expanded ? 'Hide reviews' : `Show reviews (${reviews.length})`}
-        </button>
-        {expanded && reviews.length > 0 && (
-          <div className="mt-3 space-y-3 pb-2">
-            {reviews.map((review) => (
-              <div
-                key={review.id}
-                className="bg-cream p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-jost font-normal text-sm text-ink">
-                      {review.customerName}
-                    </span>
-                    <StarRating rating={review.rating} />
-                  </div>
-                  <span className="font-jost font-light text-xs text-ink-3">{review.date}</span>
-                </div>
-                <p className="mt-1.5 font-jost font-light text-xs text-ink-2">{review.comment}</p>
-                {review.cleanerReply && (
-                  <div className="mt-2 bg-cream-2 p-3">
-                    <p className="font-jost font-light text-xs text-ink-3">
-                      <span className="font-normal text-ink-2">{cleaner.name}:</span>{' '}
-                      {review.cleanerReply}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        {expanded && reviews.length === 0 && (
-          <p className="mt-2 pb-2 font-jost font-light text-xs text-ink-3">No reviews yet.</p>
-        )}
       </div>
     </div>
   );
