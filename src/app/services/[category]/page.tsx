@@ -448,12 +448,25 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </div>
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink">Booking Request Sent</h1>
         <p className="mt-5 font-jost font-light text-ink-2">
-          We&apos;ve sent your {serviceLabel.toLowerCase()} request
-          {selectedCleaners.length > 0
-            ? ` to ${selectedCleaners.map((sc) => sc.name).join(' & ')}`
-            : ''}
-          . You&apos;ll receive a confirmation at{' '}
-          <span className="font-normal text-ink">{email}</span>.
+          {isFixedPrice(category) ? (
+            <>
+              We&apos;ve received your {serviceLabel.toLowerCase()} request
+              {selectedCleaners.length > 0
+                ? `. We\u2019ll try to match you with ${selectedCleaners.map((sc) => sc.name).join(', ')}`
+                : `. We\u2019ll assign the best available cleaner`}
+              . You&apos;ll receive a confirmation at{' '}
+              <span className="font-normal text-ink">{email}</span>.
+            </>
+          ) : (
+            <>
+              We&apos;ve sent your {serviceLabel.toLowerCase()} request
+              {selectedCleaners.length > 0
+                ? ` to ${selectedCleaners.map((sc) => sc.name).join(' & ')}`
+                : ''}
+              . You&apos;ll receive a confirmation at{' '}
+              <span className="font-normal text-ink">{email}</span>.
+            </>
+          )}
         </p>
         {joinMailingList && (
           <p className="mt-3 font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
@@ -1462,6 +1475,341 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     );
   }
 
+  // ─── PHASE 2 (Fixed-Price): Cleaner preference + booking details ──────────
+  if (isFixedPrice(category)) {
+    const preferredCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
+        {/* Back */}
+        <button
+          onClick={() => setPhase('quote')}
+          className="group mb-6 inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </span>
+          Back
+        </button>
+
+        <h1 className="font-cormorant font-light text-3xl text-ink">
+          {category === 'end-of-tenancy' ? 'End of Tenancy' : 'Airbnb'} Booking
+        </h1>
+
+        {/* ── Cleaner preferences ─────────────────────────── */}
+        <div className="mt-10">
+          <h2 className="font-cormorant font-light text-xl text-ink">Cleaner Preferences</h2>
+          <p className="mt-2 font-jost font-light text-sm text-ink-3">
+            Select cleaners you&apos;d prefer for this job. We&apos;ll do our best to match you with
+            one of your choices. This is optional — skip if you have no preference.
+          </p>
+
+          {preferredCleaners.length > 0 && (
+            <div
+              className="mt-4 bg-cream-2 px-4 py-3 flex items-center gap-2"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <svg
+                className="h-4 w-4 text-gold shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                />
+              </svg>
+              <span className="font-jost font-light text-sm text-ink">
+                {preferredCleaners.length} {preferredCleaners.length === 1 ? 'cleaner' : 'cleaners'}{' '}
+                selected — {preferredCleaners.map((c) => c.name).join(', ')}
+              </span>
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {cleaners.map((c) => {
+              const tier = TIER_INFO[c.tier];
+              const isPreferred = selectedCleanerIds.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() =>
+                    setSelectedCleanerIds((prev) =>
+                      prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                    )
+                  }
+                  className={`group p-5 text-left transition ${
+                    isPreferred ? 'ring-2 ring-gold bg-gold/5' : 'bg-cream hover:bg-cream-2'
+                  }`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className="relative">
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant transition"
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      >
+                        {c.name.charAt(0)}
+                      </div>
+                      {isPreferred && (
+                        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-cream">
+                          <svg
+                            className="h-3 w-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={3}
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
+                        <span
+                          className={`px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                        >
+                          {tier.label}
+                        </span>
+                        <VerificationBadge
+                          identityVerified={c.identityVerified}
+                          backgroundChecked={c.backgroundChecked}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
+                        <StarRating rating={c.rating} />
+                        <span>
+                          {c.rating} ({c.reviewCount})
+                        </span>
+                        <span className="text-ink-3/30">|</span>
+                        <span>{c.completedJobs} jobs</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                    {c.bio}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {c.specialties.slice(0, 3).map((s) => (
+                      <span
+                        key={s}
+                        className="bg-cream-2 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3"
+                        style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                  {c.languages.length > 1 && (
+                    <p className="mt-2 font-jost font-light text-[11px] text-ink-3">
+                      Speaks {c.languages.join(', ')}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── When ─────────────────────────────────────── */}
+        <div className="mt-10">
+          <h2 className="font-cormorant font-light text-xl text-ink">
+            When would you like this done?
+          </h2>
+          <div className="mt-4">
+            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">Day</p>
+            <div className="flex flex-wrap gap-2">
+              {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDay(day);
+                    setSelectedTime('');
+                  }}
+                  className={`px-5 py-3 font-jost text-sm font-light transition ${
+                    selectedDay === day
+                      ? 'bg-ink text-cream'
+                      : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                  }`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+          {selectedDay && (
+            <div className="mt-5">
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
+                Preferred start time
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '8:00 AM',
+                  '9:00 AM',
+                  '10:00 AM',
+                  '11:00 AM',
+                  '12:00 PM',
+                  '1:00 PM',
+                  '2:00 PM',
+                  '3:00 PM',
+                  '4:00 PM',
+                ].map((time) => (
+                  <button
+                    key={time}
+                    type="button"
+                    onClick={() => setSelectedTime(time)}
+                    className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                      selectedTime === time
+                        ? 'bg-ink text-cream'
+                        : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                    }`}
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {time}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Key access ──────────────────────────────── */}
+        <div className="mt-10 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            Property access
+          </h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                { value: 'i-will-be-home' as KeyAccess, label: 'I\u2019ll be home' },
+                { value: 'key-under-mat' as KeyAccess, label: 'Key under mat' },
+                { value: 'lockbox' as KeyAccess, label: 'Lockbox' },
+                { value: 'with-concierge' as KeyAccess, label: 'With concierge' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setKeyAccess(opt.value)}
+                className={`p-4 text-center font-jost text-sm font-light transition ${
+                  keyAccess === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                }`}
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Special instructions ────────────────────── */}
+        <div className="mt-6 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            Special instructions
+          </h2>
+          <textarea
+            value={specialInstructions}
+            onChange={(e) => setSpecialInstructions(e.target.value)}
+            placeholder="Anything your cleaner should know? (optional)"
+            rows={3}
+            className="mt-4 w-full bg-cream-2 px-4 py-3 font-jost font-light text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-gold/30 transition"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          />
+        </div>
+
+        {/* ── Summary + submit ────────────────────────── */}
+        <div className="mt-8 bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            Booking summary
+          </span>
+
+          <div className="mt-4 space-y-2.5">
+            <div className="flex justify-between font-jost text-sm">
+              <span className="font-light text-ink-3">
+                {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
+              </span>
+              <span className="text-ink">&pound;{fixedPriceQuote?.basePrice.toFixed(2)}</span>
+            </div>
+            {(fixedPriceQuote?.extrasTotal ?? 0) > 0 && (
+              <div className="flex justify-between font-jost text-sm">
+                <span className="font-light text-ink-3">Extras</span>
+                <span className="text-ink">
+                  &pound;{(fixedPriceQuote?.extrasTotal ?? 0).toFixed(2)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between font-jost text-sm">
+              <span className="font-light text-ink-3">Service fee (5%)</span>
+              <span className="text-ink">&pound;{priceBreakdown.displayServiceFee.toFixed(2)}</span>
+            </div>
+            {preferredCleaners.length > 0 && (
+              <div className="flex justify-between font-jost text-sm">
+                <span className="font-light text-ink-3">
+                  Preferred {preferredCleaners.length === 1 ? 'cleaner' : 'cleaners'}
+                </span>
+                <span className="text-ink">{preferredCleaners.map((c) => c.name).join(', ')}</span>
+              </div>
+            )}
+            {selectedDay && selectedTime && (
+              <div className="flex justify-between font-jost text-sm">
+                <span className="font-light text-ink-3">When</span>
+                <span className="text-ink">
+                  {selectedDay}, {selectedTime}
+                </span>
+              </div>
+            )}
+            <div
+              className="flex justify-between pt-3"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <span className="font-jost font-normal text-ink">Total</span>
+              <span className="font-cormorant font-light text-3xl text-ink">
+                &pound;{priceBreakdown.discountedTotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-3 font-jost font-light text-xs text-ink-3">
+            Fixed price. No hidden charges.
+            {preferredCleaners.length > 0
+              ? ' We\u2019ll try to match you with one of your preferred cleaners.'
+              : ' We\u2019ll assign the best available cleaner for your job.'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSubmitted(true)}
+          disabled={!selectedDay || !selectedTime}
+          className="mt-6 w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Submit Booking Request
+        </button>
+      </div>
+    );
+  }
+
   // ─── PHASE 2: Cleaner selection (no pre-selected cleaner) ────────────────
 
   const stepLabels = [
@@ -2271,62 +2619,42 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 className="pt-4 mt-4 space-y-3"
                 style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                {priceBreakdown.isFixed && fixedPriceQuote ? (
-                  <>
+                {/* Hourly services only — fixed-price services have their own phase 2 */}
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-jost font-light text-ink-3">
+                      Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
+                      /hr)
+                    </span>
+                    <span className="font-jost font-normal text-ink">
+                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {productCost > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">
-                        {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
-                      </span>
-                      <span className="font-jost font-normal text-ink">
-                        &pound;{fixedPriceQuote.basePrice.toFixed(2)}
-                      </span>
-                    </div>
-                    {fixedPriceQuote.extrasTotal > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="font-jost font-light text-ink-3">Extras</span>
-                        <span className="font-jost font-light text-ink">
-                          &pound;{fixedPriceQuote.extrasTotal.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">
-                        Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
-                        /hr)
-                      </span>
-                      <span className="font-jost font-normal text-ink">
-                        &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-                      </span>
-                    </div>
-                    {productCost > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                        <span className="font-jost font-light text-ink">
-                          &pound;{productCost.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
                       <span className="font-jost font-light text-ink">
-                        &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                        &pound;{productCost.toFixed(2)}
                       </span>
                     </div>
-                    {priceBreakdown.discount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="font-jost font-normal text-gold">
-                          {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                        </span>
-                        <span className="font-jost font-normal text-gold">
-                          -&pound;{priceBreakdown.discount.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                    <span className="font-jost font-light text-ink">
+                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                    </span>
+                  </div>
+                  {priceBreakdown.discount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-normal text-gold">
+                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
+                      </span>
+                      <span className="font-jost font-normal text-gold">
+                        -&pound;{priceBreakdown.discount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </>
                 <div
                   className="flex justify-between pt-3"
                   style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
