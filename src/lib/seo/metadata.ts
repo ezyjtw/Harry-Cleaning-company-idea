@@ -58,7 +58,7 @@ export const PAGE_METADATA = {
   pricing: generatePageMetadata({
     title: 'Transparent Pricing',
     description:
-      'Simple, fair pricing with no hidden fees. Just a 5% service fee at checkout — the lowest in the industry.',
+      'Simple, fair pricing with no hidden fees. Just a 5% service fee at checkout — one of the lowest in the industry.',
     path: '/pricing',
   }),
   about: generatePageMetadata({

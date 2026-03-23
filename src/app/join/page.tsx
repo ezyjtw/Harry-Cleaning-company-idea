@@ -375,7 +375,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
               },
               {
                 title: 'Keep 90% of Earnings',
-                desc: 'We only take a 10% commission — the lowest in the industry.',
+                desc: 'We only take a 10% commission — one of the lowest in the industry.',
               },
               {
                 title: 'Set Your Own Hours',
@@ -451,7 +451,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
               },
               {
                 title: 'Fair, Transparent Commission',
-                desc: 'We take just 10% — the lowest in the industry. Traditional agencies take 40-60%. Other platforms take 20-30%. You keep more with Rena.',
+                desc: 'We take just 10% — one of the lowest in the industry. Traditional agencies take 40-60%. Other platforms take 20-30%. You keep more with Rena.',
               },
               {
                 title: 'Insurance &amp; Protection',
