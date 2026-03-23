@@ -543,7 +543,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </span>
                 <p className="mt-1 font-jost font-light text-xs text-ink-3">
                   {preSelectedCleaner
-                    ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate)}/hr`
+                    ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr`
                     : 'Starting at \u00A318/hr'}
                 </p>
               </div>
@@ -642,7 +642,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 {preSelectedCleaner.rating} ({preSelectedCleaner.reviewCount} reviews)
               </span>
               <span className="text-ink-3/30">|</span>
-              <span>&pound;{getListedRate(preSelectedCleaner.hourlyRate)}/hr</span>
+              <span>&pound;{getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr</span>
             </div>
           </div>
         </div>
@@ -1202,7 +1202,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="font-cormorant font-light text-lg text-ink">
-                          &pound;{getListedRate(c.hourlyRate)}
+                          &pound;{getListedRate(c.hourlyRate).toFixed(2)}
                         </span>
                         <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
                       </div>
@@ -1379,7 +1379,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                               </div>
                               <div className="shrink-0 text-right">
                                 <span className="font-cormorant font-light text-lg text-ink">
-                                  &pound;{getListedRate(c.hourlyRate)}
+                                  &pound;{getListedRate(c.hourlyRate).toFixed(2)}
                                 </span>
                                 <span className="font-jost font-light text-[11px] text-ink-3">
                                   /hr
@@ -1867,7 +1867,7 @@ function CleanerProfileSlideOut({
           <div className="mt-6 flex items-end justify-between">
             <div>
               <span className="font-cormorant text-[28px] font-semibold text-ink">
-                &pound;{listedRate}
+                &pound;{listedRate.toFixed(2)}
               </span>
               <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
               <span className="ml-3 font-jost text-[13px] font-light text-ink-3">
@@ -2028,7 +2028,7 @@ function CleanerProfileSlideOut({
               onClick={onBook}
               className="w-full bg-ink py-3.5 font-jost text-[12px] uppercase tracking-[0.1em] text-cream transition hover:bg-gold"
             >
-              Book {cleaner.name} &middot; &pound;{listedRate}/hr
+              Book {cleaner.name} &middot; &pound;{listedRate.toFixed(2)}/hr
             </button>
           </div>
         </div>
