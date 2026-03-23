@@ -1,47 +1,86 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-type ServiceType = 'regular' | 'deep' | 'end_of_tenancy' | 'airbnb';
+// ─── Types ──────────────────────────────────────────────────────
 
-const SERVICE_LABELS: Record<ServiceType, string> = {
+type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
+
+type PropertySize = 'STUDIO' | 'ONE_BED' | 'TWO_BED' | 'THREE_BED' | 'FOUR_BED' | 'FIVE_PLUS';
+
+interface QuoteResult {
+  serviceType: string;
+  cleanerHourlyRate: number;
+  cleanerDeepRate: number | null;
+  hours: number | null;
+  propertySize: string | null;
+  isFixedPrice: boolean;
+  cleanerGross: number;
+  cleanerFee: number;
+  cleanerEarns: number;
+  customerSubtotal: number;
+  customerServiceFee: number;
+  addonTotal: number;
+  totalCharged: number;
+  renaEarns: number;
+  breakdown: string;
+}
+
+interface ServiceAddon {
+  id: string;
+  name: string;
+  price: number;
+}
+
+interface ServiceTypeData {
+  id: string;
+  slug: string;
+  name: string;
+  pricingModel: 'HOURLY' | 'FIXED';
+  baseMultiplier: number;
+  minimumHours: number | null;
+  fixedPrices: { propertySize: PropertySize; customerPrice: number; estimatedHours: number }[];
+  addons: ServiceAddon[];
+}
+
+// ─── Constants ──────────────────────────────────────────────────
+
+const SERVICE_LABELS: Record<ServiceSlug, string> = {
   regular: 'Regular',
+  'one-off': 'One-Off',
+  'same-day': 'Same-Day',
   deep: 'Deep',
-  end_of_tenancy: 'End of Tenancy',
-  airbnb: 'AirBnB',
+  eot: 'End of Tenancy',
+  airbnb: 'Airbnb',
 };
 
-const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
-  regular: 1,
-  deep: 1.4,
-  end_of_tenancy: 1.8,
-  airbnb: 1.3,
+const PROPERTY_SIZE_LABELS: Record<PropertySize, string> = {
+  STUDIO: 'Studio',
+  ONE_BED: '1 Bed',
+  TWO_BED: '2 Bed',
+  THREE_BED: '3 Bed',
+  FOUR_BED: '4 Bed',
+  FIVE_PLUS: '5+ Bed',
 };
 
-const BASE_RATE = 25; // £/hr
+const BEDROOM_TO_PROPERTY: Record<number, PropertySize> = {
+  0: 'STUDIO',
+  1: 'ONE_BED',
+  2: 'TWO_BED',
+  3: 'THREE_BED',
+  4: 'FOUR_BED',
+  5: 'FIVE_PLUS',
+};
 
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+const DEFAULT_FLOOR_RATE = 14; // £14 as the floor rate for initial quote
 
 function getCleanerCount(postcode: string): number {
-  // Deterministic mock count 4-8 based on postcode characters
   let hash = 0;
   for (let i = 0; i < postcode.length; i++) {
     hash = (hash * 31 + postcode.charCodeAt(i)) | 0;
   }
-  return 4 + (Math.abs(hash) % 5); // 4–8
-}
-
-function computeEstimate(
-  bedrooms: number,
-  bathrooms: number,
-  serviceType: ServiceType
-): { low: number; high: number } {
-  const hours = bedrooms * 0.5 + bathrooms * 0.75 + 1;
-  const multiplier = SERVICE_MULTIPLIERS[serviceType];
-  const mid = hours * BASE_RATE * multiplier;
-  const low = Math.round(mid * 0.9);
-  const high = Math.round(mid * 1.1);
-  return { low, high };
+  return 4 + (Math.abs(hash) % 5);
 }
 
 export default function HeroQuoteWidget() {
@@ -56,13 +95,104 @@ export default function HeroQuoteWidget() {
   // Step 2
   const [bedrooms, setBedrooms] = useState<number | null>(null);
   const [bathrooms, setBathrooms] = useState<number | null>(null);
-  const [serviceType, setServiceType] = useState<ServiceType>('regular');
+  const [serviceSlug, setServiceSlug] = useState<ServiceSlug>('regular');
+  const [hours, setHours] = useState(3);
+  const [frequency, setFrequency] = useState<'WEEKLY' | 'FORTNIGHTLY' | 'ONE_OFF'>('ONE_OFF');
 
-  // Derived
-  const estimate =
-    bedrooms !== null && bathrooms !== null
-      ? computeEstimate(bedrooms, bathrooms, serviceType)
-      : null;
+  // Step 3 — quote & addons
+  const [quote, setQuote] = useState<QuoteResult | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [availableAddons, setAvailableAddons] = useState<ServiceAddon[]>([]);
+  const [services, setServices] = useState<ServiceTypeData[]>([]);
+
+  // Fixed price display for step 2
+  const [fixedPriceDisplay, setFixedPriceDisplay] = useState<number | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch services on mount
+  useEffect(() => {
+    fetch('/api/pricing/services')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setServices(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const isFixed = serviceSlug === 'eot' || serviceSlug === 'airbnb';
+
+  // Update fixed price display when service/bedrooms change
+  useEffect(() => {
+    if (!isFixed || bedrooms === null) {
+      setFixedPriceDisplay(null);
+      return;
+    }
+    const svc = services.find((s) => s.slug === serviceSlug);
+    const propertySize = BEDROOM_TO_PROPERTY[bedrooms] ?? 'FIVE_PLUS';
+    const fp = svc?.fixedPrices.find((p) => p.propertySize === propertySize);
+    setFixedPriceDisplay(fp?.customerPrice ?? null);
+  }, [isFixed, bedrooms, serviceSlug, services]);
+
+  // Update available addons when service changes
+  useEffect(() => {
+    const svc = services.find((s) => s.slug === serviceSlug);
+    setAvailableAddons(svc?.addons ?? []);
+    setSelectedAddons([]);
+  }, [serviceSlug, services]);
+
+  const fetchQuote = useCallback(
+    async (addonIds: string[] = selectedAddons) => {
+      if (bedrooms === null || bathrooms === null) return;
+
+      const propertySize = BEDROOM_TO_PROPERTY[bedrooms] ?? 'FIVE_PLUS';
+      const body: Record<string, unknown> = {
+        serviceSlug,
+        cleanerHourlyRate: DEFAULT_FLOOR_RATE,
+      };
+
+      if (isFixed) {
+        body.propertySize = propertySize;
+      } else {
+        body.hours = hours;
+        if (serviceSlug === 'regular') body.frequency = frequency;
+      }
+
+      if (addonIds.length > 0) body.addons = addonIds;
+
+      setQuoteLoading(true);
+      try {
+        const res = await fetch('/api/pricing/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setQuote(data);
+          // Store in sessionStorage for navigation survival
+          sessionStorage.setItem('rena_active_quote', JSON.stringify(data));
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setQuoteLoading(false);
+      }
+    },
+    [bedrooms, bathrooms, serviceSlug, hours, frequency, isFixed, selectedAddons]
+  );
+
+  const handleAddonToggle = (addonId: string) => {
+    const next = selectedAddons.includes(addonId)
+      ? selectedAddons.filter((id) => id !== addonId)
+      : [...selectedAddons, addonId];
+    setSelectedAddons(next);
+
+    // Debounced re-fetch
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchQuote(next), 300);
+  };
 
   // ─── Handlers ──────────────────────────────────────────────
 
@@ -80,8 +210,10 @@ export default function HeroQuoteWidget() {
 
   const canProceedStep2 = bedrooms !== null && bathrooms !== null;
 
-  const handleStep2Next = () => {
-    if (canProceedStep2) setStep(3);
+  const handleStep2Next = async () => {
+    if (!canProceedStep2) return;
+    setStep(3);
+    await fetchQuote();
   };
 
   // ─── Step indicator ────────────────────────────────────────
@@ -93,7 +225,6 @@ export default function HeroQuoteWidget() {
           key={s}
           type="button"
           onClick={() => {
-            // Only allow navigating back to completed steps
             if (s < step) setStep(s);
           }}
           className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all duration-300 ${
@@ -194,9 +325,27 @@ export default function HeroQuoteWidget() {
 
       {/* Bedrooms */}
       <div className="mt-5">
-        <label className="block text-sm font-semibold text-gray-700">Bedrooms</label>
+        <label className="block text-sm font-semibold text-gray-700">
+          {isFixed ? 'Property Size' : 'Bedrooms'}
+        </label>
         <div className="mt-2 flex flex-wrap gap-2">
-          {[1, 2, 3, 4, 5].map((n) => (
+          {(isFixed
+            ? [
+                { n: 0, label: 'Studio' },
+                { n: 1, label: '1 Bed' },
+                { n: 2, label: '2 Bed' },
+                { n: 3, label: '3 Bed' },
+                { n: 4, label: '4 Bed' },
+                { n: 5, label: '5+' },
+              ]
+            : [
+                { n: 1, label: '1' },
+                { n: 2, label: '2' },
+                { n: 3, label: '3' },
+                { n: 4, label: '4' },
+                { n: 5, label: '5+' },
+              ]
+          ).map(({ n, label }) => (
             <button
               key={n}
               type="button"
@@ -207,48 +356,112 @@ export default function HeroQuoteWidget() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {n === 5 ? '5+' : n}
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Bathrooms */}
-      <div className="mt-5">
-        <label className="block text-sm font-semibold text-gray-700">Bathrooms</label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {[1, 2, 3, 4].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setBathrooms(n)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                bathrooms === n
-                  ? 'bg-brand-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {n === 4 ? '4+' : n}
-            </button>
-          ))}
+      {/* Bathrooms — hide for fixed-price services */}
+      {!isFixed && (
+        <div className="mt-5">
+          <label className="block text-sm font-semibold text-gray-700">Bathrooms</label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[1, 2, 3, 4].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setBathrooms(n)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  bathrooms === n
+                    ? 'bg-brand-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {n === 4 ? '4+' : n}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Type of clean */}
       <div className="mt-5">
         <label className="block text-sm font-semibold text-gray-700">Type of Clean</label>
         <select
-          value={serviceType}
-          onChange={(e) => setServiceType(e.target.value as ServiceType)}
+          value={serviceSlug}
+          onChange={(e) => {
+            const val = e.target.value as ServiceSlug;
+            setServiceSlug(val);
+            // Auto-set bathrooms for fixed services so canProceedStep2 works
+            if (val === 'eot' || val === 'airbnb') {
+              if (bathrooms === null) setBathrooms(1);
+            }
+          }}
           className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
         >
-          {(Object.keys(SERVICE_LABELS) as ServiceType[]).map((key) => (
+          {(Object.keys(SERVICE_LABELS) as ServiceSlug[]).map((key) => (
             <option key={key} value={key}>
               {SERVICE_LABELS[key]}
             </option>
           ))}
         </select>
       </div>
+
+      {/* Hours slider — hourly services only */}
+      {!isFixed && (
+        <div className="mt-5">
+          <label className="block text-sm font-semibold text-gray-700">Hours: {hours}</label>
+          <input
+            type="range"
+            min={serviceSlug === 'deep' ? 3 : 2}
+            max={8}
+            value={hours}
+            onChange={(e) => setHours(Number(e.target.value))}
+            className="mt-2 w-full"
+          />
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>{serviceSlug === 'deep' ? '3 hrs' : '2 hrs'}</span>
+            <span>8 hrs</span>
+          </div>
+        </div>
+      )}
+
+      {/* Frequency — regular only */}
+      {serviceSlug === 'regular' && (
+        <div className="mt-5">
+          <label className="block text-sm font-semibold text-gray-700">Frequency</label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              { val: 'WEEKLY' as const, label: 'Weekly' },
+              { val: 'FORTNIGHTLY' as const, label: 'Fortnightly' },
+              { val: 'ONE_OFF' as const, label: 'One-off' },
+            ].map(({ val, label }) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setFrequency(val)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  frequency === val
+                    ? 'bg-brand-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fixed price preview */}
+      {isFixed && fixedPriceDisplay !== null && (
+        <div className="mt-5 rounded-lg bg-brand-50 border border-brand-200 px-4 py-3 text-center">
+          <span className="text-sm font-semibold text-brand-700">
+            Fixed price: &pound;{fixedPriceDisplay}
+          </span>
+        </div>
+      )}
 
       {/* Next */}
       <button
@@ -263,7 +476,17 @@ export default function HeroQuoteWidget() {
   );
 
   const renderStep3 = () => {
-    if (!estimate) return null;
+    if (quoteLoading) {
+      return (
+        <div className="animate-fade-in text-center py-8">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-600 border-t-transparent mx-auto" />
+          <p className="mt-3 text-sm text-gray-500">Calculating your quote...</p>
+        </div>
+      );
+    }
+
+    if (!quote) return null;
+
     return (
       <div className="animate-fade-in">
         {/* Chips */}
@@ -272,26 +495,87 @@ export default function HeroQuoteWidget() {
             {confirmedPostcode}
           </span>
           <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-            {bedrooms} bed &middot; {bathrooms} bath
+            {isFixed
+              ? PROPERTY_SIZE_LABELS[BEDROOM_TO_PROPERTY[bedrooms ?? 1] ?? 'ONE_BED']
+              : `${bedrooms} bed · ${bathrooms} bath`}
           </span>
           <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-            {SERVICE_LABELS[serviceType]}
+            {SERVICE_LABELS[serviceSlug]}
           </span>
         </div>
 
         <h3 className="text-lg font-bold text-gray-900 text-center">Your Instant Estimate</h3>
 
         <div className="mt-5 rounded-xl bg-gradient-to-br from-brand-50 to-white border border-brand-200 p-6 text-center">
-          <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-            Estimated Cost
-          </div>
-          <div className="mt-2 text-4xl font-extrabold text-brand-700">
-            &pound;{estimate.low} &ndash; &pound;{estimate.high}
-          </div>
+          {quote.isFixedPrice ? (
+            <>
+              <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                Fixed Price
+              </div>
+              <div className="mt-2 text-4xl font-extrabold text-brand-700">
+                &pound;{quote.totalCharged.toFixed(2)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                Estimated Cost
+              </div>
+              <div className="mt-2 text-4xl font-extrabold text-brand-700">
+                &pound;{quote.totalCharged.toFixed(2)}
+              </div>
+              {/* Price breakdown for hourly services */}
+              <div className="mt-4 text-left text-sm text-gray-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>Cleaner rate</span>
+                  <span>&pound;{quote.customerSubtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Service fee (5%)</span>
+                  <span>&pound;{quote.customerServiceFee.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-1 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>&pound;{quote.totalCharged.toFixed(2)}</span>
+                </div>
+              </div>
+              {serviceSlug === 'regular' && frequency !== 'ONE_OFF' && (
+                <p className="mt-2 text-xs text-gray-500">
+                  &pound;{quote.totalCharged.toFixed(2)} per visit &middot; Billed after each clean
+                </p>
+              )}
+            </>
+          )}
           <p className="mt-3 text-sm text-gray-500">
             Exact price shown when you choose your cleaner
           </p>
         </div>
+
+        {/* Add-ons for EOT and Airbnb */}
+        {isFixed && availableAddons.length > 0 && (
+          <div className="mt-5">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Optional Add-ons
+            </label>
+            <div className="space-y-2">
+              {availableAddons.map((addon) => (
+                <label
+                  key={addon.id}
+                  className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 cursor-pointer hover:bg-gray-50 transition"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAddons.includes(addon.id)}
+                    onChange={() => handleAddonToggle(addon.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="flex-1 text-sm text-gray-700">{addon.name}</span>
+                  <span className="text-sm font-medium text-gray-500">+&pound;{addon.price}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           type="button"
@@ -313,12 +597,12 @@ export default function HeroQuoteWidget() {
   };
 
   const renderStep4 = () => {
-    if (!estimate) return null;
+    if (!quote) return null;
     const params = new URLSearchParams({
       postcode: confirmedPostcode,
-      serviceType,
+      serviceType: serviceSlug,
       bedrooms: String(bedrooms),
-      bathrooms: String(bathrooms),
+      bathrooms: String(bathrooms ?? 1),
     });
 
     return (
@@ -340,13 +624,13 @@ export default function HeroQuoteWidget() {
           Browse {cleanerCount} cleaners near{' '}
           <span className="font-medium text-brand-700">{confirmedPostcode}</span> for a{' '}
           <span className="font-medium text-brand-700">
-            {SERVICE_LABELS[serviceType].toLowerCase()} clean
+            {SERVICE_LABELS[serviceSlug].toLowerCase()} clean
           </span>
         </p>
 
         <div className="mt-3 rounded-lg bg-brand-50 border border-brand-200 px-4 py-3">
           <span className="text-sm font-semibold text-brand-700">
-            &pound;{estimate.low} &ndash; &pound;{estimate.high}
+            &pound;{quote.totalCharged.toFixed(2)}
           </span>
           <span className="ml-1 text-sm text-gray-500">estimated</span>
         </div>
@@ -376,7 +660,9 @@ export default function HeroQuoteWidget() {
             setCleanerCount(null);
             setBedrooms(null);
             setBathrooms(null);
-            setServiceType('regular');
+            setServiceSlug('regular');
+            setQuote(null);
+            setSelectedAddons([]);
           }}
           className="mt-3 text-sm text-gray-500 hover:text-gray-700 transition"
         >

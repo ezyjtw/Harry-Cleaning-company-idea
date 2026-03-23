@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import { generateEstimate, type RoomDetail } from '@/lib/estimator';
 import { getCleanerById, cleaners } from '@/lib/mock-data';
 import { getPriceBreakdown } from '@/lib/pricing';
-import { PricingService } from '@/lib/services/pricing.service';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (cleanerId) {
     const cleaner = getCleanerById(cleanerId);
     if (cleaner) {
-      const multiplier = estimate.recommendedServiceType === 'deep' ? 1.4 : 1;
+      const multiplier = estimate.recommendedServiceType === 'deep' ? 1.45 : 1;
       priceEstimate = {
         standard: getPriceBreakdown(cleaner.hourlyRate, estimate.recommendedDuration, multiplier),
         sameDay: getPriceBreakdown(cleaner.sameDayRate, estimate.recommendedDuration, multiplier),
@@ -54,14 +53,25 @@ export async function GET(request: NextRequest) {
   // Calculate average rate from available cleaners
   const avgRate = cleaners.reduce((sum, c) => sum + c.hourlyRate, 0) / cleaners.length;
 
-  // Use PricingService for the estimate
-  const estimate = PricingService.getEstimateRange({
-    baseRate: avgRate,
-    duration: 2,
-    serviceType,
-    rooms: { bedrooms, bathrooms, kitchen: true, livingAreas: 1 },
-    postcode: postcode || undefined,
-  });
+  // Simple estimate calculation
+  const SERVICE_MULTIPLIERS: Record<string, number> = {
+    standard: 1.0,
+    regular: 1.0,
+    deep: 1.45,
+    'end-of-tenancy': 1.8,
+    'same-day': 1.3,
+    'one-off': 1.15,
+    airbnb: 1.2,
+  };
+  const hours = Math.max(2, bedrooms * 0.5 + bathrooms * 0.75 + 1);
+  const multiplier = SERVICE_MULTIPLIERS[serviceType] ?? 1.0;
+  const mid = avgRate * hours * multiplier;
+  const estimate = {
+    min: Math.round(mid * 0.9 * 100) / 100,
+    max: Math.round(mid * 1.1 * 100) / 100,
+    average: Math.round(mid * 100) / 100,
+    estimatedHours: hours,
+  };
 
   // Count cleaners "near" this postcode (mock)
   const cleanerCount = Math.min(cleaners.length, Math.floor(Math.random() * 4) + 3);

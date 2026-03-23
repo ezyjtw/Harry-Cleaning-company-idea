@@ -33,7 +33,8 @@ export default function CleanerProfilePage() {
   const [bio, setBio] = useState(
     "Hi! I'm Sarah, a professional cleaner with over 5 years of experience. I take pride in delivering spotless results and always go the extra mile for my clients."
   );
-  const [hourlyRate, setHourlyRate] = useState('25');
+  const [hourlyRate, setHourlyRate] = useState('16');
+  const [rateError, setRateError] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([
     'Regular Cleaning',
     'Deep Cleaning',
@@ -171,21 +172,67 @@ export default function CleanerProfilePage() {
                 type="number"
                 value={hourlyRate}
                 onChange={(e) => {
-                  setHourlyRate(e.target.value);
+                  const val = e.target.value;
+                  setHourlyRate(val);
                   setSaved(false);
+                  const num = parseFloat(val);
+                  if (!isNaN(num)) {
+                    if (num < 14) setRateError('Minimum rate on Rena is £14/hr');
+                    else if (num > 35)
+                      setRateError('Rates above £35/hr require admin review before publishing');
+                    else setRateError('');
+                  }
                 }}
-                min="10"
-                max="100"
+                min="14"
+                max="35"
                 className="w-32 pl-7 pr-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <span className="font-jost text-sm font-light text-ink-2">per hour</span>
           </div>
+          {rateError && <p className="font-jost text-sm text-red-600 mt-2">{rateError}</p>}
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Average rate in your area: £22-£28/hr. Same-day bookings automatically apply a 1.5x
-            rate.
+            Suggested range: £15–£22/hr
           </p>
+
+          {/* Earnings preview */}
+          {(() => {
+            const rate = parseFloat(hourlyRate);
+            if (isNaN(rate) || rate < 14 || rate > 35) return null;
+            const fee = 0.1;
+            return (
+              <div
+                className="mt-4 rounded-lg bg-cream-2 p-4"
+                style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
+              >
+                <p className="font-jost text-sm font-medium text-ink mb-1">Your rate: £{rate}/hr</p>
+                <p className="font-jost text-xs text-ink-3 mb-3">
+                  Rena platform fee: 10% (deducted from your payout)
+                </p>
+                <div className="space-y-1">
+                  {[2, 3, 4].map((h) => {
+                    const gross = rate * h;
+                    const feeAmt = Math.round(gross * fee * 100) / 100;
+                    const net = Math.round(gross * (1 - fee) * 100) / 100;
+                    return (
+                      <p key={h} className="font-jost text-sm text-ink-2">
+                        {h}hr visit: you earn{' '}
+                        <span className="font-medium text-ink">£{net.toFixed(2)}</span>
+                        <span className="text-ink-3 ml-1">
+                          (gross £{gross.toFixed(2)}, minus £{feeAmt.toFixed(2)} fee)
+                        </span>
+                      </p>
+                    );
+                  })}
+                </div>
+                <p className="font-jost text-xs text-ink-3 mt-3">
+                  The customer pays a separate 5% service fee — your advertised rate is what you
+                  charge.
+                </p>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Specialties */}

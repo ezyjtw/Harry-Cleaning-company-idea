@@ -32,6 +32,27 @@ enum BookingStatus {
   COMPLETED
   REVIEWED
   CANCELLED
+  DISPUTED
+}
+
+enum PricingModel {
+  HOURLY
+  FIXED
+}
+
+enum PropertySize {
+  STUDIO
+  ONE_BED
+  TWO_BED
+  THREE_BED
+  FOUR_BED
+  FIVE_PLUS
+}
+
+enum BookingFrequency {
+  WEEKLY
+  FORTNIGHTLY
+  ONE_OFF
 }
 
 enum PaymentStatus {
@@ -320,7 +341,22 @@ model Booking {
   messages Message[]
   payment  Payment?
   dispute  Dispute?
-  complaints Complaint[]
+  complaints    Complaint[]
+  bookingAddons BookingAddon[]
+
+  // ─── Pricing snapshot (captured at booking creation) ─────
+  cleanerHourlyRate    Float?             // cleaner's standard rate at booking time
+  cleanerDeepRate      Float?             // derived deep rate (standard * 1.45) — set for EOT/Airbnb
+  propertySize         PropertySize?      // for EOT/Airbnb
+  bookingFrequency     BookingFrequency?  // WEEKLY | FORTNIGHTLY | ONE_OFF
+  serviceMultiplier    Float?             // multiplier applied
+  cleanerGross         Float?             // rate * hours * multiplier
+  cleanerFee           Float?             // 10% deducted from cleaner
+  cleanerEarns         Float?             // cleanerGross * 0.90
+  customerSubtotal     Float?             // = cleanerGross (or fixed price before customer fee)
+  customerServiceFee   Float?             // 5% added on top for customer (hourly) or embedded (fixed)
+  addonTotal           Float?             @default(0)
+  renaEarns            Float?             // cleanerFee + customerServiceFee
 
   @@index([clientId])
   @@index([cleanerId])
@@ -645,6 +681,66 @@ model DisputeEvidence {
 
   @@index([disputeId])
   @@index([uploadedBy])
+}
+
+// ─── Pricing Engine ─────────────────────────────────────────────────────────
+
+model ServiceType {
+  id             String       @id @default(cuid())
+  slug           String       @unique // "regular", "one-off", "same-day", "deep", "eot", "airbnb"
+  name           String
+  pricingModel   PricingModel // HOURLY | FIXED
+  baseMultiplier Float        // 1.0 for regular, 1.15 for one-off, etc
+  minimumHours   Float?       // null for fixed-price services
+  minimumCharge  Float?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  fixedPrices FixedServicePrice[]
+  addons      ServiceAddon[]
+}
+
+model FixedServicePrice {
+  id            String       @id @default(cuid())
+  serviceTypeId String
+  serviceType   ServiceType  @relation(fields: [serviceTypeId], references: [id])
+  propertySize  PropertySize // STUDIO | ONE_BED | TWO_BED | THREE_BED | FOUR_BED | FIVE_PLUS
+  estimatedHours Float
+  customerPrice Float        // what customer pays (incl. platform fee)
+  createdAt     DateTime     @default(now())
+
+  @@unique([serviceTypeId, propertySize])
+}
+
+model ServiceAddon {
+  id            String      @id @default(cuid())
+  serviceTypeId String
+  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+  name          String
+  price         Float
+  isActive      Boolean     @default(true)
+
+  bookingAddons BookingAddon[]
+}
+
+model PlatformConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model BookingAddon {
+  id        String       @id @default(cuid())
+  bookingId String
+  booking   Booking      @relation(fields: [bookingId], references: [id])
+  addonId   String
+  addon     ServiceAddon @relation(fields: [addonId], references: [id])
+  price     Float        // snapshot price at time of booking
+
+  @@unique([bookingId, addonId])
 }
 
 // ─── Abandoned Lead Tracking ─────────────────────────────────────────────────

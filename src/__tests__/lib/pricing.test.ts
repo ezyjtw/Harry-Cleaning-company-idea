@@ -72,14 +72,14 @@ describe('getPriceBreakdown', () => {
   });
 
   it('applies service multiplier correctly', () => {
-    // Deep clean with 1.4x multiplier: 15 * 3 * 1.4 = 63.00
-    const result = getPriceBreakdown(15, 3, 1.4);
+    // Deep clean with 1.45x multiplier: 15 * 3 * 1.45 = 65.25
+    const result = getPriceBreakdown(15, 3, 1.45);
 
-    expect(result.cleanerEarnings).toBe(63);
-    expect(result.platformCommission).toBe(6.3);
-    expect(result.subtotal).toBe(69.3);
-    expect(result.serviceFee).toBe(3.47);
-    expect(result.total).toBe(72.77);
+    expect(result.cleanerEarnings).toBe(65.25);
+    expect(result.platformCommission).toBe(6.53);
+    expect(result.subtotal).toBe(71.78);
+    expect(result.serviceFee).toBe(3.59);
+    expect(result.total).toBe(75.37);
   });
 
   it('handles 0 duration', () => {

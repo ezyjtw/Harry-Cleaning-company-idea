@@ -23,9 +23,9 @@ const serviceRates = [
   {
     type: 'Deep Cleaning',
     description: 'Intensive top-to-bottom cleaning',
-    rate: '\u00A318 \u2013 \u00A331/hr',
+    rate: '\u00A320 \u2013 \u00A335/hr',
     typical: '4\u20138 hours',
-    multiplier: '1.4x',
+    multiplier: '1.45x',
   },
   {
     type: 'End of Tenancy',
@@ -44,9 +44,9 @@ const serviceRates = [
   {
     type: 'Same-Day Cleaning',
     description: 'Urgent booking for same-day service',
-    rate: '\u00A320 \u2013 \u00A331/hr',
+    rate: '\u00A318 \u2013 \u00A346/hr',
     typical: '2\u20134 hours',
-    multiplier: '1.4x',
+    multiplier: '1.30x',
   },
 ];
 

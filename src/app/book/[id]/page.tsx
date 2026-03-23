@@ -27,7 +27,7 @@ const SERVICE_TYPES = [
   {
     value: 'deep',
     label: 'Deep Cleaning',
-    multiplier: 1.4,
+    multiplier: 1.45,
     description: 'A thorough top-to-bottom clean including behind appliances and inside cupboards.',
   },
   {
