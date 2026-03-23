@@ -246,7 +246,7 @@ export default function CleaningEstimator({
             </div>
             <div className="rounded-lg bg-white p-3 text-center border border-gray-100">
               {(() => {
-                const multiplier = estimate.recommendedServiceType === 'deep' ? 1.5 : 1;
+                const multiplier = estimate.recommendedServiceType === 'deep' ? 1.4 : 1;
                 const breakdown = getPriceBreakdown(rate, estimate.recommendedDuration, multiplier);
                 return (
                   <>

@@ -40,7 +40,7 @@ const SERVICE_LABELS: Record<ServiceCategory, string> = {
 const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
   regular: 1.1,
   'same-day': 1.2,
-  deep: 1.5,
+  deep: 1.4,
   airbnb: 1.2,
   'end-of-tenancy': 1.8,
 };

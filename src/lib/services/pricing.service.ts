@@ -40,7 +40,7 @@ export interface PricingBreakdown {
 const SERVICE_MULTIPLIERS: Record<string, number> = {
   standard: 1.0,
   regular: 1.0,
-  deep: 1.5,
+  deep: 1.4,
   'end-of-tenancy': 1.8,
   'move-in': 1.6,
   'move-out': 1.6,

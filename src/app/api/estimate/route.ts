@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (cleanerId) {
     const cleaner = getCleanerById(cleanerId);
     if (cleaner) {
-      const multiplier = estimate.recommendedServiceType === 'deep' ? 1.5 : 1;
+      const multiplier = estimate.recommendedServiceType === 'deep' ? 1.4 : 1;
       priceEstimate = {
         standard: getPriceBreakdown(cleaner.hourlyRate, estimate.recommendedDuration, multiplier),
         sameDay: getPriceBreakdown(cleaner.sameDayRate, estimate.recommendedDuration, multiplier),

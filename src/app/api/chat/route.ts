@@ -23,7 +23,7 @@ BOOKING & SCHEDULING
 
 PRICING
 - Regular cleaning: from £18/hr (cleaner sets their own rate, plus 5% service fee).
-- Deep cleaning: 1.5x the cleaner's rate.
+- Deep cleaning: 1.4x the cleaner's rate.
 - Same-day: 1.2x the cleaner's rate.
 - Airbnb turnovers: fixed price starting from £60 (base fee + per-room charges + optional extras like oven or carpet cleaning).
 - End of tenancy: fixed price starting from £120 (base fee + per-room charges + optional extras).

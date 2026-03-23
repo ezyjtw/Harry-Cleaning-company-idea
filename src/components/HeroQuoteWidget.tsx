@@ -13,7 +13,7 @@ const SERVICE_LABELS: Record<ServiceType, string> = {
 
 const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
   regular: 1,
-  deep: 1.5,
+  deep: 1.4,
   end_of_tenancy: 1.8,
   airbnb: 1.3,
 };
