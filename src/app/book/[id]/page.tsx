@@ -22,7 +22,7 @@ const SERVICE_TYPES = [
     value: 'same-day',
     label: 'Same Day Cleaning',
     multiplier: 1.3,
-    description: 'Need it today? Book a cleaner for a same-day visit at short notice.',
+    description: 'Need it today? Book before 12 pm for same-day service.',
   },
   {
     value: 'deep',
@@ -264,30 +264,53 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 s.label.toLowerCase().includes(sp.toLowerCase()) ||
                 sp.toLowerCase().includes(s.label.toLowerCase())
             );
-          }).map((s) => (
-            <button
-              key={s.value}
-              onClick={() => {
-                router.push(`/services/${s.value}?cleaner=${params.id}`);
-              }}
-              className="group/card flex items-center justify-between p-5 text-left transition hover:bg-cream-2"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <div className="min-w-0 flex-1">
-                <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
-                <p className="mt-1 font-jost text-[13px] font-light text-ink-2">{s.description}</p>
-              </div>
-              <svg
-                className="ml-3 h-5 w-5 shrink-0 text-ink-3 transition group-hover/card:translate-x-0.5 group-hover/card:text-ink"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
+          }).map((s) => {
+            const isSameDayPastDeadline = s.value === 'same-day' && new Date().getHours() >= 12;
+            return (
+              <button
+                key={s.value}
+                disabled={isSameDayPastDeadline}
+                onClick={() => {
+                  if (!isSameDayPastDeadline) {
+                    router.push(`/services/${s.value}?cleaner=${params.id}`);
+                  }
+                }}
+                className={`group/card flex items-center justify-between p-5 text-left transition ${
+                  isSameDayPastDeadline ? 'cursor-not-allowed opacity-45' : 'hover:bg-cream-2'
+                }`}
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
+                  <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
+                    {s.description}
+                  </p>
+                  {isSameDayPastDeadline && (
+                    <p className="mt-1 font-jost text-[12px] font-medium text-red-400">
+                      Same-day booking is closed for today
+                    </p>
+                  )}
+                </div>
+                <svg
+                  className={`ml-3 h-5 w-5 shrink-0 transition ${
+                    isSameDayPastDeadline
+                      ? 'text-ink-3'
+                      : 'text-ink-3 group-hover/card:translate-x-0.5 group-hover/card:text-ink'
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                  />
+                </svg>
+              </button>
+            );
+          })}
         </div>
       </div>
     );
