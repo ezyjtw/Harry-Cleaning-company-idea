@@ -256,7 +256,7 @@ model CleanerProfile {
   completionRate        Decimal            @default(100) @db.Decimal(5, 2)
   responseSpeed         Int? // average response speed in seconds
   postcode              String?
-  stripeAccountId       String?
+  ryftAccountId         String?
   verificationStatus    VerificationStatus @default(UNVERIFIED)
   identityVerifiedAt    DateTime?
   verificationMeta      Json?
@@ -435,7 +435,7 @@ model Notification {
 model Payment {
   id              String        @id @default(cuid())
   bookingId       String        @unique
-  stripePaymentId String?       @unique
+  ryftPaymentId   String?       @unique
   amount          Decimal       @db.Decimal(10, 2)
   status          PaymentStatus @default(PENDING)
   refundAmount    Decimal?      @db.Decimal(10, 2)
@@ -445,7 +445,7 @@ model Payment {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([status])
-  @@index([stripePaymentId])
+  @@index([ryftPaymentId])
 }
 
 model Dispute {

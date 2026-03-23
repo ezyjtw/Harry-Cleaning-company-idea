@@ -108,7 +108,7 @@ export default function TermsPage() {
               All prices are displayed in British Pounds (GBP). The service fee is shown separately
               at checkout before you confirm.
             </li>
-            <li>Payments are processed securely through our payment provider (Stripe).</li>
+            <li>Payments are processed securely through our payment provider (Ryft).</li>
             <li>
               For first bookings with a new cleaner, payments may be held in escrow until the
               service is completed.

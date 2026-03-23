@@ -40,10 +40,10 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="generate-a-random-string-here"
 # Generate with: openssl rand -base64 32
 
-# -- Stripe (optional for local dev) --
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
+# -- Ryft (optional for local dev) --
+RYFT_SECRET_KEY="..."
+RYFT_PUBLIC_KEY="..."
+RYFT_WEBHOOK_SECRET="..."
 
 # -- App --
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
@@ -215,14 +215,14 @@ The application validates all required environment variables at startup. If any 
 
 Validated variables include:
 
-| Variable                 | Required        | Validation                                   |
-| ------------------------ | --------------- | -------------------------------------------- |
-| `DATABASE_URL`           | Yes             | Must be a valid PostgreSQL connection string |
-| `NEXTAUTH_URL`           | Yes             | Must be a valid URL                          |
-| `NEXTAUTH_SECRET`        | Yes             | Must be at least 32 characters               |
-| `STRIPE_SECRET_KEY`      | Production only | Must start with `sk_`                        |
-| `STRIPE_PUBLISHABLE_KEY` | Production only | Must start with `pk_`                        |
-| `NEXT_PUBLIC_APP_URL`    | Yes             | Must be a valid URL                          |
+| Variable              | Required        | Validation                                   |
+| --------------------- | --------------- | -------------------------------------------- |
+| `DATABASE_URL`        | Yes             | Must be a valid PostgreSQL connection string |
+| `NEXTAUTH_URL`        | Yes             | Must be a valid URL                          |
+| `NEXTAUTH_SECRET`     | Yes             | Must be at least 32 characters               |
+| `RYFT_SECRET_KEY`     | Production only | Ryft secret API key                          |
+| `RYFT_PUBLIC_KEY`     | Production only | Ryft publishable key                         |
+| `NEXT_PUBLIC_APP_URL` | Yes             | Must be a valid URL                          |
 
 The validation logic is located in `src/lib/config/env-validation.ts`. To test your environment configuration without starting the server:
 

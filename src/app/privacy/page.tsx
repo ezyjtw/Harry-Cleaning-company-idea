@@ -46,7 +46,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="font-normal text-ink">Payment Information:</strong> Credit/debit
-              card details processed securely through our payment provider (Stripe). We do not store
+              card details processed securely through our payment provider (Ryft). We do not store
               full card numbers on our servers.
             </li>
             <li>
@@ -121,7 +121,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="font-normal text-ink">Payment Processors:</strong> We share payment
-              details with Stripe to process transactions securely.
+              details with Ryft to process transactions securely.
             </li>
             <li>
               <strong className="font-normal text-ink">Background Check Providers:</strong> Cleaner

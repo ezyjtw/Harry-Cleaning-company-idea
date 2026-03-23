@@ -241,7 +241,7 @@ export interface Payment {
   amount: number;
   currency: string;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
-  stripePaymentId?: string;
+  ryftPaymentId?: string;
   refundAmount?: number;
   createdAt: string;
 }

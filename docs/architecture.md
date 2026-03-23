@@ -26,7 +26,7 @@ This document describes the high-level architecture of the Rena Cleaning Network
 │  └──────┬────────────────────────┘                     │
 │         │                                              │
 │  ┌──────▼──────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Prisma    │  │    Stripe    │  │  Email       │  │
+│  │   Prisma    │  │    Ryft      │  │  Email       │  │
 │  │   ORM       │  │   Payments   │  │  Service     │  │
 │  └──────┬──────┘  └──────────────┘  └──────────────┘  │
 └─────────┼───────────────────────────────────────────────┘
@@ -123,7 +123,7 @@ The database uses PostgreSQL via Prisma ORM. Key models:
 - **Address** — User addresses for service delivery
 - **Booking** — Service bookings linking customers, cleaners, and addresses
 - **Review** — Post-booking reviews with multi-category ratings
-- **Payment** — Payment records linked to bookings with Stripe integration
+- **Payment** — Payment records linked to bookings with Ryft integration
 - **Message** — In-app messaging between users
 - **Notification** — System and booking notifications
 - **Dispute** — Dispute records for booking issues
@@ -180,12 +180,12 @@ The database uses PostgreSQL via Prisma ORM. Key models:
 
 ```
 1. Customer confirms booking
-2. Stripe PaymentIntent created
+2. Ryft payment session created
 3. Customer charged (card, Apple Pay, or Google Pay)
 4. First booking: funds held in escrow (Payment status: PENDING)
 5. Service completed and confirmed
 6. Platform fee (10%) deducted
-7. Cleaner earnings transferred via Stripe Connect
+7. Cleaner earnings transferred via Ryft
 8. Payment status: SUCCEEDED
 ```
 

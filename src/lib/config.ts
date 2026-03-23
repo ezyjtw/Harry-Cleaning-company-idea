@@ -1,9 +1,9 @@
 function getEnvVar(name: string, required = true): string {
-  const value = process.env[name]
+  const value = process.env[name];
   if (required && !value) {
-    throw new Error(`Missing required environment variable: ${name}`)
+    throw new Error(`Missing required environment variable: ${name}`);
   }
-  return value || ''
+  return value || '';
 }
 
 export const config = {
@@ -14,10 +14,10 @@ export const config = {
     secret: getEnvVar('NEXTAUTH_SECRET', false),
     url: getEnvVar('NEXTAUTH_URL', false),
   },
-  stripe: {
-    publicKey: getEnvVar('NEXT_PUBLIC_STRIPE_PUBLIC_KEY', false),
-    secretKey: getEnvVar('STRIPE_SECRET_KEY', false),
-    webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET', false),
+  ryft: {
+    publicKey: getEnvVar('NEXT_PUBLIC_RYFT_PUBLIC_KEY', false),
+    secretKey: getEnvVar('RYFT_SECRET_KEY', false),
+    webhookSecret: getEnvVar('RYFT_WEBHOOK_SECRET', false),
   },
   email: {
     host: getEnvVar('SMTP_HOST', false),
@@ -28,7 +28,6 @@ export const config = {
   },
   app: {
     url: getEnvVar('NEXT_PUBLIC_APP_URL', false) || 'http://localhost:3000',
-    name:
-      getEnvVar('NEXT_PUBLIC_APP_NAME', false) || 'Rena Cleaning Network',
+    name: getEnvVar('NEXT_PUBLIC_APP_NAME', false) || 'Rena Cleaning Network',
   },
-} as const
+} as const;

@@ -9,7 +9,7 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - **Styling:** Tailwind CSS
 - **Database:** PostgreSQL with Prisma ORM
 - **Authentication:** NextAuth.js
-- **Payments:** Stripe (escrow-based)
+- **Payments:** Ryft (escrow-based)
 - **AI/NLP:** Intent parser with entity extraction for AI assistants
 - **Caching:** In-memory cache with TTL (Redis-ready interface)
 - **Job Processing:** Background job queue with retry and backoff
@@ -96,10 +96,10 @@ DATABASE_URL="postgresql://user:password@localhost:5432/rena?schema=public"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-key-here"
 
-# Stripe
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
+# Ryft
+RYFT_SECRET_KEY="..."
+RYFT_PUBLIC_KEY="..."
+RYFT_WEBHOOK_SECRET="..."
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
