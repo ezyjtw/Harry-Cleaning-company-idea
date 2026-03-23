@@ -1315,6 +1315,82 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             </div>
 
+            {/* When to book — cleaner's available slots */}
+            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                When would you like {selectedCleaner.name}?
+              </h2>
+              <p className="mt-1.5 font-jost font-light text-xs text-ink-3">
+                Your clean is {effectiveHours} hours &middot; select a day and start time
+              </p>
+
+              {/* Day selector */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
+                  const available = selectedCleaner.availability.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => {
+                        setSelectedDay(day);
+                        setSelectedTime('');
+                      }}
+                      className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                        selectedDay === day
+                          ? 'bg-ink text-cream'
+                          : available
+                            ? 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                            : 'bg-cream-2 text-ink-3/30 cursor-not-allowed'
+                      }`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Time slots for selected day */}
+              {selectedDay && selectedCleaner.timeSlots[selectedDay] && (
+                <div className="mt-5">
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Available times on {selectedDay}
+                  </label>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {selectedCleaner.timeSlots[selectedDay].map((slot) => {
+                      const endTime = getEndTime(slot, effectiveHours);
+                      const isSelected = selectedTime === slot;
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedTime(slot)}
+                          className={`px-4 py-3 text-left font-jost text-sm font-light transition ${
+                            isSelected ? 'bg-ink text-cream' : 'bg-cream text-ink hover:bg-cream-2'
+                          }`}
+                          style={{
+                            border: isSelected
+                              ? '1px solid #1B2A4A'
+                              : '0.5px solid rgba(14,14,12,0.1)',
+                          }}
+                        >
+                          {slot} &ndash; {endTime}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {selectedDay && !selectedCleaner.timeSlots[selectedDay] && (
+                <p className="mt-4 font-jost text-sm font-light text-ink-3">
+                  No time slots available on {selectedDay}.
+                </p>
+              )}
+            </div>
+
             {/* Substitute cleaner */}
             <label
               className="flex items-start gap-4 bg-cream-2 p-5 cursor-pointer"
@@ -1518,7 +1594,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <button
               type="button"
               onClick={() => setSubmitted(true)}
-              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
+              disabled={!selectedDay || !selectedTime}
+              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Submit Booking Request
             </button>
