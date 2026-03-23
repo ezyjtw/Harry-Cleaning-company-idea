@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 
 import { getReviewsForCleaner } from '@/lib/mock-data';
+import { getListedRate } from '@/lib/pricing';
 import type { Cleaner } from '@/lib/types';
 
 import StarRating from './StarRating';
@@ -95,7 +96,7 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
           <div className="mt-6 flex items-end justify-between">
             <div>
               <span className="font-cormorant text-[28px] font-semibold text-ink">
-                &pound;{cleaner.hourlyRate}
+                &pound;{getListedRate(cleaner.hourlyRate)}
               </span>
               <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
             </div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { getListedRate } from '@/lib/pricing';
 import type { Cleaner } from '@/lib/types';
 
 import StarRating from './StarRating';
@@ -47,7 +48,7 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
         {/* Rate */}
         <div className="text-right">
           <span className="font-jost text-[20px] font-semibold text-ink">
-            &pound;{cleaner.hourlyRate}
+            &pound;{getListedRate(cleaner.hourlyRate)}
           </span>
           <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
         </div>

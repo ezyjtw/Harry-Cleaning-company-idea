@@ -7,7 +7,7 @@ import { useState, useMemo } from 'react';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { cleaners, getCleanerById, getReviewsForCleaner } from '@/lib/mock-data';
-import { getPriceBreakdown } from '@/lib/pricing';
+import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
 import type {
   ServiceCategory,
   BookingFrequency,
@@ -126,16 +126,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const oneOffSurcharge = frequency === 'one-time' && isRegular ? 0.05 : 0;
 
   const priceBreakdown = useMemo(() => {
-    const rate = preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? 18;
+    const rawRate = preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? 18;
+    const listedHourlyRate = getListedRate(rawRate);
     const multiplier = SERVICE_MULTIPLIERS[category] ?? 1;
-    const breakdown = getPriceBreakdown(rate, effectiveHours, multiplier);
-    const discount = breakdown.total * frequencyDiscount;
-    const surcharge = frequency === 'one-time' && isRegular ? breakdown.total * oneOffSurcharge : 0;
+    const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
+    const discount = breakdown.listedSubtotal * frequencyDiscount;
+    const surcharge =
+      frequency === 'one-time' && isRegular ? breakdown.listedSubtotal * oneOffSurcharge : 0;
+    const cleaningSubtotal =
+      Math.round((breakdown.listedSubtotal - discount + surcharge) * 100) / 100;
+    const serviceFee = Math.round(cleaningSubtotal * 0.05 * 100) / 100;
     return {
       ...breakdown,
+      listedHourlyRate,
       discount: Math.round(discount * 100) / 100,
       surcharge: Math.round(surcharge * 100) / 100,
-      discountedTotal: Math.round((breakdown.total - discount + surcharge) * 100) / 100,
+      cleaningSubtotal,
+      displayServiceFee: serviceFee,
+      discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
   }, [
     preSelectedCleaner,
@@ -452,7 +460,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </span>
                 <p className="mt-1 font-jost font-light text-xs text-ink-3">
                   {preSelectedCleaner
-                    ? `${preSelectedCleaner.name} — \u00A3${preSelectedCleaner.hourlyRate}/hr`
+                    ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate)}/hr`
                     : 'Starting at \u00A318/hr'}
                 </p>
               </div>
@@ -551,7 +559,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 {preSelectedCleaner.rating} ({preSelectedCleaner.reviewCount} reviews)
               </span>
               <span className="text-ink-3/30">|</span>
-              <span>&pound;{preSelectedCleaner.hourlyRate}/hr</span>
+              <span>&pound;{getListedRate(preSelectedCleaner.hourlyRate)}/hr</span>
             </div>
           </div>
         </div>
@@ -735,7 +743,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             />
             <SummaryRow
               label="Cleaner"
-              value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${preSelectedCleaner.hourlyRate}/hr`}
+              value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
             />
             {selectedDay && <SummaryRow label="Day" value={selectedDay} />}
             {selectedTime && <SummaryRow label="Time" value={selectedTime} />}
@@ -762,14 +770,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <span className="font-jost font-light text-ink-3">
                   Cleaning ({effectiveHours}h)
                 </span>
-                <span className="font-jost font-normal text-gold">
-                  &pound;{priceBreakdown.cleanerEarnings.toFixed(2)}
+                <span className="font-jost font-normal text-ink">
+                  &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                 </span>
               </div>
               {productCost > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                  <span className="font-jost font-light text-ink-3">
+                  <span className="font-jost font-light text-ink">
                     &pound;{productCost.toFixed(2)}
                   </span>
                 </div>
@@ -786,12 +794,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               )}
               {priceBreakdown.surcharge > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="font-jost font-normal text-ink-2">One-off surcharge</span>
-                  <span className="font-jost font-normal text-ink-2">
+                  <span className="font-jost font-light text-ink-3">One-off surcharge</span>
+                  <span className="font-jost font-light text-ink">
                     +&pound;{priceBreakdown.surcharge.toFixed(2)}
                   </span>
                 </div>
               )}
+              <div className="flex justify-between text-sm">
+                <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                <span className="font-jost font-light text-ink">
+                  &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                </span>
+              </div>
               <div
                 className="flex justify-between pt-3"
                 style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -1135,7 +1149,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               {selectedCleaner && (
                 <SummaryRow
                   label="Cleaner"
-                  value={`${selectedCleaner.name} (${TIER_INFO[selectedCleaner.tier].label}) — \u00A3${selectedCleaner.hourlyRate}/hr`}
+                  value={`${selectedCleaner.name} (${TIER_INFO[selectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
                 />
               )}
               <SummaryRow
@@ -1161,14 +1175,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   <span className="font-jost font-light text-ink-3">
                     Cleaning ({effectiveHours}h)
                   </span>
-                  <span className="font-jost font-normal text-gold">
-                    &pound;{priceBreakdown.cleanerEarnings.toFixed(2)}
+                  <span className="font-jost font-normal text-ink">
+                    &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                   </span>
                 </div>
                 {productCost > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                    <span className="font-jost font-light text-ink-3">
+                    <span className="font-jost font-light text-ink">
                       &pound;{productCost.toFixed(2)}
                     </span>
                   </div>
@@ -1185,12 +1199,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 )}
                 {priceBreakdown.surcharge > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="font-jost font-normal text-ink-2">One-off surcharge</span>
-                    <span className="font-jost font-normal text-ink-2">
+                    <span className="font-jost font-light text-ink-3">One-off surcharge</span>
+                    <span className="font-jost font-light text-ink">
                       +&pound;{priceBreakdown.surcharge.toFixed(2)}
                     </span>
                   </div>
                 )}
+                <div className="flex justify-between text-sm">
+                  <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                  <span className="font-jost font-light text-ink">
+                    &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                  </span>
+                </div>
                 <div
                   className="flex justify-between pt-3"
                   style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -1352,7 +1372,7 @@ function CleanerDetailCard({
           </div>
           <div className="text-right shrink-0">
             <span className="font-cormorant font-light text-xl text-ink">
-              &pound;{cleaner.hourlyRate}
+              &pound;{getListedRate(cleaner.hourlyRate)}
             </span>
             <span className="font-jost font-light text-xs text-ink-3">/hr</span>
             {selected && (

@@ -8,7 +8,7 @@ import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { getCleanerById, savedAddresses, pastBookings } from '@/lib/mock-data';
-import { getPriceBreakdown } from '@/lib/pricing';
+import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
 import { shouldUseEscrow } from '@/lib/trust';
 
 const SERVICE_TYPES = [
@@ -249,7 +249,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <span>
                 {cleaner.rating} ({cleaner.reviewCount} reviews)
               </span>
-              <span>&middot; &pound;{cleaner.hourlyRate}/hr</span>
+              <span>&middot; &pound;{getListedRate(cleaner.hourlyRate)}/hr</span>
             </div>
           </div>
         </div>
@@ -355,10 +355,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <span>
               {cleaner.rating} ({cleaner.reviewCount} reviews)
             </span>
-            <span>&middot; ${cleaner.hourlyRate}/hr</span>
+            <span>&middot; &pound;{getListedRate(cleaner.hourlyRate)}/hr</span>
             {isLastMinute && (
               <span className="text-gold font-normal">
-                &middot; ${cleaner.sameDayRate}/hr today
+                &middot; &pound;{getListedRate(cleaner.sameDayRate)}/hr today
               </span>
             )}
           </div>

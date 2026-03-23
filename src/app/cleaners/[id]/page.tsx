@@ -6,6 +6,7 @@ import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { cleaners, getCleanerById, getReviewsForCleaner } from '@/lib/mock-data';
+import { getListedRate } from '@/lib/pricing';
 
 export function generateStaticParams() {
   return cleaners.map((c) => ({ id: c.id }));
@@ -59,7 +60,7 @@ export default function CleanerProfilePage({ params }: { params: { id: string } 
             <div className="text-right">
               <div>
                 <span className="font-cormorant text-[32px] font-semibold text-ink">
-                  &pound;{cleaner.hourlyRate}
+                  &pound;{getListedRate(cleaner.hourlyRate)}
                 </span>
                 <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
               </div>
