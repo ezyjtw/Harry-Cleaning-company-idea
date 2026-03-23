@@ -64,22 +64,22 @@ function computeEstimate(
   bedrooms: number,
   bathrooms: number,
   serviceType: ServiceType
-): { low: number; high: number } {
+): { low: number; high: number; isFixed: boolean } {
   // EOT and Airbnb use fixed prices from the spec
   if (serviceType === 'eot') {
     const price = EOT_FIXED_PRICES[Math.min(bedrooms, 5)] ?? 280;
-    return { low: price, high: price };
+    return { low: price, high: price, isFixed: true };
   }
   if (serviceType === 'airbnb') {
     const price = AIRBNB_FIXED_PRICES[Math.min(bedrooms, 5)] ?? 95;
-    return { low: price, high: price };
+    return { low: price, high: price, isFixed: true };
   }
   const hours = bedrooms * 0.5 + bathrooms * 0.75 + 1;
   const multiplier = SERVICE_MULTIPLIERS[serviceType];
   const mid = hours * BASE_RATE * multiplier;
   const low = Math.round(mid * 0.9);
   const high = Math.round(mid * 1.1);
-  return { low, high };
+  return { low, high, isFixed: false };
 }
 
 function BlueCheck() {
@@ -344,13 +344,15 @@ export default function HeroSection() {
           style={{ border: '1px solid rgba(27,42,74,0.08)', background: '#F7F9FC' }}
         >
           <p className="mb-2 font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
-            Estimated cost
+            {estimate.isFixed ? 'Fixed price' : 'Estimated cost'}
           </p>
           <p className="font-cormorant text-[44px] font-light leading-none text-ink">
-            £{estimate.low} – £{estimate.high}
+            {estimate.isFixed ? `Approx. £${estimate.low}` : `£${estimate.low} – £${estimate.high}`}
           </p>
           <p className="mt-3 font-jost text-[12px] text-ink-3">
-            Exact price shown when you choose your cleaner
+            {estimate.isFixed
+              ? 'Add-ons available at checkout'
+              : 'Exact price shown when you choose your cleaner'}
           </p>
         </div>
 
@@ -422,7 +424,7 @@ export default function HeroSection() {
             Estimated
           </span>
           <span className="font-cormorant text-[24px] font-light text-ink">
-            £{estimate.low} – £{estimate.high}
+            {estimate.isFixed ? `Approx. £${estimate.low}` : `£${estimate.low} – £${estimate.high}`}
           </span>
         </div>
 
