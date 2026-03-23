@@ -47,6 +47,7 @@ const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
 
 /** Minimum cleaner rate (£14) × service multiplier, rounded down to nearest £ */
 const MIN_CLEANER_RATE = 14;
+const ONE_OFF_MULTIPLIER = 1.15;
 const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
   regular: MIN_CLEANER_RATE, // £14
   'same-day': Math.floor(MIN_CLEANER_RATE * 1.3), // £18
@@ -54,6 +55,7 @@ const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
   airbnb: 0, // fixed-price
   'end-of-tenancy': 0, // fixed-price
 };
+const ONE_OFF_STARTING_RATE = Math.floor(MIN_CLEANER_RATE * ONE_OFF_MULTIPLIER); // £16
 
 const _ADDITIONAL_ROOMS = [
   'Conservatory',
@@ -275,6 +277,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         : 0
     : 0;
 
+  // One-off bookings on the regular page use the 1.15x one-off multiplier
+  const isOneOffOnRegular = isRegular && frequency === 'one-off';
+
   const priceBreakdown = useMemo(() => {
     if (isFixedPrice(category) && fixedPriceQuote) {
       // Fixed-price model for Airbnb & End of Tenancy — flat price by property size
@@ -295,8 +300,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     // Hourly model for other services
     const rawRate =
       preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? MIN_CLEANER_RATE;
-    const listedHourlyRate = getListedRate(rawRate);
-    const multiplier = SERVICE_MULTIPLIERS[category] ?? 1;
+    // Apply 1.15x one-off multiplier when booking a one-off on the regular page
+    const baseMultiplier = SERVICE_MULTIPLIERS[category] ?? 1;
+    const multiplier = isOneOffOnRegular ? ONE_OFF_MULTIPLIER : baseMultiplier;
+    const listedHourlyRate = getListedRate(rawRate * multiplier);
     const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
     const discount = breakdown.listedSubtotal * frequencyDiscount;
     const cleaningSubtotal = Math.round((breakdown.listedSubtotal - discount) * 100) / 100;
@@ -316,6 +323,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     effectiveHours,
     category,
     frequencyDiscount,
+    isOneOffOnRegular,
     fixedPriceQuote,
   ]);
 
@@ -655,7 +663,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 {(
                   [
-                    { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '' },
+                    { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '1.15× rate' },
                     { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Save 10%' },
                     { value: 'biweekly' as BookingFrequency, label: 'Fortnightly', tag: 'Save 5%' },
                   ] as const
@@ -777,7 +785,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
                       {preSelectedCleaner
                         ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr`
-                        : `Starting at \u00A3${SERVICE_STARTING_RATES[category]}/hr`}
+                        : `Starting at \u00A3${isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}/hr`}
                     </p>
                   </div>
                   <div className="text-right">
@@ -795,6 +803,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   <p className="mt-2 font-jost font-light text-xs text-gold text-right">
                     {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount applied (-&pound;
                     {priceBreakdown.discount.toFixed(2)})
+                  </p>
+                )}
+                {isOneOffOnRegular && (
+                  <p className="mt-2 font-jost font-light text-xs text-ink-3 text-right">
+                    Includes 1.15&times; one-off rate. Save with a weekly or fortnightly schedule.
                   </p>
                 )}
                 {!preSelectedCleaner && (
