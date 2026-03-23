@@ -921,185 +921,240 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   }
 
   // ─── PHASE 2: Cleaner selection (no pre-selected cleaner) ────────────────
+
+  const stepLabels = [
+    { key: 'choose-method', label: 'Method' },
+    ...(scheduling === 'flexible'
+      ? [{ key: 'browse', label: 'Browse' }]
+      : scheduling === 'set-time'
+        ? [{ key: 'set-time', label: 'Schedule' }]
+        : []),
+    { key: 'booking', label: 'Book' },
+  ];
+
+  const activeStepIndex = stepLabels.findIndex(
+    (s) => s.key === currentStep || (s.key === 'set-time' && currentStep === 'set-time-results')
+  );
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
-      {/* ── Breadcrumb navigation ── */}
-      <nav className="flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.1em]">
-        <button onClick={() => setPhase('quote')} className="text-ink-3 hover:text-ink transition">
-          Quote
-        </button>
-        <span className="text-ink-3/40">/</span>
-        {currentStep === 'choose-method' ? (
-          <span className="text-ink font-medium">Choose method</span>
-        ) : (
-          <button
-            onClick={() => {
-              setScheduling(null);
-              setSelectedCleanerId('');
-              setSelectedDay('');
-              setSelectedTime('');
-            }}
-            className="text-ink-3 hover:text-ink transition"
-          >
-            Choose method
-          </button>
-        )}
-        {(currentStep === 'browse' ||
-          currentStep === 'set-time' ||
-          currentStep === 'set-time-results' ||
-          currentStep === 'booking') && (
-          <>
-            <span className="text-ink-3/40">/</span>
-            {currentStep === 'browse' ||
-            (currentStep === 'booking' && scheduling === 'flexible') ? (
-              currentStep === 'browse' ? (
-                <span className="text-ink font-medium">Browse cleaners</span>
-              ) : (
-                <button
-                  onClick={() => {
-                    setSelectedCleanerId('');
-                    setSelectedDay('');
-                    setSelectedTime('');
-                  }}
-                  className="text-ink-3 hover:text-ink transition"
-                >
-                  Browse cleaners
-                </button>
-              )
-            ) : currentStep === 'set-time' || currentStep === 'set-time-results' ? (
-              currentStep === 'set-time' && !selectedDay ? (
-                <span className="text-ink font-medium">Pick date &amp; time</span>
-              ) : (
-                <button
-                  onClick={() => {
-                    setSelectedTime('');
-                    setSelectedCleanerId('');
-                  }}
-                  className="text-ink-3 hover:text-ink transition"
-                >
-                  Pick date &amp; time
-                </button>
-              )
-            ) : currentStep === 'booking' && scheduling === 'set-time' ? (
-              <button
-                onClick={() => {
-                  setSelectedCleanerId('');
-                  setSelectedDay('');
-                  setSelectedTime('');
-                }}
-                className="text-ink-3 hover:text-ink transition"
-              >
-                Pick date &amp; time
-              </button>
-            ) : null}
-          </>
-        )}
-        {currentStep === 'booking' && (
-          <>
-            <span className="text-ink-3/40">/</span>
-            <span className="text-ink font-medium">Book</span>
-          </>
-        )}
-      </nav>
-
-      {/* ── Back button + title ── */}
-      <div className="mt-6 flex items-center gap-4">
+      {/* ── Step indicator bar ── */}
+      <div className="relative">
+        {/* Back button */}
         <button
           onClick={goBack}
-          className="flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
+          className="group mb-6 inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
         >
-          <svg
-            className="h-3.5 w-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </span>
           Back
         </button>
-        <h1 className="font-cormorant font-light text-2xl text-ink">
-          {currentStep === 'choose-method' && 'Choose Your Cleaner'}
-          {currentStep === 'browse' && 'Browse Cleaners'}
+
+        {/* Step progress pills */}
+        <div className="flex items-center gap-3">
+          {/* Quote (always clickable, always behind) */}
+          <button
+            onClick={() => setPhase('quote')}
+            className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
+          >
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            Quote
+          </button>
+
+          {stepLabels.map((step, i) => {
+            const isActive = i === activeStepIndex;
+            const isPast = i < activeStepIndex;
+            return (
+              <div key={step.key} className="flex items-center gap-3">
+                {/* Connector line */}
+                <div
+                  className={`h-px w-6 transition-colors ${
+                    isPast || isActive ? 'bg-gold/30' : 'bg-ink-3/15'
+                  }`}
+                />
+                {/* Step pill */}
+                {isPast ? (
+                  <button
+                    onClick={() => {
+                      if (step.key === 'choose-method') {
+                        setScheduling(null);
+                        setSelectedCleanerId('');
+                        setSelectedDay('');
+                        setSelectedTime('');
+                      } else if (step.key === 'browse' || step.key === 'set-time') {
+                        setSelectedCleanerId('');
+                        setSelectedDay('');
+                        setSelectedTime('');
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                    {step.label}
+                  </button>
+                ) : (
+                  <span
+                    className={`rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                      isActive ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Page title */}
+        <h1 className="mt-8 font-cormorant font-light text-3xl text-ink sm:text-4xl">
+          {currentStep === 'choose-method' && 'How would you like to book?'}
+          {currentStep === 'browse' && 'Browse Available Cleaners'}
           {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
             'Pick a Date & Time'}
           {currentStep === 'booking' && 'Complete Your Booking'}
         </h1>
+        <p className="mt-2 font-jost font-light text-sm text-ink-3">
+          {currentStep === 'choose-method' &&
+            'Choose the option that works best for your schedule.'}
+          {currentStep === 'browse' &&
+            `${cleaners.length} cleaners available \u00b7 click to view profile`}
+          {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
+            `Your clean is ${effectiveHours} hours \u00b7 select a day then a start time`}
+          {currentStep === 'booking' && 'Review your details and confirm.'}
+        </p>
       </div>
 
       <div className="mt-10 space-y-10">
         {/* ── Scheduling preference choice ── */}
         {scheduling === null && !selectedCleanerId && (
           <div>
-            <h2 className="font-cormorant font-light text-xl text-ink">
-              How would you like to book?
-            </h2>
-            <p className="mt-2 font-jost font-light text-sm text-ink-3">
-              Choose the option that works best for your schedule.
-            </p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
+              {/* Browse cleaners card */}
               <button
                 type="button"
                 onClick={() => setScheduling('flexible')}
-                className="group bg-cream p-7 text-left transition hover:bg-cream-2"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-gold/30 hover:-translate-y-0.5"
               >
-                <div
-                  className="flex h-10 w-10 items-center justify-center bg-cream-2 group-hover:bg-cream transition"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-                >
-                  <svg
-                    className="h-5 w-5 text-ink-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-                    />
-                  </svg>
+                {/* Decorative gradient corner */}
+                <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br from-gold/10 to-teal/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-60" />
+
+                <div className="relative">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gold/10 to-gold/5 ring-1 ring-gold/10">
+                    <svg
+                      className="h-5.5 w-5.5 text-gold"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="mt-5 font-cormorant text-xl text-ink">
+                    Browse available cleaners
+                  </h3>
+                  <p className="mt-2 font-jost font-light text-sm leading-relaxed text-ink-3">
+                    See who&apos;s available in your area and choose the right fit.
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-gold group-hover:gap-2.5 transition-all">
+                    Browse cleaners
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                      />
+                    </svg>
+                  </span>
                 </div>
-                <h3 className="mt-4 font-cormorant font-light text-lg text-ink">
-                  Browse available cleaners
-                </h3>
-                <p className="mt-1.5 font-jost font-light text-sm text-ink-3">
-                  See who&apos;s available in your area and choose the right fit.
-                </p>
               </button>
+
+              {/* Pick date/time card */}
               <button
                 type="button"
                 onClick={() => setScheduling('set-time')}
-                className="group bg-cream p-7 text-left transition hover:bg-cream-2"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-gold/30 hover:-translate-y-0.5"
               >
-                <div
-                  className="flex h-10 w-10 items-center justify-center bg-cream-2 group-hover:bg-cream transition"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-                >
-                  <svg
-                    className="h-5 w-5 text-ink-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                    />
-                  </svg>
+                {/* Decorative gradient corner */}
+                <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br from-teal/10 to-gold/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-60" />
+
+                <div className="relative">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal/10 to-teal/5 ring-1 ring-teal/10">
+                    <svg
+                      className="h-5.5 w-5.5 text-teal"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="mt-5 font-cormorant text-xl text-ink">Pick a date and time</h3>
+                  <p className="mt-2 font-jost font-light text-sm leading-relaxed text-ink-3">
+                    Choose your preferred slot and we&apos;ll match you with available cleaners.
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-teal group-hover:gap-2.5 transition-all">
+                    Choose a time
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                      />
+                    </svg>
+                  </span>
                 </div>
-                <h3 className="mt-4 font-cormorant font-light text-lg text-ink">
-                  Pick a date and time
-                </h3>
-                <p className="mt-1.5 font-jost font-light text-sm text-ink-3">
-                  Choose your preferred slot and we&apos;ll match you with available cleaners.
-                </p>
               </button>
             </div>
           </div>
@@ -1110,10 +1165,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'flexible' && !selectedCleanerId && (
           <div>
-            <p className="font-jost font-light text-sm text-ink-3">
-              {cleaners.length} cleaners available &middot; click to view profile
-            </p>
-
             {/* Tier legend */}
             <div className="mt-6 flex flex-wrap gap-3">
               {(['elite', 'premium', 'standard'] as const).map((tier) => (
@@ -1207,11 +1258,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'set-time' && !selectedCleanerId && (
           <div>
-            <p className="font-jost font-light text-sm text-ink-3">
-              Your clean is {effectiveHours} hours &middot; select a day then a start time
-            </p>
-
-            <div className="mt-6 space-y-6">
+            <div className="space-y-6">
               {/* Day selector */}
               <div>
                 <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
