@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -135,6 +135,63 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [submitted, setSubmitted] = useState(false);
 
   const selectedCleaner = cleaners.find((c) => c.id === selectedCleanerId);
+
+  // ─── Step-by-step back navigation ────────────────────
+  // Determines which "step" the user is on for back-button behaviour
+  const currentStep = useMemo(() => {
+    if (submitted) return 'submitted';
+    if (phase === 'quote') return 'quote';
+    if (selectedCleanerId) return 'booking';
+    if (scheduling === 'flexible') return 'browse';
+    if (scheduling === 'set-time' && selectedTime) return 'set-time-results';
+    if (scheduling === 'set-time') return 'set-time';
+    return 'choose-method';
+  }, [phase, scheduling, selectedCleanerId, selectedTime, submitted]);
+
+  const goBack = useCallback(() => {
+    if (profileCleaner) {
+      setProfileCleaner(null);
+      return;
+    }
+    switch (currentStep) {
+      case 'booking':
+        setSelectedCleanerId('');
+        setSelectedDay('');
+        setSelectedTime('');
+        break;
+      case 'browse':
+        setScheduling(null);
+        break;
+      case 'set-time-results':
+        setSelectedTime('');
+        break;
+      case 'set-time':
+        setScheduling(null);
+        setSelectedDay('');
+        setSelectedTime('');
+        break;
+      case 'choose-method':
+        setPhase('quote');
+        break;
+      default:
+        break;
+    }
+  }, [currentStep, profileCleaner]);
+
+  // Push browser history on each step change so the back button works
+  useEffect(() => {
+    if (phase === 'cleaner') {
+      window.history.pushState({ step: currentStep }, '');
+    }
+  }, [currentStep, phase]);
+
+  useEffect(() => {
+    function handlePopState() {
+      goBack();
+    }
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [goBack]);
 
   const frequencyDiscount = frequency === 'weekly' ? 0.1 : frequency === 'biweekly' ? 0.05 : 0;
   const oneOffSurcharge = frequency === 'one-time' && isRegular ? 0.05 : 0;
@@ -866,14 +923,109 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // ─── PHASE 2: Cleaner selection (no pre-selected cleaner) ────────────────
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => setPhase('quote')}
-          className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
-        >
-          &larr; Back to quote
+      {/* ── Breadcrumb navigation ── */}
+      <nav className="flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.1em]">
+        <button onClick={() => setPhase('quote')} className="text-ink-3 hover:text-ink transition">
+          Quote
         </button>
-        <h1 className="font-cormorant font-light text-2xl text-ink">Choose Your Cleaner</h1>
+        <span className="text-ink-3/40">/</span>
+        {currentStep === 'choose-method' ? (
+          <span className="text-ink font-medium">Choose method</span>
+        ) : (
+          <button
+            onClick={() => {
+              setScheduling(null);
+              setSelectedCleanerId('');
+              setSelectedDay('');
+              setSelectedTime('');
+            }}
+            className="text-ink-3 hover:text-ink transition"
+          >
+            Choose method
+          </button>
+        )}
+        {(currentStep === 'browse' ||
+          currentStep === 'set-time' ||
+          currentStep === 'set-time-results' ||
+          currentStep === 'booking') && (
+          <>
+            <span className="text-ink-3/40">/</span>
+            {currentStep === 'browse' ||
+            (currentStep === 'booking' && scheduling === 'flexible') ? (
+              currentStep === 'browse' ? (
+                <span className="text-ink font-medium">Browse cleaners</span>
+              ) : (
+                <button
+                  onClick={() => {
+                    setSelectedCleanerId('');
+                    setSelectedDay('');
+                    setSelectedTime('');
+                  }}
+                  className="text-ink-3 hover:text-ink transition"
+                >
+                  Browse cleaners
+                </button>
+              )
+            ) : currentStep === 'set-time' || currentStep === 'set-time-results' ? (
+              currentStep === 'set-time' && !selectedDay ? (
+                <span className="text-ink font-medium">Pick date &amp; time</span>
+              ) : (
+                <button
+                  onClick={() => {
+                    setSelectedTime('');
+                    setSelectedCleanerId('');
+                  }}
+                  className="text-ink-3 hover:text-ink transition"
+                >
+                  Pick date &amp; time
+                </button>
+              )
+            ) : currentStep === 'booking' && scheduling === 'set-time' ? (
+              <button
+                onClick={() => {
+                  setSelectedCleanerId('');
+                  setSelectedDay('');
+                  setSelectedTime('');
+                }}
+                className="text-ink-3 hover:text-ink transition"
+              >
+                Pick date &amp; time
+              </button>
+            ) : null}
+          </>
+        )}
+        {currentStep === 'booking' && (
+          <>
+            <span className="text-ink-3/40">/</span>
+            <span className="text-ink font-medium">Book</span>
+          </>
+        )}
+      </nav>
+
+      {/* ── Back button + title ── */}
+      <div className="mt-6 flex items-center gap-4">
+        <button
+          onClick={goBack}
+          className="flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
+        >
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+          Back
+        </button>
+        <h1 className="font-cormorant font-light text-2xl text-ink">
+          {currentStep === 'choose-method' && 'Choose Your Cleaner'}
+          {currentStep === 'browse' && 'Browse Cleaners'}
+          {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
+            'Pick a Date & Time'}
+          {currentStep === 'booking' && 'Complete Your Booking'}
+        </h1>
       </div>
 
       <div className="mt-10 space-y-10">
@@ -958,23 +1110,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'flexible' && !selectedCleanerId && (
           <div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-cormorant font-light text-xl text-ink">
-                  Available cleaners in your area
-                </h2>
-                <p className="mt-1 font-jost font-light text-sm text-ink-3">
-                  {cleaners.length} cleaners available &middot; click to view profile
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setScheduling(null)}
-                className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
-              >
-                &larr; Back
-              </button>
-            </div>
+            <p className="font-jost font-light text-sm text-ink-3">
+              {cleaners.length} cleaners available &middot; click to view profile
+            </p>
 
             {/* Tier legend */}
             <div className="mt-6 flex flex-wrap gap-3">
@@ -1069,25 +1207,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'set-time' && !selectedCleanerId && (
           <div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-cormorant font-light text-xl text-ink">Pick a date and time</h2>
-                <p className="mt-1 font-jost font-light text-sm text-ink-3">
-                  Your clean is {effectiveHours} hours &middot; select a day then a start time
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setScheduling(null);
-                  setSelectedDay('');
-                  setSelectedTime('');
-                }}
-                className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
-              >
-                &larr; Back
-              </button>
-            </div>
+            <p className="font-jost font-light text-sm text-ink-3">
+              Your clean is {effectiveHours} hours &middot; select a day then a start time
+            </p>
 
             <div className="mt-6 space-y-6">
               {/* Day selector */}
@@ -1261,22 +1383,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <>
             {/* Selected cleaner header */}
             <div>
-              <div className="flex items-center justify-between">
-                <h2 className="font-cormorant font-light text-xl text-ink">
-                  Complete your booking
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCleanerId('')}
-                  className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
-                >
-                  &larr; Choose a different cleaner
-                </button>
-              </div>
-
               {/* Cleaner info card */}
               <div
-                className="mt-5 flex items-start gap-4 bg-cream p-5"
+                className="flex items-start gap-4 bg-cream p-5"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <div
