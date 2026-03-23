@@ -45,6 +45,16 @@ const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
   'end-of-tenancy': 1.0, // fixed-price — multiplier not used
 };
 
+/** Minimum cleaner rate (£14) × service multiplier, rounded down to nearest £ */
+const MIN_CLEANER_RATE = 14;
+const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
+  regular: MIN_CLEANER_RATE, // £14
+  'same-day': Math.floor(MIN_CLEANER_RATE * 1.3), // £18
+  deep: Math.floor(MIN_CLEANER_RATE * 1.45), // £20
+  airbnb: 0, // fixed-price
+  'end-of-tenancy': 0, // fixed-price
+};
+
 const _ADDITIONAL_ROOMS = [
   'Conservatory',
   'Utility Room',
@@ -283,7 +293,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       };
     }
     // Hourly model for other services
-    const rawRate = preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? 18;
+    const rawRate =
+      preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? MIN_CLEANER_RATE;
     const listedHourlyRate = getListedRate(rawRate);
     const multiplier = SERVICE_MULTIPLIERS[category] ?? 1;
     const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
@@ -766,7 +777,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
                       {preSelectedCleaner
                         ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr`
-                        : 'Starting at \u00A318/hr'}
+                        : `Starting at \u00A3${SERVICE_STARTING_RATES[category]}/hr`}
                     </p>
                   </div>
                   <div className="text-right">
