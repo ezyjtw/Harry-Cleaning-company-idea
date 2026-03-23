@@ -1574,12 +1574,12 @@ function CleanerProfileSlideOut({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex items-start justify-center">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Slide-out panel */}
-      <div className="relative z-10 w-full max-w-lg overflow-y-auto bg-white shadow-2xl animate-slide-up sm:animate-none">
+      {/* Modal panel */}
+      <div className="relative z-10 mx-4 mt-8 mb-8 max-h-[calc(100vh-64px)] w-full max-w-2xl overflow-y-auto bg-white shadow-2xl sm:mx-6 md:mt-12">
         {/* Close */}
         <button
           onClick={onClose}
