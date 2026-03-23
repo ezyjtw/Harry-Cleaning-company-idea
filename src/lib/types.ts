@@ -19,6 +19,8 @@ export interface Cleaner {
   yearsExperience: number;
   completedJobs: number;
   availability: string[];
+  /** Specific time slots the cleaner is available per day. Key is day abbreviation (e.g. 'Mon'). */
+  timeSlots: Record<string, string[]>;
   availableNow: boolean;
   responseTime: string;
   categoryRatings: CategoryRatings;

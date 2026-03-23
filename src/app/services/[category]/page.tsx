@@ -47,14 +47,6 @@ const _ADDITIONAL_ROOMS = [
 
 const PRODUCT_FEE = 5; // £5 flat rate
 
-const TIME_SLOTS = [
-  'Early Morning (7am - 9am)',
-  'Morning (9am - 12pm)',
-  'Afternoon (12pm - 3pm)',
-  'Late Afternoon (3pm - 6pm)',
-  'Evening (6pm - 8pm)',
-];
-
 const TIER_INFO = {
   standard: { label: 'Standard', color: 'bg-cream-2 text-ink-2', desc: 'Reliable and affordable' },
   premium: { label: 'Premium', color: 'bg-cream-2 text-ink', desc: 'Experienced & highly rated' },
@@ -158,11 +150,36 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
-  // Filter cleaners for set-time mode
+  // Filter cleaners for set-time mode — match both day and time slot
   const availableCleaners = useMemo(() => {
     if (scheduling !== 'set-time' || !selectedDay) return cleaners;
-    return cleaners.filter((c) => c.availability.includes(selectedDay));
-  }, [scheduling, selectedDay]);
+    return cleaners.filter((c) => {
+      if (!c.availability.includes(selectedDay)) return false;
+      if (selectedTime && c.timeSlots[selectedDay]) {
+        return c.timeSlots[selectedDay].includes(selectedTime);
+      }
+      return true;
+    });
+  }, [scheduling, selectedDay, selectedTime]);
+
+  // All unique time slots across all cleaners for the selected day
+  const availableTimeSlotsForDay = useMemo(() => {
+    if (!selectedDay) return [];
+    const slots = new Set<string>();
+    cleaners.forEach((c) => {
+      if (c.timeSlots[selectedDay]) {
+        c.timeSlots[selectedDay].forEach((s) => slots.add(s));
+      }
+    });
+    return Array.from(slots).sort((a, b) => {
+      const toMin = (t: string) => {
+        const [time, period] = t.split(' ');
+        const [h, m] = time.split(':').map(Number);
+        return ((h % 12) + (period === 'PM' ? 12 : 0)) * 60 + m;
+      };
+      return toMin(a) - toMin(b);
+    });
+  }, [selectedDay]);
 
   if (submitted) {
     return (
@@ -551,7 +568,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <button
                   key={day}
                   type="button"
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => {
+                    setSelectedDay(day);
+                    setSelectedTime('');
+                  }}
                   className={`px-5 py-3 font-jost text-sm font-light transition ${
                     selectedDay === day
                       ? 'bg-ink text-cream'
@@ -565,27 +585,36 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           </div>
 
-          {/* Time slot selection */}
+          {/* Time slot selection — from cleaner's actual availability */}
           {selectedDay && (
             <div>
-              <h2 className="font-cormorant font-light text-lg text-ink">Pick a time slot</h2>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {TIME_SLOTS.map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setSelectedTime(slot)}
-                    className={`px-4 py-3 font-jost text-sm font-light transition ${
-                      selectedTime === slot
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                    }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
+              <h2 className="font-cormorant font-light text-lg text-ink">Pick a time</h2>
+              <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                {preSelectedCleaner.name}&apos;s available start times on {selectedDay}s.
+              </p>
+              {(preSelectedCleaner.timeSlots[selectedDay] ?? []).length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(preSelectedCleaner.timeSlots[selectedDay] ?? []).map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => setSelectedTime(slot)}
+                      className={`px-4 py-3 font-jost text-sm font-light transition ${
+                        selectedTime === slot
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                      }`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 font-jost text-sm font-light text-ink-3">
+                  No available slots on this day. Please try another day.
+                </p>
+              )}
             </div>
           )}
 
@@ -867,51 +896,70 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 Change preference
               </button>
             </div>
-            <div className="mt-5 grid gap-6 sm:grid-cols-2">
+            <div className="mt-5 space-y-6">
               <div>
                 <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                   Day
                 </label>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => setSelectedDay(day)}
-                      className={`px-4 py-2.5 font-jost text-sm font-light transition ${
-                        selectedDay === day
-                          ? 'bg-ink text-cream'
-                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                      }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                    >
-                      {day}
-                    </button>
-                  ))}
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
+                    const hasCleaners = cleaners.some(
+                      (c) => c.timeSlots[day] && c.timeSlots[day].length > 0
+                    );
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        disabled={!hasCleaners}
+                        onClick={() => {
+                          setSelectedDay(day);
+                          setSelectedTime('');
+                        }}
+                        className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                          selectedDay === day
+                            ? 'bg-ink text-cream'
+                            : hasCleaners
+                              ? 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                              : 'bg-cream-2 text-ink-3/30 cursor-not-allowed'
+                        }`}
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div>
-                <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Time slot
-                </label>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {TIME_SLOTS.map((slot) => (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => setSelectedTime(slot)}
-                      className={`px-3 py-2 font-jost text-xs font-light transition ${
-                        selectedTime === slot
-                          ? 'bg-ink text-cream'
-                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                      }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                    >
-                      {slot}
-                    </button>
-                  ))}
+              {selectedDay && (
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Available start times on {selectedDay}
+                  </label>
+                  {availableTimeSlotsForDay.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {availableTimeSlotsForDay.map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedTime(slot)}
+                          className={`px-3 py-2 font-jost text-xs font-light transition ${
+                            selectedTime === slot
+                              ? 'bg-ink text-cream'
+                              : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                          }`}
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 font-jost text-sm font-light text-ink-3">
+                      No cleaners available on this day.
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
