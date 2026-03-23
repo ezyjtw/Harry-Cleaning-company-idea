@@ -2,6 +2,7 @@ import {
   PLATFORM_COMMISSION_PERCENT,
   SERVICE_FEE_PERCENT,
   getSubtotal,
+  getListedRate,
   getServiceFee,
   getDisplayedRate,
   getPriceBreakdown,
@@ -19,17 +20,18 @@ describe('SERVICE_FEE_PERCENT', () => {
   });
 });
 
-describe('getSubtotal', () => {
-  it('adds 10% commission to cleaner rate', () => {
-    expect(getSubtotal(100)).toBe(110);
+describe('getListedRate / getSubtotal', () => {
+  it('adds 10% markup to cleaner rate', () => {
+    expect(getListedRate(100)).toBe(110);
+    expect(getSubtotal(100)).toBe(110); // alias
   });
 
   it('handles typical cleaner rate', () => {
-    expect(getSubtotal(45)).toBe(49.5);
+    expect(getListedRate(45)).toBe(49.5);
   });
 
   it('returns 0 for 0 rate', () => {
-    expect(getSubtotal(0)).toBe(0);
+    expect(getListedRate(0)).toBe(0);
   });
 });
 
@@ -62,7 +64,8 @@ describe('getPriceBreakdown', () => {
     expect(result.cleanerEarnings).toBe(45);
     expect(result.platformCommission).toBe(4.5);
     expect(result.platformCommissionPercent).toBe(10);
-    expect(result.subtotal).toBe(49.5);
+    expect(result.listedSubtotal).toBe(49.5);
+    expect(result.subtotal).toBe(49.5); // backward compat alias
     expect(result.serviceFee).toBe(2.48);
     expect(result.serviceFeePercent).toBe(5);
     expect(result.total).toBe(51.98);

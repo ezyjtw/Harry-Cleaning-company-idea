@@ -255,9 +255,8 @@ export default function CleaningEstimator({
                     </div>
                     <div className="text-xs text-gray-500">Estimated Total</div>
                     <div className="text-xs text-gray-400">
-                      ${breakdown.cleanerEarnings.toFixed(2)} to cleaner + $
-                      {breakdown.platformCommission.toFixed(2)} commission + $
-                      {breakdown.serviceFee.toFixed(2)} service fee
+                      £{breakdown.listedSubtotal.toFixed(2)} + £{breakdown.serviceFee.toFixed(2)}{' '}
+                      service fee
                     </div>
                   </>
                 );

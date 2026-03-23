@@ -4,11 +4,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Pricing — Transparent Cleaning Rates | Rena',
   description:
-    'See exactly what you pay with Rena. A 10% platform commission and 5% service fee — lower than the industry standard. No hidden fees, no surprises.',
+    'See exactly what you pay with Rena. Cleaner rates are listed upfront with just a 5% service fee at checkout. No hidden fees, no surprises.',
   openGraph: {
     title: 'Pricing — Transparent Cleaning Rates | Rena',
     description:
-      'See exactly what you pay with Rena. A 10% platform commission and 5% service fee — lower than the industry standard.',
+      'See exactly what you pay with Rena. Cleaner rates listed upfront with just a 5% service fee.',
   },
 };
 
@@ -16,50 +16,49 @@ const serviceRates = [
   {
     type: 'Regular Cleaning',
     description: 'Weekly or fortnightly recurring cleans',
-    rate: '£12 – £20/hr',
-    typical: '2–4 hours',
+    rate: '\u00A313 \u2013 \u00A322/hr',
+    typical: '2\u20134 hours',
     multiplier: '1x',
   },
   {
     type: 'One-Off Cleaning',
     description: 'Single booking for a thorough clean',
-    rate: '£14 – £22/hr',
-    typical: '3–5 hours',
+    rate: '\u00A315 \u2013 \u00A324/hr',
+    typical: '3\u20135 hours',
     multiplier: '1x',
   },
   {
     type: 'Deep Cleaning',
     description: 'Intensive top-to-bottom cleaning',
-    rate: '£18 – £30/hr',
-    typical: '4–8 hours',
+    rate: '\u00A320 \u2013 \u00A333/hr',
+    typical: '4\u20138 hours',
     multiplier: '1.5x',
   },
   {
     type: 'End of Tenancy',
     description: 'Comprehensive move-out clean to get your deposit back',
-    rate: '£20 – £35/hr',
-    typical: '5–10 hours',
+    rate: '\u00A322 \u2013 \u00A339/hr',
+    typical: '5\u201310 hours',
     multiplier: '1.8x',
   },
   {
     type: 'Airbnb / Short-Let',
     description: 'Fast turnaround cleaning between guests',
-    rate: '£15 – £25/hr',
-    typical: '2–4 hours',
+    rate: '\u00A317 \u2013 \u00A328/hr',
+    typical: '2\u20134 hours',
     multiplier: '1.3x',
   },
   {
     type: 'Same-Day Cleaning',
     description: 'Urgent booking for same-day service',
-    rate: '£18 – £28/hr',
-    typical: '2–4 hours',
+    rate: '\u00A320 \u2013 \u00A331/hr',
+    typical: '2\u20134 hours',
     multiplier: '1.4x',
   },
 ];
 
 const comparisonFeatures = [
-  { feature: 'Platform commission', rena: '10%', competitor1: '20%', competitor2: '25–30%' },
-  { feature: 'Service fee', rena: '5%', competitor1: 'Hidden', competitor2: '10–15%' },
+  { feature: 'Service fee', rena: '5%', competitor1: 'Hidden', competitor2: '10\u201315%' },
   { feature: 'Choose your cleaner', rena: 'Yes', competitor1: 'Limited', competitor2: 'No' },
   { feature: 'Transparent pricing', rena: 'Yes', competitor1: 'Partial', competitor2: 'No' },
   { feature: 'Escrow protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
@@ -78,8 +77,8 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80">
-            No hidden fees, no subscription traps. You see the full price before you book — cleaners
-            keep 90% of what they charge, and you always know exactly what you&apos;re paying for.
+            No hidden fees, no subscription traps. Each cleaner sets their own rate and you see the
+            full price before you book. We add just a small 5% service fee at checkout.
           </p>
         </div>
       </section>
@@ -90,28 +89,38 @@ export default function PricingPage() {
           <h2 className="text-3xl font-light text-ink font-cormorant">How Our Pricing Works</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <p className="mt-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
-            Cleaners set their own hourly rates. Rena adds two small, transparent fees:
+            Every cleaner on Rena sets their own hourly rate. You browse, compare, and pick the
+            cleaner that suits you. The only extra charge is a small 5% service fee added at
+            checkout.
           </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                For the Cleaner
-              </p>
-              <p className="mt-2 font-cormorant text-2xl font-light text-ink">10% Commission</p>
-              <p className="mt-2 font-jost text-sm font-light text-ink-2">
-                Added on top of the cleaner&apos;s rate. This goes to Rena to cover payment
-                processing, insurance verification, and platform maintenance.
-              </p>
-            </div>
-            <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                For the Customer
-              </p>
-              <p className="mt-2 font-cormorant text-2xl font-light text-ink">5% Service Fee</p>
-              <p className="mt-2 font-jost text-sm font-light text-ink-2">
-                A small service fee on the subtotal. This covers customer support, our satisfaction
-                guarantee, and escrow protection for your payment.
-              </p>
+          <div
+            className="mt-6 bg-cream-2 p-6 sm:p-8"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="#b8975a"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="font-cormorant text-xl font-light text-ink">5% Service Fee</p>
+                <p className="mt-2 font-jost text-sm font-light text-ink-2">
+                  This covers customer support, our satisfaction guarantee, escrow payment
+                  protection, and platform maintenance. It&apos;s always shown before you confirm
+                  your booking — no surprises.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -122,7 +131,7 @@ export default function PricingPage() {
           >
             <h3 className="text-lg font-normal text-ink font-cormorant">Example Price Breakdown</h3>
             <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              3-hour regular clean at £15/hr
+              3-hour regular clean at &pound;16.50/hr
             </p>
             <div className="mt-6 space-y-4">
               <div
@@ -130,32 +139,24 @@ export default function PricingPage() {
                 style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <span className="font-jost font-light text-ink-2">
-                  Cleaner earnings (3 hrs x £15)
+                  Cleaning (3 hrs &times; &pound;16.50)
                 </span>
-                <span className="font-normal text-ink font-jost">£45.00</span>
-              </div>
-              <div
-                className="flex items-center justify-between pb-3"
-                style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <span className="font-jost font-light text-ink-2">Platform commission (10%)</span>
-                <span className="font-normal text-ink font-jost">£4.50</span>
+                <span className="font-normal text-ink font-jost">&pound;49.50</span>
               </div>
               <div
                 className="flex items-center justify-between pb-3"
                 style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <span className="font-jost font-light text-ink-2">Service fee (5%)</span>
-                <span className="font-normal text-ink font-jost">£2.48</span>
+                <span className="font-normal text-ink font-jost">&pound;2.48</span>
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-lg font-normal text-ink font-cormorant">Total you pay</span>
-                <span className="text-lg font-normal text-gold font-cormorant">£51.98</span>
+                <span className="text-lg font-normal text-gold font-cormorant">&pound;51.98</span>
               </div>
             </div>
             <p className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              The cleaner receives £45.00 directly. Rena keeps £6.98 (commission + service fee) to
-              run the platform.
+              What you see at checkout is what you pay. No hidden extras.
             </p>
           </div>
         </div>
@@ -230,8 +231,8 @@ export default function PricingPage() {
             </table>
           </div>
           <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            * Rates shown are cleaner base rates. The 10% commission and 5% service fee are added at
-            checkout and always displayed before you confirm.
+            * Rates shown are listed cleaner rates. A 5% service fee is added at checkout and always
+            displayed before you confirm.
           </p>
         </div>
       </section>
@@ -268,8 +269,8 @@ export default function PricingPage() {
                   Example
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  Cleaner rate £18/hr × 1.3x ={' '}
-                  <span className="font-normal text-ink">£23.40/hr</span> + fees
+                  Listed rate &pound;20/hr &times; 1.3x ={' '}
+                  <span className="font-normal text-ink">&pound;26/hr</span> + 5% service fee
                 </p>
               </div>
             </div>
@@ -299,8 +300,8 @@ export default function PricingPage() {
                   Example
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  Cleaner rate £18/hr × 1.8x ={' '}
-                  <span className="font-normal text-ink">£32.40/hr</span> + fees
+                  Listed rate &pound;20/hr &times; 1.8x ={' '}
+                  <span className="font-normal text-ink">&pound;36/hr</span> + 5% service fee
                 </p>
               </div>
             </div>
@@ -399,13 +400,12 @@ export default function PricingPage() {
               </h2>
               <div className="mx-auto mt-4 w-8 h-px bg-gold" />
               <p className="mx-auto mt-4 max-w-2xl text-lg font-jost font-light text-ink-2">
-                The price you see at checkout is the price you pay. Our 10% platform commission and
-                5% service fee are the only charges we make, and they are always shown separately
-                before you confirm a booking.
+                The price you see at checkout is the price you pay. A 5% service fee is the only
+                charge we add, and it&apos;s always shown before you confirm a booking.
               </p>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                 <Link
-                  href="/cleaners"
+                  href="/services"
                   className="inline-block bg-ink px-8 py-3 font-jost font-light text-cream text-sm uppercase tracking-[0.1em] transition-colors hover:bg-ink/90"
                 >
                   Browse Cleaners

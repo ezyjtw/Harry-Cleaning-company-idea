@@ -622,19 +622,28 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           <div className="space-y-2 font-jost text-sm font-light">
             <div className="flex justify-between">
               <span className="text-ink-3">
-                &pound;{rate}/hr &times; {form.duration}h
+                Cleaning ({form.duration}h
                 {selectedService.multiplier !== 1 && (
                   <>
                     {' '}
-                    &times; {selectedService.multiplier}x ({selectedService.label})
+                    &times; {selectedService.multiplier}x {selectedService.label}
                   </>
                 )}
+                )
               </span>
-              <span className="font-normal text-ink">&pound;{priceBreakdown.total.toFixed(2)}</span>
+              <span className="font-normal text-ink">
+                &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+              </span>
             </div>
             {isLastMinute && (
               <div className="font-jost text-xs font-light text-gold">Same-day rate applied</div>
             )}
+            <div className="flex justify-between">
+              <span className="text-ink-3">Service fee (5%)</span>
+              <span className="font-normal text-ink">
+                &pound;{priceBreakdown.serviceFee.toFixed(2)}
+              </span>
+            </div>
             <div
               className="flex justify-between pt-2"
               style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}

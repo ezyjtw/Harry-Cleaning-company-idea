@@ -1,39 +1,42 @@
-// Platform fee configuration
-// Two separate fees:
-//   1. Platform commission (10%) — added on top of the cleaner's rate, goes to Rena
-//   2. Service fee (5%) — charged to the customer on the subtotal
-// Both fees are shown transparently in the price breakdown.
+// Pricing model:
+//   1. Platform markup (10%) — baked into the listed rate the client sees.
+//      The cleaner sets £15/hr → client sees £16.50/hr. The cleaner knows
+//      about this; the client does NOT see it as a separate line item.
+//   2. Service fee (5%) — added at checkout on the listed rate. The client
+//      IS aware of this fee.
 
-/** @server-only — do not import in client components */
 export const PLATFORM_COMMISSION_PERCENT = 10;
 export const SERVICE_FEE_PERCENT = 5;
 
 /**
- * From a cleaner's net rate, calculate the subtotal the customer sees
- * (cleaner rate + 10% platform commission).
+ * From a cleaner's own rate, get the listed rate the client sees
+ * (cleaner rate + 10% markup, presented as a single figure).
  */
-export function getSubtotal(cleanerNetRate: number): number {
-  return Math.round(cleanerNetRate * (1 + PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
+export function getListedRate(cleanerRate: number): number {
+  return Math.round(cleanerRate * (1 + PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
+}
+
+/** Alias kept for backward compat — same as getListedRate. */
+export const getSubtotal = getListedRate;
+
+/**
+ * Calculate the 5% service fee on a given amount.
+ */
+export function getServiceFee(amount: number): number {
+  return Math.round(amount * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
 }
 
 /**
- * Calculate the 5% service fee on the subtotal.
- */
-export function getServiceFee(subtotal: number): number {
-  return Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
-}
-
-/**
- * Convert a cleaner's net rate to the total displayed to customers
- * (cleaner rate + 10% commission + 5% service fee).
+ * Convert a cleaner's rate to the total the client pays
+ * (listed rate + 5% service fee).
  */
 export function getDisplayedRate(cleanerNetRate: number): number {
-  const subtotal = getSubtotal(cleanerNetRate);
-  return Math.round((subtotal + getServiceFee(subtotal)) * 100) / 100;
+  const listed = getListedRate(cleanerNetRate);
+  return Math.round((listed + getServiceFee(listed)) * 100) / 100;
 }
 
 /**
- * From a displayed (customer-facing) total, extract the cleaner earnings.
+ * From a displayed (client-facing) total, extract the cleaner earnings.
  */
 export function getCleanerEarnings(displayedTotal: number): number {
   const factor = (1 + PLATFORM_COMMISSION_PERCENT / 100) * (1 + SERVICE_FEE_PERCENT / 100);
@@ -49,17 +52,22 @@ export function getPlatformFee(displayedTotal: number): number {
 }
 
 /**
- * From a displayed total, extract the service fee (5% of subtotal).
+ * From a displayed total, extract the service fee (5% of listed rate).
  */
 export function getCustomerServiceFee(displayedTotal: number): number {
   const cleanerEarnings = getCleanerEarnings(displayedTotal);
   const commission = getPlatformFee(displayedTotal);
-  const subtotal = cleanerEarnings + commission;
-  return Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+  const listedRate = cleanerEarnings + commission;
+  return Math.round(listedRate * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
 }
 
 /**
- * Get full price breakdown — visible to customers and admin.
+ * Full price breakdown.
+ *
+ * Client view: they see `listedRate` (which already includes the 10% markup)
+ * + `serviceFee` (5%) = `total`. They never see `cleanerEarnings` or `platformCommission`.
+ *
+ * Cleaner/admin view: also includes `cleanerEarnings` and `platformCommission`.
  */
 export function getPriceBreakdown(
   cleanerRate: number,
@@ -69,18 +77,23 @@ export function getPriceBreakdown(
   const cleanerEarnings = Math.round(cleanerRate * duration * serviceMultiplier * 100) / 100;
   const platformCommission =
     Math.round(cleanerEarnings * (PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
-  const subtotal = cleanerEarnings + platformCommission;
-  const serviceFee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
-  const total = Math.round((subtotal + serviceFee) * 100) / 100;
+  // listedSubtotal is what the client sees as "the rate" (markup already baked in)
+  const listedSubtotal = cleanerEarnings + platformCommission;
+  const serviceFee = Math.round(listedSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+  const total = Math.round((listedSubtotal + serviceFee) * 100) / 100;
 
   return {
     cleanerRate,
     duration,
     serviceMultiplier,
+    // Cleaner/admin only
     cleanerEarnings,
     platformCommission,
     platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
-    subtotal,
+    // Client-visible
+    listedSubtotal,
+    /** @deprecated use listedSubtotal */
+    subtotal: listedSubtotal,
     serviceFee,
     serviceFeePercent: SERVICE_FEE_PERCENT,
     total,
