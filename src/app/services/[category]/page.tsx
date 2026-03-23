@@ -1037,7 +1037,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Page title */}
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink sm:text-4xl">
-          {currentStep === 'choose-method' && 'What\u2019s your priority?'}
+          {currentStep === 'choose-method' && 'How would you like to book?'}
           {currentStep === 'browse' && 'Browse Available Cleaners'}
           {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
             'Pick a Date & Time'}
@@ -1045,7 +1045,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
           {currentStep === 'choose-method' &&
-            'What matters most to you \u2014 the cleaner or the timing?'}
+            'Start with what matters most \u2014 the cleaner or the time slot.'}
           {currentStep === 'browse' &&
             `${cleaners.length} cleaners available \u00b7 click to view profile`}
           {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
@@ -1068,30 +1068,49 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-ink/[0.02] blur-2xl transition-all duration-300 group-hover:bg-ink/[0.04]" />
 
                 <div className="relative">
-                  {/* Minimal line icon — star/person silhouette */}
+                  {/* Person with checkmark — choosing the right cleaner */}
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-cream-2/80">
                     <svg
                       className="h-[18px] w-[18px] text-ink-2"
                       fill="none"
                       viewBox="0 0 24 24"
-                      strokeWidth={1.25}
+                      strokeWidth={1.4}
                       stroke="currentColor"
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                        d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
                       />
                     </svg>
                   </div>
 
-                  <h3 className="mt-5 font-cormorant text-xl text-ink">I want the right cleaner</h3>
+                  <h3 className="mt-5 font-cormorant text-xl text-ink">Choose your cleaner</h3>
                   <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    I&apos;m flexible on timing &mdash; show me who&apos;s available so I can pick
-                    the best match.
+                    Browse available cleaners, view profiles and reviews, then pick the right fit.
+                    You&apos;ll arrange a time that suits you both.
                   </p>
 
-                  <div className="mt-6 flex items-center justify-between">
+                  <div className="mt-5 flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-cream-2/60 px-2.5 py-1 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3">
+                      <svg
+                        className="h-2.5 w-2.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Flexible timing
+                    </span>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between border-t border-ink/[0.04] pt-5">
                     <span className="inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-2 group-hover:text-ink transition-colors">
                       Browse cleaners
                       <svg
@@ -1121,32 +1140,51 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-ink/[0.02] blur-2xl transition-all duration-300 group-hover:bg-ink/[0.04]" />
 
                 <div className="relative">
-                  {/* Minimal line icon — clock */}
+                  {/* Calendar with clock — scheduling a specific time */}
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-cream-2/80">
                     <svg
                       className="h-[18px] w-[18px] text-ink-2"
                       fill="none"
                       viewBox="0 0 24 24"
-                      strokeWidth={1.25}
+                      strokeWidth={1.4}
                       stroke="currentColor"
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"
                       />
                     </svg>
                   </div>
 
-                  <h3 className="mt-5 font-cormorant text-xl text-ink">I want the right time</h3>
+                  <h3 className="mt-5 font-cormorant text-xl text-ink">Choose your time</h3>
                   <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    I need a specific slot &mdash; pick a date and time, then choose from available
-                    cleaners.
+                    Lock in the date and time that works for you. We&apos;ll show cleaners who are
+                    available for that slot.
                   </p>
 
-                  <div className="mt-6 flex items-center justify-between">
+                  <div className="mt-5 flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-cream-2/60 px-2.5 py-1 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3">
+                      <svg
+                        className="h-2.5 w-2.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0"
+                        />
+                      </svg>
+                      Flexible on cleaner
+                    </span>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between border-t border-ink/[0.04] pt-5">
                     <span className="inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-2 group-hover:text-ink transition-colors">
-                      Choose a time
+                      Pick a time
                       <svg
                         className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5"
                         fill="none"
