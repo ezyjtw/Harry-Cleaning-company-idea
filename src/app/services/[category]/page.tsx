@@ -1086,6 +1086,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </span>
                 </div>
               )}
+              <div className="flex justify-between text-sm">
+                <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                <span className="font-jost font-light text-ink">
+                  &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                </span>
+              </div>
               {priceBreakdown.discount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="font-jost font-normal text-gold">
@@ -1096,12 +1102,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
-                <span className="font-jost font-light text-ink">
-                  &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                </span>
-              </div>
               <div
                 className="flex justify-between pt-3"
                 style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -1966,6 +1966,20 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                       </span>
                     </div>
+                    {productCost > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="font-jost font-light text-ink-3">Cleaning products</span>
+                        <span className="font-jost font-light text-ink">
+                          &pound;{productCost.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                      <span className="font-jost font-light text-ink">
+                        &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                      </span>
+                    </div>
                     {priceBreakdown.discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="font-jost font-normal text-gold">
@@ -1978,20 +1992,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     )}
                   </>
                 )}
-                {productCost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                    <span className="font-jost font-light text-ink">
-                      &pound;{productCost.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
-                  <span className="font-jost font-light text-ink">
-                    &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                  </span>
-                </div>
                 <div
                   className="flex justify-between pt-3"
                   style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
