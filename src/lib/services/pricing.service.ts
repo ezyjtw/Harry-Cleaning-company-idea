@@ -148,14 +148,21 @@ export class PricingService {
 
     const cleanerEarns = new Decimal(cleanerGross).minus(cleanerFee).toDecimalPlaces(2).toNumber();
 
-    const customerServiceFee = new Decimal(cleanerGross)
+    // Customer sees the listed rate (cleaner gross + 10% platform markup baked in)
+    const customerSubtotal = new Decimal(cleanerGross)
+      .plus(cleanerFee)
+      .toDecimalPlaces(2)
+      .toNumber();
+
+    // 5% service fee is charged on the listed rate, not the raw cleaner rate
+    const customerServiceFee = new Decimal(customerSubtotal)
       .mul(customerFeePct)
       .toDecimalPlaces(2)
       .toNumber();
 
     const addonTotal = this.calcAddonTotal(input.addons ?? [], serviceType.addons);
 
-    const totalCharged = new Decimal(cleanerGross)
+    const totalCharged = new Decimal(customerSubtotal)
       .plus(customerServiceFee)
       .plus(addonTotal)
       .toDecimalPlaces(2)
@@ -176,12 +183,12 @@ export class PricingService {
       cleanerGross,
       cleanerFee,
       cleanerEarns,
-      customerSubtotal: cleanerGross,
+      customerSubtotal,
       customerServiceFee,
       addonTotal,
       totalCharged,
       renaEarns,
-      breakdown: `${hours} hrs × £${input.cleanerHourlyRate}/hr × ${multiplier}x = £${cleanerGross}. Customer pays £${customerServiceFee} service fee (5%). Cleaner pays £${cleanerFee} platform fee (10%). Rena earns £${renaEarns}.`,
+      breakdown: `${hours} hrs × £${input.cleanerHourlyRate}/hr × ${multiplier}x = £${cleanerGross}. Listed rate (incl. 10% markup): £${customerSubtotal}. Customer pays £${customerServiceFee} service fee (5%). Cleaner pays £${cleanerFee} platform fee (10%). Rena earns £${renaEarns}.`,
     };
   }
 
