@@ -174,7 +174,7 @@ export interface DisputeEvidence {
 
 export type ServiceCategory = 'regular' | 'same-day' | 'deep' | 'airbnb' | 'end-of-tenancy';
 
-export type BookingFrequency = 'weekly' | 'biweekly';
+export type BookingFrequency = 'one-off' | 'weekly' | 'biweekly';
 
 export type KeyAccess = 'i-will-be-home' | 'key-under-mat' | 'lockbox' | 'with-concierge' | 'other';
 

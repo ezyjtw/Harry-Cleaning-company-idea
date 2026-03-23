@@ -165,7 +165,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
-  const [frequency, setFrequency] = useState<BookingFrequency>('weekly');
+  const [frequency, setFrequency] = useState<BookingFrequency>('one-off');
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [cleanerCount, setCleanerCount] = useState(1);
   const [email, setEmail] = useState('');
@@ -637,9 +637,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <p className="mt-2 font-jost font-light text-xs text-gold">
                 Save with a regular schedule — weekly cleans get the best rate.
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 {(
                   [
+                    { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '' },
                     { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Save 10%' },
                     { value: 'biweekly' as BookingFrequency, label: 'Fortnightly', tag: 'Save 5%' },
                   ] as const
@@ -1028,7 +1029,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
             <SummaryRow
               label="Frequency"
-              value={frequency === 'weekly' ? 'Weekly (10% off)' : 'Fortnightly (5% off)'}
+              value={
+                frequency === 'weekly'
+                  ? 'Weekly (10% off)'
+                  : frequency === 'biweekly'
+                    ? 'Fortnightly (5% off)'
+                    : 'One-off'
+              }
             />
             <SummaryRow
               label="Products"
