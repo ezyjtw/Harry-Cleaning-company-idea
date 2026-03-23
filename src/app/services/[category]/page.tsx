@@ -1037,7 +1037,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Page title */}
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink sm:text-4xl">
-          {currentStep === 'choose-method' && 'How would you like to book?'}
+          {currentStep === 'choose-method' && 'What\u2019s your priority?'}
           {currentStep === 'browse' && 'Browse Available Cleaners'}
           {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
             'Pick a Date & Time'}
@@ -1045,7 +1045,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
           {currentStep === 'choose-method' &&
-            'Choose the option that works best for your schedule.'}
+            'What matters most to you \u2014 the cleaner or the timing?'}
           {currentStep === 'browse' &&
             `${cleaners.length} cleaners available \u00b7 click to view profile`}
           {(currentStep === 'set-time' || currentStep === 'set-time-results') &&
@@ -1059,101 +1059,109 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {scheduling === null && !selectedCleanerId && (
           <div>
             <div className="grid gap-5 sm:grid-cols-2">
-              {/* Browse cleaners card */}
+              {/* Cleaner-first card */}
               <button
                 type="button"
                 onClick={() => setScheduling('flexible')}
-                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-gold/30 hover:-translate-y-0.5"
+                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-ink/15 hover:-translate-y-0.5"
               >
-                {/* Decorative gradient corner */}
-                <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br from-gold/10 to-teal/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-60" />
+                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-ink/[0.02] blur-2xl transition-all duration-300 group-hover:bg-ink/[0.04]" />
 
                 <div className="relative">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gold/10 to-gold/5 ring-1 ring-gold/10">
+                  {/* Minimal line icon — star/person silhouette */}
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-cream-2/80">
                     <svg
-                      className="h-5.5 w-5.5 text-gold"
+                      className="h-[18px] w-[18px] text-ink-2"
                       fill="none"
                       viewBox="0 0 24 24"
-                      strokeWidth={1.5}
+                      strokeWidth={1.25}
                       stroke="currentColor"
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
                       />
                     </svg>
                   </div>
-                  <h3 className="mt-5 font-cormorant text-xl text-ink">
-                    Browse available cleaners
-                  </h3>
-                  <p className="mt-2 font-jost font-light text-sm leading-relaxed text-ink-3">
-                    See who&apos;s available in your area and choose the right fit.
+
+                  <h3 className="mt-5 font-cormorant text-xl text-ink">I want the right cleaner</h3>
+                  <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
+                    I&apos;m flexible on timing &mdash; show me who&apos;s available so I can pick
+                    the best match.
                   </p>
-                  <span className="mt-5 inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-gold group-hover:gap-2.5 transition-all">
-                    Browse cleaners
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                      />
-                    </svg>
-                  </span>
+
+                  <div className="mt-6 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-2 group-hover:text-ink transition-colors">
+                      Browse cleaners
+                      <svg
+                        className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                        />
+                      </svg>
+                    </span>
+                  </div>
                 </div>
               </button>
 
-              {/* Pick date/time card */}
+              {/* Time-first card */}
               <button
                 type="button"
                 onClick={() => setScheduling('set-time')}
-                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-gold/30 hover:-translate-y-0.5"
+                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-ink/15 hover:-translate-y-0.5"
               >
-                {/* Decorative gradient corner */}
-                <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br from-teal/10 to-gold/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-60" />
+                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-ink/[0.02] blur-2xl transition-all duration-300 group-hover:bg-ink/[0.04]" />
 
                 <div className="relative">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal/10 to-teal/5 ring-1 ring-teal/10">
+                  {/* Minimal line icon — clock */}
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-cream-2/80">
                     <svg
-                      className="h-5.5 w-5.5 text-teal"
+                      className="h-[18px] w-[18px] text-ink-2"
                       fill="none"
                       viewBox="0 0 24 24"
-                      strokeWidth={1.5}
+                      strokeWidth={1.25}
                       stroke="currentColor"
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
                   </div>
-                  <h3 className="mt-5 font-cormorant text-xl text-ink">Pick a date and time</h3>
-                  <p className="mt-2 font-jost font-light text-sm leading-relaxed text-ink-3">
-                    Choose your preferred slot and we&apos;ll match you with available cleaners.
+
+                  <h3 className="mt-5 font-cormorant text-xl text-ink">I want the right time</h3>
+                  <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
+                    I need a specific slot &mdash; pick a date and time, then choose from available
+                    cleaners.
                   </p>
-                  <span className="mt-5 inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-teal group-hover:gap-2.5 transition-all">
-                    Choose a time
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                      />
-                    </svg>
-                  </span>
+
+                  <div className="mt-6 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-2 group-hover:text-ink transition-colors">
+                      Choose a time
+                      <svg
+                        className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                        />
+                      </svg>
+                    </span>
+                  </div>
                 </div>
               </button>
             </div>
