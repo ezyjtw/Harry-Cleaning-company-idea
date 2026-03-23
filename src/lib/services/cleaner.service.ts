@@ -68,6 +68,7 @@ const mockCleanerProfile: Cleaner = {
   languages: ['English', 'Portuguese'],
   tier: 'premium' as CleanerTier,
   location: 'SW1, SW3, SW7, W1, W8',
+  postcodeAreas: ['SW', 'W', 'EC', 'WC'],
   verified: true,
   identityVerified: true,
   backgroundChecked: true,

@@ -57,6 +57,18 @@ const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
 };
 const ONE_OFF_STARTING_RATE = Math.floor(MIN_CLEANER_RATE * ONE_OFF_MULTIPLIER); // £16
 
+/** Extract the area prefix from a UK postcode (e.g. "SW1A 1AA" → "SW") */
+function getPostcodeArea(postcode: string): string {
+  const match = postcode
+    .trim()
+    .toUpperCase()
+    .match(/^([A-Z]{1,2})/);
+  return match ? match[1] : '';
+}
+
+/** Day abbreviations in order */
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
 const _ADDITIONAL_ROOMS = [
   'Conservatory',
   'Utility Room',
@@ -298,10 +310,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       };
     }
     // Hourly model for other services
+    // Same-day bookings use the cleaner's sameDayRate (which already includes the premium)
     const rawRate =
-      preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? MIN_CLEANER_RATE;
+      category === 'same-day'
+        ? (preSelectedCleaner?.sameDayRate ??
+          selectedCleaner?.sameDayRate ??
+          Math.ceil(MIN_CLEANER_RATE * 1.3))
+        : (preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? MIN_CLEANER_RATE);
     // Apply 1.15x one-off multiplier when booking a one-off on the regular page
-    const baseMultiplier = SERVICE_MULTIPLIERS[category] ?? 1;
+    // Same-day uses 1.0 multiplier since the premium is already in sameDayRate
+    const baseMultiplier = category === 'same-day' ? 1.0 : (SERVICE_MULTIPLIERS[category] ?? 1);
     const multiplier = isOneOffOnRegular ? ONE_OFF_MULTIPLIER : baseMultiplier;
     const listedHourlyRate = getListedRate(rawRate * multiplier);
     const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
@@ -328,6 +346,29 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   ]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
+
+  const isSameDay = category === 'same-day';
+
+  // Today's day abbreviation (e.g. 'Mon')
+  const todayAbbr = DAY_NAMES[new Date().getDay()];
+
+  // Same-day: cleaners filtered by postcode area and available today
+  const sameDayCleaners = useMemo(() => {
+    if (!isSameDay) return [];
+    const area = getPostcodeArea(postcode);
+    return cleaners
+      .filter((c) => {
+        // Must cover this postcode area (or show all if no postcode)
+        if (area && !c.postcodeAreas.includes(area)) return false;
+        // Must have time slots today
+        return (c.timeSlots[todayAbbr] ?? []).length > 0;
+      })
+      .sort((a, b) => {
+        // Available now first, then by rating
+        if (a.availableNow !== b.availableNow) return a.availableNow ? -1 : 1;
+        return b.rating - a.rating;
+      });
+  }, [isSameDay, postcode, todayAbbr]);
 
   // Filter cleaners for set-time mode — match both day and time slot
   const availableCleaners = useMemo(() => {
@@ -1151,6 +1192,244 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             Submit Booking Request
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ─── PHASE 2 (Same-Day): Show cleaners in area with today's availability ──
+  if (isSameDay) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
+        {/* Back */}
+        <button
+          onClick={() => setPhase('quote')}
+          className="group mb-6 inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </span>
+          Back
+        </button>
+
+        <h1 className="font-cormorant font-light text-3xl text-ink sm:text-4xl">
+          Cleaners Available Today
+        </h1>
+        <p className="mt-3 font-jost font-light text-sm text-ink-3">
+          {sameDayCleaners.length > 0 ? (
+            <>
+              <span className="font-normal text-ink">{sameDayCleaners.length}</span>{' '}
+              {sameDayCleaners.length === 1 ? 'cleaner' : 'cleaners'} available near{' '}
+              <span className="font-normal text-ink">{postcode.toUpperCase()}</span> today (
+              {todayAbbr}). Pick a cleaner and choose a time slot.
+            </>
+          ) : (
+            <>
+              No cleaners available near{' '}
+              <span className="font-normal text-ink">{postcode.toUpperCase()}</span> today. Try a
+              different postcode or check back later.
+            </>
+          )}
+        </p>
+
+        {/* Cleaner cards with time slots */}
+        <div className="mt-8 space-y-6">
+          {sameDayCleaners.map((c) => {
+            const todaySlots = c.timeSlots[todayAbbr] ?? [];
+            const tier = TIER_INFO[c.tier];
+            const isSelected = selectedCleanerIds.includes(c.id);
+            const listedRate = getListedRate(c.sameDayRate);
+
+            return (
+              <div
+                key={c.id}
+                className={`transition ${isSelected ? 'ring-2 ring-gold' : ''}`}
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                {/* Cleaner header */}
+                <div className="p-5 flex items-start gap-4">
+                  <div
+                    className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {c.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-jost font-normal text-ink">{c.name}</span>
+                      <span
+                        className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      >
+                        {tier.label}
+                      </span>
+                      <VerificationBadge
+                        identityVerified={c.identityVerified}
+                        backgroundChecked={c.backgroundChecked}
+                      />
+                      {c.availableNow && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
+                          </span>
+                          <span className="font-jost text-[11px] font-medium text-teal">
+                            Available now
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
+                      <StarRating rating={c.rating} />
+                      <span>
+                        {c.rating} ({c.reviewCount} reviews)
+                      </span>
+                      <span className="text-ink-3/30">|</span>
+                      <span>{c.location}</span>
+                    </div>
+                    <p className="mt-2 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                      {c.bio}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="font-cormorant font-light text-2xl text-ink">
+                      &pound;{listedRate.toFixed(2)}
+                    </span>
+                    <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
+                    <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
+                      same-day rate
+                    </p>
+                  </div>
+                </div>
+
+                {/* Today's time slots */}
+                <div className="px-5 pb-5 pt-0">
+                  <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
+                    Available times today ({todayAbbr})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {todaySlots.map((slot) => {
+                      const isSlotSelected = isSelected && selectedTime === slot;
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => {
+                            if (isSlotSelected) {
+                              // Deselect
+                              setSelectedCleanerIds([]);
+                              setSelectedTime('');
+                              setSelectedDay('');
+                            } else {
+                              setSelectedCleanerIds([c.id]);
+                              setSelectedTime(slot);
+                              setSelectedDay(todayAbbr);
+                            }
+                          }}
+                          className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                            isSlotSelected
+                              ? 'bg-ink text-cream'
+                              : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                          }`}
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                        >
+                          {slot}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Selected summary & continue */}
+        {selectedCleanerIds.length > 0 && selectedTime && (
+          <div className="mt-8 bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  Your booking
+                </span>
+                <p className="mt-1 font-jost font-light text-sm text-ink">
+                  {cleaners.find((c) => c.id === selectedCleanerIds[0])?.name} &middot; Today at{' '}
+                  {selectedTime} &middot; {effectiveHours}h
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="font-cormorant font-light text-2xl text-ink">
+                  &pound;{priceBreakdown.isFixed ? '0' : priceBreakdown.discountedTotal.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Booking details (key access, notes, submit) — show when cleaner + time selected */}
+        {selectedCleanerIds.length > 0 && selectedTime && (
+          <div className="mt-6 space-y-6">
+            {/* Key access */}
+            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Property access
+              </h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    { value: 'i-will-be-home' as KeyAccess, label: 'I\u2019ll be home' },
+                    { value: 'key-under-mat' as KeyAccess, label: 'Key under mat' },
+                    { value: 'lockbox' as KeyAccess, label: 'Lockbox' },
+                    { value: 'with-concierge' as KeyAccess, label: 'With concierge' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setKeyAccess(opt.value)}
+                    className={`p-4 text-center font-jost text-sm font-light transition ${
+                      keyAccess === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                    }`}
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Special instructions */}
+            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Special instructions
+              </h2>
+              <textarea
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                placeholder="Anything your cleaner should know? (optional)"
+                rows={3}
+                className="mt-4 w-full bg-cream-2 px-4 py-3 font-jost font-light text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-gold/30 transition"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              />
+            </div>
+
+            {/* Submit */}
+            <button
+              type="button"
+              onClick={() => setSubmitted(true)}
+              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
+            >
+              Confirm Same-Day Booking
+            </button>
+          </div>
+        )}
       </div>
     );
   }

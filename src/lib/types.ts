@@ -13,6 +13,8 @@ export interface Cleaner {
   languages: string[];
   tier: CleanerTier;
   location: string;
+  /** Postcode area prefixes this cleaner covers (e.g. ['SW', 'SE', 'W']) */
+  postcodeAreas: string[];
   verified: boolean;
   identityVerified: boolean;
   backgroundChecked: boolean;
