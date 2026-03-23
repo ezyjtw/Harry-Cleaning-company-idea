@@ -454,7 +454,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
                 desc: 'We take just 10% — one of the lowest in the industry. Traditional agencies take 40-60%. Other platforms take 20-30%. You keep more with Rena.',
               },
               {
-                title: 'Insurance &amp; Protection',
+                title: 'You\u2019re Covered',
                 desc: 'Every booking is covered. Escrow payment protection means you always get paid for work completed. We verify all customers too.',
               },
             ].map((item) => (
