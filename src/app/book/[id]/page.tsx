@@ -33,13 +33,13 @@ const SERVICE_TYPES = [
   {
     value: 'end-of-tenancy',
     label: 'End of Tenancy Cleaning',
-    multiplier: 2,
+    multiplier: 1.8,
     description: 'Professional move-out clean to get your deposit back or prepare for new tenants.',
   },
   {
     value: 'airbnb',
     label: 'Airbnb Cleaning',
-    multiplier: 1.3,
+    multiplier: 1.2,
     description:
       'Quick turnaround cleans between guests — fresh linen, restocked supplies, spotless spaces.',
   },

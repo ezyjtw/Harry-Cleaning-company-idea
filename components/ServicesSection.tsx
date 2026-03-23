@@ -30,14 +30,14 @@ const services = [
     title: 'End of tenancy',
     description:
       'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
-    price: 'Approx. £160',
+    price: 'From £120',
   },
   {
     id: 'airbnb',
     title: 'Airbnb cleaning',
     description:
       'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
-    price: 'Approx. £60',
+    price: 'From £60',
   },
 ];
 

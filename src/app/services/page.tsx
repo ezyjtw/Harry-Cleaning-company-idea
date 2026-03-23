@@ -71,7 +71,7 @@ const services: {
       'Quick turnaround times to fit between check-out and check-in',
       'Consistent quality your guests will notice in their reviews',
     ],
-    price: 'Approx. £60',
+    price: 'From £60',
   },
   {
     id: 'end-of-tenancy',
@@ -88,7 +88,7 @@ const services: {
       'Carpets vacuumed, hard floors mopped and edges done',
       'Skirting boards, light fittings, and switches cleaned throughout',
     ],
-    price: 'Approx. £160',
+    price: 'From £120',
   },
 ];
 

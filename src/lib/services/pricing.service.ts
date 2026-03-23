@@ -44,7 +44,7 @@ const SERVICE_MULTIPLIERS: Record<string, number> = {
   'end-of-tenancy': 1.8,
   'move-in': 1.6,
   'move-out': 1.6,
-  airbnb: 1.3,
+  airbnb: 1.2,
   office: 1.2,
   'same-day': 1.4,
   'last-minute': 1.5,

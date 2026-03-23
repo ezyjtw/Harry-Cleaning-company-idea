@@ -29,17 +29,17 @@ const serviceRates = [
   },
   {
     type: 'End of Tenancy',
-    description: 'Comprehensive move-out clean to get your deposit back',
-    rate: '\u00A322 \u2013 \u00A339/hr',
+    description: 'Fixed price \u2014 base fee + per room + extras',
+    rate: 'From \u00A3120',
     typical: '5\u201310 hours',
-    multiplier: '1.8x',
+    multiplier: 'Fixed',
   },
   {
     type: 'Airbnb / Short-Let',
-    description: 'Fast turnaround cleaning between guests',
-    rate: '\u00A317 \u2013 \u00A328/hr',
+    description: 'Fixed price \u2014 base fee + per room + extras',
+    rate: 'From \u00A360',
     typical: '2\u20134 hours',
-    multiplier: '1.3x',
+    multiplier: 'Fixed',
   },
   {
     type: 'Same-Day Cleaning',

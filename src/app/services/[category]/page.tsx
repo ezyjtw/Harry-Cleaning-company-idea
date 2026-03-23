@@ -41,8 +41,8 @@ const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
   regular: 1.1,
   'same-day': 1.2,
   deep: 1.5,
-  airbnb: 1.1,
-  'end-of-tenancy': 2,
+  airbnb: 1.2,
+  'end-of-tenancy': 1.8,
 };
 
 const _ADDITIONAL_ROOMS = [
@@ -57,6 +57,56 @@ const _ADDITIONAL_ROOMS = [
 ];
 
 const PRODUCT_FEE = 5; // £5 flat rate
+
+// ─── Fixed-price model for Airbnb & End of Tenancy ──────────
+const FIXED_PRICE_BASE: Record<string, number> = {
+  airbnb: 60,
+  'end-of-tenancy': 120,
+};
+
+const FIXED_PRICE_PER_ROOM: Record<
+  string,
+  { bedroom: number; bathroom: number; livingArea: number; kitchen: number; additional: number }
+> = {
+  airbnb: { bedroom: 15, bathroom: 12, livingArea: 10, kitchen: 10, additional: 8 },
+  'end-of-tenancy': { bedroom: 25, bathroom: 20, livingArea: 15, kitchen: 18, additional: 12 },
+};
+
+const EXTRA_SERVICES = [
+  { id: 'inside-oven', label: 'Inside Oven', price: { airbnb: 15, 'end-of-tenancy': 20 } },
+  { id: 'inside-fridge', label: 'Inside Fridge', price: { airbnb: 10, 'end-of-tenancy': 15 } },
+  { id: 'windows', label: 'Interior Windows', price: { airbnb: 15, 'end-of-tenancy': 20 } },
+  { id: 'carpet-clean', label: 'Carpet Cleaning', price: { airbnb: 25, 'end-of-tenancy': 30 } },
+  { id: 'wall-marks', label: 'Wall Mark Removal', price: { airbnb: 10, 'end-of-tenancy': 12 } },
+  { id: 'balcony', label: 'Balcony / Patio', price: { airbnb: 12, 'end-of-tenancy': 15 } },
+];
+
+function calculateFixedPrice(
+  category: ServiceCategory,
+  rooms: RoomConfig,
+  extras: string[]
+): { baseFee: number; roomCharges: number; extrasTotal: number; total: number } {
+  const baseFee = FIXED_PRICE_BASE[category] ?? 0;
+  const rates = FIXED_PRICE_PER_ROOM[category];
+  if (!rates) return { baseFee: 0, roomCharges: 0, extrasTotal: 0, total: 0 };
+
+  const roomCharges =
+    rooms.bedrooms * rates.bedroom +
+    rooms.bathrooms * rates.bathroom +
+    rooms.livingAreas * rates.livingArea +
+    (rooms.kitchen ? rates.kitchen : 0) +
+    rooms.additionals.length * rates.additional;
+
+  let extrasTotal = 0;
+  for (const extraId of extras) {
+    const svc = EXTRA_SERVICES.find((e) => e.id === extraId);
+    if (svc) extrasTotal += svc.price[category as 'airbnb' | 'end-of-tenancy'] ?? 0;
+  }
+
+  return { baseFee, roomCharges, extrasTotal, total: baseFee + roomCharges + extrasTotal };
+}
+
+const isFixedPrice = (cat: ServiceCategory) => cat === 'airbnb' || cat === 'end-of-tenancy';
 
 const TIER_INFO = {
   standard: { label: 'Standard', color: 'bg-cream-2 text-ink-2', desc: 'Reliable and affordable' },
@@ -116,14 +166,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
   const [frequency, setFrequency] = useState<BookingFrequency>('weekly');
+  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
+  const [cleanerCount, setCleanerCount] = useState(1);
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
+
+  // Fixed-price calculation for Airbnb & EOT
+  const fixedPriceQuote = useMemo(() => {
+    if (!isFixedPrice(category)) return null;
+    return calculateFixedPrice(category, rooms, selectedExtras);
+  }, [category, rooms, selectedExtras]);
 
   // ─── Cleaner phase state ───────────────────────
   const [scheduling, setScheduling] = useState<'flexible' | 'set-time' | null>(null);
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [selectedCleanerId, setSelectedCleanerId] = useState(preSelectedCleanerId);
+  const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>(
+    preSelectedCleanerId ? [preSelectedCleanerId] : []
+  );
   const [profileCleaner, setProfileCleaner] = useState<Cleaner | null>(null);
   const [acceptSubstitute, setAcceptSubstitute] = useState(true);
   const [keyAccess, setKeyAccess] = useState<KeyAccess>('i-will-be-home');
@@ -132,19 +192,20 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const [submitted, setSubmitted] = useState(false);
 
-  const selectedCleaner = cleaners.find((c) => c.id === selectedCleanerId);
+  const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+  const selectedCleaner = selectedCleaners[0] ?? null;
 
   // ─── Step-by-step back navigation ────────────────────
   // Determines which "step" the user is on for back-button behaviour
   const currentStep = useMemo(() => {
     if (submitted) return 'submitted';
     if (phase === 'quote') return 'quote';
-    if (selectedCleanerId) return 'booking';
+    if (selectedCleanerIds.length > 0) return 'booking';
     if (scheduling === 'flexible') return 'browse';
     if (scheduling === 'set-time' && selectedTime) return 'set-time-results';
     if (scheduling === 'set-time') return 'set-time';
     return 'choose-method';
-  }, [phase, scheduling, selectedCleanerId, selectedTime, submitted]);
+  }, [phase, scheduling, selectedCleanerIds, selectedTime, submitted]);
 
   const goBack = useCallback(() => {
     if (profileCleaner) {
@@ -153,7 +214,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     }
     switch (currentStep) {
       case 'booking':
-        setSelectedCleanerId('');
+        setSelectedCleanerIds([]);
         setSelectedDay('');
         setSelectedTime('');
         break;
@@ -200,6 +261,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     : 0;
 
   const priceBreakdown = useMemo(() => {
+    if (isFixedPrice(category) && fixedPriceQuote) {
+      // Fixed-price model for Airbnb & End of Tenancy
+      const cleaningSubtotal = fixedPriceQuote.total;
+      const serviceFee = Math.round(cleaningSubtotal * 0.05 * 100) / 100;
+      return {
+        isFixed: true as const,
+        baseFee: fixedPriceQuote.baseFee,
+        roomCharges: fixedPriceQuote.roomCharges,
+        extrasTotal: fixedPriceQuote.extrasTotal,
+        cleaningSubtotal,
+        displayServiceFee: serviceFee,
+        discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
+        discount: 0,
+        listedHourlyRate: 0,
+        listedSubtotal: cleaningSubtotal,
+      };
+    }
+    // Hourly model for other services
     const rawRate = preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? 18;
     const listedHourlyRate = getListedRate(rawRate);
     const multiplier = SERVICE_MULTIPLIERS[category] ?? 1;
@@ -208,6 +287,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const cleaningSubtotal = Math.round((breakdown.listedSubtotal - discount) * 100) / 100;
     const serviceFee = Math.round(cleaningSubtotal * 0.05 * 100) / 100;
     return {
+      isFixed: false as const,
       ...breakdown,
       listedHourlyRate,
       discount: Math.round(discount * 100) / 100,
@@ -215,7 +295,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       displayServiceFee: serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
-  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, frequencyDiscount]);
+  }, [
+    preSelectedCleaner,
+    selectedCleaner,
+    effectiveHours,
+    category,
+    frequencyDiscount,
+    fixedPriceQuote,
+  ]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
@@ -274,8 +361,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink">Booking Request Sent</h1>
         <p className="mt-5 font-jost font-light text-ink-2">
           We&apos;ve sent your {serviceLabel.toLowerCase()} request
-          {selectedCleaner ? ` to ${selectedCleaner.name}` : ''}. You&apos;ll receive a confirmation
-          at <span className="font-normal text-ink">{email}</span>.
+          {selectedCleaners.length > 0
+            ? ` to ${selectedCleaners.map((sc) => sc.name).join(' & ')}`
+            : ''}
+          . You&apos;ll receive a confirmation at{' '}
+          <span className="font-normal text-ink">{email}</span>.
         </p>
         {joinMailingList && (
           <p className="mt-3 font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
@@ -354,58 +444,142 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           </div>
 
-          {/* Hours */}
-          <div>
-            <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              How many hours?
-            </h2>
-            <div
-              className="mt-3 bg-cream-2 p-5"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <p className="font-jost font-light text-sm text-ink-2">
-                We recommend <span className="font-normal text-ink">{suggestedHours} hours</span>{' '}
-                for your {rooms.bedrooms} bedroom, {rooms.bathrooms} bathroom home.
-              </p>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => setSelectedHours(h)}
-                  className={`px-4 py-2.5 font-jost text-sm font-light transition ${
-                    effectiveHours === h
-                      ? 'bg-ink text-cream'
-                      : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                  }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  {h}h
-                </button>
-              ))}
-            </div>
-
-            {isUnderSuggested && (
+          {/* Hours — only for hourly services */}
+          {!isFixedPrice(category) && (
+            <div>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                How many hours?
+              </h2>
               <div
-                className="mt-4 bg-cream-2 p-5"
+                className="mt-3 bg-cream-2 p-5"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <p className="font-jost font-light text-sm text-ink-2">
-                  You&apos;ve selected fewer hours than recommended. Leave a note for the cleaner so
-                  they know where to focus:
+                  We recommend <span className="font-normal text-ink">{suggestedHours} hours</span>{' '}
+                  for your {rooms.bedrooms} bedroom, {rooms.bathrooms} bathroom home.
                 </p>
-                <textarea
-                  rows={2}
-                  value={cleanerNote}
-                  onChange={(e) => setCleanerNote(e.target.value)}
-                  placeholder="e.g. Please focus on the kitchen and bathrooms..."
-                  className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                />
               </div>
-            )}
-          </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setSelectedHours(h)}
+                    className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                      effectiveHours === h
+                        ? 'bg-ink text-cream'
+                        : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                    }`}
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {h}h
+                  </button>
+                ))}
+              </div>
+
+              {isUnderSuggested && (
+                <div
+                  className="mt-4 bg-cream-2 p-5"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p className="font-jost font-light text-sm text-ink-2">
+                    You&apos;ve selected fewer hours than recommended. Leave a note for the cleaner
+                    so they know where to focus:
+                  </p>
+                  <textarea
+                    rows={2}
+                    value={cleanerNote}
+                    onChange={(e) => setCleanerNote(e.target.value)}
+                    placeholder="e.g. Please focus on the kitchen and bathrooms..."
+                    className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Extra services — for Airbnb & End of Tenancy */}
+          {isFixedPrice(category) && (
+            <div>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Extra services
+              </h2>
+              <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                Select any additional services you need — each is priced separately.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {EXTRA_SERVICES.map((svc) => {
+                  const isSelected = selectedExtras.includes(svc.id);
+                  const price = svc.price[category as 'airbnb' | 'end-of-tenancy'] ?? 0;
+                  return (
+                    <button
+                      key={svc.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedExtras((prev) =>
+                          isSelected ? prev.filter((id) => id !== svc.id) : [...prev, svc.id]
+                        )
+                      }
+                      className={`p-4 text-left transition ${
+                        isSelected ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                      }`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      <p
+                        className={`font-jost font-normal text-sm ${isSelected ? 'text-cream' : 'text-ink'}`}
+                      >
+                        {svc.label}
+                      </p>
+                      <p
+                        className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${isSelected ? 'text-cream/60' : 'text-gold'}`}
+                      >
+                        +&pound;{price}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Number of cleaners — for time-constrained services */}
+          {isFixedPrice(category) && (
+            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                How many cleaners?
+              </h2>
+              <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                Need it done faster? Add extra cleaners to work together and finish sooner.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {[1, 2, 3].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => setCleanerCount(count)}
+                    className={`p-4 text-center transition ${
+                      cleanerCount === count ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                    }`}
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <p
+                      className={`font-jost font-normal text-sm ${cleanerCount === count ? 'text-cream' : 'text-ink'}`}
+                    >
+                      {count} {count === 1 ? 'Cleaner' : 'Cleaners'}
+                    </p>
+                    {count > 1 && (
+                      <p
+                        className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerCount === count ? 'text-cream/60' : 'text-gold'}`}
+                      >
+                        Faster turnaround
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Products */}
           <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
@@ -525,43 +699,105 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Price display */}
           <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <div className="flex items-center justify-between">
-              <div>
+            {priceBreakdown.isFixed && fixedPriceQuote ? (
+              <>
                 <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  {preSelectedCleaner ? 'Your price' : 'Guide price'}
+                  Your price
                 </span>
-                <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                  {preSelectedCleaner
-                    ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr`
-                    : 'Starting at \u00A318/hr'}
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Base fee</span>
+                    <span className="text-ink">&pound;{fixedPriceQuote.baseFee.toFixed(2)}</span>
+                  </div>
+                  {fixedPriceQuote.roomCharges > 0 && (
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">Rooms</span>
+                      <span className="text-ink">
+                        &pound;{fixedPriceQuote.roomCharges.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {fixedPriceQuote.extrasTotal > 0 && (
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">Extras</span>
+                      <span className="text-ink">
+                        &pound;{fixedPriceQuote.extrasTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {productCost > 0 && (
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">Cleaning products</span>
+                      <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Service fee (5%)</span>
+                    <span className="text-ink">
+                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                    </span>
+                  </div>
+                  {cleanerCount > 1 && (
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">{cleanerCount} cleaners</span>
+                      <span className="text-gold">Faster turnaround</span>
+                    </div>
+                  )}
+                  <div
+                    className="flex justify-between pt-3"
+                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <span className="font-jost font-normal text-ink">Total</span>
+                    <span className="font-cormorant font-light text-3xl text-ink">
+                      &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                  Fixed price. No hidden charges, ever.
                 </p>
-              </div>
-              <div className="text-right">
-                <span className="font-cormorant font-light text-3xl text-ink">
-                  &pound;{priceBreakdown.discountedTotal.toFixed(2)}
-                </span>
-                {productCost > 0 && (
-                  <span className="ml-2 font-jost font-light text-xs text-ink-3">
-                    + &pound;{productCost} products
-                  </span>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                      {preSelectedCleaner ? 'Your price' : 'Guide price'}
+                    </span>
+                    <p className="mt-1 font-jost font-light text-xs text-ink-3">
+                      {preSelectedCleaner
+                        ? `${preSelectedCleaner.name} — \u00A3${getListedRate(preSelectedCleaner.hourlyRate).toFixed(2)}/hr`
+                        : 'Starting at \u00A318/hr'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-cormorant font-light text-3xl text-ink">
+                      &pound;{priceBreakdown.discountedTotal.toFixed(2)}
+                    </span>
+                    {productCost > 0 && (
+                      <span className="ml-2 font-jost font-light text-xs text-ink-3">
+                        + &pound;{productCost} products
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {frequencyDiscount > 0 && (
+                  <p className="mt-2 font-jost font-light text-xs text-gold text-right">
+                    {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount applied (-&pound;
+                    {priceBreakdown.discount.toFixed(2)})
+                  </p>
                 )}
-              </div>
-            </div>
-            {frequencyDiscount > 0 && (
-              <p className="mt-2 font-jost font-light text-xs text-gold text-right">
-                {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount applied (-&pound;
-                {priceBreakdown.discount.toFixed(2)})
-              </p>
-            )}
-            {!preSelectedCleaner && (
-              <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                Final price depends on your chosen cleaner&apos;s rate. No hidden charges.
-              </p>
-            )}
-            {preSelectedCleaner && (
-              <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                No hidden charges, ever.
-              </p>
+                {!preSelectedCleaner && (
+                  <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                    Final price depends on your chosen cleaner&apos;s rate. No hidden charges.
+                  </p>
+                )}
+                {preSelectedCleaner && (
+                  <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                    No hidden charges, ever.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -965,11 +1201,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     onClick={() => {
                       if (step.key === 'choose-method') {
                         setScheduling(null);
-                        setSelectedCleanerId('');
+                        setSelectedCleanerIds([]);
                         setSelectedDay('');
                         setSelectedTime('');
                       } else if (step.key === 'browse' || step.key === 'set-time') {
-                        setSelectedCleanerId('');
+                        setSelectedCleanerIds([]);
                         setSelectedDay('');
                         setSelectedTime('');
                       }
@@ -1026,7 +1262,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
       <div className="mt-10 space-y-10">
         {/* ── Scheduling preference choice ── */}
-        {scheduling === null && !selectedCleanerId && (
+        {scheduling === null && selectedCleanerIds.length === 0 && (
           <div>
             <div className="grid gap-5 sm:grid-cols-2">
               {/* Cleaner-first card */}
@@ -1119,7 +1355,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* ════════════════════════════════════════════════════════════
             FLOW A: Browse available cleaners (flexible)
            ════════════════════════════════════════════════════════════ */}
-        {scheduling === 'flexible' && !selectedCleanerId && (
+        {scheduling === 'flexible' && selectedCleanerIds.length === 0 && (
           <div>
             {/* Tier legend */}
             <div className="mt-6 flex flex-wrap gap-3">
@@ -1134,16 +1370,45 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               ))}
             </div>
 
+            {/* Multi-cleaner prompt */}
+            {cleanerCount > 1 && selectedCleanerIds.length < cleanerCount && (
+              <div
+                className="mt-4 bg-cream-2 p-4"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <p className="font-jost font-light text-sm text-ink-2">
+                  Select{' '}
+                  <span className="font-normal text-ink">
+                    {cleanerCount - selectedCleanerIds.length} more
+                  </span>{' '}
+                  {cleanerCount - selectedCleanerIds.length === 1 ? 'cleaner' : 'cleaners'} to
+                  complete your team.
+                  {selectedCleanerIds.length > 0 && (
+                    <span className="ml-1 text-gold">
+                      {selectedCleanerIds.length} of {cleanerCount} selected.
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* Cleaner grid */}
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {cleaners.map((c) => {
                 const tier = TIER_INFO[c.tier];
+                const isAlreadySelected = selectedCleanerIds.includes(c.id);
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setProfileCleaner(c)}
-                    className="group bg-cream p-5 text-left transition hover:bg-cream-2"
+                    onClick={() =>
+                      isAlreadySelected
+                        ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
+                        : setProfileCleaner(c)
+                    }
+                    className={`group p-5 text-left transition ${
+                      isAlreadySelected ? 'bg-ink/5 ring-2 ring-gold' : 'bg-cream hover:bg-cream-2'
+                    }`}
                     style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
                     <div className="flex items-start gap-3.5">
@@ -1212,7 +1477,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* ════════════════════════════════════════════════════════════
             FLOW B: Pick a date and time (set-time)
            ════════════════════════════════════════════════════════════ */}
-        {scheduling === 'set-time' && !selectedCleanerId && (
+        {scheduling === 'set-time' && selectedCleanerIds.length === 0 && (
           <div>
             <div className="space-y-6">
               {/* Day selector */}
@@ -1313,12 +1578,21 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       {availableCleaners.map((c) => {
                         const tier = TIER_INFO[c.tier];
+                        const isAlreadySelected = selectedCleanerIds.includes(c.id);
                         return (
                           <button
                             key={c.id}
                             type="button"
-                            onClick={() => setProfileCleaner(c)}
-                            className="group bg-cream p-5 text-left transition hover:bg-cream-2"
+                            onClick={() =>
+                              isAlreadySelected
+                                ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
+                                : setProfileCleaner(c)
+                            }
+                            className={`group p-5 text-left transition ${
+                              isAlreadySelected
+                                ? 'bg-ink/5 ring-2 ring-gold'
+                                : 'bg-cream hover:bg-cream-2'
+                            }`}
                             style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                           >
                             <div className="flex items-start gap-3.5">
@@ -1382,49 +1656,53 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* ════════════════════════════════════════════════════════════
             BOOKING PAGE (shown after selecting a cleaner from either flow)
            ════════════════════════════════════════════════════════════ */}
-        {selectedCleanerId && selectedCleaner && (
+        {selectedCleanerIds.length >= cleanerCount && selectedCleaner && (
           <>
-            {/* Selected cleaner header */}
-            <div>
-              {/* Cleaner info card */}
-              <div
-                className="flex items-start gap-4 bg-cream p-5"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
+            {/* Selected cleaner(s) header */}
+            <div className="space-y-3">
+              {selectedCleaners.map((sc) => (
                 <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
+                  key={sc.id}
+                  className="flex items-start gap-4 bg-cream p-5"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
-                  {selectedCleaner.name.charAt(0)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-jost font-normal text-ink">{selectedCleaner.name}</span>
-                    <span
-                      className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${TIER_INFO[selectedCleaner.tier].color}`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                    >
-                      {TIER_INFO[selectedCleaner.tier].label}
-                    </span>
-                    <VerificationBadge
-                      identityVerified={selectedCleaner.identityVerified}
-                      backgroundChecked={selectedCleaner.backgroundChecked}
-                    />
+                  <div
+                    className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {sc.name.charAt(0)}
                   </div>
-                  <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
-                    <StarRating rating={selectedCleaner.rating} />
-                    <span>
-                      {selectedCleaner.rating} ({selectedCleaner.reviewCount} reviews)
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-jost font-normal text-ink">{sc.name}</span>
+                      <span
+                        className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${TIER_INFO[sc.tier].color}`}
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      >
+                        {TIER_INFO[sc.tier].label}
+                      </span>
+                      <VerificationBadge
+                        identityVerified={sc.identityVerified}
+                        backgroundChecked={sc.backgroundChecked}
+                      />
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
+                      <StarRating rating={sc.rating} />
+                      <span>
+                        {sc.rating} ({sc.reviewCount} reviews)
+                      </span>
+                    </div>
                   </div>
+                  {!isFixedPrice(category) && (
+                    <div className="shrink-0 text-right">
+                      <span className="font-cormorant font-light text-2xl text-ink">
+                        &pound;{getListedRate(sc.hourlyRate).toFixed(2)}
+                      </span>
+                      <span className="font-jost font-light text-xs text-ink-3">/hr</span>
+                    </div>
+                  )}
                 </div>
-                <div className="shrink-0 text-right">
-                  <span className="font-cormorant font-light text-2xl text-ink">
-                    &pound;{priceBreakdown.listedHourlyRate}
-                  </span>
-                  <span className="font-jost font-light text-xs text-ink-3">/hr</span>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* When to book — cleaner's available slots */}
@@ -1617,8 +1895,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 }
               />
               <SummaryRow
-                label="Cleaner"
-                value={`${selectedCleaner.name} (${TIER_INFO[selectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
+                label={selectedCleaners.length > 1 ? 'Cleaners' : 'Cleaner'}
+                value={selectedCleaners.map((sc) => sc.name).join(' & ')}
               />
               {selectedDay && selectedTime && (
                 <SummaryRow
@@ -1645,29 +1923,59 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 className="pt-4 mt-4 space-y-3"
                 style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <div className="flex justify-between text-sm">
-                  <span className="font-jost font-light text-ink-3">
-                    Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}/hr)
-                  </span>
-                  <span className="font-jost font-normal text-ink">
-                    &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-                  </span>
-                </div>
+                {priceBreakdown.isFixed && fixedPriceQuote ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-light text-ink-3">Base fee</span>
+                      <span className="font-jost font-normal text-ink">
+                        &pound;{fixedPriceQuote.baseFee.toFixed(2)}
+                      </span>
+                    </div>
+                    {fixedPriceQuote.roomCharges > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="font-jost font-light text-ink-3">Rooms</span>
+                        <span className="font-jost font-light text-ink">
+                          &pound;{fixedPriceQuote.roomCharges.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {fixedPriceQuote.extrasTotal > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="font-jost font-light text-ink-3">Extras</span>
+                        <span className="font-jost font-light text-ink">
+                          &pound;{fixedPriceQuote.extrasTotal.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-light text-ink-3">
+                        Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
+                        /hr)
+                      </span>
+                      <span className="font-jost font-normal text-ink">
+                        &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                      </span>
+                    </div>
+                    {priceBreakdown.discount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="font-jost font-normal text-gold">
+                          {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
+                        </span>
+                        <span className="font-jost font-normal text-gold">
+                          -&pound;{priceBreakdown.discount.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
                 {productCost > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="font-jost font-light text-ink-3">Cleaning products</span>
                     <span className="font-jost font-light text-ink">
                       &pound;{productCost.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                {priceBreakdown.discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-normal text-gold">
-                      {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                    </span>
-                    <span className="font-jost font-normal text-gold">
-                      -&pound;{priceBreakdown.discount.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -1715,7 +2023,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           effectiveHours={effectiveHours}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {
-            setSelectedCleanerId(profileCleaner.id);
+            setSelectedCleanerIds((prev) => {
+              if (prev.includes(profileCleaner.id)) return prev;
+              if (prev.length >= cleanerCount) return [...prev.slice(1), profileCleaner.id];
+              return [...prev, profileCleaner.id];
+            });
             setProfileCleaner(null);
           }}
         />

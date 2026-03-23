@@ -25,7 +25,7 @@ const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
 
   deep: 1.5,
   end_of_tenancy: 1.8,
-  airbnb: 1.3,
+  airbnb: 1.2,
   same_day: 1.2,
 };
 
