@@ -828,7 +828,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                   )}
                   <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">Service fee (5%)</span>
+                    <span className="font-light text-ink-3">Service fee (6%)</span>
                     <span className="text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
@@ -1191,7 +1191,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                <span className="font-jost font-light text-ink-3">Service fee (6%)</span>
                 <span className="font-jost font-light text-ink">
                   &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                 </span>
@@ -1760,7 +1760,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
             <div className="flex justify-between font-jost text-sm">
-              <span className="font-light text-ink-3">Service fee (5%)</span>
+              <span className="font-light text-ink-3">Service fee (6%)</span>
               <span className="text-ink">&pound;{priceBreakdown.displayServiceFee.toFixed(2)}</span>
             </div>
             {preferredCleaners.length > 0 && (
@@ -2639,7 +2639,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">Service fee (5%)</span>
+                    <span className="font-jost font-light text-ink-3">Service fee (6%)</span>
                     <span className="font-jost font-light text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>

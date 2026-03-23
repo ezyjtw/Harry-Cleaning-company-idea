@@ -655,7 +655,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <div className="font-jost text-xs font-light text-gold">Same-day rate applied</div>
             )}
             <div className="flex justify-between">
-              <span className="text-ink-3">Service fee (5%)</span>
+              <span className="text-ink-3">Service fee (6%)</span>
               <span className="font-normal text-ink">
                 &pound;{priceBreakdown.serviceFee.toFixed(2)}
               </span>

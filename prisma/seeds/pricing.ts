@@ -86,8 +86,8 @@ const platformConfig = [
   },
   {
     key: 'customer_fee_pct',
-    value: '0.05',
-    description: 'Service fee added on top for customer (5%)',
+    value: '0.06',
+    description: 'Service fee added on top for customer (6%)',
   },
   {
     key: 'same_day_multiplier',

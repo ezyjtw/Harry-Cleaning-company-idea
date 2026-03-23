@@ -560,7 +560,7 @@ export default function HeroQuoteWidget() {
                   <span>&pound;{quote.customerSubtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Service fee (5%)</span>
+                  <span>Service fee (6%)</span>
                   <span>&pound;{quote.customerServiceFee.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-gray-200 pt-1 flex justify-between font-semibold">

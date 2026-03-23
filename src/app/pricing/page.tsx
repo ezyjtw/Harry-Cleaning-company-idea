@@ -4,11 +4,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Pricing — Transparent Cleaning Rates | Rena',
   description:
-    'See exactly what you pay with Rena. Cleaner rates are listed upfront with just a 5% service fee at checkout. No hidden fees, no surprises.',
+    'See exactly what you pay with Rena. Cleaner rates are listed upfront with just a 6% service fee at checkout. No hidden fees, no surprises.',
   openGraph: {
     title: 'Pricing — Transparent Cleaning Rates | Rena',
     description:
-      'See exactly what you pay with Rena. Cleaner rates listed upfront with just a 5% service fee.',
+      'See exactly what you pay with Rena. Cleaner rates listed upfront with just a 6% service fee.',
   },
 };
 
@@ -58,7 +58,7 @@ const serviceRates = [
 ];
 
 const comparisonFeatures = [
-  { feature: 'Service fee', rena: '5%', competitor1: 'Hidden', competitor2: '10\u201315%' },
+  { feature: 'Service fee', rena: '6%', competitor1: 'Hidden', competitor2: '10\u201316%' },
   { feature: 'Choose your cleaner', rena: 'Yes', competitor1: 'Limited', competitor2: 'No' },
   { feature: 'Transparent pricing', rena: 'Yes', competitor1: 'Partial', competitor2: 'No' },
   { feature: 'Escrow protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
@@ -78,7 +78,7 @@ export default function PricingPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80">
             No hidden fees, no subscription traps. Each cleaner sets their own rate and you see the
-            full price before you book. We add just a small 5% service fee at checkout.
+            full price before you book. We add just a small 6% service fee at checkout.
           </p>
         </div>
       </section>
@@ -90,7 +90,7 @@ export default function PricingPage() {
           <div className="mt-4 w-8 h-px bg-gold" />
           <p className="mt-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
             Every cleaner on Rena sets their own hourly rate. You browse, compare, and pick the
-            cleaner that suits you. The only extra charge is a small 5% service fee added at
+            cleaner that suits you. The only extra charge is a small 6% service fee added at
             checkout.
           </p>
           <div
@@ -114,7 +114,7 @@ export default function PricingPage() {
                 </svg>
               </div>
               <div>
-                <p className="font-cormorant text-xl font-light text-ink">5% Service Fee</p>
+                <p className="font-cormorant text-xl font-light text-ink">6% Service Fee</p>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
                   This covers customer support, our satisfaction guarantee, escrow payment
                   protection, and platform maintenance. It&apos;s always shown before you confirm
@@ -147,12 +147,12 @@ export default function PricingPage() {
                 className="flex items-center justify-between pb-3"
                 style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <span className="font-jost font-light text-ink-2">Service fee (5% of total)</span>
-                <span className="font-normal text-ink font-jost">&pound;2.61</span>
+                <span className="font-jost font-light text-ink-2">Service fee (6% of total)</span>
+                <span className="font-normal text-ink font-jost">&pound;3.16</span>
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-lg font-normal text-ink font-cormorant">Total you pay</span>
-                <span className="text-lg font-normal text-gold font-cormorant">&pound;52.11</span>
+                <span className="text-lg font-normal text-gold font-cormorant">&pound;52.66</span>
               </div>
             </div>
             <p className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -231,7 +231,7 @@ export default function PricingPage() {
             </table>
           </div>
           <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            * Rates shown are listed cleaner rates. A 5% service fee is added at checkout and always
+            * Rates shown are listed cleaner rates. A 6% service fee is added at checkout and always
             displayed before you confirm.
           </p>
         </div>
@@ -270,7 +270,7 @@ export default function PricingPage() {
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
                   Listed rate &pound;20/hr &times; 1.3x ={' '}
-                  <span className="font-normal text-ink">&pound;26/hr</span> + 5% service fee
+                  <span className="font-normal text-ink">&pound;26/hr</span> + 6% service fee
                 </p>
               </div>
             </div>
@@ -301,7 +301,7 @@ export default function PricingPage() {
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
                   Listed rate &pound;20/hr &times; 1.8x ={' '}
-                  <span className="font-normal text-ink">&pound;36/hr</span> + 5% service fee
+                  <span className="font-normal text-ink">&pound;36/hr</span> + 6% service fee
                 </p>
               </div>
             </div>
@@ -400,7 +400,7 @@ export default function PricingPage() {
               </h2>
               <div className="mx-auto mt-4 w-8 h-px bg-gold" />
               <p className="mx-auto mt-4 max-w-2xl text-lg font-jost font-light text-ink-2">
-                The price you see at checkout is the price you pay. A 5% service fee is the only
+                The price you see at checkout is the price you pay. A 6% service fee is the only
                 charge we add, and it&apos;s always shown before you confirm a booking.
               </p>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">

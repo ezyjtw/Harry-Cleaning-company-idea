@@ -22,7 +22,7 @@ BOOKING & SCHEDULING
 - Cancellations: free cancellation up to 24 hours before the booking.
 
 PRICING
-- Regular cleaning: from £18/hr (cleaner sets their own rate, plus 5% service fee).
+- Regular cleaning: from £18/hr (cleaner sets their own rate, plus 6% service fee).
 - Deep cleaning: 1.45x the cleaner's rate.
 - One-off clean: 1.10x the cleaner's rate (10% surge).
 - Same-day: 1.30x the cleaner's rate.
@@ -31,7 +31,7 @@ PRICING
 - End of tenancy: fixed price starting from £120 (base fee + per-room charges + optional extras).
 - Recurring discounts: weekly bookings save 10%, fortnightly saves 5%. One-off cleans are also available.
 - Cleaner brings products: additional £5 flat fee.
-- No hidden charges. 5% service fee is included in the displayed total.
+- No hidden charges. 6% service fee is included in the displayed total.
 
 CLEANER ISSUES
 - If a customer has a complaint about a cleaner (quality, lateness, damage, behaviour), empathise and ask for their booking reference and a brief description.

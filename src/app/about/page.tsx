@@ -4,11 +4,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'About Rena — Our Mission to Transform Home Cleaning',
   description:
-    'Learn about Rena, the cleaning marketplace that puts cleaners first. Just a 5% service fee for customers, 10% for cleaners. Discover our mission, values, and how we vet every cleaner.',
+    'Learn about Rena, the cleaning marketplace that puts cleaners first. Just a 6% service fee for customers, 10% for cleaners. Discover our mission, values, and how we vet every cleaner.',
   openGraph: {
     title: 'About Rena — Our Mission to Transform Home Cleaning',
     description:
-      'Learn about Rena, the cleaning marketplace that puts cleaners first. Just a 5% service fee for customers.',
+      'Learn about Rena, the cleaning marketplace that puts cleaners first. Just a 6% service fee for customers.',
   },
 };
 
@@ -45,7 +45,7 @@ const values = [
   {
     title: 'Fairness',
     description:
-      'Our split-fee model means cleaners pay just 10% and customers pay a 5% service fee — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
+      'Our split-fee model means cleaners pay just 10% and customers pay a 6% service fee — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
     icon: (
       <svg
         className="h-8 w-8"
@@ -136,7 +136,7 @@ export default function AboutPage() {
               cleans their home, and there is little accountability when things go wrong.
             </p>
             <p>
-              We started Rena to fix this. Our platform charges just a small 5% service fee to
+              We started Rena to fix this. Our platform charges just a small 6% service fee to
               customers — enough to run a great service, while ensuring cleaners keep the vast
               majority of their earnings. This attracts the best cleaners, which means a better
               experience for you.
@@ -227,7 +227,7 @@ export default function AboutPage() {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
-                  <span>Only a 5% service fee — no hidden charges</span>
+                  <span>Only a 6% service fee — no hidden charges</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <svg

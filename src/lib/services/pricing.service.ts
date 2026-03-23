@@ -29,8 +29,8 @@ export interface QuoteResult {
   cleanerEarns: number; // net payout to cleaner
 
   // Customer side
-  customerSubtotal: number; // base price before 5% service fee
-  customerServiceFee: number; // 5% on top (hourly) or embedded (fixed)
+  customerSubtotal: number; // base price before 6% service fee
+  customerServiceFee: number; // 6% on top (hourly) or embedded (fixed)
   addonTotal: number;
   totalCharged: number; // customer pays this
 
@@ -154,7 +154,7 @@ export class PricingService {
       .toDecimalPlaces(2)
       .toNumber();
 
-    // 5% service fee is charged on the listed rate, not the raw cleaner rate
+    // 6% service fee is charged on the listed rate, not the raw cleaner rate
     const customerServiceFee = new Decimal(customerSubtotal)
       .mul(customerFeePct)
       .toDecimalPlaces(2)
@@ -188,7 +188,7 @@ export class PricingService {
       addonTotal,
       totalCharged,
       renaEarns,
-      breakdown: `${hours} hrs × £${input.cleanerHourlyRate}/hr × ${multiplier}x = £${cleanerGross}. Listed rate (incl. 10% markup): £${customerSubtotal}. Customer pays £${customerServiceFee} service fee (5%). Cleaner pays £${cleanerFee} platform fee (10%). Rena earns £${renaEarns}.`,
+      breakdown: `${hours} hrs × £${input.cleanerHourlyRate}/hr × ${multiplier}x = £${cleanerGross}. Listed rate (incl. 10% markup): £${customerSubtotal}. Customer pays £${customerServiceFee} service fee (6%). Cleaner pays £${cleanerFee} platform fee (10%). Rena earns £${renaEarns}.`,
     };
   }
 
@@ -199,7 +199,7 @@ export class PricingService {
   }
 
   /**
-   * For fixed-price services, cleaner earns 85% of each add-on.
+   * For fixed-price services, cleaner earns 86% of each add-on.
    */
   private calcCleanerAddonEarnings(
     addonIds: string[],

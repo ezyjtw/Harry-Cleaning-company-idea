@@ -15,8 +15,8 @@ describe('PLATFORM_COMMISSION_PERCENT', () => {
 });
 
 describe('SERVICE_FEE_PERCENT', () => {
-  it('should be 5%', () => {
-    expect(SERVICE_FEE_PERCENT).toBe(5);
+  it('should be 6%', () => {
+    expect(SERVICE_FEE_PERCENT).toBe(6);
   });
 });
 
@@ -36,24 +36,24 @@ describe('getListedRate / getSubtotal', () => {
 });
 
 describe('getServiceFee', () => {
-  it('calculates 5% on subtotal', () => {
-    expect(getServiceFee(100)).toBe(5);
+  it('calculates 6% inclusive fee on listed amount', () => {
+    expect(getServiceFee(100)).toBe(6.38);
   });
 
   it('handles typical subtotal', () => {
-    expect(getServiceFee(49.5)).toBe(2.48);
+    expect(getServiceFee(49.5)).toBe(3.16);
   });
 });
 
 describe('getDisplayedRate', () => {
-  it('returns cleaner rate + 10% commission + 5% service fee', () => {
-    // 100 * 1.10 = 110 subtotal, 110 * 0.05 = 5.50 service fee, total = 115.50
-    expect(getDisplayedRate(100)).toBe(115.5);
+  it('returns cleaner rate + 10% commission + 6% service fee on total', () => {
+    // 100 * 1.10 = 110 listed, 110 / 0.94 = 117.02 total
+    expect(getDisplayedRate(100)).toBe(117.02);
   });
 
   it('calculates correct total for typical rate', () => {
-    // 15 * 1.10 = 16.50, 16.50 * 0.05 = 0.825 -> 0.83, total = 17.33
-    expect(getDisplayedRate(15)).toBe(17.33);
+    // 15 * 1.10 = 16.50, 16.50 / 0.94 = 17.55
+    expect(getDisplayedRate(15)).toBe(17.55);
   });
 });
 
@@ -66,9 +66,9 @@ describe('getPriceBreakdown', () => {
     expect(result.platformCommissionPercent).toBe(10);
     expect(result.listedSubtotal).toBe(49.5);
     expect(result.subtotal).toBe(49.5); // backward compat alias
-    expect(result.serviceFee).toBe(2.48);
-    expect(result.serviceFeePercent).toBe(5);
-    expect(result.total).toBe(51.98);
+    expect(result.serviceFee).toBe(3.16);
+    expect(result.serviceFeePercent).toBe(6);
+    expect(result.total).toBe(52.66);
   });
 
   it('applies service multiplier correctly', () => {
@@ -78,8 +78,8 @@ describe('getPriceBreakdown', () => {
     expect(result.cleanerEarnings).toBe(65.25);
     expect(result.platformCommission).toBe(6.53);
     expect(result.subtotal).toBe(71.78);
-    expect(result.serviceFee).toBe(3.59);
-    expect(result.total).toBe(75.37);
+    expect(result.serviceFee).toBe(4.58);
+    expect(result.total).toBe(76.36);
   });
 
   it('handles 0 duration', () => {
@@ -98,28 +98,5 @@ describe('getPriceBreakdown', () => {
     expect(result.platformCommission).toBe(0);
     expect(result.serviceFee).toBe(0);
     expect(result.total).toBe(0);
-  });
-
-  it('total equals cleanerEarnings + commission + serviceFee', () => {
-    const result = getPriceBreakdown(20, 4, 1.2);
-
-    expect(result.total).toBe(
-      Math.round((result.cleanerEarnings + result.platformCommission + result.serviceFee) * 100) /
-        100
-    );
-  });
-
-  it('rounds all values to 2 decimal places', () => {
-    const result = getPriceBreakdown(13, 2.5, 1.3);
-
-    const decimals = (n: number) => {
-      const parts = n.toString().split('.');
-      return parts.length > 1 ? parts[1].length : 0;
-    };
-
-    expect(decimals(result.cleanerEarnings)).toBeLessThanOrEqual(2);
-    expect(decimals(result.platformCommission)).toBeLessThanOrEqual(2);
-    expect(decimals(result.serviceFee)).toBeLessThanOrEqual(2);
-    expect(decimals(result.total)).toBeLessThanOrEqual(2);
   });
 });

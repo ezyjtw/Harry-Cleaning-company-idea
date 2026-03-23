@@ -193,7 +193,7 @@ describe('PricingService — Hourly', () => {
     expect(q.cleanerGross).toBe(69.6);
   });
 
-  it('rena_total = cleaner_fee (10%) + customer_fee (5%) = ~15% of gross on hourly', async () => {
+  it('rena_total = cleaner_fee (10%) + customer_fee (6%) = ~14.5% of total on hourly', async () => {
     const q = await service.calculateQuote({
       serviceSlug: 'regular',
       cleanerHourlyRate: 20,

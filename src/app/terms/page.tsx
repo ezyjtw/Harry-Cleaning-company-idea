@@ -100,7 +100,7 @@ export default function TermsPage() {
           <h2 className="font-cormorant text-2xl font-light text-ink">5. Pricing and Payment</h2>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
             <li>
-              Cleaners set their own rates which are listed on the platform. A 5% service fee is
+              Cleaners set their own rates which are listed on the platform. A 6% service fee is
               added at checkout to cover customer support, payment protection, and platform
               maintenance.
             </li>

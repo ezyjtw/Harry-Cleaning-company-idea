@@ -227,7 +227,7 @@ export default function CleanerProfilePage() {
                   })}
                 </div>
                 <p className="font-jost text-xs text-ink-3 mt-3">
-                  The customer pays a separate 5% service fee — your advertised rate is what you
+                  The customer pays a separate 6% service fee — your advertised rate is what you
                   charge.
                 </p>
               </div>

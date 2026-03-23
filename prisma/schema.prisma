@@ -354,7 +354,7 @@ model Booking {
   cleanerFee           Float?             // 10% deducted from cleaner
   cleanerEarns         Float?             // cleanerGross * 0.90
   customerSubtotal     Float?             // = cleanerGross (or fixed price before customer fee)
-  customerServiceFee   Float?             // 5% added on top for customer (hourly) or embedded (fixed)
+  customerServiceFee   Float?             // 6% added on top for customer (hourly) or embedded (fixed)
   addonTotal           Float?             @default(0)
   renaEarns            Float?             // cleanerFee + customerServiceFee
 
