@@ -9,21 +9,21 @@ const services = [
     title: 'Regular cleaning',
     description:
       'Weekly or fortnightly visits with your preferred cleaner. Consistent quality at a time that works for you.',
-    price: 'From £15.40/hr',
+    price: 'From £14/hr',
   },
   {
     id: 'same-day',
     title: 'Same day cleaning',
     description:
       "Need a cleaner today? We'll match you with a vetted, available cleaner near you for a same-day visit.",
-    price: 'From £20.02/hr',
+    price: 'From £18/hr',
   },
   {
     id: 'deep',
     title: 'Deep cleaning',
     description:
       'Top-to-bottom. Inside appliances, skirting boards, and every corner. A thorough reset for your home.',
-    price: 'From £22.33/hr',
+    price: 'From £20/hr',
   },
   {
     id: 'end-of-tenancy',
