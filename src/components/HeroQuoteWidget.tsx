@@ -75,6 +75,26 @@ const BEDROOM_TO_PROPERTY: Record<number, PropertySize> = {
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 const DEFAULT_FLOOR_RATE = 14; // £14 as the floor rate for initial quote
 
+/**
+ * Suggested hours based on bedrooms + bathrooms for hourly services.
+ * Deep cleans use a separate (higher) scale due to more intensive work.
+ */
+function getSuggestedHours(bedrooms: number, bathrooms: number, isDeep: boolean): number {
+  // Base hours by bedroom count
+  const baseByBed: Record<number, { standard: number; deep: number }> = {
+    1: { standard: 2, deep: 3 },
+    2: { standard: 2.5, deep: 3.5 },
+    3: { standard: 3, deep: 4.5 },
+    4: { standard: 3.5, deep: 5.5 },
+    5: { standard: 4.5, deep: 7 },
+  };
+  const base = baseByBed[bedrooms] ?? baseByBed[5];
+  const hours = isDeep ? base.deep : base.standard;
+  // Add 0.5hr for each extra bathroom beyond the first
+  const extraBath = Math.max(0, bathrooms - 1) * 0.5;
+  return hours + extraBath;
+}
+
 function getCleanerCount(postcode: string): number {
   let hash = 0;
   for (let i = 0; i < postcode.length; i++) {
@@ -122,6 +142,15 @@ export default function HeroQuoteWidget() {
   }, []);
 
   const isFixed = serviceSlug === 'eot' || serviceSlug === 'airbnb';
+
+  // Auto-suggest hours when bedrooms, bathrooms, or service type changes
+  useEffect(() => {
+    if (isFixed || bedrooms === null || bathrooms === null) return;
+    const isDeep = serviceSlug === 'deep';
+    const suggested = getSuggestedHours(bedrooms, bathrooms, isDeep);
+    const minHours = isDeep ? 3 : 2;
+    setHours(Math.max(minHours, Math.round(suggested)));
+  }, [bedrooms, bathrooms, serviceSlug, isFixed]);
 
   // Update fixed price display when service/bedrooms change
   useEffect(() => {
