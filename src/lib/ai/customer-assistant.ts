@@ -143,7 +143,7 @@ export class CustomerAssistant {
   private static async handleQuestion(_parsed: ParsedIntent): Promise<AssistantResponse> {
     return {
       message:
-        'We offer several cleaning services:\n\n**Standard Clean** - Regular maintenance cleaning\n**Deep Clean** - Thorough top-to-bottom cleaning\n**End of Tenancy** - Move-out ready cleaning\n**AirBnB Turnover** - Quick turnaround for short lets\n**Office Clean** - Commercial space cleaning\n\nAll cleaners are vetted, insured, and background-checked. We charge just 10% — the lowest platform fee in the UK.\n\nWould you like a quote for any of these services?',
+        "We offer several cleaning services:\n\n**Regular Clean** - Routine maintenance cleaning\n**One-Off Clean** - Single visit, no commitment\n**Same-Day Clean** - Need it today? We can help\n**Deep Clean** - Thorough top-to-bottom cleaning\n**End of Tenancy** - Fixed-price move-out clean (from £175)\n**Airbnb Turnover** - Fixed-price turnaround for short lets (from £55)\n\nAll cleaners are vetted, insured, and background-checked. Just a small 5% service fee on top of the cleaner's rate.\n\nWould you like a quote for any of these services?",
       suggestedActions: ['Get a quote', 'Book now', 'View cleaners'],
     };
   }

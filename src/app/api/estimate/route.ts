@@ -58,10 +58,10 @@ export async function GET(request: NextRequest) {
     standard: 1.0,
     regular: 1.0,
     deep: 1.45,
-    'end-of-tenancy': 1.8,
+    'end-of-tenancy': 1.45, // Fixed-price service — uses deep multiplier as approximation
     'same-day': 1.3,
     'one-off': 1.15,
-    airbnb: 1.2,
+    airbnb: 1.45, // Fixed-price service — uses deep multiplier as approximation
   };
   const hours = Math.max(2, bedrooms * 0.5 + bathrooms * 0.75 + 1);
   const multiplier = SERVICE_MULTIPLIERS[serviceType] ?? 1.0;

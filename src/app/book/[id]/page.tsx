@@ -21,7 +21,7 @@ const SERVICE_TYPES = [
   {
     value: 'same-day',
     label: 'Same Day Cleaning',
-    multiplier: 1.2,
+    multiplier: 1.3,
     description: 'Need it today? Book a cleaner for a same-day visit at short notice.',
   },
   {
@@ -33,13 +33,13 @@ const SERVICE_TYPES = [
   {
     value: 'end-of-tenancy',
     label: 'End of Tenancy Cleaning',
-    multiplier: 1.8,
+    multiplier: 1.45, // Fixed-price service — uses deep rate for cleaner payout
     description: 'Professional move-out clean to get your deposit back or prepare for new tenants.',
   },
   {
     value: 'airbnb',
     label: 'Airbnb Cleaning',
-    multiplier: 1.2,
+    multiplier: 1.45, // Fixed-price service — uses deep rate for cleaner payout
     description:
       'Quick turnaround cleans between guests — fresh linen, restocked supplies, spotless spaces.',
   },

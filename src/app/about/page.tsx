@@ -4,11 +4,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'About Rena — Our Mission to Transform Home Cleaning',
   description:
-    'Learn about Rena, the cleaning marketplace that puts cleaners first with just a 10% platform fee. Discover our mission, values, and how we vet every cleaner.',
+    'Learn about Rena, the cleaning marketplace that puts cleaners first. Just a 5% service fee for customers, 10% for cleaners. Discover our mission, values, and how we vet every cleaner.',
   openGraph: {
     title: 'About Rena — Our Mission to Transform Home Cleaning',
     description:
-      'Learn about Rena, the cleaning marketplace that puts cleaners first with just a 10% platform fee.',
+      'Learn about Rena, the cleaning marketplace that puts cleaners first. Just a 5% service fee for customers.',
   },
 };
 
@@ -45,7 +45,7 @@ const values = [
   {
     title: 'Fairness',
     description:
-      'We charge just 10% — less than half what other platforms take. This means cleaners earn more and customers pay less. Everyone wins.',
+      'Our split-fee model means cleaners pay just 10% and customers pay a 5% service fee — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
     icon: (
       <svg
         className="h-8 w-8"

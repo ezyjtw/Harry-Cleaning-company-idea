@@ -22,14 +22,31 @@ const SERVICE_LABELS: Record<ServiceType, string> = {
 
 const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
   regular: 1,
-
   deep: 1.45,
-  end_of_tenancy: 1.8,
-  airbnb: 1.2,
-  same_day: 1.2,
+  end_of_tenancy: 1.45, // EOT is fixed-price; use deep multiplier as rough approximation
+  airbnb: 1.45, // Airbnb is fixed-price; use deep multiplier as rough approximation
+  same_day: 1.3,
 };
 
 const BASE_RATE = 25;
+
+// Fixed prices for EOT and Airbnb per spec (keyed by bedroom count)
+const EOT_FIXED_PRICES: Record<number, number> = {
+  0: 175,
+  1: 220,
+  2: 280,
+  3: 350,
+  4: 430,
+  5: 550,
+};
+const AIRBNB_FIXED_PRICES: Record<number, number> = {
+  0: 55,
+  1: 75,
+  2: 95,
+  3: 120,
+  4: 155,
+  5: 155,
+};
 
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
@@ -46,6 +63,15 @@ function computeEstimate(
   bathrooms: number,
   serviceType: ServiceType
 ): { low: number; high: number } {
+  // EOT and Airbnb use fixed prices from the spec
+  if (serviceType === 'end_of_tenancy') {
+    const price = EOT_FIXED_PRICES[Math.min(bedrooms, 5)] ?? 280;
+    return { low: price, high: price };
+  }
+  if (serviceType === 'airbnb') {
+    const price = AIRBNB_FIXED_PRICES[Math.min(bedrooms, 5)] ?? 95;
+    return { low: price, high: price };
+  }
   const hours = bedrooms * 0.5 + bathrooms * 0.75 + 1;
   const multiplier = SERVICE_MULTIPLIERS[serviceType];
   const mid = hours * BASE_RATE * multiplier;

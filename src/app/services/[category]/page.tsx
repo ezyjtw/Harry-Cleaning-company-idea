@@ -38,11 +38,11 @@ const SERVICE_LABELS: Record<ServiceCategory, string> = {
 };
 
 const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
-  regular: 1.1,
-  'same-day': 1.2,
+  regular: 1.0,
+  'same-day': 1.3,
   deep: 1.45,
-  airbnb: 1.2,
-  'end-of-tenancy': 1.8,
+  airbnb: 1.0, // fixed-price — multiplier not used
+  'end-of-tenancy': 1.0, // fixed-price — multiplier not used
 };
 
 const _ADDITIONAL_ROOMS = [
