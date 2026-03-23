@@ -255,7 +255,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </p>
 
         <div className="mt-6 grid gap-3">
-          {SERVICE_TYPES.map((s) => (
+          {SERVICE_TYPES.filter((s) => {
+            // Same-day is available if the cleaner is available now
+            if (s.value === 'same-day') return cleaner.availableNow;
+            // Match service label to cleaner specialties
+            return cleaner.specialties.some(
+              (sp) =>
+                s.label.toLowerCase().includes(sp.toLowerCase()) ||
+                sp.toLowerCase().includes(s.label.toLowerCase())
+            );
+          }).map((s) => (
             <button
               key={s.value}
               onClick={() => {
@@ -267,15 +276,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <div className="min-w-0 flex-1">
                 <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
                 <p className="mt-1 font-jost text-[13px] font-light text-ink-2">{s.description}</p>
-              </div>
-              <div className="ml-6 shrink-0 text-right">
-                {s.multiplier !== 1 ? (
-                  <span className="font-jost text-[13px] font-light text-ink-3">
-                    {s.multiplier}x rate
-                  </span>
-                ) : (
-                  <span className="font-jost text-[13px] font-light text-ink-3">Standard rate</span>
-                )}
               </div>
               <svg
                 className="ml-3 h-5 w-5 shrink-0 text-ink-3 transition group-hover/card:translate-x-0.5 group-hover/card:text-ink"
