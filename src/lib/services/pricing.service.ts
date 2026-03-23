@@ -1,4 +1,4 @@
-import { getCleanerEarnings, getPlatformFee } from '@/lib/pricing';
+import { PLATFORM_COMMISSION_PERCENT, SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -25,7 +25,10 @@ export interface PricingBreakdown {
   urgentFee: number;
   travelFee: number;
   subtotal: number;
-  platformFee: number;
+  platformCommission: number;
+  platformCommissionPercent: number;
+  serviceFee: number;
+  serviceFeePercent: number;
   cleanerEarnings: number;
   total: number;
   savings?: number;
@@ -169,8 +172,8 @@ export class PricingService {
       urgentFee = baseAmount * URGENT_FEE_PERCENT;
     }
 
-    // Total displayed to customer (fee is invisible — already baked into the rate)
-    const total =
+    // Cleaner earnings (base amount adjusted by all multipliers)
+    const cleanerEarnings =
       Math.round(
         (baseAmount * roomMultiplier * serviceMultiplier * locationMultiplier * surgeMultiplier +
           extrasAmount +
@@ -179,9 +182,14 @@ export class PricingService {
           100
       ) / 100;
 
-    // Internal split (admin only)
-    const cleanerEarnings = getCleanerEarnings(total);
-    const platformFee = getPlatformFee(total);
+    // 10% platform commission on cleaner earnings
+    const platformCommission =
+      Math.round(cleanerEarnings * (PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
+    const subtotal = Math.round((cleanerEarnings + platformCommission) * 100) / 100;
+
+    // 5% service fee to customer on subtotal
+    const serviceFee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+    const total = Math.round((subtotal + serviceFee) * 100) / 100;
 
     return {
       baseAmount: Math.round(baseAmount * 100) / 100,
@@ -193,8 +201,11 @@ export class PricingService {
       tierPremium: Math.round(tierPremium * 100) / 100,
       urgentFee: Math.round(urgentFee * 100) / 100,
       travelFee: 0,
-      subtotal: total,
-      platformFee,
+      subtotal,
+      platformCommission,
+      platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+      serviceFee,
+      serviceFeePercent: SERVICE_FEE_PERCENT,
       cleanerEarnings,
       total,
       appliedDiscounts,

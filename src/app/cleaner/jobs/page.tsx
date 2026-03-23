@@ -223,11 +223,11 @@ export default function CleanerJobsPage() {
 
   const getStatusBadge = (status: JobStatus) => {
     const styles: Record<JobStatus, string> = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      upcoming: 'bg-blue-100 text-blue-700',
-      'en-route': 'bg-purple-100 text-purple-700',
-      'in-progress': 'bg-orange-100 text-orange-700',
-      completed: 'bg-green-100 text-green-700',
+      pending: 'bg-ink/5 text-ink-3',
+      upcoming: 'bg-gold/10 text-gold',
+      'en-route': 'bg-ink/10 text-ink',
+      'in-progress': 'bg-gold/20 text-gold',
+      completed: 'bg-gold/10 text-gold',
     };
     const labels: Record<JobStatus, string> = {
       pending: 'Pending',
@@ -238,7 +238,7 @@ export default function CleanerJobsPage() {
     };
     return (
       <span
-        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}
+        className={`inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${styles[status]}`}
       >
         {labels[status]}
       </span>
@@ -254,14 +254,16 @@ export default function CleanerJobsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="bg-cream min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">My Jobs</h1>
-        <p className="text-gray-500 mt-1">Manage your cleaning bookings</p>
+        <h1 className="font-cormorant text-2xl font-light text-ink">My Jobs</h1>
+        <p className="font-jost text-sm font-light text-ink-3 mt-1">
+          Manage your cleaning bookings
+        </p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="mb-6" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
         <nav className="flex gap-6 -mb-px overflow-x-auto">
           {tabs.map((tab) => {
             const count = jobList.filter((j) => j.status === tab.key).length;
@@ -269,19 +271,17 @@ export default function CleanerJobsPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`whitespace-nowrap pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                className={`whitespace-nowrap pb-3 px-1 font-jost text-[11px] uppercase tracking-[0.1em] border-b-2 transition-colors ${
                   activeTab === tab.key
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-gold text-gold'
+                    : 'border-transparent text-ink-3 hover:text-ink-2 hover:border-ink/20'
                 }`}
               >
                 {tab.label}
                 {count > 0 && (
                   <span
-                    className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs ${
-                      activeTab === tab.key
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-gray-100 text-gray-500'
+                    className={`ml-2 inline-flex items-center justify-center px-2 py-0.5 font-jost text-[10px] ${
+                      activeTab === tab.key ? 'bg-gold/10 text-gold' : 'bg-ink/5 text-ink-3'
                     }`}
                   >
                     {count}
@@ -297,7 +297,7 @@ export default function CleanerJobsPage() {
       {filteredJobs.length === 0 ? (
         <div className="text-center py-16">
           <svg
-            className="mx-auto w-12 h-12 text-gray-300"
+            className="mx-auto w-12 h-12 text-ink-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -309,29 +309,35 @@ export default function CleanerJobsPage() {
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">
+          <h3 className="mt-4 font-cormorant text-lg font-light text-ink">
             {emptyMessages[activeTab].title}
           </h3>
-          <p className="mt-1 text-sm text-gray-500">{emptyMessages[activeTab].description}</p>
+          <p className="mt-1 font-jost text-sm font-light text-ink-3">
+            {emptyMessages[activeTab].description}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
           {filteredJobs.map((job) => (
-            <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-5">
+            <div
+              key={job.id}
+              className="bg-cream-2 p-5"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
               <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <p className="font-semibold text-gray-900">{job.clientName}</p>
+                    <p className="font-jost text-sm font-medium text-ink">{job.clientName}</p>
                     {getStatusBadge(job.status)}
                   </div>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-jost text-sm font-light text-ink-2">
                     {job.status === 'pending' ? job.address : job.fullAddress}
                   </p>
 
                   {/* Distance badge */}
                   <div className="flex items-center gap-1 mt-1.5">
                     <svg
-                      className="w-4 h-4 text-blue-500"
+                      className="w-4 h-4 text-gold"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -349,7 +355,7 @@ export default function CleanerJobsPage() {
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-blue-600">
+                    <span className="font-jost text-sm font-light text-gold">
                       {job.distance} miles away
                     </span>
                     {(job.status === 'pending' || job.status === 'upcoming') && (
@@ -357,14 +363,14 @@ export default function CleanerJobsPage() {
                         href={getDirectionsUrl(job)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-2 text-xs text-blue-500 hover:text-blue-700 underline"
+                        className="ml-2 font-jost text-[11px] text-gold hover:text-gold/70 underline"
                       >
                         Get Directions
                       </a>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 font-jost text-sm font-light text-ink-3">
                     <span className="flex items-center gap-1">
                       <svg
                         className="w-4 h-4"
@@ -397,24 +403,27 @@ export default function CleanerJobsPage() {
                       </svg>
                       {job.time} ({job.duration}h)
                     </span>
-                    <span className="text-blue-600 font-medium">{job.serviceType}</span>
+                    <span className="text-gold font-medium">{job.serviceType}</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Ref: {job.id}</p>
+                  <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
+                    Ref: {job.id}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-3">
-                  <p className="text-xl font-bold text-gray-900">&pound;{job.price}</p>
+                  <p className="font-cormorant text-2xl font-light text-ink">&pound;{job.price}</p>
                   <div className="flex gap-2 flex-wrap justify-end">
                     {job.status === 'pending' && (
                       <>
                         <button
                           onClick={() => transitionJob(job.id, 'upcoming')}
-                          className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                          className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
                         >
                           Accept
                         </button>
                         <button
                           onClick={() => handleDecline(job.id)}
-                          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                          className="px-4 py-2 bg-cream text-ink font-jost text-sm font-light hover:bg-cream-2 transition-colors"
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                         >
                           Decline
                         </button>
@@ -423,7 +432,7 @@ export default function CleanerJobsPage() {
                     {job.status === 'upcoming' && (
                       <button
                         onClick={() => transitionJob(job.id, 'en-route')}
-                        className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                        className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
                       >
                         I&apos;m On My Way
                       </button>
@@ -431,7 +440,7 @@ export default function CleanerJobsPage() {
                     {job.status === 'en-route' && (
                       <button
                         onClick={() => transitionJob(job.id, 'in-progress')}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
                       >
                         Start Cleaning
                       </button>
@@ -449,12 +458,13 @@ export default function CleanerJobsPage() {
                                 }))
                               }
                               placeholder="Add completion notes (optional)..."
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                              className="w-full bg-cream px-3 py-2 font-jost text-sm font-light text-ink focus:outline-none focus:ring-1 focus:ring-gold"
+                              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                               rows={2}
                             />
                             <button
                               onClick={() => transitionJob(job.id, 'completed')}
-                              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                              className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
                             >
                               Confirm Complete
                             </button>
@@ -462,7 +472,7 @@ export default function CleanerJobsPage() {
                         ) : (
                           <button
                             onClick={() => setShowNotesFor(job.id)}
-                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
                           >
                             Mark Complete
                           </button>
@@ -478,7 +488,7 @@ export default function CleanerJobsPage() {
                 job.status === 'en-route' ||
                 job.status === 'in-progress' ||
                 job.status === 'completed') && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="mt-4 pt-4" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
                   <div className="flex items-center justify-between">
                     {LIFECYCLE_STEPS.map((step, i) => {
                       const currentIdx = getLifecycleStepIndex(job.status);
@@ -488,12 +498,12 @@ export default function CleanerJobsPage() {
                         <div key={step.key} className="flex items-center flex-1">
                           <div className="flex flex-col items-center flex-1">
                             <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                              className={`w-8 h-8 flex items-center justify-center font-jost text-[10px] font-medium ${
                                 isCompleted
                                   ? isCurrent
-                                    ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                                    : 'bg-green-500 text-white'
-                                  : 'bg-gray-200 text-gray-500'
+                                    ? 'bg-gold text-cream ring-4 ring-gold/10'
+                                    : 'bg-ink text-cream'
+                                  : 'bg-ink/5 text-ink-3'
                               }`}
                             >
                               {isCompleted && !isCurrent ? (
@@ -515,14 +525,14 @@ export default function CleanerJobsPage() {
                               )}
                             </div>
                             <p
-                              className={`mt-1 text-xs ${isCurrent ? 'font-semibold text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'}`}
+                              className={`mt-1 font-jost text-[10px] uppercase tracking-[0.1em] ${isCurrent ? 'font-medium text-gold' : isCompleted ? 'text-ink' : 'text-ink-3'}`}
                             >
                               {step.label}
                             </p>
                           </div>
                           {i < LIFECYCLE_STEPS.length - 1 && (
                             <div
-                              className={`h-0.5 flex-1 mx-1 ${i < currentIdx ? 'bg-green-400' : 'bg-gray-200'}`}
+                              className={`h-0.5 flex-1 mx-1 ${i < currentIdx ? 'bg-ink' : 'bg-ink/5'}`}
                             />
                           )}
                         </div>

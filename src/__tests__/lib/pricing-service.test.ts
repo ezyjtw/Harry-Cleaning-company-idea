@@ -84,15 +84,17 @@ describe('PricingService', () => {
       expect(result.urgentFee).toBeGreaterThan(0);
     });
 
-    it('should always include platform fee', () => {
+    it('should always include platform commission and service fee', () => {
       const result = PricingService.calculate({
         baseRate: 25,
         duration: 2,
         serviceType: 'standard',
       });
 
-      expect(result.platformFee).toBeGreaterThan(0);
-      expect(result.total).toBe(result.subtotal + result.platformFee);
+      expect(result.platformCommission).toBeGreaterThan(0);
+      expect(result.serviceFee).toBeGreaterThan(0);
+      expect(result.platformCommissionPercent).toBe(10);
+      expect(result.serviceFeePercent).toBe(5);
     });
   });
 

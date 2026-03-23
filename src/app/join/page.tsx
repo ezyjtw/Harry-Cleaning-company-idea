@@ -262,7 +262,251 @@ function CustomAddInput({
 /*  Page component                                                     */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/*  Earnings calculator                                                */
+/* ------------------------------------------------------------------ */
+
+function EarningsCalculator() {
+  const [hours, setHours] = useState(20);
+  const rate = 15;
+  const weekly = hours * rate;
+  const monthly = weekly * 4;
+  const yearly = monthly * 12;
+
+  return (
+    <div className="mt-6">
+      <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+        How many hours per week would you like to work?
+      </label>
+      <div className="mt-3 flex items-center gap-4">
+        <input
+          type="range"
+          min={5}
+          max={50}
+          step={1}
+          value={hours}
+          onChange={(e) => setHours(Number(e.target.value))}
+          className="flex-1 h-1 appearance-none bg-ink/10 accent-gold cursor-pointer"
+        />
+        <span className="font-cormorant text-xl font-light text-ink w-16 text-right">
+          {hours}hrs
+        </span>
+      </div>
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        <div className="text-center">
+          <p className="font-cormorant text-2xl sm:text-3xl font-light text-ink">
+            £{weekly.toLocaleString()}
+          </p>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
+            Per week
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="font-cormorant text-2xl sm:text-3xl font-light text-gold">
+            £{monthly.toLocaleString()}
+          </p>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
+            Per month
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="font-cormorant text-2xl sm:text-3xl font-light text-ink">
+            £{yearly.toLocaleString()}
+          </p>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
+            Per year
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 font-jost text-[11px] text-ink-3 text-center">
+        Based on an average of £{rate}/hr. Top-rated cleaners earn £20–£30/hr.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Landing page (shown before application form)                       */
+/* ------------------------------------------------------------------ */
+
+function JoinLandingPage({ onApply }: { onApply: () => void }) {
+  return (
+    <div className="bg-cream">
+      {/* Hero */}
+      <section className="bg-ink py-20 sm:py-28">
+        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+          <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">Join Rena</p>
+          <h1 className="mt-4 font-cormorant text-4xl font-light tracking-tight text-cream sm:text-5xl lg:text-6xl">
+            Earn on Your Terms.
+            <br />
+            We Handle the Rest.
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80 leading-relaxed">
+            Set your own hours, choose your clients, and keep 90% of what you earn. Rena takes care
+            of payments, customer support, and finding you bookings — so you can focus on what you
+            do best.
+          </p>
+          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <button
+              onClick={onApply}
+              className="bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-gold/90"
+            >
+              Apply Now
+            </button>
+            <a
+              href="#why-rena"
+              className="px-8 py-4 font-jost text-sm uppercase tracking-[0.15em] text-cream/80 transition hover:text-cream"
+              style={{ border: '0.5px solid rgba(255,255,255,0.2)' }}
+            >
+              Learn More
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Key benefits strip */}
+      <section className="bg-cream-2 py-12">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                title: 'Next Business Day Payouts',
+                desc: 'Get paid fast. Earnings land in your bank account the next business day.',
+              },
+              {
+                title: 'Keep 90% of Earnings',
+                desc: 'We only take a 10% commission — the lowest in the industry.',
+              },
+              {
+                title: 'Set Your Own Hours',
+                desc: 'Work when you want, where you want. Full flexibility, always.',
+              },
+              {
+                title: 'Everything Looked After',
+                desc: 'Insurance, payments, customer support — we handle it all for you.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="text-center sm:text-left">
+                <h3 className="font-cormorant text-lg font-light text-ink">{item.title}</h3>
+                <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Earnings calculator */}
+      <section className="bg-cream py-16">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">
+              Earning Potential
+            </p>
+            <h2 className="mt-3 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+              See How Much You Could Earn
+            </h2>
+            <p className="mt-4 font-jost font-light text-ink-2">
+              Cleaners on Rena earn an average of £15 per hour. Use the slider to see what you could
+              make.
+            </p>
+          </div>
+          <div
+            className="mt-10 bg-cream-2 p-6 sm:p-10"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          >
+            <EarningsCalculator />
+          </div>
+        </div>
+      </section>
+
+      {/* Why Rena */}
+      <section id="why-rena" className="bg-cream-2 py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">Why Rena</p>
+            <h2 className="mt-3 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+              Built for Cleaners, Not Against Them
+            </h2>
+          </div>
+
+          <div className="mt-12 grid gap-8 sm:grid-cols-2">
+            {[
+              {
+                title: 'Next Business Day Payouts',
+                desc: 'No waiting weeks for your money. Complete a job today, see the payment in your bank account the next business day via Stripe.',
+              },
+              {
+                title: 'Everything Looked After',
+                desc: 'We handle customer acquisition, booking management, payment processing, dispute resolution, and customer support. You just clean.',
+              },
+              {
+                title: 'Self-Employed Freedom',
+                desc: 'You work as a self-employed professional. Set your own rates, choose your hours, pick your clients — no boss, no rota, no office politics.',
+              },
+              {
+                title: 'Steady Stream of Bookings',
+                desc: 'Our platform connects you with customers actively looking for cleaners in your area. No more chasing leads or advertising yourself.',
+              },
+              {
+                title: 'Fair, Transparent Commission',
+                desc: 'We take just 10% — the lowest in the industry. Traditional agencies take 40-60%. Other platforms take 20-30%. You keep more with Rena.',
+              },
+              {
+                title: 'Insurance &amp; Protection',
+                desc: 'Every booking is covered. Escrow payment protection means you always get paid for work completed. We verify all customers too.',
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="bg-cream p-6"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <h3 className="font-cormorant text-lg font-light text-ink">{item.title}</h3>
+                <p
+                  className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: item.desc }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Self-employed CTA */}
+      <section className="bg-ink py-16">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
+          <h2 className="font-cormorant text-3xl font-light text-cream sm:text-4xl">
+            Ready to Be Your Own Boss?
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl font-jost font-light text-cream/70 leading-relaxed">
+            As a self-employed cleaner with Rena, you&apos;re in control. Choose when you work, how
+            much you charge, and which jobs you take. We provide the platform, the customers, and
+            the support — you provide the skill.
+          </p>
+          <div className="mt-6 font-jost text-sm text-cream/50">
+            Average cleaner on Rena: £15/hr &middot; 20hrs/week &middot; £1,200/month &middot;
+            Next-day payouts
+          </div>
+          <button
+            onClick={onApply}
+            className="mt-8 bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-gold/90"
+          >
+            Start Your Application
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main page component                                                */
+/* ------------------------------------------------------------------ */
+
 export default function JoinAsCleanerPage() {
+  const [showForm, setShowForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -277,7 +521,10 @@ export default function JoinAsCleanerPage() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.form) setForm((prev) => ({ ...prev, ...parsed.form }));
+        if (parsed.form) {
+          setForm((prev) => ({ ...prev, ...parsed.form }));
+          setShowForm(true);
+        }
         if (typeof parsed.currentStep === 'number') setCurrentStep(parsed.currentStep);
       }
     } catch {
@@ -415,11 +662,19 @@ export default function JoinAsCleanerPage() {
   }
 
   /* ================================================================ */
-  /*  RENDER — Wizard                                                  */
+  /*  RENDER — Landing page                                            */
   /* ================================================================ */
 
   // Don't render until localStorage has been read to avoid flash
   if (!mounted) return null;
+
+  if (!showForm) {
+    return <JoinLandingPage onApply={() => setShowForm(true)} />;
+  }
+
+  /* ================================================================ */
+  /*  RENDER — Wizard                                                  */
+  /* ================================================================ */
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">

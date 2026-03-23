@@ -1,149 +1,122 @@
 import {
-  calculatePlatformFee,
-  calculateTotalPrice,
+  PLATFORM_COMMISSION_PERCENT,
+  SERVICE_FEE_PERCENT,
+  getSubtotal,
+  getServiceFee,
+  getDisplayedRate,
   getPriceBreakdown,
-  PLATFORM_FEE_PERCENT,
-} from '@/lib/pricing'
+} from '@/lib/pricing';
 
-describe('PLATFORM_FEE_PERCENT', () => {
+describe('PLATFORM_COMMISSION_PERCENT', () => {
   it('should be 10%', () => {
-    expect(PLATFORM_FEE_PERCENT).toBe(10)
-  })
-})
+    expect(PLATFORM_COMMISSION_PERCENT).toBe(10);
+  });
+});
 
-describe('calculatePlatformFee', () => {
-  it('calculates 10% fee on a standard amount', () => {
-    expect(calculatePlatformFee(100)).toBe(10)
-  })
+describe('SERVICE_FEE_PERCENT', () => {
+  it('should be 5%', () => {
+    expect(SERVICE_FEE_PERCENT).toBe(5);
+  });
+});
 
-  it('calculates fee on a typical cleaner earnings amount', () => {
-    expect(calculatePlatformFee(45)).toBe(4.5)
-  })
+describe('getSubtotal', () => {
+  it('adds 10% commission to cleaner rate', () => {
+    expect(getSubtotal(100)).toBe(110);
+  });
 
-  it('rounds to two decimal places', () => {
-    // 33 * 0.10 = 3.3 (already 2 decimals or fewer)
-    expect(calculatePlatformFee(33)).toBe(3.3)
-    // 17.5 * 0.10 = 1.75
-    expect(calculatePlatformFee(17.5)).toBe(1.75)
-  })
+  it('handles typical cleaner rate', () => {
+    expect(getSubtotal(45)).toBe(49.5);
+  });
 
-  it('handles small amounts correctly', () => {
-    expect(calculatePlatformFee(1)).toBe(0.1)
-    expect(calculatePlatformFee(0.5)).toBe(0.05)
-  })
+  it('returns 0 for 0 rate', () => {
+    expect(getSubtotal(0)).toBe(0);
+  });
+});
 
-  it('returns 0 for 0 earnings', () => {
-    expect(calculatePlatformFee(0)).toBe(0)
-  })
+describe('getServiceFee', () => {
+  it('calculates 5% on subtotal', () => {
+    expect(getServiceFee(100)).toBe(5);
+  });
 
-  it('handles negative values', () => {
-    expect(calculatePlatformFee(-100)).toBe(-10)
-  })
+  it('handles typical subtotal', () => {
+    expect(getServiceFee(49.5)).toBe(2.48);
+  });
+});
 
-  it('handles very large amounts', () => {
-    expect(calculatePlatformFee(10000)).toBe(1000)
-  })
-})
+describe('getDisplayedRate', () => {
+  it('returns cleaner rate + 10% commission + 5% service fee', () => {
+    // 100 * 1.10 = 110 subtotal, 110 * 0.05 = 5.50 service fee, total = 115.50
+    expect(getDisplayedRate(100)).toBe(115.5);
+  });
 
-describe('calculateTotalPrice', () => {
-  it('adds platform fee to cleaner earnings', () => {
-    // 100 + 10% = 110
-    expect(calculateTotalPrice(100)).toBe(110)
-  })
-
-  it('calculates correct total for typical booking', () => {
-    // 45 (3hrs x 15) + 4.50 (10%) = 49.50
-    expect(calculateTotalPrice(45)).toBe(49.5)
-  })
-
-  it('returns 0 for 0 earnings', () => {
-    expect(calculateTotalPrice(0)).toBe(0)
-  })
-
-  it('handles decimal earnings', () => {
-    // 22.50 + 2.25 = 24.75
-    expect(calculateTotalPrice(22.5)).toBe(24.75)
-  })
-
-  it('handles negative values (edge case)', () => {
-    expect(calculateTotalPrice(-50)).toBe(-55)
-  })
-})
+  it('calculates correct total for typical rate', () => {
+    // 15 * 1.10 = 16.50, 16.50 * 0.05 = 0.825 -> 0.83, total = 17.33
+    expect(getDisplayedRate(15)).toBe(17.33);
+  });
+});
 
 describe('getPriceBreakdown', () => {
   it('returns correct breakdown for a standard booking', () => {
-    const result = getPriceBreakdown(15, 3, 1)
+    const result = getPriceBreakdown(15, 3, 1);
 
-    expect(result).toEqual({
-      cleanerEarnings: 45,
-      platformFee: 4.5,
-      total: 49.5,
-      platformFeePercent: 10,
-    })
-  })
+    expect(result.cleanerEarnings).toBe(45);
+    expect(result.platformCommission).toBe(4.5);
+    expect(result.platformCommissionPercent).toBe(10);
+    expect(result.subtotal).toBe(49.5);
+    expect(result.serviceFee).toBe(2.48);
+    expect(result.serviceFeePercent).toBe(5);
+    expect(result.total).toBe(51.98);
+  });
 
   it('applies service multiplier correctly', () => {
     // Deep clean with 1.5x multiplier: 15 * 3 * 1.5 = 67.50
-    const result = getPriceBreakdown(15, 3, 1.5)
+    const result = getPriceBreakdown(15, 3, 1.5);
 
-    expect(result.cleanerEarnings).toBe(67.5)
-    expect(result.platformFee).toBe(6.75)
-    expect(result.total).toBe(74.25)
-    expect(result.platformFeePercent).toBe(10)
-  })
+    expect(result.cleanerEarnings).toBe(67.5);
+    expect(result.platformCommission).toBe(6.75);
+    expect(result.subtotal).toBe(74.25);
+    expect(result.serviceFee).toBe(3.71);
+    expect(result.total).toBe(77.96);
+  });
 
   it('handles 0 duration', () => {
-    const result = getPriceBreakdown(15, 0, 1)
+    const result = getPriceBreakdown(15, 0, 1);
 
-    expect(result.cleanerEarnings).toBe(0)
-    expect(result.platformFee).toBe(0)
-    expect(result.total).toBe(0)
-  })
+    expect(result.cleanerEarnings).toBe(0);
+    expect(result.platformCommission).toBe(0);
+    expect(result.serviceFee).toBe(0);
+    expect(result.total).toBe(0);
+  });
 
   it('handles 0 rate', () => {
-    const result = getPriceBreakdown(0, 3, 1)
+    const result = getPriceBreakdown(0, 3, 1);
 
-    expect(result.cleanerEarnings).toBe(0)
-    expect(result.platformFee).toBe(0)
-    expect(result.total).toBe(0)
-  })
+    expect(result.cleanerEarnings).toBe(0);
+    expect(result.platformCommission).toBe(0);
+    expect(result.serviceFee).toBe(0);
+    expect(result.total).toBe(0);
+  });
 
-  it('handles 0 multiplier', () => {
-    const result = getPriceBreakdown(15, 3, 0)
+  it('total equals cleanerEarnings + commission + serviceFee', () => {
+    const result = getPriceBreakdown(20, 4, 1.2);
 
-    expect(result.cleanerEarnings).toBe(0)
-    expect(result.platformFee).toBe(0)
-    expect(result.total).toBe(0)
-  })
-
-  it('total equals cleanerEarnings plus platformFee', () => {
-    const result = getPriceBreakdown(20, 4, 1.2)
-
-    expect(result.total).toBe(result.cleanerEarnings + result.platformFee)
-  })
-
-  it('always includes platformFeePercent of 10', () => {
-    const result = getPriceBreakdown(25, 2, 1)
-    expect(result.platformFeePercent).toBe(10)
-  })
+    expect(result.total).toBe(
+      Math.round((result.cleanerEarnings + result.platformCommission + result.serviceFee) * 100) /
+        100
+    );
+  });
 
   it('rounds all values to 2 decimal places', () => {
-    const result = getPriceBreakdown(13, 2.5, 1.3)
+    const result = getPriceBreakdown(13, 2.5, 1.3);
 
     const decimals = (n: number) => {
-      const parts = n.toString().split('.')
-      return parts.length > 1 ? parts[1].length : 0
-    }
+      const parts = n.toString().split('.');
+      return parts.length > 1 ? parts[1].length : 0;
+    };
 
-    expect(decimals(result.cleanerEarnings)).toBeLessThanOrEqual(2)
-    expect(decimals(result.platformFee)).toBeLessThanOrEqual(2)
-    expect(decimals(result.total)).toBeLessThanOrEqual(2)
-  })
-
-  it('handles negative duration (edge case)', () => {
-    const result = getPriceBreakdown(15, -2, 1)
-
-    expect(result.cleanerEarnings).toBe(-30)
-    expect(result.total).toBe(-33)
-  })
-})
+    expect(decimals(result.cleanerEarnings)).toBeLessThanOrEqual(2);
+    expect(decimals(result.platformCommission)).toBeLessThanOrEqual(2);
+    expect(decimals(result.serviceFee)).toBeLessThanOrEqual(2);
+    expect(decimals(result.total)).toBeLessThanOrEqual(2);
+  });
+});

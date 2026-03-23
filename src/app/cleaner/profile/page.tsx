@@ -76,16 +76,18 @@ export default function CleanerProfilePage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
-        <p className="text-gray-500 mt-1">Update your public profile information</p>
+        <h1 className="font-cormorant text-2xl font-light text-ink">Edit Profile</h1>
+        <p className="font-jost text-sm font-light text-ink-3 mt-1">
+          Update your public profile information
+        </p>
       </div>
 
       <div className="space-y-6">
         {/* Photo upload */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile Photo</h2>
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Profile Photo</h2>
           <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="w-24 h-24 rounded-full bg-cream-2 border-2 border-dashed border-ink-3/30 flex items-center justify-center overflow-hidden flex-shrink-0">
               {photo ? (
                 <Image
                   src={photo}
@@ -96,7 +98,7 @@ export default function CleanerProfilePage() {
                 />
               ) : (
                 <svg
-                  className="w-8 h-8 text-gray-400"
+                  className="w-8 h-8 text-ink-3"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -111,7 +113,10 @@ export default function CleanerProfilePage() {
               )}
             </div>
             <div>
-              <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+              <label
+                className="inline-flex items-center gap-2 px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -128,7 +133,7 @@ export default function CleanerProfilePage() {
                   className="hidden"
                 />
               </label>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
                 JPG, PNG. Max 5MB. A clear headshot works best.
               </p>
             </div>
@@ -136,8 +141,8 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Bio */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">About You</h2>
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">About You</h2>
           <textarea
             value={bio}
             onChange={(e) => {
@@ -145,18 +150,21 @@ export default function CleanerProfilePage() {
               setSaved(false);
             }}
             placeholder="Tell customers about yourself, your experience, and what makes you a great cleaner..."
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            className="w-full px-4 py-3 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 resize-none bg-cream"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             rows={4}
           />
-          <p className="text-xs text-gray-400 mt-1">{bio.length}/500 characters</p>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
+            {bio.length}/500 characters
+          </p>
         </div>
 
         {/* Hourly rate */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Hourly Rate</h2>
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Hourly Rate</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-jost text-sm font-light text-ink-2">
                 £
               </span>
               <input
@@ -168,31 +176,35 @@ export default function CleanerProfilePage() {
                 }}
                 min="10"
                 max="100"
-                className="w-32 rounded-lg border border-gray-300 pl-7 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-32 pl-7 pr-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
-            <span className="text-sm text-gray-500">per hour</span>
+            <span className="font-jost text-sm font-light text-ink-2">per hour</span>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
             Average rate in your area: £22-£28/hr. Same-day bookings automatically apply a 1.5x
             rate.
           </p>
         </div>
 
         {/* Specialties */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Specialties</h2>
-          <p className="text-sm text-gray-500 mb-3">Select the cleaning services you offer</p>
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Specialties</h2>
+          <p className="font-jost text-sm font-light text-ink-2 mb-3">
+            Select the cleaning services you offer
+          </p>
           <div className="flex flex-wrap gap-2">
             {specialtyOptions.map((s) => (
               <button
                 key={s}
                 onClick={() => toggleSpecialty(s)}
-                className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`px-3 py-2 font-jost text-sm font-light transition-colors ${
                   selectedSpecialties.includes(s)
-                    ? 'bg-blue-50 border-blue-300 text-blue-700'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    ? 'bg-ink text-cream'
+                    : 'bg-cream text-ink-2 hover:bg-cream-2'
                 }`}
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 {selectedSpecialties.includes(s) && (
                   <svg
@@ -216,9 +228,9 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Travel radius */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Travel Radius</h2>
-          <p className="text-sm text-gray-500 mb-3">
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel Radius</h2>
+          <p className="font-jost text-sm font-light text-ink-2 mb-3">
             How many miles from your home location are you willing to travel for a job?
           </p>
           <div className="flex items-center gap-3">
@@ -232,42 +244,47 @@ export default function CleanerProfilePage() {
               min="1"
               max="50"
               placeholder="e.g. 10"
-              className="w-32 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-32 px-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             />
-            <span className="text-sm text-gray-500">miles</span>
+            <span className="font-jost text-sm font-light text-ink-2">miles</span>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
             Customers within this radius of your home will be able to find you
           </p>
         </div>
 
         {/* Languages */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Languages Spoken</h2>
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Languages Spoken</h2>
           <div className="flex flex-wrap gap-2">
             {[...languageOptions, ...customLanguages].map((l) => (
               <button
                 key={l}
                 onClick={() => toggleLanguage(l)}
-                className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`px-3 py-2 font-jost text-sm font-light transition-colors ${
                   selectedLanguages.includes(l)
-                    ? 'bg-blue-50 border-blue-300 text-blue-700'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    ? 'bg-ink text-cream'
+                    : 'bg-cream text-ink-2 hover:bg-cream-2'
                 }`}
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 {l}
               </button>
             ))}
           </div>
           <div className="mt-4">
-            <p className="text-sm text-gray-500 mb-2">Don&apos;t see your language?</p>
+            <p className="font-jost text-sm font-light text-ink-2 mb-2">
+              Don&apos;t see your language?
+            </p>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={customLanguage}
                 onChange={(e) => setCustomLanguage(e.target.value)}
                 placeholder="e.g. Swahili"
-                className="w-48 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-48 px-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
               <button
                 type="button"
@@ -285,7 +302,7 @@ export default function CleanerProfilePage() {
                   }
                 }}
                 disabled={!customLanguage.trim()}
-                className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2.5 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>
@@ -296,7 +313,7 @@ export default function CleanerProfilePage() {
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
-            <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+            <span className="font-jost text-sm font-light text-gold flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -310,7 +327,7 @@ export default function CleanerProfilePage() {
           )}
           <button
             onClick={handleSave}
-            className="px-8 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-8 py-2.5 bg-ink text-cream font-jost font-light hover:bg-ink/90 transition-colors"
           >
             Save Profile
           </button>

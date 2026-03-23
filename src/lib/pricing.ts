@@ -1,54 +1,88 @@
 // Platform fee configuration
-// The fee is built into the displayed rate — customers see a single price.
-// Cleaners set their net rate, Rena multiplies by the margin factor.
+// Two separate fees:
+//   1. Platform commission (10%) — added on top of the cleaner's rate, goes to Rena
+//   2. Service fee (5%) — charged to the customer on the subtotal
+// Both fees are shown transparently in the price breakdown.
 
 /** @server-only — do not import in client components */
-export const PLATFORM_FEE_PERCENT = 15;
-
-const MARGIN_FACTOR = 1 + PLATFORM_FEE_PERCENT / 100; // 1.15
+export const PLATFORM_COMMISSION_PERCENT = 10;
+export const SERVICE_FEE_PERCENT = 5;
 
 /**
- * Convert a cleaner's net rate to the rate displayed to customers.
- * Customer never sees a fee breakdown — the displayed rate IS the price.
+ * From a cleaner's net rate, calculate the subtotal the customer sees
+ * (cleaner rate + 10% platform commission).
+ */
+export function getSubtotal(cleanerNetRate: number): number {
+  return Math.round(cleanerNetRate * (1 + PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
+}
+
+/**
+ * Calculate the 5% service fee on the subtotal.
+ */
+export function getServiceFee(subtotal: number): number {
+  return Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+}
+
+/**
+ * Convert a cleaner's net rate to the total displayed to customers
+ * (cleaner rate + 10% commission + 5% service fee).
  */
 export function getDisplayedRate(cleanerNetRate: number): number {
-  return Math.round(cleanerNetRate * MARGIN_FACTOR * 100) / 100;
+  const subtotal = getSubtotal(cleanerNetRate);
+  return Math.round((subtotal + getServiceFee(subtotal)) * 100) / 100;
 }
 
 /**
  * From a displayed (customer-facing) total, extract the cleaner earnings.
  */
 export function getCleanerEarnings(displayedTotal: number): number {
-  return Math.round((displayedTotal / MARGIN_FACTOR) * 100) / 100;
+  const factor = (1 + PLATFORM_COMMISSION_PERCENT / 100) * (1 + SERVICE_FEE_PERCENT / 100);
+  return Math.round((displayedTotal / factor) * 100) / 100;
 }
 
 /**
- * From a displayed total, extract the platform fee.
+ * From a displayed total, extract the platform commission (10% of cleaner rate).
  */
 export function getPlatformFee(displayedTotal: number): number {
-  return Math.round((displayedTotal - getCleanerEarnings(displayedTotal)) * 100) / 100;
+  const cleanerEarnings = getCleanerEarnings(displayedTotal);
+  return Math.round(cleanerEarnings * (PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
 }
 
 /**
- * Get price breakdown for internal/admin use.
- * The customer only ever sees rate × hours = total.
+ * From a displayed total, extract the service fee (5% of subtotal).
+ */
+export function getCustomerServiceFee(displayedTotal: number): number {
+  const cleanerEarnings = getCleanerEarnings(displayedTotal);
+  const commission = getPlatformFee(displayedTotal);
+  const subtotal = cleanerEarnings + commission;
+  return Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+}
+
+/**
+ * Get full price breakdown — visible to customers and admin.
  */
 export function getPriceBreakdown(
-  displayedRate: number,
+  cleanerRate: number,
   duration: number,
   serviceMultiplier: number
 ) {
-  const displayedTotal = Math.round(displayedRate * duration * serviceMultiplier * 100) / 100;
-  const cleanerEarnings = getCleanerEarnings(displayedTotal);
-  const platformFee = Math.round((displayedTotal - cleanerEarnings) * 100) / 100;
+  const cleanerEarnings = Math.round(cleanerRate * duration * serviceMultiplier * 100) / 100;
+  const platformCommission =
+    Math.round(cleanerEarnings * (PLATFORM_COMMISSION_PERCENT / 100) * 100) / 100;
+  const subtotal = cleanerEarnings + platformCommission;
+  const serviceFee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+  const total = Math.round((subtotal + serviceFee) * 100) / 100;
 
   return {
-    displayedRate,
+    cleanerRate,
     duration,
     serviceMultiplier,
     cleanerEarnings,
-    platformFee,
-    total: displayedTotal,
-    platformFeePercent: PLATFORM_FEE_PERCENT,
+    platformCommission,
+    platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+    subtotal,
+    serviceFee,
+    serviceFeePercent: SERVICE_FEE_PERCENT,
+    total,
   };
 }

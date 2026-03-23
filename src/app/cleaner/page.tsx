@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
 interface UpcomingJob {
   id: string;
@@ -10,7 +10,7 @@ interface UpcomingJob {
   time: string;
   serviceType: string;
   price: number;
-  status: "pending" | "confirmed";
+  status: 'pending' | 'confirmed';
 }
 
 interface RecentReview {
@@ -22,15 +22,60 @@ interface RecentReview {
 }
 
 const mockUpcomingJobs: UpcomingJob[] = [
-  { id: "1", clientName: "Emma Wilson", address: "14 Baker St, W1U 3BW", date: "2026-03-14", time: "09:00", serviceType: "Regular Clean", price: 65, status: "confirmed" },
-  { id: "2", clientName: "James Taylor", address: "8 Canary Wharf, E14 5AB", date: "2026-03-14", time: "14:00", serviceType: "Deep Clean", price: 120, status: "pending" },
-  { id: "3", clientName: "Olivia Brown", address: "22 Richmond Rd, TW9 2NA", date: "2026-03-15", time: "10:00", serviceType: "End of Tenancy", price: 180, status: "pending" },
+  {
+    id: '1',
+    clientName: 'Emma Wilson',
+    address: '14 Baker St, W1U 3BW',
+    date: '2026-03-14',
+    time: '09:00',
+    serviceType: 'Regular Clean',
+    price: 65,
+    status: 'confirmed',
+  },
+  {
+    id: '2',
+    clientName: 'James Taylor',
+    address: '8 Canary Wharf, E14 5AB',
+    date: '2026-03-14',
+    time: '14:00',
+    serviceType: 'Deep Clean',
+    price: 120,
+    status: 'pending',
+  },
+  {
+    id: '3',
+    clientName: 'Olivia Brown',
+    address: '22 Richmond Rd, TW9 2NA',
+    date: '2026-03-15',
+    time: '10:00',
+    serviceType: 'End of Tenancy',
+    price: 180,
+    status: 'pending',
+  },
 ];
 
 const mockRecentReviews: RecentReview[] = [
-  { id: "1", clientName: "Alice M.", rating: 5, comment: "Absolutely spotless! Sarah is incredibly thorough and professional.", date: "2026-03-12" },
-  { id: "2", clientName: "Tom R.", rating: 4, comment: "Great job overall. Very punctual and friendly.", date: "2026-03-10" },
-  { id: "3", clientName: "Nina P.", rating: 5, comment: "Best cleaner we have ever had. Highly recommend!", date: "2026-03-08" },
+  {
+    id: '1',
+    clientName: 'Alice M.',
+    rating: 5,
+    comment: 'Absolutely spotless! Sarah is incredibly thorough and professional.',
+    date: '2026-03-12',
+  },
+  {
+    id: '2',
+    clientName: 'Tom R.',
+    rating: 4,
+    comment: 'Great job overall. Very punctual and friendly.',
+    date: '2026-03-10',
+  },
+  {
+    id: '3',
+    clientName: 'Nina P.',
+    rating: 5,
+    comment: 'Best cleaner we have ever had. Highly recommend!',
+    date: '2026-03-08',
+  },
 ];
 
 export default function CleanerDashboard() {
@@ -39,7 +84,7 @@ export default function CleanerDashboard() {
 
   const handleAccept = (jobId: string) => {
     setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, status: "confirmed" as const } : j))
+      prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed' as const } : j))
     );
   };
 
@@ -48,45 +93,43 @@ export default function CleanerDashboard() {
   };
 
   const stats = [
-    { label: "Today's Jobs", value: "3", change: "+1 from yesterday", color: "blue" },
-    { label: "Weekly Earnings", value: "£485", change: "+12% vs last week", color: "green" },
-    { label: "Rating", value: "4.9", change: "Based on 127 reviews", color: "yellow" },
-    { label: "Response Rate", value: "98%", change: "Last 30 days", color: "purple" },
+    { label: "Today's Jobs", value: '3', change: '+1 from yesterday' },
+    { label: 'Weekly Earnings', value: '£485', change: '+12% vs last week' },
+    { label: 'Rating', value: '4.9', change: 'Based on 127 reviews' },
+    { label: 'Response Rate', value: '98%', change: 'Last 30 days' },
   ];
-
-  const colorMap: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-700 border-blue-200",
-    green: "bg-green-50 text-green-700 border-green-200",
-    yellow: "bg-amber-50 text-amber-700 border-amber-200",
-    purple: "bg-purple-50 text-purple-700 border-purple-200",
-  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Welcome back, Sarah. Here is your overview.</p>
+          <h1 className="font-cormorant text-2xl font-light text-ink">Dashboard</h1>
+          <p className="font-jost text-sm font-light text-ink-3 mt-1">
+            Welcome back, Sarah. Here is your overview.
+          </p>
         </div>
         {/* Available Now toggle */}
-        <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-3">
-          <span className="text-sm font-medium text-gray-700">Available Now</span>
+        <div
+          className="flex items-center gap-3 bg-cream-2 px-4 py-3"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
+          <span className="text-sm font-jost font-light text-ink-2">Available Now</span>
           <button
             onClick={() => setAvailableNow(!availableNow)}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              availableNow ? "bg-green-500" : "bg-gray-300"
+              availableNow ? 'bg-gold' : 'bg-ink-3/30'
             }`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                availableNow ? "translate-x-6" : "translate-x-1"
+              className={`inline-block h-4 w-4 transform rounded-full bg-cream transition-transform ${
+                availableNow ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>
           {availableNow && (
-            <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <span className="flex items-center gap-1 text-xs text-gold font-jost">
+              <span className="w-2 h-2 bg-gold rounded-full animate-pulse" />
               Live
             </span>
           )}
@@ -98,58 +141,75 @@ export default function CleanerDashboard() {
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className={`rounded-xl border p-5 ${colorMap[stat.color]}`}
+            className="bg-cream-2 p-5"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
           >
-            <p className="text-sm font-medium opacity-80">{stat.label}</p>
-            <p className="text-3xl font-bold mt-1">{stat.value}</p>
-            <p className="text-xs mt-2 opacity-70">{stat.change}</p>
+            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              {stat.label}
+            </p>
+            <p className="font-cormorant text-3xl font-light text-ink mt-1">{stat.value}</p>
+            <p className="font-jost text-xs font-light text-ink-3 mt-2">{stat.change}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upcoming Jobs */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Upcoming Jobs</h2>
-            <a href="/cleaner/jobs" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+        <div
+          className="lg:col-span-2 bg-cream-2 overflow-hidden"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
+          <div
+            className="px-6 py-4 flex items-center justify-between"
+            style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
+          >
+            <h2 className="font-cormorant text-lg font-light text-ink">Upcoming Jobs</h2>
+            <a
+              href="/cleaner/jobs"
+              className="font-jost text-xs uppercase tracking-[0.1em] text-gold hover:text-gold/80 transition-colors"
+            >
               View All
             </a>
           </div>
-          <div className="divide-y divide-gray-100">
-            {jobs.map((job) => (
-              <div key={job.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div>
+            {jobs.map((job, i) => (
+              <div
+                key={job.id}
+                className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                style={i > 0 ? { borderTop: '0.5px solid rgba(14,14,12,0.06)' } : undefined}
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{job.clientName}</p>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      job.status === "confirmed"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {job.status === "confirmed" ? "Confirmed" : "Pending"}
+                    <p className="font-jost text-sm font-normal text-ink">{job.clientName}</p>
+                    <span
+                      className={`font-jost text-[10px] uppercase tracking-[0.1em] px-2 py-0.5 ${
+                        job.status === 'confirmed' ? 'bg-gold/10 text-gold' : 'bg-ink/5 text-ink-3'
+                      }`}
+                    >
+                      {job.status === 'confirmed' ? 'Confirmed' : 'Pending'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">{job.address}</p>
-                  <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                  <p className="font-jost text-sm font-light text-ink-3 mt-0.5">{job.address}</p>
+                  <div className="flex items-center gap-3 mt-1 font-jost text-sm font-light text-ink-3">
                     <span>{job.date}</span>
                     <span>{job.time}</span>
-                    <span className="text-blue-600 font-medium">{job.serviceType}</span>
+                    <span className="text-gold">{job.serviceType}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:flex-col sm:items-end">
-                  <p className="text-lg font-semibold text-gray-900">£{job.price}</p>
-                  {job.status === "pending" && (
+                  <p className="font-cormorant text-lg font-light text-ink">£{job.price}</p>
+                  {job.status === 'pending' && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAccept(job.id)}
-                        className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                        className="px-3 py-1.5 bg-ink text-cream font-jost text-xs uppercase tracking-[0.1em] hover:bg-ink/90 transition-colors"
                       >
                         Accept
                       </button>
                       <button
                         onClick={() => handleDecline(job.id)}
-                        className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        className="px-3 py-1.5 bg-cream text-ink font-jost text-xs uppercase tracking-[0.1em] hover:bg-cream-2 transition-colors"
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                       >
                         Decline
                       </button>
@@ -163,46 +223,62 @@ export default function CleanerDashboard() {
 
         {/* Right column */}
         <div className="space-y-6">
-          {/* Earnings Chart Placeholder */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Earnings This Week</h2>
+          {/* Earnings Chart */}
+          <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <h2 className="font-cormorant text-lg font-light text-ink mb-4">Earnings This Week</h2>
             <div className="h-40 flex items-end gap-2">
               {[40, 65, 45, 80, 55, 70, 0].map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div
-                    className="w-full bg-blue-500 rounded-t-md transition-all"
-                    style={{ height: `${h}%`, minHeight: h > 0 ? "8px" : "0" }}
+                    className="w-full bg-gold/80 transition-all"
+                    style={{ height: `${h}%`, minHeight: h > 0 ? '8px' : '0' }}
                   />
-                  <span className="text-xs text-gray-400">
-                    {["M", "T", "W", "T", "F", "S", "S"][i]}
+                  <span className="font-jost text-xs font-light text-ink-3">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-              <p className="text-2xl font-bold text-gray-900">£485</p>
-              <p className="text-sm text-gray-500">Total this week</p>
+            <div
+              className="mt-4 pt-4 text-center"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <p className="font-cormorant text-2xl font-light text-ink">£485</p>
+              <p className="font-jost text-xs font-light text-ink-3">Total this week</p>
             </div>
           </div>
 
           {/* Recent Reviews */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Reviews</h2>
-              <a href="/cleaner/reviews" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+          <div
+            className="bg-cream-2 overflow-hidden"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          >
+            <div
+              className="px-6 py-4 flex items-center justify-between"
+              style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <h2 className="font-cormorant text-lg font-light text-ink">Recent Reviews</h2>
+              <a
+                href="/cleaner/reviews"
+                className="font-jost text-xs uppercase tracking-[0.1em] text-gold hover:text-gold/80 transition-colors"
+              >
                 View All
               </a>
             </div>
-            <div className="divide-y divide-gray-100">
-              {mockRecentReviews.map((review) => (
-                <div key={review.id} className="px-6 py-4">
+            <div>
+              {mockRecentReviews.map((review, i) => (
+                <div
+                  key={review.id}
+                  className="px-6 py-4"
+                  style={i > 0 ? { borderTop: '0.5px solid rgba(14,14,12,0.06)' } : undefined}
+                >
                   <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-gray-900 text-sm">{review.clientName}</p>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: 5 }).map((_, i) => (
+                    <p className="font-jost text-sm font-normal text-ink">{review.clientName}</p>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, j) => (
                         <svg
-                          key={i}
-                          className={`w-3.5 h-3.5 ${i < review.rating ? "text-yellow-400" : "text-gray-200"}`}
+                          key={j}
+                          className={`w-3.5 h-3.5 ${j < review.rating ? 'text-gold' : 'text-ink-3/20'}`}
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
@@ -211,8 +287,10 @@ export default function CleanerDashboard() {
                       ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">{review.comment}</p>
-                  <p className="text-xs text-gray-400 mt-1">{review.date}</p>
+                  <p className="font-jost text-sm font-light text-ink-2 line-clamp-2">
+                    {review.comment}
+                  </p>
+                  <p className="font-jost text-xs font-light text-ink-3 mt-1">{review.date}</p>
                 </div>
               ))}
             </div>

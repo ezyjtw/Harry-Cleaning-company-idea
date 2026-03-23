@@ -226,7 +226,7 @@ export default function AboutPage() {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
-                  <span>Only 10% platform fee</span>
+                  <span>Only 10% commission + 5% service fee</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <svg

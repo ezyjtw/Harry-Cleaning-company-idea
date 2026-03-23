@@ -225,18 +225,20 @@ export default function AvailabilityPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto bg-cream min-h-screen">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Availability</h1>
-        <p className="text-gray-500 mt-1">Set your working hours for each day of the week</p>
+        <h1 className="font-cormorant text-2xl font-light text-ink">Availability</h1>
+        <p className="font-jost text-sm font-light text-ink-2 mt-1">
+          Set your working hours for each day of the week
+        </p>
       </div>
 
       {/* Same-day bookings toggle */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+      <div className="bg-cream-2 p-5 mb-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-gray-900">Available for same-day bookings</p>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="font-jost text-sm font-light text-ink">Available for same-day bookings</p>
+            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
               Allow customers to book you for today at a premium rate
             </p>
           </div>
@@ -246,11 +248,11 @@ export default function AvailabilityPage() {
               setSaved(false);
             }}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              sameDayBookings ? 'bg-green-500' : 'bg-gray-300'
+              sameDayBookings ? 'bg-gold' : 'bg-ink-3/30'
             }`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              className={`inline-block h-4 w-4 transform rounded-full bg-cream transition-transform ${
                 sameDayBookings ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
@@ -259,15 +261,18 @@ export default function AvailabilityPage() {
       </div>
 
       {/* AI Availability Manager */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+      <div
+        className="bg-cream-2 overflow-hidden mb-6"
+        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      >
         <button
           onClick={() => setAiOpen(!aiOpen)}
-          className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-cream transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
               <svg
-                className="w-4 h-4 text-purple-600"
+                className="w-4 h-4 text-gold"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -281,14 +286,14 @@ export default function AvailabilityPage() {
               </svg>
             </div>
             <div className="text-left">
-              <p className="font-medium text-gray-900">Manage with AI</p>
-              <p className="text-xs text-gray-500">
+              <p className="font-jost text-sm font-light text-ink">Manage with AI</p>
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Say &quot;I&apos;m not available next Tuesday&quot; and let AI update your schedule
               </p>
             </div>
           </div>
           <svg
-            className={`w-5 h-5 text-gray-400 transition-transform ${aiOpen ? 'rotate-180' : ''}`}
+            className={`w-5 h-5 text-ink-3 transition-transform ${aiOpen ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -298,11 +303,11 @@ export default function AvailabilityPage() {
         </button>
 
         {aiOpen && (
-          <div className="border-t border-gray-200 px-6 py-4">
+          <div className="px-6 py-4" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
             {/* Messages */}
             <div className="max-h-60 overflow-y-auto space-y-3 mb-4">
               {aiMessages.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-4">
+                <p className="font-jost text-sm font-light text-ink-3 text-center py-4">
                   Try: &quot;I&apos;m not available next Tuesday&quot; or &quot;Open up Sunday
                   mornings&quot;
                 </p>
@@ -313,8 +318,8 @@ export default function AvailabilityPage() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`rounded-lg px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap ${
-                      msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'
+                    className={`rounded px-3 py-2 max-w-[80%] font-jost text-sm font-light whitespace-pre-wrap ${
+                      msg.role === 'user' ? 'bg-ink text-cream' : 'bg-ink/5 text-ink'
                     }`}
                   >
                     {msg.content}
@@ -323,7 +328,7 @@ export default function AvailabilityPage() {
               ))}
               {aiLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg px-4 py-2 text-sm text-gray-500">
+                  <div className="bg-ink/5 rounded px-4 py-2 font-jost text-sm font-light text-ink-3">
                     Thinking...
                   </div>
                 </div>
@@ -332,22 +337,28 @@ export default function AvailabilityPage() {
 
             {/* AI Preview */}
             {aiPreview && (
-              <div className="mb-3 p-3 rounded-lg bg-purple-50 border border-purple-200">
+              <div
+                className="mb-3 p-3 rounded bg-gold/10"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-purple-800">Proposed change</p>
-                    <p className="text-xs text-purple-600">{aiPreview.description}</p>
+                    <p className="font-jost text-sm font-light text-ink">Proposed change</p>
+                    <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                      {aiPreview.description}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={applyAiChange}
-                      className="px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700"
+                      className="px-3 py-1 bg-ink text-cream font-jost text-[11px] uppercase tracking-[0.1em] rounded hover:bg-ink/90"
                     >
                       Apply
                     </button>
                     <button
                       onClick={() => setAiPreview(null)}
-                      className="px-3 py-1 bg-white border border-gray-300 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50"
+                      className="px-3 py-1 bg-cream text-ink font-jost text-[11px] uppercase tracking-[0.1em] rounded hover:bg-cream-2"
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
                       Dismiss
                     </button>
@@ -364,12 +375,13 @@ export default function AvailabilityPage() {
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAiSend()}
                 placeholder='e.g. "Block next Friday"'
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="flex-1 rounded px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
               <button
                 onClick={handleAiSend}
                 disabled={aiLoading}
-                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light rounded hover:bg-ink/90 disabled:opacity-50 transition-colors"
               >
                 Send
               </button>
@@ -379,28 +391,38 @@ export default function AvailabilityPage() {
       </div>
 
       {/* Weekly calendar */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Weekly Schedule</h2>
+      <div
+        className="bg-cream-2 overflow-hidden"
+        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      >
+        <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink">Weekly Schedule</h2>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div>
           {daysOfWeek.map((day) => (
-            <div key={day} className="px-6 py-4">
+            <div
+              key={day}
+              className="px-6 py-4"
+              style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
               <div className="flex items-start gap-4">
                 <div className="w-20 pt-2">
-                  <p className="font-medium text-gray-900 hidden sm:block">{day}</p>
-                  <p className="font-medium text-gray-900 sm:hidden">{dayAbbrevs[day]}</p>
+                  <p className="font-jost text-sm font-light text-ink hidden sm:block">{day}</p>
+                  <p className="font-jost text-sm font-light text-ink sm:hidden">
+                    {dayAbbrevs[day]}
+                  </p>
                 </div>
                 <div className="flex-1 space-y-3">
                   {slots[day].length === 0 ? (
-                    <p className="text-sm text-gray-400 py-2">Not available</p>
+                    <p className="font-jost text-sm font-light text-ink-3 py-2">Not available</p>
                   ) : (
                     slots[day].map((slot, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <select
                           value={slot.start}
                           onChange={(e) => updateSlot(day, index, 'start', e.target.value)}
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="rounded px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold"
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                         >
                           {timeOptions.map((t) => (
                             <option key={t} value={t}>
@@ -408,11 +430,12 @@ export default function AvailabilityPage() {
                             </option>
                           ))}
                         </select>
-                        <span className="text-gray-400">to</span>
+                        <span className="font-jost text-sm font-light text-ink-3">to</span>
                         <select
                           value={slot.end}
                           onChange={(e) => updateSlot(day, index, 'end', e.target.value)}
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="rounded px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold"
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                         >
                           {timeOptions.map((t) => (
                             <option key={t} value={t}>
@@ -422,7 +445,7 @@ export default function AvailabilityPage() {
                         </select>
                         <button
                           onClick={() => removeSlot(day, index)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-1.5 text-ink-3 hover:text-ink transition-colors"
                           title="Remove slot"
                         >
                           <svg
@@ -444,7 +467,7 @@ export default function AvailabilityPage() {
                   )}
                   <button
                     onClick={() => addSlot(day)}
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                    className="flex items-center gap-1 font-jost text-sm font-light text-gold hover:text-gold/80 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -464,10 +487,13 @@ export default function AvailabilityPage() {
       </div>
 
       {/* Blocked dates */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Blocked Dates</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+      <div
+        className="bg-cream-2 overflow-hidden mt-6"
+        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      >
+        <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink">Blocked Dates</h2>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
             Block specific dates when you&apos;re unavailable (holidays, personal days)
           </p>
         </div>
@@ -480,11 +506,11 @@ export default function AvailabilityPage() {
                 .map((bd) => (
                   <div
                     key={bd.date}
-                    className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-2.5"
+                    className="flex items-center justify-between rounded bg-ink/5 px-4 py-2.5"
                   >
                     <div className="flex items-center gap-3">
                       <svg
-                        className="w-4 h-4 text-red-500"
+                        className="w-4 h-4 text-ink"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -496,12 +522,12 @@ export default function AvailabilityPage() {
                           d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
                         />
                       </svg>
-                      <span className="text-sm font-medium text-gray-900">{bd.date}</span>
-                      <span className="text-sm text-gray-500">— {bd.reason}</span>
+                      <span className="font-jost text-sm font-light text-ink">{bd.date}</span>
+                      <span className="font-jost text-sm font-light text-ink-2">— {bd.reason}</span>
                     </div>
                     <button
                       onClick={() => removeBlockedDate(bd.date)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      className="text-ink-3 hover:text-ink transition-colors"
                     >
                       <svg
                         className="w-4 h-4"
@@ -525,16 +551,19 @@ export default function AvailabilityPage() {
           {/* Add blocked date */}
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-1">
+                Date
+              </label>
               <input
                 type="date"
                 value={newBlockDate}
                 onChange={(e) => setNewBlockDate(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-1">
                 Reason (optional)
               </label>
               <input
@@ -542,13 +571,14 @@ export default function AvailabilityPage() {
                 value={newBlockReason}
                 onChange={(e) => setNewBlockReason(e.target.value)}
                 placeholder="e.g. Holiday"
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
             </div>
             <button
               onClick={addBlockedDate}
               disabled={!newBlockDate}
-              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light rounded hover:bg-ink/90 disabled:opacity-50 transition-colors"
             >
               Block Date
             </button>
@@ -559,7 +589,7 @@ export default function AvailabilityPage() {
       {/* Save button */}
       <div className="mt-6 flex items-center justify-end gap-3">
         {saved && (
-          <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+          <span className="font-jost text-sm font-light text-gold flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -574,7 +604,7 @@ export default function AvailabilityPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-ink text-cream font-jost text-sm font-light rounded hover:bg-ink/90 disabled:opacity-50 transition-colors"
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>

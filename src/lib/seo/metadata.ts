@@ -40,7 +40,7 @@ export const PAGE_METADATA = {
   home: generatePageMetadata({
     title: 'Book Trusted Cleaners',
     description:
-      'Book vetted, trusted cleaners in London. Fair pricing with just 10% platform fee. Cleaners keep 90% of earnings.',
+      'Book vetted, trusted cleaners in London. Fair pricing with just 10% commission + 5% service fee. Cleaners keep 90% of earnings.',
     path: '/',
   }),
   cleaners: generatePageMetadata({
@@ -58,13 +58,13 @@ export const PAGE_METADATA = {
   pricing: generatePageMetadata({
     title: 'Transparent Pricing',
     description:
-      'Simple, fair pricing with no hidden fees. Just 10% platform fee — the lowest in the industry.',
+      'Simple, fair pricing with no hidden fees. Just 10% commission + 5% service fee — the lowest in the industry.',
     path: '/pricing',
   }),
   about: generatePageMetadata({
     title: 'About Us',
     description:
-      'Rena connects customers with vetted cleaners. Fair for everyone — cleaners keep 90%.',
+      'Rena connects customers with vetted cleaners. Fair for everyone — only 10% commission + 5% service fee.',
     path: '/about',
   }),
   faq: generatePageMetadata({
@@ -76,7 +76,7 @@ export const PAGE_METADATA = {
   join: generatePageMetadata({
     title: 'Become a Cleaner',
     description:
-      'Join Rena and keep 90% of your earnings. Set your own hours, rates, and service areas.',
+      'Join Rena and keep 90% of your earnings. Next business day payouts, set your own hours and rates.',
     path: '/join',
   }),
 };

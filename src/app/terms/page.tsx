@@ -100,19 +100,26 @@ export default function TermsPage() {
           <h2 className="font-cormorant text-2xl font-light text-ink">5. Pricing and Payment</h2>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
             <li>
-              Cleaners set their own hourly rates. Rena adds a 10% platform fee to the
-              cleaner&apos;s rate to determine the total price paid by the customer.
+              Cleaners set their own hourly rates. Rena adds a 10% platform commission on top of the
+              cleaner&apos;s rate, plus a 5% service fee charged to the customer on the subtotal.
             </li>
-            <li>All prices are displayed in British Pounds (GBP) and include the platform fee.</li>
+            <li>
+              All prices are displayed in British Pounds (GBP). The commission and service fee are
+              shown separately at checkout.
+            </li>
             <li>Payments are processed securely through our payment provider (Stripe).</li>
             <li>
               For first bookings with a new cleaner, payments may be held in escrow until the
               service is completed.
             </li>
             <li>
-              Cleaners receive payment after the service is completed, less the 10% platform fee.
+              Cleaners receive payment after the service is completed, less the 10% platform
+              commission.
             </li>
-            <li>Rena reserves the right to modify the platform fee with 30 days prior notice.</li>
+            <li>
+              Rena reserves the right to modify the platform commission and service fee with 30 days
+              prior notice.
+            </li>
           </ul>
         </section>
 
