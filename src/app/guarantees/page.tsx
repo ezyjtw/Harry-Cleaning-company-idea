@@ -70,8 +70,8 @@ export default function GuaranteesPage() {
                       Describe the areas you are not satisfied with and provide photos if possible.
                     </li>
                     <li>
-                      We will arrange a free re-clean within 48 hours, or issue a full refund — your
-                      choice.
+                      If your claim meets our in-house criteria, we will issue a full refund. We can
+                      also help you re-book another cleaner if you would like.
                     </li>
                   </ol>
                 </div>
@@ -267,7 +267,7 @@ export default function GuaranteesPage() {
         style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}
       />
 
-      {/* Re-clean Policy */}
+      {/* Refund Policy */}
       <section className="py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-start gap-6">
@@ -288,24 +288,24 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-cormorant text-3xl font-light text-ink">Re-Clean Policy</h2>
+              <h2 className="font-cormorant text-3xl font-light text-ink">Refund Policy</h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
-                  If specific areas of your home were not cleaned to the agreed standard, we will
-                  arrange a free re-clean of those areas. This is separate from the full
-                  satisfaction guarantee and applies to partial issues.
+                  If specific areas of your home were not cleaned to the agreed standard and your
+                  claim meets our in-house criteria, we will issue a full refund. We are also happy
+                  to help you re-book another cleaner if you would like.
                 </p>
                 <div
                   className="bg-cream-2 p-6"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
-                  <h3 className="font-jost font-normal text-ink">Re-clean conditions:</h3>
+                  <h3 className="font-jost font-normal text-ink">Refund conditions:</h3>
                   <ul className="mt-3 space-y-2 font-jost font-light text-ink-2">
                     <li>Must be reported within 24 hours of the clean</li>
                     <li>Photos of the areas in question are helpful but not required</li>
-                    <li>Re-clean will be scheduled within 48 hours</li>
+                    <li>Claim must meet our in-house review criteria</li>
                     <li>
-                      The same cleaner or a replacement will be arranged based on your preference
+                      We can help you re-book a different cleaner if you would like to try again
                     </li>
                   </ul>
                 </div>

@@ -35,7 +35,7 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - Escrow payment protection for first bookings
 - Rich in-app messaging with read receipts and conversation threads
 - AI customer assistant for conversational booking and enquiries
-- Satisfaction guarantee with re-clean or refund options
+- Satisfaction guarantee with full refund and help re-booking a cleaner
 
 ### For Cleaners
 

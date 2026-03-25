@@ -75,7 +75,7 @@ const faqCategories = [
       },
       {
         q: 'What if I am not happy with the clean?',
-        a: 'We offer a satisfaction guarantee. If you are not satisfied, contact us within 24 hours and we will arrange a re-clean at no extra cost or issue a full refund. See our Guarantees page for details.',
+        a: 'We offer a satisfaction guarantee. If you are not satisfied, contact us within 24 hours. If your claim meets our in-house criteria, we will issue a full refund. We can also help you re-book another cleaner. See our Guarantees page for details.',
       },
       {
         q: 'Do cleaners bring their own supplies?',
