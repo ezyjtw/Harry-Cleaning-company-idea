@@ -66,7 +66,7 @@ const values = [
   {
     title: 'Trust & Safety',
     description:
-      'Every cleaner is ID-verified and background-checked. Escrow payments protect first bookings, and our review system keeps standards high.',
+      'Every cleaner is ID-verified and personally vetted. Escrow payments protect first bookings, and our review system keeps standards high.',
     icon: (
       <svg
         className="h-8 w-8"
@@ -294,8 +294,8 @@ export default function AboutPage() {
               },
               {
                 step: '2',
-                title: 'Background Check',
-                desc: 'A comprehensive background check is conducted through our trusted partner to ensure safety.',
+                title: 'Reference Check',
+                desc: 'We contact previous clients or employers to verify cleaning experience and reliability.',
               },
               {
                 step: '3',

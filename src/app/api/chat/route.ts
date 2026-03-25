@@ -50,7 +50,7 @@ SERVICE TYPES
 - Same-Day: urgent booking for same-day service.
 
 GENERAL
-- Cleaners are vetted, background-checked, and rated by customers.
+- Cleaners are vetted, ID-verified, and rated by customers.
 - Payments are handled securely through the platform.
 - Browse cleaners at /cleaners. Book a service at /services.
 - Contact page: /contact. Support email: support@renacleaning.co.uk.

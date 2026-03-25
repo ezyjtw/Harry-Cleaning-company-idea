@@ -82,7 +82,7 @@ export default function HowItWorksPage() {
               {
                 step: '2',
                 title: 'Get Verified',
-                desc: 'Complete our verification process including background check and identity confirmation. Verified cleaners get more bookings and earn trust faster.',
+                desc: 'Complete our verification process including identity confirmation and reference checks. Verified cleaners get more bookings and earn trust faster.',
               },
               {
                 step: '3',

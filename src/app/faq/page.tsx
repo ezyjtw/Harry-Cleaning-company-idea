@@ -67,7 +67,7 @@ const faqCategories = [
     questions: [
       {
         q: 'How are cleaners vetted?',
-        a: 'Every cleaner on Rena goes through a multi-step verification process including identity verification, background checks, proof of right to work, and reference checks. Only cleaners who pass all steps earn the "Verified" badge.',
+        a: 'Every cleaner on Rena goes through a multi-step verification process including identity verification, proof of right to work, and reference checks. Cleaners who pass all steps earn the "Verified" badge.',
       },
       {
         q: 'Can I leave a review for my cleaner?',
@@ -105,7 +105,7 @@ const faqCategories = [
     questions: [
       {
         q: 'Is it safe to let a cleaner into my home?',
-        a: 'Safety is our top priority. All cleaners are ID-verified and background-checked. Our review system provides transparency, and our escrow payment system protects you on first bookings with new cleaners.',
+        a: 'Safety is our top priority. All cleaners are ID-verified and personally vetted. Our review system provides transparency, and our escrow payment system protects you on first bookings with new cleaners.',
       },
       {
         q: 'Are cleaners insured?',
