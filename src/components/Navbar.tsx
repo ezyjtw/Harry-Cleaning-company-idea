@@ -1,13 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const headerBarRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(69);
+
+  const checkDesktop = useCallback(() => {
+    setIsDesktop(window.innerWidth >= 768);
+  }, []);
+
+  useEffect(() => {
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, [checkDesktop]);
 
   useEffect(() => {
     if (headerBarRef.current) {
@@ -69,14 +80,26 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Dropdown menu – full-width on mobile, right-aligned 400px panel on md+ */}
+      {/* Dropdown menu – full-width on mobile, right-aligned 400px panel on desktop */}
       {open && (
         <nav
-          className="border-t border-ink/5 bg-white md:fixed md:right-0 md:w-[400px] md:border-l md:border-ink/5 md:shadow-lg"
-          style={{ zIndex: 9999, top: headerHeight }}
+          className="border-t border-ink/5 bg-white"
+          style={
+            isDesktop
+              ? {
+                  position: 'fixed',
+                  top: headerHeight,
+                  right: 0,
+                  width: 400,
+                  zIndex: 9999,
+                  borderLeft: '1px solid rgba(27,42,74,0.05)',
+                  boxShadow: '-4px 4px 20px rgba(0,0,0,0.08)',
+                }
+              : { zIndex: 9999 }
+          }
           aria-label="Main navigation"
         >
-          <div className="px-5 py-6 md:px-8">
+          <div className={isDesktop ? 'px-8 py-6' : 'px-5 py-6'}>
             {/* Client flow */}
             <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
               I need a cleaner
