@@ -61,8 +61,8 @@ function LockIcon() {
 const guarantees = [
   {
     icon: <ShieldIcon />,
-    title: 'DBS checked',
-    body: 'Every cleaner passes a full criminal record check before they can take a single booking.',
+    title: 'Vetted cleaners',
+    body: 'Every cleaner is ID-verified and personally vetted before they can take a single booking.',
   },
   {
     icon: <IdIcon />,

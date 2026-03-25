@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 
 const trustItems = [
-  { label: 'DBS checked' },
+  { label: 'Vetted cleaners' },
   { label: 'ID verified' },
   { label: 'Insured' },
   { label: 'Verified reviews' },
@@ -467,8 +467,8 @@ export default function HeroSection() {
             </h1>
 
             <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
-              Browse DBS-checked, personally vetted cleaners in your area. Read genuine reviews,
-              choose someone you trust, and book in two minutes.
+              Browse personally vetted cleaners in your area. Read genuine reviews, choose someone
+              you trust, and book in two minutes.
             </p>
 
             <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">
