@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -109,29 +108,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure API key is configured
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       // eslint-disable-next-line no-console
-      console.error('ANTHROPIC_API_KEY is not set');
+      console.error('GROQ_API_KEY is not set');
       return NextResponse.json({ error: 'Chat service is not configured.' }, { status: 500 });
     }
 
-    // Call Claude API
-    const anthropic = new Anthropic({ apiKey });
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: messages.map((msg: { role: string; content: string }) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      })),
+    // Call Groq API (OpenAI-compatible)
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...messages.map((msg: { role: string; content: string }) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        ],
+      }),
     });
 
-    // Extract text from response
-    const textBlock = response.content.find((block) => block.type === 'text');
-    const reply = textBlock ? textBlock.text : 'Sorry, I could not generate a response.';
+    if (!groqResponse.ok) {
+      const errorBody = await groqResponse.text();
+      // eslint-disable-next-line no-console
+      console.error('Groq API error:', groqResponse.status, errorBody);
+      return NextResponse.json(
+        { error: 'An unexpected error occurred. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    const data = await groqResponse.json();
+    const reply = data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
 
     return NextResponse.json({ reply });
   } catch (error) {
