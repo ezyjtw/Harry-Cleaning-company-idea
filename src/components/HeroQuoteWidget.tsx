@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { isInCatchmentArea } from '@/lib/catchment';
+
 // ─── Types ──────────────────────────────────────────────────────
 
 type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
@@ -129,6 +131,12 @@ export default function HeroQuoteWidget() {
   // Fixed price display for step 2
   const [fixedPriceDisplay, setFixedPriceDisplay] = useState<number | null>(null);
 
+  // Out-of-area waitlist
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch services on mount
@@ -232,9 +240,34 @@ export default function HeroQuoteWidget() {
       return;
     }
     setPostcodeError('');
+
+    if (!isInCatchmentArea(trimmed)) {
+      setConfirmedPostcode(trimmed.toUpperCase());
+      setShowWaitlist(true);
+      return;
+    }
+
+    setShowWaitlist(false);
     setConfirmedPostcode(trimmed.toUpperCase());
     setCleanerCount(getCleanerCount(trimmed));
     setStep(2);
+  };
+
+  const handleWaitlistSubmit = async () => {
+    if (!waitlistEmail.trim()) return;
+    setWaitlistLoading(true);
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail.trim(), postcode: confirmedPostcode }),
+      });
+      setWaitlistSubmitted(true);
+    } catch {
+      // silently fail
+    } finally {
+      setWaitlistLoading(false);
+    }
   };
 
   const canProceedStep2 = bedrooms !== null && bathrooms !== null;
@@ -317,6 +350,48 @@ export default function HeroQuoteWidget() {
       </div>
 
       {postcodeError && <p className="mt-2 text-sm text-red-500">{postcodeError}</p>}
+
+      {/* Out-of-area waitlist */}
+      {showWaitlist && !waitlistSubmitted && (
+        <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="text-sm font-semibold text-amber-800">
+            We&apos;re expanding to your area soon
+          </p>
+          <p className="mt-1 text-xs text-amber-700">
+            Leave your email and we&apos;ll notify you when we launch near{' '}
+            <span className="font-medium">{confirmedPostcode}</span>.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="email"
+              value={waitlistEmail}
+              onChange={(e) => setWaitlistEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleWaitlistSubmit();
+              }}
+              placeholder="your@email.com"
+              className="flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            />
+            <button
+              type="button"
+              onClick={handleWaitlistSubmit}
+              disabled={waitlistLoading || !waitlistEmail.trim()}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50 transition"
+            >
+              {waitlistLoading ? 'Sending...' : 'Notify Me'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showWaitlist && waitlistSubmitted && (
+        <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-center">
+          <p className="text-sm font-semibold text-green-800">You&apos;re on the list</p>
+          <p className="mt-1 text-xs text-green-700">
+            We&apos;ll email you as soon as we launch in your area.
+          </p>
+        </div>
+      )}
     </div>
   );
 

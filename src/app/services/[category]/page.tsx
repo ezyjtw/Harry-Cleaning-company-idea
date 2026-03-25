@@ -6,6 +6,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
+import { isInCatchmentArea } from '@/lib/catchment';
 import { cleaners, getCleanerById, getReviewsForCleaner } from '@/lib/mock-data';
 import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
 import type {
@@ -223,6 +224,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [cleanerCount, setCleanerCount] = useState(1);
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
+
+  // Out-of-area waitlist
+  const [outsideCatchment, setOutsideCatchment] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
 
   // Fixed-price calculation for Airbnb & EOT
   const fixedPriceQuote = useMemo(() => {
@@ -508,11 +515,94 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <input
               type="text"
               value={postcode}
-              onChange={(e) => setPostcode(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setPostcode(val);
+                // Check catchment when a full postcode is entered
+                const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+                if (fullPostcode.test(val.trim())) {
+                  setOutsideCatchment(!isInCatchmentArea(val));
+                } else {
+                  setOutsideCatchment(false);
+                }
+              }}
               placeholder="e.g. SW1A 1AA"
               className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-lg text-ink focus:outline-none"
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             />
+
+            {/* Out-of-area waitlist */}
+            {outsideCatchment && !waitlistSubmitted && (
+              <div
+                className="mt-4 bg-cream-2 p-5"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <p className="font-jost text-sm font-normal text-ink">
+                  We&apos;re expanding to your area soon
+                </p>
+                <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                  Leave your email and we&apos;ll notify you when we launch near{' '}
+                  <span className="font-normal text-ink">{postcode}</span>.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (waitlistEmail.trim()) {
+                          setWaitlistLoading(true);
+                          fetch('/api/waitlist', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                          })
+                            .then(() => setWaitlistSubmitted(true))
+                            .catch(() => {})
+                            .finally(() => setWaitlistLoading(false));
+                        }
+                      }
+                    }}
+                    placeholder="your@email.com"
+                    className="flex-1 bg-white px-4 py-3 font-jost text-sm font-light text-ink focus:outline-none"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!waitlistEmail.trim()) return;
+                      setWaitlistLoading(true);
+                      fetch('/api/waitlist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                      })
+                        .then(() => setWaitlistSubmitted(true))
+                        .catch(() => {})
+                        .finally(() => setWaitlistLoading(false));
+                    }}
+                    disabled={waitlistLoading || !waitlistEmail.trim()}
+                    className="bg-ink px-5 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50"
+                  >
+                    {waitlistLoading ? 'Sending...' : 'Notify Me'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {outsideCatchment && waitlistSubmitted && (
+              <div
+                className="mt-4 bg-cream-2 p-5"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <p className="font-jost text-sm font-normal text-ink">You&apos;re on the list</p>
+                <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                  We&apos;ll email you as soon as we launch in your area.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Rooms */}
@@ -906,10 +996,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <button
             type="button"
             onClick={() => setPhase('cleaner')}
-            disabled={!postcode || !email}
+            disabled={!postcode || !email || outsideCatchment}
             className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Continue
+            {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
           </button>
         </div>
       </div>

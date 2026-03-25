@@ -1,0 +1,57 @@
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+
+import { RateLimiter } from '@/lib/utils/security';
+
+const waitlistRateLimiter = new RateLimiter({
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 10,
+});
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return request.headers.get('x-real-ip') || '127.0.0.1';
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const clientIP = getClientIP(request);
+    const rateCheck = waitlistRateLimiter.check(clientIP);
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    const body = await request.json();
+    const { email, postcode } = body;
+
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+      return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
+    }
+
+    if (!postcode || typeof postcode !== 'string') {
+      return NextResponse.json({ error: 'Postcode is required.' }, { status: 400 });
+    }
+
+    // Log to console for now — replace with database storage when ready
+    // eslint-disable-next-line no-console
+    console.log(`[WAITLIST] email=${email.trim()}, postcode=${postcode.trim()}, ip=${clientIP}`);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Waitlist API error:', error);
+
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+    }
+
+    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
+  }
+}
