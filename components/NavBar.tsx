@@ -1,11 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
+  const navBarRef = useRef<HTMLDivElement>(null);
+  const [navHeight, setNavHeight] = useState(69);
+
+  const checkDesktop = useCallback(() => {
+    setIsDesktop(window.innerWidth >= 768);
+  }, []);
+
+  useEffect(() => {
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, [checkDesktop]);
+
+  useEffect(() => {
+    if (navBarRef.current) {
+      setNavHeight(navBarRef.current.offsetHeight);
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -31,7 +50,7 @@ export default function NavBar() {
       className="bg-white px-5 py-4 md:px-14 md:py-5"
       style={{ borderBottom: '1px solid rgba(27,42,74,0.06)' }}
     >
-      <div className="flex items-center justify-between">
+      <div ref={navBarRef} className="flex items-center justify-between">
         <Link
           href="/"
           className="font-cormorant text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
@@ -58,9 +77,27 @@ export default function NavBar() {
         </button>
       </div>
 
-      {/* Full dropdown menu */}
+      {/* Dropdown menu – full-width on mobile, right-aligned 400px panel on desktop */}
       {open && (
-        <div className="mt-4 border-t border-ink/5 pt-6 pb-2">
+        <div
+          className="border-t border-ink/5 pt-6 pb-2"
+          style={
+            isDesktop
+              ? {
+                  position: 'fixed',
+                  top: navHeight,
+                  right: 0,
+                  width: 400,
+                  zIndex: 9999,
+                  backgroundColor: '#fff',
+                  borderLeft: '1px solid rgba(27,42,74,0.05)',
+                  boxShadow: '-4px 4px 20px rgba(0,0,0,0.08)',
+                  padding: '24px 32px 8px',
+                  marginTop: 0,
+                }
+              : { marginTop: 16 }
+          }
+        >
           {/* Client flow */}
           <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
             I need a cleaner
