@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import AvailableNowBadge from '@/components/AvailableNowBadge';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { getCleanerById, savedAddresses, pastBookings } from '@/lib/mock-data';
 import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
 import { shouldUseEscrow } from '@/lib/trust';
@@ -70,6 +71,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
+  const { trackStep, trackConversion } = useAnalytics('booking');
+
+  // Track initial page view and service selection step
+  useEffect(() => {
+    trackStep(
+      step === 'service' ? 1 : 2,
+      step === 'service' ? 'service_selected' : 'booking_details',
+      { cleanerId: params.id }
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!cleaner) {
     return (
@@ -124,6 +135,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const handleEmailBlur = () => {
     if (form.email && !abandonmentCaptured) {
       setAbandonmentCaptured(true);
+      trackStep(8, 'contact_info', { field: 'email' });
       fetch('/api/abandonment/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,6 +151,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    trackStep(9, 'payment_started', { serviceType: form.serviceType });
     const response = await fetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -151,6 +164,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     });
 
     if (response.ok) {
+      trackConversion({
+        cleanerId: cleaner.id,
+        serviceType: form.serviceType,
+        totalPrice: priceBreakdown.total,
+      });
       setSubmitted(true);
     }
   };

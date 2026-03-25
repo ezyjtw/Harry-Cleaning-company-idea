@@ -6,3 +6,5 @@ export { PricingService } from './pricing.service';
 export { BookingLifecycleService } from './booking-lifecycle.service';
 export { AvailabilityService } from './availability.service';
 export { TravelTimeService } from './travel-time.service';
+export { AnalyticsTrackingService } from './analytics-tracking.service';
+export { GdprService } from './gdpr.service';

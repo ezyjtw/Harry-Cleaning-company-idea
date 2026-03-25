@@ -761,3 +761,81 @@ model AbandonedLead {
   @@index([emailSent])
   @@index([createdAt])
 }
+
+// ─── Analytics Event Tracking ───────────────────────────────────────────────
+
+model AnalyticsEvent {
+  id           String   @id @default(cuid())
+  sessionId    String   // anonymous session identifier
+  userId       String?  // null for unauthenticated visitors
+  eventType    String   // e.g. "FUNNEL_STEP", "PAGE_VIEW", "FORM_INTERACTION", "DROP_OFF"
+  funnel       String?  // e.g. "booking", "cleaner_signup", "client_signup"
+  funnelStep   Int?     // step number in funnel (1, 2, 3...)
+  stepName     String?  // e.g. "postcode_entered", "service_selected", "payment_submitted"
+  page         String?  // URL path
+  referrer     String?  // where they came from
+  metadata     Json?    // flexible extra data (form field, error message, time on step, etc.)
+  deviceType   String?  // "mobile", "tablet", "desktop"
+  browser      String?
+  ipAddress    String?
+  duration     Int?     // time spent on this step in seconds
+  createdAt    DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([eventType])
+  @@index([funnel, funnelStep])
+  @@index([createdAt])
+  @@index([funnel, stepName])
+}
+
+// ─── GDPR Consent & Data Retention ──────────────────────────────────────────
+
+model GdprConsent {
+  id          String   @id @default(cuid())
+  userId      String?
+  email       String   // for guest users who haven't created an account
+  consentType String   // "marketing", "analytics", "essential", "data_processing"
+  granted     Boolean
+  ipAddress   String?
+  userAgent   String?
+  version     String   @default("1.0") // consent policy version
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  @@index([userId])
+  @@index([email])
+  @@index([consentType])
+  @@index([createdAt])
+}
+
+model DataRetentionLog {
+  id           String   @id @default(cuid())
+  entityType   String   // "User", "Booking", "Message", "AnalyticsEvent"
+  entityId     String
+  action       String   // "ANONYMISED", "DELETED", "EXPORTED", "RETENTION_EXTENDED"
+  reason       String   // "user_request", "retention_policy", "legal_hold"
+  performedBy  String?  // admin userId or "SYSTEM"
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model DataDeletionRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  email       String
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, REJECTED
+  reason      String?   @db.Text
+  requestedAt DateTime  @default(now())
+  completedAt DateTime?
+  processedBy String?   // admin userId
+  notes       String?   @db.Text
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedAt])
+}

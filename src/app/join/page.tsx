@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
+
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
@@ -514,6 +516,12 @@ export default function JoinAsCleanerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [ryftMessage, setRyftMessage] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
+
+  // Track initial page view
+  useEffect(() => {
+    trackStep(1, 'join_page_view');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---- Restore from localStorage on mount ---- */
   useEffect(() => {
@@ -599,13 +607,22 @@ export default function JoinAsCleanerPage() {
     }
 
     setErrors(e);
+    if (Object.keys(e).length > 0) {
+      // Track validation errors for funnel analysis
+      Object.entries(e).forEach(([field, message]) => {
+        trackFormError(field, message, STEPS[step]?.label);
+      });
+    }
     return Object.keys(e).length === 0;
   }
 
   /* ---- Navigation ---- */
   function goNext() {
     if (!validate(currentStep)) return;
-    setCurrentStep((s) => Math.min(s + 1, 5));
+    const nextStep = Math.min(currentStep + 1, 5);
+    // Map wizard step (0-5) to funnel step (2-7: personal, experience, pricing, identity, payout, review)
+    trackStep(nextStep + 2, STEPS[nextStep]?.label?.toLowerCase() ?? `step_${nextStep}`);
+    setCurrentStep(nextStep);
     setErrors({});
   }
 
@@ -626,6 +643,7 @@ export default function JoinAsCleanerPage() {
       });
       if (response.ok) {
         localStorage.removeItem(STORAGE_KEY);
+        trackConversion({ email: form.email });
         setSubmitted(true);
       } else {
         setErrors({ submit: 'Something went wrong. Please try again.' });
