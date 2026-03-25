@@ -6,6 +6,14 @@ import { useState, useRef, useEffect } from 'react';
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const headerBarRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(69);
+
+  useEffect(() => {
+    if (headerBarRef.current) {
+      setHeaderHeight(headerBarRef.current.offsetHeight);
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -31,7 +39,10 @@ export default function Navbar() {
       className="relative bg-white"
       style={{ borderBottom: '1px solid rgba(27,42,74,0.06)' }}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5">
+      <div
+        ref={headerBarRef}
+        className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5"
+      >
         <Link
           href="/"
           className="font-cormorant text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
@@ -58,10 +69,11 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Dropdown menu */}
+      {/* Dropdown menu – full-width on mobile, right-aligned 400px panel on md+ */}
       {open && (
         <nav
-          className="absolute right-0 top-full z-50 w-full border-t border-ink/5 bg-white md:w-[400px] md:rounded-bl-lg md:border-l md:shadow-lg"
+          className="border-t border-ink/5 bg-white md:fixed md:right-0 md:w-[400px] md:border-l md:border-ink/5 md:shadow-lg"
+          style={{ zIndex: 9999, top: headerHeight }}
           aria-label="Main navigation"
         >
           <div className="px-5 py-6 md:px-8">
