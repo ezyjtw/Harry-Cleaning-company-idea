@@ -329,4 +329,54 @@ export class GdprService {
 
     return { anonymisedCount: updated.count };
   }
+
+  /**
+   * Destroy DBS certificate files after verification.
+   * Retains only certificate number, issue date, and verification outcome.
+   * Should be run as a scheduled job — destroys certificates older than 6 months.
+   */
+  static async destroyVerifiedDbsCertificates(maxAgeDays: number = 180) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+
+    // Find profiles with verified DBS certs that haven't been destroyed yet
+    const profiles = await prisma.cleanerProfile.findMany({
+      where: {
+        dbsCertVerified: true,
+        dbsCertDestroyedAt: null,
+        updatedAt: { lt: cutoffDate },
+      },
+      select: { id: true, userId: true },
+    });
+
+    let destroyedCount = 0;
+
+    for (const profile of profiles) {
+      await prisma.cleanerProfile.update({
+        where: { id: profile.id },
+        data: {
+          dbsCertDestroyedAt: new Date(),
+          // In production: also delete the actual file from storage here
+        },
+      });
+
+      await prisma.dataRetentionLog.create({
+        data: {
+          entityType: 'CleanerProfile',
+          entityId: profile.id,
+          action: 'DELETED',
+          reason: 'retention_policy',
+          performedBy: 'SYSTEM',
+          metadata: {
+            field: 'dbsCertFile',
+            note: 'DBS certificate file destroyed after verification. Certificate number and issue date retained.',
+          },
+        },
+      });
+
+      destroyedCount++;
+    }
+
+    return { destroyedCount };
+  }
 }

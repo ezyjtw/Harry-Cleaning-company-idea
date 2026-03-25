@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 import AIChatWidget from '@/components/AIChatWidget';
+import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
 import InstallPrompt from '@/components/InstallPrompt';
 import Navbar from '@/components/Navbar';
@@ -81,6 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Footer />
         </div>
         <InstallPrompt />
+        <CookieConsent />
         <AIChatWidget />
       </body>
     </html>

@@ -240,6 +240,12 @@ model CleanerProfile {
   verified              Boolean            @default(false)
   documentsUploaded     Boolean            @default(false)
   backgroundCheckPassed Boolean            @default(false)
+
+  // DBS certificate — destroyed after verification, only metadata retained
+  dbsCertVerified       Boolean            @default(false)
+  dbsCertNumber         String?            // retained after destruction
+  dbsCertIssueDate      DateTime?          // retained after destruction
+  dbsCertDestroyedAt    DateTime?          // when the actual file was destroyed
   location              String?
   latitude              Float?
   longitude             Float?

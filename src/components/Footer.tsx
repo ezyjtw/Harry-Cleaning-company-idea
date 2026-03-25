@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 
 export default function Footer() {
@@ -86,14 +88,29 @@ export default function Footer() {
               {[
                 { href: '/privacy', label: 'Privacy Policy' },
                 { href: '/terms', label: 'Terms of Service' },
+                { href: '#cookie-settings', label: 'Cookie Settings' },
               ].map((link) => (
                 <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
-                  >
-                    {link.label}
-                  </Link>
+                  {link.href === '#cookie-settings' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fn = (window as unknown as Record<string, (() => void) | undefined>)
+                          .openCookieSettings;
+                        if (fn) fn();
+                      }}
+                      className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
+                    >
+                      {link.label}
+                    </button>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
+                    >
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

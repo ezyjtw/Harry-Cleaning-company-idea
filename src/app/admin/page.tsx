@@ -199,12 +199,20 @@ export default function AdminDashboard() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
         <p className="text-gray-500 mt-1">Platform overview and key metrics</p>
-        <a
-          href="/admin/analytics"
-          className="mt-2 inline-block rounded bg-ink px-4 py-2 font-jost text-sm text-cream hover:bg-ink/90"
-        >
-          Funnel Analytics
-        </a>
+        <div className="mt-2 flex gap-3">
+          <a
+            href="/admin/analytics"
+            className="inline-block rounded bg-ink px-4 py-2 font-jost text-sm text-cream hover:bg-ink/90"
+          >
+            Funnel Analytics
+          </a>
+          <a
+            href="/admin/dpia"
+            className="inline-block rounded border border-ink/20 px-4 py-2 font-jost text-sm text-ink hover:bg-gray-50"
+          >
+            DPIA
+          </a>
+        </div>
       </div>
 
       {/* Metrics cards */}

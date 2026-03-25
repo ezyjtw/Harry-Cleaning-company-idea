@@ -57,6 +57,15 @@ export default function PrivacyPage() {
               <strong className="font-normal text-ink">Verification Documents:</strong> Identity
               documents, background check information, and insurance certificates (for cleaners).
             </li>
+            <li>
+              <strong className="font-normal text-ink">Right to Work Documents:</strong> Passport,
+              Biometric Residence Permit, Home Office share code, visa, or EU settlement status
+              documentation to verify legal eligibility to work in the UK (for cleaners).
+            </li>
+            <li>
+              <strong className="font-normal text-ink">DBS Certificates:</strong> Disclosure and
+              Barring Service certificates voluntarily provided by cleaners to enhance trust.
+            </li>
           </ul>
 
           <h3 className="mt-6 font-cormorant text-lg font-light text-ink">
@@ -145,9 +154,52 @@ export default function PrivacyPage() {
           <h2 className="font-cormorant text-2xl font-light text-ink">5. Data Retention</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             We retain your personal information for as long as your account is active or as needed
-            to provide you with services. We may also retain certain information as required by law
-            or for legitimate business purposes, such as resolving disputes and enforcing our
-            agreements. When information is no longer needed, we securely delete or anonymise it.
+            to provide you with services. Specific retention periods are as follows:
+          </p>
+          <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
+            <li>
+              <strong className="font-normal text-ink">Account data:</strong> Retained while your
+              account is active and for 6 years after account closure (to comply with HMRC
+              requirements and for legal claims).
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Booking and payment records:</strong>{' '}
+              Retained for 6 years after the booking date for tax and legal compliance.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Right to work documents:</strong> Retained
+              for the duration of the cleaner&apos;s engagement plus 2 years after, in line with
+              Home Office guidance.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">DBS certificates:</strong> Used only for
+              verification purposes. The certificate itself is securely destroyed within 6 months of
+              verification. We retain only the date of issue, certificate number, and verification
+              outcome — not the certificate content.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Identity documents (Photo ID):</strong>{' '}
+              Retained for the duration of the cleaner&apos;s active account. Securely deleted
+              within 30 days of account closure or upon a valid deletion request.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Messages and communications:</strong>{' '}
+              Retained for 2 years after the last message, then anonymised.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Analytics data:</strong> IP addresses and
+              user identifiers are anonymised after 2 years. Aggregated, non-identifiable analytics
+              data may be retained indefinitely.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Audit logs:</strong> Retained for 7 years for
+              regulatory compliance and fraud prevention.
+            </li>
+          </ul>
+          <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
+            When information is no longer needed, we securely delete or anonymise it. You may
+            request early deletion of your data at any time (see Section 6), though some data may
+            need to be retained where we have a legal obligation to do so.
           </p>
         </section>
 
@@ -198,17 +250,33 @@ export default function PrivacyPage() {
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
           <h2 className="font-cormorant text-2xl font-light text-ink">7. Cookies</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
-            We use cookies and similar technologies to:
+            We use cookies and similar technologies on the Platform. When you first visit, you will
+            be shown a cookie consent banner where you can choose which types of cookies to accept.
           </p>
-          <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
-            <li>Keep you signed in to your account</li>
-            <li>Remember your preferences and settings</li>
-            <li>Understand how you use the Platform</li>
-            <li>Improve our services based on usage patterns</li>
-          </ul>
+
+          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">7.1 Essential Cookies</h3>
+          <p className="mt-2 font-jost font-light text-ink-2 leading-relaxed">
+            These are necessary for the Platform to function and cannot be disabled. They include
+            session cookies to keep you signed in and security cookies to prevent fraud.
+          </p>
+
+          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">7.2 Analytics Cookies</h3>
+          <p className="mt-2 font-jost font-light text-ink-2 leading-relaxed">
+            With your consent, we use analytics cookies to understand how you use the Platform,
+            which pages you visit, and where you experience difficulties. This data helps us improve
+            the booking experience. Analytics data is anonymised after 2 years.
+          </p>
+
+          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">7.3 Marketing Cookies</h3>
+          <p className="mt-2 font-jost font-light text-ink-2 leading-relaxed">
+            With your consent, we may use marketing cookies to show you relevant content and measure
+            the effectiveness of our communications. You can withdraw consent at any time.
+          </p>
+
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
-            You can control cookie settings through your browser. Disabling certain cookies may
-            affect the functionality of the Platform.
+            You can change your cookie preferences at any time by clicking &quot;Cookie
+            Settings&quot; in the footer of any page, or through your browser settings. Disabling
+            essential cookies may affect the functionality of the Platform.
           </p>
         </section>
 
@@ -257,8 +325,52 @@ export default function PrivacyPage() {
           </p>
         </section>
 
+        <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
+          <h2 className="font-cormorant text-2xl font-light text-ink">
+            12. Legal Basis for Processing
+          </h2>
+          <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
+            We process your personal data under the following legal bases:
+          </p>
+          <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
+            <li>
+              <strong className="font-normal text-ink">Contract:</strong> Processing necessary to
+              perform our contract with you (e.g. processing bookings, payments, managing your
+              account).
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Legal obligation:</strong> Processing
+              required to comply with the law (e.g. right to work checks, tax records, fraud
+              prevention).
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Legitimate interests:</strong> Processing
+              necessary for our legitimate interests where these are not overridden by your rights
+              (e.g. platform security, service improvement, dispute resolution).
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Consent:</strong> Where you have given
+              explicit consent (e.g. marketing emails, analytics cookies). You may withdraw consent
+              at any time.
+            </li>
+          </ul>
+        </section>
+
+        <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
+          <h2 className="font-cormorant text-2xl font-light text-ink">
+            13. Data Protection Impact Assessments
+          </h2>
+          <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
+            We conduct Data Protection Impact Assessments (DPIAs) for processing activities that are
+            likely to result in a high risk to individuals&apos; rights and freedoms. This includes
+            our handling of location data, home access information, identity documents, and right to
+            work verification. DPIAs are reviewed annually and whenever we introduce significant
+            changes to our data processing activities.
+          </p>
+        </section>
+
         <section className="mt-8">
-          <h2 className="font-cormorant text-2xl font-light text-ink">12. Contact Us</h2>
+          <h2 className="font-cormorant text-2xl font-light text-ink">14. Contact Us</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             If you have questions about this Privacy Policy or our data practices, please contact
             us:
