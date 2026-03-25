@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
+import AddToCalendar from '@/components/AddToCalendar';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
@@ -251,9 +252,51 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [specialInstructions, setSpecialInstructions] = useState('');
 
   const [submitted, setSubmitted] = useState(false);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [confirmedBookingId, setConfirmedBookingId] = useState('');
 
   const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
   const selectedCleaner = selectedCleaners[0] ?? null;
+
+  const handleBookingSubmit = async () => {
+    if (bookingSubmitting) return;
+    setBookingSubmitting(true);
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cleanerId: selectedCleaner?.id || 'auto-assign',
+          name: email.split('@')[0], // Will use real name from auth in production
+          email,
+          phone: '',
+          address: postcode,
+          date: selectedDay,
+          time: selectedTime || 'Flexible',
+          duration: effectiveHours,
+          serviceType: category,
+          notes: specialInstructions,
+          totalPrice: selectedCleaner
+            ? getPriceBreakdown(
+                selectedCleaner.hourlyRate,
+                effectiveHours,
+                SERVICE_MULTIPLIERS[category] ?? 1
+              ).total
+            : 0,
+          isGuest: true,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setConfirmedBookingId(data.booking?.id || '');
+        setSubmitted(true);
+      }
+    } catch {
+      // Handle error silently for now
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
 
   // ─── Step-by-step back navigation ────────────────────
   // Determines which "step" the user is on for back-button behaviour
@@ -480,6 +523,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             You&apos;ve been added to our mailing list for tips and offers.
           </p>
         )}
+
+        {selectedDay && (
+          <AddToCalendar
+            title={`${serviceLabel}${selectedCleaners.length > 0 ? ` - ${selectedCleaners.map((c) => c.name).join(', ')}` : ''}`}
+            description={`Cleaning booked via Rena. Ref: ${confirmedBookingId || 'TBC'}`}
+            location={postcode}
+            date={selectedDay}
+            time={selectedTime || '9:00 AM'}
+            durationHours={effectiveHours}
+          />
+        )}
+
         <Link
           href="/"
           className="mt-10 inline-block bg-ink px-8 py-3.5 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
@@ -1316,11 +1371,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           <button
             type="button"
-            onClick={() => setSubmitted(true)}
+            onClick={handleBookingSubmit}
             disabled={!selectedDay || !selectedTime}
             className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Submit Booking Request
+            {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
           </button>
         </div>
       </div>
@@ -1554,7 +1609,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Submit */}
             <button
               type="button"
-              onClick={() => setSubmitted(true)}
+              onClick={handleBookingSubmit}
               className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
             >
               Confirm Same-Day Booking
@@ -1890,7 +1945,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         <button
           type="button"
-          onClick={() => setSubmitted(true)}
+          onClick={handleBookingSubmit}
           disabled={!selectedDay || !selectedTime}
           className="mt-6 w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -2765,11 +2820,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             <button
               type="button"
-              onClick={() => setSubmitted(true)}
+              onClick={handleBookingSubmit}
               disabled={!selectedDay || !selectedTime}
               className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Submit Booking Request
+              {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
             </button>
           </>
         )}

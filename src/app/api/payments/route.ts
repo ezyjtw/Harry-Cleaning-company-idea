@@ -1,11 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-// POST /api/payments — Create a payment intent
+import { createPaymentSession, getPaymentSession } from '@/lib/services/ryft-payment.service';
+
+// POST /api/payments — Create a Ryft payment session
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { bookingId, amount } = body;
+    const { bookingId, amount, customerEmail, customerName, returnUrl, description } = body;
 
     if (!bookingId || !amount || amount <= 0) {
       return NextResponse.json(
@@ -14,47 +16,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Replace with real Ryft integration
-    // const ryft = new Ryft(process.env.RYFT_SECRET_KEY!)
-    // const paymentIntent = await ryft.paymentSessions.create({
-    //   amount: Math.round(amount * 100), // Convert to pence
-    //   currency: 'gbp',
-    //   metadata: { bookingId },
-    // })
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    const mockPayment = {
-      id: `pay_${Date.now()}`,
-      bookingId,
+    const session = await createPaymentSession({
       amount,
-      currency: 'gbp',
-      status: 'pending',
-      clientSecret: `mock_secret_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
+      bookingId,
+      customerEmail: customerEmail || '',
+      customerName: customerName || '',
+      description: description || `Rena Cleaning - Booking ${bookingId}`,
+      returnUrl: returnUrl || `${appUrl}/booking/confirmation?bookingId=${bookingId}`,
+    });
 
-    return NextResponse.json(mockPayment, { status: 201 });
-  } catch {
+    return NextResponse.json(session, { status: 201 });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Payment creation error:', error);
     return NextResponse.json({ error: 'Failed to create payment.' }, { status: 500 });
   }
 }
 
-// GET /api/payments?bookingId=xxx — Get payment status
+// GET /api/payments?sessionId=xxx — Get payment session status
 export async function GET(req: NextRequest) {
-  const bookingId = req.nextUrl.searchParams.get('bookingId');
+  const sessionId = req.nextUrl.searchParams.get('sessionId');
 
-  if (!bookingId) {
-    return NextResponse.json({ error: 'bookingId query parameter is required.' }, { status: 400 });
+  if (!sessionId) {
+    return NextResponse.json({ error: 'sessionId query parameter is required.' }, { status: 400 });
   }
 
-  // TODO: Replace with real database lookup
-  const mockPayment = {
-    id: `pay_mock_${bookingId}`,
-    bookingId,
-    amount: 85.0,
-    currency: 'gbp',
-    status: 'completed',
-    createdAt: new Date().toISOString(),
-  };
+  const session = await getPaymentSession(sessionId);
 
-  return NextResponse.json(mockPayment);
+  if (!session) {
+    return NextResponse.json({ error: 'Payment session not found.' }, { status: 404 });
+  }
+
+  return NextResponse.json(session);
 }

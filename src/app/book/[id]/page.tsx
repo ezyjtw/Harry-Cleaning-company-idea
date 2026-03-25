@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+import AddToCalendar from '@/components/AddToCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
@@ -68,6 +69,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   });
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
   const [submitted, setSubmitted] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
+  const [bookingData, setBookingData] = useState<{
+    id: string;
+    payment: { sessionId: string; clientSecret: string } | null;
+  } | null>(null);
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
@@ -151,25 +157,46 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPaymentPending(true);
     trackStep(9, 'payment_started', { serviceType: form.serviceType });
-    const response = await fetch('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        cleanerId: cleaner.id,
-        ...form,
-        totalPrice: priceBreakdown.total,
-        isLastMinute,
-      }),
-    });
 
-    if (response.ok) {
-      trackConversion({
-        cleanerId: cleaner.id,
-        serviceType: form.serviceType,
-        totalPrice: priceBreakdown.total,
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cleanerId: cleaner.id,
+          ...form,
+          totalPrice: priceBreakdown.total,
+          isLastMinute,
+          isGuest: bookingMode === 'guest',
+        }),
       });
-      setSubmitted(true);
+
+      if (response.ok) {
+        const data = await response.json();
+        setBookingData(data.booking ? { id: data.booking.id, payment: data.payment } : null);
+
+        trackConversion({
+          cleanerId: cleaner.id,
+          serviceType: form.serviceType,
+          totalPrice: priceBreakdown.total,
+        });
+
+        // If we have a real Ryft payment session with a return URL, redirect to payment
+        if (data.payment?.clientSecret && !data.payment.clientSecret.startsWith('cs_mock_')) {
+          // In production with Ryft Drop-in, you'd mount the Ryft payment UI here.
+          // For now, mark as submitted (payment handled via webhook on completion).
+          setSubmitted(true);
+        } else {
+          // Mock/dev mode — skip payment, go straight to confirmation
+          setSubmitted(true);
+        }
+      }
+    } catch {
+      // Handle error
+    } finally {
+      setPaymentPending(false);
     }
   };
 
@@ -232,6 +259,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </div>
           </div>
         </div>
+        <AddToCalendar
+          title={`${selectedService.label} - ${cleaner.name}`}
+          description={`Cleaning with ${cleaner.name} via Rena. Booking ref: ${bookingData?.id || 'TBC'}`}
+          location={form.address}
+          date={form.date}
+          time={form.time}
+          durationHours={form.duration}
+        />
+
         <button
           onClick={() => router.push('/cleaners')}
           className="mt-8 bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
@@ -745,11 +781,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
         <button
           type="submit"
-          className={`w-full py-3 font-jost text-lg font-normal text-cream ${
+          disabled={paymentPending}
+          className={`w-full py-3 font-jost text-lg font-normal text-cream disabled:opacity-60 ${
             isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
           }`}
         >
-          {isLastMinute ? 'Send Express Booking' : 'Confirm Booking'}
+          {paymentPending
+            ? 'Processing...'
+            : isLastMinute
+              ? 'Send Express Booking'
+              : 'Confirm & Pay'}
         </button>
       </form>
     </div>
