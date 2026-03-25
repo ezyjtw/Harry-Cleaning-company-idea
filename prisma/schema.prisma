@@ -263,6 +263,14 @@ model CleanerProfile {
   totalJobsCompleted    Int                @default(0)
   availabilitySummary   String?            @db.Text
 
+  // Right to work verification
+  rightToWorkStatus     VerificationStatus @default(UNVERIFIED)
+  rightToWorkDocType    String?            // "uk_passport", "brp", "eu_settled", "eu_pre_settled", "share_code", "visa"
+  rightToWorkDocFile    String?            // stored file reference
+  rightToWorkShareCode  String?            // gov.uk share code if applicable
+  rightToWorkExpiresAt  DateTime?          // null for indefinite right (UK/Irish citizens)
+  rightToWorkVerifiedAt DateTime?
+
   providerId            String?
 
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -29,9 +29,13 @@ interface FormData {
   sameDayRate: string;
   hoursPerWeek: string;
 
-  // Step 3 – Identity
+  // Step 3 – Identity & Right to Work
   photoIdFile: string;
   dbsCertFile: string;
+  rightToWorkDocType: string;
+  rightToWorkDocFile: string;
+  rightToWorkShareCode: string;
+  rightToWorkExpiryDate: string;
 
   // Step 4 – Payout (no persistent data, just UI)
 
@@ -59,6 +63,10 @@ const INITIAL_FORM: FormData = {
 
   photoIdFile: '',
   dbsCertFile: '',
+  rightToWorkDocType: '',
+  rightToWorkDocFile: '',
+  rightToWorkShareCode: '',
+  rightToWorkExpiryDate: '',
 
   agreedToTerms: false,
 };
@@ -598,6 +606,11 @@ export default function JoinAsCleanerPage() {
 
     if (step === 3) {
       if (!form.photoIdFile) e.photoIdFile = 'Photo ID is required';
+      if (!form.rightToWorkDocType) e.rightToWorkDocType = 'Please select your document type';
+      if (!form.rightToWorkDocFile) e.rightToWorkDocFile = 'Right to work document is required';
+      if (form.rightToWorkDocType === 'share_code' && !form.rightToWorkShareCode.trim()) {
+        e.rightToWorkShareCode = 'Please enter your gov.uk share code';
+      }
     }
 
     // Step 4 has no required fields
@@ -1118,13 +1131,101 @@ export default function JoinAsCleanerPage() {
               )}
             </div>
 
+            {/* ---- Right to Work ---- */}
+            <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+              <h2 className="font-cormorant text-xl font-light text-ink">Right to Work</h2>
+              <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                UK law requires us to verify your right to work before you can accept bookings.
+              </p>
+
+              <div className="mt-4">
+                <Label>Document type</Label>
+                <select
+                  value={form.rightToWorkDocType}
+                  onChange={(e) => set('rightToWorkDocType', e.target.value)}
+                  className="mt-1 block w-full border bg-cream px-3 py-2 font-jost text-sm font-light text-ink"
+                  style={{ borderColor: 'rgba(14,14,12,0.1)' }}
+                >
+                  <option value="">Select document type...</option>
+                  <option value="uk_passport">UK Passport</option>
+                  <option value="irish_passport">Irish Passport</option>
+                  <option value="brp">Biometric Residence Permit (BRP)</option>
+                  <option value="eu_settled">EU Settled Status</option>
+                  <option value="eu_pre_settled">EU Pre-Settled Status</option>
+                  <option value="share_code">Home Office Share Code</option>
+                  <option value="visa">Work Visa</option>
+                </select>
+                <FieldError message={errors.rightToWorkDocType} />
+              </div>
+
+              {form.rightToWorkDocType === 'share_code' && (
+                <div className="mt-4">
+                  <Label>Home Office share code</Label>
+                  <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Get your code at gov.uk/prove-right-to-work
+                  </p>
+                  <input
+                    type="text"
+                    value={form.rightToWorkShareCode}
+                    onChange={(e) => set('rightToWorkShareCode', e.target.value.toUpperCase())}
+                    placeholder="e.g. A1B2C3D4E"
+                    maxLength={9}
+                    className="mt-1 block w-full border bg-cream px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50"
+                    style={{ borderColor: 'rgba(14,14,12,0.1)' }}
+                  />
+                  <FieldError message={errors.rightToWorkShareCode} />
+                </div>
+              )}
+
+              {(form.rightToWorkDocType === 'brp' ||
+                form.rightToWorkDocType === 'eu_pre_settled' ||
+                form.rightToWorkDocType === 'visa') && (
+                <div className="mt-4">
+                  <Label>Document expiry date</Label>
+                  <input
+                    type="date"
+                    value={form.rightToWorkExpiryDate}
+                    onChange={(e) => set('rightToWorkExpiryDate', e.target.value)}
+                    className="mt-1 block w-full border bg-cream px-3 py-2 font-jost text-sm font-light text-ink"
+                    style={{ borderColor: 'rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+              )}
+
+              <div className="mt-4">
+                <Label>Upload document</Label>
+                <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  Upload a clear photo or scan of your right to work document.
+                </p>
+                <div
+                  className="mt-2 bg-cream p-4"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) set('rightToWorkDocFile', file.name);
+                    }}
+                    className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                  />
+                </div>
+                {form.rightToWorkDocFile && (
+                  <p className="mt-1 text-xs text-green-600">Selected: {form.rightToWorkDocFile}</p>
+                )}
+                <FieldError message={errors.rightToWorkDocFile} />
+              </div>
+            </div>
+
             <div
               className="bg-cream px-4 py-3"
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
               <p className="font-jost text-sm font-light text-ink-2">
                 Your documents are encrypted and stored securely. They are only used for identity
-                verification purposes.
+                and right to work verification purposes. We are required by law to verify your
+                eligibility to work in the United Kingdom before you can accept bookings.
               </p>
             </div>
           </div>
@@ -1275,6 +1376,45 @@ export default function JoinAsCleanerPage() {
                     <dt className="inline font-normal text-ink">DBS:</dt>{' '}
                     <dd className="inline">{form.dbsCertFile || 'Not uploaded'}</dd>
                   </div>
+                </dl>
+              </div>
+
+              {/* Right to Work */}
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                  Right to Work
+                </h3>
+                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
+                  <div>
+                    <dt className="inline font-normal text-ink">Document type:</dt>{' '}
+                    <dd className="inline">
+                      {{
+                        uk_passport: 'UK Passport',
+                        irish_passport: 'Irish Passport',
+                        brp: 'Biometric Residence Permit',
+                        eu_settled: 'EU Settled Status',
+                        eu_pre_settled: 'EU Pre-Settled Status',
+                        share_code: 'Home Office Share Code',
+                        visa: 'Work Visa',
+                      }[form.rightToWorkDocType] || 'Not selected'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-normal text-ink">Document:</dt>{' '}
+                    <dd className="inline">{form.rightToWorkDocFile || 'Not uploaded'}</dd>
+                  </div>
+                  {form.rightToWorkShareCode && (
+                    <div>
+                      <dt className="inline font-normal text-ink">Share code:</dt>{' '}
+                      <dd className="inline">{form.rightToWorkShareCode}</dd>
+                    </div>
+                  )}
+                  {form.rightToWorkExpiryDate && (
+                    <div>
+                      <dt className="inline font-normal text-ink">Expires:</dt>{' '}
+                      <dd className="inline">{form.rightToWorkExpiryDate}</dd>
+                    </div>
+                  )}
                 </dl>
               </div>
             </div>
