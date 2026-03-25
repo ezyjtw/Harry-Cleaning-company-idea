@@ -94,6 +94,26 @@ export default function TermsPage() {
               background screening.
             </li>
           </ul>
+
+          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">
+            4.3 Right to Substitution
+          </h3>
+          <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
+            You may arrange for another individual to perform the Services on your behalf without
+            our prior approval, provided that:
+          </p>
+          <ol className="mt-4 list-[lower-alpha] pl-6 space-y-2 font-jost font-light text-ink-2">
+            <li>The substitute has the legal right to work in the United Kingdom;</li>
+            <li>
+              The substitute&apos;s identity has been verified prior to attending the
+              Customer&apos;s premises; and
+            </li>
+            <li>The substitute holds valid public liability insurance.</li>
+          </ol>
+          <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
+            You remain responsible for ensuring these conditions are met and for the
+            substitute&apos;s conduct during performance of the Services.
+          </p>
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
