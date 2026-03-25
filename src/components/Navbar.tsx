@@ -28,7 +28,7 @@ export default function Navbar() {
   return (
     <header
       ref={menuRef}
-      className="bg-white"
+      className="relative bg-white"
       style={{ borderBottom: '1px solid rgba(27,42,74,0.06)' }}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5">
@@ -60,8 +60,11 @@ export default function Navbar() {
 
       {/* Dropdown menu */}
       {open && (
-        <nav className="border-t border-ink/5 bg-white" aria-label="Main navigation">
-          <div className="mx-auto max-w-7xl px-5 py-6 md:px-14">
+        <nav
+          className="absolute right-0 top-full z-50 w-full border-t border-ink/5 bg-white md:w-[400px] md:rounded-bl-lg md:border-l md:shadow-lg"
+          aria-label="Main navigation"
+        >
+          <div className="px-5 py-6 md:px-8">
             {/* Client flow */}
             <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
               I need a cleaner
