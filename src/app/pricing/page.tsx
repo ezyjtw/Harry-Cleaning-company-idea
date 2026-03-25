@@ -18,42 +18,36 @@ const serviceRates = [
     description: 'Weekly or fortnightly recurring cleans',
     rate: '\u00A314 \u2013 \u00A335/hr',
     typical: '2\u20134 hours',
-    multiplier: '1x',
   },
   {
     type: 'One-Off Cleaning',
     description: 'Single visit, no recurring commitment',
     rate: '\u00A315 \u2013 \u00A339/hr',
     typical: '2\u20134 hours',
-    multiplier: '1.10x',
   },
   {
     type: 'Deep Cleaning',
     description: 'Intensive top-to-bottom cleaning',
     rate: '\u00A320 \u2013 \u00A351/hr',
     typical: '3\u20138 hours',
-    multiplier: '1.45x',
   },
   {
     type: 'End of Tenancy',
     description: 'Fixed price by property size',
     rate: '\u00A3175 \u2013 \u00A3550',
     typical: '4\u201313 hours',
-    multiplier: 'Fixed',
   },
   {
     type: 'Airbnb / Short-Let',
     description: 'Fixed price turnaround between guests',
     rate: '\u00A355 \u2013 \u00A3155',
     typical: '1.5\u20134.5 hours',
-    multiplier: 'Fixed',
   },
   {
     type: 'Same-Day Cleaning',
     description: 'Urgent booking for same-day service',
     rate: '\u00A318 \u2013 \u00A346/hr',
     typical: '2\u20134 hours',
-    multiplier: '1.30x',
   },
 ];
 
@@ -199,12 +193,6 @@ export default function PricingPage() {
                   >
                     Typical Duration
                   </th>
-                  <th
-                    scope="col"
-                    className="hidden px-6 py-4 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal md:table-cell"
-                  >
-                    Rate Multiplier
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -221,9 +209,6 @@ export default function PricingPage() {
                     </td>
                     <td className="hidden px-6 py-4 text-sm font-jost font-light text-ink-2 sm:table-cell">
                       {service.typical}
-                    </td>
-                    <td className="hidden px-6 py-4 text-sm font-jost font-light text-ink-2 md:table-cell">
-                      {service.multiplier}
                     </td>
                   </tr>
                 ))}
@@ -257,20 +242,19 @@ export default function PricingPage() {
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 Turnaround cleans between guests need to be fast, thorough, and reliable. Our Airbnb
-                service includes a 1.3x rate multiplier to reflect the urgency and attention to
-                detail required — fresh linen setup, guest-ready bathrooms, and spotless kitchens
-                every time.
+                service covers fresh linen setup, guest-ready bathrooms, and spotless kitchens every
+                time.
               </p>
               <div
                 className="mt-4 bg-cream p-4"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Example
+                  Starting from
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  Listed rate &pound;20/hr &times; 1.3x ={' '}
-                  <span className="font-normal text-ink">&pound;26/hr</span> + 6% service fee
+                  <span className="font-normal text-ink">&pound;55 &ndash; &pound;155</span> + 6%
+                  service fee
                 </p>
               </div>
             </div>
@@ -288,20 +272,19 @@ export default function PricingPage() {
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 Moving out? An end-of-tenancy clean ensures the property is returned to a
-                professional standard so you get your deposit back. The 1.8x rate multiplier
-                reflects the comprehensive deep-clean required — inside ovens, behind appliances,
-                skirting boards, window tracks, and more.
+                professional standard so you get your deposit back. A comprehensive deep-clean
+                covering inside ovens, behind appliances, skirting boards, window tracks, and more.
               </p>
               <div
                 className="mt-4 bg-cream p-4"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Example
+                  Starting from
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  Listed rate &pound;20/hr &times; 1.8x ={' '}
-                  <span className="font-normal text-ink">&pound;36/hr</span> + 6% service fee
+                  <span className="font-normal text-ink">&pound;175 &ndash; &pound;550</span> + 6%
+                  service fee
                 </p>
               </div>
             </div>
