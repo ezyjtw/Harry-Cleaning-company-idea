@@ -50,7 +50,7 @@ const faqCategories = [
     questions: [
       {
         q: 'How much does a cleaning cost?',
-        a: 'Pricing varies by cleaner, service type, and duration. Cleaners set their own hourly rates, typically ranging from £12 to £25 per hour. You will always see the total price before confirming your booking.',
+        a: 'Pricing varies by cleaner, service type, and duration. Cleaners set their own hourly rates, typically ranging from £14 to £25 per hour. You will always see the total price before confirming your booking.',
       },
       {
         q: 'Are there any hidden fees?',

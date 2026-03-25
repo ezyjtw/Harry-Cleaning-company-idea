@@ -22,7 +22,7 @@ BOOKING & SCHEDULING
 - Cancellations: free cancellation up to 24 hours before the booking.
 
 PRICING
-- Regular cleaning: from £18/hr (cleaner sets their own rate, plus 6% service fee).
+- Regular cleaning: from £14/hr (cleaner sets their own rate, plus 6% service fee).
 - Deep cleaning: 1.45x the cleaner's rate.
 - One-off clean: 1.10x the cleaner's rate (10% surge).
 - Same-day: 1.30x the cleaner's rate.
