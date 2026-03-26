@@ -896,3 +896,103 @@ model DataDeletionRequest {
   @@index([status])
   @@index([requestedAt])
 }
+
+// ─── Secure Document Storage ────────────────────────────────────────────────
+
+model DocumentUpload {
+  id              String   @id @default(cuid())
+  userId          String
+  profileId       String?  // CleanerProfile id if relevant
+  documentType    String   // "dbs_certificate", "right_to_work", "photo_id", "insurance"
+  originalName    String
+  storagePath     String   // encrypted file path in storage
+  mimeType        String
+  fileSize        Int      // bytes
+  encryptionKeyId String   // reference to encryption key used
+  checksum        String   // SHA-256 hash of original file for integrity verification
+  isVerified      Boolean  @default(false)
+  verifiedBy      String?  // admin userId
+  verifiedAt      DateTime?
+  isDestroyed     Boolean  @default(false)
+  destroyedAt     DateTime?
+  destroyedReason String?  // "retention_policy", "user_request", "admin_action"
+  expiresAt       DateTime? // when the document itself expires (e.g. visa expiry)
+  metadata        Json?    // flexible extra data (cert number, issue date, etc.)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([profileId])
+  @@index([documentType])
+  @@index([isDestroyed])
+  @@index([expiresAt])
+}
+
+// ─── Data Processing Agreements ─────────────────────────────────────────────
+
+model DpaAgreement {
+  id                String    @id @default(cuid())
+  processorName     String    // e.g. "Ryft", "Resend", "Railway"
+  processorType     String    // "payment_processor", "email_provider", "hosting", "analytics"
+  dataCategories    String[]  // what data is processed
+  legalBasis        String    // "contract", "consent", "legitimate_interest"
+  agreementDate     DateTime?
+  expiryDate        DateTime?
+  documentRef       String?   // reference to signed agreement
+  contactEmail      String?
+  status            String    @default("PENDING") // PENDING, ACTIVE, EXPIRED, TERMINATED
+  reviewDate        DateTime? // next review date
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+  @@index([reviewDate])
+}
+
+// ─── Data Breach Incident Log ───────────────────────────────────────────────
+
+model BreachIncident {
+  id                  String    @id @default(cuid())
+  title               String
+  description         String    @db.Text
+  severity            String    // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  dataTypesAffected   String[]  // e.g. ["personal_data", "financial_data", "identity_documents"]
+  individualsAffected Int       @default(0)
+  detectedAt          DateTime
+  reportedToIcoAt     DateTime? // must be within 72 hours if required
+  icoNotificationRef  String?
+  containedAt         DateTime?
+  resolvedAt          DateTime?
+  rootCause           String?   @db.Text
+  remedialActions     String?   @db.Text
+  lessonsLearned      String?   @db.Text
+  reportedBy          String    // userId
+  status              String    @default("DETECTED") // DETECTED, CONTAINED, REPORTED_TO_ICO, RESOLVED
+  isNotifiable        Boolean   @default(false) // whether it meets ICO notification threshold
+  affectedUsers       Json?     // list of affected user IDs (encrypted)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+  @@index([severity])
+  @@index([detectedAt])
+}
+
+// ─── ICO Registration ───────────────────────────────────────────────────────
+
+model IcoRegistration {
+  id                  String    @id @default(cuid())
+  registrationNumber  String?   // ICO registration reference
+  registeredName      String    // company name on registration
+  registrationDate    DateTime?
+  renewalDate         DateTime?
+  feeAmount           Decimal?  @db.Decimal(10, 2)
+  status              String    @default("PENDING") // PENDING, ACTIVE, RENEWAL_DUE, EXPIRED
+  dpoName             String?   // Data Protection Officer
+  dpoEmail            String?
+  dpoPhone            String?
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}

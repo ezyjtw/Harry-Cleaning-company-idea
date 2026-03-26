@@ -331,6 +331,92 @@ export class GdprService {
   }
 
   /**
+   * Destroy Right to Work document files for cleaners who are no longer active.
+   * Home Office guidance: retain for engagement duration plus 2 years.
+   * Should be run as a scheduled job.
+   */
+  static async destroyExpiredRtwDocuments(maxAgeDaysAfterDeactivation: number = 730) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - maxAgeDaysAfterDeactivation);
+
+    // Find deactivated/deleted users whose RTW docs are past the retention period
+    const profiles = await prisma.cleanerProfile.findMany({
+      where: {
+        rightToWorkDocFile: { not: null },
+        user: {
+          OR: [
+            { isDeleted: true, deletedAt: { lt: cutoffDate } },
+            { accountStatus: 'DEACTIVATED', updatedAt: { lt: cutoffDate } },
+          ],
+        },
+      },
+      select: { id: true, userId: true, rightToWorkDocType: true },
+    });
+
+    let destroyedCount = 0;
+
+    for (const profile of profiles) {
+      await prisma.cleanerProfile.update({
+        where: { id: profile.id },
+        data: {
+          rightToWorkDocFile: null,
+          rightToWorkShareCode: null,
+        },
+      });
+
+      // Also destroy the encrypted file from DocumentUpload
+      const docs = await prisma.documentUpload.findMany({
+        where: {
+          profileId: profile.id,
+          documentType: 'right_to_work',
+          isDestroyed: false,
+        },
+      });
+
+      for (const doc of docs) {
+        await prisma.documentUpload.update({
+          where: { id: doc.id },
+          data: {
+            isDestroyed: true,
+            destroyedAt: new Date(),
+            destroyedReason: 'retention_policy',
+          },
+        });
+      }
+
+      await prisma.dataRetentionLog.create({
+        data: {
+          entityType: 'CleanerProfile',
+          entityId: profile.id,
+          action: 'DELETED',
+          reason: 'retention_policy',
+          performedBy: 'SYSTEM',
+          metadata: {
+            field: 'rightToWorkDocFile',
+            docType: profile.rightToWorkDocType,
+            note: 'RTW documents destroyed after engagement plus 2-year retention per Home Office guidance.',
+          },
+        },
+      });
+
+      await AuditService.log({
+        userId: 'SYSTEM',
+        action: 'RTW_DOC_DESTROYED',
+        entityType: 'CleanerProfile',
+        entityId: profile.id,
+        metadata: {
+          reason: 'retention_policy',
+          docType: profile.rightToWorkDocType,
+        },
+      });
+
+      destroyedCount++;
+    }
+
+    return { destroyedCount };
+  }
+
+  /**
    * Destroy DBS certificate files after verification.
    * Retains only certificate number, issue date, and verification outcome.
    * Should be run as a scheduled job — destroys certificates older than 6 months.
