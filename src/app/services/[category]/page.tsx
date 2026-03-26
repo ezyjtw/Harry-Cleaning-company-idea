@@ -248,6 +248,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   );
   const [profileCleaner, setProfileCleaner] = useState<Cleaner | null>(null);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
+  const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [keyAccess, setKeyAccess] = useState<KeyAccess>('i-will-be-home');
   const [keyAccessNote, setKeyAccessNote] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
@@ -1196,13 +1197,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           )}
 
           {/* Backup cleaner slider */}
-          {selectedDay && selectedTime && availableBackupCleaners.length > 0 && (
+          {selectedDay && selectedTime && (
             <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
               <BackupCleanerSlider
                 cleaners={availableBackupCleaners}
                 selectedIds={backupCleanerIds}
                 onToggle={handleBackupToggle}
                 maxSelections={3}
+                autoAssign={autoAssignBackup}
+                onAutoAssignChange={setAutoAssignBackup}
               />
             </div>
           )}
@@ -2664,16 +2667,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Backup cleaner slider */}
-            {availableBackupCleaners.length > 0 && (
-              <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <BackupCleanerSlider
-                  cleaners={availableBackupCleaners}
-                  selectedIds={backupCleanerIds}
-                  onToggle={handleBackupToggle}
-                  maxSelections={3}
-                />
-              </div>
-            )}
+            <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <BackupCleanerSlider
+                cleaners={availableBackupCleaners}
+                selectedIds={backupCleanerIds}
+                onToggle={handleBackupToggle}
+                maxSelections={3}
+                autoAssign={autoAssignBackup}
+                onAutoAssignChange={setAutoAssignBackup}
+              />
+            </div>
 
             {/* Escrow payment notice */}
             <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>

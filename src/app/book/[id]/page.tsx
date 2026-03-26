@@ -17,7 +17,6 @@ import {
   pastBookings,
 } from '@/lib/mock-data';
 import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
-import { shouldUseEscrow } from '@/lib/trust';
 
 const SERVICE_TYPES = [
   {
@@ -84,6 +83,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
+  const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const { trackStep, trackConversion } = useAnalytics('booking');
 
   // Track initial page view and service selection step
@@ -109,12 +109,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
   const priceBreakdown = getPriceBreakdown(rate, form.duration, selectedService.multiplier);
 
-  // Check if this is a first-time booking with this cleaner (for escrow)
-  const hasBookedBefore = pastBookings.some((b) => b.cleanerId === cleaner.id);
-  const useEscrow = shouldUseEscrow(!hasBookedBefore);
-
-  // Other cleaners available around this time (exclude the currently selected cleaner)
-  const availableBackupCleaners = allCleaners.filter((c) => c.id !== cleaner.id);
+  // Other cleaners available on the selected date (exclude the currently selected cleaner)
+  const getDayAbbreviation = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const date = new Date(`${dateStr}T00:00:00`);
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+  };
+  const selectedDay = getDayAbbreviation(form.date);
+  const availableBackupCleaners = allCleaners.filter(
+    (c) => c.id !== cleaner.id && (!selectedDay || c.availability.includes(selectedDay))
+  );
 
   const handleBackupToggle = (cleanerId: string) => {
     setBackupCleanerIds((prev) =>
@@ -191,6 +195,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           isLastMinute,
           isGuest: bookingMode === 'guest',
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
+          autoAssignBackup,
         }),
       });
 
@@ -705,10 +710,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           />
         </div>
 
-        {/* Price summary */}
+        {/* Booking summary */}
         <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h4 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
-            Price Summary
+            Booking Summary
           </h4>
           <div className="space-y-2 font-jost text-sm font-light">
             <div className="flex justify-between">
@@ -748,84 +753,44 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           <p className="mt-2 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
             Exact price shown. No hidden charges, ever.
           </p>
-        </div>
 
-        {/* Escrow info for first-time bookings */}
-        {useEscrow && (
-          <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <div className="flex items-start gap-3">
-              <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <div>
-                <h4 className="font-jost text-sm font-normal text-ink">
-                  Escrow Protection — First Booking
-                </h4>
-                <p className="mt-1 font-jost text-xs font-light text-ink-2">
-                  Since this is your first time booking with {cleaner.name}, your payment will be
-                  held in secure escrow. It&apos;s only released after you confirm the job is
-                  complete (or automatically after 24 hours). This protects you from scams and
-                  protects the cleaner from non-payment.
-                </p>
-                <div className="mt-2 flex items-center gap-4 font-jost text-xs font-light text-gold">
-                  <span>&#10003; Payment held safely</span>
-                  <span>&#10003; You confirm before release</span>
-                  <span>&#10003; Dispute option available</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Backup cleaner slider */}
-        {availableBackupCleaners.length > 0 && (
-          <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <BackupCleanerSlider
-              cleaners={availableBackupCleaners}
-              selectedIds={backupCleanerIds}
-              onToggle={handleBackupToggle}
-              maxSelections={3}
-            />
-          </div>
-        )}
-
-        {/* Escrow payment notice */}
-        <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <div className="flex items-start gap-3">
-            <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+          {/* Escrow notice — directly below booking summary */}
+          <div
+            className="mt-3 pt-3 flex items-start gap-2.5"
+            style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+          >
+            <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
-                d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
                 clipRule="evenodd"
               />
             </svg>
-            <div>
-              <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
-              <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
-                You will see a charge to your bank account for the booking summary shown above, but
-                the payment will be held securely in escrow.
-              </p>
-              {backupCleanerIds.length > 0 && (
-                <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
-                  In the event that your chosen cleaner does not accept the booking, one of your
-                  selected backup cleaners will be used instead. Our system will either provide a
-                  small refund or apply a small additional charge to your account to align with the
-                  new cleaner&apos;s rate as shown in the booking summary.
-                </p>
-              )}
-              <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
-                <span>&#10003; Funds held safely</span>
-                <span>&#10003; Released after completion</span>
-                {backupCleanerIds.length > 0 && (
-                  <span>&#10003; Auto-adjusted for backup rates</span>
+            <div className="font-jost text-xs font-light text-ink-2 leading-relaxed">
+              <p>
+                Your payment is held in escrow until the job is confirmed complete.
+                {(backupCleanerIds.length > 0 || autoAssignBackup) && (
+                  <>
+                    {' '}
+                    If the cleaner changes, your payment will be updated to reflect the new rate.
+                  </>
                 )}
-              </div>
+                {autoAssignBackup && <> Any cleaner we assign will be the same price or lower.</>}
+              </p>
             </div>
           </div>
+        </div>
+
+        {/* Backup cleaner slider */}
+        <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <BackupCleanerSlider
+            cleaners={availableBackupCleaners}
+            selectedIds={backupCleanerIds}
+            onToggle={handleBackupToggle}
+            maxSelections={3}
+            autoAssign={autoAssignBackup}
+            onAutoAssignChange={setAutoAssignBackup}
+          />
         </div>
 
         {/* Verification badge */}
