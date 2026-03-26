@@ -63,6 +63,14 @@ enum PaymentStatus {
   PARTIALLY_REFUNDED
 }
 
+enum CleanerQueueStatus {
+  PENDING    // Waiting for cleaner response
+  ACCEPTED   // Cleaner accepted the job
+  REJECTED   // Cleaner declined
+  EXPIRED    // Timed out without response
+  SUPERSEDED // Another cleaner accepted first
+}
+
 enum DisputeStatus {
   OPEN
   UNDER_REVIEW
@@ -225,6 +233,7 @@ model User {
   ownedCompany      Company?        @relation("CompanyOwner")
   teamMemberships   TeamMember[]
   complaints        Complaint[]     @relation("ComplaintsFiled")
+  cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
 
   @@index([email])
   @@index([role])
@@ -357,6 +366,7 @@ model Booking {
   dispute  Dispute?
   complaints    Complaint[]
   bookingAddons BookingAddon[]
+  cleanerQueue  BookingCleanerQueue[]
 
   // ─── Pricing snapshot (captured at booking creation) ─────
   cleanerHourlyRate    Float?             // cleaner's standard rate at booking time
@@ -371,6 +381,12 @@ model Booking {
   customerServiceFee   Float?             // 6% added on top for customer (hourly) or embedded (fixed)
   addonTotal           Float?             @default(0)
   renaEarns            Float?             // cleanerFee + customerServiceFee
+
+  // ─── Top 3 Queue & Escrow ─────
+  isQueuedBooking      Boolean            @default(false)
+  escrowAmount         Float?             // max quote held in escrow (most expensive of top 3)
+  escrowRefundAmount   Float?             // difference refunded after cleaner accepts
+  acceptedFromQueue    Boolean            @default(false)
 
   @@index([clientId])
   @@index([cleanerId])
@@ -667,6 +683,7 @@ model Complaint {
   @@index([severity])
 }
 
+
 model ComplaintEvidence {
   id          String       @id @default(cuid())
   complaintId String
@@ -755,6 +772,32 @@ model BookingAddon {
   price     Float        // snapshot price at time of booking
 
   @@unique([bookingId, addonId])
+}
+
+// ─── Top 3 Cleaner Queue ────────────────────────────────────────────────────
+
+model BookingCleanerQueue {
+  id              String             @id @default(cuid())
+  bookingId       String
+  cleanerId       String             // userId of the cleaner
+  rank            Int                // 1 = best match, 2 = second, 3 = third
+  status          CleanerQueueStatus @default(PENDING)
+  quotedTotal     Float              // total customer would pay with this cleaner
+  cleanerEarns    Float              // what the cleaner nets after fees
+  matchScore      Float              // score from matching algorithm
+  notifiedAt      DateTime?          // when the cleaner was notified
+  respondedAt     DateTime?          // when they accepted/rejected
+  expiresAt       DateTime?          // auto-expire deadline
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  cleaner User    @relation("CleanerQueueEntries", fields: [cleanerId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, cleanerId])
+  @@index([bookingId])
+  @@index([cleanerId])
+  @@index([status])
 }
 
 // ─── Abandoned Lead Tracking ─────────────────────────────────────────────────
