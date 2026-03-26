@@ -135,7 +135,7 @@ export default function AboutPage() {
             <p>
               But as we grew older, we kept asking the question — why does she work all day and then
               come home and kill herself cleaning instead of getting a cleaner? The answer was
-              always the same: <strong>trust</strong>. She never felt like she could trust who was
+              always the same: <strong>TRUST</strong>. She never felt like she could trust who was
               coming into her house. She never had that peace of mind. She had booked cleaning
               companies before but never knew who was actually turning up at her door.
             </p>
