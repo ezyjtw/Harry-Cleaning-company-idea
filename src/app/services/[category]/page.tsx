@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
+import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
@@ -246,7 +247,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     preSelectedCleanerId ? [preSelectedCleanerId] : []
   );
   const [profileCleaner, setProfileCleaner] = useState<Cleaner | null>(null);
-  const [acceptSubstitute, setAcceptSubstitute] = useState(true);
+  const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
   const [keyAccess, setKeyAccess] = useState<KeyAccess>('i-will-be-home');
   const [keyAccessNote, setKeyAccessNote] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
@@ -257,6 +258,20 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
   const selectedCleaner = selectedCleaners[0] ?? null;
+
+  // Backup cleaners: exclude selected/pre-selected cleaner
+  const currentCleanerId = preSelectedCleaner?.id ?? selectedCleaner?.id;
+  const availableBackupCleaners = cleaners.filter((c) => c.id !== currentCleanerId);
+
+  const handleBackupToggle = (cleanerId: string) => {
+    setBackupCleanerIds((prev) =>
+      prev.includes(cleanerId)
+        ? prev.filter((id) => id !== cleanerId)
+        : prev.length < 3
+          ? [...prev, cleanerId]
+          : prev
+    );
+  };
 
   const handleBookingSubmit = async () => {
     if (bookingSubmitting) return;
@@ -284,6 +299,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               ).total
             : 0,
           isGuest: true,
+          backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
         }),
       });
       if (response.ok) {
@@ -1179,28 +1195,53 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Substitute preference */}
-          {selectedDay && selectedTime && (
-            <label
-              className="flex items-start gap-4 bg-cream-2 p-5 cursor-pointer"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <input
-                type="checkbox"
-                checked={acceptSubstitute}
-                onChange={(e) => setAcceptSubstitute(e.target.checked)}
-                className="mt-0.5 h-5 w-5 border-ink-3 text-ink focus:ring-0"
+          {/* Backup cleaner slider */}
+          {selectedDay && selectedTime && availableBackupCleaners.length > 0 && (
+            <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <BackupCleanerSlider
+                cleaners={availableBackupCleaners}
+                selectedIds={backupCleanerIds}
+                onToggle={handleBackupToggle}
+                maxSelections={3}
               />
-              <div>
-                <p className="font-jost font-normal text-sm text-ink">
-                  Happy with a substitute cleaner?
-                </p>
-                <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                  If {preSelectedCleaner.name} cancels, we&apos;ll match you with another cleaner of
-                  the same rating ({preSelectedCleaner.rating}).
-                </p>
+            </div>
+          )}
+
+          {/* Escrow payment notice */}
+          {selectedDay && selectedTime && (
+            <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div className="flex items-start gap-3">
+                <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div>
+                  <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
+                  <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                    You will see a charge to your bank account for the booking summary shown above,
+                    but the payment will be held securely in escrow.
+                  </p>
+                  {backupCleanerIds.length > 0 && (
+                    <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                      In the event that your chosen cleaner does not accept the booking, one of your
+                      selected backup cleaners will be used instead. Our system will either provide
+                      a small refund or apply a small additional charge to your account to align
+                      with the new cleaner&apos;s rate as shown in the booking summary.
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                    <span>&#10003; Funds held safely</span>
+                    <span>&#10003; Released after completion</span>
+                    {backupCleanerIds.length > 0 && (
+                      <span>&#10003; Auto-adjusted for backup rates</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </label>
+            </div>
           )}
 
           {/* Key access */}
@@ -2622,27 +2663,52 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               )}
             </div>
 
-            {/* Substitute cleaner */}
-            <label
-              className="flex items-start gap-4 bg-cream-2 p-5 cursor-pointer"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <input
-                type="checkbox"
-                checked={acceptSubstitute}
-                onChange={(e) => setAcceptSubstitute(e.target.checked)}
-                className="mt-0.5 h-5 w-5 border-ink-3 text-ink focus:ring-0"
-              />
-              <div>
-                <p className="font-jost font-normal text-sm text-ink">
-                  Happy with a substitute cleaner?
-                </p>
-                <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                  If {selectedCleaner.name} cancels, we&apos;ll match you with another cleaner of
-                  the same rating ({selectedCleaner.rating}).
-                </p>
+            {/* Backup cleaner slider */}
+            {availableBackupCleaners.length > 0 && (
+              <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <BackupCleanerSlider
+                  cleaners={availableBackupCleaners}
+                  selectedIds={backupCleanerIds}
+                  onToggle={handleBackupToggle}
+                  maxSelections={3}
+                />
               </div>
-            </label>
+            )}
+
+            {/* Escrow payment notice */}
+            <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div className="flex items-start gap-3">
+                <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div>
+                  <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
+                  <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                    You will see a charge to your bank account for the booking summary shown above,
+                    but the payment will be held securely in escrow.
+                  </p>
+                  {backupCleanerIds.length > 0 && (
+                    <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                      In the event that your chosen cleaner does not accept the booking, one of your
+                      selected backup cleaners will be used instead. Our system will either provide
+                      a small refund or apply a small additional charge to your account to align
+                      with the new cleaner&apos;s rate as shown in the booking summary.
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                    <span>&#10003; Funds held safely</span>
+                    <span>&#10003; Released after completion</span>
+                    {backupCleanerIds.length > 0 && (
+                      <span>&#10003; Auto-adjusted for backup rates</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Key access */}
             <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
