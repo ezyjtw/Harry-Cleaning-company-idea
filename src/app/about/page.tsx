@@ -332,8 +332,8 @@ export default function AboutPage() {
               },
               {
                 step: '4',
-                title: 'Insurance Verification',
-                desc: 'Cleaners must provide proof of public liability insurance before they can accept bookings.',
+                title: 'Insurance Coverage',
+                desc: 'Rena provides insurance coverage so both cleaners and customers are protected on every booking.',
               },
               {
                 step: '5',
