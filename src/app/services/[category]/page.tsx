@@ -1017,49 +1017,74 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </>
             ) : (
               <>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                      {preSelectedCleaner ? 'Your price' : 'Guide price'}
-                    </span>
-                    <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                      {preSelectedCleaner
-                        ? `${preSelectedCleaner.name} — \u00A3${getServiceListedRate(preSelectedCleaner, category, isOneOffOnRegular).toFixed(2)}/hr`
-                        : `Starting at \u00A3${isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}/hr`}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-cormorant font-light text-3xl text-ink">
-                      &pound;{priceBreakdown.discountedTotal.toFixed(2)}
-                    </span>
-                    {productCost > 0 && (
-                      <span className="ml-2 font-jost font-light text-xs text-ink-3">
-                        + &pound;{productCost} products
-                      </span>
+                <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  {preSelectedCleaner ? 'Your price' : 'Guide price'}
+                </span>
+                {preSelectedCleaner && (
+                  <p className="mt-1 font-jost font-light text-xs text-ink-3">
+                    {preSelectedCleaner.name} — &pound;
+                    {getServiceListedRate(preSelectedCleaner, category, isOneOffOnRegular).toFixed(
+                      2
                     )}
-                  </div>
-                </div>
-                {frequencyDiscount > 0 && (
-                  <p className="mt-2 font-jost font-light text-xs text-gold text-right">
-                    {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount applied (-&pound;
-                    {priceBreakdown.discount.toFixed(2)})
-                  </p>
-                )}
-                {isOneOffOnRegular && (
-                  <p className="mt-2 font-jost font-light text-xs text-ink-3 text-right">
-                    Includes 10% one-off surge. Save with a weekly or fortnightly schedule.
+                    /hr
                   </p>
                 )}
                 {!preSelectedCleaner && (
-                  <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                    Final price depends on your chosen cleaner&apos;s rate. No hidden charges.
+                  <p className="mt-1 font-jost font-light text-xs text-ink-3">
+                    Starting at &pound;
+                    {isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}
+                    /hr
                   </p>
                 )}
-                {preSelectedCleaner && (
-                  <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                    No hidden charges, ever.
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Cleaning ({effectiveHours}h)</span>
+                    <span className="text-ink">
+                      &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {frequencyDiscount > 0 && (
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-gold">
+                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
+                      </span>
+                      <span className="text-gold">
+                        -&pound;{priceBreakdown.discount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Service fee (5%)</span>
+                    <span className="text-ink">
+                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                    </span>
+                  </div>
+                  {productCost > 0 && (
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">Cleaning products</span>
+                      <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div
+                    className="flex justify-between pt-2 font-jost"
+                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                  >
+                    <span className="text-sm text-ink">Total</span>
+                    <span className="font-cormorant font-light text-3xl text-ink">
+                      &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                {isOneOffOnRegular && (
+                  <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                    Includes 10% one-off surge. Save with a weekly or fortnightly schedule.
                   </p>
                 )}
+                <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                  {!preSelectedCleaner
+                    ? 'Final price depends on your chosen cleaner\u2019s rate. No hidden charges.'
+                    : 'No hidden charges, ever.'}
+                </p>
               </>
             )}
           </div>
