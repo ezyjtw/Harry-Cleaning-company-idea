@@ -124,8 +124,41 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Mission */}
+      {/* Our Story */}
       <section className="bg-cream py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-light text-ink font-cormorant">Our Story</h2>
+          <div className="mt-4 w-8 h-px bg-gold" />
+          <div className="mt-6 space-y-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
+            <p>
+              We are James and Harry Wright, the founders of Rena. We grew up in a family of five,
+              and our mum always wanted a tidy house. She would always be telling us off about the
+              mess, and we would always say that we needed to get a cleaner in.
+            </p>
+            <p>
+              She would always come back with the famous line: &ldquo;A cleaner cleans but
+              doesn&rsquo;t tidy, so they would be no good for our mess.&rdquo;
+            </p>
+            <p>
+              But as we grew older, we kept asking the question — why does she work all day and then
+              come home and kill herself cleaning instead of getting a cleaner? The answer was
+              always the same: <strong>trust</strong>. She never felt like she could trust who was
+              coming into her house. She never had that peace of mind. She had booked cleaning
+              companies before but never knew who was actually turning up at her door.
+            </p>
+            <p>
+              At Rena, we have changed that. You get to choose a cleaner that fits your needs, talk
+              to them before they arrive, and have the trust that they have been correctly vetted —
+              all with the ease of ordering with a few touches of an app or clicks on a website.
+              Payment is held in escrow on your first clean so you have that peace of mind that our
+              mum never had.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Mission */}
+      <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-light text-ink font-cormorant">Our Mission</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
@@ -151,7 +184,7 @@ export default function AboutPage() {
       </section>
 
       {/* How Rena is Different */}
-      <section className="bg-cream-2 py-16">
+      <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-light text-ink font-cormorant">How Rena is Different</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
@@ -275,7 +308,7 @@ export default function AboutPage() {
       </section>
 
       {/* Vetting Process */}
-      <section className="bg-cream py-16">
+      <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-light text-ink font-cormorant">
             Our Cleaner Vetting Process
@@ -328,7 +361,7 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-cream-2 py-16">
+      <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-center text-3xl font-light text-ink font-cormorant">Our Values</h2>
           <div className="mx-auto mt-4 flex justify-center">
@@ -351,7 +384,7 @@ export default function AboutPage() {
       </section>
 
       {/* Stats */}
-      <section className="bg-cream py-16">
+      <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-center text-3xl font-light text-ink font-cormorant">
             Rena by the Numbers
