@@ -5,11 +5,17 @@ import { useState, useEffect } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
+import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
-import { getCleanerById, savedAddresses, pastBookings } from '@/lib/mock-data';
+import {
+  getCleanerById,
+  cleaners as allCleaners,
+  savedAddresses,
+  pastBookings,
+} from '@/lib/mock-data';
 import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
 import { shouldUseEscrow } from '@/lib/trust';
 
@@ -77,6 +83,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
+  const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
   const { trackStep, trackConversion } = useAnalytics('booking');
 
   // Track initial page view and service selection step
@@ -105,6 +112,19 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   // Check if this is a first-time booking with this cleaner (for escrow)
   const hasBookedBefore = pastBookings.some((b) => b.cleanerId === cleaner.id);
   const useEscrow = shouldUseEscrow(!hasBookedBefore);
+
+  // Other cleaners available around this time (exclude the currently selected cleaner)
+  const availableBackupCleaners = allCleaners.filter((c) => c.id !== cleaner.id);
+
+  const handleBackupToggle = (cleanerId: string) => {
+    setBackupCleanerIds((prev) =>
+      prev.includes(cleanerId)
+        ? prev.filter((id) => id !== cleanerId)
+        : prev.length < 3
+          ? [...prev, cleanerId]
+          : prev
+    );
+  };
 
   const handleSavedAddress = (addressId: string) => {
     const saved = savedAddresses.find((a) => a.id === addressId);
@@ -170,6 +190,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           totalPrice: priceBreakdown.total,
           isLastMinute,
           isGuest: bookingMode === 'guest',
+          backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
         }),
       });
 
@@ -759,6 +780,53 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </div>
           </div>
         )}
+
+        {/* Backup cleaner slider */}
+        {availableBackupCleaners.length > 0 && (
+          <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <BackupCleanerSlider
+              cleaners={availableBackupCleaners}
+              selectedIds={backupCleanerIds}
+              onToggle={handleBackupToggle}
+              maxSelections={3}
+            />
+          </div>
+        )}
+
+        {/* Escrow payment notice */}
+        <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <div className="flex items-start gap-3">
+            <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
+              <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                You will see a charge to your bank account for the booking summary shown above, but
+                the payment will be held securely in escrow.
+              </p>
+              {backupCleanerIds.length > 0 && (
+                <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                  In the event that your chosen cleaner does not accept the booking, one of your
+                  selected backup cleaners will be used instead. Our system will either provide a
+                  small refund or apply a small additional charge to your account to align with the
+                  new cleaner&apos;s rate as shown in the booking summary.
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                <span>&#10003; Funds held safely</span>
+                <span>&#10003; Released after completion</span>
+                {backupCleanerIds.length > 0 && (
+                  <span>&#10003; Auto-adjusted for backup rates</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Verification badge */}
         <div
