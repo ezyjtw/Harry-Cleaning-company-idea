@@ -12,13 +12,6 @@ export const metadata: Metadata = {
   },
 };
 
-const stats = [
-  { label: 'Vetted Cleaners', value: '2,500+' },
-  { label: 'Happy Customers', value: '15,000+' },
-  { label: 'Bookings Completed', value: '85,000+' },
-  { label: 'Average Rating', value: '4.8/5' },
-];
-
 const values = [
   {
     title: 'Transparency',
@@ -377,28 +370,6 @@ export default function AboutPage() {
                 <div className="flex h-12 w-12 items-center justify-center">{value.icon}</div>
                 <h3 className="mt-4 text-lg font-normal text-ink font-cormorant">{value.title}</h3>
                 <p className="mt-2 font-jost font-light text-ink-2">{value.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="bg-cream-2 py-16">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-3xl font-light text-ink font-cormorant">
-            Rena by the Numbers
-          </h2>
-          <div className="mx-auto mt-4 flex justify-center">
-            <div className="w-8 h-px bg-gold" />
-          </div>
-          <div className="mt-10 grid grid-cols-2 gap-8 md:grid-cols-4">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-3xl font-light text-gold font-cormorant">{stat.value}</p>
-                <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  {stat.label}
-                </p>
               </div>
             ))}
           </div>
