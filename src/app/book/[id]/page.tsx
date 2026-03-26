@@ -16,7 +16,7 @@ import {
   savedAddresses,
   pastBookings,
 } from '@/lib/mock-data';
-import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
+import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 const SERVICE_TYPES = [
   {
@@ -735,7 +735,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <div className="font-jost text-xs font-light text-gold">Same-day rate applied</div>
             )}
             <div className="flex justify-between">
-              <span className="text-ink-3">Service fee (6%)</span>
+              <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
               <span className="font-normal text-ink">
                 &pound;{priceBreakdown.serviceFee.toFixed(2)}
               </span>

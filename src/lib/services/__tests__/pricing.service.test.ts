@@ -401,9 +401,9 @@ describe('PricingService — Guardrails', () => {
     expect(q.cleanerGross).toBe(55.5);
     expect(q.cleanerFee).toBe(5.55);
     expect(q.cleanerEarns).toBe(49.95);
-    expect(q.customerServiceFee).toBe(2.78); // 55.5 * 0.05 = 2.775 → 2.78
-    expect(q.totalCharged).toBe(58.28); // 55.50 + 2.78
-    expect(q.renaEarns).toBe(8.33); // 5.55 + 2.78
+    expect(q.customerServiceFee).toBe(3.33); // 55.5 * 0.06 = 3.33
+    expect(q.totalCharged).toBe(58.83); // 55.50 + 3.33
+    expect(q.renaEarns).toBe(8.88); // 5.55 + 3.33
 
     // Verify no floating point artifacts
     expect(String(q.cleanerGross)).not.toMatch(/\d{4,}$/);

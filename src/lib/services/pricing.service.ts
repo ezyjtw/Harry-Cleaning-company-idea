@@ -50,7 +50,7 @@ export class PricingService {
   async calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     const config = await this.getConfig();
     const cleanerFeePct = config['cleaner_fee_pct']; // 0.10
-    const customerFeePct = config['customer_fee_pct']; // 0.05
+    const customerFeePct = config['customer_fee_pct']; // 0.06
     const deepMultiplier = config['deep_multiplier']; // 1.45
 
     const serviceType = await prisma.serviceType.findUnique({
