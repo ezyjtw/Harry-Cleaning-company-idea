@@ -10,7 +10,7 @@ import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
 import { cleaners, getCleanerById, getReviewsForCleaner } from '@/lib/mock-data';
-import { getPriceBreakdown, getListedRate } from '@/lib/pricing';
+import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type {
   ServiceCategory,
   BookingFrequency,
@@ -387,7 +387,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     if (isFixedPrice(category) && fixedPriceQuote) {
       // Fixed-price model for Airbnb & End of Tenancy — flat price by property size
       const cleaningSubtotal = fixedPriceQuote.total;
-      const serviceFee = Math.round(cleaningSubtotal * 0.06 * 100) / 100;
+      const serviceFee = Math.round(cleaningSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       return {
         isFixed: true as const,
         basePrice: fixedPriceQuote.basePrice,
@@ -416,7 +416,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
     const discount = breakdown.listedSubtotal * frequencyDiscount;
     const cleaningSubtotal = Math.round((breakdown.listedSubtotal - discount) * 100) / 100;
-    const serviceFee = Math.round(cleaningSubtotal * 0.06 * 100) / 100;
+    const serviceFee = Math.round(cleaningSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
     return {
       isFixed: false as const,
       ...breakdown,
@@ -990,7 +990,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                   )}
                   <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">Service fee (6%)</span>
+                    <span className="font-light text-ink-3">
+                      Service fee ({SERVICE_FEE_PERCENT}%)
+                    </span>
                     <span className="text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
@@ -1054,7 +1056,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                   )}
                   <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">Service fee (6%)</span>
+                    <span className="font-light text-ink-3">
+                      Service fee ({SERVICE_FEE_PERCENT}%)
+                    </span>
                     <span className="text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
@@ -1405,7 +1409,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="font-jost font-light text-ink-3">Service fee (6%)</span>
+                <span className="font-jost font-light text-ink-3">
+                  Service fee ({SERVICE_FEE_PERCENT}%)
+                </span>
                 <span className="font-jost font-light text-ink">
                   &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                 </span>
@@ -1974,7 +1980,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
             <div className="flex justify-between font-jost text-sm">
-              <span className="font-light text-ink-3">Service fee (6%)</span>
+              <span className="font-light text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
               <span className="text-ink">&pound;{priceBreakdown.displayServiceFee.toFixed(2)}</span>
             </div>
             {preferredCleaners.length > 0 && (
@@ -2878,7 +2884,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">Service fee (6%)</span>
+                    <span className="font-jost font-light text-ink-3">
+                      Service fee ({SERVICE_FEE_PERCENT}%)
+                    </span>
                     <span className="font-jost font-light text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
