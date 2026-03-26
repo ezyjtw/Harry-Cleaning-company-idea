@@ -157,9 +157,9 @@ export default function AboutPage() {
           <div className="mt-4 w-8 h-px bg-gold" />
           <div className="mt-6 space-y-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
             <p>
-              The cleaning industry is broken. Traditional agencies take 20-30% of what customers
-              pay, leaving cleaners with less than they deserve. Customers often have no say in who
-              cleans their home, and there is little accountability when things go wrong.
+              The cleaning industry is broken. Leading platforms in the industry take 20-30% of what
+              customers pay, leaving cleaners with less than they deserve. Customers often have no
+              say in who cleans their home, and there is little accountability when things go wrong.
             </p>
             <p>
               We started Rena to fix this. Our platform charges just a small 6% service fee to
@@ -183,7 +183,9 @@ export default function AboutPage() {
           <div className="mt-4 w-8 h-px bg-gold" />
           <div className="mt-10 grid gap-8 md:grid-cols-2">
             <div className="bg-cream p-8" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h3 className="text-lg font-normal text-ink font-cormorant">Traditional Agencies</h3>
+              <h3 className="text-lg font-normal text-ink font-cormorant">
+                Leading Platforms in the Industry
+              </h3>
               <ul className="mt-4 space-y-3 font-jost font-light text-ink-2">
                 <li className="flex items-start gap-3">
                   <svg

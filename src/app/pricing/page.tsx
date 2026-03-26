@@ -295,10 +295,12 @@ export default function PricingPage() {
       {/* Comparison table */}
       <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">Rena vs. Competitors</h2>
+          <h2 className="text-3xl font-light text-ink font-cormorant">
+            Rena vs. Leading Platforms in the Industry
+          </h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <p className="mt-4 font-jost font-light text-ink-2">
-            See how we stack up against traditional cleaning agencies and other platforms.
+            See how we stack up against leading platforms in the industry.
           </p>
           <div
             className="mt-10 overflow-x-auto bg-cream"
