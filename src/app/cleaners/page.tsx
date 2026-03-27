@@ -109,40 +109,49 @@ function CleanersContent() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero header */}
-      <section className="bg-cream px-5 py-6 md:px-14 md:py-8">
-        <div className="mx-auto max-w-7xl">
-          <h1 className="font-cormorant text-[28px] font-light leading-tight text-ink md:text-[36px]">
-            Find a cleaner
+      <section className="relative bg-ink px-5 py-12 md:px-14 md:py-16">
+        <div className="absolute inset-0 bg-gradient-to-br from-ink via-ink to-[#243656]" />
+        <div className="relative mx-auto max-w-7xl">
+          <p className="mb-3 font-jost text-[12px] uppercase tracking-[0.2em] text-gold">
+            Browse cleaners
+          </p>
+          <h1 className="font-cormorant text-[40px] font-light leading-[1.1] text-white md:text-[56px]">
+            Find a cleaner you can <em className="text-gold-2">trust</em>
           </h1>
-          <p className="mt-1.5 max-w-xl font-jost text-[14px] font-light leading-relaxed text-ink-2">
+          <p className="mt-3 max-w-xl font-jost text-[15px] font-light leading-[1.7] text-white/70 md:text-[16px]">
             Browse our network of trusted, independent cleaning professionals — vetted, reviewed,
             and ready to help.
           </p>
 
           {/* Postcode search */}
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:max-w-lg">
-            <input
-              type="text"
-              placeholder="Enter your postcode"
-              value={postcodeSearch}
-              onChange={(e) => setPostcodeSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handlePostcodeSearch()}
-              className="flex-1 border-b border-ink/15 bg-transparent px-1 py-3 font-jost text-[15px] font-light text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
-            />
-            <button
-              onClick={handlePostcodeSearch}
-              className="rounded-md bg-ink px-6 py-3 font-jost text-[13px] font-medium tracking-wide text-cream transition-opacity hover:opacity-90"
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:max-w-lg">
+            <div
+              className="flex flex-1 overflow-hidden rounded-md bg-white"
+              style={{ border: '1px solid rgba(255,255,255,0.15)' }}
             >
-              Search
-            </button>
+              <input
+                type="text"
+                placeholder="Enter your postcode"
+                value={postcodeSearch}
+                onChange={(e) => setPostcodeSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePostcodeSearch()}
+                className="flex-1 bg-transparent px-4 py-3.5 font-jost text-[14px] text-ink placeholder:text-ink-3 focus:outline-none"
+              />
+              <button
+                onClick={handlePostcodeSearch}
+                className="bg-gold px-7 font-jost text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+              >
+                Search
+              </button>
+            </div>
           </div>
 
           {postcode && cleanerCount !== null && (
             <div className="mt-4 flex items-center gap-3">
-              <span className="font-jost text-[13px] font-normal text-ink">
+              <span className="font-jost text-[13px] font-normal text-white">
                 Searching near {postcode}
               </span>
-              <span className="font-jost text-[13px] font-light text-ink-3">
+              <span className="font-jost text-[13px] font-light text-white/50">
                 {cleanerCount} cleaners found
               </span>
               <button
@@ -151,12 +160,32 @@ function CleanersContent() {
                   setPostcodeSearch('');
                   setCleanerCount(null);
                 }}
-                className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 underline hover:text-ink"
+                className="font-jost text-[11px] uppercase tracking-[0.1em] text-white/50 underline hover:text-white"
               >
                 Clear
               </button>
             </div>
           )}
+
+          {/* Trust indicators */}
+          <div className="mt-8 flex flex-wrap gap-5">
+            {['Vetted cleaners', 'ID verified', 'Insured', 'Verified reviews'].map((item) => (
+              <div key={item} className="flex items-center gap-2">
+                <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-gold-2/20">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5L4 7L8 3"
+                      stroke="#00BFA6"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <span className="font-jost text-[12px] text-white/70">{item}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
