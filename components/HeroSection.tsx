@@ -3,13 +3,6 @@
 import Image from 'next/image';
 import { useState } from 'react';
 
-const trustItems = [
-  { label: 'Vetted cleaners' },
-  { label: 'ID verified' },
-  { label: 'Insured' },
-  { label: 'Verified reviews' },
-];
-
 type ServiceType = 'regular' | 'one-off' | 'deep' | 'eot' | 'airbnb' | 'same-day';
 
 const SERVICE_LABELS: Record<ServiceType, string> = {
@@ -460,18 +453,12 @@ export default function HeroSection() {
               Trusted home cleaning
             </p>
 
-            <h1 className="mb-5 font-cormorant text-[44px] font-light leading-[1.1] text-white md:mb-7 md:text-[64px]">
-              A cleaner you
-              <br />
-              can <em className="text-gold-2">trust</em>
-            </h1>
-
             <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
               Browse personally vetted cleaners in your area. Read genuine reviews, choose someone
               you trust, and book in two minutes.
             </p>
 
-            <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <a
                 href="/cleaners"
                 className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
@@ -484,25 +471,6 @@ export default function HeroSection() {
               >
                 How it works
               </a>
-            </div>
-
-            <div className="flex flex-wrap gap-4 md:gap-5">
-              {trustItems.map((item) => (
-                <div key={item.label} className="flex items-center gap-2">
-                  <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-gold-2/20">
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M2 5L4 7L8 3"
-                        stroke="#00BFA6"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                  <span className="font-jost text-[12px] text-white/80">{item.label}</span>
-                </div>
-              ))}
             </div>
           </div>
 
