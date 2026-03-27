@@ -115,10 +115,7 @@ function CleanersContent() {
           <p className="mb-3 font-jost text-[12px] uppercase tracking-[0.2em] text-gold">
             Browse cleaners
           </p>
-          <h1 className="font-cormorant text-[40px] font-light leading-[1.1] text-white md:text-[56px]">
-            Find a cleaner you can <em className="text-gold-2">trust</em>
-          </h1>
-          <p className="mt-3 max-w-xl font-jost text-[15px] font-light leading-[1.7] text-white/70 md:text-[16px]">
+          <p className="mt-1 max-w-xl font-jost text-[15px] font-light leading-[1.7] text-white/70 md:text-[16px]">
             Browse our network of trusted, independent cleaning professionals — vetted, reviewed,
             and ready to help.
           </p>
@@ -166,26 +163,6 @@ function CleanersContent() {
               </button>
             </div>
           )}
-
-          {/* Trust indicators */}
-          <div className="mt-8 flex flex-wrap gap-5">
-            {['Vetted cleaners', 'ID verified', 'Insured', 'Verified reviews'].map((item) => (
-              <div key={item} className="flex items-center gap-2">
-                <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-gold-2/20">
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path
-                      d="M2 5L4 7L8 3"
-                      stroke="#00BFA6"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <span className="font-jost text-[12px] text-white/70">{item}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
