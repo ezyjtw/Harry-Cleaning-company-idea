@@ -594,13 +594,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Hero header */}
         <div className="mt-6 animate-fade-in">
-          <h1 className="font-cormorant font-light text-3xl text-ink sm:text-4xl">
-            {serviceLabel}
-          </h1>
-          <p className="mt-3 max-w-xl font-jost text-[15px] font-light leading-relaxed text-ink-2">
+          <h1 className="font-jost font-medium text-2xl text-ink sm:text-3xl">{serviceLabel}</h1>
+          <p className="mt-2 max-w-xl font-jost text-sm font-light leading-relaxed text-ink-3">
             {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
           </p>
-          <div className="my-8 h-px bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
+          <div className="my-6 h-px bg-ink/[0.06]" />
 
           {/* Trust chips */}
           <div className="flex flex-wrap items-center gap-3">
@@ -647,11 +645,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           ))}
         </div>
 
-        <div className="mt-10 lg:grid lg:grid-cols-[1fr,380px] lg:gap-10 lg:items-start">
+        <div className="mt-10 lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 lg:items-start">
           <div className="space-y-8">
             {/* Postcode */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-cormorant text-lg text-ink">Your Postcode</h2>
+              <h2 className="font-jost font-medium text-base text-ink">Your Postcode</h2>
               <input
                 type="text"
                 value={postcode}
@@ -739,7 +737,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Rooms */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-cormorant text-lg text-ink">How Many Rooms?</h2>
+              <h2 className="font-jost font-medium text-base text-ink">How Many Rooms?</h2>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <Counter
                   label="Bedrooms"
@@ -768,7 +766,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Hours — only for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-cormorant text-lg text-ink">How Many Hours?</h2>
+                <h2 className="font-jost font-medium text-base text-ink">How Many Hours?</h2>
                 <div className="mt-4 rounded-lg bg-cream-2/60 p-4 ring-1 ring-ink/[0.04]">
                   <p className="font-jost font-light text-sm text-ink-2">
                     We recommend{' '}
@@ -821,7 +819,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Extra services — for Airbnb & End of Tenancy */}
             {isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-cormorant text-lg text-ink">Extra Services</h2>
+                <h2 className="font-jost font-medium text-base text-ink">Extra Services</h2>
                 <p className="mt-2 font-jost text-xs font-light text-ink-3">
                   Select any additional services you need — each is priced separately.
                 </p>
@@ -868,7 +866,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Products */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-cormorant text-lg text-ink">Cleaning Products</h2>
+              <h2 className="font-jost font-medium text-base text-ink">Cleaning Products</h2>
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
@@ -910,7 +908,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Frequency — only shown for Regular Cleaning */}
             {isRegular && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-cormorant text-lg text-ink">How Often?</h2>
+                <h2 className="font-jost font-medium text-base text-ink">How Often?</h2>
                 <p className="mt-2 font-jost text-xs font-light text-gold">
                   Save with a regular schedule — weekly cleans get the best rate.
                 </p>
@@ -952,7 +950,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Email */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-cormorant text-lg text-ink">Your Email</h2>
+              <h2 className="font-jost font-medium text-base text-ink">Your Email</h2>
               <input
                 type="email"
                 value={email}
@@ -1113,72 +1111,73 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           {/* Right column — sticky booking summary (desktop only) */}
           <div className="hidden lg:block">
             <div className="sticky top-8 animate-fade-in space-y-4">
-              <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06]">
-                <div className="absolute left-0 right-0 top-0 h-0.5 bg-gradient-to-r from-ink via-gold to-teal" />
-                <h3 className="font-cormorant text-lg text-ink">Booking Summary</h3>
-                <SummaryRow label="Service" value={serviceLabel} />
-                {postcode && <SummaryRow label="Postcode" value={postcode} />}
-                <SummaryRow
-                  label="Space"
-                  value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
-                />
-                <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
-                <SummaryRow
-                  label="Frequency"
-                  value={
-                    frequency === 'weekly'
-                      ? 'Weekly (best rate)'
-                      : frequency === 'biweekly'
-                        ? 'Fortnightly (5% off)'
-                        : 'One-off (+10% surge)'
-                  }
-                />
-                <SummaryRow
-                  label="Products"
-                  value={
-                    cleanerBringsProducts
-                      ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
-                      : 'Customer provides'
-                  }
-                />
-                {preSelectedCleaner && (
-                  <SummaryRow
-                    label="Cleaner"
-                    value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
-                  />
-                )}
+              <div className="relative overflow-hidden rounded-xl bg-white p-8 shadow-sm ring-1 ring-ink/[0.06]">
+                <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-teal" />
+                <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  Booking Summary
+                </span>
 
-                <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Cleaning ({effectiveHours}h)
-                    </span>
-                    <span className="font-jost font-normal text-ink">
+                <div className="mt-5 space-y-3">
+                  <SummaryRow label="Service" value={serviceLabel} />
+                  {postcode && <SummaryRow label="Postcode" value={postcode} />}
+                  <SummaryRow
+                    label="Space"
+                    value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
+                  />
+                  <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
+                  <SummaryRow
+                    label="Frequency"
+                    value={
+                      frequency === 'weekly'
+                        ? 'Weekly (best rate)'
+                        : frequency === 'biweekly'
+                          ? 'Fortnightly (5% off)'
+                          : 'One-off (+10% surge)'
+                    }
+                  />
+                  <SummaryRow
+                    label="Products"
+                    value={
+                      cleanerBringsProducts
+                        ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
+                        : 'Customer provides'
+                    }
+                  />
+                  {preSelectedCleaner && (
+                    <SummaryRow
+                      label="Cleaner"
+                      value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
+                    />
+                  )}
+                </div>
+
+                <div className="pt-5 mt-5 space-y-3 border-t border-ink/[0.06]">
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Cleaning ({effectiveHours}h)</span>
+                    <span className="text-ink">
                       &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                     </span>
                   </div>
                   {productCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                      <span className="font-jost font-light text-ink">
-                        &pound;{productCost.toFixed(2)}
-                      </span>
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">Cleaning products</span>
+                      <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">
                       Service fee ({SERVICE_FEE_PERCENT}%)
                     </span>
-                    <span className="font-jost font-light text-ink">
+                    <span className="text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
                   </div>
                   {priceBreakdown.discount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-normal text-gold">
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-gold">
                         {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
                       </span>
-                      <span className="font-jost font-normal text-gold">
+                      <span className="text-gold">
                         -&pound;{priceBreakdown.discount.toFixed(2)}
                       </span>
                     </div>
@@ -1191,12 +1190,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </span>
                   </div>
                   {isRegular && (
-                    <p className="font-jost font-light text-xs text-ink-3">
+                    <p className="mt-2 font-jost font-light text-xs text-ink-3">
                       Per clean. Cancel or pause your schedule anytime.
                     </p>
                   )}
                   {!preSelectedCleaner && (
-                    <p className="font-jost font-light text-xs text-ink-3">
+                    <p className="mt-2 font-jost font-light text-xs text-ink-3">
                       Final price depends on your chosen cleaner&apos;s rate.
                     </p>
                   )}
