@@ -33,7 +33,7 @@ const faqCategories = [
       },
       {
         q: 'Can I book a same-day clean?',
-        a: 'Yes! Look for cleaners with the "Available Now" badge. Same-day bookings are subject to cleaner availability and may include a small surcharge.',
+        a: 'Yes! Same-day bookings are available if requested before 12pm midday, subject to cleaner availability in your area. Look for cleaners with the "Available Now" badge.',
       },
       {
         q: 'Can I request a specific cleaner for recurring bookings?',
