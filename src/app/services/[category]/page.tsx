@@ -565,7 +565,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // ─── PHASE 1: Quote ────────────────────────────
   if (phase === 'quote') {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream min-h-screen">
         <div className="flex items-center gap-4">
           <Link
             href="/"
@@ -578,429 +578,619 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </h1>
         </div>
 
-        <div className="mt-10 space-y-10">
-          {/* Postcode */}
-          <div>
-            <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Your postcode
-            </label>
-            <input
-              type="text"
-              value={postcode}
-              onChange={(e) => {
-                const val = e.target.value.toUpperCase();
-                setPostcode(val);
-                // Check catchment when a full postcode is entered
-                const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
-                if (fullPostcode.test(val.trim())) {
-                  setOutsideCatchment(!isInCatchmentArea(val));
-                } else {
-                  setOutsideCatchment(false);
-                }
-              }}
-              placeholder="e.g. SW1A 1AA"
-              className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-lg text-ink focus:outline-none"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            />
-
-            {/* Out-of-area waitlist */}
-            {outsideCatchment && !waitlistSubmitted && (
-              <div
-                className="mt-4 bg-cream-2 p-5"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p className="font-jost text-sm font-normal text-ink">
-                  We&apos;re expanding to your area soon
-                </p>
-                <p className="mt-1 font-jost text-xs font-light text-ink-3">
-                  Leave your email and we&apos;ll notify you when we launch near{' '}
-                  <span className="font-normal text-ink">{postcode}</span>.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    type="email"
-                    value={waitlistEmail}
-                    onChange={(e) => setWaitlistEmail(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (waitlistEmail.trim()) {
-                          setWaitlistLoading(true);
-                          fetch('/api/waitlist', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
-                          })
-                            .then(() => setWaitlistSubmitted(true))
-                            .catch(() => {})
-                            .finally(() => setWaitlistLoading(false));
-                        }
-                      }
-                    }}
-                    placeholder="your@email.com"
-                    className="flex-1 bg-white px-4 py-3 font-jost text-sm font-light text-ink focus:outline-none"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!waitlistEmail.trim()) return;
-                      setWaitlistLoading(true);
-                      fetch('/api/waitlist', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
-                      })
-                        .then(() => setWaitlistSubmitted(true))
-                        .catch(() => {})
-                        .finally(() => setWaitlistLoading(false));
-                    }}
-                    disabled={waitlistLoading || !waitlistEmail.trim()}
-                    className="bg-ink px-5 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50"
-                  >
-                    {waitlistLoading ? 'Sending...' : 'Notify Me'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {outsideCatchment && waitlistSubmitted && (
-              <div
-                className="mt-4 bg-cream-2 p-5"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p className="font-jost text-sm font-normal text-ink">You&apos;re on the list</p>
-                <p className="mt-1 font-jost text-xs font-light text-ink-3">
-                  We&apos;ll email you as soon as we launch in your area.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Rooms */}
-          <div>
-            <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              How many rooms?
-            </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Counter
-                label="Bedrooms"
-                value={rooms.bedrooms}
-                onChange={(v) => setRooms({ ...rooms, bedrooms: v })}
-                min={0}
-                max={10}
-              />
-              <Counter
-                label="Bathrooms"
-                value={rooms.bathrooms}
-                onChange={(v) => setRooms({ ...rooms, bathrooms: v })}
-                min={1}
-                max={6}
-              />
-              <Counter
-                label="Living Areas"
-                value={rooms.livingAreas}
-                onChange={(v) => setRooms({ ...rooms, livingAreas: v })}
-                min={0}
-                max={5}
-              />
-            </div>
-          </div>
-
-          {/* Hours — only for hourly services */}
-          {!isFixedPrice(category) && (
+        <div className="mt-10 lg:grid lg:grid-cols-[1fr,380px] lg:gap-10 lg:items-start">
+          <div className="space-y-10">
+            {/* Postcode */}
             <div>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                How many hours?
-              </h2>
-              <div
-                className="mt-3 bg-cream-2 p-5"
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Your postcode
+              </label>
+              <input
+                type="text"
+                value={postcode}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  setPostcode(val);
+                  // Check catchment when a full postcode is entered
+                  const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+                  if (fullPostcode.test(val.trim())) {
+                    setOutsideCatchment(!isInCatchmentArea(val));
+                  } else {
+                    setOutsideCatchment(false);
+                  }
+                }}
+                placeholder="e.g. SW1A 1AA"
+                className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-lg text-ink focus:outline-none"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p className="font-jost font-light text-sm text-ink-2">
-                  We recommend <span className="font-normal text-ink">{suggestedHours} hours</span>{' '}
-                  for your {rooms.bedrooms} bedroom, {rooms.bathrooms} bathroom home.
-                </p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => setSelectedHours(h)}
-                    className={`px-4 py-2.5 font-jost text-sm font-light transition ${
-                      effectiveHours === h
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                    }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    {h}h
-                  </button>
-                ))}
-              </div>
+              />
 
-              {isUnderSuggested && (
+              {/* Out-of-area waitlist */}
+              {outsideCatchment && !waitlistSubmitted && (
                 <div
                   className="mt-4 bg-cream-2 p-5"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
-                  <p className="font-jost font-light text-sm text-ink-2">
-                    You&apos;ve selected fewer hours than recommended. Leave a note for the cleaner
-                    so they know where to focus:
+                  <p className="font-jost text-sm font-normal text-ink">
+                    We&apos;re expanding to your area soon
                   </p>
-                  <textarea
-                    rows={2}
-                    value={cleanerNote}
-                    onChange={(e) => setCleanerNote(e.target.value)}
-                    placeholder="e.g. Please focus on the kitchen and bathrooms..."
-                    className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  />
+                  <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                    Leave your email and we&apos;ll notify you when we launch near{' '}
+                    <span className="font-normal text-ink">{postcode}</span>.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="email"
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (waitlistEmail.trim()) {
+                            setWaitlistLoading(true);
+                            fetch('/api/waitlist', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                            })
+                              .then(() => setWaitlistSubmitted(true))
+                              .catch(() => {})
+                              .finally(() => setWaitlistLoading(false));
+                          }
+                        }
+                      }}
+                      placeholder="your@email.com"
+                      className="flex-1 bg-white px-4 py-3 font-jost text-sm font-light text-ink focus:outline-none"
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!waitlistEmail.trim()) return;
+                        setWaitlistLoading(true);
+                        fetch('/api/waitlist', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                        })
+                          .then(() => setWaitlistSubmitted(true))
+                          .catch(() => {})
+                          .finally(() => setWaitlistLoading(false));
+                      }}
+                      disabled={waitlistLoading || !waitlistEmail.trim()}
+                      className="bg-ink px-5 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50"
+                    >
+                      {waitlistLoading ? 'Sending...' : 'Notify Me'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {outsideCatchment && waitlistSubmitted && (
+                <div
+                  className="mt-4 bg-cream-2 p-5"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p className="font-jost text-sm font-normal text-ink">You&apos;re on the list</p>
+                  <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                    We&apos;ll email you as soon as we launch in your area.
+                  </p>
                 </div>
               )}
             </div>
-          )}
 
-          {/* Extra services — for Airbnb & End of Tenancy */}
-          {isFixedPrice(category) && (
+            {/* Rooms */}
             <div>
               <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Extra services
+                How many rooms?
               </h2>
-              <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                Select any additional services you need — each is priced separately.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {(EXTRA_SERVICES[category] ?? []).map((svc) => {
-                  const isSelected = selectedExtras.includes(svc.id);
-                  const price = svc.price;
-                  return (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Counter
+                  label="Bedrooms"
+                  value={rooms.bedrooms}
+                  onChange={(v) => setRooms({ ...rooms, bedrooms: v })}
+                  min={0}
+                  max={10}
+                />
+                <Counter
+                  label="Bathrooms"
+                  value={rooms.bathrooms}
+                  onChange={(v) => setRooms({ ...rooms, bathrooms: v })}
+                  min={1}
+                  max={6}
+                />
+                <Counter
+                  label="Living Areas"
+                  value={rooms.livingAreas}
+                  onChange={(v) => setRooms({ ...rooms, livingAreas: v })}
+                  min={0}
+                  max={5}
+                />
+              </div>
+            </div>
+
+            {/* Hours — only for hourly services */}
+            {!isFixedPrice(category) && (
+              <div>
+                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  How many hours?
+                </h2>
+                <div
+                  className="mt-3 bg-cream-2 p-5"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p className="font-jost font-light text-sm text-ink-2">
+                    We recommend{' '}
+                    <span className="font-normal text-ink">{suggestedHours} hours</span> for your{' '}
+                    {rooms.bedrooms} bedroom, {rooms.bathrooms} bathroom home.
+                  </p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((h) => (
                     <button
-                      key={svc.id}
+                      key={h}
                       type="button"
-                      onClick={() =>
-                        setSelectedExtras((prev) =>
-                          isSelected ? prev.filter((id) => id !== svc.id) : [...prev, svc.id]
-                        )
-                      }
-                      className={`p-4 text-left transition ${
-                        isSelected ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                      onClick={() => setSelectedHours(h)}
+                      className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                        effectiveHours === h
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                      }`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+
+                {isUnderSuggested && (
+                  <div
+                    className="mt-4 bg-cream-2 p-5"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <p className="font-jost font-light text-sm text-ink-2">
+                      You&apos;ve selected fewer hours than recommended. Leave a note for the
+                      cleaner so they know where to focus:
+                    </p>
+                    <textarea
+                      rows={2}
+                      value={cleanerNote}
+                      onChange={(e) => setCleanerNote(e.target.value)}
+                      placeholder="e.g. Please focus on the kitchen and bathrooms..."
+                      className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Extra services — for Airbnb & End of Tenancy */}
+            {isFixedPrice(category) && (
+              <div>
+                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  Extra services
+                </h2>
+                <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                  Select any additional services you need — each is priced separately.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {(EXTRA_SERVICES[category] ?? []).map((svc) => {
+                    const isSelected = selectedExtras.includes(svc.id);
+                    const price = svc.price;
+                    return (
+                      <button
+                        key={svc.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedExtras((prev) =>
+                            isSelected ? prev.filter((id) => id !== svc.id) : [...prev, svc.id]
+                          )
+                        }
+                        className={`p-4 text-left transition ${
+                          isSelected ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                        }`}
+                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      >
+                        <p
+                          className={`font-jost font-normal text-sm ${isSelected ? 'text-cream' : 'text-ink'}`}
+                        >
+                          {svc.label}
+                        </p>
+                        <p
+                          className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${isSelected ? 'text-cream/60' : 'text-gold'}`}
+                        >
+                          +&pound;{price}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Number of cleaners — for time-constrained services */}
+            {isFixedPrice(category) && (
+              <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  How many cleaners?
+                </h2>
+                <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                  Need it done faster? Add extra cleaners to work together and finish sooner.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {[1, 2, 3].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setCleanerCount(count)}
+                      className={`p-4 text-center transition ${
+                        cleanerCount === count ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
                       }`}
                       style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
                       <p
-                        className={`font-jost font-normal text-sm ${isSelected ? 'text-cream' : 'text-ink'}`}
+                        className={`font-jost font-normal text-sm ${cleanerCount === count ? 'text-cream' : 'text-ink'}`}
                       >
-                        {svc.label}
+                        {count} {count === 1 ? 'Cleaner' : 'Cleaners'}
                       </p>
-                      <p
-                        className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${isSelected ? 'text-cream/60' : 'text-gold'}`}
-                      >
-                        +&pound;{price}
-                      </p>
+                      {count > 1 && (
+                        <p
+                          className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerCount === count ? 'text-cream/60' : 'text-gold'}`}
+                        >
+                          Faster turnaround
+                        </p>
+                      )}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Number of cleaners — for time-constrained services */}
-          {isFixedPrice(category) && (
+            {/* Products */}
             <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
               <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                How many cleaners?
+                Cleaning products
               </h2>
-              <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                Need it done faster? Add extra cleaners to work together and finish sooner.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {[1, 2, 3].map((count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    onClick={() => setCleanerCount(count)}
-                    className={`p-4 text-center transition ${
-                      cleanerCount === count ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
-                    }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              <div className="mt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCleanerBringsProducts(false)}
+                  className={`flex-1 p-4 text-left transition ${
+                    !cleanerBringsProducts ? 'bg-ink text-cream' : 'bg-cream'
+                  }`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p
+                    className={`font-jost font-normal text-sm ${!cleanerBringsProducts ? 'text-cream' : 'text-ink'}`}
                   >
-                    <p
-                      className={`font-jost font-normal text-sm ${cleanerCount === count ? 'text-cream' : 'text-ink'}`}
-                    >
-                      {count} {count === 1 ? 'Cleaner' : 'Cleaners'}
-                    </p>
-                    {count > 1 && (
-                      <p
-                        className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerCount === count ? 'text-cream/60' : 'text-gold'}`}
-                      >
-                        Faster turnaround
-                      </p>
-                    )}
-                  </button>
-                ))}
+                    I&apos;ll provide products
+                  </p>
+                  <p
+                    className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${!cleanerBringsProducts ? 'text-cream/60' : 'text-ink-3'}`}
+                  >
+                    No extra cost
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCleanerBringsProducts(true)}
+                  className={`flex-1 p-4 text-left transition ${
+                    cleanerBringsProducts ? 'bg-ink text-cream' : 'bg-cream'
+                  }`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p
+                    className={`font-jost font-normal text-sm ${cleanerBringsProducts ? 'text-cream' : 'text-ink'}`}
+                  >
+                    Cleaner brings products
+                  </p>
+                  <p
+                    className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerBringsProducts ? 'text-cream/60' : 'text-ink-3'}`}
+                  >
+                    Additional &pound;5 charge
+                  </p>
+                </button>
               </div>
             </div>
-          )}
 
-          {/* Products */}
-          <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Cleaning products
-            </h2>
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setCleanerBringsProducts(false)}
-                className={`flex-1 p-4 text-left transition ${
-                  !cleanerBringsProducts ? 'bg-ink text-cream' : 'bg-cream'
-                }`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p
-                  className={`font-jost font-normal text-sm ${!cleanerBringsProducts ? 'text-cream' : 'text-ink'}`}
-                >
-                  I&apos;ll provide products
+            {/* Frequency — only shown for Regular Cleaning */}
+            {isRegular && (
+              <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  How often?
+                </h2>
+                <p className="mt-2 font-jost font-light text-xs text-gold">
+                  Save with a regular schedule — weekly cleans get the best rate.
                 </p>
-                <p
-                  className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${!cleanerBringsProducts ? 'text-cream/60' : 'text-ink-3'}`}
-                >
-                  No extra cost
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCleanerBringsProducts(true)}
-                className={`flex-1 p-4 text-left transition ${
-                  cleanerBringsProducts ? 'bg-ink text-cream' : 'bg-cream'
-                }`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p
-                  className={`font-jost font-normal text-sm ${cleanerBringsProducts ? 'text-cream' : 'text-ink'}`}
-                >
-                  Cleaner brings products
-                </p>
-                <p
-                  className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerBringsProducts ? 'text-cream/60' : 'text-ink-3'}`}
-                >
-                  Additional &pound;5 charge
-                </p>
-              </button>
-            </div>
-          </div>
-
-          {/* Frequency — only shown for Regular Cleaning */}
-          {isRegular && (
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                How often?
-              </h2>
-              <p className="mt-2 font-jost font-light text-xs text-gold">
-                Save with a regular schedule — weekly cleans get the best rate.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {(
-                  [
-                    { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '+10% surge' },
-                    { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Best rate' },
-                    { value: 'biweekly' as BookingFrequency, label: 'Fortnightly', tag: 'Save 5%' },
-                  ] as const
-                ).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFrequency(opt.value)}
-                    className={`p-4 text-center transition ${
-                      frequency === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
-                    }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    <p
-                      className={`font-jost font-normal text-sm ${frequency === opt.value ? 'text-cream' : 'text-ink'}`}
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {(
+                    [
+                      { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '+10% surge' },
+                      { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Best rate' },
+                      {
+                        value: 'biweekly' as BookingFrequency,
+                        label: 'Fortnightly',
+                        tag: 'Save 5%',
+                      },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFrequency(opt.value)}
+                      className={`p-4 text-center transition ${
+                        frequency === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                      }`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
-                      {opt.label}
-                    </p>
-                    {opt.tag && (
                       <p
-                        className={`mt-1.5 font-jost text-[11px] font-medium ${frequency === opt.value ? 'text-cream/60' : opt.value === 'one-off' ? 'text-ink-3' : 'text-gold'}`}
+                        className={`font-jost font-normal text-sm ${frequency === opt.value ? 'text-cream' : 'text-ink'}`}
                       >
-                        {opt.tag}
+                        {opt.label}
                       </p>
-                    )}
-                  </button>
-                ))}
+                      {opt.tag && (
+                        <p
+                          className={`mt-1.5 font-jost text-[11px] font-medium ${frequency === opt.value ? 'text-cream/60' : opt.value === 'one-off' ? 'text-ink-3' : 'text-gold'}`}
+                        >
+                          {opt.tag}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Email */}
-          <div>
-            <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Email address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-ink focus:outline-none"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            />
-            <label className="mt-4 flex items-center gap-3 cursor-pointer">
+            {/* Email */}
+            <div>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Email address
+              </label>
               <input
-                type="checkbox"
-                checked={joinMailingList}
-                onChange={(e) => setJoinMailingList(e.target.checked)}
-                className="h-4 w-4 border-ink-3 text-ink focus:ring-0"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-ink focus:outline-none"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               />
-              <span className="font-jost font-light text-sm text-ink-2">
-                Tick here to recieve promotional offers
-              </span>
-            </label>
-          </div>
-
-          {/* Price display */}
-          <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            {priceBreakdown.isFixed && fixedPriceQuote ? (
-              <>
-                <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Your price
+              <label className="mt-4 flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={joinMailingList}
+                  onChange={(e) => setJoinMailingList(e.target.checked)}
+                  className="h-4 w-4 border-ink-3 text-ink focus:ring-0"
+                />
+                <span className="font-jost font-light text-sm text-ink-2">
+                  Tick here to recieve promotional offers
                 </span>
-                <div className="mt-3 space-y-2">
-                  <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">
-                      {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
-                    </span>
-                    <span className="text-ink">&pound;{fixedPriceQuote.basePrice.toFixed(2)}</span>
-                  </div>
-                  {fixedPriceQuote.extrasTotal > 0 && (
+              </label>
+            </div>
+
+            {/* Price display */}
+            <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              {priceBreakdown.isFixed && fixedPriceQuote ? (
+                <>
+                  <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Your price
+                  </span>
+                  <div className="mt-3 space-y-2">
                     <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">Extras</span>
+                      <span className="font-light text-ink-3">
+                        {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
+                      </span>
                       <span className="text-ink">
-                        &pound;{fixedPriceQuote.extrasTotal.toFixed(2)}
+                        &pound;{fixedPriceQuote.basePrice.toFixed(2)}
+                      </span>
+                    </div>
+                    {fixedPriceQuote.extrasTotal > 0 && (
+                      <div className="flex justify-between font-jost text-sm">
+                        <span className="font-light text-ink-3">Extras</span>
+                        <span className="text-ink">
+                          &pound;{fixedPriceQuote.extrasTotal.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {productCost > 0 && (
+                      <div className="flex justify-between font-jost text-sm">
+                        <span className="font-light text-ink-3">Cleaning products</span>
+                        <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">
+                        Service fee ({SERVICE_FEE_PERCENT}%)
+                      </span>
+                      <span className="text-ink">
+                        &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                      </span>
+                    </div>
+                    {cleanerCount > 1 && (
+                      <div className="flex justify-between font-jost text-sm">
+                        <span className="font-light text-ink-3">{cleanerCount} cleaners</span>
+                        <span className="text-gold">Faster turnaround</span>
+                      </div>
+                    )}
+                    <div
+                      className="flex justify-between pt-3"
+                      style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      <span className="font-jost font-normal text-ink">Total</span>
+                      <span className="font-cormorant font-light text-3xl text-ink">
+                        &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                    Fixed price. No hidden charges, ever.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    {preSelectedCleaner ? 'Your price' : 'Guide price'}
+                  </span>
+                  {preSelectedCleaner && (
+                    <p className="mt-1 font-jost font-light text-xs text-ink-3">
+                      {preSelectedCleaner.name} — &pound;
+                      {getServiceListedRate(
+                        preSelectedCleaner,
+                        category,
+                        isOneOffOnRegular
+                      ).toFixed(2)}
+                      /hr
+                    </p>
+                  )}
+                  {!preSelectedCleaner && (
+                    <p className="mt-1 font-jost font-light text-xs text-ink-3">
+                      Starting at &pound;
+                      {isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}
+                      /hr
+                    </p>
+                  )}
+                  <div className="mt-3 space-y-2">
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">Cleaning ({effectiveHours}h)</span>
+                      <span className="text-ink">
+                        &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
+                      </span>
+                    </div>
+                    {frequencyDiscount > 0 && (
+                      <div className="flex justify-between font-jost text-sm">
+                        <span className="font-light text-gold">
+                          {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
+                        </span>
+                        <span className="text-gold">
+                          -&pound;{priceBreakdown.discount.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-jost text-sm">
+                      <span className="font-light text-ink-3">
+                        Service fee ({SERVICE_FEE_PERCENT}%)
+                      </span>
+                      <span className="text-ink">
+                        &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                      </span>
+                    </div>
+                    {productCost > 0 && (
+                      <div className="flex justify-between font-jost text-sm">
+                        <span className="font-light text-ink-3">Cleaning products</span>
+                        <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div
+                      className="flex justify-between pt-2 font-jost"
+                      style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                    >
+                      <span className="text-sm text-ink">Total</span>
+                      <span className="font-cormorant font-light text-3xl text-ink">
+                        &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  {isOneOffOnRegular && (
+                    <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                      Includes 10% one-off surge. Save with a weekly or fortnightly schedule.
+                    </p>
+                  )}
+                  <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                    {!preSelectedCleaner
+                      ? 'Final price depends on your chosen cleaner\u2019s rate. No hidden charges.'
+                      : 'No hidden charges, ever.'}
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Continue */}
+            <button
+              type="button"
+              onClick={() => setPhase('cleaner')}
+              disabled={!postcode || !email || outsideCatchment}
+              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
+            </button>
+          </div>
+          {/* End left column */}
+
+          {/* Right column — sticky booking summary (desktop only) */}
+          <div className="hidden lg:block">
+            <div className="sticky top-8 space-y-4">
+              <div
+                className="bg-cream-2 p-6 space-y-4"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <h3 className="font-cormorant font-light text-lg text-ink">Booking Summary</h3>
+                <SummaryRow label="Service" value={serviceLabel} />
+                {postcode && <SummaryRow label="Postcode" value={postcode} />}
+                <SummaryRow
+                  label="Space"
+                  value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
+                />
+                <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
+                <SummaryRow
+                  label="Frequency"
+                  value={
+                    frequency === 'weekly'
+                      ? 'Weekly (best rate)'
+                      : frequency === 'biweekly'
+                        ? 'Fortnightly (5% off)'
+                        : 'One-off (+10% surge)'
+                  }
+                />
+                <SummaryRow
+                  label="Products"
+                  value={
+                    cleanerBringsProducts
+                      ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
+                      : 'Customer provides'
+                  }
+                />
+                {preSelectedCleaner && (
+                  <SummaryRow
+                    label="Cleaner"
+                    value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
+                  />
+                )}
+
+                <div
+                  className="pt-4 mt-4 space-y-3"
+                  style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <div className="flex justify-between text-sm">
+                    <span className="font-jost font-light text-ink-3">
+                      Cleaning ({effectiveHours}h)
+                    </span>
+                    <span className="font-jost font-normal text-ink">
+                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {productCost > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
+                      <span className="font-jost font-light text-ink">
+                        &pound;{productCost.toFixed(2)}
                       </span>
                     </div>
                   )}
-                  {productCost > 0 && (
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">Cleaning products</span>
-                      <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-jost font-light text-ink-3">
                       Service fee ({SERVICE_FEE_PERCENT}%)
                     </span>
-                    <span className="text-ink">
+                    <span className="font-jost font-light text-ink">
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
                   </div>
-                  {cleanerCount > 1 && (
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">{cleanerCount} cleaners</span>
-                      <span className="text-gold">Faster turnaround</span>
+                  {priceBreakdown.discount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-normal text-gold">
+                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
+                      </span>
+                      <span className="font-jost font-normal text-gold">
+                        -&pound;{priceBreakdown.discount.toFixed(2)}
+                      </span>
                     </div>
                   )}
                   <div
@@ -1009,99 +1199,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   >
                     <span className="font-jost font-normal text-ink">Total</span>
                     <span className="font-cormorant font-light text-3xl text-ink">
-                      &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                      &pound;
+                      {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                     </span>
                   </div>
-                </div>
-                <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                  Fixed price. No hidden charges, ever.
-                </p>
-              </>
-            ) : (
-              <>
-                <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  {preSelectedCleaner ? 'Your price' : 'Guide price'}
-                </span>
-                {preSelectedCleaner && (
-                  <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                    {preSelectedCleaner.name} — &pound;
-                    {getServiceListedRate(preSelectedCleaner, category, isOneOffOnRegular).toFixed(
-                      2
-                    )}
-                    /hr
-                  </p>
-                )}
-                {!preSelectedCleaner && (
-                  <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                    Starting at &pound;
-                    {isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}
-                    /hr
-                  </p>
-                )}
-                <div className="mt-3 space-y-2">
-                  <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">Cleaning ({effectiveHours}h)</span>
-                    <span className="text-ink">
-                      &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
-                    </span>
-                  </div>
-                  {frequencyDiscount > 0 && (
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-gold">
-                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                      </span>
-                      <span className="text-gold">
-                        -&pound;{priceBreakdown.discount.toFixed(2)}
-                      </span>
-                    </div>
+                  {isRegular && (
+                    <p className="font-jost font-light text-xs text-ink-3">
+                      Per clean. Cancel or pause your schedule anytime.
+                    </p>
                   )}
-                  <div className="flex justify-between font-jost text-sm">
-                    <span className="font-light text-ink-3">
-                      Service fee ({SERVICE_FEE_PERCENT}%)
-                    </span>
-                    <span className="text-ink">
-                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                    </span>
-                  </div>
-                  {productCost > 0 && (
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">Cleaning products</span>
-                      <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
-                    </div>
+                  {!preSelectedCleaner && (
+                    <p className="font-jost font-light text-xs text-ink-3">
+                      Final price depends on your chosen cleaner&apos;s rate.
+                    </p>
                   )}
-                  <div
-                    className="flex justify-between pt-2 font-jost"
-                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                  >
-                    <span className="text-sm text-ink">Total</span>
-                    <span className="font-cormorant font-light text-3xl text-ink">
-                      &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
-                    </span>
-                  </div>
                 </div>
-                {isOneOffOnRegular && (
-                  <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                    Includes 10% one-off surge. Save with a weekly or fortnightly schedule.
-                  </p>
-                )}
-                <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                  {!preSelectedCleaner
-                    ? 'Final price depends on your chosen cleaner\u2019s rate. No hidden charges.'
-                    : 'No hidden charges, ever.'}
-                </p>
-              </>
-            )}
+              </div>
+            </div>
           </div>
-
-          {/* Continue */}
-          <button
-            type="button"
-            onClick={() => setPhase('cleaner')}
-            disabled={!postcode || !email || outsideCatchment}
-            className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
-          </button>
         </div>
       </div>
     );
@@ -1112,7 +1227,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // When cleaner is pre-selected, show time slot picker directly
   if (preSelectedCleaner) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream min-h-screen">
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
         <div className="flex items-center gap-4">
           <button
             onClick={() => setPhase('quote')}
@@ -1163,423 +1278,188 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         </div>
 
-        <div className="mt-10 lg:grid lg:grid-cols-[1fr,380px] lg:gap-10 lg:items-start">
-          <div className="space-y-10">
-            {/* Day selection from cleaner's availability */}
-            <div>
-              <h2 className="font-cormorant font-light text-lg text-ink">Pick a day</h2>
-              <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                {preSelectedCleaner.name} is available on the following days.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {preSelectedCleaner.availability.map((day) => (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDay(day);
-                      setSelectedTime('');
-                    }}
-                    className={`px-5 py-3 font-jost text-sm font-light transition ${
-                      selectedDay === day
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                    }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    {day}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Time slot selection — from cleaner's actual availability */}
-            {selectedDay && (
-              <div>
-                <h2 className="font-cormorant font-light text-lg text-ink">Pick a time</h2>
-                <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                  {preSelectedCleaner.name}&apos;s available start times on {selectedDay}s.
-                </p>
-                {(preSelectedCleaner.timeSlots[selectedDay] ?? []).length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {(preSelectedCleaner.timeSlots[selectedDay] ?? []).map((slot) => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => setSelectedTime(slot)}
-                        className={`px-4 py-3 font-jost text-sm font-light transition ${
-                          selectedTime === slot
-                            ? 'bg-ink text-cream'
-                            : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                        }`}
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-4 font-jost text-sm font-light text-ink-3">
-                    No available slots on this day. Please try another day.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Backup cleaner slider */}
-            {selectedDay && selectedTime && (
-              <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <BackupCleanerSlider
-                  cleaners={availableBackupCleaners}
-                  selectedIds={backupCleanerIds}
-                  onToggle={handleBackupToggle}
-                  maxSelections={3}
-                  autoAssign={autoAssignBackup}
-                  onAutoAssignChange={setAutoAssignBackup}
-                />
-              </div>
-            )}
-
-            {/* Escrow payment notice */}
-            {selectedDay && selectedTime && (
-              <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <div className="flex items-start gap-3">
-                  <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <div>
-                    <h4 className="font-jost text-sm font-normal text-ink">
-                      Payment Held in Escrow
-                    </h4>
-                    <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
-                      You will see a charge to your bank account for the booking summary shown
-                      above, but the payment will be held securely in escrow.
-                    </p>
-                    {backupCleanerIds.length > 0 && (
-                      <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
-                        In the event that your chosen cleaner does not accept the booking, one of
-                        your selected backup cleaners will be used instead. Our system will either
-                        provide a small refund or apply a small additional charge to your account to
-                        align with the new cleaner&apos;s rate as shown in the booking summary.
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
-                      <span>&#10003; Funds held safely</span>
-                      <span>&#10003; Released after completion</span>
-                      {backupCleanerIds.length > 0 && (
-                        <span>&#10003; Auto-adjusted for backup rates</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Key access */}
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                How will the cleaner get in?
-              </h2>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {(
-                  [
-                    { value: 'lockbox', label: 'Keybox' },
-                    { value: 'key-under-mat', label: 'Key hidden' },
-                    { value: 'i-will-be-home', label: 'Someone will be in' },
-                    { value: 'with-concierge', label: 'Concierge' },
-                  ] as { value: KeyAccess; label: string }[]
-                ).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setKeyAccess(opt.value)}
-                    className={`px-4 py-3.5 text-left font-jost font-light text-sm transition ${
-                      keyAccess === opt.value
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream text-ink-2 hover:bg-cream-2'
-                    }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
-                <input
-                  type="text"
-                  value={keyAccessNote}
-                  onChange={(e) => setKeyAccessNote(e.target.value)}
-                  placeholder={
-                    keyAccess === 'lockbox'
-                      ? 'Lockbox code or location...'
-                      : 'Where is the key hidden?'
-                  }
-                  className="mt-4 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
+        <div className="mt-10 space-y-10">
+          {/* Day selection from cleaner's availability */}
+          <div>
+            <h2 className="font-cormorant font-light text-lg text-ink">Pick a day</h2>
+            <p className="mt-2 font-jost font-light text-xs text-ink-3">
+              {preSelectedCleaner.name} is available on the following days.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {preSelectedCleaner.availability.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDay(day);
+                    setSelectedTime('');
+                  }}
+                  className={`px-5 py-3 font-jost text-sm font-light transition ${
+                    selectedDay === day
+                      ? 'bg-ink text-cream'
+                      : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                  }`}
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                />
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Time slot selection — from cleaner's actual availability */}
+          {selectedDay && (
+            <div>
+              <h2 className="font-cormorant font-light text-lg text-ink">Pick a time</h2>
+              <p className="mt-2 font-jost font-light text-xs text-ink-3">
+                {preSelectedCleaner.name}&apos;s available start times on {selectedDay}s.
+              </p>
+              {(preSelectedCleaner.timeSlots[selectedDay] ?? []).length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(preSelectedCleaner.timeSlots[selectedDay] ?? []).map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => setSelectedTime(slot)}
+                      className={`px-4 py-3 font-jost text-sm font-light transition ${
+                        selectedTime === slot
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                      }`}
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 font-jost text-sm font-light text-ink-3">
+                  No available slots on this day. Please try another day.
+                </p>
               )}
             </div>
+          )}
 
-            {/* Special instructions */}
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Anything the cleaner should know or be careful with?
-              </label>
-              <textarea
-                rows={3}
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
-                placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
-                className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          {/* Backup cleaner slider */}
+          {selectedDay && selectedTime && (
+            <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <BackupCleanerSlider
+                cleaners={availableBackupCleaners}
+                selectedIds={backupCleanerIds}
+                onToggle={handleBackupToggle}
+                maxSelections={3}
+                autoAssign={autoAssignBackup}
+                onAutoAssignChange={setAutoAssignBackup}
               />
             </div>
+          )}
 
-            {/* Mobile-only summary & submit */}
-            <div className="lg:hidden">
-              <div
-                className="bg-cream-2 p-6 space-y-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <h3 className="font-cormorant font-light text-lg text-ink">Booking Summary</h3>
-                <SummaryRow label="Service" value={serviceLabel} />
-                <SummaryRow label="Postcode" value={postcode} />
-                <SummaryRow
-                  label="Space"
-                  value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
-                />
-                <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
-                <SummaryRow
-                  label="Frequency"
-                  value={
-                    frequency === 'weekly'
-                      ? 'Weekly (best rate)'
-                      : frequency === 'biweekly'
-                        ? 'Fortnightly (5% off)'
-                        : 'One-off (+10% surge)'
-                  }
-                />
-                <SummaryRow
-                  label="Products"
-                  value={
-                    cleanerBringsProducts
-                      ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
-                      : 'Customer provides'
-                  }
-                />
-                <SummaryRow
-                  label="Cleaner"
-                  value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
-                />
-                {selectedDay && <SummaryRow label="Day" value={selectedDay} />}
-                {selectedTime && <SummaryRow label="Time" value={selectedTime} />}
-                <SummaryRow
-                  label="Key access"
-                  value={
-                    keyAccess === 'lockbox'
-                      ? 'Keybox'
-                      : keyAccess === 'key-under-mat'
-                        ? keyAccessNote
-                          ? keyAccessNote.charAt(0).toUpperCase() + keyAccessNote.slice(1)
-                          : 'Key hidden'
-                        : keyAccess === 'i-will-be-home'
-                          ? 'Someone will be in'
-                          : 'Concierge'
-                  }
-                />
-
-                <div
-                  className="pt-4 mt-4 space-y-3"
-                  style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Cleaning ({effectiveHours}h)
-                    </span>
-                    <span className="font-jost font-normal text-ink">
-                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-                    </span>
-                  </div>
-                  {productCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                      <span className="font-jost font-light text-ink">
-                        &pound;{productCost.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Service fee ({SERVICE_FEE_PERCENT}%)
-                    </span>
-                    <span className="font-jost font-light text-ink">
-                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                    </span>
-                  </div>
-                  {priceBreakdown.discount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-normal text-gold">
-                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                      </span>
-                      <span className="font-jost font-normal text-gold">
-                        -&pound;{priceBreakdown.discount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className="flex justify-between pt-3"
-                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    <span className="font-jost font-normal text-ink">Total</span>
-                    <span className="font-cormorant font-light text-3xl text-ink">
-                      &pound;
-                      {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
-                    </span>
-                  </div>
-                  {isRegular && (
-                    <p className="font-jost font-light text-xs text-ink-3">
-                      Per clean. Cancel or pause your schedule anytime.
+          {/* Escrow payment notice */}
+          {selectedDay && selectedTime && (
+            <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div className="flex items-start gap-3">
+                <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div>
+                  <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
+                  <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                    You will see a charge to your bank account for the booking summary shown above,
+                    but the payment will be held securely in escrow.
+                  </p>
+                  {backupCleanerIds.length > 0 && (
+                    <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                      In the event that your chosen cleaner does not accept the booking, one of your
+                      selected backup cleaners will be used instead. Our system will either provide
+                      a small refund or apply a small additional charge to your account to align
+                      with the new cleaner&apos;s rate as shown in the booking summary.
                     </p>
                   )}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                    <span>&#10003; Funds held safely</span>
+                    <span>&#10003; Released after completion</span>
+                    {backupCleanerIds.length > 0 && (
+                      <span>&#10003; Auto-adjusted for backup rates</span>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={handleBookingSubmit}
-                disabled={!selectedDay || !selectedTime}
-                className="mt-6 w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
-              </button>
             </div>
-          </div>
-          {/* End left column */}
+          )}
 
-          {/* Right column — sticky booking summary (desktop only) */}
-          <div className="hidden lg:block">
-            <div className="sticky top-8 space-y-4">
-              <div
-                className="bg-cream-2 p-6 space-y-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <h3 className="font-cormorant font-light text-lg text-ink">Booking Summary</h3>
-                <SummaryRow label="Service" value={serviceLabel} />
-                <SummaryRow label="Postcode" value={postcode} />
-                <SummaryRow
-                  label="Space"
-                  value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
-                />
-                <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
-                <SummaryRow
-                  label="Frequency"
-                  value={
-                    frequency === 'weekly'
-                      ? 'Weekly (best rate)'
-                      : frequency === 'biweekly'
-                        ? 'Fortnightly (5% off)'
-                        : 'One-off (+10% surge)'
-                  }
-                />
-                <SummaryRow
-                  label="Products"
-                  value={
-                    cleanerBringsProducts
-                      ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
-                      : 'Customer provides'
-                  }
-                />
-                <SummaryRow
-                  label="Cleaner"
-                  value={`${preSelectedCleaner.name} (${TIER_INFO[preSelectedCleaner.tier].label}) — \u00A3${priceBreakdown.listedHourlyRate}/hr`}
-                />
-                {selectedDay && <SummaryRow label="Day" value={selectedDay} />}
-                {selectedTime && <SummaryRow label="Time" value={selectedTime} />}
-                <SummaryRow
-                  label="Key access"
-                  value={
-                    keyAccess === 'lockbox'
-                      ? 'Keybox'
-                      : keyAccess === 'key-under-mat'
-                        ? keyAccessNote
-                          ? keyAccessNote.charAt(0).toUpperCase() + keyAccessNote.slice(1)
-                          : 'Key hidden'
-                        : keyAccess === 'i-will-be-home'
-                          ? 'Someone will be in'
-                          : 'Concierge'
-                  }
-                />
-
-                <div
-                  className="pt-4 mt-4 space-y-3"
-                  style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+          {/* Key access */}
+          <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              How will the cleaner get in?
+            </h2>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  { value: 'lockbox', label: 'Keybox' },
+                  { value: 'key-under-mat', label: 'Key hidden' },
+                  { value: 'i-will-be-home', label: 'Someone will be in' },
+                  { value: 'with-concierge', label: 'Concierge' },
+                ] as { value: KeyAccess; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setKeyAccess(opt.value)}
+                  className={`px-4 py-3.5 text-left font-jost font-light text-sm transition ${
+                    keyAccess === opt.value
+                      ? 'bg-ink text-cream'
+                      : 'bg-cream text-ink-2 hover:bg-cream-2'
+                  }`}
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Cleaning ({effectiveHours}h)
-                    </span>
-                    <span className="font-jost font-normal text-ink">
-                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-                    </span>
-                  </div>
-                  {productCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                      <span className="font-jost font-light text-ink">
-                        &pound;{productCost.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Service fee ({SERVICE_FEE_PERCENT}%)
-                    </span>
-                    <span className="font-jost font-light text-ink">
-                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                    </span>
-                  </div>
-                  {priceBreakdown.discount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-normal text-gold">
-                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                      </span>
-                      <span className="font-jost font-normal text-gold">
-                        -&pound;{priceBreakdown.discount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className="flex justify-between pt-3"
-                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    <span className="font-jost font-normal text-ink">Total</span>
-                    <span className="font-cormorant font-light text-3xl text-ink">
-                      &pound;
-                      {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
-                    </span>
-                  </div>
-                  {isRegular && (
-                    <p className="font-jost font-light text-xs text-ink-3">
-                      Per clean. Cancel or pause your schedule anytime.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleBookingSubmit}
-                disabled={!selectedDay || !selectedTime}
-                className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
-              </button>
+                  {opt.label}
+                </button>
+              ))}
             </div>
+            {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
+              <input
+                type="text"
+                value={keyAccessNote}
+                onChange={(e) => setKeyAccessNote(e.target.value)}
+                placeholder={
+                  keyAccess === 'lockbox'
+                    ? 'Lockbox code or location...'
+                    : 'Where is the key hidden?'
+                }
+                className="mt-4 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              />
+            )}
           </div>
+
+          {/* Special instructions */}
+          <div>
+            <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              Anything the cleaner should know or be careful with?
+            </label>
+            <textarea
+              rows={3}
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+              placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
+              className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            />
+          </div>
+
+          {/* Submit */}
+          <button
+            type="button"
+            onClick={handleBookingSubmit}
+            disabled={!selectedDay || !selectedTime}
+            className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
+          </button>
         </div>
       </div>
     );
