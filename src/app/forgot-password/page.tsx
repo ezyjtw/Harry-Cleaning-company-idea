@@ -1,82 +1,116 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { useState } from 'react'
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError('');
 
     if (!email) {
-      setError('Please enter your email address.')
-      return
+      setError('Please enter your email address.');
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     // TODO: Replace with real password reset API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    setIsLoading(false)
-    setSubmitted(true)
-  }
+    setIsLoading(false);
+    setSubmitted(true);
+  };
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center px-4 py-12">
+    <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16">
       <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="mb-10 text-center">
+          <Link
+            href="/"
+            className="inline-block font-cormorant text-[34px] font-semibold tracking-widest text-ink"
+          >
+            RENA
+          </Link>
+        </div>
+
         {submitted ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          <div className="text-center">
+            <div
+              className="mx-auto mb-6 flex h-16 w-16 items-center justify-center bg-cream-2"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <svg
+                className="h-7 w-7 text-gold"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Check Your Email</h1>
-            <p className="mt-3 text-gray-600">
-              If an account exists for <span className="font-medium text-gray-900">{email}</span>, we&apos;ve sent password reset instructions to your inbox.
+            <h1 className="font-cormorant text-3xl font-light text-ink">Check Your Email</h1>
+            <p className="mt-4 font-jost text-sm font-light text-ink-2 leading-relaxed">
+              If an account exists for <span className="font-normal text-ink">{email}</span>,
+              we&apos;ve sent password reset instructions to your inbox.
             </p>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 font-jost text-xs font-light text-ink-3">
               Didn&apos;t receive an email? Check your spam folder or try again.
             </p>
-            <div className="mt-6 space-y-3">
+            <div className="mt-8 space-y-3">
               <button
-                onClick={() => { setSubmitted(false); setEmail('') }}
-                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 font-semibold text-gray-700 hover:bg-gray-50"
+                onClick={() => {
+                  setSubmitted(false);
+                  setEmail('');
+                }}
+                className="w-full py-3 font-jost text-[11px] uppercase tracking-[0.15em] text-ink hover:bg-cream-2 transition"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 Try Another Email
               </button>
               <Link
                 href="/login"
-                className="block w-full rounded-lg bg-brand-600 py-2.5 text-center font-semibold text-white hover:bg-brand-700"
+                className="block w-full bg-ink py-3 text-center font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition"
               >
                 Back to Log In
               </Link>
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            <h1 className="text-center text-3xl font-bold text-gray-900">
+          <div>
+            <h1 className="text-center font-cormorant text-3xl font-light text-ink">
               Forgot Password?
             </h1>
-            <p className="mt-2 text-center text-gray-600">
+            <p className="mt-3 text-center font-jost text-sm font-light text-ink-2">
               Enter your email and we&apos;ll send you instructions to reset your password.
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-10 space-y-5">
               {error && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                <div
+                  className="bg-red-50 px-4 py-3 font-jost text-sm font-light text-red-700"
+                  style={{ border: '0.5px solid rgba(239,68,68,0.2)' }}
+                >
                   {error}
                 </div>
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="email"
+                  className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3"
+                >
                   Email Address
                 </label>
                 <input
@@ -86,22 +120,23 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                  className="mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition disabled:opacity-50"
               >
                 {isLoading ? 'Sending...' : 'Send Reset Link'}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-gray-600">
+            <p className="mt-8 text-center font-jost text-sm font-light text-ink-3">
               Remember your password?{' '}
-              <Link href="/login" className="font-semibold text-brand-600 hover:text-brand-700">
+              <Link href="/login" className="font-normal text-ink hover:text-gold transition">
                 Log in
               </Link>
             </p>
@@ -109,5 +144,5 @@ export default function ForgotPasswordPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
