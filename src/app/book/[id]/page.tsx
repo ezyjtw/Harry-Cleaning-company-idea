@@ -397,7 +397,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">
+    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream">
       {!isExpress && (
         <button
           onClick={() => setStep('service')}
@@ -508,324 +508,427 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Guest / Account selection */}
-      {bookingMode === null && (
-        <div className="mt-8 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h3 className="font-cormorant text-lg font-light text-ink mb-4">
-            How would you like to book?
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <button
-              onClick={() => setBookingMode('guest')}
-              className="p-4 text-left hover:bg-cream-2 transition"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <p className="font-jost font-normal text-ink">Continue as Guest</p>
-              <p className="font-jost text-sm font-light text-ink-3 mt-1">
-                No account needed. We&apos;ll email you a link to manage your booking.
-              </p>
-            </button>
-            <button
-              onClick={() => setBookingMode('account')}
-              className="bg-cream-2 p-4 text-left hover:bg-cream-2/80 transition"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <p className="font-jost font-normal text-ink">Sign in / Create Account</p>
-              <p className="font-jost text-sm font-light text-ink-3 mt-1">
-                Save your details, rebook easily, and track all your bookings.
-              </p>
-            </button>
-          </div>
-        </div>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        className={`mt-8 space-y-6 ${bookingMode === null ? 'opacity-50 pointer-events-none' : ''}`}
-      >
-        {/* Contact info */}
+      <div className="lg:grid lg:grid-cols-[1fr,380px] lg:gap-10 lg:items-start">
+        {/* Left column — form */}
         <div>
-          <h3 className="font-cormorant text-lg font-light text-ink">
-            Your Information
-            {bookingMode === 'guest' && (
-              <span className="ml-2 font-jost text-sm font-light text-ink-3">(Guest checkout)</span>
-            )}
-          </h3>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Full Name
-              </label>
-              <input
-                type="text"
-                required
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
+          {/* Guest / Account selection */}
+          {bookingMode === null && (
+            <div className="mt-8 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h3 className="font-cormorant text-lg font-light text-ink mb-4">
+                How would you like to book?
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <button
+                  onClick={() => setBookingMode('guest')}
+                  className="p-4 text-left hover:bg-cream-2 transition"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p className="font-jost font-normal text-ink">Continue as Guest</p>
+                  <p className="font-jost text-sm font-light text-ink-3 mt-1">
+                    No account needed. We&apos;ll email you a link to manage your booking.
+                  </p>
+                </button>
+                <button
+                  onClick={() => setBookingMode('account')}
+                  className="bg-cream-2 p-4 text-left hover:bg-cream-2/80 transition"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <p className="font-jost font-normal text-ink">Sign in / Create Account</p>
+                  <p className="font-jost text-sm font-light text-ink-3 mt-1">
+                    Save your details, rebook easily, and track all your bookings.
+                  </p>
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                onBlur={handleEmailBlur}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Phone
-              </label>
-              <input
-                type="tel"
-                required
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Address
-              </label>
-              {savedAddresses.length > 0 && (
-                <div className="mt-1 mb-2 flex flex-wrap gap-2">
-                  {savedAddresses.map((addr) => (
-                    <button
-                      key={addr.id}
-                      type="button"
-                      onClick={() => handleSavedAddress(addr.id)}
-                      className={`px-3 py-1 font-jost text-xs font-light transition ${
-                        form.selectedSavedAddress === addr.id
-                          ? 'bg-ink text-cream'
-                          : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
-                      }`}
-                    >
-                      {addr.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <input
-                type="text"
-                required
-                value={form.address}
-                onChange={(e) =>
-                  setForm({ ...form, address: e.target.value, selectedSavedAddress: '' })
-                }
-                className="w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Service details */}
-        <div>
-          <h3 className="font-cormorant text-lg font-light text-ink">Service Details</h3>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Service Type
-              </label>
-              <select
-                value={form.serviceType}
-                onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                {SERVICE_TYPES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Duration (hours)
-              </label>
-              <select
-                value={form.duration}
-                onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
-                  <option key={h} value={h}>
-                    {h} hour{h !== 1 ? 's' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Preferred Date
-              </label>
-              <input
-                type="date"
-                required
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Preferred Time
-              </label>
-              <input
-                type="time"
-                required
-                value={form.time}
-                onChange={(e) => setForm({ ...form, time: e.target.value })}
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            Special Notes / Instructions
-          </label>
-          <textarea
-            rows={3}
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            placeholder="Any special requests, access instructions, or areas to focus on..."
-            className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-          />
-        </div>
-
-        {/* Booking summary */}
-        <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h4 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
-            Booking Summary
-          </h4>
-          <div className="space-y-2 font-jost text-sm font-light">
-            <div className="flex justify-between">
-              <span className="text-ink-3">
-                Cleaning ({form.duration}h
-                {selectedService.multiplier !== 1 && (
-                  <>
-                    {' '}
-                    &times; {selectedService.multiplier}x {selectedService.label}
-                  </>
-                )}
-                )
-              </span>
-              <span className="font-normal text-ink">
-                &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-              </span>
-            </div>
-            {isLastMinute && (
-              <div className="font-jost text-xs font-light text-gold">Same-day rate applied</div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
-              <span className="font-normal text-ink">
-                &pound;{priceBreakdown.serviceFee.toFixed(2)}
-              </span>
-            </div>
-            <div
-              className="flex justify-between pt-2"
-              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-            >
-              <span className="font-normal text-ink">Total</span>
-              <span className="font-cormorant text-2xl font-light text-gold">
-                &pound;{priceBreakdown.total.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <p className="mt-2 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            Exact price shown. No hidden charges, ever.
-          </p>
-
-          {/* Escrow notice — directly below booking summary */}
-          <div
-            className="mt-3 pt-3 flex items-start gap-2.5"
-            style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-          >
-            <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div className="font-jost text-xs font-light text-ink-2 leading-relaxed">
-              <p>
-                Your payment is held in escrow until the job is confirmed complete.
-                {(backupCleanerIds.length > 0 || autoAssignBackup) && (
-                  <>
-                    {' '}
-                    If the cleaner changes, your payment will be updated to reflect the new rate.
-                  </>
-                )}
-                {autoAssignBackup && <> Any cleaner we assign will be the same price or lower.</>}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Backup cleaner slider */}
-        <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <BackupCleanerSlider
-            cleaners={availableBackupCleaners}
-            selectedIds={backupCleanerIds}
-            onToggle={handleBackupToggle}
-            maxSelections={3}
-            autoAssign={autoAssignBackup}
-            onAutoAssignChange={setAutoAssignBackup}
-          />
-        </div>
-
-        {/* Verification badge */}
-        <div
-          className="flex items-center justify-between bg-cream-2 px-4 py-3"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-        >
-          <div className="flex items-center gap-2">
-            <VerificationBadge
-              identityVerified={cleaner.identityVerified}
-              backgroundChecked={cleaner.backgroundChecked}
-              size="md"
-            />
-          </div>
-          {cleaner.identityVerified && (
-            <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Arrival photo will confirm identity
-            </span>
           )}
-        </div>
 
-        <button
-          type="submit"
-          disabled={paymentPending}
-          className={`w-full py-3 font-jost text-lg font-normal text-cream disabled:opacity-60 ${
-            isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
-          }`}
-        >
-          {paymentPending
-            ? 'Processing...'
-            : isLastMinute
-              ? 'Send Express Booking'
-              : 'Confirm & Pay'}
-        </button>
-      </form>
+          <form
+            onSubmit={handleSubmit}
+            className={`mt-8 space-y-6 ${bookingMode === null ? 'opacity-50 pointer-events-none' : ''}`}
+          >
+            {/* Contact info */}
+            <div>
+              <h3 className="font-cormorant text-lg font-light text-ink">
+                Your Information
+                {bookingMode === 'guest' && (
+                  <span className="ml-2 font-jost text-sm font-light text-ink-3">
+                    (Guest checkout)
+                  </span>
+                )}
+              </h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    onBlur={handleEmailBlur}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Address
+                  </label>
+                  {savedAddresses.length > 0 && (
+                    <div className="mt-1 mb-2 flex flex-wrap gap-2">
+                      {savedAddresses.map((addr) => (
+                        <button
+                          key={addr.id}
+                          type="button"
+                          onClick={() => handleSavedAddress(addr.id)}
+                          className={`px-3 py-1 font-jost text-xs font-light transition ${
+                            form.selectedSavedAddress === addr.id
+                              ? 'bg-ink text-cream'
+                              : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
+                          }`}
+                        >
+                          {addr.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    required
+                    value={form.address}
+                    onChange={(e) =>
+                      setForm({ ...form, address: e.target.value, selectedSavedAddress: '' })
+                    }
+                    className="w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Service details */}
+            <div>
+              <h3 className="font-cormorant text-lg font-light text-ink">Service Details</h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Service Type
+                  </label>
+                  <select
+                    value={form.serviceType}
+                    onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {SERVICE_TYPES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Duration (hours)
+                  </label>
+                  <select
+                    value={form.duration}
+                    onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
+                      <option key={h} value={h}>
+                        {h} hour{h !== 1 ? 's' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Preferred Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Preferred Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={form.time}
+                    onChange={(e) => setForm({ ...form, time: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Special Notes / Instructions
+              </label>
+              <textarea
+                rows={3}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Any special requests, access instructions, or areas to focus on..."
+                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              />
+            </div>
+
+            {/* Backup cleaner slider */}
+            <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <BackupCleanerSlider
+                cleaners={availableBackupCleaners}
+                selectedIds={backupCleanerIds}
+                onToggle={handleBackupToggle}
+                maxSelections={3}
+                autoAssign={autoAssignBackup}
+                onAutoAssignChange={setAutoAssignBackup}
+              />
+            </div>
+
+            {/* Verification badge */}
+            <div
+              className="flex items-center justify-between bg-cream-2 px-4 py-3"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <div className="flex items-center gap-2">
+                <VerificationBadge
+                  identityVerified={cleaner.identityVerified}
+                  backgroundChecked={cleaner.backgroundChecked}
+                  size="md"
+                />
+              </div>
+              {cleaner.identityVerified && (
+                <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  Arrival photo will confirm identity
+                </span>
+              )}
+            </div>
+
+            {/* Mobile-only booking summary (hidden on lg+) */}
+            <div className="lg:hidden">
+              <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h4 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
+                  Booking Summary
+                </h4>
+                <div className="space-y-2 font-jost text-sm font-light">
+                  <div className="flex justify-between">
+                    <span className="text-ink-3">
+                      Cleaning ({form.duration}h
+                      {selectedService.multiplier !== 1 && (
+                        <>
+                          {' '}
+                          &times; {selectedService.multiplier}x {selectedService.label}
+                        </>
+                      )}
+                      )
+                    </span>
+                    <span className="font-normal text-ink">
+                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {isLastMinute && (
+                    <div className="font-jost text-xs font-light text-gold">
+                      Same-day rate applied
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
+                    <span className="font-normal text-ink">
+                      &pound;{priceBreakdown.serviceFee.toFixed(2)}
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between pt-2"
+                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                  >
+                    <span className="font-normal text-ink">Total</span>
+                    <span className="font-cormorant text-2xl font-light text-gold">
+                      &pound;{priceBreakdown.total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-2 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  Exact price shown. No hidden charges, ever.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={paymentPending}
+              className={`w-full py-3 font-jost text-lg font-normal text-cream disabled:opacity-60 ${
+                isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
+              } lg:hidden`}
+            >
+              {paymentPending
+                ? 'Processing...'
+                : isLastMinute
+                  ? 'Send Express Booking'
+                  : 'Confirm & Pay'}
+            </button>
+          </form>
+        </div>
+        {/* End left column */}
+
+        {/* Right column — sticky booking summary (desktop only) */}
+        <div className="hidden lg:block">
+          <div className="sticky top-8 space-y-4">
+            <div className="bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <h4 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
+                Booking Summary
+              </h4>
+
+              {/* Cleaner info */}
+              <div
+                className="flex items-center gap-3 mb-4 pb-4"
+                style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}
+              >
+                <div className="flex h-10 w-10 items-center justify-center bg-ink font-cormorant text-sm font-light text-cream">
+                  {cleaner.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-jost text-sm font-normal text-ink">{cleaner.name}</p>
+                  <p className="font-jost text-xs font-light text-ink-3">
+                    &pound;{getListedRate(cleaner.hourlyRate)}/hr
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 font-jost text-sm font-light">
+                <div className="flex justify-between">
+                  <span className="text-ink-3">
+                    Cleaning ({form.duration}h
+                    {selectedService.multiplier !== 1 && (
+                      <>
+                        {' '}
+                        &times; {selectedService.multiplier}x {selectedService.label}
+                      </>
+                    )}
+                    )
+                  </span>
+                  <span className="font-normal text-ink">
+                    &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                  </span>
+                </div>
+                {isLastMinute && (
+                  <div className="font-jost text-xs font-light text-gold">
+                    Same-day rate applied
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
+                  <span className="font-normal text-ink">
+                    &pound;{priceBreakdown.serviceFee.toFixed(2)}
+                  </span>
+                </div>
+                <div
+                  className="flex justify-between pt-3 mt-2"
+                  style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                >
+                  <span className="font-normal text-ink">Total</span>
+                  <span className="font-cormorant text-2xl font-light text-gold">
+                    &pound;{priceBreakdown.total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Exact price shown. No hidden charges, ever.
+              </p>
+
+              {/* Escrow notice */}
+              <div
+                className="mt-3 pt-3 flex items-start gap-2.5"
+                style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+              >
+                <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div className="font-jost text-xs font-light text-ink-2 leading-relaxed">
+                  <p>
+                    Your payment is held in escrow until the job is confirmed complete.
+                    {(backupCleanerIds.length > 0 || autoAssignBackup) && (
+                      <>
+                        {' '}
+                        If the cleaner changes, your payment will be updated to reflect the new
+                        rate.
+                      </>
+                    )}
+                    {autoAssignBackup && (
+                      <> Any cleaner we assign will be the same price or lower.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const formEl = document.querySelector('form');
+                if (formEl) formEl.requestSubmit();
+              }}
+              disabled={paymentPending || bookingMode === null}
+              className={`w-full py-3 font-jost text-lg font-normal text-cream disabled:opacity-60 ${
+                isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
+              }`}
+            >
+              {paymentPending
+                ? 'Processing...'
+                : isLastMinute
+                  ? 'Send Express Booking'
+                  : 'Confirm & Pay'}
+            </button>
+          </div>
+        </div>
+        {/* End right column */}
+      </div>
+      {/* End two-column grid */}
     </div>
   );
 }
