@@ -40,6 +40,17 @@ const SERVICE_LABELS: Record<ServiceCategory, string> = {
   'end-of-tenancy': 'End of Tenancy Cleaning',
 };
 
+const SERVICE_DESCRIPTIONS: Record<ServiceCategory, string> = {
+  regular:
+    'Weekly or fortnightly visits with your preferred cleaner. Consistent quality at a time that works for you.',
+  'same-day':
+    'Need a cleaner today? We\u2019ll match you with a vetted, available cleaner near you for a same-day visit.',
+  deep: 'Top-to-bottom. Inside appliances, skirting boards, and every corner. A thorough reset for your home.',
+  airbnb: 'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
+  'end-of-tenancy':
+    'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
+};
+
 const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
   regular: 1.0,
   'same-day': 1.3,
@@ -506,10 +517,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   if (submitted) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center bg-cream min-h-screen">
-        <div
-          className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2 text-3xl text-gold"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-        >
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-cream-2 text-3xl text-gold ring-1 ring-ink/[0.06]">
           &#10003;
         </div>
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink">Booking Request Sent</h1>
@@ -565,25 +573,85 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   if (phase === 'quote') {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream min-h-screen">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
-          >
-            &larr; Back
-          </Link>
-          <h1 className="font-cormorant font-light text-2xl text-ink sm:text-3xl">
+        {/* Back link */}
+        <Link
+          href="/"
+          className="group inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </span>
+          Back
+        </Link>
+
+        {/* Hero header */}
+        <div className="mt-6 animate-fade-in">
+          <h1 className="font-cormorant font-light text-3xl text-ink sm:text-4xl">
             {serviceLabel}
           </h1>
+          <p className="mt-3 max-w-xl font-jost text-[15px] font-light leading-relaxed text-ink-2">
+            {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
+          </p>
+          <div className="my-8 h-px bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
+
+          {/* Trust chips */}
+          <div className="flex flex-wrap items-center gap-3">
+            {[
+              { icon: '\u2713', text: 'Verified Cleaners' },
+              { icon: '\u2713', text: 'Escrow Protected' },
+              { icon: '\u2713', text: 'Satisfaction Guarantee' },
+            ].map((chip) => (
+              <span
+                key={chip.text}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-jost text-[11px] font-medium tracking-wide text-ink-2 shadow-sm ring-1 ring-ink/[0.06]"
+              >
+                <span className="text-gold">{chip.icon}</span>
+                {chip.text}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Step indicator */}
+        <div className="mt-8 flex items-center gap-2">
+          {[
+            { num: 1, label: 'Configure' },
+            { num: 2, label: 'Choose Cleaner' },
+            { num: 3, label: 'Confirm' },
+          ].map((s, i) => (
+            <div key={s.num} className="flex items-center gap-2">
+              {i > 0 && <div className="h-px w-6 bg-ink-3/15 sm:w-10" />}
+              <span
+                className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                  s.num === 1 ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
+                    s.num === 1 ? 'bg-cream/20 text-cream' : 'bg-ink-3/10 text-ink-3/40'
+                  }`}
+                >
+                  {s.num}
+                </span>
+                <span className="hidden sm:inline">{s.label}</span>
+              </span>
+            </div>
+          ))}
         </div>
 
         <div className="mt-10 lg:grid lg:grid-cols-[1fr,380px] lg:gap-10 lg:items-start">
-          <div className="space-y-10">
+          <div className="space-y-8">
             {/* Postcode */}
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Your postcode
-              </label>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-lg text-ink">Your Postcode</h2>
               <input
                 type="text"
                 value={postcode}
@@ -599,16 +667,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   }
                 }}
                 placeholder="e.g. SW1A 1AA"
-                className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-lg text-ink focus:outline-none"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost text-lg font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
 
               {/* Out-of-area waitlist */}
               {outsideCatchment && !waitlistSubmitted && (
-                <div
-                  className="mt-4 bg-cream-2 p-5"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
+                <div className="mt-4 rounded-lg bg-cream-2 p-5 ring-1 ring-ink/[0.06]">
                   <p className="font-jost text-sm font-normal text-ink">
                     We&apos;re expanding to your area soon
                   </p>
@@ -638,8 +702,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         }
                       }}
                       placeholder="your@email.com"
-                      className="flex-1 bg-white px-4 py-3 font-jost text-sm font-light text-ink focus:outline-none"
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      className="flex-1 rounded-lg bg-white px-4 py-3 font-jost text-sm font-light text-ink ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
                     />
                     <button
                       type="button"
@@ -656,7 +719,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           .finally(() => setWaitlistLoading(false));
                       }}
                       disabled={waitlistLoading || !waitlistEmail.trim()}
-                      className="bg-ink px-5 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50"
+                      className="rounded-lg bg-ink px-5 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-cream transition hover:bg-gold disabled:opacity-50"
                     >
                       {waitlistLoading ? 'Sending...' : 'Notify Me'}
                     </button>
@@ -665,10 +728,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               )}
 
               {outsideCatchment && waitlistSubmitted && (
-                <div
-                  className="mt-4 bg-cream-2 p-5"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
+                <div className="mt-4 rounded-lg bg-cream-2 p-5 ring-1 ring-ink/[0.06]">
                   <p className="font-jost text-sm font-normal text-ink">You&apos;re on the list</p>
                   <p className="mt-1 font-jost text-xs font-light text-ink-3">
                     We&apos;ll email you as soon as we launch in your area.
@@ -678,11 +738,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Rooms */}
-            <div>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                How many rooms?
-              </h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-lg text-ink">How Many Rooms?</h2>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <Counter
                   label="Bedrooms"
                   value={rooms.bedrooms}
@@ -709,43 +767,41 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Hours — only for hourly services */}
             {!isFixedPrice(category) && (
-              <div>
-                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  How many hours?
-                </h2>
-                <div
-                  className="mt-3 bg-cream-2 p-5"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-cormorant text-lg text-ink">How Many Hours?</h2>
+                <div className="mt-4 rounded-lg bg-cream-2/60 p-4 ring-1 ring-ink/[0.04]">
                   <p className="font-jost font-light text-sm text-ink-2">
                     We recommend{' '}
                     <span className="font-normal text-ink">{suggestedHours} hours</span> for your{' '}
                     {rooms.bedrooms} bedroom, {rooms.bathrooms} bathroom home.
                   </p>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((h) => (
                     <button
                       key={h}
                       type="button"
                       onClick={() => setSelectedHours(h)}
-                      className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                      className={`relative rounded-full px-4 py-2.5 font-jost text-sm font-light transition-all duration-200 ${
                         effectiveHours === h
-                          ? 'bg-ink text-cream'
-                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                          ? 'bg-ink text-cream shadow-sm'
+                          : h === suggestedHours
+                            ? 'bg-white text-ink ring-1 ring-gold/40 hover:ring-gold/60'
+                            : 'bg-white text-ink-2 ring-1 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink'
                       }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
                       {h}h
+                      {h === suggestedHours && effectiveHours !== h && (
+                        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[8px] font-bold text-white">
+                          &#10003;
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
 
                 {isUnderSuggested && (
-                  <div
-                    className="mt-4 bg-cream-2 p-5"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
+                  <div className="mt-4 rounded-lg bg-cream-2/60 p-5 ring-1 ring-ink/[0.04]">
                     <p className="font-jost font-light text-sm text-ink-2">
                       You&apos;ve selected fewer hours than recommended. Leave a note for the
                       cleaner so they know where to focus:
@@ -755,8 +811,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       value={cleanerNote}
                       onChange={(e) => setCleanerNote(e.target.value)}
                       placeholder="e.g. Please focus on the kitchen and bathrooms..."
-                      className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                      className="mt-3 w-full rounded-lg bg-cream px-3 py-2.5 font-jost text-sm font-light text-ink ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
                     />
                   </div>
                 )}
@@ -765,14 +820,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Extra services — for Airbnb & End of Tenancy */}
             {isFixedPrice(category) && (
-              <div>
-                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Extra services
-                </h2>
-                <p className="mt-2 font-jost font-light text-xs text-ink-3">
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-cormorant text-lg text-ink">Extra Services</h2>
+                <p className="mt-2 font-jost text-xs font-light text-ink-3">
                   Select any additional services you need — each is priced separately.
                 </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {(EXTRA_SERVICES[category] ?? []).map((svc) => {
                     const isSelected = selectedExtras.includes(svc.id);
                     const price = svc.price;
@@ -785,21 +838,27 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                             isSelected ? prev.filter((id) => id !== svc.id) : [...prev, svc.id]
                           )
                         }
-                        className={`p-4 text-left transition ${
-                          isSelected ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                        className={`rounded-xl p-4 text-left transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
+                            : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
                         }`}
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                       >
                         <p
-                          className={`font-jost font-normal text-sm ${isSelected ? 'text-cream' : 'text-ink'}`}
+                          className={`font-jost text-sm font-normal ${isSelected ? 'text-ink' : 'text-ink'}`}
                         >
                           {svc.label}
                         </p>
                         <p
-                          className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${isSelected ? 'text-cream/60' : 'text-gold'}`}
+                          className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${isSelected ? 'text-gold' : 'text-gold'}`}
                         >
                           +&pound;{price}
                         </p>
+                        {isSelected && (
+                          <span className="mt-2 inline-flex items-center gap-1 font-jost text-[10px] font-medium text-gold">
+                            <span>&#10003;</span> Added
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -808,26 +867,23 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             )}
 
             {/* Products */}
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Cleaning products
-              </h2>
-              <div className="mt-4 flex gap-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-lg text-ink">Cleaning Products</h2>
+              <div className="mt-5 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setCleanerBringsProducts(false)}
-                  className={`flex-1 p-4 text-left transition ${
-                    !cleanerBringsProducts ? 'bg-ink text-cream' : 'bg-cream'
+                  className={`flex-1 rounded-xl p-4 text-left transition-all duration-200 ${
+                    !cleanerBringsProducts
+                      ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
+                      : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
                   }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
-                  <p
-                    className={`font-jost font-normal text-sm ${!cleanerBringsProducts ? 'text-cream' : 'text-ink'}`}
-                  >
+                  <p className="font-jost text-sm font-normal text-ink">
                     I&apos;ll provide products
                   </p>
                   <p
-                    className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${!cleanerBringsProducts ? 'text-cream/60' : 'text-ink-3'}`}
+                    className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${!cleanerBringsProducts ? 'text-gold' : 'text-ink-3'}`}
                   >
                     No extra cost
                   </p>
@@ -835,18 +891,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <button
                   type="button"
                   onClick={() => setCleanerBringsProducts(true)}
-                  className={`flex-1 p-4 text-left transition ${
-                    cleanerBringsProducts ? 'bg-ink text-cream' : 'bg-cream'
+                  className={`flex-1 rounded-xl p-4 text-left transition-all duration-200 ${
+                    cleanerBringsProducts
+                      ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
+                      : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
                   }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
+                  <p className="font-jost text-sm font-normal text-ink">Cleaner brings products</p>
                   <p
-                    className={`font-jost font-normal text-sm ${cleanerBringsProducts ? 'text-cream' : 'text-ink'}`}
-                  >
-                    Cleaner brings products
-                  </p>
-                  <p
-                    className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerBringsProducts ? 'text-cream/60' : 'text-ink-3'}`}
+                    className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerBringsProducts ? 'text-gold' : 'text-ink-3'}`}
                   >
                     Additional &pound;5 charge
                   </p>
@@ -856,14 +909,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Frequency — only shown for Regular Cleaning */}
             {isRegular && (
-              <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  How often?
-                </h2>
-                <p className="mt-2 font-jost font-light text-xs text-gold">
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-cormorant text-lg text-ink">How Often?</h2>
+                <p className="mt-2 font-jost text-xs font-light text-gold">
                   Save with a regular schedule — weekly cleans get the best rate.
                 </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
                   {(
                     [
                       { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '+10% surge' },
@@ -879,19 +930,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       key={opt.value}
                       type="button"
                       onClick={() => setFrequency(opt.value)}
-                      className={`p-4 text-center transition ${
-                        frequency === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                      className={`rounded-xl p-4 text-center transition-all duration-200 ${
+                        frequency === opt.value
+                          ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
+                          : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
                       }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
-                      <p
-                        className={`font-jost font-normal text-sm ${frequency === opt.value ? 'text-cream' : 'text-ink'}`}
-                      >
-                        {opt.label}
-                      </p>
+                      <p className="font-jost text-sm font-normal text-ink">{opt.label}</p>
                       {opt.tag && (
                         <p
-                          className={`mt-1.5 font-jost text-[11px] font-medium ${frequency === opt.value ? 'text-cream/60' : opt.value === 'one-off' ? 'text-ink-3' : 'text-gold'}`}
+                          className={`mt-1.5 font-jost text-[11px] font-medium ${frequency === opt.value ? 'text-gold' : opt.value === 'one-off' ? 'text-ink-3' : 'text-gold'}`}
                         >
                           {opt.tag}
                         </p>
@@ -903,33 +951,31 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             )}
 
             {/* Email */}
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Email address
-              </label>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-lg text-ink">Your Email</h2>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="mt-3 w-full bg-cream px-4 py-3.5 font-jost font-light text-ink focus:outline-none"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
-              <label className="mt-4 flex items-center gap-3 cursor-pointer">
+              <label className="mt-4 flex cursor-pointer items-center gap-3">
                 <input
                   type="checkbox"
                   checked={joinMailingList}
                   onChange={(e) => setJoinMailingList(e.target.checked)}
-                  className="h-4 w-4 border-ink-3 text-ink focus:ring-0"
+                  className="h-4 w-4 rounded border-ink-3 text-gold focus:ring-gold/30"
                 />
-                <span className="font-jost font-light text-sm text-ink-2">
-                  Tick here to recieve promotional offers
+                <span className="font-jost text-sm font-light text-ink-2">
+                  Tick here to receive promotional offers
                 </span>
               </label>
             </div>
 
             {/* Price display */}
-            <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-teal" />
               {priceBreakdown.isFixed && fixedPriceQuote ? (
                 <>
                   <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -966,10 +1012,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                       </span>
                     </div>
-                    <div
-                      className="flex justify-between pt-3"
-                      style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                    >
+                    <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                       <span className="font-jost font-normal text-ink">Total</span>
                       <span className="font-cormorant font-light text-3xl text-ink">
                         &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
@@ -1034,10 +1077,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
                       </div>
                     )}
-                    <div
-                      className="flex justify-between pt-2 font-jost"
-                      style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                    >
+                    <div className="flex justify-between pt-2 font-jost border-t border-ink/[0.06]">
                       <span className="text-sm text-ink">Total</span>
                       <span className="font-cormorant font-light text-3xl text-ink">
                         &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
@@ -1063,7 +1103,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               type="button"
               onClick={() => setPhase('cleaner')}
               disabled={!postcode || !email || outsideCatchment}
-              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
             </button>
@@ -1072,12 +1112,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Right column — sticky booking summary (desktop only) */}
           <div className="hidden lg:block">
-            <div className="sticky top-8 space-y-4">
-              <div
-                className="bg-cream-2 p-6 space-y-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <h3 className="font-cormorant font-light text-lg text-ink">Booking Summary</h3>
+            <div className="sticky top-8 animate-fade-in space-y-4">
+              <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06]">
+                <div className="absolute left-0 right-0 top-0 h-0.5 bg-gradient-to-r from-ink via-gold to-teal" />
+                <h3 className="font-cormorant text-lg text-ink">Booking Summary</h3>
                 <SummaryRow label="Service" value={serviceLabel} />
                 {postcode && <SummaryRow label="Postcode" value={postcode} />}
                 <SummaryRow
@@ -1110,10 +1148,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                 )}
 
-                <div
-                  className="pt-4 mt-4 space-y-3"
-                  style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
+                <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
                   <div className="flex justify-between text-sm">
                     <span className="font-jost font-light text-ink-3">
                       Cleaning ({effectiveHours}h)
@@ -1148,10 +1183,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       </span>
                     </div>
                   )}
-                  <div
-                    className="flex justify-between pt-3"
-                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
+                  <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                     <span className="font-jost font-normal text-ink">Total</span>
                     <span className="font-cormorant font-light text-3xl text-ink">
                       &pound;
@@ -1183,33 +1215,87 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   if (preSelectedCleaner) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setPhase('quote')}
-            className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
-          >
-            &larr; Back to quote
-          </button>
-          <h1 className="font-cormorant font-light text-2xl text-ink">Choose a Time</h1>
+        {/* Back link */}
+        <button
+          onClick={() => setPhase('quote')}
+          className="group inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </span>
+          Back to quote
+        </button>
+
+        <h1 className="mt-6 font-cormorant font-light text-3xl text-ink sm:text-4xl">
+          Choose a Time
+        </h1>
+        <div className="my-6 h-px bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-2">
+          {[
+            { num: 1, label: 'Configure', done: true },
+            { num: 2, label: 'Choose Cleaner', active: true },
+            { num: 3, label: 'Confirm' },
+          ].map((s, i) => (
+            <div key={s.num} className="flex items-center gap-2">
+              {i > 0 && (
+                <div
+                  className={`h-px w-6 sm:w-10 ${s.done || s.active ? 'bg-gold/30' : 'bg-ink-3/15'}`}
+                />
+              )}
+              <span
+                className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                  s.active
+                    ? 'bg-ink text-cream shadow-sm'
+                    : s.done
+                      ? 'bg-gold/10 text-gold'
+                      : 'bg-ink-3/8 text-ink-3/50'
+                }`}
+              >
+                {s.done ? (
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
+                      s.active ? 'bg-cream/20 text-cream' : 'bg-ink-3/10 text-ink-3/40'
+                    }`}
+                  >
+                    {s.num}
+                  </span>
+                )}
+                <span className="hidden sm:inline">{s.label}</span>
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Cleaner summary */}
-        <div
-          className="mt-8 flex items-center gap-4 p-5"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-        >
-          <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-          >
+        <div className="mt-8 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 font-cormorant text-xl font-light text-ink ring-1 ring-ink/[0.06]">
             {preSelectedCleaner.name.charAt(0)}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-jost font-normal text-ink">{preSelectedCleaner.name}</span>
               <span
-                className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${TIER_INFO[preSelectedCleaner.tier].color}`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[preSelectedCleaner.tier].color}`}
               >
                 {TIER_INFO[preSelectedCleaner.tier].label}
               </span>
@@ -1233,14 +1319,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         </div>
 
-        <div className="mt-10 space-y-10">
+        <div className="mt-10 space-y-8">
           {/* Day selection from cleaner's availability */}
-          <div>
-            <h2 className="font-cormorant font-light text-lg text-ink">Pick a day</h2>
-            <p className="mt-2 font-jost font-light text-xs text-ink-3">
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">Pick a day</h2>
+            <p className="mt-2 font-jost font-light text-sm text-ink-3">
               {preSelectedCleaner.name} is available on the following days.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2.5">
               {preSelectedCleaner.availability.map((day) => (
                 <button
                   key={day}
@@ -1249,12 +1335,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     setSelectedDay(day);
                     setSelectedTime('');
                   }}
-                  className={`px-5 py-3 font-jost text-sm font-light transition ${
+                  className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                     selectedDay === day
-                      ? 'bg-ink text-cream'
-                      : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                      ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                      : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
                   }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
                   {day}
                 </button>
@@ -1264,31 +1349,32 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Time slot selection — from cleaner's actual availability */}
           {selectedDay && (
-            <div>
-              <h2 className="font-cormorant font-light text-lg text-ink">Pick a time</h2>
-              <p className="mt-2 font-jost font-light text-xs text-ink-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                Pick a time
+              </h2>
+              <p className="mt-2 font-jost font-light text-sm text-ink-3">
                 {preSelectedCleaner.name}&apos;s available start times on {selectedDay}s.
               </p>
               {(preSelectedCleaner.timeSlots[selectedDay] ?? []).length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2.5">
                   {(preSelectedCleaner.timeSlots[selectedDay] ?? []).map((slot) => (
                     <button
                       key={slot}
                       type="button"
                       onClick={() => setSelectedTime(slot)}
-                      className={`px-4 py-3 font-jost text-sm font-light transition ${
+                      className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                         selectedTime === slot
-                          ? 'bg-ink text-cream'
-                          : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                          ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                          : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
                       }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
                       {slot}
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 font-jost text-sm font-light text-ink-3">
+                <p className="mt-5 font-jost text-sm font-light text-ink-3">
                   No available slots on this day. Please try another day.
                 </p>
               )}
@@ -1297,7 +1383,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Backup cleaner slider */}
           {selectedDay && selectedTime && (
-            <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <BackupCleanerSlider
                 cleaners={availableBackupCleaners}
                 selectedIds={backupCleanerIds}
@@ -1311,9 +1397,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Escrow payment notice */}
           {selectedDay && selectedTime && (
-            <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
               <div className="flex items-start gap-3">
-                <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+                <svg
+                  className="mt-0.5 h-5 w-5 shrink-0 text-gold"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path
                     fillRule="evenodd"
                     d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
@@ -1321,20 +1412,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                 </svg>
                 <div>
-                  <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
-                  <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                  <h4 className="font-cormorant text-lg font-light text-ink">
+                    Payment Held in Escrow
+                  </h4>
+                  <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
                     You will see a charge to your bank account for the booking summary shown above,
                     but the payment will be held securely in escrow.
                   </p>
                   {backupCleanerIds.length > 0 && (
-                    <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                    <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
                       In the event that your chosen cleaner does not accept the booking, one of your
                       selected backup cleaners will be used instead. Our system will either provide
                       a small refund or apply a small additional charge to your account to align
                       with the new cleaner&apos;s rate as shown in the booking summary.
                     </p>
                   )}
-                  <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                  <div className="mt-3 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
                     <span>&#10003; Funds held safely</span>
                     <span>&#10003; Released after completion</span>
                     {backupCleanerIds.length > 0 && (
@@ -1347,11 +1440,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           )}
 
           {/* Key access */}
-          <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
               How will the cleaner get in?
             </h2>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
               {(
                 [
                   { value: 'lockbox', label: 'Keybox' },
@@ -1364,12 +1457,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   key={opt.value}
                   type="button"
                   onClick={() => setKeyAccess(opt.value)}
-                  className={`px-4 py-3.5 text-left font-jost font-light text-sm transition ${
+                  className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
                     keyAccess === opt.value
-                      ? 'bg-ink text-cream'
-                      : 'bg-cream text-ink-2 hover:bg-cream-2'
+                      ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                      : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                   }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
                   {opt.label}
                 </button>
@@ -1385,24 +1477,25 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     ? 'Lockbox code or location...'
                     : 'Where is the key hidden?'
                 }
-                className="mt-4 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             )}
           </div>
 
           {/* Special instructions */}
-          <div>
-            <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+              Special instructions
+            </h2>
+            <p className="mt-2 font-jost font-light text-sm text-ink-3">
               Anything the cleaner should know or be careful with?
-            </label>
+            </p>
             <textarea
               rows={3}
               value={specialInstructions}
               onChange={(e) => setSpecialInstructions(e.target.value)}
               placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
-              className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
 
@@ -1411,7 +1504,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             type="button"
             onClick={handleBookingSubmit}
             disabled={!selectedDay || !selectedTime}
-            className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
           </button>
@@ -1474,23 +1567,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             return (
               <div
                 key={c.id}
-                className={`transition ${isSelected ? 'ring-2 ring-gold' : ''}`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className={`rounded-xl bg-white shadow-sm ring-1 transition-all ${isSelected ? 'ring-2 ring-gold' : 'ring-ink/[0.06]'}`}
               >
                 {/* Cleaner header */}
-                <div className="p-5 flex items-start gap-4">
-                  <div
-                    className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
+                <div className="p-5 flex items-start gap-4 sm:p-6">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-light text-ink font-cormorant ring-1 ring-ink/[0.06]">
                     {c.name.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-jost font-normal text-ink">{c.name}</span>
                       <span
-                        className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                        className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
                       >
                         {tier.label}
                       </span>
@@ -1534,11 +1622,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </div>
 
                 {/* Today's time slots */}
-                <div className="px-5 pb-5 pt-0">
+                <div className="px-5 pb-5 pt-0 sm:px-6 sm:pb-6">
                   <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
                     Available times today ({todayAbbr})
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2.5">
                     {todaySlots.map((slot) => {
                       const isSlotSelected = isSelected && selectedTime === slot;
                       return (
@@ -1557,12 +1645,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                               setSelectedDay(todayAbbr);
                             }
                           }}
-                          className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                          className={`rounded-full px-4 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                             isSlotSelected
-                              ? 'bg-ink text-cream'
-                              : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                              ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                              : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
                           }`}
-                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                         >
                           {slot}
                         </button>
@@ -1577,7 +1664,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Selected summary & continue */}
         {selectedCleanerIds.length > 0 && selectedTime && (
-          <div className="mt-8 bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -1601,11 +1689,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {selectedCleanerIds.length > 0 && selectedTime && (
           <div className="mt-6 space-y-6">
             {/* Key access */}
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
                 Property access
               </h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                 {(
                   [
                     { value: 'i-will-be-home' as KeyAccess, label: 'I\u2019ll be home' },
@@ -1618,10 +1706,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     key={opt.value}
                     type="button"
                     onClick={() => setKeyAccess(opt.value)}
-                    className={`p-4 text-center font-jost text-sm font-light transition ${
-                      keyAccess === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                    className={`rounded-lg p-4 text-center font-jost text-sm font-light ring-1 transition-all ${
+                      keyAccess === opt.value
+                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                     }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
                     {opt.label}
                   </button>
@@ -1630,8 +1719,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Special instructions */}
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
                 Special instructions
               </h2>
               <textarea
@@ -1639,8 +1728,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 onChange={(e) => setSpecialInstructions(e.target.value)}
                 placeholder="Anything your cleaner should know? (optional)"
                 rows={3}
-                className="mt-4 w-full bg-cream-2 px-4 py-3 font-jost font-light text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-gold/30 transition"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] placeholder:text-ink-3/50 transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
 
@@ -1648,7 +1736,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <button
               type="button"
               onClick={handleBookingSubmit}
-              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
             >
               Confirm Same-Day Booking
             </button>
@@ -1683,23 +1771,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back
         </button>
 
-        <h1 className="font-cormorant font-light text-3xl text-ink">
+        <h1 className="font-cormorant font-light text-3xl text-ink sm:text-4xl">
           {category === 'end-of-tenancy' ? 'End of Tenancy' : 'Airbnb'} Booking
         </h1>
 
         {/* ── Cleaner preferences ─────────────────────────── */}
         <div className="mt-10">
-          <h2 className="font-cormorant font-light text-xl text-ink">Cleaner Preferences</h2>
+          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+            Cleaner Preferences
+          </h2>
           <p className="mt-2 font-jost font-light text-sm text-ink-3">
             Select cleaners you&apos;d prefer for this job. We&apos;ll do our best to match you with
             one of your choices. This is optional — skip if you have no preference.
           </p>
 
           {preferredCleaners.length > 0 && (
-            <div
-              className="mt-4 bg-cream-2 px-4 py-3 flex items-center gap-2"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
+            <div className="mt-4 rounded-lg bg-gold/5 px-4 py-3 flex items-center gap-2 ring-1 ring-gold/20">
               <svg
                 className="h-4 w-4 text-gold shrink-0"
                 fill="none"
@@ -1733,17 +1820,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
                     )
                   }
-                  className={`group p-5 text-left transition ${
-                    isPreferred ? 'ring-2 ring-gold bg-gold/5' : 'bg-cream hover:bg-cream-2'
+                  className={`group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md ${
+                    isPreferred
+                      ? 'ring-2 ring-gold bg-gold/5'
+                      : 'bg-white ring-ink/[0.06] hover:bg-cream'
                   }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
                   <div className="flex items-start gap-3.5">
                     <div className="relative">
-                      <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant transition"
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                      >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06] transition">
                         {c.name.charAt(0)}
                       </div>
                       {isPreferred && (
@@ -1768,8 +1853,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
                         <span
-                          className={`px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
-                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                          className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
                         >
                           {tier.label}
                         </span>
@@ -1795,8 +1879,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     {c.specialties.slice(0, 3).map((s) => (
                       <span
                         key={s}
-                        className="bg-cream-2 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3"
-                        style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
+                        className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
                       >
                         {s}
                       </span>
@@ -1814,13 +1897,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </div>
 
         {/* ── When ─────────────────────────────────────── */}
-        <div className="mt-10">
-          <h2 className="font-cormorant font-light text-xl text-ink">
+        <div className="mt-10 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
             When would you like this done?
           </h2>
-          <div className="mt-4">
+          <div className="mt-5">
             <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">Day</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((day) => (
                 <button
                   key={day}
@@ -1829,12 +1912,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     setSelectedDay(day);
                     setSelectedTime('');
                   }}
-                  className={`px-5 py-3 font-jost text-sm font-light transition ${
+                  className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                     selectedDay === day
-                      ? 'bg-ink text-cream'
-                      : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                      ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                      : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
                   }`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                 >
                   {day}
                 </button>
@@ -1842,11 +1924,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           </div>
           {selectedDay && (
-            <div className="mt-5">
+            <div className="mt-6">
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
                 Preferred start time
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {[
                   '8:00 AM',
                   '9:00 AM',
@@ -1862,12 +1944,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     key={time}
                     type="button"
                     onClick={() => setSelectedTime(time)}
-                    className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                    className={`rounded-full px-4 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                       selectedTime === time
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
+                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
                     }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
                     {time}
                   </button>
@@ -1878,11 +1959,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </div>
 
         {/* ── Key access ──────────────────────────────── */}
-        <div className="mt-10 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+        <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
             Property access
           </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
             {(
               [
                 { value: 'i-will-be-home' as KeyAccess, label: 'I\u2019ll be home' },
@@ -1895,10 +1976,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 key={opt.value}
                 type="button"
                 onClick={() => setKeyAccess(opt.value)}
-                className={`p-4 text-center font-jost text-sm font-light transition ${
-                  keyAccess === opt.value ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
+                className={`rounded-lg p-4 text-center font-jost text-sm font-light ring-1 transition-all ${
+                  keyAccess === opt.value
+                    ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                    : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                 }`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 {opt.label}
               </button>
@@ -1907,8 +1989,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </div>
 
         {/* ── Special instructions ────────────────────── */}
-        <div className="mt-6 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+        <div className="mt-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
             Special instructions
           </h2>
           <textarea
@@ -1916,18 +1998,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             onChange={(e) => setSpecialInstructions(e.target.value)}
             placeholder="Anything your cleaner should know? (optional)"
             rows={3}
-            className="mt-4 w-full bg-cream-2 px-4 py-3 font-jost font-light text-sm text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-gold/30 transition"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] placeholder:text-ink-3/50 transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
         </div>
 
         {/* ── Summary + submit ────────────────────────── */}
-        <div className="mt-8 bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+        <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+          <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+          <span className="font-cormorant text-xl font-light text-ink sm:text-2xl">
             Booking summary
           </span>
 
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-5 space-y-2.5">
             <div className="flex justify-between font-jost text-sm">
               <span className="font-light text-ink-3">
                 {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
@@ -1962,10 +2044,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </span>
               </div>
             )}
-            <div
-              className="flex justify-between pt-3"
-              style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
+            <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
               <span className="font-jost font-normal text-ink">Total</span>
               <span className="font-cormorant font-light text-3xl text-ink">
                 &pound;{priceBreakdown.discountedTotal.toFixed(2)}
@@ -1985,7 +2064,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           type="button"
           onClick={handleBookingSubmit}
           disabled={!selectedDay || !selectedTime}
-          className="mt-6 w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-6 w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Submit Booking Request
         </button>
@@ -2229,8 +2308,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               {(['elite', 'premium', 'standard'] as const).map((tier) => (
                 <span
                   key={tier}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-jost text-[11px] uppercase tracking-[0.1em] ${TIER_INFO[tier].color}`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-jost text-[11px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[tier].color}`}
                 >
                   {TIER_INFO[tier].label}
                 </span>
@@ -2251,24 +2329,21 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
                         : setProfileCleaner(c)
                     }
-                    className={`group p-5 text-left transition ${
-                      isAlreadySelected ? 'bg-ink/5 ring-2 ring-gold' : 'bg-cream hover:bg-cream-2'
+                    className={`group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md ${
+                      isAlreadySelected
+                        ? 'bg-gold/5 ring-2 ring-gold'
+                        : 'bg-white ring-ink/[0.06] hover:bg-cream'
                     }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
                     <div className="flex items-start gap-3.5">
-                      <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant transition"
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                      >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06] transition">
                         {c.name.charAt(0)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
                           <span
-                            className={`px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
-                            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                            className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
                           >
                             {tier.label}
                           </span>
@@ -2297,8 +2372,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       {c.specialties.slice(0, 3).map((s) => (
                         <span
                           key={s}
-                          className="bg-cream-2 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3"
-                          style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
+                          className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
                         >
                           {s}
                         </span>
@@ -2329,11 +2403,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div>
             <div className="space-y-6">
               {/* Day selector */}
-              <div>
-                <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Day
-                </label>
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                  Pick a day
+                </h2>
+                <div className="mt-4 flex flex-wrap gap-2.5">
                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
                     const hasCleaners = cleaners.some(
                       (c) => c.timeSlots[day] && c.timeSlots[day].length > 0
@@ -2347,14 +2421,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           setSelectedDay(day);
                           setSelectedTime('');
                         }}
-                        className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                        className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                           selectedDay === day
-                            ? 'bg-ink text-cream'
+                            ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
                             : hasCleaners
-                              ? 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                              : 'bg-cream-2 text-ink-3/30 cursor-not-allowed'
+                              ? 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                              : 'bg-cream text-ink-3/30 ring-ink/[0.06] cursor-not-allowed'
                         }`}
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                       >
                         {day}
                       </button>
@@ -2365,12 +2438,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
               {/* Time slots with cleaner counts */}
               {selectedDay && (
-                <div>
-                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Available time slots on {selectedDay}
-                  </label>
+                <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                  <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                    Available times on {selectedDay}
+                  </h2>
                   {availableTimeSlotsForDay.length > 0 ? (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                       {availableTimeSlotsForDay.map((slot) => {
                         const endTime = getEndTime(slot, effectiveHours);
                         const count = cleanerCountsPerSlot[slot] || 0;
@@ -2380,16 +2453,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                             key={slot}
                             type="button"
                             onClick={() => setSelectedTime(slot)}
-                            className={`flex items-center justify-between px-4 py-3.5 text-left transition ${
+                            className={`flex items-center justify-between rounded-lg px-4 py-3.5 text-left ring-1 transition-all ${
                               isSelected
-                                ? 'bg-ink text-cream'
-                                : 'bg-cream text-ink hover:bg-cream-2'
+                                ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                                : 'bg-cream text-ink ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                             }`}
-                            style={{
-                              border: isSelected
-                                ? '1px solid #1B2A4A'
-                                : '0.5px solid rgba(14,14,12,0.1)',
-                            }}
                           >
                             <div>
                               <span className="font-jost text-sm font-normal">
@@ -2397,7 +2465,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                               </span>
                             </div>
                             <span
-                              className={`font-jost text-xs font-light ${isSelected ? 'text-cream/70' : 'text-ink-3'}`}
+                              className={`font-jost text-xs font-light ${isSelected ? 'text-ink-3' : 'text-ink-3'}`}
                             >
                               {count} cleaner{count !== 1 ? 's' : ''}
                             </span>
@@ -2406,7 +2474,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       })}
                     </div>
                   ) : (
-                    <p className="mt-3 font-jost text-sm font-light text-ink-3">
+                    <p className="mt-5 font-jost text-sm font-light text-ink-3">
                       No cleaners available on this day.
                     </p>
                   )}
@@ -2436,18 +2504,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                                 ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
                                 : setProfileCleaner(c)
                             }
-                            className={`group p-5 text-left transition ${
+                            className={`group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md ${
                               isAlreadySelected
-                                ? 'bg-ink/5 ring-2 ring-gold'
-                                : 'bg-cream hover:bg-cream-2'
+                                ? 'bg-gold/5 ring-2 ring-gold'
+                                : 'bg-white ring-ink/[0.06] hover:bg-cream'
                             }`}
-                            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                           >
                             <div className="flex items-start gap-3.5">
-                              <div
-                                className="flex h-12 w-12 shrink-0 items-center justify-center bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant transition"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                              >
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06] transition">
                                 {c.name.charAt(0)}
                               </div>
                               <div className="min-w-0 flex-1">
@@ -2456,8 +2520,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                                     {c.name}
                                   </span>
                                   <span
-                                    className={`px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
-                                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                    className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
                                   >
                                     {tier.label}
                                   </span>
@@ -2492,10 +2555,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       })}
                     </div>
                   ) : (
-                    <div
-                      className="mt-3 bg-cream-2 p-6 text-center"
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                    >
+                    <div className="mt-3 rounded-xl bg-white p-6 text-center shadow-sm ring-1 ring-ink/[0.06]">
                       <p className="font-jost font-light text-sm text-ink-2">
                         No cleaners available for this slot. Try a different time.
                       </p>
@@ -2517,21 +2577,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               {selectedCleaners.map((sc) => (
                 <div
                   key={sc.id}
-                  className="flex items-start gap-4 bg-cream p-5"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06] sm:p-6"
                 >
-                  <div
-                    className="flex h-14 w-14 shrink-0 items-center justify-center bg-cream-2 text-xl font-light text-ink font-cormorant"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-light text-ink font-cormorant ring-1 ring-ink/[0.06]">
                     {sc.name.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-jost font-normal text-ink">{sc.name}</span>
                       <span
-                        className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${TIER_INFO[sc.tier].color}`}
-                        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                        className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[sc.tier].color}`}
                       >
                         {TIER_INFO[sc.tier].label}
                       </span>
@@ -2563,16 +2618,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* When to book — cleaner's available slots */}
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
                 When would you like {selectedCleaner.name}?
               </h2>
-              <p className="mt-1.5 font-jost font-light text-xs text-ink-3">
+              <p className="mt-2 font-jost font-light text-sm text-ink-3">
                 Your clean is {effectiveHours} hours &middot; select a day and start time
               </p>
 
               {/* Day selector */}
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2.5">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
                   const available = selectedCleaner.availability.includes(day);
                   return (
@@ -2584,14 +2639,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         setSelectedDay(day);
                         setSelectedTime('');
                       }}
-                      className={`px-4 py-2.5 font-jost text-sm font-light transition ${
+                      className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                         selectedDay === day
-                          ? 'bg-ink text-cream'
+                          ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
                           : available
-                            ? 'bg-cream-2 text-ink-2 hover:bg-cream hover:text-ink'
-                            : 'bg-cream-2 text-ink-3/30 cursor-not-allowed'
+                            ? 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                            : 'bg-cream text-ink-3/30 ring-ink/[0.06] cursor-not-allowed'
                       }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                     >
                       {day}
                     </button>
@@ -2601,11 +2655,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
               {/* Time slots for selected day */}
               {selectedDay && selectedCleaner.timeSlots[selectedDay] && (
-                <div className="mt-5">
+                <div className="mt-6">
                   <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                     Available times on {selectedDay}
                   </label>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                     {selectedCleaner.timeSlots[selectedDay].map((slot) => {
                       const endTime = getEndTime(slot, effectiveHours);
                       const isSelected = selectedTime === slot;
@@ -2614,14 +2668,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           key={slot}
                           type="button"
                           onClick={() => setSelectedTime(slot)}
-                          className={`px-4 py-3 text-left font-jost text-sm font-light transition ${
-                            isSelected ? 'bg-ink text-cream' : 'bg-cream text-ink hover:bg-cream-2'
+                          className={`rounded-lg px-4 py-3 text-left font-jost text-sm font-light ring-1 transition-all ${
+                            isSelected
+                              ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                              : 'bg-cream text-ink ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                           }`}
-                          style={{
-                            border: isSelected
-                              ? '1px solid #1B2A4A'
-                              : '0.5px solid rgba(14,14,12,0.1)',
-                          }}
                         >
                           {slot} &ndash; {endTime}
                         </button>
@@ -2632,14 +2683,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               )}
 
               {selectedDay && !selectedCleaner.timeSlots[selectedDay] && (
-                <p className="mt-4 font-jost text-sm font-light text-ink-3">
+                <p className="mt-5 font-jost text-sm font-light text-ink-3">
                   No time slots available on {selectedDay}.
                 </p>
               )}
             </div>
 
             {/* Backup cleaner slider */}
-            <div className="p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <BackupCleanerSlider
                 cleaners={availableBackupCleaners}
                 selectedIds={backupCleanerIds}
@@ -2651,9 +2702,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Escrow payment notice */}
-            <div className="bg-cream-2 p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
               <div className="flex items-start gap-3">
-                <svg className="mt-0.5 h-5 w-5 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+                <svg
+                  className="mt-0.5 h-5 w-5 shrink-0 text-gold"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path
                     fillRule="evenodd"
                     d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
@@ -2661,20 +2717,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                 </svg>
                 <div>
-                  <h4 className="font-jost text-sm font-normal text-ink">Payment Held in Escrow</h4>
-                  <p className="mt-1 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                  <h4 className="font-cormorant text-lg font-light text-ink">
+                    Payment Held in Escrow
+                  </h4>
+                  <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
                     You will see a charge to your bank account for the booking summary shown above,
                     but the payment will be held securely in escrow.
                   </p>
                   {backupCleanerIds.length > 0 && (
-                    <p className="mt-2 font-jost text-xs font-light text-ink-2 leading-relaxed">
+                    <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
                       In the event that your chosen cleaner does not accept the booking, one of your
                       selected backup cleaners will be used instead. Our system will either provide
                       a small refund or apply a small additional charge to your account to align
                       with the new cleaner&apos;s rate as shown in the booking summary.
                     </p>
                   )}
-                  <div className="mt-2 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                  <div className="mt-3 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
                     <span>&#10003; Funds held safely</span>
                     <span>&#10003; Released after completion</span>
                     {backupCleanerIds.length > 0 && (
@@ -2686,11 +2744,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Key access */}
-            <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
                 How will the cleaner get in?
               </h2>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                 {(
                   [
                     { value: 'lockbox', label: 'Keybox' },
@@ -2703,12 +2761,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     key={opt.value}
                     type="button"
                     onClick={() => setKeyAccess(opt.value)}
-                    className={`px-4 py-3.5 text-left font-jost font-light text-sm transition ${
+                    className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
                       keyAccess === opt.value
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream text-ink-2 hover:bg-cream-2'
+                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                     }`}
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
                     {opt.label}
                   </button>
@@ -2724,33 +2781,34 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       ? 'Lockbox code or location...'
                       : 'Where is the key hidden?'
                   }
-                  className="mt-4 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
                 />
               )}
             </div>
 
             {/* Special instructions */}
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                Special instructions
+              </h2>
+              <p className="mt-2 font-jost font-light text-sm text-ink-3">
                 Anything the cleaner should know or be careful with?
-              </label>
+              </p>
               <textarea
                 rows={3}
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value)}
                 placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
-                className="mt-3 w-full bg-cream px-3 py-2.5 font-jost font-light text-sm text-ink focus:outline-none"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
 
             {/* Summary & submit */}
-            <div
-              className="bg-cream-2 p-6 space-y-4"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <h3 className="font-cormorant font-light text-lg text-ink">Booking Summary</h3>
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4">
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+              <h3 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                Booking Summary
+              </h3>
               <SummaryRow label="Service" value={serviceLabel} />
               <SummaryRow label="Postcode" value={postcode} />
               <SummaryRow
@@ -2798,10 +2856,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 }
               />
 
-              <div
-                className="pt-4 mt-4 space-y-3"
-                style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
+              <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
                 {/* Hourly services only — fixed-price services have their own phase 2 */}
                 <>
                   <div className="flex justify-between text-sm">
@@ -2840,10 +2895,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                   )}
                 </>
-                <div
-                  className="flex justify-between pt-3"
-                  style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
+                <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                   <span className="font-jost font-normal text-ink">Total</span>
                   <span className="font-cormorant font-light text-3xl text-ink">
                     &pound;
@@ -2862,7 +2914,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               type="button"
               onClick={handleBookingSubmit}
               disabled={!selectedDay || !selectedTime}
-              className="w-full bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
             </button>
@@ -2947,10 +2999,7 @@ function CleanerProfileSlideOut({
         {/* Header */}
         <div className="bg-cream px-6 py-8">
           <div className="flex items-start gap-4">
-            <div
-              className="flex h-16 w-16 shrink-0 items-center justify-center bg-white font-cormorant text-[26px] font-semibold text-ink"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white font-cormorant text-[26px] font-semibold text-ink ring-1 ring-ink/[0.06]">
               {cleaner.name.charAt(0)}
             </div>
             <div className="min-w-0 flex-1">
@@ -2959,8 +3008,7 @@ function CleanerProfileSlideOut({
                   {cleaner.name}
                 </h2>
                 <span
-                  className={`px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${tier.color}`}
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
                 >
                   {tier.label}
                 </span>
@@ -3180,28 +3228,23 @@ function Counter({
   max: number;
 }) {
   return (
-    <div
-      className="flex items-center justify-between bg-cream px-5 py-4"
-      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-    >
+    <div className="flex items-center justify-between rounded-lg bg-cream px-5 py-4 ring-1 ring-ink/[0.06]">
       <span className="font-jost font-light text-ink-2">{label}</span>
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
-          className="flex h-8 w-8 items-center justify-center bg-cream-2 text-ink-2 hover:bg-ink hover:text-cream transition disabled:opacity-30"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-2 shadow-sm ring-1 ring-ink/[0.06] transition-all hover:bg-ink hover:text-cream hover:shadow-md disabled:opacity-30"
         >
           -
         </button>
-        <span className="w-6 text-center font-jost font-normal text-lg text-ink">{value}</span>
+        <span className="w-8 text-center font-cormorant text-xl font-light text-ink">{value}</span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
-          className="flex h-8 w-8 items-center justify-center bg-cream-2 text-ink-2 hover:bg-ink hover:text-cream transition disabled:opacity-30"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-2 shadow-sm ring-1 ring-ink/[0.06] transition-all hover:bg-ink hover:text-cream hover:shadow-md disabled:opacity-30"
         >
           +
         </button>
