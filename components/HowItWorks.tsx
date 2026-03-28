@@ -7,7 +7,7 @@ const steps = [
   {
     num: '02',
     title: 'Choose someone you trust',
-    body: 'Browse profiles, read verified reviews from real customers, and pick the person that feels right for your home.',
+    body: 'Browse profiles, read verified reviews from real customers, and pick the person that feels right for your home. Once you book, your cleaner will respond as soon as possible. If they can\u2019t take the job, your preferred backup cleaner will be notified and respond shortly.',
   },
   {
     num: '03',
