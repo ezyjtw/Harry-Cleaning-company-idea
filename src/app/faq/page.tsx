@@ -16,7 +16,7 @@ const faqCategories = [
       },
       {
         q: 'What areas does Rena cover?',
-        a: 'Rena currently operates across major cities in the United Kingdom. Enter your postcode on the homepage to see available cleaners in your area. We are expanding to new locations regularly.',
+        a: "We're launching in North East London and parts of Essex, with plans to rapidly expand our coverage across the UK. Quality matters to us — we only recruit cleaners who are reliable, vetted, and consistently deliver a high standard of service. Enter your postcode on the homepage to check availability. If we're not in your area yet, you'll be able to leave your email and we'll notify you as soon as we launch near you.",
       },
       {
         q: 'Do I need to create an account to book?',
