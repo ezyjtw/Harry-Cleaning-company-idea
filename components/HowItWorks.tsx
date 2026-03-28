@@ -12,7 +12,7 @@ const steps = [
   {
     num: '03',
     title: 'They arrive, you relax',
-    body: 'Your cleaner arrives on time. If anything falls short, contact us within 24 hours and we\u2019ll rebook at no cost.',
+    body: 'Your cleaner arrives on time. If anything falls short, we offer full refunds and will help you rebook another cleaner to get the job done.',
   },
 ];
 
