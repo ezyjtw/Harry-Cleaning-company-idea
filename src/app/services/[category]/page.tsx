@@ -223,7 +223,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
   const [frequency, setFrequency] = useState<BookingFrequency>('one-off');
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
-  const [cleanerCount, setCleanerCount] = useState(1);
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
 
@@ -808,44 +807,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
 
-            {/* Number of cleaners — for time-constrained services */}
-            {isFixedPrice(category) && (
-              <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  How many cleaners?
-                </h2>
-                <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                  Need it done faster? Add extra cleaners to work together and finish sooner.
-                </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  {[1, 2, 3].map((count) => (
-                    <button
-                      key={count}
-                      type="button"
-                      onClick={() => setCleanerCount(count)}
-                      className={`p-4 text-center transition ${
-                        cleanerCount === count ? 'bg-ink text-cream' : 'bg-cream hover:bg-cream-2'
-                      }`}
-                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                    >
-                      <p
-                        className={`font-jost font-normal text-sm ${cleanerCount === count ? 'text-cream' : 'text-ink'}`}
-                      >
-                        {count} {count === 1 ? 'Cleaner' : 'Cleaners'}
-                      </p>
-                      {count > 1 && (
-                        <p
-                          className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${cleanerCount === count ? 'text-cream/60' : 'text-gold'}`}
-                        >
-                          Faster turnaround
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Products */}
             <div className="p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
               <h2 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -1005,12 +966,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                       </span>
                     </div>
-                    {cleanerCount > 1 && (
-                      <div className="flex justify-between font-jost text-sm">
-                        <span className="font-light text-ink-3">{cleanerCount} cleaners</span>
-                        <span className="text-gold">Faster turnaround</span>
-                      </div>
-                    )}
                     <div
                       className="flex justify-between pt-3"
                       style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -2282,28 +2237,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               ))}
             </div>
 
-            {/* Multi-cleaner prompt */}
-            {cleanerCount > 1 && selectedCleanerIds.length < cleanerCount && (
-              <div
-                className="mt-4 bg-cream-2 p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <p className="font-jost font-light text-sm text-ink-2">
-                  Select{' '}
-                  <span className="font-normal text-ink">
-                    {cleanerCount - selectedCleanerIds.length} more
-                  </span>{' '}
-                  {cleanerCount - selectedCleanerIds.length === 1 ? 'cleaner' : 'cleaners'} to
-                  complete your team.
-                  {selectedCleanerIds.length > 0 && (
-                    <span className="ml-1 text-gold">
-                      {selectedCleanerIds.length} of {cleanerCount} selected.
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
-
             {/* Cleaner grid */}
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {cleaners.map((c) => {
@@ -2577,9 +2510,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* ════════════════════════════════════════════════════════════
             BOOKING PAGE (shown after selecting a cleaner from either flow)
            ════════════════════════════════════════════════════════════ */}
-        {selectedCleanerIds.length >= cleanerCount && selectedCleaner && (
+        {selectedCleanerIds.length >= 1 && selectedCleaner && (
           <>
-            {/* Selected cleaner(s) header */}
+            {/* Selected cleaner header */}
             <div className="space-y-3">
               {selectedCleaners.map((sc) => (
                 <div
@@ -2843,10 +2776,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     : 'Customer provides'
                 }
               />
-              <SummaryRow
-                label={selectedCleaners.length > 1 ? 'Cleaners' : 'Cleaner'}
-                value={selectedCleaners.map((sc) => sc.name).join(' & ')}
-              />
+              <SummaryRow label="Cleaner" value={selectedCleaner?.name ?? ''} />
               {selectedDay && selectedTime && (
                 <SummaryRow
                   label="When"
@@ -2949,11 +2879,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           effectiveHours={effectiveHours}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {
-            setSelectedCleanerIds((prev) => {
-              if (prev.includes(profileCleaner.id)) return prev;
-              if (prev.length >= cleanerCount) return [...prev.slice(1), profileCleaner.id];
-              return [...prev, profileCleaner.id];
-            });
+            setSelectedCleanerIds([profileCleaner.id]);
             setProfileCleaner(null);
           }}
         />
