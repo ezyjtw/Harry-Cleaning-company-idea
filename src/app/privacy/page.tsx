@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <div className="bg-cream mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
       <h1 className="font-cormorant text-4xl font-light tracking-tight text-ink">Privacy Policy</h1>
       <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-        Last updated: 1 January 2025
+        Last updated: 1 March 2026
       </p>
 
       <div className="mt-10 max-w-none">
