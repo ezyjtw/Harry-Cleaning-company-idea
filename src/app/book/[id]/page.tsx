@@ -17,6 +17,7 @@ import {
   pastBookings,
 } from '@/lib/mock-data';
 import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import type { ServiceCategory } from '@/lib/types';
 
 const SERVICE_TYPES = [
   {
@@ -724,6 +725,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 maxSelections={3}
                 autoAssign={autoAssignBackup}
                 onAutoAssignChange={setAutoAssignBackup}
+                serviceCategory={form.serviceType as ServiceCategory}
               />
             </div>
 

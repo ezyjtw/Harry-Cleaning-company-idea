@@ -4,8 +4,8 @@ import { useState, useRef } from 'react';
 
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import StarRating from '@/components/StarRating';
-import { getListedRate } from '@/lib/pricing';
-import type { Cleaner } from '@/lib/types';
+import { getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import type { Cleaner, ServiceCategory } from '@/lib/types';
 
 interface BackupCleanerSliderProps {
   cleaners: Cleaner[];
@@ -14,6 +14,10 @@ interface BackupCleanerSliderProps {
   maxSelections?: number;
   autoAssign: boolean;
   onAutoAssignChange: (value: boolean) => void;
+  /** Service category — used to show fixed prices for EOT / Airbnb */
+  serviceCategory?: ServiceCategory;
+  /** Number of bedrooms (0 = studio). Used with serviceCategory for fixed-price lookup. */
+  propertySize?: number;
 }
 
 export default function BackupCleanerSlider({
@@ -23,6 +27,8 @@ export default function BackupCleanerSlider({
   maxSelections = 3,
   autoAssign,
   onAutoAssignChange,
+  serviceCategory,
+  propertySize,
 }: BackupCleanerSliderProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -173,7 +179,37 @@ export default function BackupCleanerSlider({
                         </span>
                       </div>
                       <div className="mt-2 font-jost text-sm font-normal text-ink">
-                        &pound;{getListedRate(c.hourlyRate)}/hr
+                        {(() => {
+                          if (serviceCategory && propertySize !== undefined) {
+                            const priceField =
+                              serviceCategory === 'end-of-tenancy'
+                                ? 'eotPrices'
+                                : serviceCategory === 'airbnb'
+                                  ? 'airbnbPrices'
+                                  : null;
+                            if (priceField) {
+                              const maxKey = serviceCategory === 'end-of-tenancy' ? 5 : 4;
+                              const key = Math.min(propertySize, maxKey);
+                              const basePrice = c[priceField]?.[key];
+                              if (basePrice !== undefined) {
+                                const withFee =
+                                  Math.round(basePrice * (1 + SERVICE_FEE_PERCENT / 100) * 100) /
+                                  100;
+                                const sizeLabel =
+                                  propertySize === 0 ? 'studio' : `${propertySize}-bed`;
+                                return (
+                                  <>
+                                    &pound;{withFee.toFixed(2)}
+                                    <span className="block font-jost text-[11px] font-light text-ink-3">
+                                      {sizeLabel} &middot; incl. {SERVICE_FEE_PERCENT}% fee
+                                    </span>
+                                  </>
+                                );
+                              }
+                            }
+                          }
+                          return <>&pound;{getListedRate(c.hourlyRate)}/hr</>;
+                        })()}
                       </div>
                       <div className="mt-1 font-jost text-xs font-light text-ink-3">
                         {c.location}

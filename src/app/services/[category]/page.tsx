@@ -1420,6 +1420,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 maxSelections={3}
                 autoAssign={autoAssignBackup}
                 onAutoAssignChange={setAutoAssignBackup}
+                serviceCategory={category}
+                propertySize={rooms.bedrooms}
               />
             </div>
           )}
@@ -2118,6 +2120,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   maxSelections={3}
                   autoAssign={autoAssignBackup}
                   onAutoAssignChange={setAutoAssignBackup}
+                  serviceCategory={category}
+                  propertySize={rooms.bedrooms}
                 />
               </div>
             )}
@@ -2868,6 +2872,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 maxSelections={3}
                 autoAssign={autoAssignBackup}
                 onAutoAssignChange={setAutoAssignBackup}
+                serviceCategory={category}
+                propertySize={rooms.bedrooms}
               />
             </div>
 
