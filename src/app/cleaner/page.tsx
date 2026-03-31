@@ -11,6 +11,7 @@ interface UpcomingJob {
   serviceType: string;
   price: number;
   status: 'pending' | 'confirmed';
+  bedrooms?: number;
 }
 
 interface RecentReview {
@@ -49,8 +50,9 @@ const mockUpcomingJobs: UpcomingJob[] = [
     date: '2026-03-15',
     time: '10:00',
     serviceType: 'End of Tenancy',
-    price: 180,
+    price: 270,
     status: 'pending',
+    bedrooms: 2,
   },
 ];
 
@@ -198,6 +200,32 @@ export default function CleanerDashboard() {
                 </div>
                 <div className="flex items-center gap-2 sm:flex-col sm:items-end">
                   <p className="font-cormorant text-lg font-light text-ink">£{job.price}</p>
+                  {(job.serviceType === 'End of Tenancy' ||
+                    job.serviceType === 'AirBnB Turnover') &&
+                    job.bedrooms !== undefined && (
+                      <div
+                        className="mt-1 bg-gold/5 px-3 py-2 text-left"
+                        style={{ border: '0.5px solid rgba(184,151,90,0.2)' }}
+                      >
+                        <p className="font-jost text-xs font-medium text-ink">
+                          {job.serviceType} —{' '}
+                          {job.bedrooms === 0 ? 'Studio' : `${job.bedrooms} bed`}
+                        </p>
+                        <p className="font-jost text-[11px] font-light text-ink-2 mt-1">
+                          Your listed price: £{job.price.toFixed(2)}
+                        </p>
+                        <p className="font-jost text-[11px] font-light text-ink-2">
+                          Rena fee (15%): -£{(job.price * 0.15).toFixed(2)}
+                        </p>
+                        <p className="font-jost text-[11px] font-medium text-gold mt-0.5">
+                          You will receive: £{(job.price * 0.85).toFixed(2)}
+                        </p>
+                        <p className="font-jost text-[10px] font-light text-ink-3 mt-1">
+                          Payment released once the customer confirms the clean meets the required
+                          standard.
+                        </p>
+                      </div>
+                    )}
                   {job.status === 'pending' && (
                     <div className="flex gap-2">
                       <button

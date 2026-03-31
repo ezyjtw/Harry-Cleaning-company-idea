@@ -34,14 +34,14 @@ const serviceRates = [
   {
     type: 'End of Tenancy',
     description: 'Fixed price by property size',
-    rate: '\u00A3175 \u2013 \u00A3550',
-    typical: '4\u201313 hours',
+    rate: '\u00A3150 \u2013 \u00A3580',
+    typical: 'Fixed by property size',
   },
   {
     type: 'Airbnb / Short-Let',
     description: 'Fixed price turnaround between guests',
-    rate: '\u00A355 \u2013 \u00A3155',
-    typical: '1.5\u20134.5 hours',
+    rate: '\u00A345 \u2013 \u00A3165',
+    typical: 'Fixed by property size',
   },
   {
     type: 'Same-Day Cleaning',
@@ -185,13 +185,13 @@ export default function PricingPage() {
                     scope="col"
                     className="px-6 py-4 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal"
                   >
-                    Hourly Rate
+                    Rate
                   </th>
                   <th
                     scope="col"
                     className="hidden px-6 py-4 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal sm:table-cell"
                   >
-                    Typical Duration
+                    Pricing Model
                   </th>
                 </tr>
               </thead>
@@ -241,19 +241,19 @@ export default function PricingPage() {
                 Airbnb &amp; Holiday Let Cleaning
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
-                Turnaround cleans between guests need to be fast, thorough, and reliable. Our Airbnb
-                service covers fresh linen setup, guest-ready bathrooms, and spotless kitchens every
-                time.
+                Prices are set by each cleaner. Typical rates on Rena range from &pound;45 for a
+                studio to &pound;165 for a 4-bedroom property. A 6% service fee is added at
+                checkout. Choose your cleaner to see their exact price.
               </p>
               <div
                 className="mt-4 bg-cream p-4"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Starting from
+                  Typical range
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  <span className="font-normal text-ink">&pound;55 &ndash; &pound;155</span> + 6%
+                  <span className="font-normal text-ink">&pound;45 &ndash; &pound;165</span> + 6%
                   service fee
                 </p>
               </div>
@@ -271,22 +271,49 @@ export default function PricingPage() {
                 End of Tenancy Cleaning
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
-                Moving out? An end-of-tenancy clean ensures the property is returned to a
-                professional standard so you get your deposit back. A comprehensive deep-clean
-                covering inside ovens, behind appliances, skirting boards, window tracks, and more.
+                Prices are set by each cleaner. Typical rates on Rena range from &pound;150 for a
+                studio to &pound;580 for a 5-bedroom property. A 6% service fee is added at
+                checkout. Choose your cleaner to see their exact price.
               </p>
               <div
-                className="mt-4 bg-cream p-4"
+                className="mt-5 overflow-hidden bg-cream"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  Starting from
-                </p>
-                <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  <span className="font-normal text-ink">&pound;175 &ndash; &pound;550</span> + 6%
-                  service fee
-                </p>
+                <table className="min-w-full">
+                  <thead className="bg-cream-2">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                        Property Size
+                      </th>
+                      <th className="px-4 py-3 text-right font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                        Typical Range
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Studio', range: '£150 – £200' },
+                      { label: '1 Bed', range: '£190 – £240' },
+                      { label: '2 Bed', range: '£250 – £300' },
+                      { label: '3 Bed', range: '£320 – £380' },
+                      { label: '4 Bed', range: '£390 – £450' },
+                      { label: '5+ Bed', range: '£480 – £580' },
+                    ].map((row) => (
+                      <tr key={row.label} style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}>
+                        <td className="px-4 py-3 font-jost text-sm font-light text-ink">
+                          {row.label}
+                        </td>
+                        <td className="px-4 py-3 text-right font-jost text-sm font-normal text-gold">
+                          {row.range}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <p className="mt-3 font-jost text-xs font-light text-ink-3">
+                Prices shown are typical cleaner rates. A 6% service fee is added at checkout.
+              </p>
             </div>
           </div>
         </div>

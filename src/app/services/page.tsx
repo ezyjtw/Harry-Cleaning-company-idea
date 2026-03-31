@@ -165,8 +165,8 @@ const services: {
       'Carpets vacuumed, hard floors mopped and edges done',
       'Skirting boards, light fittings, and switches cleaned throughout',
     ],
-    price: 'From £175',
-    priceNote: 'Fixed price by property size — typically 4–13 hours',
+    price: '£150 – £580',
+    priceNote: 'Cleaner-set prices by property size',
     idealFor: 'Tenants moving out who want their full deposit returned',
     icon: (
       <svg

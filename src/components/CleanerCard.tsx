@@ -8,9 +8,18 @@ import StarRating from './StarRating';
 interface CleanerCardProps {
   cleaner: Cleaner;
   onViewProfile?: () => void;
+  /** For EOT/Airbnb: show fixed price + 6% service fee instead of hourly rate */
+  fixedServicePrice?: number | null;
+  /** Label like "2-bed EOT" to display alongside fixed price */
+  fixedServiceLabel?: string;
 }
 
-export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps) {
+export default function CleanerCard({
+  cleaner,
+  onViewProfile,
+  fixedServicePrice,
+  fixedServiceLabel,
+}: CleanerCardProps) {
   return (
     <div
       className="group flex cursor-pointer flex-col bg-white transition-shadow hover:shadow-md"
@@ -47,10 +56,21 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
 
         {/* Rate */}
         <div className="text-right">
-          <span className="font-jost text-[20px] font-semibold text-ink">
-            &pound;{getListedRate(cleaner.hourlyRate).toFixed(2)}
-          </span>
-          <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
+          {fixedServicePrice !== null && fixedServicePrice !== undefined ? (
+            <>
+              <span className="font-jost text-[20px] font-semibold text-ink">
+                &pound;{(Math.round(fixedServicePrice * 1.06 * 100) / 100).toFixed(2)}
+              </span>
+              <p className="font-jost text-[10px] font-light text-ink-3">incl. 6% fee</p>
+            </>
+          ) : (
+            <>
+              <span className="font-jost text-[20px] font-semibold text-ink">
+                &pound;{getListedRate(cleaner.hourlyRate).toFixed(2)}
+              </span>
+              <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -70,6 +90,20 @@ export default function CleanerCard({ cleaner, onViewProfile }: CleanerCardProps
           </span>
         )}
       </div>
+
+      {/* Fixed service price label */}
+      {fixedServicePrice !== null && fixedServicePrice !== undefined && fixedServiceLabel && (
+        <div
+          className="mt-3 mx-5 rounded bg-gold/5 px-3 py-2"
+          style={{ border: '0.5px solid rgba(184,151,90,0.15)' }}
+        >
+          <p className="font-jost text-[12px] font-medium text-ink">
+            Total for your {fixedServiceLabel}: &pound;
+            {(Math.round(fixedServicePrice * 1.06 * 100) / 100).toFixed(2)}
+          </p>
+          <p className="font-jost text-[10px] font-light text-ink-3">Includes 6% service fee</p>
+        </div>
+      )}
 
       {/* Bio */}
       <p className="mt-3 line-clamp-2 px-5 font-jost text-[13px] font-light leading-relaxed text-ink-2">

@@ -274,6 +274,170 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
+        {/* EOT & Airbnb Pricing */}
+        {(selectedSpecialties.includes('End of Tenancy') ||
+          selectedSpecialties.includes('AirBnB / Short-Let')) && (
+          <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <h2 className="font-cormorant text-lg font-light text-ink mb-2">Service Pricing</h2>
+            <p className="font-jost text-sm font-light text-ink-2 mb-5">
+              Set your prices for each property size. You are free to set any price you choose. The
+              guide below shows typical rates on Rena to help you stay competitive.
+            </p>
+
+            {selectedSpecialties.includes('End of Tenancy') && (
+              <div className="mb-6">
+                <h3 className="font-jost text-sm font-medium text-ink mb-3">End of Tenancy</h3>
+                <div
+                  className="overflow-hidden"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <table className="min-w-full">
+                    <thead className="bg-cream-2">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                          Property
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                          Your price
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                          Rena guide
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Studio', guide: '£150 – £200' },
+                        { label: '1 bed', guide: '£190 – £240' },
+                        { label: '2 bed', guide: '£250 – £300' },
+                        { label: '3 bed', guide: '£320 – £380' },
+                        { label: '4 bed', guide: '£390 – £450' },
+                        { label: '5 bed+', guide: '£480 – £580' },
+                      ].map((row) => (
+                        <tr
+                          key={row.label}
+                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                        >
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
+                            {row.label}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
+                                £
+                              </span>
+                              <input
+                                type="number"
+                                placeholder="—"
+                                className="w-24 pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
+                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                onChange={() => setSaved(false)}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
+                            {row.guide}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {selectedSpecialties.includes('AirBnB / Short-Let') && (
+              <div className="mb-6">
+                <h3 className="font-jost text-sm font-medium text-ink mb-3">Airbnb / Short-Let</h3>
+                <div
+                  className="overflow-hidden"
+                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                >
+                  <table className="min-w-full">
+                    <thead className="bg-cream-2">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                          Property
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                          Your price
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                          Rena guide
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Studio', guide: '£45 – £65' },
+                        { label: '1 bed', guide: '£55 – £85' },
+                        { label: '2 bed', guide: '£75 – £110' },
+                        { label: '3 bed', guide: '£95 – £140' },
+                        { label: '4 bed+', guide: '£130 – £165' },
+                      ].map((row) => (
+                        <tr
+                          key={row.label}
+                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                        >
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
+                            {row.label}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
+                                £
+                              </span>
+                              <input
+                                type="number"
+                                placeholder="—"
+                                className="w-24 pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
+                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                onChange={() => setSaved(false)}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
+                            {row.guide}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Fee info box */}
+            <div className="bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}>
+              <p className="font-jost text-sm font-medium text-ink mb-2">How fees work</p>
+              <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
+                For End of Tenancy and Airbnb bookings, Rena charges a 15% platform fee on your
+                listed price. This is deducted from your payout after the job is completed. The
+                customer also pays a separate 6% service fee on top of your listed price &mdash;
+                this does not affect your earnings.
+              </p>
+              <div
+                className="mt-4 bg-cream p-4"
+                style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
+              >
+                <p className="font-jost text-xs font-medium text-ink mb-1">
+                  Example: you charge &pound;270 for a 2-bed EOT
+                </p>
+                <p className="font-jost text-xs font-light text-ink-2">
+                  Customer pays: &pound;270 + &pound;16.20 (6%) = &pound;286.20
+                </p>
+                <p className="font-jost text-xs font-light text-ink-2">
+                  You receive: &pound;270 &minus; &pound;40.50 (15%) = &pound;229.50
+                </p>
+              </div>
+              <p className="font-jost text-xs font-light text-ink-3 mt-3">
+                For all other services (regular, one-off, same-day, deep clean), the standard 10%
+                platform fee applies and the customer pays a separate 6% service fee.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Travel radius */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel Radius</h2>

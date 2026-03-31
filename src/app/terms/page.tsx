@@ -135,6 +135,13 @@ export default function TermsPage() {
             </li>
             <li>Rena reserves the right to modify the service fee with 30 days prior notice.</li>
           </ul>
+          <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
+            Cleaners are free to set their own rates for all services including End of Tenancy and
+            Airbnb cleaning. Rena publishes suggested rate guidance only. Cleaners are under no
+            obligation to follow suggested rates and may charge above or below the suggested range
+            at their sole discretion. Rena does not mandate, fix or control the prices charged by
+            cleaners for any service.
+          </p>
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>

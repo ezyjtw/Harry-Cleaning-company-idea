@@ -75,6 +75,23 @@ const BEDROOM_TO_PROPERTY: Record<number, PropertySize> = {
   5: 'FIVE_PLUS',
 };
 
+const EOT_SUGGESTED_RANGES: Record<number, [number, number]> = {
+  0: [150, 200],
+  1: [190, 240],
+  2: [250, 300],
+  3: [320, 380],
+  4: [390, 450],
+  5: [480, 580],
+};
+
+const AIRBNB_SUGGESTED_RANGES: Record<number, [number, number]> = {
+  0: [45, 65],
+  1: [55, 85],
+  2: [75, 110],
+  3: [95, 140],
+  4: [130, 165],
+};
+
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 const DEFAULT_FLOOR_RATE = 14; // £14 as the floor rate for initial quote
 
@@ -129,9 +146,6 @@ export default function HeroQuoteWidget() {
   const [availableAddons, setAvailableAddons] = useState<ServiceAddon[]>([]);
   const [services, setServices] = useState<ServiceTypeData[]>([]);
 
-  // Fixed price display for step 2
-  const [fixedPriceDisplay, setFixedPriceDisplay] = useState<number | null>(null);
-
   // Out-of-area waitlist
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [waitlistEmail, setWaitlistEmail] = useState('');
@@ -160,18 +174,6 @@ export default function HeroQuoteWidget() {
     const minHours = isDeep ? 3 : 2;
     setHours(Math.max(minHours, Math.round(suggested)));
   }, [bedrooms, bathrooms, serviceSlug, isFixed]);
-
-  // Update fixed price display when service/bedrooms change
-  useEffect(() => {
-    if (!isFixed || bedrooms === null) {
-      setFixedPriceDisplay(null);
-      return;
-    }
-    const svc = services.find((s) => s.slug === serviceSlug);
-    const propertySize = BEDROOM_TO_PROPERTY[bedrooms] ?? 'FIVE_PLUS';
-    const fp = svc?.fixedPrices.find((p) => p.propertySize === propertySize);
-    setFixedPriceDisplay(fp?.customerPrice ?? null);
-  }, [isFixed, bedrooms, serviceSlug, services]);
 
   // Update available addons when service changes
   useEffect(() => {
@@ -559,14 +561,27 @@ export default function HeroQuoteWidget() {
         </div>
       )}
 
-      {/* Fixed price preview */}
-      {isFixed && fixedPriceDisplay !== null && (
-        <div className="mt-5 rounded-lg bg-brand-50 border border-brand-200 px-4 py-3 text-center">
-          <span className="text-sm font-semibold text-brand-700">
-            Fixed price: &pound;{fixedPriceDisplay}
-          </span>
-        </div>
-      )}
+      {/* Price range preview for EOT/Airbnb */}
+      {isFixed &&
+        bedrooms !== null &&
+        (() => {
+          const ranges = serviceSlug === 'eot' ? EOT_SUGGESTED_RANGES : AIRBNB_SUGGESTED_RANGES;
+          const key = Math.min(bedrooms, serviceSlug === 'eot' ? 5 : 4);
+          const range = ranges[key];
+          if (!range) return null;
+          const low = Math.ceil(range[0] * 1.06);
+          const high = Math.ceil(range[1] * 1.06);
+          return (
+            <div className="mt-5 rounded-lg bg-brand-50 border border-brand-200 px-4 py-3 text-center">
+              <span className="text-sm font-semibold text-brand-700">
+                Prices from &pound;{low} &ndash; &pound;{high}
+              </span>
+              <p className="text-xs text-gray-500 mt-1">
+                depending on your cleaner. Includes 6% service fee.
+              </p>
+            </div>
+          );
+        })()}
 
       {/* Next */}
       <button
@@ -575,7 +590,7 @@ export default function HeroQuoteWidget() {
         disabled={!canProceedStep2}
         className="mt-6 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
       >
-        Get Estimate
+        {isFixed ? 'Browse Cleaners' : 'Get Estimate'}
       </button>
     </div>
   );
@@ -615,11 +630,27 @@ export default function HeroQuoteWidget() {
           {quote.isFixedPrice ? (
             <>
               <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                Fixed Price
+                Typical Price Range
               </div>
-              <div className="mt-2 text-4xl font-extrabold text-brand-700">
-                &pound;{quote.totalCharged.toFixed(2)}
-              </div>
+              {(() => {
+                const ranges =
+                  serviceSlug === 'eot' ? EOT_SUGGESTED_RANGES : AIRBNB_SUGGESTED_RANGES;
+                const key = Math.min(bedrooms ?? 1, serviceSlug === 'eot' ? 5 : 4);
+                const range = ranges[key];
+                const low = range ? Math.ceil(range[0] * 1.06) : 0;
+                const high = range ? Math.ceil(range[1] * 1.06) : 0;
+                return (
+                  <div className="mt-2 text-3xl font-extrabold text-brand-700">
+                    &pound;{low} &ndash; &pound;{high}
+                  </div>
+                );
+              })()}
+              <p className="mt-2 text-xs text-gray-500">
+                depending on your cleaner. Includes 6% service fee.
+              </p>
+              <p className="mt-2 text-sm text-gray-600">
+                Choose a cleaner to see their exact price for your property size.
+              </p>
             </>
           ) : (
             <>
@@ -687,7 +718,7 @@ export default function HeroQuoteWidget() {
           onClick={() => setStep(4)}
           className="mt-6 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition"
         >
-          Continue
+          {isFixed ? 'Browse available cleaners' : 'Continue'}
         </button>
 
         <button

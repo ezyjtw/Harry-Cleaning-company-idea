@@ -45,19 +45,30 @@ function CleanersContent() {
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null);
 
+  const [propertySize, setPropertySize] = useState<number | null>(null);
+
   useEffect(() => {
     const serviceType = searchParams.get('serviceType');
+    const bedrooms = searchParams.get('bedrooms');
     if (serviceType) {
       const filterMap: Record<string, string> = {
         regular: 'Regular Cleaning',
         deep: 'Deep Cleaning',
         'end-of-tenancy': 'End of Tenancy',
+        eot: 'End of Tenancy',
         airbnb: 'Airbnb Cleaning',
       };
       const mapped = filterMap[serviceType];
       if (mapped) setFilters([mapped]);
     }
+    if (bedrooms !== null && bedrooms !== undefined) {
+      const n = parseInt(bedrooms, 10);
+      if (!isNaN(n)) setPropertySize(n);
+    }
   }, [searchParams]);
+
+  const isEotFilter = filters.includes('End of Tenancy');
+  const isAirbnbFilter = filters.includes('Airbnb Cleaning');
 
   const handlePostcodeSearch = () => {
     if (!postcodeSearch.trim()) {
@@ -273,6 +284,44 @@ function CleanersContent() {
               );
             })}
           </div>
+
+          {/* Property size selector for EOT/Airbnb */}
+          {(isEotFilter || isAirbnbFilter) && (
+            <div className="mt-4 flex items-center gap-3">
+              <span className="font-jost text-[12px] font-medium text-ink">Property size:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {(isEotFilter
+                  ? [
+                      { n: 0, label: 'Studio' },
+                      { n: 1, label: '1 Bed' },
+                      { n: 2, label: '2 Bed' },
+                      { n: 3, label: '3 Bed' },
+                      { n: 4, label: '4 Bed' },
+                      { n: 5, label: '5+ Bed' },
+                    ]
+                  : [
+                      { n: 0, label: 'Studio' },
+                      { n: 1, label: '1 Bed' },
+                      { n: 2, label: '2 Bed' },
+                      { n: 3, label: '3 Bed' },
+                      { n: 4, label: '4+ Bed' },
+                    ]
+                ).map(({ n, label }) => (
+                  <button
+                    key={n}
+                    onClick={() => setPropertySize(n)}
+                    className={`rounded-full px-3 py-1 font-jost text-[11px] font-medium tracking-wide transition ${
+                      (propertySize ?? 2) === n
+                        ? 'bg-gold text-white'
+                        : 'border border-ink/15 text-ink hover:border-ink/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -284,13 +333,39 @@ function CleanersContent() {
           </p>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((cleaner) => (
-              <CleanerCard
-                key={cleaner.id}
-                cleaner={cleaner}
-                onViewProfile={() => setSelectedCleaner(cleaner)}
-              />
-            ))}
+            {filtered.map((cleaner) => {
+              const bedroomKey = propertySize ?? 2;
+              let fixedPrice: number | null = null;
+              let fixedLabel: string | undefined;
+              const sizeLabels: Record<number, string> = {
+                0: 'studio',
+                1: '1-bed',
+                2: '2-bed',
+                3: '3-bed',
+                4: '4-bed',
+                5: '5+ bed',
+              };
+
+              if (isEotFilter && cleaner.eotPrices) {
+                const key = Math.min(bedroomKey, 5);
+                fixedPrice = cleaner.eotPrices[key] ?? null;
+                fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} EOT`;
+              } else if (isAirbnbFilter && cleaner.airbnbPrices) {
+                const key = Math.min(bedroomKey, 4);
+                fixedPrice = cleaner.airbnbPrices[key] ?? null;
+                fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} Airbnb`;
+              }
+
+              return (
+                <CleanerCard
+                  key={cleaner.id}
+                  cleaner={cleaner}
+                  onViewProfile={() => setSelectedCleaner(cleaner)}
+                  fixedServicePrice={fixedPrice}
+                  fixedServiceLabel={fixedLabel}
+                />
+              );
+            })}
           </div>
 
           {filtered.length === 0 && (

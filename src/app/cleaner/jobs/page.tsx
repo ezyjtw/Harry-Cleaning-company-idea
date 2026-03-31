@@ -19,6 +19,7 @@ interface Job {
   longitude: number;
   distance: number;
   notes?: string;
+  bedrooms?: number;
 }
 
 // Mock cleaner location (NW4 area)
@@ -78,7 +79,8 @@ const rawJobs = [
     date: '2026-03-15',
     time: '10:00',
     serviceType: 'End of Tenancy',
-    price: 180,
+    price: 270,
+    bedrooms: 2,
     status: 'upcoming' as const,
     duration: 5,
     latitude: 51.4613,
@@ -153,7 +155,8 @@ const rawJobs = [
     date: '2026-03-10',
     time: '10:00',
     serviceType: 'End of Tenancy',
-    price: 200,
+    price: 325,
+    bedrooms: 3,
     status: 'completed' as const,
     duration: 6,
     latitude: 51.4801,
@@ -411,6 +414,35 @@ export default function CleanerJobsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-3">
                   <p className="font-cormorant text-2xl font-light text-ink">&pound;{job.price}</p>
+                  {(job.serviceType === 'End of Tenancy' ||
+                    job.serviceType === 'AirBnB Turnover') &&
+                    job.bedrooms !== undefined && (
+                      <div
+                        className="bg-gold/5 px-4 py-3 text-left max-w-xs"
+                        style={{ border: '0.5px solid rgba(184,151,90,0.2)' }}
+                      >
+                        <p className="font-jost text-sm font-medium text-ink">
+                          {job.serviceType} —{' '}
+                          {job.bedrooms === 0 ? 'Studio' : `${job.bedrooms} bed`}
+                        </p>
+                        <div className="mt-2 space-y-0.5">
+                          <p className="font-jost text-sm font-light text-ink-2">
+                            Your listed price: &pound;{job.price.toFixed(2)}
+                          </p>
+                          <p className="font-jost text-sm font-light text-ink-2">
+                            Rena fee (15%): &minus;&pound;{(job.price * 0.15).toFixed(2)}
+                          </p>
+                          <p className="font-jost text-sm font-medium text-gold mt-1">
+                            You will receive: &pound;{(job.price * 0.85).toFixed(2)}
+                          </p>
+                        </div>
+                        <p className="font-jost text-xs font-light text-ink-3 mt-2">
+                          Payment is released once the customer confirms the property meets the
+                          required standard, or automatically after 24 hours if no dispute is
+                          raised.
+                        </p>
+                      </div>
+                    )}
                   <div className="flex gap-2 flex-wrap justify-end">
                     {job.status === 'pending' && (
                       <>

@@ -97,6 +97,7 @@ export const cleaners: Cleaner[] = [
     categoryRatings: { thoroughness: 5.0, punctuality: 5.0, communication: 5.0, value: 4.8 },
     bringsProducts: true,
     productFee: 12,
+    eotPrices: { 0: 190, 1: 230, 2: 285, 3: 360, 4: 440, 5: 560 },
   },
   {
     id: '4',
@@ -131,6 +132,7 @@ export const cleaners: Cleaner[] = [
     categoryRatings: { thoroughness: 4.7, punctuality: 4.6, communication: 4.8, value: 4.9 },
     bringsProducts: false,
     productFee: 0,
+    airbnbPrices: { 0: 50, 1: 65, 2: 85, 3: 110, 4: 140 },
   },
   {
     id: '5',
@@ -166,6 +168,8 @@ export const cleaners: Cleaner[] = [
     categoryRatings: { thoroughness: 4.9, punctuality: 5.0, communication: 4.9, value: 4.7 },
     bringsProducts: true,
     productFee: 10,
+    eotPrices: { 0: 185, 1: 225, 2: 275, 3: 345, 4: 425, 5: 540 },
+    airbnbPrices: { 0: 60, 1: 80, 2: 105, 3: 135, 4: 160 },
   },
   {
     id: '6',
@@ -199,6 +203,8 @@ export const cleaners: Cleaner[] = [
     categoryRatings: { thoroughness: 4.7, punctuality: 4.5, communication: 4.6, value: 4.8 },
     bringsProducts: true,
     productFee: 6,
+    eotPrices: { 0: 155, 1: 195, 2: 255, 3: 325, 4: 395, 5: 490 },
+    airbnbPrices: { 0: 48, 1: 60, 2: 80, 3: 100, 4: 135 },
   },
 ];
 
