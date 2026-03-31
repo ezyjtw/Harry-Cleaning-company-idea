@@ -1775,15 +1775,59 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     );
   }
 
-  // ─── PHASE 2 (Fixed-Price): Cleaner preference + booking details ──────────
+  // ─── PHASE 2 (Fixed-Price): Cleaner → Day/Time → Backup → Summary → Submit ──
   if (isFixedPrice(category)) {
-    const preferredCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+    const priceField = category === 'end-of-tenancy' ? 'eotPrices' : 'airbnbPrices';
+    const maxBedKey = category === 'end-of-tenancy' ? 5 : 4;
+    const bedroomKey = Math.min(rooms.bedrooms, maxBedKey);
+
+    // Only show cleaners that have a price for this service & property size
+    const eligibleCleaners = cleaners.filter((c) => {
+      const prices = c[priceField];
+      return prices && prices[bedroomKey] !== undefined;
+    });
+
+    // Derive the selected cleaner's actual price
+    const fixedSelectedCleaner = selectedCleaner;
+    const cleanerBasePrice = fixedSelectedCleaner?.[priceField]?.[bedroomKey] ?? 0;
+    const extrasTotal = fixedPriceQuote?.extrasTotal ?? 0;
+    const subtotal = cleanerBasePrice + extrasTotal;
+    const serviceFee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+    const total = Math.round((subtotal + serviceFee) * 100) / 100;
+
+    // Backup cleaners: exclude the selected cleaner, only those with pricing
+    const fixedBackupCandidates = eligibleCleaners.filter((c) => c.id !== fixedSelectedCleaner?.id);
+
+    // Determine current step for back navigation
+    const fixedStep = !fixedSelectedCleaner
+      ? 'choose-cleaner'
+      : !selectedDay || !selectedTime
+        ? 'choose-time'
+        : 'review';
+
+    const goBackFixed = () => {
+      switch (fixedStep) {
+        case 'review':
+          setSelectedDay('');
+          setSelectedTime('');
+          break;
+        case 'choose-time':
+          setSelectedCleanerIds([]);
+          setSelectedDay('');
+          setSelectedTime('');
+          break;
+        case 'choose-cleaner':
+        default:
+          setPhase('quote');
+          break;
+      }
+    };
 
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
         {/* Back */}
         <button
-          onClick={() => setPhase('quote')}
+          onClick={goBackFixed}
           className="group mb-6 inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
@@ -1800,318 +1844,400 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back
         </button>
 
+        {/* Step pills */}
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={() => setPhase('quote')}
+            className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
+          >
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            Quote
+          </button>
+          {[
+            { key: 'choose-cleaner', label: 'Cleaner' },
+            { key: 'choose-time', label: 'Schedule' },
+            { key: 'review', label: 'Book' },
+          ].map((step) => {
+            const stepOrder = ['choose-cleaner', 'choose-time', 'review'];
+            const currentIdx = stepOrder.indexOf(fixedStep);
+            const isActive = step.key === fixedStep;
+            const isPast = stepOrder.indexOf(step.key) < currentIdx;
+            return (
+              <div key={step.key} className="flex items-center gap-3">
+                <div
+                  className={`h-px w-6 transition-colors ${isPast || isActive ? 'bg-gold/30' : 'bg-ink-3/15'}`}
+                />
+                {isPast ? (
+                  <span className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold">
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                    {step.label}
+                  </span>
+                ) : (
+                  <span
+                    className={`rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                      isActive ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
         <h1 className="font-cormorant font-light text-3xl text-ink sm:text-4xl">
           {category === 'end-of-tenancy' ? 'End of Tenancy' : 'Airbnb'} Booking
         </h1>
+        <p className="mt-2 font-jost font-light text-sm text-ink-3">
+          {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} property
+        </p>
 
-        {/* ── Cleaner preferences ─────────────────────────── */}
-        <div className="mt-10">
-          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
-            Cleaner Preferences
-          </h2>
-          <p className="mt-2 font-jost font-light text-sm text-ink-3">
-            Select cleaners you&apos;d prefer for this job. We&apos;ll do our best to match you with
-            one of your choices. This is optional — skip if you have no preference.
-          </p>
+        {/* ── Step 1: Choose a cleaner ────────────────────── */}
+        {fixedStep === 'choose-cleaner' && (
+          <div className="mt-8">
+            <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+              Choose your cleaner
+            </h2>
+            <p className="mt-2 font-jost font-light text-sm text-ink-3">
+              Each cleaner sets their own price. Select one to continue.
+            </p>
 
-          {preferredCleaners.length > 0 && (
-            <div className="mt-4 rounded-lg bg-gold/5 px-4 py-3 flex items-center gap-2 ring-1 ring-gold/20">
-              <svg
-                className="h-4 w-4 text-gold shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                />
-              </svg>
-              <span className="font-jost font-light text-sm text-ink">
-                {preferredCleaners.length} {preferredCleaners.length === 1 ? 'cleaner' : 'cleaners'}{' '}
-                selected — {preferredCleaners.map((c) => c.name).join(', ')}
-              </span>
-            </div>
-          )}
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {cleaners.map((c) => {
-              const tier = TIER_INFO[c.tier];
-              const isPreferred = selectedCleanerIds.includes(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() =>
-                    setSelectedCleanerIds((prev) =>
-                      prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                    )
-                  }
-                  className={`group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md ${
-                    isPreferred
-                      ? 'ring-2 ring-gold bg-gold/5'
-                      : 'bg-white ring-ink/[0.06] hover:bg-cream'
-                  }`}
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className="relative">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06] transition">
-                        {c.name.charAt(0)}
-                      </div>
-                      {isPreferred && (
-                        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-cream">
-                          <svg
-                            className="h-3 w-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={3}
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M4.5 12.75l6 6 9-13.5"
-                            />
-                          </svg>
+            {eligibleCleaners.length === 0 ? (
+              <div className="mt-6 rounded-xl bg-white p-6 text-center ring-1 ring-ink/[0.06]">
+                <p className="font-jost font-light text-sm text-ink-3">
+                  No cleaners currently offer{' '}
+                  {category === 'end-of-tenancy' ? 'end of tenancy' : 'Airbnb'} cleaning for this
+                  property size. Please try a different configuration.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {eligibleCleaners.map((c) => {
+                  const tier = TIER_INFO[c.tier];
+                  const price = (c[priceField] ?? {})[bedroomKey] ?? 0;
+                  const priceFee = Math.round(price * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+                  const priceTotal = Math.round((price + priceFee) * 100) / 100;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCleanerIds([c.id]);
+                        setBackupCleanerIds([]);
+                        setAutoAssignBackup(false);
+                      }}
+                      className="group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md bg-white ring-ink/[0.06] hover:bg-cream"
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06] transition">
+                          {c.name.charAt(0)}
                         </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
-                        >
-                          {tier.label}
-                        </span>
-                        <VerificationBadge
-                          identityVerified={c.identityVerified}
-                          backgroundChecked={c.backgroundChecked}
-                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
+                            >
+                              {tier.label}
+                            </span>
+                            <VerificationBadge
+                              identityVerified={c.identityVerified}
+                              backgroundChecked={c.backgroundChecked}
+                            />
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
+                            <StarRating rating={c.rating} />
+                            <span>
+                              {c.rating} ({c.reviewCount})
+                            </span>
+                            <span className="text-ink-3/30">|</span>
+                            <span>{c.completedJobs} jobs</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
-                        <StarRating rating={c.rating} />
-                        <span>
-                          {c.rating} ({c.reviewCount})
-                        </span>
-                        <span className="text-ink-3/30">|</span>
-                        <span>{c.completedJobs} jobs</span>
+                      <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                        {c.bio}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {c.specialties.slice(0, 3).map((s) => (
+                          <span
+                            key={s}
+                            className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
+                          >
+                            {s}
+                          </span>
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
-                    {c.bio}
+                      {/* Price */}
+                      <div className="mt-4 flex items-baseline justify-between border-t border-ink/[0.06] pt-3">
+                        <span className="font-jost font-light text-xs text-ink-3">
+                          {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} price
+                        </span>
+                        <div className="text-right">
+                          <span className="font-cormorant font-light text-2xl text-ink">
+                            &pound;{priceTotal.toFixed(2)}
+                          </span>
+                          <span className="block font-jost font-light text-[10px] text-ink-3">
+                            incl. {SERVICE_FEE_PERCENT}% service fee
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Step 2: Day & time ──────────────────────────── */}
+        {fixedStep === 'choose-time' && fixedSelectedCleaner && (
+          <div className="mt-8">
+            {/* Selected cleaner summary */}
+            <div className="rounded-xl bg-white p-4 ring-1 ring-ink/[0.06] flex items-center gap-3.5 mb-8">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-2 text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06]">
+                {fixedSelectedCleaner.name.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="font-jost font-normal text-sm text-ink">
+                  {fixedSelectedCleaner.name}
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <StarRating rating={fixedSelectedCleaner.rating} />
+                  <span className="font-jost font-light text-xs text-ink-3">
+                    {fixedSelectedCleaner.rating}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="font-cormorant font-light text-xl text-ink">
+                  &pound;{cleanerBasePrice}
+                </span>
+                <span className="block font-jost font-light text-[10px] text-ink-3">
+                  + {SERVICE_FEE_PERCENT}% fee
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                When would you like this done?
+              </h2>
+              <div className="mt-5">
+                <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
+                  Day
+                </p>
+                <div className="flex flex-wrap gap-2.5">
+                  {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDay(day);
+                        setSelectedTime('');
+                      }}
+                      className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
+                        selectedDay === day
+                          ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                          : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {selectedDay && (
+                <div className="mt-6">
+                  <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
+                    Preferred start time
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {c.specialties.slice(0, 3).map((s) => (
-                      <span
-                        key={s}
-                        className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
+                  <div className="flex flex-wrap gap-2.5">
+                    {[
+                      '8:00 AM',
+                      '9:00 AM',
+                      '10:00 AM',
+                      '11:00 AM',
+                      '12:00 PM',
+                      '1:00 PM',
+                      '2:00 PM',
+                      '3:00 PM',
+                      '4:00 PM',
+                    ].map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setSelectedTime(time)}
+                        className={`rounded-full px-4 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
+                          selectedTime === time
+                            ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                            : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                        }`}
                       >
-                        {s}
-                      </span>
+                        {time}
+                      </button>
                     ))}
                   </div>
-                  {c.languages.length > 1 && (
-                    <p className="mt-2 font-jost font-light text-[11px] text-ink-3">
-                      Speaks {c.languages.join(', ')}
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── When ─────────────────────────────────────── */}
-        <div className="mt-10 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
-            When would you like this done?
-          </h2>
-          <div className="mt-5">
-            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">Day</p>
-            <div className="flex flex-wrap gap-2.5">
-              {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((day) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDay(day);
-                    setSelectedTime('');
-                  }}
-                  className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
-                    selectedDay === day
-                      ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                      : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
-                  }`}
-                >
-                  {day}
-                </button>
-              ))}
+                </div>
+              )}
             </div>
           </div>
-          {selectedDay && (
-            <div className="mt-6">
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-3">
-                Preferred start time
-              </p>
-              <div className="flex flex-wrap gap-2.5">
-                {[
-                  '8:00 AM',
-                  '9:00 AM',
-                  '10:00 AM',
-                  '11:00 AM',
-                  '12:00 PM',
-                  '1:00 PM',
-                  '2:00 PM',
-                  '3:00 PM',
-                  '4:00 PM',
-                ].map((time) => (
+        )}
+
+        {/* ── Step 3: Backup cleaners + Summary + Submit ──── */}
+        {fixedStep === 'review' && fixedSelectedCleaner && (
+          <div className="mt-8 space-y-8">
+            {/* Backup cleaners */}
+            {fixedBackupCandidates.length > 0 && (
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <BackupCleanerSlider
+                  cleaners={fixedBackupCandidates}
+                  selectedIds={backupCleanerIds}
+                  onToggle={handleBackupToggle}
+                  maxSelections={3}
+                  autoAssign={autoAssignBackup}
+                  onAutoAssignChange={setAutoAssignBackup}
+                />
+              </div>
+            )}
+
+            {/* Key access */}
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                Property access
+              </h2>
+              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                {(
+                  [
+                    { value: 'i-will-be-home' as KeyAccess, label: 'I\u2019ll be home' },
+                    { value: 'key-under-mat' as KeyAccess, label: 'Key under mat' },
+                    { value: 'lockbox' as KeyAccess, label: 'Lockbox' },
+                    { value: 'with-concierge' as KeyAccess, label: 'With concierge' },
+                  ] as const
+                ).map((opt) => (
                   <button
-                    key={time}
+                    key={opt.value}
                     type="button"
-                    onClick={() => setSelectedTime(time)}
-                    className={`rounded-full px-4 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
-                      selectedTime === time
+                    onClick={() => setKeyAccess(opt.value)}
+                    className={`rounded-lg p-4 text-center font-jost text-sm font-light ring-1 transition-all ${
+                      keyAccess === opt.value
                         ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                     }`}
                   >
-                    {time}
+                    {opt.label}
                   </button>
                 ))}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* ── Key access ──────────────────────────────── */}
-        <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
-            Property access
-          </h2>
-          <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
-            {(
-              [
-                { value: 'i-will-be-home' as KeyAccess, label: 'I\u2019ll be home' },
-                { value: 'key-under-mat' as KeyAccess, label: 'Key under mat' },
-                { value: 'lockbox' as KeyAccess, label: 'Lockbox' },
-                { value: 'with-concierge' as KeyAccess, label: 'With concierge' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setKeyAccess(opt.value)}
-                className={`rounded-lg p-4 text-center font-jost text-sm font-light ring-1 transition-all ${
-                  keyAccess === opt.value
-                    ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                    : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {/* Special instructions */}
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                Special instructions
+              </h2>
+              <textarea
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                placeholder="Anything your cleaner should know? (optional)"
+                rows={3}
+                className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] placeholder:text-ink-3/50 transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+
+            {/* Booking summary */}
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+              <span className="font-cormorant text-xl font-light text-ink sm:text-2xl">
+                Booking summary
+              </span>
+
+              <div className="mt-5 space-y-2.5">
+                <div className="flex justify-between font-jost text-sm">
+                  <span className="font-light text-ink-3">Cleaner</span>
+                  <span className="text-ink">{fixedSelectedCleaner.name}</span>
+                </div>
+                <div className="flex justify-between font-jost text-sm">
+                  <span className="font-light text-ink-3">
+                    {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean (
+                    {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`})
+                  </span>
+                  <span className="text-ink">&pound;{cleanerBasePrice.toFixed(2)}</span>
+                </div>
+                {extrasTotal > 0 && (
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Extras</span>
+                    <span className="text-ink">&pound;{extrasTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-jost text-sm">
+                  <span className="font-light text-ink-3">
+                    Service fee ({SERVICE_FEE_PERCENT}%)
+                  </span>
+                  <span className="text-ink">&pound;{serviceFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-jost text-sm">
+                  <span className="font-light text-ink-3">When</span>
+                  <span className="text-ink">
+                    {selectedDay}, {selectedTime}
+                  </span>
+                </div>
+                {backupCleanerIds.length > 0 && (
+                  <div className="flex justify-between font-jost text-sm">
+                    <span className="font-light text-ink-3">Backup cleaners</span>
+                    <span className="text-ink">
+                      {backupCleanerIds
+                        .map((id) => cleaners.find((c) => c.id === id)?.name)
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
+                  <span className="font-jost font-normal text-ink">Total</span>
+                  <span className="font-cormorant font-light text-3xl text-ink">
+                    &pound;{total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-3 font-jost font-light text-xs text-ink-3">
+                Price set by {fixedSelectedCleaner.name}. {SERVICE_FEE_PERCENT}% service fee
+                included. No hidden charges.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleBookingSubmit}
+              disabled={bookingSubmitting}
+              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bookingSubmitting ? 'Submitting\u2026' : 'Submit Booking Request'}
+            </button>
           </div>
-        </div>
-
-        {/* ── Special instructions ────────────────────── */}
-        <div className="mt-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
-            Special instructions
-          </h2>
-          <textarea
-            value={specialInstructions}
-            onChange={(e) => setSpecialInstructions(e.target.value)}
-            placeholder="Anything your cleaner should know? (optional)"
-            rows={3}
-            className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] placeholder:text-ink-3/50 transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
-          />
-        </div>
-
-        {/* ── Summary + submit ────────────────────────── */}
-        <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-          <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
-          <span className="font-cormorant text-xl font-light text-ink sm:text-2xl">
-            Booking summary
-          </span>
-
-          <div className="mt-5 space-y-2.5">
-            <div className="flex justify-between font-jost text-sm">
-              <span className="font-light text-ink-3">
-                {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
-              </span>
-              <span className="text-ink">
-                &pound;{fixedPriceQuote?.lowPrice} &ndash; &pound;{fixedPriceQuote?.highPrice}
-              </span>
-            </div>
-            {(fixedPriceQuote?.extrasTotal ?? 0) > 0 && (
-              <div className="flex justify-between font-jost text-sm">
-                <span className="font-light text-ink-3">Extras</span>
-                <span className="text-ink">
-                  &pound;{(fixedPriceQuote?.extrasTotal ?? 0).toFixed(2)}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between font-jost text-sm">
-              <span className="font-light text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
-              <span className="text-ink">
-                &pound;
-                {(
-                  Math.round((fixedPriceQuote?.lowTotal ?? 0) * (SERVICE_FEE_PERCENT / 100) * 100) /
-                  100
-                ).toFixed(2)}{' '}
-                &ndash; &pound;
-                {(
-                  Math.round(
-                    (fixedPriceQuote?.highTotal ?? 0) * (SERVICE_FEE_PERCENT / 100) * 100
-                  ) / 100
-                ).toFixed(2)}
-              </span>
-            </div>
-            {preferredCleaners.length > 0 && (
-              <div className="flex justify-between font-jost text-sm">
-                <span className="font-light text-ink-3">
-                  Preferred {preferredCleaners.length === 1 ? 'cleaner' : 'cleaners'}
-                </span>
-                <span className="text-ink">{preferredCleaners.map((c) => c.name).join(', ')}</span>
-              </div>
-            )}
-            {selectedDay && selectedTime && (
-              <div className="flex justify-between font-jost text-sm">
-                <span className="font-light text-ink-3">When</span>
-                <span className="text-ink">
-                  {selectedDay}, {selectedTime}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
-              <span className="font-jost font-normal text-ink">Total</span>
-              <span className="font-cormorant font-light text-3xl text-ink">
-                &pound;{priceBreakdown.lowTotal?.toFixed(2)} &ndash; &pound;
-                {priceBreakdown.highTotal?.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          <p className="mt-3 font-jost font-light text-xs text-ink-3">
-            Cleaner-set prices by property size. No hidden charges.
-            {preferredCleaners.length > 0
-              ? ' We\u2019ll try to match you with one of your preferred cleaners.'
-              : ' We\u2019ll assign the best available cleaner for your job.'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleBookingSubmit}
-          disabled={!selectedDay || !selectedTime}
-          className="mt-6 w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Booking Request
-        </button>
+        )}
       </div>
     );
   }
