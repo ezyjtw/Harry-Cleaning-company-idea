@@ -7,7 +7,7 @@ import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 // ─── Types ──────────────────────────────────────────────────────
 
-type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
+type ServiceSlug = 'regular' | 'same-day' | 'deep' | 'eot' | 'airbnb';
 
 type PropertySize = 'STUDIO' | 'ONE_BED' | 'TWO_BED' | 'THREE_BED' | 'FOUR_BED' | 'FIVE_PLUS';
 
@@ -50,7 +50,6 @@ interface ServiceTypeData {
 
 const SERVICE_LABELS: Record<ServiceSlug, string> = {
   regular: 'Regular',
-  'one-off': 'One-Off',
   'same-day': 'Same-Day',
   deep: 'Deep',
   eot: 'End of Tenancy',
