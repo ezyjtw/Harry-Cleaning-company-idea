@@ -120,6 +120,16 @@ const _ADDITIONAL_ROOMS = [
 
 const PRODUCT_FEE = 5; // £5 flat rate
 
+// ─── Property size options for fixed-price services (EOT & Airbnb) ─────────
+const PROPERTY_SIZES = [
+  { key: 0, label: 'Studio' },
+  { key: 1, label: '1 Bed' },
+  { key: 2, label: '2 Bed' },
+  { key: 3, label: '3 Bed' },
+  { key: 4, label: '4 Bed' },
+  { key: 5, label: '5+ Bed' },
+];
+
 // ─── Fixed-price tables from spec (by bedroom count / property size) ──────────
 const EOT_SUGGESTED_RANGES: Record<number, [number, number]> = {
   0: [150, 200],
@@ -247,7 +257,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
   const [frequency, setFrequency] = useState<BookingFrequency>('one-off');
-  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
 
@@ -257,11 +266,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
 
-  // Fixed-price calculation for Airbnb & EOT
+  // Fixed-price calculation for Airbnb & EOT (no extras — property-size-based pricing only)
   const fixedPriceQuote = useMemo(() => {
     if (!isFixedPrice(category)) return null;
-    return calculateFixedPriceRange(category, rooms, selectedExtras);
-  }, [category, rooms, selectedExtras]);
+    return calculateFixedPriceRange(category, rooms, []);
+  }, [category, rooms]);
 
   // ─── Cleaner phase state ───────────────────────
   const [scheduling, setScheduling] = useState<'flexible' | 'set-time' | null>(null);
@@ -754,33 +763,68 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               )}
             </div>
 
-            {/* Rooms */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-jost font-medium text-base text-ink">How Many Rooms?</h2>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <Counter
-                  label="Bedrooms"
-                  value={rooms.bedrooms}
-                  onChange={(v) => setRooms({ ...rooms, bedrooms: v })}
-                  min={0}
-                  max={10}
-                />
-                <Counter
-                  label="Bathrooms"
-                  value={rooms.bathrooms}
-                  onChange={(v) => setRooms({ ...rooms, bathrooms: v })}
-                  min={1}
-                  max={6}
-                />
-                <Counter
-                  label="Living Areas"
-                  value={rooms.livingAreas}
-                  onChange={(v) => setRooms({ ...rooms, livingAreas: v })}
-                  min={0}
-                  max={5}
-                />
+            {/* Property Size — for fixed-price services (EOT & Airbnb) */}
+            {isFixedPrice(category) && (
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-jost font-medium text-base text-ink">Property Size</h2>
+                <p className="mt-2 font-jost text-xs font-light text-ink-3">
+                  Select your property size to get a guide price.
+                </p>
+                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {(category === 'end-of-tenancy'
+                    ? PROPERTY_SIZES
+                    : PROPERTY_SIZES.filter((s) => s.key <= 4)
+                  ).map((size) => (
+                    <button
+                      key={size.key}
+                      type="button"
+                      onClick={() => setRooms({ ...rooms, bedrooms: size.key })}
+                      className={`rounded-xl p-4 text-center transition-all duration-200 ${
+                        rooms.bedrooms === size.key
+                          ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
+                          : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
+                      }`}
+                    >
+                      <p
+                        className={`font-jost text-sm font-normal ${rooms.bedrooms === size.key ? 'text-ink' : 'text-ink-2'}`}
+                      >
+                        {size.label}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Rooms — for hourly services */}
+            {!isFixedPrice(category) && (
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-jost font-medium text-base text-ink">How Many Rooms?</h2>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <Counter
+                    label="Bedrooms"
+                    value={rooms.bedrooms}
+                    onChange={(v) => setRooms({ ...rooms, bedrooms: v })}
+                    min={0}
+                    max={10}
+                  />
+                  <Counter
+                    label="Bathrooms"
+                    value={rooms.bathrooms}
+                    onChange={(v) => setRooms({ ...rooms, bathrooms: v })}
+                    min={1}
+                    max={6}
+                  />
+                  <Counter
+                    label="Living Areas"
+                    value={rooms.livingAreas}
+                    onChange={(v) => setRooms({ ...rooms, livingAreas: v })}
+                    min={0}
+                    max={5}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Hours — only for hourly services */}
             {!isFixedPrice(category) && (
@@ -835,53 +879,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
 
-            {/* Extra services — for Airbnb & End of Tenancy */}
-            {isFixedPrice(category) && (
-              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">Extra Services</h2>
-                <p className="mt-2 font-jost text-xs font-light text-ink-3">
-                  Select any additional services you need — each is priced separately.
-                </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {(EXTRA_SERVICES[category] ?? []).map((svc) => {
-                    const isSelected = selectedExtras.includes(svc.id);
-                    const price = svc.price;
-                    return (
-                      <button
-                        key={svc.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedExtras((prev) =>
-                            isSelected ? prev.filter((id) => id !== svc.id) : [...prev, svc.id]
-                          )
-                        }
-                        className={`rounded-xl p-4 text-left transition-all duration-200 ${
-                          isSelected
-                            ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
-                            : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
-                        }`}
-                      >
-                        <p
-                          className={`font-jost text-sm font-normal ${isSelected ? 'text-ink' : 'text-ink'}`}
-                        >
-                          {svc.label}
-                        </p>
-                        <p
-                          className={`mt-1 font-jost text-[11px] uppercase tracking-[0.1em] ${isSelected ? 'text-gold' : 'text-gold'}`}
-                        >
-                          +&pound;{price}
-                        </p>
-                        {isSelected && (
-                          <span className="mt-2 inline-flex items-center gap-1 font-jost text-[10px] font-medium text-gold">
-                            <span>&#10003;</span> Added
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Extra services section removed — EOT & Airbnb use property-size-based pricing only */}
 
             {/* Products */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
@@ -1007,14 +1005,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         &pound;{fixedPriceQuote.lowPrice} &ndash; &pound;{fixedPriceQuote.highPrice}
                       </span>
                     </div>
-                    {fixedPriceQuote.extrasTotal > 0 && (
-                      <div className="flex justify-between font-jost text-sm">
-                        <span className="font-light text-ink-3">Extras</span>
-                        <span className="text-ink">
-                          &pound;{fixedPriceQuote.extrasTotal.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
                     {productCost > 0 && (
                       <div className="flex justify-between font-jost text-sm">
                         <span className="font-light text-ink-3">Cleaning products</span>
