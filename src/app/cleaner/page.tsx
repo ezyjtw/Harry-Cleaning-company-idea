@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 
 interface UpcomingJob {
   id: string;
@@ -10,7 +11,8 @@ interface UpcomingJob {
   time: string;
   serviceType: string;
   price: number;
-  status: 'pending' | 'confirmed';
+  cleanerEarnings: number;
+  status: string;
   bedrooms?: number;
 }
 
@@ -22,83 +24,129 @@ interface RecentReview {
   date: string;
 }
 
-const mockUpcomingJobs: UpcomingJob[] = [
-  {
-    id: '1',
-    clientName: 'Emma Wilson',
-    address: '14 Baker St, W1U 3BW',
-    date: '2026-03-14',
-    time: '09:00',
-    serviceType: 'Regular Clean',
-    price: 65,
-    status: 'confirmed',
-  },
-  {
-    id: '2',
-    clientName: 'James Taylor',
-    address: '8 Canary Wharf, E14 5AB',
-    date: '2026-03-14',
-    time: '14:00',
-    serviceType: 'Deep Clean',
-    price: 120,
-    status: 'pending',
-  },
-  {
-    id: '3',
-    clientName: 'Olivia Brown',
-    address: '22 Richmond Rd, TW9 2NA',
-    date: '2026-03-15',
-    time: '10:00',
-    serviceType: 'End of Tenancy',
-    price: 270,
-    status: 'pending',
-    bedrooms: 2,
-  },
-];
-
-const mockRecentReviews: RecentReview[] = [
-  {
-    id: '1',
-    clientName: 'Alice M.',
-    rating: 5,
-    comment: 'Absolutely spotless! Sarah is incredibly thorough and professional.',
-    date: '2026-03-12',
-  },
-  {
-    id: '2',
-    clientName: 'Tom R.',
-    rating: 4,
-    comment: 'Great job overall. Very punctual and friendly.',
-    date: '2026-03-10',
-  },
-  {
-    id: '3',
-    clientName: 'Nina P.',
-    rating: 5,
-    comment: 'Best cleaner we have ever had. Highly recommend!',
-    date: '2026-03-08',
-  },
-];
+interface DashboardData {
+  profile: {
+    name: string;
+    rating: number;
+    tier: string;
+    completedJobs: number;
+    availableNow: boolean;
+  };
+  stats: {
+    todaysJobs: number;
+    weeklyEarnings: string;
+    rating: string;
+    reviewCount: number;
+    responseRate: number;
+  };
+  dailyPercents: number[];
+  upcomingJobs: UpcomingJob[];
+  recentReviews: RecentReview[];
+}
 
 export default function CleanerDashboard() {
+  const router = useRouter();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [availableNow, setAvailableNow] = useState(false);
-  const [jobs, setJobs] = useState(mockUpcomingJobs);
+  const [jobs, setJobs] = useState<UpcomingJob[]>([]);
 
-  const handleAccept = (jobId: string) => {
-    setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed' as const } : j))
+  useEffect(() => {
+    fetch('/api/cleaner/dashboard')
+      .then((res) => {
+        if (res.status === 401) {
+          router.push('/login');
+          return null;
+        }
+        if (!res.ok) throw new Error('Failed to load dashboard');
+        return res.json();
+      })
+      .then((d) => {
+        if (!d) return;
+        setData(d);
+        setAvailableNow(d.profile.availableNow);
+        setJobs(d.upcomingJobs);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [router]);
+
+  const toggleAvailable = useCallback(async () => {
+    const next = !availableNow;
+    setAvailableNow(next);
+    await fetch('/api/cleaner/availability', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ availableNow: next }),
+    });
+  }, [availableNow]);
+
+  const handleAccept = useCallback(async (jobId: string) => {
+    const res = await fetch(`/api/cleaner/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACCEPTED' }),
+    });
+    if (res.ok) {
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed' } : j)));
+    }
+  }, []);
+
+  const handleDecline = useCallback(async (jobId: string) => {
+    const res = await fetch(`/api/cleaner/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'CANCELLED', cancellationReason: 'Declined by cleaner' }),
+    });
+    if (res.ok) {
+      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    }
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-ink/5 w-48" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-28 bg-ink/5" />
+            ))}
+          </div>
+          <div className="h-64 bg-ink/5" />
+        </div>
+      </div>
     );
-  };
+  }
 
-  const handleDecline = (jobId: string) => {
-    setJobs((prev) => prev.filter((j) => j.id !== jobId));
-  };
+  if (error || !data) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="bg-red-50 p-6 text-center">
+          <p className="font-jost text-sm text-red-600">
+            {error || 'Failed to load dashboard. Please try again.'}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 px-4 py-2 bg-ink text-cream font-jost text-xs uppercase tracking-[0.1em]"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const stats = [
-    { label: "Today's Jobs", value: '3', change: '+1 from yesterday' },
-    { label: 'Weekly Earnings', value: '£485', change: '+12% vs last week' },
-    { label: 'Rating', value: '4.9', change: 'Based on 127 reviews' },
-    { label: 'Response Rate', value: '98%', change: 'Last 30 days' },
+    { label: "Today's Jobs", value: String(data.stats.todaysJobs), change: 'Scheduled for today' },
+    { label: 'Weekly Earnings', value: `£${data.stats.weeklyEarnings}`, change: 'This week' },
+    {
+      label: 'Rating',
+      value: data.stats.rating,
+      change: `Based on ${data.stats.reviewCount} jobs`,
+    },
+    { label: 'Response Rate', value: `${data.stats.responseRate}%`, change: 'Last 30 days' },
   ];
 
   return (
@@ -108,7 +156,7 @@ export default function CleanerDashboard() {
         <div>
           <h1 className="font-cormorant text-2xl font-light text-ink">Dashboard</h1>
           <p className="font-jost text-sm font-light text-ink-3 mt-1">
-            Welcome back, Sarah. Here is your overview.
+            Welcome back, {data.profile.name?.split(' ')[0] || 'Cleaner'}. Here is your overview.
           </p>
         </div>
         {/* Available Now toggle */}
@@ -118,7 +166,7 @@ export default function CleanerDashboard() {
         >
           <span className="text-sm font-jost font-light text-ink-2">Available Now</span>
           <button
-            onClick={() => setAvailableNow(!availableNow)}
+            onClick={toggleAvailable}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               availableNow ? 'bg-gold' : 'bg-ink-3/30'
             }`}
@@ -174,6 +222,11 @@ export default function CleanerDashboard() {
             </a>
           </div>
           <div>
+            {jobs.length === 0 && (
+              <div className="px-6 py-8 text-center">
+                <p className="font-jost text-sm font-light text-ink-3">No upcoming jobs</p>
+              </div>
+            )}
             {jobs.map((job, i) => (
               <div
                 key={job.id}
@@ -185,10 +238,14 @@ export default function CleanerDashboard() {
                     <p className="font-jost text-sm font-normal text-ink">{job.clientName}</p>
                     <span
                       className={`font-jost text-[10px] uppercase tracking-[0.1em] px-2 py-0.5 ${
-                        job.status === 'confirmed' ? 'bg-gold/10 text-gold' : 'bg-ink/5 text-ink-3'
+                        job.status === 'confirmed' || job.status === 'accepted'
+                          ? 'bg-gold/10 text-gold'
+                          : 'bg-ink/5 text-ink-3'
                       }`}
                     >
-                      {job.status === 'confirmed' ? 'Confirmed' : 'Pending'}
+                      {job.status === 'confirmed' || job.status === 'accepted'
+                        ? 'Confirmed'
+                        : 'Pending'}
                     </span>
                   </div>
                   <p className="font-jost text-sm font-light text-ink-3 mt-0.5">{job.address}</p>
@@ -199,30 +256,26 @@ export default function CleanerDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:flex-col sm:items-end">
-                  <p className="font-cormorant text-lg font-light text-ink">£{job.price}</p>
-                  {(job.serviceType === 'End of Tenancy' ||
-                    job.serviceType === 'AirBnB Turnover') &&
+                  <p className="font-cormorant text-lg font-light text-ink">
+                    £{job.cleanerEarnings.toFixed(2)}
+                  </p>
+                  {(job.serviceType === 'end-of-tenancy' || job.serviceType === 'airbnb') &&
                     job.bedrooms !== undefined && (
                       <div
                         className="mt-1 bg-gold/5 px-3 py-2 text-left"
                         style={{ border: '0.5px solid rgba(184,151,90,0.2)' }}
                       >
                         <p className="font-jost text-xs font-medium text-ink">
-                          {job.serviceType} —{' '}
-                          {job.bedrooms === 0 ? 'Studio' : `${job.bedrooms} bed`}
+                          {job.serviceType === 'end-of-tenancy'
+                            ? 'End of Tenancy'
+                            : 'AirBnB Turnover'}{' '}
+                          — {job.bedrooms === 0 ? 'Studio' : `${job.bedrooms} bed`}
                         </p>
                         <p className="font-jost text-[11px] font-light text-ink-2 mt-1">
-                          Your listed price: £{job.price.toFixed(2)}
-                        </p>
-                        <p className="font-jost text-[11px] font-light text-ink-2">
-                          Rena fee (15%): -£{(job.price * 0.15).toFixed(2)}
+                          Customer pays: £{job.price.toFixed(2)}
                         </p>
                         <p className="font-jost text-[11px] font-medium text-gold mt-0.5">
-                          You will receive: £{(job.price * 0.85).toFixed(2)}
-                        </p>
-                        <p className="font-jost text-[10px] font-light text-ink-3 mt-1">
-                          Payment released once the customer confirms the clean meets the required
-                          standard.
+                          You receive: £{job.cleanerEarnings.toFixed(2)}
                         </p>
                       </div>
                     )}
@@ -255,7 +308,7 @@ export default function CleanerDashboard() {
           <div className="bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
             <h2 className="font-cormorant text-lg font-light text-ink mb-4">Earnings This Week</h2>
             <div className="h-40 flex items-end gap-2">
-              {[40, 65, 45, 80, 55, 70, 0].map((h, i) => (
+              {data.dailyPercents.map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div
                     className="w-full bg-gold/80 transition-all"
@@ -271,7 +324,9 @@ export default function CleanerDashboard() {
               className="mt-4 pt-4 text-center"
               style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
             >
-              <p className="font-cormorant text-2xl font-light text-ink">£485</p>
+              <p className="font-cormorant text-2xl font-light text-ink">
+                £{data.stats.weeklyEarnings}
+              </p>
               <p className="font-jost text-xs font-light text-ink-3">Total this week</p>
             </div>
           </div>
@@ -294,7 +349,12 @@ export default function CleanerDashboard() {
               </a>
             </div>
             <div>
-              {mockRecentReviews.map((review, i) => (
+              {data.recentReviews.length === 0 && (
+                <div className="px-6 py-6 text-center">
+                  <p className="font-jost text-sm font-light text-ink-3">No reviews yet</p>
+                </div>
+              )}
+              {data.recentReviews.map((review, i) => (
                 <div
                   key={review.id}
                   className="px-6 py-4"

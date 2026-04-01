@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 
 interface ReviewItem {
   id: string;
@@ -8,108 +9,100 @@ interface ReviewItem {
   date: string;
   rating: number;
   comment: string;
-  reply?: string;
+  reply?: string | null;
   categories: {
     thoroughness: number;
     punctuality: number;
     communication: number;
-    value: number;
   };
 }
 
-const mockReviews: ReviewItem[] = [
-  {
-    id: '1',
-    clientName: 'Alice M.',
-    date: '2026-03-12',
-    rating: 5,
-    comment:
-      'Absolutely spotless! Sarah is incredibly thorough and professional. She went above and beyond what was expected. Will definitely book again.',
-    categories: { thoroughness: 5, punctuality: 5, communication: 5, value: 5 },
-  },
-  {
-    id: '2',
-    clientName: 'Tom R.',
-    date: '2026-03-10',
-    rating: 4,
-    comment:
-      'Great job overall. Very punctual and friendly. The bathroom could have used a bit more attention but otherwise excellent.',
-    reply: 'Thank you Tom! I will make sure to pay extra attention to the bathroom next time.',
-    categories: { thoroughness: 4, punctuality: 5, communication: 4, value: 4 },
-  },
-  {
-    id: '3',
-    clientName: 'Nina P.',
-    date: '2026-03-08',
-    rating: 5,
-    comment: 'Best cleaner we have ever had. Highly recommend! Everything was immaculate.',
-    categories: { thoroughness: 5, punctuality: 5, communication: 5, value: 5 },
-  },
-  {
-    id: '4',
-    clientName: 'Ben S.',
-    date: '2026-03-05',
-    rating: 3,
-    comment:
-      'Decent clean but arrived 20 minutes late. The quality of work was fine once she got started.',
-    categories: { thoroughness: 3, punctuality: 2, communication: 3, value: 3 },
-  },
-  {
-    id: '5',
-    clientName: 'Laura K.',
-    date: '2026-03-02',
-    rating: 5,
-    comment:
-      'Fantastic deep clean of our flat. Sarah is meticulous and left the place sparkling. Very friendly too.',
-    categories: { thoroughness: 5, punctuality: 5, communication: 5, value: 4 },
-  },
-  {
-    id: '6',
-    clientName: 'Chris W.',
-    date: '2026-02-28',
-    rating: 4,
-    comment: 'Very pleased with the end of tenancy clean. Professional and efficient.',
-    categories: { thoroughness: 4, punctuality: 4, communication: 5, value: 4 },
-  },
-];
+interface ReviewsData {
+  reviews: ReviewItem[];
+  overallRating: number;
+  totalReviews: number;
+  distribution: Record<number, number>;
+  avgCategories: {
+    thoroughness: number;
+    punctuality: number;
+    communication: number;
+  };
+}
 
-const ratingFilters = [0, 5, 4, 3, 2, 1]; // 0 = All
+const ratingFilters = [0, 5, 4, 3, 2, 1];
 
 export default function ReviewsPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState(0);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
-  const [reviews, setReviews] = useState(mockReviews);
+  const [data, setData] = useState<ReviewsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const filteredReviews = filter === 0 ? reviews : reviews.filter((r) => r.rating === filter);
+  const fetchReviews = useCallback(
+    async (ratingFilter: number) => {
+      setLoading(true);
+      const params = ratingFilter > 0 ? `?rating=${ratingFilter}` : '';
+      const res = await fetch(`/api/cleaner/reviews${params}`);
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (res.ok) {
+        setData(await res.json());
+      }
+      setLoading(false);
+    },
+    [router]
+  );
 
-  const overallRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1);
+  useEffect(() => {
+    fetchReviews(filter);
+  }, [filter, fetchReviews]);
 
-  const categoryAverages = {
-    thoroughness: (
-      reviews.reduce((s, r) => s + r.categories.thoroughness, 0) / reviews.length
-    ).toFixed(1),
-    punctuality: (
-      reviews.reduce((s, r) => s + r.categories.punctuality, 0) / reviews.length
-    ).toFixed(1),
-    communication: (
-      reviews.reduce((s, r) => s + r.categories.communication, 0) / reviews.length
-    ).toFixed(1),
-    value: (reviews.reduce((s, r) => s + r.categories.value, 0) / reviews.length).toFixed(1),
-  };
+  const handleReply = useCallback(
+    async (reviewId: string) => {
+      if (!replyText.trim()) return;
+      const res = await fetch('/api/cleaner/reviews', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewId, reply: replyText }),
+      });
+      if (res.ok && data) {
+        setData({
+          ...data,
+          reviews: data.reviews.map((r) => (r.id === reviewId ? { ...r, reply: replyText } : r)),
+        });
+        setReplyingTo(null);
+        setReplyText('');
+      }
+    },
+    [replyText, data]
+  );
 
+  if (loading && !data) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-ink/5 w-32" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 bg-ink/5" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const overallRating = data.overallRating.toFixed(1);
   const ratingDistribution = [5, 4, 3, 2, 1].map((r) => ({
     rating: r,
-    count: reviews.filter((rev) => rev.rating === r).length,
-    percentage: (reviews.filter((rev) => rev.rating === r).length / reviews.length) * 100,
+    count: data.distribution[r] || 0,
+    percentage: data.totalReviews > 0 ? ((data.distribution[r] || 0) / data.totalReviews) * 100 : 0,
   }));
-
-  const handleReply = (reviewId: string) => {
-    if (!replyText.trim()) return;
-    setReviews((prev) => prev.map((r) => (r.id === reviewId ? { ...r, reply: replyText } : r)));
-    setReplyingTo(null);
-    setReplyText('');
-  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -122,7 +115,6 @@ export default function ReviewsPage() {
 
       {/* Overall rating and breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Overall score */}
         <div
           className="bg-cream p-6 text-center"
           style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -141,11 +133,10 @@ export default function ReviewsPage() {
             ))}
           </div>
           <p className="font-jost text-sm font-light text-ink-3 mt-1">
-            Based on {reviews.length} reviews
+            Based on {data.totalReviews} reviews
           </p>
         </div>
 
-        {/* Rating distribution */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
             Rating Distribution
@@ -170,22 +161,21 @@ export default function ReviewsPage() {
           </div>
         </div>
 
-        {/* Category breakdown */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
             Category Breakdown
           </h3>
           <div className="space-y-3">
-            {Object.entries(categoryAverages).map(([key, value]) => (
+            {Object.entries(data.avgCategories).map(([key, value]) => (
               <div key={key}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-jost text-sm font-light text-ink-2 capitalize">{key}</span>
-                  <span className="font-jost text-sm font-light text-ink">{value}</span>
+                  <span className="font-jost text-sm font-light text-ink">{value.toFixed(1)}</span>
                 </div>
                 <div className="w-full h-2 bg-cream-2 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gold rounded-full"
-                    style={{ width: `${(Number(value) / 5) * 100}%` }}
+                    style={{ width: `${(value / 5) * 100}%` }}
                   />
                 </div>
               </div>
@@ -194,7 +184,7 @@ export default function ReviewsPage() {
         </div>
       </div>
 
-      {/* Filter by rating */}
+      {/* Filter */}
       <div className="flex items-center gap-2 mb-6">
         <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">Filter:</span>
         {ratingFilters.map((r) => (
@@ -213,17 +203,17 @@ export default function ReviewsPage() {
 
       {/* Reviews list */}
       <div className="space-y-4">
-        {filteredReviews.length === 0 ? (
+        {data.reviews.length === 0 ? (
           <div
             className="text-center py-12 bg-cream"
             style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
           >
             <p className="font-jost text-sm font-light text-ink-3">
-              No reviews matching this filter.
+              {filter > 0 ? 'No reviews matching this filter.' : 'No reviews yet.'}
             </p>
           </div>
         ) : (
-          filteredReviews.map((review) => (
+          data.reviews.map((review) => (
             <div
               key={review.id}
               className="bg-cream p-5"
@@ -251,7 +241,6 @@ export default function ReviewsPage() {
               </div>
               <p className="font-jost text-sm font-light text-ink-2">{review.comment}</p>
 
-              {/* Reply */}
               {review.reply && (
                 <div className="mt-3 ml-4 pl-4 border-l-2 border-gold bg-gold/5 p-3">
                   <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold mb-1">
@@ -261,7 +250,6 @@ export default function ReviewsPage() {
                 </div>
               )}
 
-              {/* Reply form */}
               {!review.reply && replyingTo === review.id ? (
                 <div className="mt-3">
                   <textarea

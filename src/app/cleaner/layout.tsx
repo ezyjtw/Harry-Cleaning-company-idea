@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   {
@@ -39,7 +39,36 @@ const navItems = [
 
 export default function CleanerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [cleanerName, setCleanerName] = useState('');
+  const [cleanerTier, setCleanerTier] = useState('');
+  const [initials, setInitials] = useState('');
+
+  useEffect(() => {
+    fetch('/api/cleaner/profile')
+      .then((res) => {
+        if (res.status === 401) {
+          router.push('/login');
+          return null;
+        }
+        return res.ok ? res.json() : null;
+      })
+      .then((data) => {
+        if (!data) return;
+        setCleanerName(data.name || 'Cleaner');
+        setCleanerTier(data.tier || 'STARTER');
+        const parts = (data.name || '').split(' ');
+        setInitials(
+          parts
+            .map((p: string) => p[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase()
+        );
+      })
+      .catch(() => {});
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -86,12 +115,16 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           <div className="p-6" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-cormorant font-light">
-                SC
+                {initials || '..'}
               </div>
               <div>
-                <p className="font-jost font-light text-cream text-sm">Sarah Chen</p>
+                <p className="font-jost font-light text-cream text-sm">
+                  {cleanerName || 'Loading...'}
+                </p>
                 <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-gold">
-                  Premium Tier
+                  {cleanerTier
+                    ? `${cleanerTier.charAt(0) + cleanerTier.slice(1).toLowerCase()} Tier`
+                    : ''}
                 </span>
               </div>
             </div>

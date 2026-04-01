@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 
 const specialtyOptions = [
   'Regular Cleaning',
@@ -29,22 +30,42 @@ const languageOptions = [
 ];
 
 export default function CleanerProfilePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [photo, setPhoto] = useState<string | null>(null);
-  const [bio, setBio] = useState(
-    "Hi! I'm Sarah, a professional cleaner with over 5 years of experience. I take pride in delivering spotless results and always go the extra mile for my clients."
-  );
-  const [hourlyRate, setHourlyRate] = useState('16');
+  const [bio, setBio] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('15');
   const [rateError, setRateError] = useState('');
-  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([
-    'Regular Cleaning',
-    'Deep Cleaning',
-    'End of Tenancy',
-  ]);
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [travelRadius, setTravelRadius] = useState('10');
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English', 'Portuguese']);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguages, setCustomLanguages] = useState<string[]>([]);
   const [customLanguage, setCustomLanguage] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Fetch profile data on mount
+  useEffect(() => {
+    fetch('/api/cleaner/profile')
+      .then((res) => {
+        if (res.status === 401) {
+          router.push('/login');
+          return null;
+        }
+        if (!res.ok) throw new Error('Failed to load profile');
+        return res.json();
+      })
+      .then((data) => {
+        if (!data) return;
+        setBio(data.bio || '');
+        setHourlyRate(String(data.hourlyRate || 15));
+        setSelectedSpecialties(data.specialties || []);
+        setTravelRadius(String(data.radius || 10));
+        setPhoto(data.image || null);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [router]);
 
   const toggleSpecialty = (s: string) => {
     setSelectedSpecialties((prev) =>
@@ -68,11 +89,38 @@ export default function CleanerProfilePage() {
     setSaved(false);
   };
 
-  const handleSave = () => {
-    // TODO: Save profile to backend
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    const res = await fetch('/api/cleaner/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bio,
+        hourlyRate: Number(hourlyRate),
+        specialties: selectedSpecialties,
+        radius: Number(travelRadius),
+        image: photo,
+      }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
+  }, [bio, hourlyRate, selectedSpecialties, travelRadius, photo]);
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-ink/5 w-32" />
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-32 bg-ink/5" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
@@ -538,9 +586,10 @@ export default function CleanerProfilePage() {
           )}
           <button
             onClick={handleSave}
-            className="px-8 py-2.5 bg-ink text-cream font-jost font-light hover:bg-ink/90 transition-colors"
+            disabled={saving}
+            className="px-8 py-2.5 bg-ink text-cream font-jost font-light hover:bg-ink/90 transition-colors disabled:opacity-50"
           >
-            Save Profile
+            {saving ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
       </div>
