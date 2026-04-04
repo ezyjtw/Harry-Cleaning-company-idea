@@ -43,6 +43,15 @@
         "no-console": "off",
         "@typescript-eslint/no-explicit-any": "off"
       }
+    },
+    {
+      "files": ["apps/**/*.ts", "apps/**/*.tsx"],
+      "rules": {
+        "jsx-a11y/alt-text": "off",
+        "@next/next/no-img-element": "off",
+        "no-alert": "off",
+        "import/order": "off"
+      }
     }
   ]
 }

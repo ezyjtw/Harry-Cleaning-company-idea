@@ -50,3 +50,21 @@ Thumbs.db
 
 # Sentry
 .sentryclirc
+
+# Expo / React Native
+apps/*/node_modules/
+apps/*/.expo/
+apps/*/dist/
+apps/*/android/
+apps/*/ios/
+apps/*/web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Packages
+packages/*/node_modules/
+packages/*/dist/
