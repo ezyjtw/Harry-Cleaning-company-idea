@@ -1,9 +1,19 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Switch,
+  Linking,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@rena/shared';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [pushEnabled, setPushEnabled] = React.useState(true);
   const [emailEnabled, setEmailEnabled] = React.useState(true);
   const [availableNow, setAvailableNow] = React.useState(false);
@@ -47,30 +57,50 @@ export default function SettingsScreen() {
 
       <Text style={styles.sectionTitle}>Documents</Text>
       <View style={styles.section}>
-        <LinkRow icon="document-text-outline" label="DBS Certificate" />
-        <LinkRow icon="shield-outline" label="Right to Work" />
-        <LinkRow icon="card-outline" label="Identity Verification" />
+        <LinkRow icon="document-text-outline" label="DBS Certificate" onPress={() => {}} />
+        <LinkRow icon="shield-outline" label="Right to Work" onPress={() => {}} />
+        <LinkRow icon="card-outline" label="Identity Verification" onPress={() => {}} />
       </View>
 
       <Text style={styles.sectionTitle}>Legal</Text>
       <View style={styles.section}>
-        <LinkRow icon="document-text-outline" label="Terms & Conditions" />
-        <LinkRow icon="shield-outline" label="Privacy Policy" />
-        <LinkRow icon="information-circle-outline" label="About Rena" />
+        <LinkRow
+          icon="document-text-outline"
+          label="Terms & Conditions"
+          onPress={() => router.push('/terms')}
+        />
+        <LinkRow
+          icon="shield-outline"
+          label="Privacy Policy"
+          onPress={() => router.push('/privacy-policy')}
+        />
+        <LinkRow
+          icon="information-circle-outline"
+          label="About Rena"
+          onPress={() => Linking.openURL('https://renacleaning.co.uk/about')}
+        />
       </View>
 
       <Text style={styles.sectionTitle}>Support</Text>
       <View style={styles.section}>
-        <LinkRow icon="mail-outline" label="Contact Support" />
-        <LinkRow icon="help-circle-outline" label="Help Centre" />
+        <LinkRow
+          icon="mail-outline"
+          label="Contact Support"
+          onPress={() => Linking.openURL('mailto:cleaners@renacleaning.co.uk')}
+        />
+        <LinkRow
+          icon="help-circle-outline"
+          label="Help Centre"
+          onPress={() => Linking.openURL('https://renacleaning.co.uk/faq')}
+        />
       </View>
     </ScrollView>
   );
 }
 
-function LinkRow({ icon, label }: { icon: string; label: string }) {
+function LinkRow({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.linkRow}>
+    <TouchableOpacity style={styles.linkRow} onPress={onPress}>
       <Ionicons
         name={icon as keyof typeof Ionicons.glyphMap}
         size={20}

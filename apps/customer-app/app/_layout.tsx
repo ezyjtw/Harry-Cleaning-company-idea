@@ -2,11 +2,13 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/context/AuthContext';
+import { UpdateChecker } from '@/components/UpdateChecker';
 import { Colors } from '@rena/shared';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
+      <UpdateChecker />
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -34,6 +36,8 @@ export default function RootLayout() {
         <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
         <Stack.Screen name="addresses" options={{ title: 'Saved Addresses' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="privacy-policy" options={{ title: 'Privacy Policy' }} />
+        <Stack.Screen name="terms" options={{ title: 'Terms & Conditions' }} />
       </Stack>
     </AuthProvider>
   );

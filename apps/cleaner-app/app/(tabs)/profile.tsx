@@ -107,9 +107,21 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.menu}>
-        <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => {}} />
-        <MenuItem icon="document-text-outline" label="Terms & Conditions" onPress={() => {}} />
-        <MenuItem icon="shield-outline" label="Privacy Policy" onPress={() => {}} />
+        <MenuItem
+          icon="help-circle-outline"
+          label="Help & Support"
+          onPress={() => router.push('/settings')}
+        />
+        <MenuItem
+          icon="document-text-outline"
+          label="Terms & Conditions"
+          onPress={() => router.push('/terms')}
+        />
+        <MenuItem
+          icon="shield-outline"
+          label="Privacy Policy"
+          onPress={() => router.push('/privacy-policy')}
+        />
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={logout}>

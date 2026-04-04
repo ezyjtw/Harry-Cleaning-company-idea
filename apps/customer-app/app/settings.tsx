@@ -1,9 +1,19 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Switch,
+  Linking,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@rena/shared';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [pushEnabled, setPushEnabled] = React.useState(true);
   const [emailEnabled, setEmailEnabled] = React.useState(true);
   const [marketingEnabled, setMarketingEnabled] = React.useState(false);
@@ -23,15 +33,35 @@ export default function SettingsScreen() {
 
       <Text style={styles.sectionTitle}>Legal</Text>
       <View style={styles.section}>
-        <LinkRow icon="document-text-outline" label="Terms of Service" />
-        <LinkRow icon="shield-outline" label="Privacy Policy" />
-        <LinkRow icon="information-circle-outline" label="About Rena" />
+        <LinkRow
+          icon="document-text-outline"
+          label="Terms of Service"
+          onPress={() => router.push('/terms')}
+        />
+        <LinkRow
+          icon="shield-outline"
+          label="Privacy Policy"
+          onPress={() => router.push('/privacy-policy')}
+        />
+        <LinkRow
+          icon="information-circle-outline"
+          label="About Rena"
+          onPress={() => Linking.openURL('https://renacleaning.co.uk/about')}
+        />
       </View>
 
       <Text style={styles.sectionTitle}>Support</Text>
       <View style={styles.section}>
-        <LinkRow icon="mail-outline" label="Contact Us" />
-        <LinkRow icon="help-circle-outline" label="Help Centre" />
+        <LinkRow
+          icon="mail-outline"
+          label="Contact Us"
+          onPress={() => Linking.openURL('mailto:hello@renacleaning.co.uk')}
+        />
+        <LinkRow
+          icon="help-circle-outline"
+          label="Help Centre"
+          onPress={() => router.push('/faq')}
+        />
       </View>
     </ScrollView>
   );
@@ -54,9 +84,9 @@ function SettingRow({
   );
 }
 
-function LinkRow({ icon, label }: { icon: string; label: string }) {
+function LinkRow({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.linkRow}>
+    <TouchableOpacity style={styles.linkRow} onPress={onPress}>
       <Ionicons
         name={icon as keyof typeof Ionicons.glyphMap}
         size={20}

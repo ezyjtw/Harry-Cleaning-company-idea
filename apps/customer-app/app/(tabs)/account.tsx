@@ -108,12 +108,12 @@ export default function AccountScreen() {
         <MenuItem
           icon="document-text-outline"
           label="Terms & Conditions"
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/terms')}
         />
         <MenuItem
           icon="shield-outline"
           label="Privacy Policy"
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/privacy-policy')}
         />
       </View>
 
