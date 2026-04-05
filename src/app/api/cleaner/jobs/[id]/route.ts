@@ -127,7 +127,73 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const updated = await prisma.booking.update({
     where: { id },
     data: updateData,
+    include: {
+      client: { select: { id: true, name: true, email: true } },
+    },
   });
+
+  // ─── Post-transition side effects ────────────────────────
+
+  // Notify customer of status changes
+  if (updated.clientId) {
+    const notificationMap: Record<string, { type: 'BOOKING_CONFIRMED' | 'BOOKING_COMPLETED' | 'BOOKING_CANCELLED'; title: string; body: string }> = {
+      ACCEPTED: {
+        type: 'BOOKING_CONFIRMED',
+        title: 'Booking accepted',
+        body: `Your cleaner has accepted your booking for ${updated.date.toLocaleDateString('en-GB')}.`,
+      },
+      EN_ROUTE: {
+        type: 'BOOKING_CONFIRMED',
+        title: 'Cleaner on the way',
+        body: 'Your cleaner is on their way to your address.',
+      },
+      COMPLETED: {
+        type: 'BOOKING_COMPLETED',
+        title: 'Cleaning completed',
+        body: 'Your cleaning session is complete. Please leave a review!',
+      },
+      CANCELLED: {
+        type: 'BOOKING_CANCELLED',
+        title: 'Booking cancelled',
+        body: `Your booking for ${updated.date.toLocaleDateString('en-GB')} has been cancelled by the cleaner.`,
+      },
+    };
+
+    const notif = notificationMap[status];
+    if (notif) {
+      await prisma.notification.create({
+        data: {
+          userId: updated.clientId,
+          type: notif.type,
+          title: notif.title,
+          body: notif.body,
+          data: { bookingId: updated.id },
+        },
+      }).catch(() => {}); // Don't fail the request if notification fails
+    }
+  }
+
+  // On completion: increment cleaner's completedJobs counter
+  if (status === 'COMPLETED') {
+    await prisma.cleanerProfile.updateMany({
+      where: { userId: user.id },
+      data: { completedJobs: { increment: 1 } },
+    }).catch(() => {});
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'BOOKING_COMPLETED',
+        entityType: 'Booking',
+        entityId: updated.id,
+        metadata: {
+          cleanerEarnings: Number(updated.cleanerEarnings),
+          totalPrice: Number(updated.totalPrice),
+        },
+      },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({
     message: `Job status updated to ${status}`,

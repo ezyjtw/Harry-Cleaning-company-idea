@@ -19,7 +19,7 @@ These are hard blockers. Without these, you cannot safely put real users through
 - [x] Implement real `deleteAccount()` — soft-delete, cancel bookings, GDPR compliance
 - [x] Remove hardcoded `dev-secret-change-in-production` fallback — require NEXTAUTH_SECRET env var
 - [x] Add failed login counting + account lockout (already have `failedLoginCount` and `lockedUntil` in schema)
-- [ ] Add rate limiting middleware on auth endpoints (e.g. 5 attempts per 15 min per IP)
+- [x] Add rate limiting middleware on auth endpoints (e.g. 5 attempts per 15 min per IP)
 
 ### 1.2 Missing API Routes (App Contract Gaps)
 - [x] `POST /api/auth/login` — mobile app login endpoint
@@ -45,12 +45,12 @@ These are hard blockers. Without these, you cannot safely put real users through
 - [ ] `src/app/disputes/page.tsx` — uses `MOCK_DISPUTES` from trust.ts (Phase 2: admin tooling)
 
 ### 1.4 One Complete Booking Flow (End-to-End Real)
-- [ ] Customer signup → email verification → login
-- [ ] Browse cleaners (from DB) → select cleaner → get quote (from pricing engine)
+- [x] Customer signup → email verification → login
+- [x] Browse cleaners (from DB) → select cleaner → get quote (from pricing engine)
 - [ ] Create booking → payment auth via Ryft → payment captured
-- [ ] Cleaner notified → accepts job → checks in → completes
-- [ ] Customer notified → leaves review
-- [ ] Cleaner earnings updated
+- [x] Cleaner notified → accepts job → checks in → completes
+- [x] Customer notified → leaves review
+- [x] Cleaner earnings updated
 
 ---
 

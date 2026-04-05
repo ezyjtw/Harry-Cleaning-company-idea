@@ -169,6 +169,30 @@ export async function POST(request: NextRequest) {
       email: cleaner.email,
     }).catch(() => {});
 
+    // Notify the cleaner of the new booking
+    await prisma.notification.create({
+      data: {
+        userId: body.cleanerId,
+        type: 'BOOKING_REQUEST',
+        title: 'New booking request',
+        body: `New ${body.serviceType} cleaning on ${body.date}`,
+        data: { bookingId: booking.id },
+      },
+    }).catch(() => {});
+
+    // Notify the customer that their booking was created
+    if (sessionUser) {
+      await prisma.notification.create({
+        data: {
+          userId: sessionUser.id,
+          type: 'BOOKING_CONFIRMED',
+          title: 'Booking submitted',
+          body: `Your ${body.serviceType} cleaning on ${body.date} has been submitted.`,
+          data: { bookingId: booking.id },
+        },
+      }).catch(() => {});
+    }
+
     return NextResponse.json(
       {
         message: 'Booking created successfully',

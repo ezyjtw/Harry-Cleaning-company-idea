@@ -2,11 +2,13 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/context/AuthContext';
+import { LanguageProvider } from '@/context/LanguageContext';
 import { UpdateChecker } from '@/components/UpdateChecker';
 import { Colors } from '@rena/shared';
 
 export default function RootLayout() {
   return (
+    <LanguageProvider>
     <AuthProvider>
       <UpdateChecker />
       <StatusBar style="dark" />
@@ -34,5 +36,6 @@ export default function RootLayout() {
         <Stack.Screen name="terms" options={{ title: 'Terms & Conditions' }} />
       </Stack>
     </AuthProvider>
+    </LanguageProvider>
   );
 }
