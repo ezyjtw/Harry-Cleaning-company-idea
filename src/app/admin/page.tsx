@@ -1,6 +1,4 @@
-'use client';
-
-import { useState } from 'react';
+import { prisma } from '@/lib/db/prisma';
 
 interface RecentBooking {
   id: string;
@@ -20,164 +18,157 @@ interface RecentSignup {
   date: string;
 }
 
-const mockMetrics = [
-  {
-    label: 'Total Bookings',
-    value: '1,247',
-    change: '+8.2% from last month',
-    icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-    color: 'blue',
-  },
-  {
-    label: 'Active Cleaners',
-    value: '89',
-    change: '+5 this week',
-    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
-    color: 'green',
-  },
-  {
-    label: 'Revenue (MTD)',
-    value: '£24,680',
-    change: '+12.5% from last month',
-    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    color: 'purple',
-  },
-  {
-    label: 'Pending Disputes',
-    value: '3',
-    change: '2 urgent',
-    icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-    color: 'red',
-  },
-];
+async function getAdminMetrics() {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - 7);
 
-const mockRecentBookings: RecentBooking[] = [
-  {
-    id: 'B-2001',
-    customer: 'Emma Wilson',
-    cleaner: 'Sarah Chen',
-    service: 'Regular Clean',
-    date: '2026-03-14',
-    amount: 65,
-    status: 'confirmed',
-  },
-  {
-    id: 'B-2002',
-    customer: 'James Taylor',
-    cleaner: 'Maria Santos',
-    service: 'Deep Clean',
-    date: '2026-03-14',
-    amount: 120,
-    status: 'in-progress',
-  },
-  {
-    id: 'B-2003',
-    customer: 'Olivia Brown',
-    cleaner: 'Sarah Chen',
-    service: 'End of Tenancy',
-    date: '2026-03-13',
-    amount: 180,
-    status: 'completed',
-  },
-  {
-    id: 'B-2004',
-    customer: 'Liam Johnson',
-    cleaner: 'Ewa Kowalski',
-    service: 'Regular Clean',
-    date: '2026-03-13',
-    amount: 55,
-    status: 'confirmed',
-  },
-  {
-    id: 'B-2005',
-    customer: 'Sophie Davis',
-    cleaner: 'Fatima Al-Rashid',
-    service: 'AirBnB Turnover',
-    date: '2026-03-13',
-    amount: 90,
-    status: 'completed',
-  },
-  {
-    id: 'B-2006',
-    customer: 'Daniel Lee',
-    cleaner: 'Sarah Chen',
-    service: 'Deep Clean',
-    date: '2026-03-12',
-    amount: 140,
-    status: 'completed',
-  },
-  {
-    id: 'B-2007',
-    customer: 'Mia Clark',
-    cleaner: 'Maria Santos',
-    service: 'Regular Clean',
-    date: '2026-03-12',
-    amount: 60,
-    status: 'cancelled',
-  },
-  {
-    id: 'B-2008',
-    customer: 'Noah White',
-    cleaner: 'Ewa Kowalski',
-    service: 'End of Tenancy',
-    date: '2026-03-12',
-    amount: 200,
-    status: 'completed',
-  },
-  {
-    id: 'B-2009',
-    customer: 'Ava Martin',
-    cleaner: 'Fatima Al-Rashid',
-    service: 'Regular Clean',
-    date: '2026-03-11',
-    amount: 65,
-    status: 'completed',
-  },
-  {
-    id: 'B-2010',
-    customer: 'Ethan Harris',
-    cleaner: 'Sarah Chen',
-    service: 'Office Clean',
-    date: '2026-03-11',
-    amount: 150,
-    status: 'completed',
-  },
-];
+  const [
+    totalBookings,
+    lastMonthBookings,
+    activeCleaners,
+    lastWeekCleaners,
+    revenueThisMonth,
+    revenueLastMonth,
+    pendingDisputes,
+  ] = await Promise.all([
+    prisma.booking.count({ where: { createdAt: { gte: startOfMonth } } }),
+    prisma.booking.count({
+      where: { createdAt: { gte: startOfLastMonth, lt: startOfMonth } },
+    }),
+    prisma.user.count({
+      where: { role: 'CLEANER', accountStatus: 'ACTIVE', isSuspended: false },
+    }),
+    prisma.user.count({
+      where: {
+        role: 'CLEANER',
+        accountStatus: 'ACTIVE',
+        isSuspended: false,
+        createdAt: { gte: startOfWeek },
+      },
+    }),
+    prisma.payment.aggregate({
+      where: { status: 'SUCCEEDED', createdAt: { gte: startOfMonth } },
+      _sum: { amount: true },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        status: 'SUCCEEDED',
+        createdAt: { gte: startOfLastMonth, lt: startOfMonth },
+      },
+      _sum: { amount: true },
+    }),
+    prisma.dispute.count({
+      where: { status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+    }),
+  ]);
 
-const mockRecentSignups: RecentSignup[] = [
-  {
-    id: 'U-001',
-    name: 'Charlotte Evans',
-    type: 'customer',
-    email: 'charlotte@email.com',
-    date: '2026-03-14',
-  },
-  {
-    id: 'U-002',
-    name: 'Priya Sharma',
-    type: 'cleaner',
-    email: 'priya@email.com',
-    date: '2026-03-14',
-  },
-  {
-    id: 'U-003',
-    name: "Michael O'Brien",
-    type: 'customer',
-    email: 'michael@email.com',
-    date: '2026-03-13',
-  },
-  { id: 'U-004', name: 'Ana Popescu', type: 'cleaner', email: 'ana@email.com', date: '2026-03-13' },
-  {
-    id: 'U-005',
-    name: 'David Kim',
-    type: 'customer',
-    email: 'david@email.com',
-    date: '2026-03-12',
-  },
-];
+  const revMTD = Number(revenueThisMonth._sum.amount || 0);
+  const revLastMonth = Number(revenueLastMonth._sum.amount || 0);
+  const bookingChange =
+    lastMonthBookings > 0
+      ? (((totalBookings - lastMonthBookings) / lastMonthBookings) * 100).toFixed(1)
+      : '0';
+  const revenueChange =
+    revLastMonth > 0
+      ? (((revMTD - revLastMonth) / revLastMonth) * 100).toFixed(1)
+      : '0';
 
-export default function AdminDashboard() {
-  const [_refreshKey] = useState(0);
+  return [
+    {
+      label: 'Total Bookings',
+      value: totalBookings.toLocaleString(),
+      change: `${Number(bookingChange) >= 0 ? '+' : ''}${bookingChange}% from last month`,
+      icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+      color: 'blue',
+    },
+    {
+      label: 'Active Cleaners',
+      value: activeCleaners.toString(),
+      change: `+${lastWeekCleaners} this week`,
+      icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+      color: 'green',
+    },
+    {
+      label: 'Revenue (MTD)',
+      value: `£${revMTD.toLocaleString('en-GB', { minimumFractionDigits: 0 })}`,
+      change: `${Number(revenueChange) >= 0 ? '+' : ''}${revenueChange}% from last month`,
+      icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+      color: 'purple',
+    },
+    {
+      label: 'Pending Disputes',
+      value: pendingDisputes.toString(),
+      change: `${pendingDisputes > 0 ? pendingDisputes + ' need attention' : 'All clear'}`,
+      icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+      color: 'red',
+    },
+  ];
+}
+
+async function getRecentBookings(): Promise<RecentBooking[]> {
+  const bookings = await prisma.booking.findMany({
+    take: 10,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      client: { select: { name: true } },
+      cleaner: { select: { name: true } },
+    },
+  });
+  return bookings.map((b) => ({
+    id: b.id.substring(0, 8).toUpperCase(),
+    customer: b.client?.name || b.guestName || 'Guest',
+    cleaner: b.cleaner.name || 'Unassigned',
+    service: b.serviceType,
+    date: b.date.toISOString().split('T')[0],
+    amount: Number(b.totalPrice),
+    status: b.status.toLowerCase().replace('_', '-'),
+  }));
+}
+
+async function getRecentSignups(): Promise<RecentSignup[]> {
+  const users = await prisma.user.findMany({
+    take: 5,
+    orderBy: { createdAt: 'desc' },
+    where: { role: { in: ['CLIENT', 'CLEANER'] } },
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
+  return users.map((u) => ({
+    id: u.id.substring(0, 8),
+    name: u.name || 'Unknown',
+    type: u.role === 'CLEANER' ? ('cleaner' as const) : ('customer' as const),
+    email: u.email || '',
+    date: u.createdAt.toISOString().split('T')[0],
+  }));
+}
+
+async function getRevenueLastWeek(): Promise<number[]> {
+  const now = new Date();
+  const days: number[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = new Date(now);
+    dayStart.setDate(now.getDate() - i);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    const result = await prisma.payment.aggregate({
+      where: { status: 'SUCCEEDED', createdAt: { gte: dayStart, lte: dayEnd } },
+      _sum: { amount: true },
+    });
+    days.push(Number(result._sum.amount || 0));
+  }
+  return days;
+}
+
+export default async function AdminDashboard() {
+  const [metrics, recentBookings, recentSignups, revenueWeek] = await Promise.all([
+    getAdminMetrics(),
+    getRecentBookings(),
+    getRecentSignups(),
+    getRevenueLastWeek(),
+  ]);
 
   const colorMap: Record<string, { bg: string; text: string; icon: string }> = {
     blue: { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'text-blue-600' },
@@ -193,6 +184,14 @@ export default function AdminDashboard() {
     cancelled: 'bg-red-100 text-red-700',
     pending: 'bg-yellow-100 text-yellow-700',
   };
+
+  // Compute revenue MTD from the metrics (it's in the Revenue card value)
+  const revenueMTDCard = metrics.find((m) => m.label === 'Revenue (MTD)');
+  const revenueMTDDisplay = revenueMTDCard?.value || '£0';
+
+  // Normalize revenue week data to percentages for bar heights
+  const maxRevenue = Math.max(...revenueWeek, 1);
+  const revenueBarHeights = revenueWeek.map((v) => Math.max(Math.round((v / maxRevenue) * 100), 5));
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -217,7 +216,7 @@ export default function AdminDashboard() {
 
       {/* Metrics cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {mockMetrics.map((metric) => {
+        {metrics.map((metric) => {
           const colors = colorMap[metric.color];
           return (
             <div
@@ -280,7 +279,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {mockRecentBookings.map((booking) => (
+                {recentBookings.map((booking) => (
                   <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-3">
                       <p className="text-sm font-medium text-gray-900">{booking.customer}</p>
@@ -310,11 +309,11 @@ export default function AdminDashboard() {
 
         {/* Right column */}
         <div className="space-y-6">
-          {/* Revenue chart placeholder */}
+          {/* Revenue chart */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue (Last 7 Days)</h2>
             <div className="h-40 flex items-end gap-2">
-              {[60, 85, 45, 90, 70, 95, 50].map((h, i) => (
+              {revenueBarHeights.map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div
                     className="w-full bg-purple-500 rounded-t-md"
@@ -327,7 +326,7 @@ export default function AdminDashboard() {
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-              <p className="text-2xl font-bold text-gray-900">£24,680</p>
+              <p className="text-2xl font-bold text-gray-900">{revenueMTDDisplay}</p>
               <p className="text-sm text-gray-500">Month to date</p>
             </div>
           </div>
@@ -338,7 +337,7 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Recent Signups</h2>
             </div>
             <div className="divide-y divide-gray-100">
-              {mockRecentSignups.map((signup) => (
+              {recentSignups.map((signup) => (
                 <div key={signup.id} className="px-6 py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{signup.name}</p>

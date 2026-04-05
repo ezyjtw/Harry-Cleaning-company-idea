@@ -317,6 +317,30 @@ export async function sendAbandonmentEmail(
 
 // ─── Team Invite Email ──────────────────────────────────────
 
+// ─── Payment Failure Email ─────────────────────────────────
+
+export async function sendPaymentFailureNotification(
+  data: { bookingId: string; customerName: string; reason: string },
+  user: UserEmailData
+): Promise<boolean> {
+  const retryLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/retry?id=${data.bookingId}`;
+  const subject = 'Payment unsuccessful - action required';
+  const htmlBody = `
+    <h1>Payment unsuccessful</h1>
+    <p>Hi ${data.customerName},</p>
+    <p>Unfortunately, the payment for your booking <strong>#${data.bookingId}</strong> could not be processed.</p>
+    <p><strong>Reason:</strong> ${data.reason}</p>
+    <p>You can try again with a different payment method:</p>
+    <p><a href="${retryLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Retry Payment</a></p>
+    <p>If you continue to experience issues, please contact our support team.</p>
+    <p>Best regards,<br/>The Rena Team</p>
+  `;
+
+  return sendEmail(user.email, subject, htmlBody);
+}
+
+// ─── Team Invite Email ──────────────────────────────────────
+
 export async function sendTeamInvite(
   email: string,
   companyName: string,

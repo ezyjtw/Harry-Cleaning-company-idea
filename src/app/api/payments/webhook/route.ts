@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
-import { sendBookingConfirmation, sendCleanerAssignment } from '@/lib/services/email.service';
+import { sendBookingConfirmation, sendCleanerAssignment, sendPaymentFailureNotification } from '@/lib/services/email.service';
 import { verifyWebhookSignature } from '@/lib/services/ryft-payment.service';
 
 /**
@@ -138,6 +138,43 @@ export async function POST(request: NextRequest) {
             },
           })
           .catch(() => {});
+      }
+    }
+
+    // ── Payment failed/declined ──────────────────────────────────
+    if (eventType === 'payment_session.failed' || eventType === 'payment_session.declined') {
+      const metadata = event.data?.metadata || {};
+      const bookingId = metadata.bookingId;
+      const customerEmail = event.data?.customerEmail;
+      const customerName = metadata.customerName || 'Customer';
+      const failureReason = event.data?.failureReason || event.data?.declineReason || 'Payment could not be processed';
+
+      if (bookingId) {
+        console.log(`[Webhook] Payment failed for booking ${bookingId}: ${failureReason}`);
+
+        // Update payment status to FAILED
+        await prisma.payment
+          .update({
+            where: { bookingId },
+            data: { status: 'FAILED' },
+          })
+          .catch(() => {});
+
+        // Cancel the booking
+        await prisma.booking
+          .update({
+            where: { id: bookingId },
+            data: { status: 'CANCELLED', cancellationReason: `Payment failed: ${failureReason}` },
+          })
+          .catch(() => {});
+
+        // Notify customer via email
+        if (customerEmail) {
+          await sendPaymentFailureNotification(
+            { bookingId, customerName, reason: failureReason },
+            { name: customerName, email: customerEmail }
+          ).catch(() => {});
+        }
       }
     }
 

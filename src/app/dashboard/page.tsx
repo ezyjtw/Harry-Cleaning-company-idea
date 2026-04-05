@@ -1,126 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
 import { PLATFORM_COMMISSION_PERCENT } from '@/lib/pricing';
 
-// ─── Mock Data ───────────────────────────────────────────────
+// Types for API data
+interface Booking {
+  id: string;
+  customer: string;
+  address: string;
+  date: string;
+  time: string;
+  duration: number;
+  serviceType: string;
+  status: 'confirmed' | 'pending' | 'completed';
+  total: number;
+  cleanerEarnings: number;
+  isLastMinute: boolean;
+}
 
-const MOCK_BOOKINGS = [
-  {
-    id: 'b1',
-    customer: 'Sarah M.',
-    address: '123 Main St, Apt 4B',
-    date: '2026-03-10',
-    time: '10:00',
-    duration: 3,
-    serviceType: 'Deep Cleaning',
-    status: 'confirmed' as const,
-    total: 157.5,
-    cleanerEarnings: 143.18,
-    isLastMinute: false,
-  },
-  {
-    id: 'b2',
-    customer: 'Tom K.',
-    address: '456 Oak Ave',
-    date: '2026-03-12',
-    time: '14:00',
-    duration: 2,
-    serviceType: 'Standard Cleaning',
-    status: 'pending' as const,
-    total: 77.0,
-    cleanerEarnings: 70.0,
-    isLastMinute: true,
-  },
-  {
-    id: 'b3',
-    customer: 'Linda R.',
-    address: '789 Elm St, Suite 200',
-    date: '2026-02-28',
-    time: '09:00',
-    duration: 4,
-    serviceType: 'Office Cleaning',
-    status: 'completed' as const,
-    total: 200.2,
-    cleanerEarnings: 182.0,
-    isLastMinute: false,
-  },
-  {
-    id: 'b4',
-    customer: 'Alex P.',
-    address: '22 West 4th St',
-    date: '2026-02-15',
-    time: '11:00',
-    duration: 2,
-    serviceType: 'Standard Cleaning',
-    status: 'completed' as const,
-    total: 77.0,
-    cleanerEarnings: 70.0,
-    isLastMinute: false,
-  },
-  {
-    id: 'b5',
-    customer: 'Nina S.',
-    address: '88 Broadway, Apt 12A',
-    date: '2026-01-20',
-    time: '09:00',
-    duration: 3,
-    serviceType: 'Deep Cleaning',
-    status: 'completed' as const,
-    total: 157.5,
-    cleanerEarnings: 143.18,
-    isLastMinute: false,
-  },
-];
+interface ReviewFromCustomer {
+  id: string;
+  customer: string;
+  rating: number;
+  categoryRatings: { thoroughness: number; punctuality: number; communication: number; value: number };
+  comment: string;
+  date: string;
+  replied: boolean;
+  reply: string;
+}
 
-const MOCK_REVIEWS_FROM_CUSTOMERS = [
-  {
-    id: 'rv1',
-    customer: 'Sarah M.',
-    rating: 5,
-    categoryRatings: { thoroughness: 5, punctuality: 5, communication: 5, value: 5 },
-    comment: 'Maria is absolutely fantastic! My apartment has never looked this clean.',
-    date: '2026-02-28',
-    replied: true,
-    reply: 'Thank you so much, Sarah! It was a pleasure working in your home.',
-  },
-  {
-    id: 'rv2',
-    customer: 'Linda R.',
-    rating: 4,
-    categoryRatings: { thoroughness: 4, punctuality: 5, communication: 4, value: 4 },
-    comment:
-      'Great cleaning overall. Only reason for 4 stars is I wish she had spent a bit more time on the windows.',
-    date: '2026-02-10',
-    replied: false,
-    reply: '',
-  },
-];
-
-// Tax helper data
-const MOCK_TAX_DATA = {
+interface TaxData {
   yearToDate: {
-    totalEarnings: 14580.0,
-    platformFees: 1620.0,
-    netEarnings: 14580.0,
-    estimatedTax: 3280.5,
-    quarterlyPayment: 820.13,
-    deductibleExpenses: 2340.0,
-  },
-  monthlyEarnings: [
-    { month: 'Jan', amount: 980 },
-    { month: 'Feb', amount: 1245 },
-    { month: 'Mar', amount: 1380 },
-  ],
-  expenses: [
-    { id: 'e1', category: 'Cleaning Supplies', amount: 145.0, date: '2026-02-15' },
-    { id: 'e2', category: 'Transportation', amount: 89.0, date: '2026-02-28' },
-    { id: 'e3', category: 'Equipment', amount: 65.0, date: '2026-01-10' },
-  ],
-};
+    totalEarnings: number;
+    platformFees: number;
+    netEarnings: number;
+    estimatedTax: number;
+    quarterlyPayment: number;
+    deductibleExpenses: number;
+  };
+  monthlyEarnings: { month: string; amount: number }[];
+  expenses: { id: string; category: string; amount: number; date: string }[];
+}
 
 // Reputation tiers
 function getReputationTier(completedJobs: number, rating: number) {
@@ -176,11 +99,39 @@ export default function DashboardPage() {
     )
   );
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<ReviewFromCustomer[]>([]);
+  const [taxData, setTaxData] = useState<TaxData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const upcoming = MOCK_BOOKINGS.filter((b) => b.status === 'confirmed' || b.status === 'pending');
-  const past = MOCK_BOOKINGS.filter((b) => b.status === 'completed');
-  const reputation = getReputationTier(520, 4.9);
-  const tax = MOCK_TAX_DATA;
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const [bookingsRes, reviewsRes, taxRes] = await Promise.all([
+          fetch('/api/cleaner/bookings').then(r => r.ok ? r.json() : { bookings: [] }),
+          fetch('/api/cleaner/reviews').then(r => r.ok ? r.json() : { reviews: [] }),
+          fetch('/api/cleaner/earnings').then(r => r.ok ? r.json() : null),
+        ]);
+        setBookings(bookingsRes.bookings || []);
+        setReviews(reviewsRes.reviews || []);
+        setTaxData(taxRes);
+      } catch {
+        // API not available yet, use empty state
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDashboardData();
+  }, []);
+
+  const upcoming = bookings.filter((b) => b.status === 'confirmed' || b.status === 'pending');
+  const past = bookings.filter((b) => b.status === 'completed');
+  const reputation = getReputationTier(past.length, 0);
+  const tax = taxData || {
+    yearToDate: { totalEarnings: 0, platformFees: 0, netEarnings: 0, estimatedTax: 0, quarterlyPayment: 0, deductibleExpenses: 0 },
+    monthlyEarnings: [],
+    expenses: [],
+  };
 
   const toggleDayAvailability = (day: string) => {
     setAvailability({
@@ -188,6 +139,16 @@ export default function DashboardPage() {
       [day]: { ...availability[day], available: !availability[day].available },
     });
   };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-gray-500">Loading dashboard...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
@@ -230,18 +191,21 @@ export default function DashboardPage() {
       <div className="mt-8 grid gap-4 sm:grid-cols-5">
         <div className="rounded-lg bg-white border border-gray-200 p-4">
           <div className="text-sm text-gray-500">This Month</div>
-          <div className="mt-1 text-2xl font-bold text-gray-900">$1,380</div>
-          <div className="text-xs text-brand-600">+12% from last month</div>
+          <div className="mt-1 text-2xl font-bold text-gray-900">
+            ${tax.monthlyEarnings.length > 0 ? tax.monthlyEarnings[tax.monthlyEarnings.length - 1].amount.toLocaleString() : '0'}
+          </div>
         </div>
         <div className="rounded-lg bg-white border border-gray-200 p-4">
           <div className="text-sm text-gray-500">Total Jobs</div>
-          <div className="mt-1 text-2xl font-bold text-gray-900">520</div>
+          <div className="mt-1 text-2xl font-bold text-gray-900">{past.length}</div>
         </div>
         <div className="rounded-lg bg-white border border-gray-200 p-4">
           <div className="text-sm text-gray-500">Rating</div>
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-2xl font-bold text-gray-900">4.9</span>
-            <StarRating rating={4.9} />
+            <span className="text-2xl font-bold text-gray-900">
+              {reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '--'}
+            </span>
+            <StarRating rating={reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0} />
           </div>
         </div>
         <div className="rounded-lg bg-white border border-gray-200 p-4">
@@ -726,7 +690,7 @@ export default function DashboardPage() {
               Reviews from verified customers who completed a booking with you. You can reply to any
               review — this builds trust and keeps customers coming back through the platform.
             </p>
-            {MOCK_REVIEWS_FROM_CUSTOMERS.map((review) => (
+            {reviews.map((review) => (
               <div key={review.id} className="rounded-lg border border-gray-200 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

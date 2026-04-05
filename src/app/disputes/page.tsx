@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { DISPUTE_REASONS, MOCK_DISPUTES, getDisputeStatusLabel } from "@/lib/trust";
-import type { DisputeReason } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { DISPUTE_REASONS, getDisputeStatusLabel } from "@/lib/trust";
+import type { Dispute, DisputeReason } from "@/lib/types";
 
 export default function DisputesPage() {
   const [activeView, setActiveView] = useState<"list" | "new">("list");
@@ -13,15 +13,39 @@ export default function DisputesPage() {
   });
   const [evidenceFiles, setEvidenceFiles] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/disputes')
+      .then(r => r.ok ? r.json() : { disputes: [] })
+      .then(data => setDisputes(data.disputes || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleAddEvidence = () => {
     setEvidenceFiles([...evidenceFiles, `evidence-${evidenceFiles.length + 1}.jpg`]);
   };
 
-  const handleSubmitDispute = (e: React.FormEvent) => {
+  const handleSubmitDispute = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setActiveView("list");
+    try {
+      const res = await fetch('/api/disputes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDispute),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+        setActiveView("list");
+        // Refresh disputes
+        const data = await fetch('/api/disputes').then(r => r.json());
+        setDisputes(data.disputes || []);
+      }
+    } catch {
+      // Handle error
+    }
   };
 
   return (
@@ -211,12 +235,12 @@ export default function DisputesPage() {
       {/* ─── Dispute List ─── */}
       {activeView === "list" && (
         <div className="mt-8 space-y-4">
-          {MOCK_DISPUTES.length === 0 && !submitted ? (
+          {disputes.length === 0 && !submitted ? (
             <div className="rounded-lg bg-gray-50 p-8 text-center">
               <p className="text-gray-500">No disputes. That&apos;s great!</p>
             </div>
           ) : (
-            MOCK_DISPUTES.map((dispute) => {
+            disputes.map((dispute) => {
               const statusInfo = getDisputeStatusLabel(dispute.status);
               return (
                 <div

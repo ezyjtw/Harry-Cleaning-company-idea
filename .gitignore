@@ -71,3 +71,9 @@ apps/*/web-build/
 # Packages
 packages/*/node_modules/
 packages/*/dist/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

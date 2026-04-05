@@ -234,6 +234,7 @@ model User {
   teamMemberships   TeamMember[]
   complaints        Complaint[]     @relation("ComplaintsFiled")
   cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
+  pushSubscriptions PushSubscription[]
 
   @@index([email])
   @@index([role])
@@ -995,4 +996,17 @@ model IcoRegistration {
   notes               String?   @db.Text
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+}
+
+// ─── Push Notification Subscriptions ────────────────────────────────────────
+
+model PushSubscription {
+  id           String   @id @default(cuid())
+  userId       String
+  subscription String   @db.Text // JSON stringified PushSubscription
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

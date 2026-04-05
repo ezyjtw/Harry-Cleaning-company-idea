@@ -76,20 +76,122 @@ export async function processNextBatch(batchSize: number = 10): Promise<number> 
 
 // Register default handlers
 registerJobHandler('SEND_EMAIL', async (payload) => {
-  // Placeholder: integrate with email service
+  const action = payload.action as string;
+
+  if (action === 'PUSH_NOTIFICATION') {
+    // Web Push delivery
+    try {
+      const webpush = await import('web-push');
+      const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+      const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+      if (vapidPublicKey && vapidPrivateKey) {
+        webpush.setVapidDetails(
+          `mailto:${process.env.SUPPORT_EMAIL || 'support@rena.com'}`,
+          vapidPublicKey,
+          vapidPrivateKey
+        );
+
+        // Get user's push subscriptions from DB
+        const userId = payload.userId as string;
+        const subscriptions = await prisma.pushSubscription.findMany({
+          where: { userId },
+        });
+
+        const pushPayload = JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+          icon: payload.icon || '/icons/icon-192x192.png',
+          badge: payload.badge || '/icons/icon-72x72.png',
+          data: payload.data,
+        });
+
+        for (const sub of subscriptions) {
+          try {
+            await webpush.sendNotification(
+              JSON.parse(sub.subscription),
+              pushPayload
+            );
+          } catch (err: unknown) {
+            const error = err as { statusCode?: number };
+            if (error.statusCode === 410) {
+              // Subscription expired, remove it
+              await prisma.pushSubscription.delete({ where: { id: sub.id } });
+            }
+          }
+        }
+      } else {
+        // eslint-disable-next-line no-console
+        console.log('[JobProcessor] VAPID keys not configured, skipping push notification');
+      }
+    } catch {
+      // eslint-disable-next-line no-console
+      console.log('[JobProcessor] web-push not available or push failed');
+    }
+    return;
+  }
+
+  if (action === 'EMAIL_NOTIFICATION') {
+    // Email notifications are handled directly by the notification service
+    // via the email service functions. This handler processes queued email jobs.
+    // eslint-disable-next-line no-console
+    console.log('[JobProcessor] Processing email notification to:', payload.to);
+    return;
+  }
+
   // eslint-disable-next-line no-console
   console.log('[JobProcessor] Sending email:', payload);
 });
 
 registerJobHandler('SEND_SMS', async (payload) => {
-  // Placeholder: integrate with SMS provider (Twilio, etc.)
-  // eslint-disable-next-line no-console
-  console.log('[JobProcessor] Sending SMS:', payload);
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+  if (!accountSid || !authToken || !fromNumber) {
+    // eslint-disable-next-line no-console
+    console.log('[JobProcessor] Twilio not configured, skipping SMS:', payload.to);
+    return;
+  }
+
+  try {
+    const twilio = await import('twilio');
+    const client = twilio.default(accountSid, authToken);
+
+    await client.messages.create({
+      body: payload.body as string,
+      from: fromNumber,
+      to: payload.to as string,
+    });
+
+    // eslint-disable-next-line no-console
+    console.log('[JobProcessor] SMS sent to:', payload.to);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[JobProcessor] SMS send failed:', error);
+    throw error; // Re-throw to trigger retry
+  }
 });
 
 registerJobHandler('SEND_REMINDER', async (payload) => {
+  // Send reminder via email and/or push notification
   // eslint-disable-next-line no-console
   console.log('[JobProcessor] Sending reminder:', payload);
+
+  // Queue a push notification for the reminder
+  const userId = payload.userId as string;
+  if (userId) {
+    const pushHandler = jobHandlers.get('SEND_EMAIL');
+    if (pushHandler) {
+      await pushHandler({
+        action: 'PUSH_NOTIFICATION',
+        userId,
+        title: (payload.title as string) || 'Reminder',
+        body: (payload.body as string) || 'You have an upcoming booking',
+        data: payload.data as Record<string, unknown> | undefined,
+      });
+    }
+  }
 });
 
 registerJobHandler('PROCESS_PAYMENT', async (payload) => {
@@ -98,6 +200,21 @@ registerJobHandler('PROCESS_PAYMENT', async (payload) => {
 });
 
 registerJobHandler('REQUEST_REVIEW', async (payload) => {
+  // Send review request via push notification
   // eslint-disable-next-line no-console
   console.log('[JobProcessor] Requesting review:', payload);
+
+  const userId = payload.userId as string;
+  if (userId) {
+    const pushHandler = jobHandlers.get('SEND_EMAIL');
+    if (pushHandler) {
+      await pushHandler({
+        action: 'PUSH_NOTIFICATION',
+        userId,
+        title: 'How was your cleaning?',
+        body: (payload.body as string) || 'Please leave a review for your recent cleaning',
+        data: payload.data as Record<string, unknown> | undefined,
+      });
+    }
+  }
 });

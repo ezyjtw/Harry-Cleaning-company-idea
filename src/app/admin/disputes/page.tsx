@@ -1,190 +1,118 @@
-"use client";
+import { prisma } from '@/lib/db/prisma';
+import { revalidatePath } from 'next/cache';
+import type { DisputeStatus } from '@/lib/types';
+import DisputesList from './DisputesList';
+import type { AdminDispute } from './DisputesList';
 
-import { useState } from "react";
-import type { DisputeStatus, DisputeReason } from "@/lib/types";
-
-interface AdminDispute {
-  id: string;
-  bookingRef: string;
-  customerName: string;
-  cleanerName: string;
-  reason: DisputeReason;
-  description: string;
-  dateRaised: string;
-  status: DisputeStatus;
-  amount: number;
-  filedBy: "customer" | "cleaner";
+// Map Prisma DisputeStatus enum values to UI status strings
+function mapPrismaStatus(prismaStatus: string): DisputeStatus {
+  switch (prismaStatus) {
+    case 'OPEN':
+      return 'open';
+    case 'UNDER_REVIEW':
+      return 'under-review';
+    case 'RESOLVED':
+      return 'resolved-customer'; // Default resolved mapping
+    case 'DISMISSED':
+      return 'resolved-cleaner'; // Dismissed maps to resolved for cleaner
+    default:
+      return 'open';
+  }
 }
 
-const mockDisputes: AdminDispute[] = [
-  {
-    id: "D-001", bookingRef: "B-2006", customerName: "Daniel Lee", cleanerName: "Sarah Chen",
-    reason: "poor-quality", description: "Kitchen was not cleaned properly. Grease marks left on hob and oven was untouched.",
-    dateRaised: "2026-03-12", status: "open", amount: 140, filedBy: "customer",
-  },
-  {
-    id: "D-002", bookingRef: "B-1998", customerName: "Rachel Green", cleanerName: "Li Wei",
-    reason: "no-show-cleaner", description: "Cleaner did not arrive at the scheduled time and did not communicate.",
-    dateRaised: "2026-03-10", status: "under-review", amount: 65, filedBy: "customer",
-  },
-  {
-    id: "D-003", bookingRef: "B-1985", customerName: "Tom Mitchell", cleanerName: "Maria Santos",
-    reason: "property-damage", description: "Cleaning solution caused discolouration on marble worktop.",
-    dateRaised: "2026-03-08", status: "escalated", amount: 120, filedBy: "customer",
-  },
-  {
-    id: "D-004", bookingRef: "B-1970", customerName: "Amy Foster", cleanerName: "Ewa Kowalski",
-    reason: "incorrect-duration", description: "Cleaner was booked for 4 hours but left after 2.5 hours.",
-    dateRaised: "2026-03-05", status: "resolved-customer", amount: 80, filedBy: "customer",
-  },
-  {
-    id: "D-005", bookingRef: "B-1960", customerName: "Kevin Brown", cleanerName: "Fatima Al-Rashid",
-    reason: "payment-issue", description: "Payment was taken but booking was cancelled by customer 1 hour before.",
-    dateRaised: "2026-03-03", status: "resolved-split", amount: 90, filedBy: "cleaner",
-  },
-];
+// Map UI status strings back to Prisma DisputeStatus enum values
+function mapUiStatusToPrisma(uiStatus: DisputeStatus): string {
+  switch (uiStatus) {
+    case 'open':
+      return 'OPEN';
+    case 'under-review':
+      return 'UNDER_REVIEW';
+    case 'escalated':
+      return 'UNDER_REVIEW'; // Escalated maps to UNDER_REVIEW in Prisma
+    case 'resolved-customer':
+      return 'RESOLVED';
+    case 'resolved-cleaner':
+      return 'DISMISSED';
+    case 'resolved-split':
+      return 'RESOLVED';
+    default:
+      return 'OPEN';
+  }
+}
 
-const reasonLabels: Record<DisputeReason, string> = {
-  "no-show-cleaner": "No Show (Cleaner)",
-  "no-show-customer": "No Show (Customer)",
-  "poor-quality": "Poor Quality",
-  "property-damage": "Property Damage",
-  "incorrect-duration": "Incorrect Duration",
-  "safety-concern": "Safety Concern",
-  "payment-issue": "Payment Issue",
-  other: "Other",
-};
+async function getDisputes(): Promise<AdminDispute[]> {
+  const disputes = await prisma.dispute.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      booking: {
+        include: {
+          client: { select: { name: true, role: true } },
+          cleaner: { select: { name: true } },
+        },
+      },
+      raisedBy: { select: { id: true, name: true, role: true } },
+    },
+  });
 
-const statusLabels: Record<DisputeStatus, string> = {
-  open: "Open",
-  "under-review": "Under Review",
-  "resolved-customer": "Resolved (Customer)",
-  "resolved-cleaner": "Resolved (Cleaner)",
-  "resolved-split": "Resolved (Split)",
-  escalated: "Escalated",
-};
+  return disputes.map((d) => {
+    const isFiledByCleaner = d.raisedBy.role === 'CLEANER';
 
-const statusStyles: Record<DisputeStatus, string> = {
-  open: "bg-red-100 text-red-700",
-  "under-review": "bg-yellow-100 text-yellow-700",
-  "resolved-customer": "bg-green-100 text-green-700",
-  "resolved-cleaner": "bg-green-100 text-green-700",
-  "resolved-split": "bg-blue-100 text-blue-700",
-  escalated: "bg-purple-100 text-purple-700",
-};
+    // If there's a resolution note containing "split", map to resolved-split
+    let status = mapPrismaStatus(d.status);
+    if (d.status === 'RESOLVED' && d.resolution?.toLowerCase().includes('split')) {
+      status = 'resolved-split';
+    }
+    if (d.status === 'RESOLVED' && d.resolution?.toLowerCase().includes('cleaner')) {
+      status = 'resolved-cleaner';
+    }
 
-export default function AdminDisputesPage() {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [disputes, setDisputes] = useState(mockDisputes);
+    return {
+      id: d.id.substring(0, 8).toUpperCase(),
+      bookingRef: d.booking.id.substring(0, 8).toUpperCase(),
+      customerName: d.booking.client?.name || d.booking.guestName || 'Guest',
+      cleanerName: d.booking.cleaner.name || 'Unassigned',
+      reason: d.reason as AdminDispute['reason'],
+      description: d.description,
+      dateRaised: d.createdAt.toISOString().split('T')[0],
+      status,
+      amount: Number(d.booking.totalPrice),
+      filedBy: isFiledByCleaner ? 'cleaner' as const : 'customer' as const,
+    };
+  });
+}
 
-  const filtered = statusFilter === "all" ? disputes : disputes.filter((d) => d.status === statusFilter);
+export default async function AdminDisputesPage() {
+  const disputes = await getDisputes();
 
-  const handleResolve = (id: string, resolution: DisputeStatus) => {
-    setDisputes((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: resolution } : d))
-    );
-  };
+  async function resolveDispute(disputeId: string, resolution: DisputeStatus) {
+    'use server';
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Disputes</h1>
-          <p className="text-gray-500 mt-1">
-            {disputes.filter((d) => d.status === "open" || d.status === "under-review" || d.status === "escalated").length} active disputes
-          </p>
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="all">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="under-review">Under Review</option>
-          <option value="escalated">Escalated</option>
-          <option value="resolved-customer">Resolved (Customer)</option>
-          <option value="resolved-cleaner">Resolved (Cleaner)</option>
-          <option value="resolved-split">Resolved (Split)</option>
-        </select>
-      </div>
+    // The disputeId from the client is the truncated uppercase ID,
+    // so we need to find the dispute by prefix match
+    const dispute = await prisma.dispute.findFirst({
+      where: {
+        id: { startsWith: disputeId.toLowerCase() },
+      },
+    });
 
-      <div className="space-y-4">
-        {filtered.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-            <svg className="mx-auto w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="mt-4 text-lg font-medium text-gray-900">No disputes found</p>
-            <p className="mt-1 text-sm text-gray-500">No disputes matching the selected filter.</p>
-          </div>
-        ) : (
-          filtered.map((dispute) => (
-            <div key={dispute.id} className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="text-sm font-mono text-gray-400">{dispute.id}</span>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[dispute.status]}`}>
-                      {statusLabels[dispute.status]}
-                    </span>
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                      {reasonLabels[dispute.reason]}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-3">{dispute.description}</p>
-                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-500">
-                    <span>Booking: <span className="font-mono">{dispute.bookingRef}</span></span>
-                    <span>Customer: <span className="font-medium text-gray-700">{dispute.customerName}</span></span>
-                    <span>Cleaner: <span className="font-medium text-gray-700">{dispute.cleanerName}</span></span>
-                    <span>Amount: <span className="font-medium text-gray-700">£{dispute.amount}</span></span>
-                    <span>Filed by: <span className="capitalize font-medium text-gray-700">{dispute.filedBy}</span></span>
-                    <span>Date: {dispute.dateRaised}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 sm:flex-col">
-                  {(dispute.status === "open" || dispute.status === "under-review") && (
-                    <>
-                      <button
-                        onClick={() => handleResolve(dispute.id, "under-review")}
-                        className="px-3 py-1.5 bg-yellow-50 text-yellow-700 border border-yellow-200 text-sm font-medium rounded-lg hover:bg-yellow-100 transition-colors"
-                      >
-                        Review
-                      </button>
-                      <button
-                        onClick={() => handleResolve(dispute.id, "resolved-customer")}
-                        className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 text-sm font-medium rounded-lg hover:bg-green-100 transition-colors"
-                      >
-                        For Customer
-                      </button>
-                      <button
-                        onClick={() => handleResolve(dispute.id, "resolved-cleaner")}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        For Cleaner
-                      </button>
-                      <button
-                        onClick={() => handleResolve(dispute.id, "resolved-split")}
-                        className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm font-medium rounded-lg hover:bg-purple-100 transition-colors"
-                      >
-                        Split
-                      </button>
-                    </>
-                  )}
-                  {dispute.status === "open" && (
-                    <button
-                      onClick={() => handleResolve(dispute.id, "escalated")}
-                      className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors"
-                    >
-                      Escalate
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
+    if (!dispute) {
+      throw new Error('Dispute not found');
+    }
+
+    const prismaStatus = mapUiStatusToPrisma(resolution);
+    const isResolved = ['RESOLVED', 'DISMISSED'].includes(prismaStatus);
+
+    await prisma.dispute.update({
+      where: { id: dispute.id },
+      data: {
+        status: prismaStatus as 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED',
+        resolution: isResolved ? `Resolved: ${resolution}` : undefined,
+        resolvedAt: isResolved ? new Date() : undefined,
+      },
+    });
+
+    revalidatePath('/admin/disputes');
+  }
+
+  return <DisputesList initialDisputes={disputes} resolveAction={resolveDispute} />;
 }

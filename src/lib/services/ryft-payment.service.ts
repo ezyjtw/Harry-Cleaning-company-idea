@@ -40,9 +40,11 @@ export async function createPaymentSession(
   const apiKey = process.env.RYFT_SECRET_KEY;
 
   if (!apiKey) {
-    // Dev/mock mode — return a fake session so the flow works without real keys
-    // eslint-disable-next-line no-console
-    console.log('[Ryft] No RYFT_SECRET_KEY set — returning mock payment session');
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('RYFT_SECRET_KEY is required in production');
+    }
+    // Dev mode — return a fake session so the flow works without real keys
+    console.warn('[Ryft] No RYFT_SECRET_KEY set — returning mock payment session (dev only)');
     return {
       id: `ps_mock_${Date.now()}`,
       status: 'PendingPayment',
@@ -97,7 +99,9 @@ export async function getPaymentSession(sessionId: string): Promise<RyftPaymentS
   const apiKey = process.env.RYFT_SECRET_KEY;
 
   if (!apiKey) {
-    // Mock mode
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('RYFT_SECRET_KEY is required in production');
+    }
     return {
       id: sessionId,
       status: sessionId.startsWith('ps_mock_') ? 'Captured' : 'PendingPayment',
