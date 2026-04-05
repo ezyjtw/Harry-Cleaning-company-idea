@@ -1,7 +1,33 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { getSessionUser } from '@/lib/auth/session';
+
+export async function PUT(request: NextRequest) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const updateData: Record<string, unknown> = {};
+
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.phone !== undefined) updateData.phone = body.phone;
+
+    const user = await prisma.user.update({
+      where: { id: sessionUser.id },
+      data: updateData,
+      select: { id: true, name: true, email: true, phone: true, role: true, image: true },
+    });
+
+    return NextResponse.json(user);
+  } catch {
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+  }
+}
 
 export async function GET() {
   try {

@@ -1,35 +1,18 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+import { useCompany } from '../_context/CompanyContext';
 
 interface CompanyProfile {
   name: string;
   description: string;
-  logoFile: File | null;
   logoPreview: string;
   email: string;
   phone: string;
   website: string;
-  address: string;
-  postcode: string;
-  radiusMiles: number;
   specialties: string[];
 }
-
-const initialProfile: CompanyProfile = {
-  name: 'Sparkle Co.',
-  description:
-    'Professional residential and commercial cleaning services across London. We pride ourselves on eco-friendly products, reliable scheduling, and exceptional attention to detail.',
-  logoFile: null,
-  logoPreview: '',
-  email: 'hello@sparkle.co',
-  phone: '020 7946 0958',
-  website: 'https://sparkle.co',
-  address: '45 Commercial St, London, E1 6BD',
-  postcode: 'E1 6BD',
-  radiusMiles: 10,
-  specialties: ['Regular Cleaning', 'Deep Cleaning', 'End of Tenancy', 'AirBnB Turnover'],
-};
 
 const allSpecialties = [
   'Regular Cleaning',
@@ -43,34 +26,86 @@ const allSpecialties = [
   'Spring Cleaning',
 ];
 
-const radiusOptions = [3, 5, 10, 15, 20, 25, 30, 50];
-
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<CompanyProfile>(initialProfile);
+  const { company } = useCompany();
+  const [profile, setProfile] = useState<CompanyProfile>({
+    name: '',
+    description: '',
+    logoPreview: '',
+    email: '',
+    phone: '',
+    website: '',
+    specialties: [],
+  });
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  useEffect(() => {
+    if (!company?.id) return;
+
+    fetch(`/api/companies/${company.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const c = data.company;
+        if (c) {
+          setProfile({
+            name: c.name || '',
+            description: c.description || '',
+            logoPreview: c.logo || '',
+            email: c.email || '',
+            phone: c.phone || '',
+            website: c.website || '',
+            specialties: c.specialties || [],
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [company?.id]);
+
+  const handleSave = async () => {
+    if (!company?.id) return;
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/companies/${company.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profile.name,
+          description: profile.description,
+          email: profile.email,
+          phone: profile.phone,
+          website: profile.website,
+          logo: profile.logoPreview || null,
+          specialties: profile.specialties,
+        }),
+      });
+
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch {}
+    setSaving(false);
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const preview = URL.createObjectURL(file);
-      setProfile({ ...profile, logoFile: file, logoPreview: preview });
+      setProfile({ ...profile, logoPreview: preview });
     }
   };
 
   const handleRemoveLogo = () => {
-    if (profile.logoPreview) {
+    if (profile.logoPreview && profile.logoPreview.startsWith('blob:')) {
       URL.revokeObjectURL(profile.logoPreview);
     }
-    setProfile({ ...profile, logoFile: null, logoPreview: '' });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setProfile({ ...profile, logoPreview: '' });
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const toggleSpecialty = (specialty: string) => {
@@ -85,6 +120,14 @@ export default function SettingsPage() {
   const inputClass =
     'w-full border-b border-ink/15 bg-transparent px-1 py-3 font-jost text-[14px] font-light text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none';
   const labelClass = 'block font-jost text-[13px] font-medium tracking-wide text-ink mb-1';
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <p className="text-sm text-gray-500">Loading settings...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -101,18 +144,8 @@ export default function SettingsPage() {
           </div>
           {saved && (
             <div className="flex items-center gap-2 bg-teal/10 px-4 py-2">
-              <svg
-                className="h-4 w-4 text-teal"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
+              <svg className="h-4 w-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <span className="font-jost text-[13px] font-medium text-teal">Saved</span>
             </div>
@@ -121,10 +154,7 @@ export default function SettingsPage() {
 
         <div className="mt-10 space-y-8">
           {/* Basic Information */}
-          <section
-            className="bg-white p-6 md:p-8"
-            style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-          >
+          <section className="bg-white p-6 md:p-8" style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}>
             <h2 className="font-cormorant text-[22px] font-light text-ink">Basic Information</h2>
             <div className="mt-6 space-y-5">
               <div>
@@ -153,37 +183,17 @@ export default function SettingsPage() {
                   {profile.logoPreview ? (
                     <div className="relative h-20 w-20 shrink-0 overflow-hidden bg-cream-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={profile.logoPreview}
-                        alt="Logo preview"
-                        className="h-full w-full object-contain"
-                      />
+                      <img src={profile.logoPreview} alt="Logo preview" className="h-full w-full object-contain" />
                     </div>
                   ) : (
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-cream-2">
-                      <svg
-                        className="h-8 w-8 text-ink-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
-                        />
+                      <svg className="h-8 w-8 text-ink-3" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                       </svg>
                     </div>
                   )}
                   <div className="flex flex-col gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" />
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
@@ -200,9 +210,7 @@ export default function SettingsPage() {
                         Remove
                       </button>
                     )}
-                    <p className="font-jost text-[11px] font-light text-ink-3">
-                      PNG, JPG, SVG or WebP. Max 2MB.
-                    </p>
+                    <p className="font-jost text-[11px] font-light text-ink-3">PNG, JPG, SVG or WebP. Max 2MB.</p>
                   </div>
                 </div>
               </div>
@@ -210,10 +218,7 @@ export default function SettingsPage() {
           </section>
 
           {/* Contact Details */}
-          <section
-            className="bg-white p-6 md:p-8"
-            style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-          >
+          <section className="bg-white p-6 md:p-8" style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}>
             <h2 className="font-cormorant text-[22px] font-light text-ink">Contact Details</h2>
             <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
@@ -234,7 +239,7 @@ export default function SettingsPage() {
                   className={inputClass}
                 />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className={labelClass}>Website</label>
                 <input
                   type="url"
@@ -243,88 +248,11 @@ export default function SettingsPage() {
                   className={inputClass}
                 />
               </div>
-              <div>
-                <label className={labelClass}>Address</label>
-                <input
-                  type="text"
-                  value={profile.address}
-                  onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Coverage Area */}
-          <section
-            className="bg-white p-6 md:p-8"
-            style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-          >
-            <h2 className="font-cormorant text-[22px] font-light text-ink">Coverage Area</h2>
-            <p className="mt-1 font-jost text-[13px] font-light text-ink-3">
-              Set your base postcode and how far you&apos;re willing to travel.
-            </p>
-            <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div>
-                <label className={labelClass}>Base Postcode</label>
-                <input
-                  type="text"
-                  value={profile.postcode}
-                  onChange={(e) =>
-                    setProfile({ ...profile, postcode: e.target.value.toUpperCase() })
-                  }
-                  placeholder="e.g. SW1A 1AA"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Radius</label>
-                <select
-                  value={profile.radiusMiles}
-                  onChange={(e) =>
-                    setProfile({ ...profile, radiusMiles: parseInt(e.target.value) })
-                  }
-                  className={`${inputClass} cursor-pointer`}
-                >
-                  {radiusOptions.map((r) => (
-                    <option key={r} value={r}>
-                      {r} miles
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              <svg
-                className="h-4 w-4 shrink-0 text-ink-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z"
-                />
-              </svg>
-              <p className="font-jost text-[12px] font-light text-ink-3">
-                Customers within {profile.radiusMiles} miles of {profile.postcode || '...'} will see
-                your services.
-              </p>
             </div>
           </section>
 
           {/* Specialties */}
-          <section
-            className="bg-white p-6 md:p-8"
-            style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-          >
+          <section className="bg-white p-6 md:p-8" style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}>
             <h2 className="font-cormorant text-[22px] font-light text-ink">Services Offered</h2>
             <p className="mt-1 font-jost text-[13px] font-light text-ink-3">
               Select the services your company provides.
@@ -353,9 +281,10 @@ export default function SettingsPage() {
           <div className="flex justify-end">
             <button
               onClick={handleSave}
-              className="bg-ink px-8 py-3 font-jost text-[13px] font-medium tracking-wide text-cream transition-opacity hover:opacity-90"
+              disabled={saving}
+              className="bg-ink px-8 py-3 font-jost text-[13px] font-medium tracking-wide text-cream transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              Save Changes
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>

@@ -2,8 +2,32 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { CompanyService } from '@/lib/services/company.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const body = await request.json();
+
+    if (!body.bookingId || !body.cleanerId) {
+      return NextResponse.json({ error: 'bookingId and cleanerId are required' }, { status: 400 });
+    }
+
+    // Verify company exists
+    const company = await prisma.company.findUnique({ where: { id } });
+    if (!company) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    const updated = await CompanyService.assignBookingToTeamMember(body.bookingId, body.cleanerId);
+    return NextResponse.json({ booking: updated });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to assign booking';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
+import { CompanyProvider, useCompany } from './_context/CompanyContext';
+
 const navItems = [
   {
     href: '/company',
@@ -32,12 +34,16 @@ const navItems = [
   },
 ];
 
-export default function CompanyLayout({ children }: { children: React.ReactNode }) {
+function CompanySidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen: boolean; setSidebarOpen: (v: boolean) => void }) {
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { company, loading } = useCompany();
+
+  const companyName = loading ? 'Loading...' : (company?.name || 'My Company');
+  const initials = companyName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const isVerified = company?.verificationStatus === 'VERIFIED';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       {/* Mobile header */}
       <div className="lg:hidden flex items-center justify-between bg-white border-b border-gray-200 px-4 py-3">
         <button
@@ -45,12 +51,7 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
           className="text-gray-600 hover:text-gray-900"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
         <div className="flex items-center gap-2">
@@ -63,15 +64,10 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
       </div>
 
       <div className="flex">
-        {/* Sidebar overlay for mobile */}
         {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
         )}
 
-        {/* Sidebar */}
         <aside
           className={`
             fixed lg:sticky top-0 left-0 z-50 lg:z-0
@@ -80,22 +76,22 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
           `}
         >
-          {/* Company info header */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
-                SC
+                {initials}
               </div>
               <div>
-                <p className="font-semibold text-gray-900">Partner Co.</p>
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                  Verified Partner
-                </span>
+                <p className="font-semibold text-gray-900">{companyName}</p>
+                {isVerified && (
+                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                    Verified Partner
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
@@ -106,25 +102,11 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
                   onClick={() => setSidebarOpen(false)}
                   className={`
                     flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                    ${
-                      isActive
-                        ? 'bg-green-50 text-green-700'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    }
+                    ${isActive ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'}
                   `}
                 >
-                  <svg
-                    className="w-5 h-5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d={item.icon}
-                    />
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
                   </svg>
                   {item.label}
                 </Link>
@@ -132,28 +114,63 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
             })}
           </nav>
 
-          {/* Bottom section */}
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
             <Link
               href="/"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
               Back to Site
             </Link>
           </div>
         </aside>
+      </div>
+    </>
+  );
+}
 
-        {/* Main content */}
+function CompanyLayoutInner({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { loading, error } = useCompany();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-sm text-gray-500">Loading company portal...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-gray-500 mb-4">You don&apos;t have a company account yet.</p>
+          <Link href="/" className="text-sm font-medium text-green-600 hover:text-green-700">
+            Back to home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <CompanySidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      <div className="flex">
+        <div className="hidden lg:block w-64 shrink-0" />
         <main className="flex-1 min-w-0">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function CompanyLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <CompanyProvider>
+      <CompanyLayoutInner>{children}</CompanyLayoutInner>
+    </CompanyProvider>
   );
 }
