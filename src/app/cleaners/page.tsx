@@ -1,11 +1,10 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 
 import CleanerCard from '@/components/CleanerCard';
 import CleanerProfileModal from '@/components/CleanerProfileModal';
-import { cleaners } from '@/lib/mock-data';
 import type { Cleaner } from '@/lib/types';
 
 const SERVICE_FILTERS = [
@@ -44,8 +43,63 @@ function CleanersContent() {
   const [sameDayOnly, setSameDayOnly] = useState(false);
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null);
+  const [allCleaners, setAllCleaners] = useState<Cleaner[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [propertySize, setPropertySize] = useState<number | null>(null);
+
+  const fetchCleaners = useCallback(async (postcodeFilter?: string) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (postcodeFilter) params.set('postcode', postcodeFilter);
+      params.set('limit', '50');
+      const res = await fetch(`/api/cleaners?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Map API response to match Cleaner type (fill defaults for missing fields)
+        const mapped: Cleaner[] = data.cleaners.map((c: Record<string, unknown>) => ({
+          id: c.id as string,
+          name: c.name as string || '',
+          photo: (c.photo || c.image || '') as string,
+          rating: (c.rating as number) || 0,
+          reviewCount: (c.reviewCount as number) || 0,
+          hourlyRate: (c.hourlyRate as number) || 0,
+          sameDayRate: (c.sameDayRate as number) || 0,
+          bio: (c.bio as string) || '',
+          specialties: (c.specialties as string[]) || [],
+          languages: [],
+          tier: (c.tier as string) || 'standard',
+          location: (c.location as string) || '',
+          postcodeAreas: [],
+          verified: (c.verified as boolean) || false,
+          identityVerified: (c.identityVerified as boolean) || false,
+          backgroundChecked: (c.backgroundChecked as boolean) || false,
+          yearsExperience: 0,
+          completedJobs: (c.completedJobs as number) || 0,
+          availability: [],
+          timeSlots: {},
+          availableNow: (c.availableNow as boolean) || false,
+          responseTime: (c.responseTime as string) || '~15 min',
+          categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+          bringsProducts: false,
+          productFee: 0,
+        }));
+        setAllCleaners(mapped);
+        if (postcodeFilter) {
+          setCleanerCount(data.count);
+        }
+      }
+    } catch {
+      // silently fail — show empty state
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCleaners(postcode || undefined);
+  }, [fetchCleaners, postcode]);
 
   useEffect(() => {
     const serviceType = searchParams.get('serviceType');
@@ -77,13 +131,12 @@ function CleanersContent() {
       return;
     }
     setPostcode(postcodeSearch.trim().toUpperCase());
-    setCleanerCount(Math.floor(Math.random() * 5) + 4);
     setSort('distance');
   };
 
-  const availableNowCount = cleaners.filter((c) => c.availableNow).length;
+  const availableNowCount = allCleaners.filter((c) => c.availableNow).length;
 
-  const filtered = cleaners
+  const filtered = allCleaners
     .filter((c) => {
       const q = search.toLowerCase();
       const matchesSearch =
@@ -328,60 +381,68 @@ function CleanersContent() {
       {/* Results */}
       <section className="px-5 py-10 md:px-14 md:py-14">
         <div className="mx-auto max-w-7xl">
-          <p className="mb-6 font-jost text-[13px] font-light text-ink-3">
-            {filtered.length} cleaner{filtered.length !== 1 ? 's' : ''} found
-          </p>
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((cleaner) => {
-              const bedroomKey = propertySize ?? 2;
-              let fixedPrice: number | null = null;
-              let fixedLabel: string | undefined;
-              const sizeLabels: Record<number, string> = {
-                0: 'studio',
-                1: '1-bed',
-                2: '2-bed',
-                3: '3-bed',
-                4: '4-bed',
-                5: '5+ bed',
-              };
-
-              if (isEotFilter && cleaner.eotPrices) {
-                const key = Math.min(bedroomKey, 5);
-                fixedPrice = cleaner.eotPrices[key] ?? null;
-                fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} EOT`;
-              } else if (isAirbnbFilter && cleaner.airbnbPrices) {
-                const key = Math.min(bedroomKey, 4);
-                fixedPrice = cleaner.airbnbPrices[key] ?? null;
-                fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} Airbnb`;
-              }
-
-              return (
-                <CleanerCard
-                  key={cleaner.id}
-                  cleaner={cleaner}
-                  onViewProfile={() => setSelectedCleaner(cleaner)}
-                  fixedServicePrice={fixedPrice}
-                  fixedServiceLabel={fixedLabel}
-                />
-              );
-            })}
-          </div>
-
-          {filtered.length === 0 && (
-            <div className="py-16 text-center">
-              <p className="font-jost text-[16px] font-light text-ink-3">
-                No cleaners found matching your criteria.
+          {loading ? (
+            <p className="py-16 text-center font-jost text-[14px] font-light text-ink-3">
+              Loading cleaners...
+            </p>
+          ) : (
+            <>
+              <p className="mb-6 font-jost text-[13px] font-light text-ink-3">
+                {filtered.length} cleaner{filtered.length !== 1 ? 's' : ''} found
               </p>
-              {availableNowOnly && (
-                <button
-                  onClick={() => setAvailableNowOnly(false)}
-                  className="mt-4 font-jost text-[13px] font-normal text-ink underline underline-offset-4 hover:text-ink-2"
-                >
-                  Show all cleaners instead
-                </button>
+
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((cleaner) => {
+                  const bedroomKey = propertySize ?? 2;
+                  let fixedPrice: number | null = null;
+                  let fixedLabel: string | undefined;
+                  const sizeLabels: Record<number, string> = {
+                    0: 'studio',
+                    1: '1-bed',
+                    2: '2-bed',
+                    3: '3-bed',
+                    4: '4-bed',
+                    5: '5+ bed',
+                  };
+
+                  if (isEotFilter && cleaner.eotPrices) {
+                    const key = Math.min(bedroomKey, 5);
+                    fixedPrice = cleaner.eotPrices[key] ?? null;
+                    fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} EOT`;
+                  } else if (isAirbnbFilter && cleaner.airbnbPrices) {
+                    const key = Math.min(bedroomKey, 4);
+                    fixedPrice = cleaner.airbnbPrices[key] ?? null;
+                    fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} Airbnb`;
+                  }
+
+                  return (
+                    <CleanerCard
+                      key={cleaner.id}
+                      cleaner={cleaner}
+                      onViewProfile={() => setSelectedCleaner(cleaner)}
+                      fixedServicePrice={fixedPrice}
+                      fixedServiceLabel={fixedLabel}
+                    />
+                  );
+                })}
+              </div>
+
+              {filtered.length === 0 && (
+                <div className="py-16 text-center">
+                  <p className="font-jost text-[16px] font-light text-ink-3">
+                    No cleaners found matching your criteria.
+                  </p>
+                  {availableNowOnly && (
+                    <button
+                      onClick={() => setAvailableNowOnly(false)}
+                      className="mt-4 font-jost text-[13px] font-normal text-ink underline underline-offset-4 hover:text-ink-2"
+                    >
+                      Show all cleaners instead
+                    </button>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </section>

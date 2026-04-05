@@ -5,18 +5,84 @@ import AvailableNowBadge from '@/components/AvailableNowBadge';
 import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
-import { cleaners, getCleanerById, getReviewsForCleaner } from '@/lib/mock-data';
+import prisma from '@/lib/db/prisma';
 import { getListedRate } from '@/lib/pricing';
 
-export function generateStaticParams() {
-  return cleaners.map((c) => ({ id: c.id }));
-}
+export default async function CleanerProfilePage({ params }: { params: { id: string } }) {
+  const profile = await prisma.cleanerProfile.findFirst({
+    where: { userId: params.id },
+    include: {
+      user: {
+        select: { id: true, name: true, image: true },
+      },
+      availabilitySlots: true,
+    },
+  });
 
-export default function CleanerProfilePage({ params }: { params: { id: string } }) {
-  const cleaner = getCleanerById(params.id);
-  if (!cleaner) notFound();
+  if (!profile) notFound();
 
-  const reviews = getReviewsForCleaner(cleaner.id);
+  const reviews = await prisma.review.findMany({
+    where: { cleanerId: params.id, visibility: 'VISIBLE' },
+    include: {
+      client: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  });
+
+  const reviewCount = await prisma.review.count({
+    where: { cleanerId: params.id, visibility: 'VISIBLE' },
+  });
+
+  // Build cleaner data for the page
+  const cleaner = {
+    id: profile.user.id,
+    name: profile.user.name || 'Cleaner',
+    photo: profile.user.image || '',
+    rating: Number(profile.rating),
+    reviewCount,
+    hourlyRate: Number(profile.hourlyRate),
+    sameDayRate: Math.round(Number(profile.hourlyRate) * 1.4 * 100) / 100,
+    bio: profile.bio || '',
+    specialties: profile.specialties,
+    location: profile.location || '',
+    verified: profile.verified,
+    identityVerified: profile.verificationStatus === 'VERIFIED',
+    backgroundChecked: profile.backgroundCheckPassed,
+    completedJobs: profile.completedJobs,
+    availableNow: profile.availableNow,
+    responseTime: profile.responseTime ? `~${profile.responseTime} min` : '~15 min',
+    availability: profile.availabilitySlots.map((s) => {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return days[s.dayOfWeek] || '';
+    }),
+    languages: [] as string[],
+    yearsExperience: 0,
+  };
+
+  // Compute category averages from reviews
+  const catRatings = {
+    thoroughness: 0,
+    punctuality: 0,
+    communication: 0,
+    value: 0,
+  };
+  let catCount = 0;
+  for (const r of reviews) {
+    if (r.thoroughness) {
+      catRatings.thoroughness += Number(r.thoroughness);
+      catRatings.punctuality += Number(r.punctuality || 0);
+      catRatings.communication += Number(r.communication || 0);
+      catRatings.value += Number(r.rating);
+      catCount++;
+    }
+  }
+  if (catCount > 0) {
+    catRatings.thoroughness /= catCount;
+    catRatings.punctuality /= catCount;
+    catRatings.communication /= catCount;
+    catRatings.value /= catCount;
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -103,7 +169,7 @@ export default function CleanerProfilePage({ params }: { params: { id: string } 
         {/* Stats */}
         <section className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { value: `${cleaner.yearsExperience}`, label: 'Years experience' },
+            { value: `${cleaner.yearsExperience || '-'}`, label: 'Years experience' },
             { value: `${cleaner.completedJobs}`, label: 'Jobs completed' },
             { value: `${cleaner.rating}`, label: 'Avg rating' },
             { value: cleaner.responseTime, label: 'Response time' },
@@ -116,18 +182,17 @@ export default function CleanerProfilePage({ params }: { params: { id: string } 
         </section>
 
         {/* Detailed ratings */}
-        <section className="mt-10">
-          <h2 className="font-cormorant text-[22px] font-semibold text-ink">Detailed ratings</h2>
-          <div className="mt-4 max-w-md space-y-3">
-            <CategoryRatingBar label="Thoroughness" value={cleaner.categoryRatings.thoroughness} />
-            <CategoryRatingBar label="Punctuality" value={cleaner.categoryRatings.punctuality} />
-            <CategoryRatingBar
-              label="Communication"
-              value={cleaner.categoryRatings.communication}
-            />
-            <CategoryRatingBar label="Value for money" value={cleaner.categoryRatings.value} />
-          </div>
-        </section>
+        {catCount > 0 && (
+          <section className="mt-10">
+            <h2 className="font-cormorant text-[22px] font-semibold text-ink">Detailed ratings</h2>
+            <div className="mt-4 max-w-md space-y-3">
+              <CategoryRatingBar label="Thoroughness" value={catRatings.thoroughness} />
+              <CategoryRatingBar label="Punctuality" value={catRatings.punctuality} />
+              <CategoryRatingBar label="Communication" value={catRatings.communication} />
+              <CategoryRatingBar label="Value for money" value={catRatings.value} />
+            </div>
+          </section>
+        )}
 
         {/* Availability */}
         <section className="mt-10">
@@ -170,38 +235,47 @@ export default function CleanerProfilePage({ params }: { params: { id: string } 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-jost text-[14px] font-medium text-ink">
-                      {review.customerName}
+                      {review.client.name || 'Customer'}
                     </span>
-                    {review.verified && (
+                    {review.isVerifiedBooking && (
                       <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-teal">
                         Verified
                       </span>
                     )}
                   </div>
-                  <span className="font-jost text-[12px] font-light text-ink-3">{review.date}</span>
+                  <span className="font-jost text-[12px] font-light text-ink-3">
+                    {review.createdAt.toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
                 </div>
                 <div className="mt-1">
-                  <StarRating rating={review.rating} />
+                  <StarRating rating={Number(review.rating)} />
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {[
-                    { label: 'Thoroughness', v: review.categoryRatings.thoroughness },
-                    { label: 'Punctuality', v: review.categoryRatings.punctuality },
-                    { label: 'Communication', v: review.categoryRatings.communication },
-                    { label: 'Value', v: review.categoryRatings.value },
-                  ].map((cat) => (
-                    <span key={cat.label} className="font-jost text-[11px] font-light text-ink-3">
-                      {cat.label}: {cat.v}/5
-                    </span>
-                  ))}
-                </div>
+                {review.thoroughness && (
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {[
+                      { label: 'Thoroughness', v: Number(review.thoroughness) },
+                      { label: 'Punctuality', v: Number(review.punctuality || 0) },
+                      { label: 'Communication', v: Number(review.communication || 0) },
+                    ].map((cat) => (
+                      <span key={cat.label} className="font-jost text-[11px] font-light text-ink-3">
+                        {cat.label}: {cat.v}/5
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-                <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
-                  {review.comment}
-                </p>
+                {review.text && (
+                  <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+                    {review.text}
+                  </p>
+                )}
 
-                {review.cleanerReply && (
+                {review.reply && (
                   <div className="mt-3 rounded-md bg-cream px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white font-cormorant text-[12px] font-semibold text-ink">
@@ -212,7 +286,7 @@ export default function CleanerProfilePage({ params }: { params: { id: string } 
                       </span>
                     </div>
                     <p className="mt-1 pl-8 font-jost text-[13px] font-light text-ink-2">
-                      {review.cleanerReply}
+                      {review.reply}
                     </p>
                   </div>
                 )}

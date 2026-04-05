@@ -36,13 +36,13 @@ These are hard blockers. Without these, you cannot safely put real users through
 - [x] `src/app/api/cleaners/[id]/route.ts` — use Prisma instead of `getCleanerById` from mock-data
 - [x] `src/app/api/bookings/route.ts` — remove `getCleanerById` mock import
 - [x] `src/app/api/estimate/route.ts` — use Prisma for cleaner lookups
-- [ ] `src/app/cleaners/page.tsx` — fetch from API/DB instead of mock `cleaners` array
-- [ ] `src/app/cleaners/[id]/page.tsx` — fetch from API/DB
-- [ ] `src/app/services/[category]/page.tsx` — fetch from API/DB
-- [ ] `src/app/book/[id]/page.tsx` — fetch from API/DB
-- [ ] `src/components/CleanerProfileModal.tsx` — fetch reviews from API
-- [ ] `src/app/dashboard/page.tsx` — fetch from API/DB
-- [ ] `src/app/disputes/page.tsx` — fetch from API/DB
+- [x] `src/app/cleaners/page.tsx` — fetches from `/api/cleaners` with loading state
+- [x] `src/app/cleaners/[id]/page.tsx` — server component using Prisma directly
+- [x] `src/app/services/[category]/page.tsx` — uses `useCleanersApi` hook
+- [x] `src/app/book/[id]/page.tsx` — uses `useCleanersApi` hook + fetches addresses/bookings from API
+- [x] `src/components/CleanerProfileModal.tsx` — fetches reviews from `/api/cleaners/[id]/reviews`
+- [ ] `src/app/dashboard/page.tsx` — inline mock data (Phase 2: admin tooling)
+- [ ] `src/app/disputes/page.tsx` — uses `MOCK_DISPUTES` from trust.ts (Phase 2: admin tooling)
 
 ### 1.4 One Complete Booking Flow (End-to-End Real)
 - [ ] Customer signup → email verification → login

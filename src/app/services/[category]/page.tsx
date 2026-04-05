@@ -9,7 +9,7 @@ import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
-import { cleaners, getCleanerById, getReviewsForCleaner } from '@/lib/mock-data';
+import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type {
   ServiceCategory,
@@ -17,6 +17,7 @@ import type {
   KeyAccess,
   RoomConfig,
   Cleaner,
+  Review,
 } from '@/lib/types';
 
 /** Given a start time like "8:00 AM" and duration in hours, returns end time string */
@@ -229,6 +230,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const category = params.category as ServiceCategory;
   const serviceLabel = SERVICE_LABELS[category] || 'Cleaning Service';
   const isRegular = category === 'regular';
+
+  const { cleaners, getCleanerById, getReviewsForCleaner } = useCleanersApi();
 
   // Check if a cleaner was pre-selected (coming from /book/[id] service selection)
   const searchParams = useSearchParams();
@@ -3123,8 +3126,15 @@ function CleanerProfileSlideOut({
   onClose: () => void;
   onBook: () => void;
 }) {
-  const reviews = getReviewsForCleaner(cleaner.id);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const tier = TIER_INFO[cleaner.tier];
+
+  useEffect(() => {
+    fetch(`/api/cleaners/${cleaner.id}/reviews`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setReviews)
+      .catch(() => setReviews([]));
+  }, [cleaner.id]);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';

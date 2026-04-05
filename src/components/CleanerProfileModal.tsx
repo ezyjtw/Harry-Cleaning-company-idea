@@ -1,14 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-import { getReviewsForCleaner } from '@/lib/mock-data';
 import { getListedRate } from '@/lib/pricing';
 import type { Cleaner } from '@/lib/types';
 
 import StarRating from './StarRating';
 import VerificationBadge from './VerificationBadge';
+
+interface ReviewData {
+  id: string;
+  customerName: string;
+  rating: number;
+  comment: string;
+  date: string;
+  verified: boolean;
+  cleanerReply?: string;
+  categoryRatings: { thoroughness: number; punctuality: number; communication: number; value: number };
+}
 
 interface CleanerProfileModalProps {
   cleaner: Cleaner;
@@ -16,7 +26,31 @@ interface CleanerProfileModalProps {
 }
 
 export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfileModalProps) {
-  const reviews = getReviewsForCleaner(cleaner.id);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/cleaners/${cleaner.id}/reviews`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Array<Record<string, unknown>>) => {
+        const mapped: ReviewData[] = data.map((r) => ({
+          id: r.id as string,
+          customerName: ((r.client as Record<string, unknown>)?.name as string) || 'Customer',
+          rating: Number(r.rating),
+          comment: (r.text as string) || '',
+          date: new Date(r.createdAt as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+          verified: (r.isVerifiedBooking as boolean) || false,
+          cleanerReply: (r.reply as string) || undefined,
+          categoryRatings: {
+            thoroughness: Number(r.thoroughness || 0),
+            punctuality: Number(r.punctuality || 0),
+            communication: Number(r.communication || 0),
+            value: Number(r.rating),
+          },
+        }));
+        setReviews(mapped);
+      })
+      .catch(() => setReviews([]));
+  }, [cleaner.id]);
 
   // Lock body scroll & handle escape
   useEffect(() => {

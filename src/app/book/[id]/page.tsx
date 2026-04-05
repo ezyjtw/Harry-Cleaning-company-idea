@@ -10,12 +10,7 @@ import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
-import {
-  getCleanerById,
-  cleaners as allCleaners,
-  savedAddresses,
-  pastBookings,
-} from '@/lib/mock-data';
+import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type { ServiceCategory } from '@/lib/types';
 
@@ -57,7 +52,41 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isExpress = searchParams.get('express') === 'true';
+  const { cleaners: allCleaners, getCleanerById } = useCleanersApi();
   const cleaner = getCleanerById(params.id);
+
+  // Fetch saved addresses and past bookings from API
+  const [savedAddresses, setSavedAddresses] = useState<Array<{ id: string; label?: string; address: string; isDefault: boolean }>>([]);
+  const [pastBookings, setPastBookings] = useState<Array<{ id: string; date: string; address: string; serviceType: string; cleanerName: string; duration: number; totalPrice: number }>>([]);
+
+  useEffect(() => {
+    fetch('/api/addresses')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Array<Record<string, unknown>>) => {
+        setSavedAddresses(data.map((a) => ({
+          id: a.id as string,
+          label: a.label as string | undefined,
+          address: `${a.line1}${a.line2 ? ', ' + a.line2 : ''}, ${a.city}, ${a.postcode}`,
+          isDefault: (a.isDefault as boolean) || false,
+        })));
+      })
+      .catch(() => {});
+
+    fetch('/api/bookings?status=COMPLETED')
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .then((result: { data: Array<Record<string, unknown>> }) => {
+        setPastBookings((result.data || []).slice(0, 5).map((b) => ({
+          id: b.id as string,
+          date: new Date(b.date as string).toLocaleDateString(),
+          address: ((b.address as Record<string, unknown>)?.line1 as string) || '',
+          serviceType: b.serviceType as string,
+          cleanerName: ((b.cleaner as Record<string, unknown>)?.name as string) || '',
+          duration: Number(b.duration) || 2,
+          totalPrice: Number(b.totalPrice) || 0,
+        })));
+      })
+      .catch(() => {});
+  }, []);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -65,8 +94,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     name: '',
     email: '',
     phone: '',
-    address: savedAddresses.find((a) => a.isDefault)?.address ?? '',
-    selectedSavedAddress: savedAddresses.find((a) => a.isDefault)?.id ?? '',
+    address: '',
+    selectedSavedAddress: '',
     date: isExpress ? today : '',
     time: '',
     duration: 2,

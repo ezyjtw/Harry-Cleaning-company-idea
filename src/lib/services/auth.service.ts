@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 import prisma from '@/lib/db/prisma';
+import { sendEmailVerification, sendPasswordReset as sendPasswordResetEmail } from '@/lib/services/email.service';
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -76,8 +77,8 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
     });
   }
 
-  // TODO: Send verification email with token via email.service.ts
-  // await sendVerificationEmail(email, input.name, token);
+  // Send verification email (fire and forget — don't block registration)
+  sendEmailVerification(email, token).catch(() => {});
 
   return {
     success: true,
@@ -186,8 +187,8 @@ export async function requestPasswordReset(
     },
   });
 
-  // TODO: Send password reset email via email.service.ts
-  // await sendPasswordResetEmail(normalizedEmail, user.name, token);
+  // Send password reset email (fire and forget)
+  sendPasswordResetEmail(normalizedEmail, token).catch(() => {});
 
   return { success: true, message: successMessage };
 }
