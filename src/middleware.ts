@@ -50,6 +50,13 @@ const authRoutes = ['/login', '/register', '/forgot-password'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Let the health-check endpoint bypass all middleware logic so Railway
+  // (or any orchestrator) always gets a fast, unobstructed response.
+  if (pathname === '/api/health') {
+    return NextResponse.next();
+  }
+
   const response = NextResponse.next();
 
   // Security headers
