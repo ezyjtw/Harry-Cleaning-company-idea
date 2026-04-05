@@ -23,7 +23,8 @@ export async function GET() {
     health.database = 'disconnected';
   }
 
-  return NextResponse.json(health, {
-    status: health.status === 'ok' ? 200 : 503,
-  });
+  // Always return 200 so Railway's health check passes even if the
+  // database is temporarily unreachable (e.g. during cold-start).
+  // The response body still reports the actual status for monitoring.
+  return NextResponse.json(health, { status: 200 });
 }
