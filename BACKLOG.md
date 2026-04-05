@@ -47,7 +47,7 @@ These are hard blockers. Without these, you cannot safely put real users through
 ### 1.4 One Complete Booking Flow (End-to-End Real)
 - [x] Customer signup → email verification → login
 - [x] Browse cleaners (from DB) → select cleaner → get quote (from pricing engine)
-- [ ] Create booking → payment auth via Ryft → payment captured
+- [x] Create booking → payment auth via Ryft → payment captured
 - [x] Cleaner notified → accepts job → checks in → completes
 - [x] Customer notified → leaves review
 - [x] Cleaner earnings updated
@@ -79,15 +79,15 @@ These can wait for alpha but must be done before you open up to real paying cust
 - [ ] SMS fallback for critical notifications (booking confirmed, cleaner en route)
 
 ### 2.4 Cleaner Onboarding
-- [ ] Complete DBS verification integration (not just stub)
-- [ ] Right-to-work document upload + admin verification
-- [ ] Profile photo upload + storage
-- [ ] Background check status tracking
-- [ ] Onboarding checklist / progress tracker
+- [x] Complete DBS verification integration (not just stub)
+- [x] Right-to-work document upload + admin verification
+- [x] Profile photo upload + storage
+- [x] Background check status tracking
+- [x] Onboarding checklist / progress tracker
 
 ### 2.5 Frontend Mock Data Removal
 - [ ] Remove all `@/lib/mock-data` imports from page components
-- [ ] Wire all client-side pages to real API endpoints
+- [x] Wire all client-side pages to real API endpoints
 - [ ] Ensure SSR pages use Prisma directly or API calls
 
 ### 2.6 Testing & Build Verification

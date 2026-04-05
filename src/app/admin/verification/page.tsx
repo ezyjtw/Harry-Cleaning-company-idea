@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type DocumentType = 'all' | 'dbs_certificate' | 'right_to_work' | 'photo_id';
 type Tab = 'pending' | 'expiring_rtw' | 'expired_rtw' | 'share_code';
@@ -38,103 +38,6 @@ interface ShareCodeResult {
   errorMessage?: string;
 }
 
-// Mock data for the UI — in production, fetched from API
-const mockPendingDocs: PendingDocument[] = [
-  {
-    id: 'doc-001',
-    userId: 'usr-101',
-    profileId: 'cp-101',
-    documentType: 'dbs_certificate',
-    originalName: 'dbs_cert_sarah_chen.pdf',
-    mimeType: 'application/pdf',
-    fileSize: 245760,
-    expiresAt: null,
-    metadata: { certNumber: '001234567890', issueDate: '2025-08-15' },
-    createdAt: '2026-03-24T10:30:00Z',
-  },
-  {
-    id: 'doc-002',
-    userId: 'usr-102',
-    profileId: 'cp-102',
-    documentType: 'right_to_work',
-    originalName: 'brp_maria_santos.jpg',
-    mimeType: 'image/jpeg',
-    fileSize: 1843200,
-    expiresAt: '2027-06-15',
-    metadata: { docType: 'brp' },
-    createdAt: '2026-03-24T11:15:00Z',
-  },
-  {
-    id: 'doc-003',
-    userId: 'usr-103',
-    profileId: 'cp-103',
-    documentType: 'dbs_certificate',
-    originalName: 'dbs_ewa_kowalski.pdf',
-    mimeType: 'application/pdf',
-    fileSize: 189440,
-    expiresAt: null,
-    metadata: { certNumber: '001234567891', issueDate: '2025-11-20' },
-    createdAt: '2026-03-25T09:00:00Z',
-  },
-  {
-    id: 'doc-004',
-    userId: 'usr-104',
-    profileId: 'cp-104',
-    documentType: 'right_to_work',
-    originalName: 'visa_priya_sharma.pdf',
-    mimeType: 'application/pdf',
-    fileSize: 512000,
-    expiresAt: '2026-12-01',
-    metadata: { docType: 'visa' },
-    createdAt: '2026-03-25T14:30:00Z',
-  },
-  {
-    id: 'doc-005',
-    userId: 'usr-105',
-    profileId: 'cp-105',
-    documentType: 'photo_id',
-    originalName: 'passport_ana_popescu.jpg',
-    mimeType: 'image/jpeg',
-    fileSize: 2097152,
-    expiresAt: '2030-03-15',
-    metadata: { docType: 'passport' },
-    createdAt: '2026-03-25T16:00:00Z',
-  },
-];
-
-const mockExpiringRtw: RtwAlert[] = [
-  {
-    profileId: 'cp-201',
-    userId: 'usr-201',
-    cleanerName: 'Priya Sharma',
-    email: 'priya@email.com',
-    docType: 'visa',
-    expiresAt: '2026-04-15',
-    daysUntilExpiry: 20,
-  },
-  {
-    profileId: 'cp-202',
-    userId: 'usr-202',
-    cleanerName: 'Li Wei',
-    email: 'li.wei@email.com',
-    docType: 'brp',
-    expiresAt: '2026-04-25',
-    daysUntilExpiry: 30,
-  },
-];
-
-const mockExpiredRtw: RtwAlert[] = [
-  {
-    profileId: 'cp-301',
-    userId: 'usr-301',
-    cleanerName: 'Ahmed Hassan',
-    email: 'ahmed@email.com',
-    docType: 'eu_pre_settled',
-    expiresAt: '2026-03-10',
-    daysUntilExpiry: -16,
-  },
-];
-
 export default function VerificationPage() {
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [filterType, setFilterType] = useState<DocumentType>('all');
@@ -145,17 +48,101 @@ export default function VerificationPage() {
   const [verifyingDoc, setVerifyingDoc] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const filteredDocs =
-    filterType === 'all'
-      ? mockPendingDocs
-      : mockPendingDocs.filter((d) => d.documentType === filterType);
+  // Live data from API
+  const [pendingDocs, setPendingDocs] = useState<PendingDocument[]>([]);
+  const [expiringRtw, setExpiringRtw] = useState<RtwAlert[]>([]);
+  const [expiredRtw, setExpiredRtw] = useState<RtwAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPendingDocs = useCallback(async () => {
+    try {
+      const typeParam = filterType !== 'all' ? `?type=${filterType}` : '';
+      const res = await fetch(`/api/admin/documents${typeParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPendingDocs(data.documents || []);
+      }
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('Failed to fetch pending documents');
+    }
+  }, [filterType]);
+
+  const fetchRtwData = useCallback(async () => {
+    try {
+      const [expiringRes, expiredRes] = await Promise.all([
+        fetch('/api/admin/rtw?action=expiring&days=90'),
+        fetch('/api/admin/rtw?action=expired'),
+      ]);
+
+      if (expiringRes.ok) {
+        const data = await expiringRes.json();
+        setExpiringRtw(
+          (data.expiring || []).map((item: Record<string, unknown>) => ({
+            profileId: item.profileId || item.id,
+            userId: item.userId,
+            cleanerName: item.cleanerName || item.name,
+            email: item.email,
+            docType: item.docType || item.rightToWorkDocType,
+            expiresAt: item.expiresAt || item.rightToWorkExpiresAt,
+            daysUntilExpiry: item.daysUntilExpiry ||
+              Math.ceil((new Date(item.expiresAt as string).getTime() - Date.now()) / 86400000),
+          }))
+        );
+      }
+
+      if (expiredRes.ok) {
+        const data = await expiredRes.json();
+        setExpiredRtw(
+          (data.expired || []).map((item: Record<string, unknown>) => ({
+            profileId: item.profileId || item.id,
+            userId: item.userId,
+            cleanerName: item.cleanerName || item.name,
+            email: item.email,
+            docType: item.docType || item.rightToWorkDocType,
+            expiresAt: item.expiresAt || item.rightToWorkExpiresAt,
+            daysUntilExpiry: item.daysUntilExpiry ||
+              Math.ceil((new Date(item.expiresAt as string).getTime() - Date.now()) / 86400000),
+          }))
+        );
+      }
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('Failed to fetch RTW data');
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([fetchPendingDocs(), fetchRtwData()]).finally(() => setLoading(false));
+  }, [fetchPendingDocs, fetchRtwData]);
+
+  // Refetch pending docs when filter changes
+  useEffect(() => {
+    fetchPendingDocs();
+  }, [filterType, fetchPendingDocs]);
 
   const handleVerify = async (docId: string, approved: boolean) => {
     setVerifyingDoc(docId);
-    // In production: await fetch('/api/admin/documents', { method: 'PATCH', body: ... })
-    await new Promise((r) => setTimeout(r, 800));
-    setVerifyingDoc(null);
-    setStatusMessage(`Document ${docId} ${approved ? 'approved' : 'rejected'}`);
+    try {
+      const res = await fetch('/api/admin/documents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: docId, adminId: 'admin-001', approved }),
+      });
+      if (res.ok) {
+        setStatusMessage(`Document ${approved ? 'approved' : 'rejected'} successfully`);
+        // Remove from list
+        setPendingDocs((prev) => prev.filter((d) => d.id !== docId));
+      } else {
+        const data = await res.json();
+        setStatusMessage(`Error: ${data.error || 'Failed to process document'}`);
+      }
+    } catch {
+      setStatusMessage('Network error — could not reach the server');
+    } finally {
+      setVerifyingDoc(null);
+    }
   };
 
   const handleShareCodeCheck = async () => {
@@ -187,19 +174,54 @@ export default function VerificationPage() {
   };
 
   const handleSuspend = async (profileId: string) => {
-    // In production: await fetch('/api/admin/rtw', { method: 'POST', body: ... })
-    setStatusMessage(`Cleaner ${profileId} suspended due to expired RTW`);
+    try {
+      const res = await fetch('/api/admin/rtw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'suspend_expired',
+          profileId,
+          adminId: 'admin-001',
+        }),
+      });
+      if (res.ok) {
+        setStatusMessage(`Cleaner suspended due to expired RTW`);
+        setExpiredRtw((prev) => prev.filter((a) => a.profileId !== profileId));
+      } else {
+        const data = await res.json();
+        setStatusMessage(`Error: ${data.error || 'Failed to suspend cleaner'}`);
+      }
+    } catch {
+      setStatusMessage('Network error — could not reach the server');
+    }
   };
 
   const handleSendAlerts = async () => {
-    // In production: await fetch('/api/admin/rtw', { method: 'POST', body: ... })
-    setStatusMessage('Expiry alert emails sent to all cleaners with expiring RTW documents');
+    try {
+      const res = await fetch('/api/admin/rtw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_expiry_alerts',
+          adminId: 'admin-001',
+          days: 90,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStatusMessage(data.message || 'Expiry alerts sent successfully');
+      } else {
+        setStatusMessage('Failed to send expiry alerts');
+      }
+    } catch {
+      setStatusMessage('Network error — could not reach the server');
+    }
   };
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'pending', label: 'Pending Verification', count: mockPendingDocs.length },
-    { id: 'expiring_rtw', label: 'Expiring RTW', count: mockExpiringRtw.length },
-    { id: 'expired_rtw', label: 'Expired RTW', count: mockExpiredRtw.length },
+    { id: 'pending', label: 'Pending Verification', count: pendingDocs.length },
+    { id: 'expiring_rtw', label: 'Expiring RTW', count: expiringRtw.length },
+    { id: 'expired_rtw', label: 'Expired RTW', count: expiredRtw.length },
     { id: 'share_code', label: 'Share Code Check' },
   ];
 
@@ -265,8 +287,14 @@ export default function VerificationPage() {
         </nav>
       </div>
 
+      {loading && (
+        <div className="text-center py-12 text-gray-400">
+          <p>Loading verification data...</p>
+        </div>
+      )}
+
       {/* Pending Verification Tab */}
-      {activeTab === 'pending' && (
+      {!loading && activeTab === 'pending' && (
         <div>
           {/* Filter */}
           <div className="mb-4 flex items-center gap-3">
@@ -281,6 +309,12 @@ export default function VerificationPage() {
               <option value="right_to_work">Right to Work</option>
               <option value="photo_id">Photo ID</option>
             </select>
+            <button
+              onClick={() => fetchPendingDocs()}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              Refresh
+            </button>
           </div>
 
           {/* Documents table */}
@@ -306,7 +340,7 @@ export default function VerificationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredDocs.map((doc) => (
+                {pendingDocs.map((doc) => (
                   <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -378,7 +412,7 @@ export default function VerificationPage() {
                 ))}
               </tbody>
             </table>
-            {filteredDocs.length === 0 && (
+            {pendingDocs.length === 0 && (
               <div className="text-center py-12 text-gray-400">
                 <p>No documents pending verification</p>
               </div>
@@ -416,7 +450,7 @@ export default function VerificationPage() {
       )}
 
       {/* Expiring RTW Tab */}
-      {activeTab === 'expiring_rtw' && (
+      {!loading && activeTab === 'expiring_rtw' && (
         <div>
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600">
@@ -431,7 +465,7 @@ export default function VerificationPage() {
           </div>
 
           <div className="space-y-3">
-            {mockExpiringRtw.map((alert) => (
+            {expiringRtw.map((alert) => (
               <div
                 key={alert.profileId}
                 className="bg-white rounded-xl border border-yellow-200 p-4 flex items-center justify-between"
@@ -468,7 +502,7 @@ export default function VerificationPage() {
                 </div>
               </div>
             ))}
-            {mockExpiringRtw.length === 0 && (
+            {expiringRtw.length === 0 && (
               <div className="text-center py-12 text-gray-400 bg-white rounded-xl border">
                 <p>No RTW documents expiring within 90 days</p>
               </div>
@@ -478,7 +512,7 @@ export default function VerificationPage() {
       )}
 
       {/* Expired RTW Tab */}
-      {activeTab === 'expired_rtw' && (
+      {!loading && activeTab === 'expired_rtw' && (
         <div>
           <div className="mb-4">
             <div className="rounded-lg bg-red-50 border border-red-200 p-4">
@@ -490,7 +524,7 @@ export default function VerificationPage() {
           </div>
 
           <div className="space-y-3">
-            {mockExpiredRtw.map((alert) => (
+            {expiredRtw.map((alert) => (
               <div
                 key={alert.profileId}
                 className="bg-white rounded-xl border border-red-200 p-4 flex items-center justify-between"
@@ -534,7 +568,7 @@ export default function VerificationPage() {
                 </div>
               </div>
             ))}
-            {mockExpiredRtw.length === 0 && (
+            {expiredRtw.length === 0 && (
               <div className="text-center py-12 text-gray-400 bg-white rounded-xl border">
                 <p>No cleaners with expired RTW documents</p>
               </div>
@@ -544,7 +578,7 @@ export default function VerificationPage() {
       )}
 
       {/* Share Code Check Tab */}
-      {activeTab === 'share_code' && (
+      {!loading && activeTab === 'share_code' && (
         <div className="max-w-xl">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">

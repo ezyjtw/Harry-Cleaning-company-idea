@@ -87,6 +87,47 @@ export class ApiClient {
     return response.json();
   }
 
+  // ─── Generic methods ────────────────────────────────────────
+
+  async post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    return this.request('POST', path, body, options);
+  }
+
+  /**
+   * Send multipart/form-data (e.g. file uploads).
+   * Bypasses the JSON Content-Type so fetch sets the correct boundary.
+   */
+  async postForm<T>(path: string, formData: FormData, options?: RequestOptions): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const headers: Record<string, string> = { ...options?.headers };
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: options?.signal,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new ApiError(
+        errorBody.error || `Request failed with status ${response.status}`,
+        response.status,
+        errorBody.details
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json();
+  }
+
   // ─── Auth ───────────────────────────────────────────────────
 
   async login(data: LoginRequest): Promise<AuthResponse> {

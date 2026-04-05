@@ -105,6 +105,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
   const [submitted, setSubmitted] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(false);
   const [bookingData, setBookingData] = useState<{
     id: string;
     payment: { sessionId: string; clientSecret: string } | null;
@@ -239,11 +240,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           totalPrice: priceBreakdown.total,
         });
 
-        // If we have a real Ryft payment session with a return URL, redirect to payment
+        // If we have a real Ryft payment session, show the payment step
         if (data.payment?.clientSecret && !data.payment.clientSecret.startsWith('cs_mock_')) {
-          // In production with Ryft Drop-in, you'd mount the Ryft payment UI here.
-          // For now, mark as submitted (payment handled via webhook on completion).
-          setSubmitted(true);
+          setPaymentStep(true);
         } else {
           // Mock/dev mode — skip payment, go straight to confirmation
           setSubmitted(true);
@@ -255,6 +254,127 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       setPaymentPending(false);
     }
   };
+
+  // ─── Ryft Payment Step ─────────────────────────────────────
+  if (paymentStep && bookingData?.payment) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-20 bg-cream">
+        <h1 className="font-cormorant text-3xl font-light text-ink text-center">
+          Complete Payment
+        </h1>
+        <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
+          Secure payment powered by Ryft. Your funds are held in escrow until the job is complete.
+        </p>
+
+        {/* Booking summary */}
+        <div
+          className="mt-6 bg-cream-2 p-5"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
+          <div className="grid gap-2 font-jost text-sm font-light">
+            <div className="flex justify-between">
+              <span className="text-ink-3">Cleaner</span>
+              <span className="font-normal text-ink">{cleaner.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-3">Service</span>
+              <span className="font-normal text-ink">{selectedService.label}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-3">Date &amp; Time</span>
+              <span className="font-normal text-ink">{form.date} at {form.time}</span>
+            </div>
+            <div
+              className="flex justify-between pt-2 mt-2"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
+              <span className="font-normal text-ink">Total</span>
+              <span className="font-cormorant text-2xl font-light text-gold">
+                &pound;{priceBreakdown.total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Ryft Drop-in container */}
+        <div className="mt-6">
+          <div
+            id="ryft-dropin"
+            className="min-h-[200px] bg-white p-6"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            ref={(el) => {
+              if (!el || el.dataset.mounted === 'true') return;
+              el.dataset.mounted = 'true';
+
+              const publicKey = process.env.NEXT_PUBLIC_RYFT_PUBLIC_KEY;
+              if (!publicKey) {
+                el.innerHTML = '<p class="text-center text-ink-3 font-jost text-sm">Payment provider not configured</p>';
+                return;
+              }
+
+              const script = document.createElement('script');
+              script.src = 'https://embedded.ryftpay.com/v1/dropin.js';
+              script.onload = () => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const Ryft = (window as any).Ryft;
+                if (!Ryft) return;
+
+                Ryft.init({
+                  publicApiKey: publicKey,
+                  environment: publicKey.startsWith('pk_sandbox') ? 'sandbox' : 'production',
+                });
+
+                Ryft.renderDropIn(el, {
+                  clientSecret: bookingData.payment!.clientSecret,
+                  appearance: {
+                    theme: 'minimal',
+                    variables: {
+                      fontFamily: 'Jost, sans-serif',
+                      colorPrimary: '#0e0e0c',
+                      borderRadius: '0px',
+                    },
+                  },
+                  onPaymentResult: (result: { status: string }) => {
+                    if (result.status === 'Captured' || result.status === 'Approved') {
+                      setPaymentStep(false);
+                      setSubmitted(true);
+                    }
+                  },
+                  onPaymentError: (error: { message: string }) => {
+                    // eslint-disable-next-line no-console
+                    console.error('[Ryft] Payment error:', error.message);
+                  },
+                });
+              };
+              document.head.appendChild(script);
+            }}
+          />
+        </div>
+
+        {/* Security notice */}
+        <div className="mt-4 flex items-start gap-2.5">
+          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <p className="font-jost text-xs font-light text-ink-2">
+            Your payment is encrypted and processed securely by Ryft, an FCA-regulated payment
+            provider. Funds are held in escrow and only released when the job is confirmed complete.
+          </p>
+        </div>
+
+        <button
+          onClick={() => { setPaymentStep(false); setPaymentPending(false); }}
+          className="mt-6 w-full py-2 font-jost text-sm font-light text-ink-3 hover:text-ink transition"
+        >
+          &larr; Back to booking details
+        </button>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

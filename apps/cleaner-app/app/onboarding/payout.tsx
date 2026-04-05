@@ -5,11 +5,14 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, PLATFORM_FEE_PERCENT } from '@rena/shared';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
@@ -19,20 +22,52 @@ const CURRENT_STEP = 6;
 export default function PayoutScreen() {
   const router = useRouter();
   const { formData } = useOnboarding();
+  const { api, user } = useAuth();
   const { pricing } = formData;
   const [sliderHours, setSliderHours] = useState(20);
+  const [settingUp, setSettingUp] = useState(false);
+  const [payoutStatus, setPayoutStatus] = useState<'not_started' | 'pending' | 'active'>('not_started');
 
   const hourlyRate = parseFloat(pricing.hourlyRate) || 20;
   const takeHomeRate = hourlyRate * (1 - PLATFORM_FEE_PERCENT / 100);
   const weeklyEarnings = takeHomeRate * sliderHours;
   const monthlyEarnings = weeklyEarnings * 4.33;
 
-  const handleSetUpRyft = () => {
-    Alert.alert(
-      'Coming Soon',
-      'Ryft payout integration will be available shortly. You can complete onboarding now and set up payouts later from your profile.',
-      [{ text: 'OK' }]
-    );
+  const handleSetUpRyft = async () => {
+    setSettingUp(true);
+    try {
+      const response = await api.post('/api/cleaners/payout', {
+        cleanerId: user?.id,
+      });
+
+      if (response.mock) {
+        Alert.alert(
+          'Payout Setup',
+          'Ryft payouts are not yet configured for this environment. You can complete onboarding now and set up payouts later from your profile.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      if (response.status === 'active') {
+        setPayoutStatus('active');
+        Alert.alert('Already Set Up', 'Your payout account is already active.');
+        return;
+      }
+
+      if (response.onboardingUrl) {
+        setPayoutStatus('pending');
+        await Linking.openURL(response.onboardingUrl);
+      }
+    } catch {
+      Alert.alert(
+        'Setup Error',
+        'Could not connect to payout service. You can set this up later from your profile settings.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSettingUp(false);
+    }
   };
 
   const increaseHours = () => {
@@ -93,12 +128,23 @@ export default function PayoutScreen() {
           ))}
         </View>
 
-        <Button
-          title="Set Up Ryft"
-          onPress={handleSetUpRyft}
-          size="lg"
-          icon={<Ionicons name="arrow-forward" size={18} color={Colors.white} />}
-        />
+        {payoutStatus === 'active' ? (
+          <View style={styles.activeRow}>
+            <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
+            <Text style={styles.activeText}>Payout account is active</Text>
+          </View>
+        ) : (
+          <Button
+            title={settingUp ? 'Setting up...' : payoutStatus === 'pending' ? 'Continue Setup' : 'Set Up Ryft'}
+            onPress={handleSetUpRyft}
+            size="lg"
+            disabled={settingUp}
+            icon={settingUp
+              ? <ActivityIndicator size="small" color={Colors.white} />
+              : <Ionicons name="arrow-forward" size={18} color={Colors.white} />
+            }
+          />
+        )}
         <Text style={styles.ryftNote}>
           You can also set this up later from your profile settings.
         </Text>
@@ -254,6 +300,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
   },
+  activeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+  },
+  activeText: { fontSize: 15, fontWeight: '600', color: Colors.success },
   buttonRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   backButton: { flex: 0.4 },
   nextButton: { flex: 0.6 },

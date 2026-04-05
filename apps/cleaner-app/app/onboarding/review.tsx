@@ -46,6 +46,18 @@ export default function ReviewScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
+  const appendFileToForm = async (
+    form: globalThis.FormData,
+    fieldName: string,
+    uri: string | undefined,
+    filename: string
+  ) => {
+    if (!uri) return;
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    form.append(fieldName, blob, filename);
+  };
+
   const handleSubmit = async () => {
     if (!review.agreedToTerms) {
       Alert.alert('Terms Required', 'Please agree to the Terms & Conditions to continue.');
@@ -56,41 +68,41 @@ export default function ReviewScreen() {
     setError('');
 
     try {
-      const payload = {
-        // Personal
-        name: personal.fullName,
-        email: personal.email,
-        phone: personal.phone,
-        postcode: personal.postcode,
-        dateOfBirth: personal.dateOfBirth,
-        profilePhotoUri: personal.profilePhotoUri,
-        // Experience
-        yearsExperience: parseInt(experience.yearsOfExperience, 10) || 0,
-        serviceTypes: experience.serviceTypes,
-        specialties: experience.specialties,
-        languages: experience.languages,
-        bio: experience.bio,
-        // Pricing
-        hourlyRate: parseFloat(pricing.hourlyRate) || 0,
-        sameDayRate: parseFloat(pricing.sameDayRate) || parseFloat(pricing.hourlyRate) || 0,
-        hoursPerWeek: parseFloat(pricing.hoursPerWeek) || 0,
-        // Identity
-        photoIdUri: identity.photoIdUri,
-        rightToWorkDocType: identity.rightToWorkDocType,
-        rightToWorkDocUri: identity.rightToWorkDocUri,
-        shareCode: identity.shareCode || undefined,
-        expiryDate: identity.expiryDate || undefined,
-        // DBS
-        dbsOption: dbsCheck.dbsOption,
-        dbsCertNumber: dbsCheck.dbsCertNumber || undefined,
-        dbsIssueDate: dbsCheck.dbsIssueDate || undefined,
-        dbsCertFileUri: dbsCheck.dbsCertFileUri || undefined,
-        selfieUri: dbsCheck.selfieUri,
-        // Terms
-        agreedToTerms: review.agreedToTerms,
-      };
+      const form = new FormData();
 
-      await api.post('/api/cleaners', payload);
+      // Text fields
+      form.append('name', personal.fullName);
+      form.append('email', personal.email);
+      form.append('phone', personal.phone);
+      form.append('postcode', personal.postcode);
+      if (personal.dateOfBirth) form.append('dateOfBirth', personal.dateOfBirth);
+      if (experience.bio) form.append('bio', experience.bio);
+      form.append('hourlyRate', String(parseFloat(pricing.hourlyRate) || 15));
+      form.append('sameDayRate', String(parseFloat(pricing.sameDayRate) || parseFloat(pricing.hourlyRate) || 15));
+      form.append('hoursPerWeek', String(parseFloat(pricing.hoursPerWeek) || 0));
+      form.append('yearsExperience', String(parseInt(experience.yearsOfExperience, 10) || 0));
+      form.append('serviceTypes', JSON.stringify(experience.serviceTypes));
+      form.append('specialties', JSON.stringify(experience.specialties));
+      form.append('languages', JSON.stringify(experience.languages));
+
+      // Identity & DBS
+      if (identity.rightToWorkDocType) form.append('rightToWorkDocType', identity.rightToWorkDocType);
+      if (identity.shareCode) form.append('shareCode', identity.shareCode);
+      if (identity.expiryDate) form.append('expiryDate', identity.expiryDate);
+      if (dbsCheck.dbsOption) form.append('dbsOption', dbsCheck.dbsOption);
+      if (dbsCheck.dbsCertNumber) form.append('dbsCertNumber', dbsCheck.dbsCertNumber);
+      if (dbsCheck.dbsIssueDate) form.append('dbsIssueDate', dbsCheck.dbsIssueDate);
+
+      // File uploads
+      await Promise.all([
+        appendFileToForm(form, 'profilePhoto', personal.profilePhotoUri, 'profile_photo.jpg'),
+        appendFileToForm(form, 'photoId', identity.photoIdUri, 'photo_id.jpg'),
+        appendFileToForm(form, 'rightToWorkDoc', identity.rightToWorkDocUri, 'right_to_work.pdf'),
+        appendFileToForm(form, 'dbsCertFile', dbsCheck.dbsCertFileUri, 'dbs_certificate.pdf'),
+        appendFileToForm(form, 'selfiePhoto', dbsCheck.selfieUri, 'selfie.jpg'),
+      ]);
+
+      await api.postForm('/api/cleaners/onboarding', form);
       await clearOnboarding();
       setSubmitted(true);
     } catch (err) {
