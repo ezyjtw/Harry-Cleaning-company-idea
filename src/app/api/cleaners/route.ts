@@ -123,6 +123,15 @@ export async function POST(request: NextRequest) {
         rightToWorkExpiresAt: body.rightToWorkExpiryDate
           ? new Date(body.rightToWorkExpiryDate)
           : null,
+        // DBS certificate details (if existing cert provided)
+        dbsCertNumber: body.dbsCertNumber?.trim() || null,
+        dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
+        // Liveness/selfie verification meta
+        verificationMeta: body.selfiePhoto
+          ? { livenessComplete: true, dbsOption: body.dbsOption || null }
+          : body.dbsOption
+            ? { dbsOption: body.dbsOption }
+            : undefined,
       },
     });
 

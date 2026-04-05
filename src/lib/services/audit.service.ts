@@ -24,6 +24,12 @@ export type AuditAction =
   | 'DBS_CERT_REJECTED'
   | 'DBS_CERT_DESTROYED'
   | 'DBS_CERT_VIEWED'
+  | 'DBS_VERIFICATION_ATTEMPTED'
+  | 'DBS_APPLICATION_INITIATED'
+  // Identity verification actions
+  | 'IDENTITY_CHECK_SUBMITTED'
+  | 'IDENTITY_CHECK_PASSED'
+  | 'IDENTITY_CHECK_FAILED'
   // Right to Work actions
   | 'RTW_DOC_UPLOADED'
   | 'RTW_DOC_VERIFIED'

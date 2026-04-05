@@ -31,15 +31,22 @@ interface FormData {
 
   // Step 3 – Identity & Right to Work
   photoIdFile: string;
-  dbsCertFile: string;
   rightToWorkDocType: string;
   rightToWorkDocFile: string;
   rightToWorkShareCode: string;
   rightToWorkExpiryDate: string;
 
-  // Step 4 – Payout (no persistent data, just UI)
+  // Step 4 – DBS & Background Check
+  dbsOption: 'existing' | 'new' | '';
+  dbsCertFile: string;
+  dbsCertNumber: string;
+  dbsCertIssueDate: string;
+  selfiePhoto: string; // base64 for liveness check
+  livenessComplete: boolean;
 
-  // Step 5 – Review & Submit
+  // Step 5 – Payout (no persistent data, just UI)
+
+  // Step 6 – Review & Submit
   agreedToTerms: boolean;
 }
 
@@ -62,11 +69,17 @@ const INITIAL_FORM: FormData = {
   hoursPerWeek: '',
 
   photoIdFile: '',
-  dbsCertFile: '',
   rightToWorkDocType: '',
   rightToWorkDocFile: '',
   rightToWorkShareCode: '',
   rightToWorkExpiryDate: '',
+
+  dbsOption: '',
+  dbsCertFile: '',
+  dbsCertNumber: '',
+  dbsCertIssueDate: '',
+  selfiePhoto: '',
+  livenessComplete: false,
 
   agreedToTerms: false,
 };
@@ -103,8 +116,9 @@ const STEPS = [
   { label: 'Experience', icon: '2' },
   { label: 'Pricing', icon: '3' },
   { label: 'Identity', icon: '4' },
-  { label: 'Payout', icon: '5' },
-  { label: 'Review', icon: '6' },
+  { label: 'DBS Check', icon: '5' },
+  { label: 'Payout', icon: '6' },
+  { label: 'Review', icon: '7' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -613,9 +627,28 @@ export default function JoinAsCleanerPage() {
       }
     }
 
-    // Step 4 has no required fields
+    if (step === 4) {
+      if (!form.dbsOption) e.dbsOption = 'Please select a DBS option';
+      if (form.dbsOption === 'existing') {
+        if (!form.dbsCertNumber.trim()) e.dbsCertNumber = 'DBS certificate number is required';
+        else if (!/^\d{12}$/.test(form.dbsCertNumber.trim()))
+          e.dbsCertNumber = 'Must be a 12-digit number';
+        if (!form.dbsCertIssueDate) e.dbsCertIssueDate = 'Issue date is required';
+        else {
+          const issued = new Date(form.dbsCertIssueDate);
+          const threeYearsAgo = new Date();
+          threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+          if (issued < threeYearsAgo)
+            e.dbsCertIssueDate = 'DBS certificate must be less than 3 years old';
+        }
+        if (!form.dbsCertFile) e.dbsCertFile = 'Please upload your DBS certificate';
+      }
+      if (!form.selfiePhoto) e.selfiePhoto = 'Selfie is required for identity verification';
+    }
 
-    if (step === 5) {
+    // Step 5 has no required fields (payout)
+
+    if (step === 6) {
       if (!form.agreedToTerms) e.agreedToTerms = 'You must agree to continue';
     }
 
@@ -632,8 +665,8 @@ export default function JoinAsCleanerPage() {
   /* ---- Navigation ---- */
   function goNext() {
     if (!validate(currentStep)) return;
-    const nextStep = Math.min(currentStep + 1, 5);
-    // Map wizard step (0-5) to funnel step (2-7: personal, experience, pricing, identity, payout, review)
+    const nextStep = Math.min(currentStep + 1, 6);
+    // Map wizard step (0-6) to funnel step (2-8: personal, experience, pricing, identity, dbs, payout, review)
     trackStep(nextStep + 2, STEPS[nextStep]?.label?.toLowerCase() ?? `step_${nextStep}`);
     setCurrentStep(nextStep);
     setErrors({});
@@ -646,7 +679,7 @@ export default function JoinAsCleanerPage() {
 
   /* ---- Submit ---- */
   async function handleSubmit() {
-    if (!validate(5)) return;
+    if (!validate(6)) return;
     setSubmitting(true);
     try {
       const response = await fetch('/api/cleaners', {
@@ -1110,27 +1143,6 @@ export default function JoinAsCleanerPage() {
               <FieldError message={errors.photoIdFile} />
             </div>
 
-            <div>
-              <Label>DBS Certificate (optional)</Label>
-              <div
-                className="mt-2 bg-cream p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) set('dbsCertFile', file.name);
-                  }}
-                  className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
-                />
-              </div>
-              {form.dbsCertFile && (
-                <p className="mt-1 text-xs text-green-600">Selected: {form.dbsCertFile}</p>
-              )}
-            </div>
-
             {/* ---- Right to Work ---- */}
             <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
               <h2 className="font-cormorant text-xl font-light text-ink">Right to Work</h2>
@@ -1231,8 +1243,283 @@ export default function JoinAsCleanerPage() {
           </div>
         )}
 
-        {/* ===== Step 4 – Payout ===== */}
+        {/* ===== Step 4 – DBS & Background Check ===== */}
         {currentStep === 4 && (
+          <div className="space-y-5">
+            <h2 className="font-cormorant text-xl font-light text-ink">
+              DBS &amp; Background Check
+            </h2>
+            <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
+              A DBS (Disclosure and Barring Service) check helps us ensure the safety of our
+              customers. You can either provide an existing certificate or apply for a new one through
+              Rena.
+            </p>
+
+            {/* DBS Option Selection */}
+            <div>
+              <Label>Do you have an existing DBS certificate?</Label>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => set('dbsOption', 'existing')}
+                  className={`p-4 text-left transition ${
+                    form.dbsOption === 'existing'
+                      ? 'bg-ink text-cream'
+                      : 'bg-cream text-ink hover:bg-cream-2'
+                  }`}
+                  style={
+                    form.dbsOption !== 'existing'
+                      ? { border: '0.5px solid rgba(14,14,12,0.1)' }
+                      : undefined
+                  }
+                >
+                  <span className="block font-jost text-sm font-normal">
+                    Yes, I have a DBS certificate
+                  </span>
+                  <span
+                    className={`mt-1 block font-jost text-[11px] ${form.dbsOption === 'existing' ? 'text-cream/70' : 'text-ink-3'}`}
+                  >
+                    Upload your existing certificate for verification
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set('dbsOption', 'new')}
+                  className={`p-4 text-left transition ${
+                    form.dbsOption === 'new'
+                      ? 'bg-ink text-cream'
+                      : 'bg-cream text-ink hover:bg-cream-2'
+                  }`}
+                  style={
+                    form.dbsOption !== 'new'
+                      ? { border: '0.5px solid rgba(14,14,12,0.1)' }
+                      : undefined
+                  }
+                >
+                  <span className="block font-jost text-sm font-normal">
+                    No, I need a new DBS check
+                  </span>
+                  <span
+                    className={`mt-1 block font-jost text-[11px] ${form.dbsOption === 'new' ? 'text-cream/70' : 'text-ink-3'}`}
+                  >
+                    We&apos;ll guide you through the application process
+                  </span>
+                </button>
+              </div>
+              <FieldError message={errors.dbsOption} />
+            </div>
+
+            {/* Existing DBS Details */}
+            {form.dbsOption === 'existing' && (
+              <div
+                className="space-y-4 bg-cream p-5 animate-fade-in"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <h3 className="font-jost text-sm font-normal text-ink">
+                  DBS Certificate Details
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Certificate Number</Label>
+                    <Input
+                      type="text"
+                      placeholder="12-digit number"
+                      maxLength={12}
+                      value={form.dbsCertNumber}
+                      onChange={(e) =>
+                        set('dbsCertNumber', e.target.value.replace(/[^0-9]/g, ''))
+                      }
+                    />
+                    <FieldError message={errors.dbsCertNumber} />
+                  </div>
+                  <div>
+                    <Label>Issue Date</Label>
+                    <Input
+                      type="date"
+                      value={form.dbsCertIssueDate}
+                      onChange={(e) => set('dbsCertIssueDate', e.target.value)}
+                    />
+                    <FieldError message={errors.dbsCertIssueDate} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Upload DBS Certificate</Label>
+                  <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    Clear photo or scan of the full certificate. We will verify the certificate number
+                    and status via the DBS Update Service.
+                  </p>
+                  <div
+                    className="mt-2 bg-cream-2 p-4"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) set('dbsCertFile', file.name);
+                      }}
+                      className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                    />
+                  </div>
+                  {form.dbsCertFile && (
+                    <p className="mt-1 text-xs text-green-600">
+                      Selected: {form.dbsCertFile}
+                    </p>
+                  )}
+                  <FieldError message={errors.dbsCertFile} />
+                </div>
+              </div>
+            )}
+
+            {/* New DBS Application */}
+            {form.dbsOption === 'new' && (
+              <div
+                className="space-y-3 bg-cream p-5 animate-fade-in"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <h3 className="font-jost text-sm font-normal text-ink">
+                  Apply for a DBS Check
+                </h3>
+                <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
+                  Rena partners with an accredited DBS umbrella body to process your check. Once your
+                  application is submitted, the DBS check typically takes 2-8 weeks to complete.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-gold">&#10003;</span>
+                    <p className="font-jost text-sm font-light text-ink-2">
+                      Basic DBS check &mdash; included free with your Rena application
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-gold">&#10003;</span>
+                    <p className="font-jost text-sm font-light text-ink-2">
+                      Enhanced DBS check &mdash; required for certain service types (£23 fee applies)
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-gold">&#10003;</span>
+                    <p className="font-jost text-sm font-light text-ink-2">
+                      You can start accepting bookings once your DBS is returned and verified
+                    </p>
+                  </div>
+                </div>
+                <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  We&apos;ll email you with instructions after you submit your application.
+                </p>
+              </div>
+            )}
+
+            {/* Liveness / Selfie Verification */}
+            <div
+              className="mt-6 pt-6"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
+              <h2 className="font-cormorant text-xl font-light text-ink">
+                Identity Verification
+              </h2>
+              <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
+                To confirm you are who you say you are, we need a live selfie to match against the
+                photo ID you uploaded in the previous step. This is a one-time check to protect both
+                you and our customers.
+              </p>
+
+              <div
+                className="mt-4 bg-cream p-5"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-2"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    {form.selfiePhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={form.selfiePhoto}
+                        alt="Selfie preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <svg
+                        className="h-8 w-8 text-ink-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-jost text-sm font-normal text-ink">
+                      Take a Selfie
+                    </h3>
+                    <p className="mt-1 font-jost text-[11px] text-ink-3">
+                      Please look directly at the camera in a well-lit area. Remove sunglasses and
+                      hats. We&apos;ll compare this with your photo ID to verify your identity.
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <label className="inline-block cursor-pointer bg-ink px-4 py-2 font-jost text-sm font-light text-cream transition hover:bg-ink/90">
+                        {form.selfiePhoto ? 'Retake Selfie' : 'Take Selfie'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="user"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              if (typeof reader.result === 'string') {
+                                set('selfiePhoto', reader.result);
+                                set('livenessComplete', true);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {form.selfiePhoto && (
+                        <span className="font-jost text-xs text-green-600">
+                          &#10003; Selfie captured
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <FieldError message={errors.selfiePhoto} />
+            </div>
+
+            <div
+              className="bg-cream px-4 py-3"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <p className="font-jost text-sm font-light text-ink-2">
+                Your selfie and DBS certificate are encrypted and processed securely. The selfie is
+                compared against your photo ID to confirm your identity. All data is handled in
+                accordance with UK GDPR and destroyed after the verification is complete.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ===== Step 5 – Payout ===== */}
+        {currentStep === 5 && (
           <div className="space-y-5">
             <h2 className="font-cormorant text-xl font-light text-ink">Payout Setup</h2>
 
@@ -1268,8 +1555,8 @@ export default function JoinAsCleanerPage() {
           </div>
         )}
 
-        {/* ===== Step 5 – Review & Submit ===== */}
-        {currentStep === 5 && (
+        {/* ===== Step 6 – Review & Submit ===== */}
+        {currentStep === 6 && (
           <div className="space-y-6">
             <h2 className="font-cormorant text-xl font-light text-ink">Review &amp; Submit</h2>
 
@@ -1373,9 +1660,46 @@ export default function JoinAsCleanerPage() {
                     <dd className="inline">{form.photoIdFile || 'Not uploaded'}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-normal text-ink">DBS:</dt>{' '}
-                    <dd className="inline">{form.dbsCertFile || 'Not uploaded'}</dd>
+                    <dt className="inline font-normal text-ink">Selfie verified:</dt>{' '}
+                    <dd className="inline">
+                      {form.livenessComplete ? 'Yes' : 'No'}
+                    </dd>
                   </div>
+                </dl>
+              </div>
+
+              {/* DBS */}
+              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+                  DBS Check
+                </h3>
+                <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
+                  <div>
+                    <dt className="inline font-normal text-ink">Option:</dt>{' '}
+                    <dd className="inline">
+                      {form.dbsOption === 'existing'
+                        ? 'Existing certificate'
+                        : form.dbsOption === 'new'
+                          ? 'New application'
+                          : 'Not selected'}
+                    </dd>
+                  </div>
+                  {form.dbsOption === 'existing' && (
+                    <>
+                      <div>
+                        <dt className="inline font-normal text-ink">Cert no:</dt>{' '}
+                        <dd className="inline">{form.dbsCertNumber || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline font-normal text-ink">Issue date:</dt>{' '}
+                        <dd className="inline">{form.dbsCertIssueDate || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline font-normal text-ink">Certificate:</dt>{' '}
+                        <dd className="inline">{form.dbsCertFile || 'Not uploaded'}</dd>
+                      </div>
+                    </>
+                  )}
                 </dl>
               </div>
 
@@ -1472,7 +1796,7 @@ export default function JoinAsCleanerPage() {
             <div />
           )}
 
-          {currentStep < 5 ? (
+          {currentStep < 6 ? (
             <button
               type="button"
               onClick={goNext}

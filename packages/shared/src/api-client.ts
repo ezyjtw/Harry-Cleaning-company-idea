@@ -312,6 +312,35 @@ export class ApiClient {
     return this.request('POST', '/api/contact', data);
   }
 
+  // ─── DBS Verification ──────────────────────────────────────────
+
+  async getDBSVerificationStatus(): Promise<{
+    dbsCertVerified: boolean;
+    dbsCertNumber: string | null;
+    dbsOption: string | null;
+    livenessComplete: boolean;
+    backgroundCheckPassed: boolean;
+    verificationStatus: string;
+  }> {
+    return this.request('GET', '/api/verification/dbs');
+  }
+
+  async submitDBSVerification(data: {
+    action: 'verify_existing' | 'apply_new' | 'liveness_check';
+    certNumber?: string;
+    issueDate?: string;
+    certFile?: string;
+    selfieImage?: string;
+    idImage?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    referenceNumber?: string;
+    matchConfidence?: number;
+  }> {
+    return this.request('POST', '/api/verification/dbs', data);
+  }
+
   // ─── Health ───────────────────────────────────────────────────
 
   async healthCheck(): Promise<{ status: string }> {

@@ -20,6 +20,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ title: 'Log In', presentation: 'modal' }} />
         <Stack.Screen name="auth/signup" options={{ title: 'Sign Up', presentation: 'modal' }} />
         <Stack.Screen name="job/[id]" options={{ title: 'Job Details' }} />
