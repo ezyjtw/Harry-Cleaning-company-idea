@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db/prisma';
 
+export const dynamic = 'force-dynamic';
+
 interface RecentBooking {
   id: string;
   customer: string;

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { registerUser } from '@/lib/services/auth.service';
 import { generateApiToken } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { registerUser } from '@/lib/services/auth.service';
 
 const MAX_SIGNUP_ATTEMPTS = 3;
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -44,15 +44,15 @@ export async function POST(request: Request) {
       role: userRole,
     });
 
-    if (!result.success) {
+    if (!result.success || !result.user) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
     const token = generateApiToken({
-      id: result.user!.id,
-      email: result.user!.email,
-      name: result.user!.name,
-      role: result.user!.role,
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
     });
 
     return NextResponse.json(

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db/prisma';
 import AdminCustomersClient from './AdminCustomersClient';
 
+export const dynamic = 'force-dynamic';
+
 export interface CustomerRow {
   id: string;
   name: string;

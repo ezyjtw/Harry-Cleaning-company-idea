@@ -2,8 +2,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCompanyMemberSession } from '@/lib/auth/session';
-import { CompanyService } from '@/lib/services/company.service';
 import { CompanyAnalyticsService } from '@/lib/services/company-analytics.service';
+import { CompanyService } from '@/lib/services/company.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

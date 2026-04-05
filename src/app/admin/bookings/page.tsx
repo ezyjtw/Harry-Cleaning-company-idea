@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db/prisma';
 import AdminBookingsClient from './AdminBookingsClient';
 
+export const dynamic = 'force-dynamic';
+
 export interface BookingRow {
   id: string;
   customer: string;

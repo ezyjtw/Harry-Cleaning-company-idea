@@ -1,9 +1,9 @@
+import jwt from 'jsonwebtoken';
 import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
-import jwt from 'jsonwebtoken';
 
-import { authOptions } from './options';
 import prisma from '@/lib/db/prisma';
+import { authOptions } from './options';
 
 interface SessionUser {
   id: string;

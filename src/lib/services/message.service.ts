@@ -45,10 +45,10 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
     distinct: ['senderId'],
   });
 
-  const partnerIds = [...new Set([
+  const partnerIds = Array.from(new Set([
     ...sentTo.map(m => m.receiverId),
     ...receivedFrom.map(m => m.senderId),
-  ])];
+  ]));
 
   const conversations: Conversation[] = [];
 

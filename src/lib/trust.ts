@@ -5,7 +5,6 @@ import type {
   VerificationLevel,
   EscrowTransaction,
   EscrowStatus,
-  Dispute,
   DisputeStatus,
   DisputeReason,
 } from './types';

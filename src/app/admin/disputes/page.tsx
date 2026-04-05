@@ -4,6 +4,8 @@ import type { DisputeStatus } from '@/lib/types';
 import DisputesList from './DisputesList';
 import type { AdminDispute } from './DisputesList';
 
+export const dynamic = 'force-dynamic';
+
 // Map Prisma DisputeStatus enum values to UI status strings
 function mapPrismaStatus(prismaStatus: string): DisputeStatus {
   switch (prismaStatus) {

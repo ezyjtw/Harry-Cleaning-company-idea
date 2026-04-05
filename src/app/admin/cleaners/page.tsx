@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db/prisma';
 import AdminCleanersClient from './AdminCleanersClient';
 
+export const dynamic = 'force-dynamic';
+
 export interface CleanerRow {
   id: string;
   name: string;

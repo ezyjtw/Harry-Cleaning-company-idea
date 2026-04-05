@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { loginUser } from '@/lib/services/auth.service';
 import { generateApiToken } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { loginUser } from '@/lib/services/auth.service';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -36,15 +36,15 @@ export async function POST(request: Request) {
 
     const result = await loginUser(email, password);
 
-    if (!result.success) {
+    if (!result.success || !result.user) {
       return NextResponse.json({ error: result.message }, { status: 401 });
     }
 
     const token = generateApiToken({
-      id: result.user!.id,
-      email: result.user!.email,
-      name: result.user!.name,
-      role: result.user!.role,
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
     });
 
     return NextResponse.json({
