@@ -1,12 +1,18 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getAdminSession } from '@/lib/auth/session';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 /**
  * GET /api/admin/documents — List documents pending verification
  */
 export async function GET(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const documentType = searchParams.get('type') as
     | 'dbs_certificate'
@@ -35,13 +41,20 @@ export async function GET(request: NextRequest) {
  * PATCH /api/admin/documents — Verify or reject a document
  */
 export async function PATCH(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { documentId, adminId, approved } = body;
+    const { documentId, approved } = body;
+    // Use verified admin ID from session, not untrusted body
+    const adminId = admin.id;
 
-    if (!documentId || !adminId || typeof approved !== 'boolean') {
+    if (!documentId || typeof approved !== 'boolean') {
       return NextResponse.json(
-        { error: 'documentId, adminId, and approved (boolean) are required' },
+        { error: 'documentId and approved (boolean) are required' },
         { status: 400 }
       );
     }
@@ -75,12 +88,19 @@ export async function PATCH(request: NextRequest) {
  * DELETE /api/admin/documents — Destroy a document
  */
 export async function DELETE(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { documentId, adminId, reason } = body;
+    const { documentId, reason } = body;
+    // Use verified admin ID from session
+    const adminId = admin.id;
 
-    if (!documentId || !adminId) {
-      return NextResponse.json({ error: 'documentId and adminId are required' }, { status: 400 });
+    if (!documentId) {
+      return NextResponse.json({ error: 'documentId is required' }, { status: 400 });
     }
 
     await DocumentStorageService.destroyDocument(documentId, reason || 'admin_action', adminId);

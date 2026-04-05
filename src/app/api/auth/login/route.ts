@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { loginUser } from '@/lib/services/auth.service';
+import { generateApiToken } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -39,8 +40,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.message }, { status: 401 });
     }
 
+    const token = generateApiToken({
+      id: result.user!.id,
+      email: result.user!.email,
+      name: result.user!.name,
+      role: result.user!.role,
+    });
+
     return NextResponse.json({
       user: result.user,
+      token,
       message: result.message,
     });
   } catch {

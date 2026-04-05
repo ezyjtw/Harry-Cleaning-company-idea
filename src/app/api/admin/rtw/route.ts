@@ -1,12 +1,18 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getAdminSession } from '@/lib/auth/session';
 import { RightToWorkService } from '@/lib/services/right-to-work.service';
 
 /**
  * GET /api/admin/rtw — Get RTW expiry alerts and status
  */
 export async function GET(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action') || 'expiring';
   const days = parseInt(searchParams.get('days') || '30', 10);
@@ -40,16 +46,23 @@ export async function GET(request: NextRequest) {
  * POST /api/admin/rtw — Verify a share code or send expiry alerts
  */
 export async function POST(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { action } = body;
+    // Use verified admin ID, not untrusted body
+    const adminId = admin.id;
 
     if (action === 'verify_share_code') {
-      const { shareCode, dateOfBirth, adminId } = body;
+      const { shareCode, dateOfBirth } = body;
 
-      if (!shareCode || !dateOfBirth || !adminId) {
+      if (!shareCode || !dateOfBirth) {
         return NextResponse.json(
-          { error: 'shareCode, dateOfBirth, and adminId are required' },
+          { error: 'shareCode and dateOfBirth are required' },
           { status: 400 }
         );
       }
@@ -68,11 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'send_expiry_alerts') {
-      const { adminId, days } = body;
-
-      if (!adminId) {
-        return NextResponse.json({ error: 'adminId is required' }, { status: 400 });
-      }
+      const { days } = body;
 
       const alerts = await RightToWorkService.getExpiringDocuments(days || 30);
       const sent = await RightToWorkService.sendExpiryAlerts(alerts, adminId);
@@ -81,10 +90,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'suspend_expired') {
-      const { profileId, adminId } = body;
+      const { profileId } = body;
 
-      if (!profileId || !adminId) {
-        return NextResponse.json({ error: 'profileId and adminId are required' }, { status: 400 });
+      if (!profileId) {
+        return NextResponse.json({ error: 'profileId is required' }, { status: 400 });
       }
 
       await RightToWorkService.suspendExpiredRtw(profileId, adminId);

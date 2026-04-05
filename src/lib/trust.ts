@@ -176,33 +176,3 @@ export function getDisputeStatusLabel(status: DisputeStatus) {
   }
 }
 
-// Mock dispute data
-export const MOCK_DISPUTES: Dispute[] = [
-  {
-    id: 'd1',
-    bookingId: 'b3',
-    filedBy: 'customer',
-    filedByName: 'Linda R.',
-    reason: 'incorrect-duration',
-    description:
-      'The cleaner was supposed to stay for 4 hours but left after 3 hours. The office hallway and meeting rooms were not cleaned.',
-    evidence: [
-      {
-        id: 'ev1',
-        type: 'photo',
-        description: 'Photo of uncleaned meeting room',
-        uploadedAt: '2026-03-01T10:30:00Z',
-        uploadedBy: 'customer',
-      },
-      {
-        id: 'ev2',
-        type: 'timestamp',
-        description: 'GPS check-out timestamp showing 12:05 PM (3h after arrival)',
-        uploadedAt: '2026-03-01T10:30:00Z',
-        uploadedBy: 'customer',
-      },
-    ],
-    status: 'under-review',
-    createdAt: '2026-03-01T10:30:00Z',
-  },
-];

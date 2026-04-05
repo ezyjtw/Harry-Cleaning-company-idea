@@ -199,11 +199,13 @@ export class ApiClient {
   // ─── Messages ─────────────────────────────────────────────────
 
   async getConversations(): Promise<Conversation[]> {
-    return this.request('GET', '/api/messages');
+    const res = await this.request<{ conversations: Conversation[] }>('GET', '/api/messages');
+    return res.conversations;
   }
 
-  async getMessages(conversationId: string): Promise<Message[]> {
-    return this.request('GET', `/api/messages?conversationId=${conversationId}`);
+  async getMessages(partnerId: string): Promise<Message[]> {
+    const res = await this.request<{ messages: Message[] }>('GET', `/api/messages/${partnerId}`);
+    return res.messages;
   }
 
   async sendMessage(data: {
@@ -211,7 +213,8 @@ export class ApiClient {
     content: string;
     bookingId?: string;
   }): Promise<Message> {
-    return this.request('POST', '/api/messages', data);
+    const res = await this.request<{ message: Message }>('POST', '/api/messages', data);
+    return res.message;
   }
 
   // ─── Notifications ────────────────────────────────────────────
@@ -324,12 +327,19 @@ export class ApiClient {
     severity?: string;
     subject: string;
     description: string;
-  }): Promise<{ id: string }> {
+  }): Promise<{ complaint: { id: string } }> {
     return this.request('POST', '/api/complaints', data);
   }
 
-  async getComplaints(): Promise<PaginatedResponse<unknown>> {
-    return this.request('GET', '/api/complaints');
+  async getComplaints(params?: {
+    status?: string;
+    page?: number;
+  }): Promise<PaginatedResponse<unknown>> {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', String(params.page));
+    const query = searchParams.toString();
+    return this.request('GET', `/api/complaints${query ? `?${query}` : ''}`);
   }
 
   // ─── GDPR ─────────────────────────────────────────────────────

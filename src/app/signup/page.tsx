@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 
 export default function SignupPage() {
+  const router = useRouter();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -30,10 +33,39 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      // TODO: integrate real auth
-      await new Promise((r) => setTimeout(r, 1000));
-      // eslint-disable-next-line no-alert
-      alert('Sign up functionality will be connected to your auth provider.');
+      // Register the user via API
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          name: form.name,
+          phone: form.phone,
+          role: 'CLIENT',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrors({ form: data.error || 'Failed to create account.' });
+        return;
+      }
+
+      // Auto-sign in after successful registration
+      const signInResult = await signIn('credentials', {
+        email: form.email,
+        password: form.password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        // Registration succeeded but auto-login failed — redirect to login
+        router.push('/login');
+      } else {
+        router.push('/dashboard');
+      }
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' });
     } finally {

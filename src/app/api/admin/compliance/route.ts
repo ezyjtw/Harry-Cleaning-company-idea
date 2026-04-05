@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
+import { getAdminSession } from '@/lib/auth/session';
 import { AuditService } from '@/lib/services/audit.service';
 import { ComplianceSchedulerService } from '@/lib/services/compliance-scheduler.service';
 
@@ -9,6 +10,11 @@ import { ComplianceSchedulerService } from '@/lib/services/compliance-scheduler.
  * GET /api/admin/compliance — Get compliance dashboard data
  */
 export async function GET(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const section = searchParams.get('section') || 'overview';
 
@@ -79,13 +85,16 @@ export async function GET(request: NextRequest) {
  * POST /api/admin/compliance — Run compliance jobs or create records
  */
 export async function POST(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { action, adminId } = body;
-
-    if (!adminId) {
-      return NextResponse.json({ error: 'adminId is required' }, { status: 400 });
-    }
+    const { action } = body;
+    // Use the verified admin ID, not the untrusted body adminId
+    const adminId = admin.id;
 
     if (action === 'run_all_jobs') {
       const results = await ComplianceSchedulerService.runAllJobs();

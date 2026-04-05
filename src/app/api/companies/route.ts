@@ -2,35 +2,36 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { getSessionUser } from '@/lib/auth/session';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
+
     const body = await request.json();
 
-    const required = ['ownerId', 'name'];
-    for (const field of required) {
-      if (!body[field]) {
-        return NextResponse.json({ error: `${field} is required` }, { status: 400 });
-      }
+    if (!body.name) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
 
-    // Verify owner exists and doesn't already own a company
-    const owner = await prisma.user.findUnique({
-      where: { id: body.ownerId },
-      include: { ownedCompany: true },
+    // The authenticated user is the owner — don't trust ownerId from the body
+    const ownerId = user.id;
+
+    // Verify owner doesn't already own a company
+    const existing = await prisma.company.findFirst({
+      where: { ownerId },
     });
 
-    if (!owner) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    if (owner.ownedCompany) {
-      return NextResponse.json({ error: 'User already owns a company' }, { status: 409 });
+    if (existing) {
+      return NextResponse.json({ error: 'You already own a company' }, { status: 409 });
     }
 
     const company = await prisma.company.create({
       data: {
-        ownerId: body.ownerId,
+        ownerId,
         name: body.name,
         description: body.description || null,
         logo: body.logo || null,
@@ -54,15 +55,26 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const status = searchParams.get('status');
+    const mine = searchParams.get('mine');
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = { isActive: true };
     if (status) {
       where.verificationStatus = status;
+    }
+
+    // Non-admin users can only see their own company unless browsing public listings
+    if (mine === 'true' || user.role !== 'ADMIN') {
+      where.ownerId = user.id;
     }
 
     const [companies, total] = await Promise.all([

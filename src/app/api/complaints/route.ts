@@ -2,38 +2,42 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { getSessionUser, getAdminSession } from '@/lib/auth/session';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
+
     const body = await request.json();
 
-    const required = ['bookingId', 'filedById', 'category', 'subject', 'description'];
+    const required = ['bookingId', 'category', 'subject', 'description'];
     for (const field of required) {
       if (!body[field]) {
         return NextResponse.json({ error: `${field} is required` }, { status: 400 });
       }
     }
 
-    // Verify booking exists
+    // Verify booking exists and the user is involved in it
     const booking = await prisma.booking.findUnique({
       where: { id: body.bookingId },
+      select: { id: true, clientId: true, cleanerId: true },
     });
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { id: body.filedById },
-    });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    // Only the client or cleaner involved in the booking can file a complaint
+    if (booking.clientId !== user.id && booking.cleanerId !== user.id && user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'You can only file complaints for your own bookings.' }, { status: 403 });
     }
 
     const complaint = await prisma.complaint.create({
       data: {
         bookingId: body.bookingId,
-        filedById: body.filedById,
+        filedById: user.id, // Use authenticated user, not untrusted body
         category: body.category,
         severity: body.severity || 'MEDIUM',
         subject: body.subject,
@@ -58,6 +62,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -70,6 +79,11 @@ export async function GET(request: NextRequest) {
     if (status) where.status = status;
     if (category) where.category = category;
     if (severity) where.severity = severity;
+
+    // Non-admin users can only see their own complaints
+    if (user.role !== 'ADMIN') {
+      where.filedById = user.id;
+    }
 
     const [complaints, total] = await Promise.all([
       prisma.complaint.findMany({

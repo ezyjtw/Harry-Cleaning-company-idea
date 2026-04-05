@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getSessionUser } from '@/lib/auth/session';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -8,12 +9,17 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'applicatio
 
 /**
  * POST /api/documents — Upload an encrypted document
+ * Authenticated users can only upload documents for themselves.
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const userId = formData.get('userId') as string | null;
     const profileId = formData.get('profileId') as string | null;
     const documentType = formData.get('documentType') as string | null;
     const expiresAt = formData.get('expiresAt') as string | null;
@@ -21,10 +27,6 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
     if (
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await DocumentStorageService.uploadDocument({
-      userId,
+      userId: user.id, // Use authenticated user ID, not untrusted form data
       profileId: profileId || undefined,
       documentType: documentType as 'dbs_certificate' | 'right_to_work' | 'photo_id' | 'insurance',
       fileBuffer: buffer,

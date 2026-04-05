@@ -2,12 +2,18 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { getCompanyMemberSession, getSessionUser } from '@/lib/auth/session';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    const user = await getCompanyMemberSession(id);
+    if (!user) {
+      return NextResponse.json({ error: 'Access denied. You must be a member of this company.' }, { status: 403 });
+    }
 
     const company = await prisma.company.findUnique({
       where: { id },
@@ -38,12 +44,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const body = await request.json();
+
+    // Only company owner or admin can update
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
 
     const existing = await prisma.company.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    if (existing.ownerId !== user.id && user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Only the company owner can update company details.' }, { status: 403 });
+    }
+
+    const body = await request.json();
 
     const company = await prisma.company.update({
       where: { id },
@@ -69,13 +86,23 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Only company owner or admin can deactivate
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    }
 
     const existing = await prisma.company.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    if (existing.ownerId !== user.id && user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Only the company owner can deactivate the company.' }, { status: 403 });
     }
 
     await prisma.company.update({

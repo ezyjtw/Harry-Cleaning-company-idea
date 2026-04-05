@@ -1,9 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,12 +19,19 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // TODO: integrate real auth (NextAuth signIn)
-      await new Promise((r) => setTimeout(r, 1000));
-      // eslint-disable-next-line no-alert
-      alert('Login functionality will be connected to your auth provider.');
+      const result = await signIn('credentials', {
+        email: form.email,
+        password: form.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError('Invalid email or password. Please try again.');
+      } else {
+        router.push(callbackUrl);
+      }
     } catch {
-      setError('Invalid email or password. Please try again.');
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
