@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type BookingStatus = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
 
@@ -15,59 +15,6 @@ interface Booking {
   status: BookingStatus;
   address: string;
 }
-
-const mockBookings: Booking[] = [
-  {
-    id: 'BK-001',
-    date: '2026-03-20',
-    time: '09:00',
-    cleanerName: 'Maria Santos',
-    serviceType: 'Deep Clean',
-    price: 120,
-    status: 'Confirmed',
-    address: '42 Baker Street, London',
-  },
-  {
-    id: 'BK-002',
-    date: '2026-03-25',
-    time: '14:00',
-    cleanerName: 'Ana Pereira',
-    serviceType: 'Regular Clean',
-    price: 75,
-    status: 'Pending',
-    address: '42 Baker Street, London',
-  },
-  {
-    id: 'BK-003',
-    date: '2026-03-10',
-    time: '10:00',
-    cleanerName: 'Maria Santos',
-    serviceType: 'End of Tenancy',
-    price: 250,
-    status: 'Completed',
-    address: '10 Downing Street, London',
-  },
-  {
-    id: 'BK-004',
-    date: '2026-02-28',
-    time: '11:00',
-    cleanerName: 'Sofia Costa',
-    serviceType: 'Regular Clean',
-    price: 75,
-    status: 'Completed',
-    address: '42 Baker Street, London',
-  },
-  {
-    id: 'BK-005',
-    date: '2026-02-15',
-    time: '09:30',
-    cleanerName: 'Ana Pereira',
-    serviceType: 'Deep Clean',
-    price: 130,
-    status: 'Cancelled',
-    address: '42 Baker Street, London',
-  },
-];
 
 const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -84,22 +31,69 @@ const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'Cancelled', value: 'Cancelled' },
 ];
 
+function mapStatus(apiStatus: string): BookingStatus {
+  switch (apiStatus.toUpperCase()) {
+    case 'PENDING': return 'Pending';
+    case 'CONFIRMED':
+    case 'ACCEPTED':
+    case 'EN_ROUTE':
+    case 'IN_PROGRESS': return 'Confirmed';
+    case 'COMPLETED':
+    case 'REVIEWED': return 'Completed';
+    case 'CANCELLED':
+    case 'DISPUTED': return 'Cancelled';
+    default: return 'Pending';
+  }
+}
+
 export default function BookingsPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const filtered =
-    filter === 'All' ? mockBookings : mockBookings.filter((b) => b.status === filter);
+  useEffect(() => {
+    fetch('/api/bookings')
+      .then((res) => (res.ok ? res.json() : { bookings: [] }))
+      .then((data) => {
+        const items = (data.bookings || data || []).map(
+          (b: Record<string, unknown>) => ({
+            id: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
+            date: typeof b.date === 'string' ? b.date.split('T')[0] : String(b.date),
+            time: b.startTime || b.time || '',
+            cleanerName: b.cleanerName || 'Assigned cleaner',
+            serviceType: b.serviceType || 'Cleaning',
+            price: Number(b.totalPrice || b.price || 0),
+            status: mapStatus(String(b.status || 'PENDING')),
+            address: b.address || b.fullAddress || '',
+          })
+        );
+        setBookings(items);
+      })
+      .catch(() => setBookings([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = filter === 'All' ? bookings : bookings.filter((b) => b.status === filter);
 
   const isUpcoming = (booking: Booking) =>
     (booking.status === 'Pending' || booking.status === 'Confirmed') &&
     new Date(booking.date) >= new Date();
 
-  const handleCancel = (id: string) => {
-    // TODO: Call API to cancel booking
+  const handleCancel = async (id: string) => {
+    try {
+      await fetch(`/api/bookings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: 'Cancelled' as const } : b))
+      );
+    } catch {
+      // Silently handle
+    }
     setCancellingId(null);
-    // eslint-disable-next-line no-alert
-    alert(`Booking ${id} cancellation requested.`);
   };
 
   const formatDate = (dateStr: string) => {
@@ -110,6 +104,14 @@ export default function BookingsPage() {
       year: 'numeric',
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-sm text-gray-500">Loading bookings...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -182,60 +184,26 @@ export default function BookingsPage() {
 
                   <div className="mt-2 space-y-1 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
-                      <svg
-                        className="h-4 w-4 shrink-0 text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
+                      <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span>
-                        {formatDate(booking.date)} at {booking.time}
-                      </span>
+                      <span>{formatDate(booking.date)} at {booking.time}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <svg
-                        className="h-4 w-4 shrink-0 text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
+                      <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                       <span>{booking.cleanerName}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="h-4 w-4 shrink-0 text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
-                      <span>{booking.address}</span>
-                    </div>
+                    {booking.address && (
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>{booking.address}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -247,10 +215,6 @@ export default function BookingsPage() {
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                  View Details
-                </button>
-
                 {isUpcoming(booking) && (
                   <>
                     {cancellingId === booking.id ? (
@@ -281,14 +245,9 @@ export default function BookingsPage() {
                 )}
 
                 {booking.status === 'Completed' && (
-                  <>
-                    <button className="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50">
-                      Rebook
-                    </button>
-                    <button className="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50">
-                      Leave Review
-                    </button>
-                  </>
+                  <button className="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50">
+                    Rebook
+                  </button>
                 )}
               </div>
             </div>

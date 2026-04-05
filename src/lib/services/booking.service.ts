@@ -1,173 +1,226 @@
-import type { Booking } from "@/lib/types";
+import { prisma } from '@/lib/db/prisma';
 
 // ─── Types ──────────────────────────────────────────────────
 
 export interface CreateBookingData {
+  clientId?: string;
   cleanerId: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  address: string;
+  addressId?: string;
   date: string;
   time: string;
   duration: number;
-  serviceType: Booking["serviceType"];
+  serviceType: string;
   notes: string;
   totalPrice: number;
-  isLastMinute: boolean;
+  platformFee: number;
+  cleanerEarnings: number;
 }
 
-export interface RescheduleData {
-  newDate: string;
-  newTime: string;
+export interface BookingResult {
+  id: string;
+  cleanerId: string;
+  customerName: string;
+  serviceType: string;
+  date: string;
+  time: string;
+  status: string;
+  totalPrice: number;
 }
-
-// ─── Mock Data ──────────────────────────────────────────────
-
-const mockBookings: Booking[] = [
-  {
-    id: "B-2001",
-    cleanerId: "CL-001",
-    customerName: "Emma Wilson",
-    customerEmail: "emma@email.com",
-    customerPhone: "07700900001",
-    address: "14 Baker St, London, W1U 3BW",
-    date: "2026-03-14",
-    time: "09:00",
-    duration: 2,
-    serviceType: "standard",
-    notes: "Please focus on kitchen and bathrooms",
-    status: "confirmed",
-    totalPrice: 65,
-    isLastMinute: false,
-    escrowStatus: "held",
-    isFirstBookingWithCleaner: false,
-  },
-  {
-    id: "B-2002",
-    cleanerId: "CL-002",
-    customerName: "James Taylor",
-    customerEmail: "james@email.com",
-    customerPhone: "07700900002",
-    address: "8 Canary Wharf, London, E14 5AB",
-    date: "2026-03-14",
-    time: "14:00",
-    duration: 4,
-    serviceType: "deep",
-    notes: "",
-    status: "in-progress",
-    totalPrice: 120,
-    isLastMinute: false,
-    escrowStatus: "held",
-    isFirstBookingWithCleaner: true,
-  },
-  {
-    id: "B-2003",
-    cleanerId: "CL-001",
-    customerName: "Olivia Brown",
-    customerEmail: "olivia@email.com",
-    customerPhone: "07700900003",
-    address: "22 Richmond Rd, London, TW9 2NA",
-    date: "2026-03-15",
-    time: "10:00",
-    duration: 5,
-    serviceType: "move-in-out",
-    notes: "End of tenancy clean. Landlord inspection on the 17th.",
-    status: "pending",
-    totalPrice: 180,
-    isLastMinute: false,
-    escrowStatus: "held",
-    isFirstBookingWithCleaner: false,
-  },
-];
 
 // ─── Service Functions ──────────────────────────────────────
 
-/**
- * Create a new booking.
- * TODO: Replace with actual API call to POST /api/bookings
- */
-export async function createBooking(data: CreateBookingData): Promise<Booking> {
-  // TODO: Validate data, check cleaner availability, create escrow hold
-  const newBooking: Booking = {
-    id: `B-${Date.now()}`,
-    ...data,
-    status: "pending",
-    escrowStatus: "held",
-    isFirstBookingWithCleaner: true, // TODO: Check actual history
+export async function createBooking(data: CreateBookingData): Promise<BookingResult> {
+  const booking = await prisma.booking.create({
+    data: {
+      clientId: data.clientId || null,
+      cleanerId: data.cleanerId,
+      guestName: data.clientId ? null : data.customerName,
+      guestEmail: data.clientId ? null : data.customerEmail,
+      guestPhone: data.clientId ? null : data.customerPhone,
+      addressId: data.addressId || null,
+      date: new Date(data.date),
+      startTime: data.time,
+      duration: data.duration,
+      serviceType: data.serviceType,
+      notes: data.notes || null,
+      totalPrice: data.totalPrice,
+      platformFee: data.platformFee,
+      cleanerEarnings: data.cleanerEarnings,
+      status: 'PENDING',
+    },
+  });
+
+  return {
+    id: booking.id,
+    cleanerId: booking.cleanerId,
+    customerName: data.customerName,
+    serviceType: booking.serviceType,
+    date: booking.date.toISOString().split('T')[0],
+    time: booking.startTime,
+    status: booking.status.toLowerCase(),
+    totalPrice: Number(booking.totalPrice),
   };
-  return newBooking;
 }
 
-/**
- * Get a single booking by ID.
- * TODO: Replace with actual API call to GET /api/bookings/:id
- */
-export async function getBookingById(id: string): Promise<Booking | null> {
-  // TODO: Fetch from database
-  return mockBookings.find((b) => b.id === id) || null;
+export async function getBookingById(id: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: {
+      client: { select: { name: true, email: true, phone: true } },
+      cleaner: { select: { name: true, email: true } },
+      address: true,
+      payment: true,
+    },
+  });
+
+  if (!booking) return null;
+
+  return {
+    id: booking.id,
+    cleanerId: booking.cleanerId,
+    customerName: booking.client?.name || booking.guestName || 'Guest',
+    customerEmail: booking.client?.email || booking.guestEmail || '',
+    serviceType: booking.serviceType,
+    date: booking.date.toISOString().split('T')[0],
+    time: booking.startTime,
+    duration: Number(booking.duration),
+    status: booking.status.toLowerCase(),
+    totalPrice: Number(booking.totalPrice),
+    cleanerEarnings: Number(booking.cleanerEarnings),
+    platformFee: Number(booking.platformFee),
+    notes: booking.notes,
+    cleanerName: booking.cleaner.name || 'Unassigned',
+    address: booking.address
+      ? `${booking.address.line1}, ${booking.address.city} ${booking.address.postcode}`
+      : '',
+    paymentStatus: booking.payment?.status || null,
+  };
 }
 
-/**
- * Get all bookings for a specific client (customer).
- * TODO: Replace with actual API call to GET /api/bookings?clientEmail=...
- */
-export async function getBookingsByClient(clientEmail: string): Promise<Booking[]> {
-  // TODO: Fetch from database with client filter
-  return mockBookings.filter((b) => b.customerEmail === clientEmail);
+export async function getBookingsByClient(clientId: string) {
+  const bookings = await prisma.booking.findMany({
+    where: { clientId },
+    include: {
+      cleaner: { select: { name: true } },
+      address: { select: { line1: true, postcode: true } },
+    },
+    orderBy: { date: 'desc' },
+  });
+
+  return bookings.map((b) => ({
+    id: b.id,
+    cleanerName: b.cleaner.name || 'Unassigned',
+    serviceType: b.serviceType,
+    date: b.date.toISOString().split('T')[0],
+    time: b.startTime,
+    status: b.status.toLowerCase(),
+    totalPrice: Number(b.totalPrice),
+    address: b.address ? `${b.address.line1}, ${b.address.postcode}` : '',
+  }));
 }
 
-/**
- * Get all bookings for a specific cleaner.
- * TODO: Replace with actual API call to GET /api/bookings?cleanerId=...
- */
-export async function getBookingsByCleaner(cleanerId: string): Promise<Booking[]> {
-  // TODO: Fetch from database with cleaner filter
-  return mockBookings.filter((b) => b.cleanerId === cleanerId);
+export async function getBookingsByCleaner(cleanerId: string) {
+  const bookings = await prisma.booking.findMany({
+    where: { cleanerId },
+    include: {
+      client: { select: { name: true } },
+      address: { select: { line1: true, postcode: true } },
+    },
+    orderBy: { date: 'desc' },
+  });
+
+  return bookings.map((b) => ({
+    id: b.id,
+    clientName: b.client?.name || b.guestName || 'Guest',
+    serviceType: b.serviceType,
+    date: b.date.toISOString().split('T')[0],
+    time: b.startTime,
+    status: b.status.toLowerCase(),
+    totalPrice: Number(b.totalPrice),
+    address: b.address ? `${b.address.line1}, ${b.address.postcode}` : '',
+  }));
 }
 
-/**
- * Update the status of a booking.
- * TODO: Replace with actual API call to PATCH /api/bookings/:id/status
- */
 export async function updateBookingStatus(
   id: string,
-  status: Booking["status"]
-): Promise<Booking | null> {
-  // TODO: Update in database, handle escrow status changes, send notifications
-  const booking = mockBookings.find((b) => b.id === id);
-  if (!booking) return null;
-  return { ...booking, status };
+  status: string
+) {
+  const statusMap: Record<string, string> = {
+    pending: 'PENDING',
+    confirmed: 'CONFIRMED',
+    accepted: 'ACCEPTED',
+    'in-progress': 'IN_PROGRESS',
+    completed: 'COMPLETED',
+    cancelled: 'CANCELLED',
+  };
+
+  const prismaStatus = statusMap[status.toLowerCase()] || status.toUpperCase();
+  const now = new Date();
+
+  const updateData: Record<string, unknown> = {
+    status: prismaStatus,
+  };
+
+  if (prismaStatus === 'ACCEPTED') updateData.acceptedAt = now;
+  if (prismaStatus === 'IN_PROGRESS') updateData.checkedInAt = now;
+  if (prismaStatus === 'COMPLETED') updateData.completedAt = now;
+  if (prismaStatus === 'CANCELLED') {
+    updateData.cancelledAt = now;
+  }
+
+  const booking = await prisma.booking.update({
+    where: { id },
+    data: updateData,
+  });
+
+  return {
+    id: booking.id,
+    status: booking.status.toLowerCase(),
+  };
 }
 
-/**
- * Cancel a booking with a reason.
- * TODO: Replace with actual API call to POST /api/bookings/:id/cancel
- */
 export async function cancelBooking(
   id: string,
   reason: string
 ): Promise<{ success: boolean; refundAmount?: number }> {
-  // TODO: Check cancellation policy, process refund if applicable, update escrow
-  const booking = mockBookings.find((b) => b.id === id);
+  const booking = await prisma.booking.findUnique({ where: { id } });
   if (!booking) return { success: false };
 
-  // TODO: Calculate refund based on cancellation timing
-  const refundAmount = booking.totalPrice;
-  return { success: true, refundAmount };
+  await prisma.booking.update({
+    where: { id },
+    data: {
+      status: 'CANCELLED',
+      cancelledAt: new Date(),
+      cancellationReason: reason,
+    },
+  });
+
+  return { success: true, refundAmount: Number(booking.totalPrice) };
 }
 
-/**
- * Reschedule a booking to a new date and time.
- * TODO: Replace with actual API call to POST /api/bookings/:id/reschedule
- */
 export async function rescheduleBooking(
   id: string,
   newDate: string,
   newTime: string
-): Promise<Booking | null> {
-  // TODO: Check cleaner availability for new slot, update booking, notify parties
-  const booking = mockBookings.find((b) => b.id === id);
+) {
+  const booking = await prisma.booking.findUnique({ where: { id } });
   if (!booking) return null;
-  return { ...booking, date: newDate, time: newTime };
+
+  const updated = await prisma.booking.update({
+    where: { id },
+    data: {
+      date: new Date(newDate),
+      startTime: newTime,
+    },
+  });
+
+  return {
+    id: updated.id,
+    date: updated.date.toISOString().split('T')[0],
+    time: updated.startTime,
+    status: updated.status.toLowerCase(),
+  };
 }

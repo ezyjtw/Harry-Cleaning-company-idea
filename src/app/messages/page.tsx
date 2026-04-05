@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -28,78 +28,6 @@ interface Conversation {
   updatedAt: string;
 }
 
-// ─── Mock Data ──────────────────────────────────────────────
-
-const currentUserId = 'user-1';
-const now = Date.now();
-
-const mockMessages: Record<string, Message[]> = {
-  'conv-1': [
-    { id: 'msg-1', conversationId: 'conv-1', senderId: 'user-1', content: 'Hi Sarah! I just booked a cleaning for next Tuesday. Is 10 AM still good?', read: true, createdAt: new Date(now - 3 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-2', conversationId: 'conv-1', senderId: 'cleaner-1', content: 'Hi! Yes, 10 AM works perfectly. I will be there on time.', read: true, createdAt: new Date(now - 2.5 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-3', conversationId: 'conv-1', senderId: 'user-1', content: 'Great! Should I leave the key under the mat or will you need me to be home?', read: true, createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-4', conversationId: 'conv-1', senderId: 'cleaner-1', content: 'Either works for me! If you leave the key, just let me know the exact spot. I will also bring my own cleaning products.', read: false, createdAt: new Date(now - 30 * 60 * 1000).toISOString() },
-  ],
-  'conv-2': [
-    { id: 'msg-5', conversationId: 'conv-2', senderId: 'cleaner-2', content: 'Hello! Thanks for booking. Do you have specific areas you would like me to focus on?', read: true, createdAt: new Date(now - 24 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-6', conversationId: 'conv-2', senderId: 'user-1', content: 'Yes! The kitchen and bathrooms need extra attention. The oven especially.', read: true, createdAt: new Date(now - 23 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-7', conversationId: 'conv-2', senderId: 'cleaner-2', content: 'No problem at all! I have professional-grade oven cleaner. See you Friday!', read: true, createdAt: new Date(now - 20 * 60 * 60 * 1000).toISOString() },
-  ],
-  'conv-3': [
-    { id: 'msg-8', conversationId: 'conv-3', senderId: 'user-1', content: 'Hi James, I need to reschedule from Wednesday to Thursday. Possible?', read: true, createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-9', conversationId: 'conv-3', senderId: 'cleaner-3', content: 'Thursday afternoon works. How about 2 PM?', read: true, createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString() },
-    { id: 'msg-10', conversationId: 'conv-3', senderId: 'user-1', content: 'Perfect, 2 PM Thursday it is. Thank you!', read: true, createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString() },
-  ],
-  'conv-4': [
-    { id: 'msg-11', conversationId: 'conv-4', senderId: 'cleaner-4', content: 'Good morning! I completed the end-of-tenancy clean. Photos are in the booking notes.', read: true, createdAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-12', conversationId: 'conv-4', senderId: 'user-1', content: 'The place looks amazing! Thank you so much. Payment released from escrow.', read: true, createdAt: new Date(now - 5 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString() },
-    { id: 'msg-13', conversationId: 'conv-4', senderId: 'cleaner-4', content: 'Thank you! It was a pleasure. Feel free to book me anytime!', read: true, createdAt: new Date(now - 4 * 24 * 60 * 60 * 1000).toISOString() },
-  ],
-};
-
-const mockConversations: Conversation[] = [
-  {
-    id: 'conv-1',
-    participants: [
-      { id: 'user-1', name: 'You', avatar: '', role: 'customer' },
-      { id: 'cleaner-1', name: 'Sarah M.', avatar: '', role: 'cleaner' },
-    ],
-    lastMessage: mockMessages['conv-1'][3],
-    unreadCount: 1,
-    updatedAt: new Date(now - 30 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'conv-2',
-    participants: [
-      { id: 'user-1', name: 'You', avatar: '', role: 'customer' },
-      { id: 'cleaner-2', name: 'Emma L.', avatar: '', role: 'cleaner' },
-    ],
-    lastMessage: mockMessages['conv-2'][2],
-    unreadCount: 0,
-    updatedAt: new Date(now - 20 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'conv-3',
-    participants: [
-      { id: 'user-1', name: 'You', avatar: '', role: 'customer' },
-      { id: 'cleaner-3', name: 'James T.', avatar: '', role: 'cleaner' },
-    ],
-    lastMessage: mockMessages['conv-3'][2],
-    unreadCount: 0,
-    updatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'conv-4',
-    participants: [
-      { id: 'user-1', name: 'You', avatar: '', role: 'customer' },
-      { id: 'cleaner-4', name: 'Maria G.', avatar: '', role: 'cleaner' },
-    ],
-    lastMessage: mockMessages['conv-4'][2],
-    unreadCount: 0,
-    updatedAt: new Date(now - 4 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
 // ─── Helpers ────────────────────────────────────────────────
 
 function timeAgo(dateString: string): string {
@@ -118,10 +46,6 @@ function formatTime(dateString: string): string {
   return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function getOtherParticipant(conversation: Conversation): Participant {
-  return conversation.participants.find((p) => p.id !== currentUserId) || conversation.participants[0];
-}
-
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -133,31 +57,98 @@ function getInitials(name: string): string {
 // ─── Component ──────────────────────────────────────────────
 
 export default function MessagesPage() {
-  const [conversations] = useState<Conversation[]>(mockConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
-  const [allMessages, setAllMessages] = useState<Record<string, Message[]>>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user session
+  useEffect(() => {
+    fetch('/api/auth/profile')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.id) setCurrentUserId(data.id);
+        else if (data?.user?.id) setCurrentUserId(data.user.id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch conversations
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/messages')
+      .then((res) => (res.ok ? res.json() : { conversations: [] }))
+      .then((data) => {
+        setConversations(data.conversations || []);
+      })
+      .catch(() => {
+        setConversations([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Fetch messages for active conversation
+  const loadMessages = useCallback(async (partnerId: string) => {
+    try {
+      const res = await fetch(`/api/messages/${partnerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+      }
+    } catch {
+      setMessages([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      loadMessages(activeConversationId);
+    }
+  }, [activeConversationId, loadMessages]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
-  const activeMessages = activeConversationId ? allMessages[activeConversationId] || [] : [];
 
-  function handleSendMessage() {
-    if (!messageInput.trim() || !activeConversationId) return;
+  function getOtherParticipant(conversation: Conversation): Participant {
+    return (
+      conversation.participants.find((p) => p.id !== currentUserId) ||
+      conversation.participants[1] ||
+      conversation.participants[0]
+    );
+  }
 
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      conversationId: activeConversationId,
-      senderId: currentUserId,
-      content: messageInput.trim(),
-      read: false,
-      createdAt: new Date().toISOString(),
-    };
+  async function handleSendMessage() {
+    if (!messageInput.trim() || !activeConversationId || sending) return;
 
-    setAllMessages((prev) => ({
-      ...prev,
-      [activeConversationId]: [...(prev[activeConversationId] || []), newMessage],
-    }));
-    setMessageInput('');
+    setSending(true);
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiverId: activeConversationId,
+          content: messageInput.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMessages((prev) => [...prev, data.message]);
+        setMessageInput('');
+        // Refresh conversation list to update last message
+        const convRes = await fetch('/api/messages');
+        if (convRes.ok) {
+          const convData = await convRes.json();
+          setConversations(convData.conversations || []);
+        }
+      }
+    } catch {
+      // Silently fail - user can retry
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -169,6 +160,17 @@ export default function MessagesPage() {
 
   function handleBackToList() {
     setActiveConversationId(null);
+    setMessages([]);
+  }
+
+  // ─── Loading State ──────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-sm text-gray-500">Loading messages...</div>
+      </div>
+    );
   }
 
   // ─── Empty State ────────────────────────────────────────
@@ -296,7 +298,7 @@ export default function MessagesPage() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <div className="space-y-4">
-                {activeMessages.map((message) => {
+                {messages.map((message) => {
                   const isOwn = message.senderId === currentUserId;
 
                   return (
@@ -339,7 +341,7 @@ export default function MessagesPage() {
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={!messageInput.trim()}
+                  disabled={!messageInput.trim() || sending}
                   className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send message"
                 >
