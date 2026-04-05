@@ -1,0 +1,57 @@
+import { NextResponse } from 'next/server';
+
+import { registerUser } from '@/lib/services/auth.service';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+
+const MAX_SIGNUP_ATTEMPTS = 3;
+const SIGNUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+export async function POST(request: Request) {
+  try {
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit(`signup:${ip}`, MAX_SIGNUP_ATTEMPTS, SIGNUP_WINDOW_MS);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many signup attempts. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
+          },
+        }
+      );
+    }
+    const body = await request.json();
+    const { email, password, name, phone, role } = body;
+
+    if (!email || !password || !name) {
+      return NextResponse.json(
+        { error: 'Email, password, and name are required.' },
+        { status: 400 }
+      );
+    }
+
+    const validRoles = ['CLIENT', 'CLEANER'] as const;
+    const userRole = validRoles.includes(role) ? role : 'CLIENT';
+
+    const result = await registerUser({
+      email,
+      password,
+      name,
+      phone: phone || '',
+      role: userRole,
+    });
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.message }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      { user: result.user, message: result.message },
+      { status: 201 }
+    );
+  } catch {
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+  }
+}

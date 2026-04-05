@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { getCleanerById } from '@/lib/mock-data';
+import prisma from '@/lib/db/prisma';
+import { getSessionUser } from '@/lib/auth/session';
 import {
   sendBookingConfirmation,
   sendCleanerAssignment,
@@ -9,117 +10,180 @@ import {
 } from '@/lib/services/email.service';
 import { createPaymentSession } from '@/lib/services/ryft-payment.service';
 
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-
-  // Validate required fields
-  const required = [
-    'cleanerId',
-    'name',
-    'email',
-    'phone',
-    'address',
-    'date',
-    'time',
-    'duration',
-    'serviceType',
-  ];
-  for (const field of required) {
-    if (!body[field]) {
-      return NextResponse.json({ error: `${field} is required` }, { status: 400 });
-    }
-  }
-
-  // Verify cleaner exists
-  const cleaner = getCleanerById(body.cleanerId);
-  if (!cleaner) {
-    return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
-  }
-
-  // TODO: In production, save to database via Prisma
-  const bookingId = `BK-${Date.now()}`;
-  const guestToken = crypto.randomUUID();
-  const totalPrice = body.totalPrice || 0;
-
-  const booking = {
-    id: bookingId,
-    cleanerId: body.cleanerId,
-    customerName: body.name,
-    customerEmail: body.email,
-    customerPhone: body.phone,
-    address: body.address,
-    date: body.date,
-    time: body.time,
-    duration: body.duration,
-    serviceType: body.serviceType,
-    notes: body.notes || '',
-    status: 'pending_payment',
-    totalPrice,
-    guestToken,
-    createdAt: new Date().toISOString(),
-  };
-
-  // Create Ryft payment session
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  let paymentSession = null;
-
+export async function GET(request: NextRequest) {
   try {
-    paymentSession = await createPaymentSession({
-      amount: totalPrice,
-      bookingId,
-      customerEmail: body.email,
-      customerName: body.name,
-      description: `${body.serviceType} cleaning - ${body.date}`,
-      returnUrl: `${appUrl}/booking/confirmation?bookingId=${bookingId}&token=${guestToken}`,
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const pageSize = 10;
+
+    const where: Record<string, unknown> = {};
+
+    if (user.role === 'CLEANER') {
+      where.cleanerId = user.id;
+    } else {
+      where.clientId = user.id;
+    }
+
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        include: {
+          address: true,
+          cleaner: { select: { id: true, name: true, image: true } },
+          client: { select: { id: true, name: true, image: true } },
+          review: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.booking.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      data: bookings,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
     });
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Payment session creation failed:', error);
-    // Continue without payment in dev mode
+  } catch {
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
+}
 
-  // Send confirmation emails
-  const bookingEmailData = {
-    id: bookingId,
-    customerName: body.name,
-    cleanerName: cleaner.name,
-    date: body.date,
-    time: body.time,
-    address: body.address,
-    serviceType: body.serviceType,
-    totalPrice,
-  };
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
 
-  // Send customer confirmation (or guest confirmation with manage link)
-  if (body.isGuest) {
-    await sendGuestBookingConfirmation(bookingEmailData, body.email, body.name, guestToken).catch(
-      () => {}
-    );
-  } else {
-    await sendBookingConfirmation(bookingEmailData, {
-      name: body.name,
-      email: body.email,
+    // Validate required fields
+    const required = ['cleanerId', 'name', 'email', 'phone', 'date', 'time', 'duration', 'serviceType'];
+    for (const field of required) {
+      if (!body[field]) {
+        return NextResponse.json({ error: `${field} is required` }, { status: 400 });
+      }
+    }
+
+    // Verify cleaner exists in database
+    const cleaner = await prisma.user.findFirst({
+      where: { id: body.cleanerId, role: 'CLEANER' },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!cleaner) {
+      return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
+    }
+
+    const totalPrice = body.totalPrice || 0;
+    const platformFee = totalPrice * 0.06;
+    const cleanerEarnings = (totalPrice - platformFee) * 0.9;
+
+    // Get or create address
+    let addressId: string | null = null;
+    if (body.addressId) {
+      addressId = body.addressId;
+    }
+
+    // Check for authenticated user
+    const sessionUser = await getSessionUser();
+
+    const booking = await prisma.booking.create({
+      data: {
+        clientId: sessionUser?.id || null,
+        cleanerId: body.cleanerId,
+        addressId,
+        guestEmail: !sessionUser ? body.email : null,
+        guestName: !sessionUser ? body.name : null,
+        guestPhone: !sessionUser ? body.phone : null,
+        guestToken: !sessionUser ? crypto.randomUUID() : null,
+        serviceType: body.serviceType,
+        date: new Date(body.date),
+        startTime: body.time,
+        duration: body.duration,
+        rooms: body.rooms || null,
+        extras: body.extras || [],
+        frequency: body.frequency || 'one-off',
+        totalPrice,
+        platformFee,
+        cleanerEarnings,
+        notes: body.notes || null,
+      },
+    });
+
+    // Create Ryft payment session
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    let paymentSession = null;
+
+    try {
+      paymentSession = await createPaymentSession({
+        amount: totalPrice,
+        bookingId: booking.id,
+        customerEmail: body.email,
+        customerName: body.name,
+        description: `${body.serviceType} cleaning - ${body.date}`,
+        returnUrl: `${appUrl}/booking/confirmation?bookingId=${booking.id}&token=${booking.guestToken || ''}`,
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Payment session creation failed:', error);
+    }
+
+    // Send confirmation emails
+    const bookingEmailData = {
+      id: booking.id,
+      customerName: body.name,
+      cleanerName: cleaner.name || 'Your cleaner',
+      date: body.date,
+      time: body.time,
+      address: body.address || '',
+      serviceType: body.serviceType,
+      totalPrice,
+    };
+
+    if (!sessionUser) {
+      await sendGuestBookingConfirmation(
+        bookingEmailData,
+        body.email,
+        body.name,
+        booking.guestToken || ''
+      ).catch(() => {});
+    } else {
+      await sendBookingConfirmation(bookingEmailData, {
+        name: body.name,
+        email: body.email,
+      }).catch(() => {});
+    }
+
+    await sendCleanerAssignment(bookingEmailData, {
+      name: cleaner.name || '',
+      email: cleaner.email,
     }).catch(() => {});
+
+    return NextResponse.json(
+      {
+        message: 'Booking created successfully',
+        booking,
+        payment: paymentSession
+          ? {
+              sessionId: paymentSession.id,
+              clientSecret: paymentSession.clientSecret,
+              status: paymentSession.status,
+            }
+          : null,
+      },
+      { status: 201 }
+    );
+  } catch {
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
-
-  // Send cleaner notification
-  await sendCleanerAssignment(bookingEmailData, {
-    name: cleaner.name,
-    email: `${cleaner.id}@cleaners.rena.com`, // TODO: Use real cleaner email from database
-  }).catch(() => {});
-
-  return NextResponse.json(
-    {
-      message: 'Booking created successfully',
-      booking,
-      payment: paymentSession
-        ? {
-            sessionId: paymentSession.id,
-            clientSecret: paymentSession.clientSecret,
-            status: paymentSession.status,
-          }
-        : null,
-    },
-    { status: 201 }
-  );
 }

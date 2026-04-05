@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 
 import prisma from '@/lib/db/prisma';
 
@@ -102,8 +103,7 @@ export async function POST(request: NextRequest) {
         name: body.name.trim(),
         phone: body.phone.trim(),
         role: 'CLEANER',
-        // TODO: Hash password with bcrypt when signup includes password creation
-        passwordHash: body.password || null,
+        passwordHash: body.password ? await bcrypt.hash(body.password, 12) : null,
         image: body.profilePhoto || null,
       },
     });

@@ -1,179 +1,340 @@
-// Auth service layer - stub implementations with mock data
-// TODO: Replace all stubs with real database/API calls
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+
+import prisma from '@/lib/db/prisma';
+
+const SALT_ROUNDS = 12;
+const RESET_TOKEN_EXPIRY_HOURS = 1;
+const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
 
 export interface RegisterUserInput {
-  email: string
-  password: string
-  name: string
-  phone: string
-  role: 'CLIENT' | 'CLEANER'
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  role: 'CLIENT' | 'CLEANER';
 }
 
 export interface AuthUser {
-  id: string
-  email: string
-  name: string
-  phone: string
-  role: 'CLIENT' | 'CLEANER' | 'ADMIN'
-  createdAt: string
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  role: 'CLIENT' | 'CLEANER' | 'ADMIN';
+  createdAt: string;
 }
 
 export interface AuthResult {
-  success: boolean
-  message: string
-  user?: AuthUser
+  success: boolean;
+  message: string;
+  user?: AuthUser;
 }
 
 /**
  * Register a new user account.
- * TODO: Implement with real database insertion and password hashing
  */
 export async function registerUser(input: RegisterUserInput): Promise<AuthResult> {
-  // TODO: Hash password with bcrypt
-  // TODO: Check for existing user with same email
-  // TODO: Insert into database
-  // TODO: Send verification email
+  const email = input.email.toLowerCase().trim();
 
-  await new Promise(resolve => setTimeout(resolve, 500))
+  // Check for existing user
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return { success: false, message: 'An account with this email already exists.' };
+  }
+
+  // Validate password strength
+  if (input.password.length < 8) {
+    return { success: false, message: 'Password must be at least 8 characters.' };
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      name: input.name,
+      phone: input.phone,
+      role: input.role,
+    },
+  });
+
+  // Create verification token
+  const token = crypto.randomBytes(32).toString('hex');
+  await prisma.verificationToken.create({
+    data: {
+      identifier: email,
+      token,
+      expires: new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
+    },
+  });
+
+  // If the user is a cleaner, create their cleaner profile
+  if (input.role === 'CLEANER') {
+    await prisma.cleanerProfile.create({
+      data: { userId: user.id },
+    });
+  }
+
+  // TODO: Send verification email with token via email.service.ts
+  // await sendVerificationEmail(email, input.name, token);
 
   return {
     success: true,
     message: 'Account created successfully. Please check your email to verify your account.',
     user: {
-      id: 'new-user-id',
-      email: input.email,
-      name: input.name,
-      phone: input.phone,
-      role: input.role,
-      createdAt: new Date().toISOString(),
+      id: user.id,
+      email: user.email,
+      name: user.name || '',
+      phone: user.phone || '',
+      role: user.role,
+      createdAt: user.createdAt.toISOString(),
     },
-  }
+  };
 }
 
 /**
  * Authenticate a user with email and password.
- * TODO: Implement with real database lookup and password comparison
  */
 export async function loginUser(email: string, password: string): Promise<AuthResult> {
-  // TODO: Look up user by email in database
-  // TODO: Compare hashed passwords
-  // TODO: Update last login timestamp
+  const normalizedEmail = email.toLowerCase().trim();
 
-  await new Promise(resolve => setTimeout(resolve, 500))
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      passwordHash: true,
+      accountStatus: true,
+      isSuspended: true,
+      failedLoginCount: true,
+      lockedUntil: true,
+      createdAt: true,
+    },
+  });
 
-  if (email === 'client@rena.com' && password === 'password123') {
-    return {
-      success: true,
-      message: 'Login successful.',
-      user: {
-        id: '1',
-        email: 'client@rena.com',
-        name: 'Sarah Johnson',
-        phone: '+44 7700 900000',
-        role: 'CLIENT',
-        createdAt: '2024-01-15T10:00:00Z',
-      },
-    }
+  if (!user || !user.passwordHash) {
+    return { success: false, message: 'Invalid email or password.' };
   }
+
+  if (user.accountStatus !== 'ACTIVE' || user.isSuspended) {
+    return { success: false, message: 'This account has been suspended or deactivated.' };
+  }
+
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    return { success: false, message: 'Account is temporarily locked. Please try again later.' };
+  }
+
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+
+  if (!isValid) {
+    const newCount = user.failedLoginCount + 1;
+    const updateData: Record<string, unknown> = { failedLoginCount: newCount };
+    if (newCount >= 5) {
+      updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+    }
+    await prisma.user.update({ where: { id: user.id }, data: updateData });
+    return { success: false, message: 'Invalid email or password.' };
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null },
+  });
 
   return {
-    success: false,
-    message: 'Invalid email or password.',
-  }
+    success: true,
+    message: 'Login successful.',
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name || '',
+      phone: user.phone || '',
+      role: user.role,
+      createdAt: user.createdAt.toISOString(),
+    },
+  };
 }
 
 /**
  * Send a password reset email.
- * TODO: Implement with real token generation and email sending
  */
-export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
-  // TODO: Look up user by email
-  // TODO: Generate secure reset token with expiry
-  // TODO: Store token in database
-  // TODO: Send email with reset link
+export async function requestPasswordReset(
+  email: string
+): Promise<{ success: boolean; message: string }> {
+  const normalizedEmail = email.toLowerCase().trim();
 
-  await new Promise(resolve => setTimeout(resolve, 500))
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
-  return {
-    success: true,
-    message: 'If an account exists for this email, a password reset link has been sent.',
+  // Always return success to avoid email enumeration
+  const successMessage =
+    'If an account exists for this email, a password reset link has been sent.';
+
+  if (!user) {
+    return { success: true, message: successMessage };
   }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  await prisma.verificationToken.create({
+    data: {
+      identifier: `reset:${normalizedEmail}`,
+      token,
+      expires: new Date(Date.now() + RESET_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
+    },
+  });
+
+  // TODO: Send password reset email via email.service.ts
+  // await sendPasswordResetEmail(normalizedEmail, user.name, token);
+
+  return { success: true, message: successMessage };
 }
 
 /**
  * Reset password using a valid token.
- * TODO: Implement with real token validation and password update
  */
-export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
-  // TODO: Validate token exists and hasn't expired
-  // TODO: Hash new password
-  // TODO: Update user's password in database
-  // TODO: Invalidate the reset token
-  // TODO: Optionally invalidate all existing sessions
-
-  await new Promise(resolve => setTimeout(resolve, 500))
-
-  return {
-    success: true,
-    message: 'Your password has been reset successfully.',
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  if (newPassword.length < 8) {
+    return { success: false, message: 'Password must be at least 8 characters.' };
   }
+
+  const record = await prisma.verificationToken.findUnique({ where: { token } });
+
+  if (!record || record.expires < new Date() || !record.identifier.startsWith('reset:')) {
+    return { success: false, message: 'Invalid or expired reset token.' };
+  }
+
+  const email = record.identifier.replace('reset:', '');
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  await prisma.user.update({
+    where: { email },
+    data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+  });
+
+  // Delete the used token
+  await prisma.verificationToken.delete({
+    where: { token },
+  });
+
+  return { success: true, message: 'Your password has been reset successfully.' };
 }
 
 /**
  * Verify a user's email address.
- * TODO: Implement with real token validation
  */
-export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
-  // TODO: Look up verification token
-  // TODO: Mark user's email as verified
-  // TODO: Invalidate the token
+export async function verifyEmail(
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  const record = await prisma.verificationToken.findUnique({ where: { token } });
 
-  await new Promise(resolve => setTimeout(resolve, 500))
-
-  return {
-    success: true,
-    message: 'Your email has been verified successfully.',
+  if (!record || record.expires < new Date()) {
+    return { success: false, message: 'Invalid or expired verification token.' };
   }
+
+  // identifier is the email for verification tokens (not prefixed with "reset:")
+  if (record.identifier.startsWith('reset:')) {
+    return { success: false, message: 'Invalid verification token.' };
+  }
+
+  await prisma.user.update({
+    where: { email: record.identifier },
+    data: { emailVerified: new Date(), emailVerifiedAt: new Date() },
+  });
+
+  await prisma.verificationToken.delete({ where: { token } });
+
+  return { success: true, message: 'Your email has been verified successfully.' };
 }
 
 /**
  * Change an authenticated user's password.
- * TODO: Implement with real password verification and update
  */
 export async function changePassword(
   userId: string,
   currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
-  // TODO: Verify current password matches
-  // TODO: Validate new password meets requirements
-  // TODO: Hash new password
-  // TODO: Update in database
-
-  await new Promise(resolve => setTimeout(resolve, 500))
-
-  return {
-    success: true,
-    message: 'Your password has been changed successfully.',
+  if (newPassword.length < 8) {
+    return { success: false, message: 'New password must be at least 8 characters.' };
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+
+  if (!user || !user.passwordHash) {
+    return { success: false, message: 'User not found.' };
+  }
+
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isValid) {
+    return { success: false, message: 'Current password is incorrect.' };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+  return { success: true, message: 'Your password has been changed successfully.' };
 }
 
 /**
- * Delete a user's account.
- * TODO: Implement with real account deletion or soft-delete
+ * Delete a user's account (soft-delete with GDPR compliance).
  */
-export async function deleteAccount(userId: string): Promise<{ success: boolean; message: string }> {
-  // TODO: Verify user exists
-  // TODO: Cancel any active bookings
-  // TODO: Handle pending payments
-  // TODO: Soft-delete or anonymize user data (GDPR compliance)
-  // TODO: Invalidate all sessions
-  // TODO: Send confirmation email
+export async function deleteAccount(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true },
+  });
 
-  await new Promise(resolve => setTimeout(resolve, 500))
-
-  return {
-    success: true,
-    message: 'Your account has been deleted.',
+  if (!user) {
+    return { success: false, message: 'User not found.' };
   }
+
+  // Cancel any active/pending bookings
+  await prisma.booking.updateMany({
+    where: {
+      clientId: userId,
+      status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+    },
+    data: {
+      status: 'CANCELLED',
+      cancelledAt: new Date(),
+      cancellationReason: 'Account deleted by user',
+    },
+  });
+
+  // Soft-delete: mark as deleted, anonymise PII
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      accountStatus: 'DEACTIVATED',
+      name: '[deleted]',
+      phone: null,
+      email: `deleted_${userId}@deleted.rena.com`,
+      passwordHash: null,
+    },
+  });
+
+  // Log the deletion for GDPR audit
+  await prisma.dataRetentionLog.create({
+    data: {
+      entityType: 'User',
+      entityId: userId,
+      action: 'ANONYMISED',
+      reason: 'user_request',
+    },
+  });
+
+  return { success: true, message: 'Your account has been deleted.' };
 }
