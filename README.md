@@ -12,6 +12,7 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - **Payments:** Ryft (escrow-based)
 - **Email:** Resend
 - **AI/NLP:** Groq LLM API, custom intent parser with entity extraction
+- **Mobile:** React Native 0.76 + Expo 52 (monorepo with two apps)
 - **Caching:** In-memory cache with TTL (Redis-ready interface)
 - **Job Processing:** Background job queue with retry and backoff
 - **Logging:** Structured JSON logger with request correlation
@@ -19,21 +20,23 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - **Testing:** Jest 29.7, React Testing Library 15
 - **Deployment:** Railway with Nixpacks
 
-## Project Structure
+## Monorepo Structure
+
+This project uses npm workspaces to share code across a web app, two mobile apps, and a shared utilities package.
 
 ```
-├── src/                          # Next.js web application
+├── src/                          # Main Next.js web application
+├── apps/
+│   ├── customer-app/             # React Native/Expo customer mobile app
+│   └── cleaner-app/              # React Native/Expo cleaner mobile app
+├── packages/
+│   └── shared/                   # Shared TypeScript utilities, types, and Zod schemas
 ├── prisma/                       # Database schema, migrations, and seeds
 ├── public/                       # Static assets and PWA icons
 ├── docs/                         # Documentation
 ├── scripts/                      # Build scripts
 └── .github/workflows/            # CI/CD
 ```
-
-## Related Repositories
-
-- [Rena-Cleaning-app](https://github.com/ezyjtw/Rena-Cleaning-app) - React Native/Expo customer mobile app
-- [Rena-Cleaner-app](https://github.com/ezyjtw/Rena-Cleaner-app) - React Native/Expo cleaner mobile app
 
 ## Features
 
@@ -85,6 +88,11 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - Complaint management with severity classification
 - Structured logging and error monitoring
 
+### Mobile Apps
+
+- **Customer App:** Tabs-based navigation, real-time booking updates, chat/messaging, push notifications, authentication flow
+- **Cleaner App:** Job management, availability scheduling, earnings dashboard, review management, onboarding flow
+
 ## Getting Started
 
 ### Prerequisites
@@ -100,7 +108,7 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 git clone https://github.com/your-org/rena-cleaning-marketplace.git
 cd rena-cleaning-marketplace
 
-# Install dependencies
+# Install dependencies (includes all workspace packages)
 npm install
 ```
 
@@ -278,6 +286,19 @@ src/
 ├── __tests__/                    # Test suites (api, components, lib)
 │
 └── middleware.ts                 # Next.js middleware (auth, validation)
+```
+
+### Mobile Apps
+
+```
+apps/
+├── customer-app/                 # React Native + Expo 52 customer app
+│   └── app/                      # Expo Router (tabs: booking, cleaners, messages, etc.)
+└── cleaner-app/                  # React Native + Expo 52 cleaner app
+    └── app/                      # Expo Router (tabs: jobs, availability, earnings, etc.)
+
+packages/
+└── shared/                       # Shared TypeScript utilities, Zod schemas, constants
 ```
 
 ## Available Scripts
