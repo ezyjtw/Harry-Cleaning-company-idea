@@ -12,7 +12,6 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - **Payments:** Ryft (escrow-based)
 - **Email:** Resend
 - **AI/NLP:** Groq LLM API, custom intent parser with entity extraction
-- **Mobile:** React Native 0.76 + Expo 52 (monorepo with two apps)
 - **Caching:** In-memory cache with TTL (Redis-ready interface)
 - **Job Processing:** Background job queue with retry and backoff
 - **Logging:** Structured JSON logger with request correlation
@@ -20,21 +19,13 @@ A modern cleaning marketplace built with Next.js 14 that connects customers with
 - **Testing:** Jest 29.7, React Testing Library 15
 - **Deployment:** Railway with Nixpacks
 
-## Monorepo Structure
-
-This project uses npm workspaces to share code across a web app, two mobile apps, and a shared utilities package.
+## Project Structure
 
 ```
 ├── src/                          # Main Next.js web application
-├── apps/
-│   ├── customer-app/             # React Native/Expo customer mobile app
-│   └── cleaner-app/              # React Native/Expo cleaner mobile app
-├── packages/
-│   └── shared/                   # Shared TypeScript utilities, types, and Zod schemas
 ├── prisma/                       # Database schema, migrations, and seeds
 ├── public/                       # Static assets and PWA icons
 ├── docs/                         # Documentation
-├── scripts/                      # Build scripts
 └── .github/workflows/            # CI/CD
 ```
 
@@ -88,11 +79,6 @@ This project uses npm workspaces to share code across a web app, two mobile apps
 - Complaint management with severity classification
 - Structured logging and error monitoring
 
-### Mobile Apps
-
-- **Customer App:** Tabs-based navigation, real-time booking updates, chat/messaging, push notifications, authentication flow
-- **Cleaner App:** Job management, availability scheduling, earnings dashboard, review management, onboarding flow
-
 ## Getting Started
 
 ### Prerequisites
@@ -108,7 +94,7 @@ This project uses npm workspaces to share code across a web app, two mobile apps
 git clone https://github.com/your-org/rena-cleaning-marketplace.git
 cd rena-cleaning-marketplace
 
-# Install dependencies (includes all workspace packages)
+# Install dependencies
 npm install
 ```
 
@@ -288,89 +274,76 @@ src/
 └── middleware.ts                 # Next.js middleware (auth, validation)
 ```
 
-### Mobile Apps
-
-```
-apps/
-├── customer-app/                 # React Native + Expo 52 customer app
-│   └── app/                      # Expo Router (tabs: booking, cleaners, messages, etc.)
-└── cleaner-app/                  # React Native + Expo 52 cleaner app
-    └── app/                      # Expo Router (tabs: jobs, availability, earnings, etc.)
-
-packages/
-└── shared/                       # Shared TypeScript utilities, Zod schemas, constants
-```
-
 ## Available Scripts
 
-| Command                  | Description                              |
-| ------------------------ | ---------------------------------------- |
-| `npm run dev`            | Start development server with hot reload |
-| `npm run build`          | Build for production                     |
-| `npm run start`          | Start production server                  |
-| `npm run lint`           | Run ESLint                               |
-| `npm run lint:fix`       | Run ESLint with auto-fix                 |
-| `npm run format`         | Run Prettier formatting                  |
-| `npm run typecheck`      | Run TypeScript type checking             |
-| `npm run test`           | Run test suite                           |
-| `npm run test:coverage`  | Run tests with coverage report           |
-| `npm run test:watch`     | Run tests in watch mode                  |
-| `npm run prepare`        | Install Husky pre-commit hooks           |
-| `npm run db:generate`    | Regenerate Prisma client                 |
-| `npm run db:migrate`     | Run database migrations                  |
-| `npm run db:push`        | Push schema changes to database          |
-| `npm run db:seed`        | Seed database with sample data           |
+| Command                 | Description                              |
+| ----------------------- | ---------------------------------------- |
+| `npm run dev`           | Start development server with hot reload |
+| `npm run build`         | Build for production                     |
+| `npm run start`         | Start production server                  |
+| `npm run lint`          | Run ESLint                               |
+| `npm run lint:fix`      | Run ESLint with auto-fix                 |
+| `npm run format`        | Run Prettier formatting                  |
+| `npm run typecheck`     | Run TypeScript type checking             |
+| `npm run test`          | Run test suite                           |
+| `npm run test:coverage` | Run tests with coverage report           |
+| `npm run test:watch`    | Run tests in watch mode                  |
+| `npm run prepare`       | Install Husky pre-commit hooks           |
+| `npm run db:generate`   | Regenerate Prisma client                 |
+| `npm run db:migrate`    | Run database migrations                  |
+| `npm run db:push`       | Push schema changes to database          |
+| `npm run db:seed`       | Seed database with sample data           |
 | `npx prisma studio`     | Open Prisma database GUI                 |
 
 ## API Endpoints
 
-| Method    | Endpoint                                | Description                                     |
-| --------- | --------------------------------------- | ----------------------------------------------- |
-| `GET`     | `/api/health`                           | Health check                                    |
-| `*`       | `/api/auth/[...nextauth]`               | NextAuth authentication                         |
-| **Bookings** | | |
-| `GET/POST`| `/api/bookings`                         | List/create bookings                            |
-| `PATCH`   | `/api/bookings/[id]/status`             | Transition booking status                       |
-| `POST`    | `/api/bookings/[id]/cancel`             | Cancel a booking                                |
-| `POST`    | `/api/estimate`                         | Get price estimate                              |
-| `POST`    | `/api/pricing/calculate`                | Full price calculation with surge and discounts  |
-| `GET`     | `/api/pricing/surge`                    | Get current surge pricing info                  |
-| **Cleaners** | | |
-| `GET`     | `/api/cleaners`                         | List/search cleaners                            |
-| `POST`    | `/api/cleaners`                         | Register a new cleaner                          |
-| `GET`     | `/api/cleaners/[id]`                    | Get cleaner by ID                               |
-| `GET/PUT` | `/api/cleaner/availability`             | Get/update cleaner availability                 |
-| `GET`     | `/api/cleaner/jobs`                     | Cleaner's job list                              |
-| `GET`     | `/api/cleaner/dashboard`                | Job stats and earnings                          |
-| `GET`     | `/api/cleaner/earnings`                 | Earnings breakdown                              |
-| `GET`     | `/api/cleaner/profile`                  | Profile management                              |
-| `GET`     | `/api/cleaner/reviews`                  | Received reviews                                |
-| **Matching** | | |
-| `POST`    | `/api/matching/find`                    | Find matching cleaners                          |
-| `POST`    | `/api/matching/auto-assign`             | Auto-assign best cleaner                        |
-| **Messaging** | | |
-| `GET`     | `/api/messages/conversations`           | List conversations                              |
-| `POST`    | `/api/messages/conversations/[id]/send` | Send a message                                  |
-| **AI** | | |
-| `POST`    | `/api/ai/customer-assistant`            | AI customer assistant                           |
-| `POST`    | `/api/ai/cleaner-assistant`             | AI cleaner assistant                            |
-| `POST`    | `/api/ai/schedule/optimize`             | AI schedule optimisation                        |
-| **Admin** | | |
-| `POST`    | `/api/admin/bookings/[id]/assign`       | Assign cleaner to booking                       |
-| `POST`    | `/api/admin/bookings/[id]/reassign`     | Reassign cleaner                                |
-| `POST`    | `/api/admin/pricing/config`             | Update pricing configuration                    |
-| `POST`    | `/api/admin/compliance`                 | Compliance monitoring                           |
-| `POST`    | `/api/admin/rtw`                        | Right-to-work management                        |
-| `POST`    | `/api/admin/documents`                  | Document management                             |
-| **Other** | | |
-| `GET`     | `/api/analytics/overview`               | Platform analytics overview                     |
-| `POST`    | `/api/verification/dbs`                 | DBS background check verification               |
-| `POST`    | `/api/payments/webhook`                 | Ryft payment webhook                            |
-| `POST`    | `/api/complaints`                       | File a complaint                                |
-| `POST`    | `/api/gdpr/*`                           | GDPR data requests                              |
-| `POST`    | `/api/companies`                        | Company management                              |
-| `POST`    | `/api/contact`                          | Contact form                                    |
-| `POST`    | `/api/waitlist`                         | Join waitlist                                   |
+| Method        | Endpoint                                | Description                                     |
+| ------------- | --------------------------------------- | ----------------------------------------------- |
+| `GET`         | `/api/health`                           | Health check                                    |
+| `*`           | `/api/auth/[...nextauth]`               | NextAuth authentication                         |
+| **Bookings**  |                                         |                                                 |
+| `GET/POST`    | `/api/bookings`                         | List/create bookings                            |
+| `PATCH`       | `/api/bookings/[id]/status`             | Transition booking status                       |
+| `POST`        | `/api/bookings/[id]/cancel`             | Cancel a booking                                |
+| `POST`        | `/api/estimate`                         | Get price estimate                              |
+| `POST`        | `/api/pricing/calculate`                | Full price calculation with surge and discounts |
+| `GET`         | `/api/pricing/surge`                    | Get current surge pricing info                  |
+| **Cleaners**  |                                         |                                                 |
+| `GET`         | `/api/cleaners`                         | List/search cleaners                            |
+| `POST`        | `/api/cleaners`                         | Register a new cleaner                          |
+| `GET`         | `/api/cleaners/[id]`                    | Get cleaner by ID                               |
+| `GET/PUT`     | `/api/cleaner/availability`             | Get/update cleaner availability                 |
+| `GET`         | `/api/cleaner/jobs`                     | Cleaner's job list                              |
+| `GET`         | `/api/cleaner/dashboard`                | Job stats and earnings                          |
+| `GET`         | `/api/cleaner/earnings`                 | Earnings breakdown                              |
+| `GET`         | `/api/cleaner/profile`                  | Profile management                              |
+| `GET`         | `/api/cleaner/reviews`                  | Received reviews                                |
+| **Matching**  |                                         |                                                 |
+| `POST`        | `/api/matching/find`                    | Find matching cleaners                          |
+| `POST`        | `/api/matching/auto-assign`             | Auto-assign best cleaner                        |
+| **Messaging** |                                         |                                                 |
+| `GET`         | `/api/messages/conversations`           | List conversations                              |
+| `POST`        | `/api/messages/conversations/[id]/send` | Send a message                                  |
+| **AI**        |                                         |                                                 |
+| `POST`        | `/api/ai/customer-assistant`            | AI customer assistant                           |
+| `POST`        | `/api/ai/cleaner-assistant`             | AI cleaner assistant                            |
+| `POST`        | `/api/ai/schedule/optimize`             | AI schedule optimisation                        |
+| **Admin**     |                                         |                                                 |
+| `POST`        | `/api/admin/bookings/[id]/assign`       | Assign cleaner to booking                       |
+| `POST`        | `/api/admin/bookings/[id]/reassign`     | Reassign cleaner                                |
+| `POST`        | `/api/admin/pricing/config`             | Update pricing configuration                    |
+| `POST`        | `/api/admin/compliance`                 | Compliance monitoring                           |
+| `POST`        | `/api/admin/rtw`                        | Right-to-work management                        |
+| `POST`        | `/api/admin/documents`                  | Document management                             |
+| **Other**     |                                         |                                                 |
+| `GET`         | `/api/analytics/overview`               | Platform analytics overview                     |
+| `POST`        | `/api/verification/dbs`                 | DBS background check verification               |
+| `POST`        | `/api/payments/webhook`                 | Ryft payment webhook                            |
+| `POST`        | `/api/complaints`                       | File a complaint                                |
+| `POST`        | `/api/gdpr/*`                           | GDPR data requests                              |
+| `POST`        | `/api/companies`                        | Company management                              |
+| `POST`        | `/api/contact`                          | Contact form                                    |
+| `POST`        | `/api/waitlist`                         | Join waitlist                                   |
 
 See [docs/api.md](docs/api.md) for full API documentation.
 
