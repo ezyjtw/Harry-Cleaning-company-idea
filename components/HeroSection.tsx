@@ -461,9 +461,9 @@ export default function HeroSection() {
             </p>
 
             <h1 className="mb-5 font-cormorant text-[44px] font-light leading-[1.1] text-white md:mb-7 md:text-[64px]">
-              A cleaner you
+              A cleaner you choose
               <br />
-              can <em className="text-gold-2">trust</em>
+              that you can <em className="text-gold-2">trust</em>
             </h1>
 
             <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
