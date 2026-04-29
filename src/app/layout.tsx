@@ -6,6 +6,7 @@ import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
 import InstallPrompt from '@/components/InstallPrompt';
 import Navbar from '@/components/Navbar';
+import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 
 export const metadata: Metadata = {
@@ -65,25 +66,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" as="image" href="/images/hero-banner.jpg" fetchPriority="high" />
       </head>
       <body className="flex min-h-screen flex-col">
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-white"
-        >
-          Skip to main content
-        </a>
-        <ServiceWorkerRegistration />
-        <div id="layout-nav">
-          <Navbar />
-        </div>
-        <main id="main-content" className="flex-1" role="main">
-          {children}
-        </main>
-        <div id="layout-footer">
-          <Footer />
-        </div>
-        <InstallPrompt />
-        <CookieConsent />
-        <AIChatWidget />
+        <AuthProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-white"
+          >
+            Skip to main content
+          </a>
+          <ServiceWorkerRegistration />
+          <div id="layout-nav">
+            <Navbar />
+          </div>
+          <main id="main-content" className="flex-1" role="main">
+            {children}
+          </main>
+          <div id="layout-footer">
+            <Footer />
+          </div>
+          <InstallPrompt />
+          <CookieConsent />
+          <AIChatWidget />
+        </AuthProvider>
       </body>
     </html>
   );
