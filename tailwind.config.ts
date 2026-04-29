@@ -44,6 +44,7 @@ const config: Config = {
           'sans-serif',
         ],
         cormorant: ['"Cormorant Garamond"', 'serif'],
+        etna: ['"Etna Sans Serif"', 'sans-serif'],
         jost: ['Jost', 'sans-serif'],
       },
       fontSize: {

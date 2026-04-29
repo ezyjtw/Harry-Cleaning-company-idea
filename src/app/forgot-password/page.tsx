@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
         <div className="mb-10 text-center">
           <Link
             href="/"
-            className="inline-block font-cormorant text-[34px] font-semibold tracking-widest text-ink"
+            className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
           >
             RENA
           </Link>

@@ -121,10 +121,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-white/5">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-6 sm:flex-row md:px-14">
-          <Link
-            href="/"
-            className="font-cormorant text-[22px] font-semibold tracking-widest text-white"
-          >
+          <Link href="/" className="font-etna text-[22px] font-semibold tracking-widest text-white">
             RENA
           </Link>
           <span className="font-jost text-[12px] tracking-wide text-white/25">

@@ -34,7 +34,7 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5">
         <Link
           href="/"
-          className="font-cormorant text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
+          className="font-etna text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
         >
           RENA
         </Link>
@@ -75,7 +75,7 @@ export default function Navbar() {
               <Link
                 href="/"
                 onClick={() => setOpen(false)}
-                className="font-cormorant text-[28px] font-semibold tracking-widest text-ink"
+                className="font-etna text-[28px] font-semibold tracking-widest text-ink"
               >
                 RENA
               </Link>

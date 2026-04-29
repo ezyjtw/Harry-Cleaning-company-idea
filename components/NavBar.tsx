@@ -34,7 +34,7 @@ export default function NavBar() {
       <div className="flex items-center justify-between">
         <Link
           href="/"
-          className="font-cormorant text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
+          className="font-etna text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
         >
           RENA
         </Link>
