@@ -4,7 +4,6 @@ import './globals.css';
 import AIChatWidget from '@/components/AIChatWidget';
 import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
-import InstallPrompt from '@/components/InstallPrompt';
 import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
@@ -83,7 +82,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div id="layout-footer">
             <Footer />
           </div>
-          <InstallPrompt />
           <CookieConsent />
           <AIChatWidget />
         </AuthProvider>
