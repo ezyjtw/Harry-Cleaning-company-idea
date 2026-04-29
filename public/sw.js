@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rena-v2';
-const STATIC_CACHE = 'rena-static-v2';
-const DYNAMIC_CACHE = 'rena-dynamic-v2';
+const CACHE_NAME = 'rena-v3';
+const STATIC_CACHE = 'rena-static-v3';
+const DYNAMIC_CACHE = 'rena-dynamic-v3';
 
 const STATIC_ASSETS = ['/', '/offline', '/manifest.json'];
 
