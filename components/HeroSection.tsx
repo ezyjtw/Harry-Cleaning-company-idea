@@ -460,7 +460,7 @@ export default function HeroSection() {
               Trusted home cleaning
             </p>
 
-            <h1 className="mb-5 font-cormorant text-[44px] font-light leading-[1.1] text-white md:mb-7 md:text-[64px]">
+            <h1 className="mb-5 font-cormorant text-[28px] font-light leading-[1.1] text-white sm:text-[36px] md:mb-7 md:text-[48px]">
               Join the cleaning <em className="text-gold-2">Rena-lution</em>
             </h1>
 
