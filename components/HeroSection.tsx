@@ -461,10 +461,12 @@ export default function HeroSection() {
             </p>
 
             <h1 className="mb-5 font-cormorant text-[44px] font-light leading-[1.1] text-white md:mb-7 md:text-[64px]">
-              Pick the cleaner that <em className="text-gold-2">fits you.</em>
+              Pick the cleaner
+              <br />
+              that <em className="text-gold-2">fits you.</em>
             </h1>
 
-            <p className="mb-8 max-w-[420px] font-jost text-[18px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[20px]">
+            <p className="mb-8 font-cormorant text-[44px] font-light leading-[1.1] text-white/90 md:mb-10 md:text-[64px]">
               Join the cleaning Rena-loution
             </p>
 
