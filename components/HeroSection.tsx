@@ -461,13 +461,16 @@ export default function HeroSection() {
             </p>
 
             <h1 className="mb-5 font-cormorant text-[44px] font-light leading-[1.1] text-white md:mb-7 md:text-[64px]">
-              Pick the cleaner
-              <br />
-              that <em className="text-gold-2">fits you.</em>
+              Join the cleaning <em className="text-gold-2">Rena-lution</em>
             </h1>
 
-            <p className="mb-8 font-cormorant text-[44px] font-light leading-[1.1] text-white/90 md:mb-10 md:text-[64px]">
-              Join the cleaning Rena-loution
+            <p className="mb-3 font-cormorant text-[24px] font-light leading-[1.2] text-white/90 md:text-[34px]">
+              Pick the cleaner that fits you.
+            </p>
+
+            <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
+              Browse personally vetted cleaners in your area. Read genuine reviews, choose someone
+              you trust, and book in two minutes.
             </p>
 
             <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">
