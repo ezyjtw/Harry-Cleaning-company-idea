@@ -51,6 +51,22 @@ const authRoutes = ['/login', '/register', '/forgot-password'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ── www redirect ──────────────────────────────────────────────────────────
+  // If the request arrives on the bare root domain (renacleaning.co.uk),
+  // issue a 301 permanent redirect to the www subdomain so that Railway's
+  // CNAME-backed domain (www.renacleaning.co.uk) is always the canonical URL.
+  // This replaces the broken GoDaddy URL-redirect and must run before any
+  // other logic so nothing else can short-circuit it.
+  const host = request.headers.get('host') ?? '';
+  if (host === 'renacleaning.co.uk') {
+    const url = request.nextUrl.clone();
+    url.protocol = 'https:';
+    url.host = 'www.renacleaning.co.uk';
+    // pathname and search (query string) are preserved automatically because
+    // we cloned request.nextUrl before changing only the host.
+    return NextResponse.redirect(url, { status: 301 });
+  }
+
   // Let the health-check endpoint bypass all middleware logic so Railway
   // (or any orchestrator) always gets a fast, unobstructed response.
   if (pathname === '/api/health') {
