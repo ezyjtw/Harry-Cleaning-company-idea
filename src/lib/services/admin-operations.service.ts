@@ -189,7 +189,7 @@ export class AdminOperationsService {
     });
     if (!dispute) throw new Error('Dispute not found');
 
-    return prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       await tx.dispute.update({
         where: { id: disputeId },
         data: { status: 'RESOLVED', resolution, resolvedAt: new Date() },
