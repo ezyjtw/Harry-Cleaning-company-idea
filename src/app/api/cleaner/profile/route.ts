@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { AuditService } from '@/lib/services/audit.service';
 
 export async function GET() {
   const user = await getCleanerSession();
@@ -37,6 +38,14 @@ export async function GET() {
     verificationStatus: profile.verificationStatus,
     rating: Number(profile.rating),
     completedJobs: profile.completedJobs,
+    backgroundCheckPassed: profile.backgroundCheckPassed,
+    dbsCertNumber: profile.dbsCertNumber,
+    dbsCertVerified: profile.dbsCertVerified,
+    dbsCertIssueDate: profile.dbsCertIssueDate,
+    rightToWorkStatus: profile.rightToWorkStatus,
+    rightToWorkDocType: profile.rightToWorkDocType,
+    rightToWorkExpiresAt: profile.rightToWorkExpiresAt,
+    identityVerifiedAt: profile.identityVerifiedAt,
   });
 }
 
@@ -84,13 +93,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Bio must be 500 characters or fewer' }, { status: 400 });
   }
 
-  await prisma.$transaction(async (tx) => {
-    const profileUpdate: Record<string, unknown> = {};
-    if (bio !== undefined) profileUpdate.bio = bio.trim();
-    if (hourlyRate !== undefined) profileUpdate.hourlyRate = Number(hourlyRate);
-    if (specialties !== undefined) profileUpdate.specialties = specialties;
-    if (radius !== undefined) profileUpdate.radius = Number(radius);
+  const profileUpdate: Record<string, unknown> = {};
+  if (bio !== undefined) profileUpdate.bio = bio.trim();
+  if (hourlyRate !== undefined) profileUpdate.hourlyRate = Number(hourlyRate);
+  if (specialties !== undefined) profileUpdate.specialties = specialties;
+  if (radius !== undefined) profileUpdate.radius = Number(radius);
 
+  await prisma.$transaction(async (tx) => {
     if (Object.keys(profileUpdate).length > 0) {
       await tx.cleanerProfile.update({
         where: { id: profile.id },
@@ -104,6 +113,16 @@ export async function PUT(request: NextRequest) {
         data: { image },
       });
     }
+  });
+
+  await AuditService.log({
+    userId: user.id,
+    action: 'CLEANER_PROFILE_UPDATED',
+    entityType: 'CleanerProfile',
+    entityId: profile.id,
+    metadata: {
+      updatedFields: [...Object.keys(profileUpdate), ...(image !== undefined ? ['image'] : [])],
+    },
   });
 
   return NextResponse.json({ success: true });

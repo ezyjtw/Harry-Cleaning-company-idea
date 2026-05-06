@@ -1132,14 +1132,18 @@ export default function JoinAsCleanerPage() {
                   accept="image/*,.pdf"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) set('photoIdFile', file.name);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        set('photoIdFile', reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
                   }}
                   className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
                 />
               </div>
-              {form.photoIdFile && (
-                <p className="mt-1 text-xs text-green-600">Selected: {form.photoIdFile}</p>
-              )}
+              {form.photoIdFile && <p className="mt-1 text-xs text-green-600">Photo ID uploaded</p>}
               <FieldError message={errors.photoIdFile} />
             </div>
 
@@ -1218,13 +1222,19 @@ export default function JoinAsCleanerPage() {
                     accept="image/*,.pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) set('rightToWorkDocFile', file.name);
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          set('rightToWorkDocFile', reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
                     }}
                     className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
                   />
                 </div>
                 {form.rightToWorkDocFile && (
-                  <p className="mt-1 text-xs text-green-600">Selected: {form.rightToWorkDocFile}</p>
+                  <p className="mt-1 text-xs text-green-600">Right to work document uploaded</p>
                 )}
                 <FieldError message={errors.rightToWorkDocFile} />
               </div>
@@ -1251,8 +1261,8 @@ export default function JoinAsCleanerPage() {
             </h2>
             <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
               A DBS (Disclosure and Barring Service) check helps us ensure the safety of our
-              customers. You can either provide an existing certificate or apply for a new one through
-              Rena.
+              customers. You can either provide an existing certificate or apply for a new one
+              through Rena.
             </p>
 
             {/* DBS Option Selection */}
@@ -1315,9 +1325,7 @@ export default function JoinAsCleanerPage() {
                 className="space-y-4 bg-cream p-5 animate-fade-in"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">
-                  DBS Certificate Details
-                </h3>
+                <h3 className="font-jost text-sm font-normal text-ink">DBS Certificate Details</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label>Certificate Number</Label>
@@ -1326,9 +1334,7 @@ export default function JoinAsCleanerPage() {
                       placeholder="12-digit number"
                       maxLength={12}
                       value={form.dbsCertNumber}
-                      onChange={(e) =>
-                        set('dbsCertNumber', e.target.value.replace(/[^0-9]/g, ''))
-                      }
+                      onChange={(e) => set('dbsCertNumber', e.target.value.replace(/[^0-9]/g, ''))}
                     />
                     <FieldError message={errors.dbsCertNumber} />
                   </div>
@@ -1345,8 +1351,8 @@ export default function JoinAsCleanerPage() {
                 <div>
                   <Label>Upload DBS Certificate</Label>
                   <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Clear photo or scan of the full certificate. We will verify the certificate number
-                    and status via the DBS Update Service.
+                    Clear photo or scan of the full certificate. We will verify the certificate
+                    number and status via the DBS Update Service.
                   </p>
                   <div
                     className="mt-2 bg-cream-2 p-4"
@@ -1357,15 +1363,19 @@ export default function JoinAsCleanerPage() {
                       accept="image/*,.pdf"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) set('dbsCertFile', file.name);
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            set('dbsCertFile', reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }}
                       className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
                     />
                   </div>
                   {form.dbsCertFile && (
-                    <p className="mt-1 text-xs text-green-600">
-                      Selected: {form.dbsCertFile}
-                    </p>
+                    <p className="mt-1 text-xs text-green-600">DBS certificate uploaded</p>
                   )}
                   <FieldError message={errors.dbsCertFile} />
                 </div>
@@ -1378,12 +1388,11 @@ export default function JoinAsCleanerPage() {
                 className="space-y-3 bg-cream p-5 animate-fade-in"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">
-                  Apply for a DBS Check
-                </h3>
+                <h3 className="font-jost text-sm font-normal text-ink">Apply for a DBS Check</h3>
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
-                  Rena partners with an accredited DBS umbrella body to process your check. Once your
-                  application is submitted, the DBS check typically takes 2-8 weeks to complete.
+                  Rena partners with an accredited DBS umbrella body to process your check. Once
+                  your application is submitted, the DBS check typically takes 2-8 weeks to
+                  complete.
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
@@ -1395,7 +1404,8 @@ export default function JoinAsCleanerPage() {
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 text-gold">&#10003;</span>
                     <p className="font-jost text-sm font-light text-ink-2">
-                      Enhanced DBS check &mdash; required for certain service types (£23 fee applies)
+                      Enhanced DBS check &mdash; required for certain service types (£23 fee
+                      applies)
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
@@ -1412,13 +1422,8 @@ export default function JoinAsCleanerPage() {
             )}
 
             {/* Liveness / Selfie Verification */}
-            <div
-              className="mt-6 pt-6"
-              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-            >
-              <h2 className="font-cormorant text-xl font-light text-ink">
-                Identity Verification
-              </h2>
+            <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+              <h2 className="font-cormorant text-xl font-light text-ink">Identity Verification</h2>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
                 photo ID you uploaded in the previous step. This is a one-time check to protect both
@@ -1464,9 +1469,7 @@ export default function JoinAsCleanerPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-jost text-sm font-normal text-ink">
-                      Take a Selfie
-                    </h3>
+                    <h3 className="font-jost text-sm font-normal text-ink">Take a Selfie</h3>
                     <p className="mt-1 font-jost text-[11px] text-ink-3">
                       Please look directly at the camera in a well-lit area. Remove sunglasses and
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
@@ -1661,9 +1664,7 @@ export default function JoinAsCleanerPage() {
                   </div>
                   <div>
                     <dt className="inline font-normal text-ink">Selfie verified:</dt>{' '}
-                    <dd className="inline">
-                      {form.livenessComplete ? 'Yes' : 'No'}
-                    </dd>
+                    <dd className="inline">{form.livenessComplete ? 'Yes' : 'No'}</dd>
                   </div>
                 </dl>
               </div>

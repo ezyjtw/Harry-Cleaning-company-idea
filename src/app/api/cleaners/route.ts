@@ -1,8 +1,9 @@
+import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 
 import prisma from '@/lib/db/prisma';
+import { AuditService } from '@/lib/services/audit.service';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest) {
         // DBS certificate details (if existing cert provided)
         dbsCertNumber: body.dbsCertNumber?.trim() || null,
         dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
+        rightToWorkStatus: body.rightToWorkDocType ? 'PENDING' : 'UNVERIFIED',
         // Liveness/selfie verification meta
         verificationMeta: body.selfiePhoto
           ? { livenessComplete: true, dbsOption: body.dbsOption || null }
@@ -149,6 +151,27 @@ export async function POST(request: NextRequest) {
     });
 
     return { user, profile };
+  });
+
+  await AuditService.log({
+    userId: result.user.id,
+    action: 'USER_REGISTERED',
+    entityType: 'User',
+    entityId: result.user.id,
+    metadata: { role: 'CLEANER', email: body.email },
+  });
+
+  await AuditService.log({
+    userId: result.user.id,
+    action: 'CLEANER_PROFILE_UPDATED',
+    entityType: 'CleanerProfile',
+    entityId: result.profile.id,
+    metadata: {
+      event: 'onboarding_submitted',
+      dbsOption: body.dbsOption || null,
+      hasRtwDoc: !!body.rightToWorkDocType,
+      hasSelfie: !!body.selfiePhoto,
+    },
   });
 
   return NextResponse.json(
