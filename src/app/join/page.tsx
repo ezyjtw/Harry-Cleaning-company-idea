@@ -552,7 +552,18 @@ export default function JoinAsCleanerPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.form) {
-          setForm((prev) => ({ ...prev, ...parsed.form }));
+          const restored = { ...parsed.form };
+          const fileFields = [
+            'photoIdFile',
+            'rightToWorkDocFile',
+            'dbsCertFile',
+            'selfiePhoto',
+            'profilePhoto',
+          ];
+          for (const f of fileFields) {
+            if (restored[f] === '[uploaded]') restored[f] = '';
+          }
+          setForm((prev) => ({ ...prev, ...restored }));
         }
         if (typeof parsed.currentStep === 'number') setCurrentStep(parsed.currentStep);
       }
@@ -566,7 +577,17 @@ export default function JoinAsCleanerPage() {
   useEffect(() => {
     if (!mounted) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ form, currentStep }));
+      const { photoIdFile, rightToWorkDocFile, dbsCertFile, selfiePhoto, profilePhoto, ...rest } =
+        form;
+      const persistable = {
+        ...rest,
+        photoIdFile: photoIdFile ? '[uploaded]' : '',
+        rightToWorkDocFile: rightToWorkDocFile ? '[uploaded]' : '',
+        dbsCertFile: dbsCertFile ? '[uploaded]' : '',
+        selfiePhoto: selfiePhoto ? '[uploaded]' : '',
+        profilePhoto: profilePhoto ? '[uploaded]' : '',
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ form: persistable, currentStep }));
     } catch {
       /* quota exceeded – ignore */
     }
@@ -692,10 +713,13 @@ export default function JoinAsCleanerPage() {
         trackConversion({ email: form.email });
         setSubmitted(true);
       } else {
-        setErrors({ submit: 'Something went wrong. Please try again.' });
+        const data = await response.json().catch(() => null);
+        setErrors({
+          submit: data?.error || 'Something went wrong. Please try again.',
+        });
       }
     } catch {
-      setErrors({ submit: 'Network error. Please try again.' });
+      setErrors({ submit: 'Network error. Please check your connection and try again.' });
     } finally {
       setSubmitting(false);
     }
