@@ -297,12 +297,48 @@ function CustomAddInput({
 /*  Earnings calculator                                                */
 /* ------------------------------------------------------------------ */
 
+// 2025/26 UK self-employed tax/NI estimate
+function estimateTakeHome(gross: number): {
+  incomeTax: number;
+  nationalInsurance: number;
+  takeHome: number;
+} {
+  const PERSONAL_ALLOWANCE = 12570;
+  const BASIC_RATE_LIMIT = 50270;
+  const CLASS2_THRESHOLD = 6725;
+  const CLASS2_WEEKLY = 3.45;
+  const CLASS4_LOWER = 12570;
+  const CLASS4_UPPER = 50270;
+
+  let incomeTax = 0;
+  const taxable = Math.max(0, gross - PERSONAL_ALLOWANCE);
+  const basicBand = Math.min(taxable, BASIC_RATE_LIMIT - PERSONAL_ALLOWANCE);
+  const higherBand = Math.max(0, taxable - basicBand);
+  incomeTax = basicBand * 0.2 + higherBand * 0.4;
+
+  let nationalInsurance = 0;
+  if (gross > CLASS2_THRESHOLD) {
+    nationalInsurance += CLASS2_WEEKLY * 52;
+  }
+  const class4Lower = Math.min(Math.max(0, gross - CLASS4_LOWER), CLASS4_UPPER - CLASS4_LOWER);
+  const class4Upper = Math.max(0, gross - CLASS4_UPPER);
+  nationalInsurance += class4Lower * 0.06 + class4Upper * 0.02;
+
+  return {
+    incomeTax: Math.round(incomeTax),
+    nationalInsurance: Math.round(nationalInsurance),
+    takeHome: Math.round(gross - incomeTax - nationalInsurance),
+  };
+}
+
 function EarningsCalculator() {
   const [hours, setHours] = useState(20);
+  const [showTakeHome, setShowTakeHome] = useState(false);
   const rate = 15;
   const weekly = hours * rate;
   const monthly = Math.round((weekly * 52) / 12);
   const yearly = weekly * 52;
+  const tax = estimateTakeHome(yearly);
 
   return (
     <div className="mt-6">
@@ -345,10 +381,69 @@ function EarningsCalculator() {
             £{yearly.toLocaleString()}
           </p>
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
-            Per year
+            Per year (gross)
           </p>
         </div>
       </div>
+
+      {/* Take-home toggle */}
+      <div className="mt-5 text-center">
+        <button
+          type="button"
+          onClick={() => setShowTakeHome(!showTakeHome)}
+          className="inline-flex items-center gap-1.5 font-jost text-[12px] text-gold hover:text-gold/80 transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+            <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+            <path
+              d="M7 4v4M5.5 6.5h3"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+          </svg>
+          {showTakeHome ? 'Hide' : 'Show'} estimated take-home
+        </button>
+      </div>
+
+      {showTakeHome && (
+        <div
+          className="mt-4 rounded-lg bg-ink/[0.03] p-4"
+          style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
+        >
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="font-cormorant text-lg font-light text-ink">
+                £{tax.incomeTax.toLocaleString()}
+              </p>
+              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                Income tax
+              </p>
+            </div>
+            <div>
+              <p className="font-cormorant text-lg font-light text-ink">
+                £{tax.nationalInsurance.toLocaleString()}
+              </p>
+              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                National Insurance
+              </p>
+            </div>
+            <div>
+              <p className="font-cormorant text-lg font-light text-gold">
+                £{tax.takeHome.toLocaleString()}
+              </p>
+              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                Est. take-home
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 font-jost text-[10px] text-ink-3/70 text-center">
+            Estimate based on 2025/26 UK self-employed tax rates. Does not account for expenses,
+            student loans, or other deductions. This is for illustration only and is not tax advice.
+          </p>
+        </div>
+      )}
+
       <p className="mt-3 font-jost text-[11px] text-ink-3 text-center">
         Based on an average of £{rate}/hr. Top-rated cleaners earn £20–£30/hr.
       </p>

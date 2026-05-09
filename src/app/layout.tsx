@@ -4,9 +4,11 @@ import './globals.css';
 import AIChatWidget from '@/components/AIChatWidget';
 import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
+import JsonLd from '@/components/JsonLd';
 import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import { generateOrganizationSchema } from '@/lib/seo/structured-data';
 
 export const metadata: Metadata = {
   title: {
@@ -63,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
         <link rel="preload" as="image" href="/images/hero-banner.jpg" fetchPriority="high" />
+        <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">
         <AuthProvider>

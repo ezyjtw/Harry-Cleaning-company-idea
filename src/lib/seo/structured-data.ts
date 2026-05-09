@@ -8,8 +8,8 @@ export function generateOrganizationSchema() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Rena Cleaning Network',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'https://rena.com',
-    logo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://rena.com'}/icons/icon-512x512.png`,
+    url: process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk',
+    logo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk'}/icons/icon-512x512.png`,
     description:
       'Book trusted, vetted cleaners in your area. Fair pricing with just a 6% service fee.',
     address: {

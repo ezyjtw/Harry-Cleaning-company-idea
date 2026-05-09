@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 
+import JsonLd from '@/components/JsonLd';
+import { generateLocalBusinessSchema, generateServiceSchema } from '@/lib/seo/structured-data';
+
 import CleanerCTA from '../../components/CleanerCTA';
 import FooterCTA from '../../components/FooterCTA';
 import GuaranteeSection from '../../components/GuaranteeSection';
@@ -27,6 +30,15 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
+      <JsonLd data={generateLocalBusinessSchema('London')} />
+      <JsonLd
+        data={generateServiceSchema({
+          name: 'Home Cleaning Services',
+          description:
+            'Professional home cleaning services in London. Regular, deep clean, end of tenancy, and more.',
+          price: 14,
+        })}
+      />
       <LayoutHider />
       <NavBar />
       <HeroSection />
