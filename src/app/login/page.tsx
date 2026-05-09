@@ -8,7 +8,7 @@ import { Suspense, useState } from 'react';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const callbackUrl = searchParams.get('callbackUrl');
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,8 +27,20 @@ function LoginForm() {
 
       if (result?.error) {
         setError('Invalid email or password. Please try again.');
-      } else {
+      } else if (callbackUrl) {
         router.push(callbackUrl);
+      } else {
+        // Fetch session to determine role-based redirect
+        try {
+          const sessionRes = await fetch('/api/auth/session');
+          const session = await sessionRes.json();
+          const role = session?.user?.role;
+          if (role === 'CLEANER') router.push('/cleaner');
+          else if (role === 'ADMIN') router.push('/admin');
+          else router.push('/dashboard');
+        } catch {
+          router.push('/dashboard');
+        }
       }
     } catch {
       setError('Something went wrong. Please try again.');

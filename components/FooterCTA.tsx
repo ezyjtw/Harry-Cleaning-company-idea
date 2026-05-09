@@ -25,6 +25,12 @@ export default function FooterCTA() {
           How it works
         </a>
       </div>
+      <p className="mt-8 font-jost text-[13px] font-light text-ink-3">
+        Are you a cleaner?{' '}
+        <a href="/join" className="font-normal text-ink hover:text-gold transition">
+          Join our network and start earning
+        </a>
+      </p>
     </section>
   );
 }

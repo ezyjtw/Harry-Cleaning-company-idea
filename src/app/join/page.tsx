@@ -1,5 +1,8 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
@@ -15,6 +18,8 @@ interface FormData {
   phone: string;
   postcode: string;
   dateOfBirth: string;
+  password: string;
+  confirmPassword: string;
   profilePhoto: string; // base64 data URL from uploaded image
 
   // Step 1 – Experience
@@ -56,6 +61,8 @@ const INITIAL_FORM: FormData = {
   phone: '',
   postcode: '',
   dateOfBirth: '',
+  password: '',
+  confirmPassword: '',
   profilePhoto: '',
 
   yearsExperience: '',
@@ -530,6 +537,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
 /* ------------------------------------------------------------------ */
 
 export default function JoinAsCleanerPage() {
+  const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
@@ -552,7 +560,18 @@ export default function JoinAsCleanerPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.form) {
-          setForm((prev) => ({ ...prev, ...parsed.form }));
+          const restored = { ...parsed.form };
+          const fileFields = [
+            'photoIdFile',
+            'rightToWorkDocFile',
+            'dbsCertFile',
+            'selfiePhoto',
+            'profilePhoto',
+          ];
+          for (const f of fileFields) {
+            if (restored[f] === '[uploaded]') restored[f] = '';
+          }
+          setForm((prev) => ({ ...prev, ...restored }));
         }
         if (typeof parsed.currentStep === 'number') setCurrentStep(parsed.currentStep);
       }
@@ -566,7 +585,27 @@ export default function JoinAsCleanerPage() {
   useEffect(() => {
     if (!mounted) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ form, currentStep }));
+      const {
+        photoIdFile,
+        rightToWorkDocFile,
+        dbsCertFile,
+        selfiePhoto,
+        profilePhoto,
+        password,
+        confirmPassword,
+        ...rest
+      } = form;
+      void password;
+      void confirmPassword;
+      const persistable = {
+        ...rest,
+        photoIdFile: photoIdFile ? '[uploaded]' : '',
+        rightToWorkDocFile: rightToWorkDocFile ? '[uploaded]' : '',
+        dbsCertFile: dbsCertFile ? '[uploaded]' : '',
+        selfiePhoto: selfiePhoto ? '[uploaded]' : '',
+        profilePhoto: profilePhoto ? '[uploaded]' : '',
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ form: persistable, currentStep }));
     } catch {
       /* quota exceeded – ignore */
     }
@@ -602,6 +641,9 @@ export default function JoinAsCleanerPage() {
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
         e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
       if (!form.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
+      if (!form.password || form.password.length < 8)
+        e.password = 'Password must be at least 8 characters';
+      else if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
     }
 
     if (step === 1) {
@@ -682,27 +724,96 @@ export default function JoinAsCleanerPage() {
     if (!validate(6)) return;
     setSubmitting(true);
     try {
+      // Strip large base64 file fields from the main request to stay under body limits.
+      // Documents are uploaded separately after profile creation.
+      const {
+        photoIdFile,
+        rightToWorkDocFile,
+        dbsCertFile,
+        selfiePhoto,
+        profilePhoto,
+        confirmPassword: _,
+        ...formData
+      } = form;
+
       const response = await fetch('/api/cleaners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...formData,
+          hasPhotoId: !!photoIdFile,
+          hasRtwDoc: !!rightToWorkDocFile,
+          hasDbsCert: !!dbsCertFile,
+          hasSelfie: !!selfiePhoto,
+          selfiePhoto: !!selfiePhoto,
+          profilePhoto: profilePhoto?.slice(0, 200) || null,
+        }),
       });
-      if (response.ok) {
-        localStorage.removeItem(STORAGE_KEY);
-        trackConversion({ email: form.email });
-        setSubmitted(true);
-      } else {
-        setErrors({ submit: 'Something went wrong. Please try again.' });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setErrors({
+          submit: data?.error || 'Something went wrong. Please try again.',
+        });
+        return;
       }
+
+      const result = await response.json();
+      const cleanerId = result.cleaner?.id;
+
+      // Upload documents in the background after profile creation
+      if (cleanerId) {
+        const docs: { data: string; type: string }[] = [];
+        if (photoIdFile && photoIdFile.startsWith('data:'))
+          docs.push({ data: photoIdFile, type: 'photo_id' });
+        if (rightToWorkDocFile && rightToWorkDocFile.startsWith('data:'))
+          docs.push({ data: rightToWorkDocFile, type: 'right_to_work' });
+        if (dbsCertFile && dbsCertFile.startsWith('data:'))
+          docs.push({ data: dbsCertFile, type: 'dbs_certificate' });
+
+        for (const doc of docs) {
+          try {
+            await fetch('/api/cleaners/documents', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cleanerId,
+                documentType: doc.type,
+                fileData: doc.data,
+              }),
+            });
+          } catch {
+            // Document upload failure shouldn't block application success
+          }
+        }
+      }
+
+      localStorage.removeItem(STORAGE_KEY);
+      trackConversion({ email: form.email });
+
+      // Auto-sign in and redirect to cleaner dashboard
+      if (form.password) {
+        const signInResult = await signIn('credentials', {
+          email: form.email,
+          password: form.password,
+          redirect: false,
+        });
+        if (!signInResult?.error) {
+          router.push('/cleaner');
+          return;
+        }
+      }
+
+      setSubmitted(true);
     } catch {
-      setErrors({ submit: 'Network error. Please try again.' });
+      setErrors({ submit: 'Network error. Please check your connection and try again.' });
     } finally {
       setSubmitting(false);
     }
   }
 
   /* ================================================================ */
-  /*  RENDER — Success screen                                         */
+  /*  RENDER — Success screen (fallback if auto-login fails)          */
   /* ================================================================ */
 
   if (submitted) {
@@ -713,13 +824,14 @@ export default function JoinAsCleanerPage() {
         </div>
         <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Application Received!</h1>
         <p className="mt-4 font-jost font-light text-ink-2">
-          Thank you for applying to join Rena, {form.name}! We&apos;ll review your application and
-          get back to you within 24-48 hours at {form.email}.
+          Thank you for applying to join Rena, {form.name}! Your account has been created.
         </p>
-        <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-          In the meantime, prepare for the verification process by having your ID and any cleaning
-          certifications ready.
-        </p>
+        <Link
+          href="/login"
+          className="mt-6 inline-block bg-ink px-8 py-3 font-jost text-[11px] uppercase tracking-[0.15em] text-cream transition hover:bg-ink/90"
+        >
+          Log in to your dashboard
+        </Link>
       </div>
     );
   }
@@ -857,6 +969,34 @@ export default function JoinAsCleanerPage() {
                   onChange={(e) => set('dateOfBirth', e.target.value)}
                 />
                 <FieldError message={errors.dateOfBirth} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Min. 8 characters"
+                    value={form.password}
+                    onChange={(e) => set('password', e.target.value)}
+                  />
+                  <FieldError message={errors.password} />
+                </div>
+                <div>
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Re-enter password"
+                    value={form.confirmPassword}
+                    onChange={(e) => set('confirmPassword', e.target.value)}
+                  />
+                  <FieldError message={errors.confirmPassword} />
+                </div>
               </div>
               <div>
                 <Label>Profile Picture</Label>
@@ -1132,14 +1272,18 @@ export default function JoinAsCleanerPage() {
                   accept="image/*,.pdf"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) set('photoIdFile', file.name);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        set('photoIdFile', reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
                   }}
                   className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
                 />
               </div>
-              {form.photoIdFile && (
-                <p className="mt-1 text-xs text-green-600">Selected: {form.photoIdFile}</p>
-              )}
+              {form.photoIdFile && <p className="mt-1 text-xs text-green-600">Photo ID uploaded</p>}
               <FieldError message={errors.photoIdFile} />
             </div>
 
@@ -1218,13 +1362,19 @@ export default function JoinAsCleanerPage() {
                     accept="image/*,.pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) set('rightToWorkDocFile', file.name);
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          set('rightToWorkDocFile', reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
                     }}
                     className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
                   />
                 </div>
                 {form.rightToWorkDocFile && (
-                  <p className="mt-1 text-xs text-green-600">Selected: {form.rightToWorkDocFile}</p>
+                  <p className="mt-1 text-xs text-green-600">Right to work document uploaded</p>
                 )}
                 <FieldError message={errors.rightToWorkDocFile} />
               </div>
@@ -1251,8 +1401,8 @@ export default function JoinAsCleanerPage() {
             </h2>
             <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
               A DBS (Disclosure and Barring Service) check helps us ensure the safety of our
-              customers. You can either provide an existing certificate or apply for a new one through
-              Rena.
+              customers. You can either provide an existing certificate or apply for a new one
+              through Rena.
             </p>
 
             {/* DBS Option Selection */}
@@ -1315,9 +1465,7 @@ export default function JoinAsCleanerPage() {
                 className="space-y-4 bg-cream p-5 animate-fade-in"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">
-                  DBS Certificate Details
-                </h3>
+                <h3 className="font-jost text-sm font-normal text-ink">DBS Certificate Details</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label>Certificate Number</Label>
@@ -1326,9 +1474,7 @@ export default function JoinAsCleanerPage() {
                       placeholder="12-digit number"
                       maxLength={12}
                       value={form.dbsCertNumber}
-                      onChange={(e) =>
-                        set('dbsCertNumber', e.target.value.replace(/[^0-9]/g, ''))
-                      }
+                      onChange={(e) => set('dbsCertNumber', e.target.value.replace(/[^0-9]/g, ''))}
                     />
                     <FieldError message={errors.dbsCertNumber} />
                   </div>
@@ -1345,8 +1491,8 @@ export default function JoinAsCleanerPage() {
                 <div>
                   <Label>Upload DBS Certificate</Label>
                   <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Clear photo or scan of the full certificate. We will verify the certificate number
-                    and status via the DBS Update Service.
+                    Clear photo or scan of the full certificate. We will verify the certificate
+                    number and status via the DBS Update Service.
                   </p>
                   <div
                     className="mt-2 bg-cream-2 p-4"
@@ -1357,15 +1503,19 @@ export default function JoinAsCleanerPage() {
                       accept="image/*,.pdf"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) set('dbsCertFile', file.name);
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            set('dbsCertFile', reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }}
                       className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
                     />
                   </div>
                   {form.dbsCertFile && (
-                    <p className="mt-1 text-xs text-green-600">
-                      Selected: {form.dbsCertFile}
-                    </p>
+                    <p className="mt-1 text-xs text-green-600">DBS certificate uploaded</p>
                   )}
                   <FieldError message={errors.dbsCertFile} />
                 </div>
@@ -1378,12 +1528,11 @@ export default function JoinAsCleanerPage() {
                 className="space-y-3 bg-cream p-5 animate-fade-in"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">
-                  Apply for a DBS Check
-                </h3>
+                <h3 className="font-jost text-sm font-normal text-ink">Apply for a DBS Check</h3>
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
-                  Rena partners with an accredited DBS umbrella body to process your check. Once your
-                  application is submitted, the DBS check typically takes 2-8 weeks to complete.
+                  Rena partners with an accredited DBS umbrella body to process your check. Once
+                  your application is submitted, the DBS check typically takes 2-8 weeks to
+                  complete.
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
@@ -1395,7 +1544,8 @@ export default function JoinAsCleanerPage() {
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 text-gold">&#10003;</span>
                     <p className="font-jost text-sm font-light text-ink-2">
-                      Enhanced DBS check &mdash; required for certain service types (£23 fee applies)
+                      Enhanced DBS check &mdash; required for certain service types (£23 fee
+                      applies)
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
@@ -1412,13 +1562,8 @@ export default function JoinAsCleanerPage() {
             )}
 
             {/* Liveness / Selfie Verification */}
-            <div
-              className="mt-6 pt-6"
-              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-            >
-              <h2 className="font-cormorant text-xl font-light text-ink">
-                Identity Verification
-              </h2>
+            <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+              <h2 className="font-cormorant text-xl font-light text-ink">Identity Verification</h2>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
                 photo ID you uploaded in the previous step. This is a one-time check to protect both
@@ -1464,9 +1609,7 @@ export default function JoinAsCleanerPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-jost text-sm font-normal text-ink">
-                      Take a Selfie
-                    </h3>
+                    <h3 className="font-jost text-sm font-normal text-ink">Take a Selfie</h3>
                     <p className="mt-1 font-jost text-[11px] text-ink-3">
                       Please look directly at the camera in a well-lit area. Remove sunglasses and
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
@@ -1661,9 +1804,7 @@ export default function JoinAsCleanerPage() {
                   </div>
                   <div>
                     <dt className="inline font-normal text-ink">Selfie verified:</dt>{' '}
-                    <dd className="inline">
-                      {form.livenessComplete ? 'Yes' : 'No'}
-                    </dd>
+                    <dd className="inline">{form.livenessComplete ? 'Yes' : 'No'}</dd>
                   </div>
                 </dl>
               </div>

@@ -1,9 +1,11 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
+import { useAuth } from '@/hooks/useAuth';
 import { PLATFORM_COMMISSION_PERCENT } from '@/lib/pricing';
 
 // Types for API data
@@ -25,7 +27,12 @@ interface ReviewFromCustomer {
   id: string;
   customer: string;
   rating: number;
-  categoryRatings: { thoroughness: number; punctuality: number; communication: number; value: number };
+  categoryRatings: {
+    thoroughness: number;
+    punctuality: number;
+    communication: number;
+    value: number;
+  };
   comment: string;
   date: string;
   replied: boolean;
@@ -88,8 +95,16 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 type DashboardTab = 'upcoming' | 'calendar' | 'earnings' | 'reviews' | 'profile';
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { isCleaner, isAdmin, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<DashboardTab>('upcoming');
   const [availableNow, setAvailableNow] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (isCleaner) router.replace('/cleaner');
+    else if (isAdmin) router.replace('/admin');
+  }, [authLoading, isCleaner, isAdmin, router]);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [customerRating, setCustomerRating] = useState<Record<string, number>>({});
   const [availability, setAvailability] = useState(
@@ -108,9 +123,9 @@ export default function DashboardPage() {
     async function fetchDashboardData() {
       try {
         const [bookingsRes, reviewsRes, taxRes] = await Promise.all([
-          fetch('/api/cleaner/bookings').then(r => r.ok ? r.json() : { bookings: [] }),
-          fetch('/api/cleaner/reviews').then(r => r.ok ? r.json() : { reviews: [] }),
-          fetch('/api/cleaner/earnings').then(r => r.ok ? r.json() : null),
+          fetch('/api/cleaner/bookings').then((r) => (r.ok ? r.json() : { bookings: [] })),
+          fetch('/api/cleaner/reviews').then((r) => (r.ok ? r.json() : { reviews: [] })),
+          fetch('/api/cleaner/earnings').then((r) => (r.ok ? r.json() : null)),
         ]);
         setBookings(bookingsRes.bookings || []);
         setReviews(reviewsRes.reviews || []);
@@ -128,7 +143,14 @@ export default function DashboardPage() {
   const past = bookings.filter((b) => b.status === 'completed');
   const reputation = getReputationTier(past.length, 0);
   const tax = taxData || {
-    yearToDate: { totalEarnings: 0, platformFees: 0, netEarnings: 0, estimatedTax: 0, quarterlyPayment: 0, deductibleExpenses: 0 },
+    yearToDate: {
+      totalEarnings: 0,
+      platformFees: 0,
+      netEarnings: 0,
+      estimatedTax: 0,
+      quarterlyPayment: 0,
+      deductibleExpenses: 0,
+    },
     monthlyEarnings: [],
     expenses: [],
   };
@@ -192,7 +214,10 @@ export default function DashboardPage() {
         <div className="rounded-lg bg-white border border-gray-200 p-4">
           <div className="text-sm text-gray-500">This Month</div>
           <div className="mt-1 text-2xl font-bold text-gray-900">
-            ${tax.monthlyEarnings.length > 0 ? tax.monthlyEarnings[tax.monthlyEarnings.length - 1].amount.toLocaleString() : '0'}
+            $
+            {tax.monthlyEarnings.length > 0
+              ? tax.monthlyEarnings[tax.monthlyEarnings.length - 1].amount.toLocaleString()
+              : '0'}
           </div>
         </div>
         <div className="rounded-lg bg-white border border-gray-200 p-4">
@@ -203,9 +228,17 @@ export default function DashboardPage() {
           <div className="text-sm text-gray-500">Rating</div>
           <div className="mt-1 flex items-center gap-2">
             <span className="text-2xl font-bold text-gray-900">
-              {reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '--'}
+              {reviews.length > 0
+                ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+                : '--'}
             </span>
-            <StarRating rating={reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0} />
+            <StarRating
+              rating={
+                reviews.length > 0
+                  ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                  : 0
+              }
+            />
           </div>
         </div>
         <div className="rounded-lg bg-white border border-gray-200 p-4">

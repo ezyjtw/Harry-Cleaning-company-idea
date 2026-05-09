@@ -1,8 +1,9 @@
+import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 
 import prisma from '@/lib/db/prisma';
+import { AuditService } from '@/lib/services/audit.service';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -81,87 +82,202 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  try {
+    const body = await request.json();
 
-  // Validate required fields
-  const required = ['name', 'email', 'phone', 'postcode'];
-  for (const field of required) {
-    if (!body[field]?.trim()) {
-      return NextResponse.json({ error: `${field} is required` }, { status: 400 });
+    // Validate required fields
+    const required = ['name', 'email', 'phone', 'postcode'];
+    for (const field of required) {
+      if (!body[field]?.trim()) {
+        return NextResponse.json({ error: `${field} is required` }, { status: 400 });
+      }
     }
-  }
 
-  // Check if email already exists
-  const existing = await prisma.user.findUnique({
-    where: { email: body.email.toLowerCase().trim() },
-  });
-  if (existing) {
+    // Validate hourly rate
+    const hourlyRate = Number(body.hourlyRate) || 15;
+    if (hourlyRate < 14 || hourlyRate > 35) {
+      return NextResponse.json(
+        { error: 'Hourly rate must be between £14 and £35' },
+        { status: 400 }
+      );
+    }
+
+    // Check if email already exists
+    const existing = await prisma.user.findUnique({
+      where: { email: body.email.toLowerCase().trim() },
+      include: { cleanerProfile: { select: { id: true } } },
+    });
+
+    if (existing) {
+      // Already a cleaner — block duplicate
+      if (existing.cleanerProfile || existing.role === 'CLEANER') {
+        return NextResponse.json(
+          { error: 'A cleaner account with this email already exists. Please log in instead.' },
+          { status: 409 }
+        );
+      }
+
+      // Existing client — upgrade to cleaner
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: existing.id },
+          data: {
+            role: 'CLEANER',
+            phone: body.phone?.trim() || existing.phone,
+            passwordHash: body.password
+              ? await bcrypt.hash(body.password, 12)
+              : existing.passwordHash,
+            image: body.profilePhoto || existing.image,
+          },
+        });
+
+        const profile = await tx.cleanerProfile.create({
+          data: {
+            userId: user.id,
+            bio: body.bio?.trim() || null,
+            hourlyRate,
+            specialties: body.specialties || [],
+            location: body.postcode?.trim() || null,
+            postcode: body.postcode?.trim() || null,
+            radius: 10,
+            verificationStatus: 'PENDING',
+            rightToWorkDocType: body.rightToWorkDocType || null,
+            rightToWorkShareCode: body.rightToWorkShareCode || null,
+            rightToWorkExpiresAt: body.rightToWorkExpiryDate
+              ? new Date(body.rightToWorkExpiryDate)
+              : null,
+            dbsCertNumber: body.dbsCertNumber?.trim() || null,
+            dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
+            rightToWorkStatus: body.rightToWorkDocType ? 'PENDING' : 'UNVERIFIED',
+            verificationMeta: body.selfiePhoto
+              ? { livenessComplete: true, dbsOption: body.dbsOption || null }
+              : body.dbsOption
+                ? { dbsOption: body.dbsOption }
+                : undefined,
+          },
+        });
+
+        return { user, profile };
+      });
+
+      await AuditService.log({
+        userId: result.user.id,
+        action: 'USER_REGISTERED',
+        entityType: 'User',
+        entityId: result.user.id,
+        metadata: { role: 'CLEANER', email: body.email, upgradedFromClient: true },
+      });
+
+      await AuditService.log({
+        userId: result.user.id,
+        action: 'CLEANER_PROFILE_UPDATED',
+        entityType: 'CleanerProfile',
+        entityId: result.profile.id,
+        metadata: {
+          event: 'onboarding_submitted',
+          dbsOption: body.dbsOption || null,
+          hasRtwDoc: !!body.rightToWorkDocType,
+          hasSelfie: !!body.selfiePhoto,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          message: 'Account upgraded to cleaner successfully',
+          cleaner: {
+            id: result.user.id,
+            name: result.user.name,
+            email: result.user.email,
+            status: 'pending_review',
+            verificationStatus: result.profile.verificationStatus,
+          },
+        },
+        { status: 201 }
+      );
+    }
+
+    // Create User + CleanerProfile in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: body.email.toLowerCase().trim(),
+          name: body.name.trim(),
+          phone: body.phone.trim(),
+          role: 'CLEANER',
+          passwordHash: body.password ? await bcrypt.hash(body.password, 12) : null,
+          image: body.profilePhoto || null,
+        },
+      });
+
+      const profile = await tx.cleanerProfile.create({
+        data: {
+          userId: user.id,
+          bio: body.bio?.trim() || null,
+          hourlyRate: hourlyRate,
+          specialties: body.specialties || [],
+          location: body.postcode?.trim() || null,
+          postcode: body.postcode?.trim() || null,
+          radius: 10,
+          verificationStatus: 'PENDING',
+          rightToWorkDocType: body.rightToWorkDocType || null,
+          rightToWorkShareCode: body.rightToWorkShareCode || null,
+          rightToWorkExpiresAt: body.rightToWorkExpiryDate
+            ? new Date(body.rightToWorkExpiryDate)
+            : null,
+          dbsCertNumber: body.dbsCertNumber?.trim() || null,
+          dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
+          rightToWorkStatus: body.rightToWorkDocType ? 'PENDING' : 'UNVERIFIED',
+          verificationMeta: body.selfiePhoto
+            ? { livenessComplete: true, dbsOption: body.dbsOption || null }
+            : body.dbsOption
+              ? { dbsOption: body.dbsOption }
+              : undefined,
+        },
+      });
+
+      return { user, profile };
+    });
+
+    await AuditService.log({
+      userId: result.user.id,
+      action: 'USER_REGISTERED',
+      entityType: 'User',
+      entityId: result.user.id,
+      metadata: { role: 'CLEANER', email: body.email },
+    });
+
+    await AuditService.log({
+      userId: result.user.id,
+      action: 'CLEANER_PROFILE_UPDATED',
+      entityType: 'CleanerProfile',
+      entityId: result.profile.id,
+      metadata: {
+        event: 'onboarding_submitted',
+        dbsOption: body.dbsOption || null,
+        hasRtwDoc: !!body.rightToWorkDocType,
+        hasSelfie: !!body.selfiePhoto,
+      },
+    });
+
     return NextResponse.json(
-      { error: 'An account with this email already exists' },
-      { status: 409 }
+      {
+        message: 'Application submitted successfully',
+        cleaner: {
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email,
+          status: 'pending_review',
+          verificationStatus: result.profile.verificationStatus,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[Cleaners] POST error:', error);
+    return NextResponse.json(
+      { error: 'Something went wrong processing your application. Please try again.' },
+      { status: 500 }
     );
   }
-
-  // Validate hourly rate
-  const hourlyRate = Number(body.hourlyRate) || 15;
-  if (hourlyRate < 14 || hourlyRate > 35) {
-    return NextResponse.json({ error: 'Hourly rate must be between £14 and £35' }, { status: 400 });
-  }
-
-  // Create User + CleanerProfile in a transaction
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        email: body.email.toLowerCase().trim(),
-        name: body.name.trim(),
-        phone: body.phone.trim(),
-        role: 'CLEANER',
-        passwordHash: body.password ? await bcrypt.hash(body.password, 12) : null,
-        image: body.profilePhoto || null,
-      },
-    });
-
-    const profile = await tx.cleanerProfile.create({
-      data: {
-        userId: user.id,
-        bio: body.bio?.trim() || null,
-        hourlyRate: hourlyRate,
-        specialties: body.specialties || [],
-        location: body.postcode?.trim() || null,
-        postcode: body.postcode?.trim() || null,
-        radius: 10,
-        verificationStatus: 'PENDING',
-        rightToWorkDocType: body.rightToWorkDocType || null,
-        rightToWorkShareCode: body.rightToWorkShareCode || null,
-        rightToWorkExpiresAt: body.rightToWorkExpiryDate
-          ? new Date(body.rightToWorkExpiryDate)
-          : null,
-        // DBS certificate details (if existing cert provided)
-        dbsCertNumber: body.dbsCertNumber?.trim() || null,
-        dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
-        // Liveness/selfie verification meta
-        verificationMeta: body.selfiePhoto
-          ? { livenessComplete: true, dbsOption: body.dbsOption || null }
-          : body.dbsOption
-            ? { dbsOption: body.dbsOption }
-            : undefined,
-      },
-    });
-
-    return { user, profile };
-  });
-
-  return NextResponse.json(
-    {
-      message: 'Application submitted successfully',
-      cleaner: {
-        id: result.user.id,
-        name: result.user.name,
-        email: result.user.email,
-        status: 'pending_review',
-        verificationStatus: result.profile.verificationStatus,
-      },
-    },
-    { status: 201 }
-  );
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { generateApiToken } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { AuditService } from '@/lib/services/audit.service';
 import { registerUser } from '@/lib/services/auth.service';
 
 const MAX_SIGNUP_ATTEMPTS = 3;
@@ -53,6 +54,15 @@ export async function POST(request: Request) {
       email: result.user.email,
       name: result.user.name,
       role: result.user.role,
+    });
+
+    await AuditService.log({
+      userId: result.user.id,
+      action: 'USER_REGISTERED',
+      entityType: 'User',
+      entityId: result.user.id,
+      metadata: { role: userRole, email },
+      ipAddress: ip,
     });
 
     return NextResponse.json(

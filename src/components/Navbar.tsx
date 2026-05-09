@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 
+import { useAuth } from '@/hooks/useAuth';
+
 export default function Navbar() {
+  const { user, isAuthenticated, isCleaner, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +31,7 @@ export default function Navbar() {
   return (
     <header
       ref={menuRef}
-      className="bg-white"
+      className="relative bg-white"
       style={{ borderBottom: '1px solid rgba(27,42,74,0.06)' }}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5">
@@ -39,7 +42,7 @@ export default function Navbar() {
           RENA
         </Link>
 
-        {/* Hamburger icon */}
+        {/* Hamburger icon — all screen sizes */}
         <button
           onClick={() => setOpen(!open)}
           className="flex flex-col gap-1.5"
@@ -58,46 +61,16 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Side panel — full-width on mobile, left-anchored sidebar on desktop */}
+      {/* Dropdown panel — right-aligned under burger icon */}
       {open && (
         <>
-          {/* Backdrop — desktop only */}
-          <div
-            className="hidden md:block fixed inset-0 z-40 bg-ink/20"
-            onClick={() => setOpen(false)}
-          />
+          <div className="fixed inset-0 z-40 bg-ink/20" onClick={() => setOpen(false)} />
           <nav
-            className="border-t border-ink/5 bg-white md:fixed md:left-0 md:top-0 md:z-50 md:h-full md:w-[320px] md:border-t-0 md:border-r md:border-ink/10 md:shadow-lg md:overflow-y-auto"
+            className="absolute right-4 top-[60px] z-50 w-[300px] max-h-[calc(100vh-80px)] overflow-y-auto rounded-xl bg-white shadow-xl md:right-14 md:top-[72px]"
+            style={{ border: '1px solid rgba(27,42,74,0.08)' }}
             aria-label="Main navigation"
           >
-            {/* Close button — desktop sidebar */}
-            <div className="hidden md:flex items-center justify-between px-6 py-5 border-b border-ink/5">
-              <Link
-                href="/"
-                onClick={() => setOpen(false)}
-                className="font-etna text-[28px] font-semibold tracking-widest text-ink"
-              >
-                RENA
-              </Link>
-              <button
-                onClick={() => setOpen(false)}
-                className="flex h-8 w-8 items-center justify-center text-ink-3 hover:text-ink transition-colors"
-                aria-label="Close menu"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="px-5 py-6 md:px-6">
-              {/* Client flow */}
+            <div className="px-5 py-5">
               <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
                 I need a cleaner
               </p>
@@ -114,63 +87,106 @@ export default function Navbar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setOpen(false)}
-                    className="rounded-md px-3 py-2.5 font-jost text-[15px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                    className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                   >
                     {link.label}
                   </Link>
                 ))}
               </div>
 
-              {/* Cleaner flow */}
-              <p className="mt-6 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
-                I&apos;m a cleaner
-              </p>
-              <div className="mt-3 flex flex-col gap-1">
-                {[
-                  { href: '/join', label: 'Become a Cleaner' },
-                  { href: '/cleaner', label: 'Cleaner Dashboard' },
-                ].map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    className="rounded-md px-3 py-2.5 font-jost text-[15px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+              {!isCleaner && (
+                <>
+                  <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
+                    I&apos;m a cleaner
+                  </p>
+                  <div className="mt-3 flex flex-col gap-1">
+                    <Link
+                      href="/join"
+                      onClick={() => setOpen(false)}
+                      className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                    >
+                      Become a Cleaner
+                    </Link>
+                  </div>
+                </>
+              )}
 
-              {/* Partner flow */}
-              <p className="mt-6 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
-                Partner with us
-              </p>
-              <div className="mt-3 flex flex-col gap-1">
-                <Link
-                  href="/company"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md px-3 py-2.5 font-jost text-[15px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
-                >
-                  Partner Dashboard
-                </Link>
-              </div>
+              {isCleaner && (
+                <>
+                  <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
+                    My Cleaner Account
+                  </p>
+                  <div className="mt-3 flex flex-col gap-1">
+                    {[
+                      { href: '/cleaner', label: 'Dashboard' },
+                      { href: '/cleaner/jobs', label: 'My Jobs' },
+                      { href: '/cleaner/earnings', label: 'Earnings' },
+                      { href: '/cleaner/profile', label: 'Profile' },
+                    ].map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setOpen(false)}
+                        className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
 
-              {/* Auth links */}
-              <div className="mt-8 flex items-center gap-4">
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/signup"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
-                >
-                  Sign up
-                </Link>
+              {isAdmin && (
+                <>
+                  <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
+                    Admin
+                  </p>
+                  <div className="mt-3 flex flex-col gap-1">
+                    <Link
+                      href="/admin"
+                      onClick={() => setOpen(false)}
+                      className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                    >
+                      Admin Dashboard
+                    </Link>
+                  </div>
+                </>
+              )}
+
+              <div className="mt-6 flex items-center gap-4 border-t border-ink/5 pt-5">
+                {isAuthenticated ? (
+                  <>
+                    <span className="font-jost text-[13px] font-normal text-ink-2">
+                      {user?.name}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setOpen(false);
+                        signOut({ callbackUrl: '/' });
+                      }}
+                      className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setOpen(false)}
+                      className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
+                    >
+                      Log in
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setOpen(false)}
+                      className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </nav>
