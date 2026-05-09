@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { Suspense, useState } from 'react';
 
 function LoginForm() {
@@ -27,15 +27,19 @@ function LoginForm() {
 
       if (result?.error) {
         setError('Invalid email or password. Please try again.');
+      } else if (callbackUrl) {
+        router.push(callbackUrl);
       } else {
-        if (callbackUrl) {
-          router.push(callbackUrl);
-        } else {
-          const session = await getSession();
-          const role = (session?.user as Record<string, unknown>)?.role;
+        // Fetch session to determine role-based redirect
+        try {
+          const sessionRes = await fetch('/api/auth/session');
+          const session = await sessionRes.json();
+          const role = session?.user?.role;
           if (role === 'CLEANER') router.push('/cleaner');
           else if (role === 'ADMIN') router.push('/admin');
           else router.push('/dashboard');
+        } catch {
+          router.push('/dashboard');
         }
       }
     } catch {
