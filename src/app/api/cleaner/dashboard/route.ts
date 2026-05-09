@@ -26,6 +26,11 @@ export async function GET() {
           tier: true,
           completedJobs: true,
           availableNow: true,
+          verified: true,
+          verificationStatus: true,
+          bio: true,
+          postcode: true,
+          specialties: true,
         },
       }),
 
@@ -117,6 +122,9 @@ export async function GET() {
       tier: profile.tier,
       completedJobs: profile.completedJobs,
       availableNow: profile.availableNow,
+      verified: profile.verified,
+      verificationStatus: profile.verificationStatus,
+      profileComplete: !!profile.bio && !!profile.postcode && profile.specialties.length > 0,
     },
     stats: {
       todaysJobs,

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import CleanerCTA from '../../components/CleanerCTA';
 import FooterCTA from '../../components/FooterCTA';
 import GuaranteeSection from '../../components/GuaranteeSection';
 import HeroSection from '../../components/HeroSection';
@@ -34,6 +35,7 @@ export default function HomePage() {
       <HowItWorks />
       <GuaranteeSection />
       <ReviewsSection />
+      <CleanerCTA />
       <FooterCTA />
       <HomeFooter />
     </>

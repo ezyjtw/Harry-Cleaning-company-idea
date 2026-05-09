@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -31,6 +32,9 @@ interface DashboardData {
     tier: string;
     completedJobs: number;
     availableNow: boolean;
+    verified: boolean;
+    verificationStatus: string;
+    profileComplete: boolean;
   };
   stats: {
     todaysJobs: number;
@@ -134,6 +138,166 @@ export default function CleanerDashboard() {
             Retry
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // Show onboarding / verification state for incomplete profiles
+  if (!data.profile.verified) {
+    const status = data.profile.verificationStatus;
+    const isPending = status === 'PENDING';
+    const isRejected = status === 'REJECTED';
+
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+        <div className="text-center py-8">
+          <div
+            className="mx-auto flex h-20 w-20 items-center justify-center rounded-full"
+            style={{ background: isPending ? 'rgba(234,179,8,0.1)' : 'rgba(27,42,74,0.05)' }}
+          >
+            {isPending ? (
+              <svg
+                className="h-10 w-10 text-yellow-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-10 w-10 text-ink-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            )}
+          </div>
+
+          <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">
+            {isPending
+              ? 'Your application is under review'
+              : isRejected
+                ? 'Application needs attention'
+                : `Welcome, ${data.profile.name?.split(' ')[0] || 'Cleaner'}`}
+          </h1>
+
+          <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2">
+            {isPending
+              ? "We're reviewing your documents and background check. This usually takes 24–48 hours. We'll notify you by email once approved."
+              : isRejected
+                ? 'There was an issue with your application. Please update your documents and resubmit.'
+                : 'Complete the steps below to get verified and start receiving bookings.'}
+          </p>
+        </div>
+
+        {/* Steps checklist */}
+        <div
+          className="mt-8 divide-y divide-ink/5"
+          style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
+        >
+          {[
+            {
+              label: 'Complete your profile',
+              description: 'Bio, postcode, specialties, and hourly rate',
+              done: data.profile.profileComplete,
+              href: '/cleaner/complete-profile',
+            },
+            {
+              label: 'Upload identity documents',
+              description: 'Photo ID and right to work verification',
+              done: isPending || data.profile.verified,
+              href: '/verify',
+            },
+            {
+              label: 'Background check',
+              description: 'DBS certificate or apply for a new check',
+              done: isPending || data.profile.verified,
+              href: '/verify',
+            },
+            {
+              label: 'Verification review',
+              description: isPending
+                ? "Under review — we'll email you when approved"
+                : data.profile.verified
+                  ? 'Approved'
+                  : 'Complete previous steps first',
+              done: data.profile.verified,
+              href: null,
+            },
+          ].map((step, i) => (
+            <div key={i} className="flex items-center gap-4 px-5 py-4">
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-jost ${
+                  step.done
+                    ? 'bg-green-100 text-green-600'
+                    : isPending && i === 3
+                      ? 'bg-yellow-100 text-yellow-600'
+                      : 'bg-ink/5 text-ink-3'
+                }`}
+              >
+                {step.done ? (
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : isPending && i === 3 ? (
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`font-jost text-[14px] ${step.done ? 'text-ink-3' : 'font-medium text-ink'}`}
+                >
+                  {step.label}
+                </p>
+                <p className="font-jost text-[12px] font-light text-ink-3">{step.description}</p>
+              </div>
+              {!step.done && step.href && (
+                <Link
+                  href={step.href}
+                  className="shrink-0 bg-ink px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-cream transition hover:bg-ink/90"
+                >
+                  {step.done ? 'Done' : 'Start'}
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-6 text-center font-jost text-xs font-light text-ink-3">
+          Need help?{' '}
+          <Link href="/contact" className="text-ink hover:text-gold transition">
+            Contact support
+          </Link>
+        </p>
       </div>
     );
   }
