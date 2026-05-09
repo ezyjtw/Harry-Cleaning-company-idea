@@ -231,7 +231,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const serviceLabel = SERVICE_LABELS[category] || 'Cleaning Service';
   const isRegular = category === 'regular';
 
-  const { cleaners, getCleanerById, getReviewsForCleaner } = useCleanersApi();
+  const { cleaners, getCleanerById } = useCleanersApi();
 
   // Check if a cleaner was pre-selected (coming from /book/[id] service selection)
   const searchParams = useSearchParams();
@@ -314,31 +314,55 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     if (bookingSubmitting) return;
     setBookingSubmitting(true);
     try {
+      const totalPrice = selectedCleaner
+        ? getPriceBreakdown(
+            selectedCleaner.hourlyRate,
+            effectiveHours,
+            SERVICE_MULTIPLIERS[category] ?? 1
+          ).total
+        : 0;
+
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cleanerId: selectedCleaner?.id || 'auto-assign',
-          name: email.split('@')[0], // Will use real name from auth in production
+          name: email.split('@')[0],
           email,
-          phone: '',
           address: postcode,
           date: selectedDay,
           time: selectedTime || 'Flexible',
           duration: effectiveHours,
           serviceType: category,
-          notes: specialInstructions,
-          totalPrice: selectedCleaner
-            ? getPriceBreakdown(
-                selectedCleaner.hourlyRate,
-                effectiveHours,
-                SERVICE_MULTIPLIERS[category] ?? 1
-              ).total
-            : 0,
+          notes: specialInstructions || undefined,
+          totalPrice,
           isGuest: true,
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
+          rooms: {
+            ...rooms,
+            cleanerBringsProducts,
+            keyAccess,
+            keyAccessNote: keyAccessNote || undefined,
+          },
+          frequency,
         }),
       });
+
+      if (joinMailingList && email) {
+        fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            postcode,
+            bedrooms: rooms.bedrooms,
+            bathrooms: rooms.bathrooms,
+            serviceType: category,
+            estimatedTotal: totalPrice,
+          }),
+        }).catch(() => {});
+      }
+
       if (response.ok) {
         const data = await response.json();
         setConfirmedBookingId(data.booking?.id || '');
@@ -500,7 +524,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         if (a.availableNow !== b.availableNow) return a.availableNow ? -1 : 1;
         return b.rating - a.rating;
       });
-  }, [isSameDay, postcode, todayAbbr]);
+  }, [cleaners, isSameDay, postcode, todayAbbr]);
 
   // Filter cleaners for set-time mode — match both day and time slot
   const availableCleaners = useMemo(() => {
@@ -512,7 +536,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       }
       return true;
     });
-  }, [scheduling, selectedDay, selectedTime]);
+  }, [cleaners, scheduling, selectedDay, selectedTime]);
 
   // All unique time slots across all cleaners for the selected day
   const availableTimeSlotsForDay = useMemo(() => {
@@ -531,7 +555,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       };
       return toMin(a) - toMin(b);
     });
-  }, [selectedDay]);
+  }, [cleaners, selectedDay]);
 
   // Count cleaners available at each time slot for a given day
   const cleanerCountsPerSlot = useMemo(() => {
@@ -543,7 +567,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       ).length;
     });
     return counts;
-  }, [selectedDay, availableTimeSlotsForDay]);
+  }, [cleaners, selectedDay, availableTimeSlotsForDay]);
 
   if (submitted) {
     return (

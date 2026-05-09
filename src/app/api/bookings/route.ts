@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import prisma from '@/lib/db/prisma';
 import { getSessionUser } from '@/lib/auth/session';
+import prisma from '@/lib/db/prisma';
 import {
   sendBookingConfirmation,
   sendCleanerAssignment,
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate required fields
-    const required = ['cleanerId', 'name', 'email', 'phone', 'date', 'time', 'duration', 'serviceType'];
+    const required = ['cleanerId', 'name', 'email', 'date', 'time', 'duration', 'serviceType'];
     for (const field of required) {
       if (!body[field]) {
         return NextResponse.json({ error: `${field} is required` }, { status: 400 });
@@ -170,27 +170,31 @@ export async function POST(request: NextRequest) {
     }).catch(() => {});
 
     // Notify the cleaner of the new booking
-    await prisma.notification.create({
-      data: {
-        userId: body.cleanerId,
-        type: 'BOOKING_REQUEST',
-        title: 'New booking request',
-        body: `New ${body.serviceType} cleaning on ${body.date}`,
-        data: { bookingId: booking.id },
-      },
-    }).catch(() => {});
+    await prisma.notification
+      .create({
+        data: {
+          userId: body.cleanerId,
+          type: 'BOOKING_REQUEST',
+          title: 'New booking request',
+          body: `New ${body.serviceType} cleaning on ${body.date}`,
+          data: { bookingId: booking.id },
+        },
+      })
+      .catch(() => {});
 
     // Notify the customer that their booking was created
     if (sessionUser) {
-      await prisma.notification.create({
-        data: {
-          userId: sessionUser.id,
-          type: 'BOOKING_CONFIRMED',
-          title: 'Booking submitted',
-          body: `Your ${body.serviceType} cleaning on ${body.date} has been submitted.`,
-          data: { bookingId: booking.id },
-        },
-      }).catch(() => {});
+      await prisma.notification
+        .create({
+          data: {
+            userId: sessionUser.id,
+            type: 'BOOKING_CONFIRMED',
+            title: 'Booking submitted',
+            body: `Your ${body.serviceType} cleaning on ${body.date} has been submitted.`,
+            data: { bookingId: booking.id },
+          },
+        })
+        .catch(() => {});
     }
 
     return NextResponse.json(
