@@ -301,8 +301,8 @@ function EarningsCalculator() {
   const [hours, setHours] = useState(20);
   const rate = 15;
   const weekly = hours * rate;
-  const monthly = weekly * 4;
-  const yearly = monthly * 12;
+  const monthly = Math.round((weekly * 52) / 12);
+  const yearly = weekly * 52;
 
   return (
     <div className="mt-6">
@@ -351,6 +351,10 @@ function EarningsCalculator() {
       </div>
       <p className="mt-3 font-jost text-[11px] text-ink-3 text-center">
         Based on an average of £{rate}/hr. Top-rated cleaners earn £20–£30/hr.
+      </p>
+      <p className="mt-1.5 font-jost text-[10px] text-ink-3/70 text-center">
+        Earnings shown are gross. As a self-employed cleaner you are responsible for your own tax
+        and National Insurance.
       </p>
     </div>
   );
