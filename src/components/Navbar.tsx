@@ -39,10 +39,44 @@ export default function Navbar() {
           RENA
         </Link>
 
-        {/* Hamburger icon */}
+        {/* Desktop inline nav */}
+        <nav className="hidden lg:flex items-center gap-7" aria-label="Main navigation">
+          {[
+            { href: '/services', label: 'Book a Clean' },
+            { href: '/cleaners', label: 'Find Cleaners' },
+            { href: '/#how-it-works', label: 'How It Works' },
+            { href: '/pricing', label: 'Pricing' },
+            { href: '/join', label: 'Become a Cleaner' },
+          ].map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="font-jost text-[14px] font-normal text-ink-2 transition-colors hover:text-ink"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden lg:flex items-center gap-4">
+          <Link
+            href="/login"
+            className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
+          >
+            Log in
+          </Link>
+          <Link
+            href="/signup"
+            className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+          >
+            Sign up
+          </Link>
+        </div>
+
+        {/* Mobile hamburger icon — hidden on desktop */}
         <button
           onClick={() => setOpen(!open)}
-          className="flex flex-col gap-1.5"
+          className="flex flex-col gap-1.5 lg:hidden"
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
         >
@@ -58,18 +92,16 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Dropdown panel — right-aligned under burger icon */}
+      {/* Mobile dropdown panel — right-aligned under burger icon */}
       {open && (
         <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 z-40 bg-ink/20" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40 bg-ink/20 lg:hidden" onClick={() => setOpen(false)} />
           <nav
-            className="absolute right-4 top-[60px] z-50 w-[300px] max-h-[calc(100vh-80px)] overflow-y-auto rounded-xl bg-white shadow-xl md:right-14 md:top-[72px]"
+            className="absolute right-4 top-[60px] z-50 w-[300px] max-h-[calc(100vh-80px)] overflow-y-auto rounded-xl bg-white shadow-xl lg:hidden"
             style={{ border: '1px solid rgba(27,42,74,0.08)' }}
-            aria-label="Main navigation"
+            aria-label="Mobile navigation"
           >
             <div className="px-5 py-5">
-              {/* Client flow */}
               <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
                 I need a cleaner
               </p>
@@ -93,7 +125,6 @@ export default function Navbar() {
                 ))}
               </div>
 
-              {/* Cleaner flow */}
               <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
                 I&apos;m a cleaner
               </p>
@@ -113,7 +144,6 @@ export default function Navbar() {
                 ))}
               </div>
 
-              {/* Partner flow */}
               <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
                 Partner with us
               </p>
@@ -127,7 +157,6 @@ export default function Navbar() {
                 </Link>
               </div>
 
-              {/* Auth links */}
               <div className="mt-6 flex items-center gap-4 border-t border-ink/5 pt-5">
                 <Link
                   href="/login"
