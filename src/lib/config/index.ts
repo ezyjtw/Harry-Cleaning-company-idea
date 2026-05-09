@@ -6,7 +6,7 @@ export const appConfig = {
   },
   auth: {
     secret: getEnvVar('NEXTAUTH_SECRET'),
-    url: getEnvVar('NEXTAUTH_URL', 'http://localhost:3000'),
+    url: getEnvVar('NEXTAUTH_URL'),
   },
   ryft: {
     publicKey: getEnvVar('NEXT_PUBLIC_RYFT_PUBLIC_KEY'),

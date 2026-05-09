@@ -12,7 +12,11 @@ const ENV_SCHEMA: EnvVarConfig[] = [
   {
     name: 'NEXTAUTH_URL',
     required: true,
-    default: 'http://localhost:3000',
+    default: process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000',
     description: 'NextAuth.js base URL',
   },
   { name: 'RYFT_SECRET_KEY', required: false, description: 'Ryft secret API key' },
@@ -42,7 +46,9 @@ const ENV_SCHEMA: EnvVarConfig[] = [
   {
     name: 'NEXT_PUBLIC_APP_URL',
     required: false,
-    default: 'http://localhost:3000',
+    default: process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : 'http://localhost:3000',
     description: 'Public application URL',
   },
   {
