@@ -23,14 +23,14 @@ const SERVICE_LABELS: Record<ServiceType, string> = {
 
 const SERVICE_MULTIPLIERS: Record<ServiceType, number> = {
   regular: 1,
-  'one-off': 1.15,
+  'one-off': 1.1,
   deep: 1.45,
-  eot: 1.0, // fixed-price — multiplier not used
-  airbnb: 1.0, // fixed-price — multiplier not used
+  eot: 1.0,
+  airbnb: 1.0,
   'same-day': 1.3,
 };
 
-const BASE_RATE = 25;
+const BASE_RATE = 14;
 
 // Fixed prices for EOT and Airbnb per spec (keyed by bedroom count)
 const EOT_FIXED_PRICES: Record<number, number> = {

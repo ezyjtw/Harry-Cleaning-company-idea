@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -214,12 +215,48 @@ async function main() {
 
   // ─── Service Types ─────────────────────────────────────────
   const serviceTypes = [
-    { slug: 'regular', name: 'Regular Cleaning', pricingModel: 'HOURLY' as const, baseMultiplier: 1.0, minimumHours: 2 },
-    { slug: 'one-off', name: 'One-Off Cleaning', pricingModel: 'HOURLY' as const, baseMultiplier: 1.15, minimumHours: 2 },
-    { slug: 'same-day', name: 'Same Day Cleaning', pricingModel: 'HOURLY' as const, baseMultiplier: 1.3, minimumHours: 2 },
-    { slug: 'deep', name: 'Deep Cleaning', pricingModel: 'HOURLY' as const, baseMultiplier: 1.45, minimumHours: 3 },
-    { slug: 'eot', name: 'End of Tenancy', pricingModel: 'FIXED' as const, baseMultiplier: 1.45, minimumHours: null },
-    { slug: 'airbnb', name: 'Airbnb Turnaround', pricingModel: 'FIXED' as const, baseMultiplier: 1.45, minimumHours: null },
+    {
+      slug: 'regular',
+      name: 'Regular Cleaning',
+      pricingModel: 'HOURLY' as const,
+      baseMultiplier: 1.0,
+      minimumHours: 2,
+    },
+    {
+      slug: 'one-off',
+      name: 'One-Off Cleaning',
+      pricingModel: 'HOURLY' as const,
+      baseMultiplier: 1.1,
+      minimumHours: 2,
+    },
+    {
+      slug: 'same-day',
+      name: 'Same Day Cleaning',
+      pricingModel: 'HOURLY' as const,
+      baseMultiplier: 1.3,
+      minimumHours: 2,
+    },
+    {
+      slug: 'deep',
+      name: 'Deep Cleaning',
+      pricingModel: 'HOURLY' as const,
+      baseMultiplier: 1.45,
+      minimumHours: 3,
+    },
+    {
+      slug: 'eot',
+      name: 'End of Tenancy',
+      pricingModel: 'FIXED' as const,
+      baseMultiplier: 1.45,
+      minimumHours: null,
+    },
+    {
+      slug: 'airbnb',
+      name: 'Airbnb Turnaround',
+      pricingModel: 'FIXED' as const,
+      baseMultiplier: 1.45,
+      minimumHours: null,
+    },
   ];
 
   for (const st of serviceTypes) {
