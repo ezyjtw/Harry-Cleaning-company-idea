@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       _count: true,
     });
 
-    const avgRate = Number(avgResult._avg.hourlyRate) || 25; // fallback to £25
+    const avgRate = Number(avgResult._avg.hourlyRate) || 14; // fallback to floor rate
     const cleanerCount = avgResult._count || 0;
 
     const SERVICE_MULTIPLIERS: Record<string, number> = {
