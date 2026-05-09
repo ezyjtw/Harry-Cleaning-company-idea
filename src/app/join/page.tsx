@@ -1,5 +1,8 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
@@ -534,6 +537,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
 /* ------------------------------------------------------------------ */
 
 export default function JoinAsCleanerPage() {
+  const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
@@ -786,6 +790,20 @@ export default function JoinAsCleanerPage() {
 
       localStorage.removeItem(STORAGE_KEY);
       trackConversion({ email: form.email });
+
+      // Auto-sign in and redirect to cleaner dashboard
+      if (form.password) {
+        const signInResult = await signIn('credentials', {
+          email: form.email,
+          password: form.password,
+          redirect: false,
+        });
+        if (!signInResult?.error) {
+          router.push('/cleaner');
+          return;
+        }
+      }
+
       setSubmitted(true);
     } catch {
       setErrors({ submit: 'Network error. Please check your connection and try again.' });
@@ -795,7 +813,7 @@ export default function JoinAsCleanerPage() {
   }
 
   /* ================================================================ */
-  /*  RENDER — Success screen                                         */
+  /*  RENDER — Success screen (fallback if auto-login fails)          */
   /* ================================================================ */
 
   if (submitted) {
@@ -806,13 +824,14 @@ export default function JoinAsCleanerPage() {
         </div>
         <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Application Received!</h1>
         <p className="mt-4 font-jost font-light text-ink-2">
-          Thank you for applying to join Rena, {form.name}! We&apos;ll review your application and
-          get back to you within 24-48 hours at {form.email}.
+          Thank you for applying to join Rena, {form.name}! Your account has been created.
         </p>
-        <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-          In the meantime, prepare for the verification process by having your ID and any cleaning
-          certifications ready.
-        </p>
+        <Link
+          href="/login"
+          className="mt-6 inline-block bg-ink px-8 py-3 font-jost text-[11px] uppercase tracking-[0.15em] text-cream transition hover:bg-ink/90"
+        >
+          Log in to your dashboard
+        </Link>
       </div>
     );
   }
