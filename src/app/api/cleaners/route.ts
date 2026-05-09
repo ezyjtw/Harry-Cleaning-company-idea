@@ -4,18 +4,6 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
-import { DocumentStorageService } from '@/lib/services/document-storage.service';
-
-export const maxDuration = 30;
-
-function base64ToBuffer(dataUrl: string): { buffer: Buffer; mimeType: string } {
-  const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
-  if (!match) throw new Error('Invalid base64 data URL');
-  return {
-    mimeType: match[1],
-    buffer: Buffer.from(match[2], 'base64'),
-  };
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -166,33 +154,6 @@ export async function POST(request: NextRequest) {
 
       return { user, profile };
     });
-
-    // Store uploaded documents securely (non-blocking — don't fail the whole signup)
-    const docUploads: { field: string; type: 'photo_id' | 'right_to_work' | 'dbs_certificate' }[] =
-      [
-        { field: 'photoIdFile', type: 'photo_id' },
-        { field: 'rightToWorkDocFile', type: 'right_to_work' },
-        { field: 'dbsCertFile', type: 'dbs_certificate' },
-      ];
-
-    for (const { field, type } of docUploads) {
-      if (body[field] && typeof body[field] === 'string' && body[field].startsWith('data:')) {
-        try {
-          const { buffer, mimeType } = base64ToBuffer(body[field]);
-          await DocumentStorageService.uploadDocument({
-            userId: result.user.id,
-            profileId: result.profile.id,
-            documentType: type,
-            fileBuffer: buffer,
-            originalName: `${type}-${result.user.id}`,
-            mimeType,
-          });
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error(`[Cleaners] Failed to store ${type} document:`, err);
-        }
-      }
-    }
 
     await AuditService.log({
       userId: result.user.id,

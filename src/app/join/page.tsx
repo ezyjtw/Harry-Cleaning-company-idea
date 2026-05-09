@@ -703,21 +703,72 @@ export default function JoinAsCleanerPage() {
     if (!validate(6)) return;
     setSubmitting(true);
     try {
+      // Strip large base64 file fields from the main request to stay under body limits.
+      // Documents are uploaded separately after profile creation.
+      const {
+        photoIdFile,
+        rightToWorkDocFile,
+        dbsCertFile,
+        selfiePhoto,
+        profilePhoto,
+        ...formData
+      } = form;
+
       const response = await fetch('/api/cleaners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...formData,
+          hasPhotoId: !!photoIdFile,
+          hasRtwDoc: !!rightToWorkDocFile,
+          hasDbsCert: !!dbsCertFile,
+          hasSelfie: !!selfiePhoto,
+          selfiePhoto: !!selfiePhoto,
+          profilePhoto: profilePhoto?.slice(0, 200) || null,
+        }),
       });
-      if (response.ok) {
-        localStorage.removeItem(STORAGE_KEY);
-        trackConversion({ email: form.email });
-        setSubmitted(true);
-      } else {
+
+      if (!response.ok) {
         const data = await response.json().catch(() => null);
         setErrors({
           submit: data?.error || 'Something went wrong. Please try again.',
         });
+        return;
       }
+
+      const result = await response.json();
+      const cleanerId = result.cleaner?.id;
+
+      // Upload documents in the background after profile creation
+      if (cleanerId) {
+        const docs: { data: string; type: string }[] = [];
+        if (photoIdFile && photoIdFile.startsWith('data:'))
+          docs.push({ data: photoIdFile, type: 'photo_id' });
+        if (rightToWorkDocFile && rightToWorkDocFile.startsWith('data:'))
+          docs.push({ data: rightToWorkDocFile, type: 'right_to_work' });
+        if (dbsCertFile && dbsCertFile.startsWith('data:'))
+          docs.push({ data: dbsCertFile, type: 'dbs_certificate' });
+
+        for (const doc of docs) {
+          try {
+            await fetch('/api/cleaners/documents', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cleanerId,
+                documentType: doc.type,
+                fileData: doc.data,
+              }),
+            });
+          } catch {
+            // Document upload failure shouldn't block application success
+          }
+        }
+      }
+
+      localStorage.removeItem(STORAGE_KEY);
+      trackConversion({ email: form.email });
+      setSubmitted(true);
     } catch {
       setErrors({ submit: 'Network error. Please check your connection and try again.' });
     } finally {
