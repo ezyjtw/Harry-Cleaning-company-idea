@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -14,13 +15,19 @@ export async function GET() {
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: user.id },
     include: {
-      user: { select: { name: true, email: true, phone: true, image: true } },
+      user: { select: { name: true, email: true, phone: true, image: true, passwordHash: true } },
     },
   });
 
   if (!profile) {
     return NextResponse.json({ error: 'Cleaner profile not found' }, { status: 404 });
   }
+
+  const onboardingComplete =
+    !!profile.bio &&
+    !!profile.postcode &&
+    profile.specialties.length > 0 &&
+    !!profile.user.passwordHash;
 
   return NextResponse.json({
     name: profile.user.name,
@@ -46,6 +53,7 @@ export async function GET() {
     rightToWorkDocType: profile.rightToWorkDocType,
     rightToWorkExpiresAt: profile.rightToWorkExpiresAt,
     identityVerifiedAt: profile.identityVerifiedAt,
+    onboardingComplete,
   });
 }
 
@@ -56,7 +64,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { bio, hourlyRate, specialties, radius, image } = body;
+  const { bio, hourlyRate, specialties, radius, image, postcode, password } = body;
 
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: user.id },
@@ -93,11 +101,24 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Bio must be 500 characters or fewer' }, { status: 400 });
   }
 
+  if (password !== undefined) {
+    if (typeof password !== 'string' || password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      );
+    }
+  }
+
   const profileUpdate: Record<string, unknown> = {};
   if (bio !== undefined) profileUpdate.bio = bio.trim();
   if (hourlyRate !== undefined) profileUpdate.hourlyRate = Number(hourlyRate);
   if (specialties !== undefined) profileUpdate.specialties = specialties;
   if (radius !== undefined) profileUpdate.radius = Number(radius);
+  if (postcode !== undefined) {
+    profileUpdate.postcode = postcode.trim();
+    profileUpdate.location = postcode.trim();
+  }
 
   await prisma.$transaction(async (tx) => {
     if (Object.keys(profileUpdate).length > 0) {
@@ -107,10 +128,13 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    if (image !== undefined) {
+    const userUpdate: Record<string, unknown> = {};
+    if (image !== undefined) userUpdate.image = image;
+    if (password !== undefined) userUpdate.passwordHash = await bcrypt.hash(password, 12);
+    if (Object.keys(userUpdate).length > 0) {
       await tx.user.update({
         where: { id: user.id },
-        data: { image },
+        data: userUpdate,
       });
     }
   });
@@ -121,7 +145,11 @@ export async function PUT(request: NextRequest) {
     entityType: 'CleanerProfile',
     entityId: profile.id,
     metadata: {
-      updatedFields: [...Object.keys(profileUpdate), ...(image !== undefined ? ['image'] : [])],
+      updatedFields: [
+        ...Object.keys(profileUpdate),
+        ...(image !== undefined ? ['image'] : []),
+        ...(password !== undefined ? ['password'] : []),
+      ],
     },
   });
 

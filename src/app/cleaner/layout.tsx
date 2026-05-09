@@ -56,6 +56,10 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
       })
       .then((data) => {
         if (!data) return;
+        if (!data.onboardingComplete && !pathname.startsWith('/cleaner/complete-profile')) {
+          router.push('/cleaner/complete-profile');
+          return;
+        }
         setCleanerName(data.name || 'Cleaner');
         setCleanerTier(data.tier || 'STARTER');
         const parts = (data.name || '').split(' ');
@@ -68,7 +72,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         );
       })
       .catch(() => {});
-  }, [router]);
+  }, [router, pathname]);
 
   return (
     <div className="min-h-screen bg-cream">
