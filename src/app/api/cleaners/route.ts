@@ -93,23 +93,106 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if email already exists
-    const existing = await prisma.user.findUnique({
-      where: { email: body.email.toLowerCase().trim() },
-    });
-    if (existing) {
-      return NextResponse.json(
-        { error: 'An account with this email already exists' },
-        { status: 409 }
-      );
-    }
-
     // Validate hourly rate
     const hourlyRate = Number(body.hourlyRate) || 15;
     if (hourlyRate < 14 || hourlyRate > 35) {
       return NextResponse.json(
         { error: 'Hourly rate must be between £14 and £35' },
         { status: 400 }
+      );
+    }
+
+    // Check if email already exists
+    const existing = await prisma.user.findUnique({
+      where: { email: body.email.toLowerCase().trim() },
+      include: { cleanerProfile: { select: { id: true } } },
+    });
+
+    if (existing) {
+      // Already a cleaner — block duplicate
+      if (existing.cleanerProfile || existing.role === 'CLEANER') {
+        return NextResponse.json(
+          { error: 'A cleaner account with this email already exists. Please log in instead.' },
+          { status: 409 }
+        );
+      }
+
+      // Existing client — upgrade to cleaner
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: existing.id },
+          data: {
+            role: 'CLEANER',
+            phone: body.phone?.trim() || existing.phone,
+            passwordHash: body.password
+              ? await bcrypt.hash(body.password, 12)
+              : existing.passwordHash,
+            image: body.profilePhoto || existing.image,
+          },
+        });
+
+        const profile = await tx.cleanerProfile.create({
+          data: {
+            userId: user.id,
+            bio: body.bio?.trim() || null,
+            hourlyRate,
+            specialties: body.specialties || [],
+            location: body.postcode?.trim() || null,
+            postcode: body.postcode?.trim() || null,
+            radius: 10,
+            verificationStatus: 'PENDING',
+            rightToWorkDocType: body.rightToWorkDocType || null,
+            rightToWorkShareCode: body.rightToWorkShareCode || null,
+            rightToWorkExpiresAt: body.rightToWorkExpiryDate
+              ? new Date(body.rightToWorkExpiryDate)
+              : null,
+            dbsCertNumber: body.dbsCertNumber?.trim() || null,
+            dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
+            rightToWorkStatus: body.rightToWorkDocType ? 'PENDING' : 'UNVERIFIED',
+            verificationMeta: body.selfiePhoto
+              ? { livenessComplete: true, dbsOption: body.dbsOption || null }
+              : body.dbsOption
+                ? { dbsOption: body.dbsOption }
+                : undefined,
+          },
+        });
+
+        return { user, profile };
+      });
+
+      await AuditService.log({
+        userId: result.user.id,
+        action: 'USER_REGISTERED',
+        entityType: 'User',
+        entityId: result.user.id,
+        metadata: { role: 'CLEANER', email: body.email, upgradedFromClient: true },
+      });
+
+      await AuditService.log({
+        userId: result.user.id,
+        action: 'CLEANER_PROFILE_UPDATED',
+        entityType: 'CleanerProfile',
+        entityId: result.profile.id,
+        metadata: {
+          event: 'onboarding_submitted',
+          dbsOption: body.dbsOption || null,
+          hasRtwDoc: !!body.rightToWorkDocType,
+          hasSelfie: !!body.selfiePhoto,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          message: 'Account upgraded to cleaner successfully',
+          cleaner: {
+            id: result.user.id,
+            name: result.user.name,
+            email: result.user.email,
+            status: 'pending_review',
+            verificationStatus: result.profile.verificationStatus,
+          },
+        },
+        { status: 201 }
       );
     }
 
