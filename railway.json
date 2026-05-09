@@ -5,7 +5,7 @@
     "buildCommand": "npx prisma generate && npm run build"
   },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy || echo 'Migration warning: continuing without migrations' && npm start",
+    "startCommand": "npx prisma db push --skip-generate && npm start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
