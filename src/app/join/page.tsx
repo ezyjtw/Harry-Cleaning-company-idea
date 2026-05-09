@@ -15,6 +15,8 @@ interface FormData {
   phone: string;
   postcode: string;
   dateOfBirth: string;
+  password: string;
+  confirmPassword: string;
   profilePhoto: string; // base64 data URL from uploaded image
 
   // Step 1 – Experience
@@ -56,6 +58,8 @@ const INITIAL_FORM: FormData = {
   phone: '',
   postcode: '',
   dateOfBirth: '',
+  password: '',
+  confirmPassword: '',
   profilePhoto: '',
 
   yearsExperience: '',
@@ -577,8 +581,18 @@ export default function JoinAsCleanerPage() {
   useEffect(() => {
     if (!mounted) return;
     try {
-      const { photoIdFile, rightToWorkDocFile, dbsCertFile, selfiePhoto, profilePhoto, ...rest } =
-        form;
+      const {
+        photoIdFile,
+        rightToWorkDocFile,
+        dbsCertFile,
+        selfiePhoto,
+        profilePhoto,
+        password,
+        confirmPassword,
+        ...rest
+      } = form;
+      void password;
+      void confirmPassword;
       const persistable = {
         ...rest,
         photoIdFile: photoIdFile ? '[uploaded]' : '',
@@ -623,6 +637,9 @@ export default function JoinAsCleanerPage() {
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
         e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
       if (!form.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
+      if (!form.password || form.password.length < 8)
+        e.password = 'Password must be at least 8 characters';
+      else if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
     }
 
     if (step === 1) {
@@ -711,6 +728,7 @@ export default function JoinAsCleanerPage() {
         dbsCertFile,
         selfiePhoto,
         profilePhoto,
+        confirmPassword: _,
         ...formData
       } = form;
 
@@ -932,6 +950,34 @@ export default function JoinAsCleanerPage() {
                   onChange={(e) => set('dateOfBirth', e.target.value)}
                 />
                 <FieldError message={errors.dateOfBirth} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Min. 8 characters"
+                    value={form.password}
+                    onChange={(e) => set('password', e.target.value)}
+                  />
+                  <FieldError message={errors.password} />
+                </div>
+                <div>
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Re-enter password"
+                    value={form.confirmPassword}
+                    onChange={(e) => set('confirmPassword', e.target.value)}
+                  />
+                  <FieldError message={errors.confirmPassword} />
+                </div>
               </div>
               <div>
                 <Label>Profile Picture</Label>

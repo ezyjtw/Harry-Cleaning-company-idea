@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 export default function SignupPage() {
   const router = useRouter();
+  const [role, setRole] = useState<'CLIENT' | 'CLEANER' | null>(null);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -81,6 +82,59 @@ export default function SignupPage() {
   const inputStyle = (field: string) => ({
     border: errors[field] ? '0.5px solid rgba(239,68,68,0.4)' : '0.5px solid rgba(14,14,12,0.1)',
   });
+
+  if (!role) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center bg-cream px-4 py-16">
+        <div className="w-full max-w-md">
+          <div className="text-center">
+            <Link
+              href="/"
+              className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
+            >
+              RENA
+            </Link>
+            <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Join Rena</h1>
+            <p className="mt-2 font-jost text-sm font-light text-ink-2">
+              How would you like to use Rena?
+            </p>
+          </div>
+
+          <div className="mt-10 flex flex-col gap-4">
+            <button
+              onClick={() => setRole('CLIENT')}
+              className="group w-full px-6 py-5 text-left transition-colors hover:bg-cream-2"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <p className="font-jost text-[15px] font-medium text-ink">I need a cleaner</p>
+              <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
+                Book trusted, vetted cleaners for your home or office.
+              </p>
+            </button>
+            <button
+              onClick={() => router.push('/join')}
+              className="group w-full px-6 py-5 text-left transition-colors hover:bg-cream-2"
+              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            >
+              <p className="font-jost text-[15px] font-medium text-ink">I&apos;m a cleaner</p>
+              <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
+                Apply to join our network and start earning on your terms.
+              </p>
+            </button>
+          </div>
+
+          <div className="mt-8 text-center">
+            <p className="font-jost text-sm font-light text-ink-3">
+              Already have an account?{' '}
+              <Link href="/login" className="font-normal text-ink hover:text-gold transition">
+                Log in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center bg-cream px-4 py-16">
@@ -253,10 +307,14 @@ export default function SignupPage() {
             </Link>
           </p>
           <p className="mt-3 font-jost text-sm font-light text-ink-3">
-            Want to offer cleaning services?{' '}
-            <Link href="/join" className="font-normal text-ink hover:text-gold transition">
-              Apply as a cleaner
-            </Link>
+            Not a client?{' '}
+            <button
+              type="button"
+              onClick={() => setRole(null)}
+              className="font-normal text-ink hover:text-gold transition"
+            >
+              Go back
+            </button>
           </p>
         </div>
       </div>
