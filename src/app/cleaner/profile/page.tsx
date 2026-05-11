@@ -55,6 +55,14 @@ export default function CleanerProfilePage() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [previewData, setPreviewData] = useState<{
+    rating: number;
+    completedJobs: number;
+    reviewCount: number;
+    identityVerified: boolean;
+    availableNow: boolean;
+    hourlyRate: number;
+  } | null>(null);
 
   const markDirty = useCallback(() => {
     setDirty(true);
@@ -83,6 +91,14 @@ export default function CleanerProfilePage() {
         setSelectedSpecialties(data.specialties || []);
         setTravelRadius(String(data.radius || 10));
         setPhoto(data.image || null);
+        setPreviewData({
+          rating: Number(data.rating) || 0,
+          completedJobs: data.completedJobs || 0,
+          reviewCount: data.reviewCount || 0,
+          identityVerified: data.verificationStatus === 'VERIFIED',
+          availableNow: data.availableNow || false,
+          hourlyRate: Number(data.hourlyRate) || 0,
+        });
         if (data.languages && data.languages.length > 0) {
           setSelectedLanguages(data.languages);
           const custom = data.languages.filter((l: string) => !languageOptions.includes(l));
@@ -222,6 +238,118 @@ export default function CleanerProfilePage() {
           Update your public profile information
         </p>
       </div>
+
+      {/* Profile Preview Card */}
+      {previewData && (
+        <div
+          className="mb-6 rounded-xl bg-white overflow-hidden"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
+          <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}>
+            <h2 className="font-cormorant text-lg font-light text-ink">Your Profile Card</h2>
+            <p className="font-jost text-[13px] font-light text-ink-3 mt-0.5">
+              This is how customers see you when browsing cleaners
+            </p>
+          </div>
+          <div className="p-6">
+            <div className="max-w-sm">
+              <div
+                className="flex flex-col bg-white shadow-sm"
+                style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
+              >
+                <div className="flex items-start gap-4 px-5 pt-5 pb-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream font-jost text-[18px] font-semibold text-ink">
+                    {name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate font-jost text-[16px] font-medium text-ink">
+                        {capitalise(name)}
+                      </h3>
+                      {previewData.identityVerified && (
+                        <svg
+                          className="h-4 w-4 shrink-0 text-teal"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="font-jost text-[12px] font-light text-ink-3">
+                      {postcode || 'No postcode set'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-jost text-[20px] font-semibold text-ink">
+                      &pound;
+                      {(Math.round(previewData.hourlyRate * 1.1 * 100) / 100).toFixed(2)}
+                    </span>
+                    <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 px-5">
+                  <span
+                    className="inline-flex text-yellow-400"
+                    aria-label={`${previewData.rating} out of 5 stars`}
+                  >
+                    {'★'.repeat(Math.floor(previewData.rating))}
+                    {previewData.rating % 1 >= 0.5 && '★'}
+                    {'☆'.repeat(
+                      5 - Math.floor(previewData.rating) - (previewData.rating % 1 >= 0.5 ? 1 : 0)
+                    )}
+                  </span>
+                  <span className="font-jost text-[12px] font-light text-ink-2">
+                    {previewData.rating} ({previewData.reviewCount})
+                  </span>
+                  {previewData.availableNow && (
+                    <span className="ml-auto flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
+                      </span>
+                      <span className="font-jost text-[11px] font-medium text-teal">
+                        Available today
+                      </span>
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-3 line-clamp-2 px-5 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                  {bio || 'No bio added yet'}
+                </p>
+
+                {selectedSpecialties.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5 px-5">
+                    {selectedSpecialties.slice(0, 3).map((s) => (
+                      <span
+                        key={s}
+                        className="rounded-full bg-cream px-3 py-1 font-jost text-[11px] font-medium text-ink-2"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-between border-t border-ink/5 px-5 py-3">
+                  <span className="font-jost text-[11px] font-light text-ink-3">
+                    {yearsExperience || 0} yrs experience &middot; {previewData.completedJobs} jobs
+                  </span>
+                  <span className="font-jost text-[11px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4">
+                    Book now
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Unsaved changes banner */}
       {dirty && (

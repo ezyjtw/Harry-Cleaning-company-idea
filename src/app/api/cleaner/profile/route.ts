@@ -15,7 +15,16 @@ export async function GET() {
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: user.id },
     include: {
-      user: { select: { name: true, email: true, phone: true, image: true, passwordHash: true } },
+      user: {
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+          passwordHash: true,
+          reviewsReceived: { select: { id: true } },
+        },
+      },
     },
   });
 
@@ -58,6 +67,8 @@ export async function GET() {
     rightToWorkDocType: profile.rightToWorkDocType,
     rightToWorkExpiresAt: profile.rightToWorkExpiresAt,
     identityVerifiedAt: profile.identityVerifiedAt,
+    availableNow: profile.availableNow,
+    reviewCount: profile.user.reviewsReceived.length,
     testimonials: profile.testimonials || [],
     onboardingComplete,
   });
