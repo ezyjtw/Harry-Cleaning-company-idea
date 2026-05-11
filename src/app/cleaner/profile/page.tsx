@@ -371,14 +371,6 @@ export default function CleanerProfilePage() {
                 style={{ border: '1px solid rgba(14,14,12,0.1)' }}
               />
             </div>
-            {yearsExperience && (
-              <div>
-                <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
-                  Years of Experience
-                </label>
-                <p className="mt-1.5 font-jost text-sm text-ink">{yearsExperience}</p>
-              </div>
-            )}
           </div>
           <p className="mt-4 font-jost text-[11px] text-ink-3">
             To update your name, email, or phone, please contact support.
@@ -407,6 +399,33 @@ export default function CleanerProfilePage() {
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
             {bio.length}/500 characters
           </p>
+        </div>
+
+        {/* Experience */}
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Experience</h2>
+          <p className="font-jost text-sm font-light text-ink-2 mb-3">
+            How many years have you been cleaning professionally?
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={yearsExperience}
+              onChange={(e) => {
+                setYearsExperience(e.target.value);
+                markDirty();
+              }}
+              min="0"
+              max="50"
+              placeholder="e.g. 5"
+              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+            />
+            <span className="font-jost text-sm font-light text-ink-2">years</span>
+          </div>
         </div>
 
         {/* Specialties */}
