@@ -34,6 +34,13 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
     where: { cleanerId: params.id, visibility: 'VISIBLE' },
   });
 
+  const testimonials = (Array.isArray(profile.testimonials) ? profile.testimonials : []) as {
+    clientName: string;
+    rating: number;
+    text: string;
+    categories?: { thoroughness: number; punctuality: number; communication: number };
+  }[];
+
   // Build cleaner data for the page
   const cleaner = {
     id: profile.user.id,
@@ -224,12 +231,47 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
         {/* Reviews */}
         <section className="mt-10">
           <h2 className="font-cormorant text-[22px] font-semibold text-ink">
-            Reviews ({reviews.length})
+            Reviews ({reviews.length + testimonials.length})
           </h2>
           <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
             Only verified customers who completed a booking can leave reviews.
           </p>
           <div className="mt-6 space-y-0">
+            {testimonials.map((t, i) => (
+              <div key={`testimonial-${i}`} className="border-t border-ink/5 py-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-jost text-[14px] font-medium text-ink">
+                      {t.clientName}
+                    </span>
+                    <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-ink-3">
+                      Testimonial
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-1">
+                  <StarRating rating={t.rating} />
+                </div>
+                {t.categories && (
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {[
+                      { label: 'Thoroughness', v: t.categories.thoroughness },
+                      { label: 'Punctuality', v: t.categories.punctuality },
+                      { label: 'Communication', v: t.categories.communication },
+                    ].map((cat) => (
+                      <span key={cat.label} className="font-jost text-[11px] font-light text-ink-3">
+                        {cat.label}: {cat.v}/5
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {t.text && (
+                  <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+                    {t.text}
+                  </p>
+                )}
+              </div>
+            ))}
             {reviews.map((review) => (
               <div key={review.id} className="border-t border-ink/5 py-5">
                 <div className="flex items-center justify-between">
@@ -292,7 +334,7 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
                 )}
               </div>
             ))}
-            {reviews.length === 0 && (
+            {reviews.length === 0 && testimonials.length === 0 && (
               <p className="py-8 text-center font-jost text-[14px] font-light text-ink-3">
                 No reviews yet.
               </p>

@@ -332,6 +332,7 @@ export default function ReviewsPage() {
 
   if (!data) return null;
 
+  const savedTestimonials = testimonials.filter((t) => t.clientName.trim() && t.text.trim());
   const overallRating = data.overallRating.toFixed(1);
   const ratingDistribution = [5, 4, 3, 2, 1].map((r) => ({
     rating: r,
@@ -431,81 +432,6 @@ export default function ReviewsPage() {
         )}
       </div>
 
-      {/* Saved testimonials displayed as review cards */}
-      {testimonialsSaved &&
-        testimonials.filter((t) => t.clientName.trim() && t.text.trim()).length > 0 && (
-          <div className="mb-8">
-            <h2 className="font-cormorant text-lg font-light text-ink mb-4">Your Testimonials</h2>
-            <div className="space-y-4">
-              {testimonials
-                .filter((t) => t.clientName.trim() && t.text.trim())
-                .map((t, i) => {
-                  const cats = t.categories || {
-                    thoroughness: 5,
-                    punctuality: 5,
-                    communication: 5,
-                  };
-                  return (
-                    <div
-                      key={i}
-                      className="rounded-xl bg-white p-5"
-                      style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-jost text-sm font-light text-ink">{t.clientName}</p>
-                          <p className="font-jost text-[11px] text-ink-3">Client testimonial</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: 5 }).map((_, si) => (
-                            <svg
-                              key={si}
-                              className={`w-4 h-4 ${si < t.rating ? 'text-gold' : 'text-ink-3/15'}`}
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="font-jost text-sm font-light text-ink-2 mb-3">{t.text}</p>
-
-                      {/* Category ratings */}
-                      <div className="flex flex-wrap gap-3 mb-3">
-                        {CATEGORY_LABELS.map(({ key, label }) => (
-                          <span
-                            key={key}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3 py-1 font-jost text-xs font-light text-ink-2"
-                          >
-                            {label}: {cats[key]}/5
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Evidence photos */}
-                      {t.images && t.images.length > 0 && (
-                        <div className="flex gap-2 mt-2">
-                          {t.images.map((img, pi) => (
-                            <div key={pi} className="w-16 h-16 rounded-lg overflow-hidden">
-                              <Image
-                                src={img}
-                                alt="Evidence of clean"
-                                width={64}
-                                height={64}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
       {/* Overall rating and breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div
@@ -602,7 +528,7 @@ export default function ReviewsPage() {
 
       {/* Reviews list */}
       <div className="space-y-4">
-        {data.reviews.length === 0 ? (
+        {data.reviews.length === 0 && savedTestimonials.length === 0 ? (
           <div
             className="text-center py-12 rounded-xl bg-white"
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
@@ -625,82 +551,149 @@ export default function ReviewsPage() {
             </p>
           </div>
         ) : (
-          data.reviews.map((review) => (
-            <div
-              key={review.id}
-              className="rounded-xl bg-white p-5"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-jost text-sm font-light text-ink">{review.clientName}</p>
-                  <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    {review.date}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-4 h-4 ${i < review.rating ? 'text-gold' : 'text-ink-3/15'}`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <p className="font-jost text-sm font-light text-ink-2">{review.comment}</p>
+          <>
+            {/* Testimonials */}
+            {filter === 0 &&
+              savedTestimonials.map((t, i) => {
+                const cats = t.categories || { thoroughness: 5, punctuality: 5, communication: 5 };
+                return (
+                  <div
+                    key={`testimonial-${i}`}
+                    className="rounded-xl bg-white p-5"
+                    style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-jost text-sm font-light text-ink">{t.clientName}</p>
+                          <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-ink-3">
+                            Testimonial
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, si) => (
+                          <svg
+                            key={si}
+                            className={`w-4 h-4 ${si < t.rating ? 'text-gold' : 'text-ink-3/15'}`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="font-jost text-sm font-light text-ink-2 mb-3">{t.text}</p>
 
-              {review.reply && (
-                <div className="mt-3 ml-4 pl-4 border-l-2 border-gold rounded-r-lg bg-gold/5 p-3">
-                  <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold mb-1">
-                    Your Reply
-                  </p>
-                  <p className="font-jost text-sm font-light text-ink-2">{review.reply}</p>
-                </div>
-              )}
+                    <div className="flex flex-wrap gap-3 mb-3">
+                      {CATEGORY_LABELS.map(({ key, label }) => (
+                        <span
+                          key={key}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3 py-1 font-jost text-xs font-light text-ink-2"
+                        >
+                          {label}: {cats[key]}/5
+                        </span>
+                      ))}
+                    </div>
 
-              {!review.reply && replyingTo === review.id ? (
-                <div className="mt-3">
-                  <textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Write your reply..."
-                    className="w-full rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
-                    style={{ border: '1px solid rgba(14,14,12,0.08)' }}
-                    rows={3}
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => handleReply(review.id)}
-                      className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition-colors"
-                    >
-                      Submit Reply
-                    </button>
-                    <button
-                      onClick={() => {
-                        setReplyingTo(null);
-                        setReplyText('');
-                      }}
-                      className="rounded-full px-4 py-1.5 bg-white text-ink font-jost text-[12px] font-light hover:bg-cream-2 transition-colors"
-                      style={{ border: '1px solid rgba(14,14,12,0.08)' }}
-                    >
-                      Cancel
-                    </button>
+                    {t.images && t.images.length > 0 && (
+                      <div className="flex gap-2">
+                        {t.images.map((img, pi) => (
+                          <div key={pi} className="w-16 h-16 rounded-lg overflow-hidden">
+                            <Image
+                              src={img}
+                              alt="Evidence of clean"
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+            {/* Verified reviews */}
+            {data.reviews.map((review) => (
+              <div
+                key={review.id}
+                className="rounded-xl bg-white p-5"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-jost text-sm font-light text-ink">{review.clientName}</p>
+                    <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                      {review.date}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <svg
+                        key={i}
+                        className={`w-4 h-4 ${i < review.rating ? 'text-gold' : 'text-ink-3/15'}`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
                   </div>
                 </div>
-              ) : !review.reply ? (
-                <button
-                  onClick={() => setReplyingTo(review.id)}
-                  className="mt-3 font-jost text-sm font-light text-gold hover:text-gold/80 transition-colors"
-                >
-                  Reply to this review
-                </button>
-              ) : null}
-            </div>
-          ))
+                <p className="font-jost text-sm font-light text-ink-2">{review.comment}</p>
+
+                {review.reply && (
+                  <div className="mt-3 ml-4 pl-4 border-l-2 border-gold rounded-r-lg bg-gold/5 p-3">
+                    <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold mb-1">
+                      Your Reply
+                    </p>
+                    <p className="font-jost text-sm font-light text-ink-2">{review.reply}</p>
+                  </div>
+                )}
+
+                {!review.reply && replyingTo === review.id ? (
+                  <div className="mt-3">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Write your reply..."
+                      className="w-full rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
+                      style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+                      rows={3}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => handleReply(review.id)}
+                        className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition-colors"
+                      >
+                        Submit Reply
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReplyingTo(null);
+                          setReplyText('');
+                        }}
+                        className="rounded-full px-4 py-1.5 bg-white text-ink font-jost text-[12px] font-light hover:bg-cream-2 transition-colors"
+                        style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : !review.reply ? (
+                  <button
+                    onClick={() => setReplyingTo(review.id)}
+                    className="mt-3 font-jost text-sm font-light text-gold hover:text-gold/80 transition-colors"
+                  >
+                    Reply to this review
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>
