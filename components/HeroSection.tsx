@@ -29,7 +29,8 @@ export default function HeroSection() {
             </p>
 
             <h1 className="mb-5 font-cormorant text-[28px] font-light leading-[1.1] text-white sm:text-[36px] md:mb-7 md:text-[50px] whitespace-nowrap">
-              Join the cleaning <em className="not-italic font-semibold text-white">Rena-lution</em>
+              Join the cleaning{' '}
+              <em className="not-italic font-etna tracking-widest text-white">RENA-LUTION</em>
             </h1>
 
             <p className="mb-3 font-cormorant text-[24px] font-light leading-[1.2] text-white/90 md:text-[34px]">
