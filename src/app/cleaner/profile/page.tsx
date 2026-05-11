@@ -29,6 +29,13 @@ const languageOptions = [
   'German',
 ];
 
+function capitalise(name: string) {
+  return name
+    .split(' ')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ''))
+    .join(' ');
+}
+
 export default function CleanerProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -46,6 +53,14 @@ export default function CleanerProfilePage() {
   const [customLanguage, setCustomLanguage] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const markDirty = useCallback(() => {
+    setDirty(true);
+    setSaved(false);
+    setSaveError('');
+  }, []);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -78,16 +93,48 @@ export default function CleanerProfilePage() {
       .finally(() => setLoading(false));
   }, [router]);
 
+  // Warn on browser close/refresh with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  // Intercept sidebar link clicks when dirty
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href === '/cleaner/profile') return;
+      if (href.startsWith('/cleaner') || href === '/') {
+        // eslint-disable-next-line no-alert
+        const ok = window.confirm('You have unsaved changes. Leave without saving?');
+        if (!ok) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [dirty]);
+
   const toggleSpecialty = (s: string) => {
     setSelectedSpecialties((prev) =>
       prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
     );
-    setSaved(false);
+    markDirty();
   };
 
   const toggleLanguage = (l: string) => {
     setSelectedLanguages((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));
-    setSaved(false);
+    markDirty();
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,29 +144,38 @@ export default function CleanerProfilePage() {
       reader.onloadend = () => setPhoto(reader.result as string);
       reader.readAsDataURL(file);
     }
-    setSaved(false);
+    markDirty();
   };
 
   const handleSave = useCallback(async () => {
     setSaving(true);
-    const res = await fetch('/api/cleaner/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bio,
-        specialties: selectedSpecialties,
-        languages: selectedLanguages,
-        radius: Number(travelRadius),
-        postcode,
-        image: photo,
-        yearsExperience: yearsExperience ? Number(yearsExperience) : null,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/cleaner/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bio,
+          specialties: selectedSpecialties,
+          languages: selectedLanguages,
+          radius: Number(travelRadius),
+          postcode,
+          image: photo,
+          yearsExperience: yearsExperience ? Number(yearsExperience) : null,
+        }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setDirty(false);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        const data = await res.json().catch(() => null);
+        setSaveError(data?.error || 'Failed to save. Please try again.');
+      }
+    } catch {
+      setSaveError('Network error. Please check your connection and try again.');
     }
+    setSaving(false);
   }, [bio, selectedSpecialties, selectedLanguages, travelRadius, postcode, photo, yearsExperience]);
 
   const isPhotoComplete = !!photo;
@@ -149,9 +205,9 @@ export default function CleanerProfilePage() {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-ink/5 w-32" />
+          <div className="h-8 bg-ink/5 rounded-lg w-32" />
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-ink/5" />
+            <div key={i} className="h-32 bg-ink/5 rounded-xl" />
           ))}
         </div>
       </div>
@@ -167,9 +223,54 @@ export default function CleanerProfilePage() {
         </p>
       </div>
 
+      {/* Unsaved changes banner */}
+      {dirty && (
+        <div
+          className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 px-5 py-3"
+          style={{ border: '1px solid rgba(217,119,6,0.2)' }}
+        >
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-amber-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"
+              />
+            </svg>
+            <span className="font-jost text-sm text-amber-800">You have unsaved changes</span>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save now'}
+          </button>
+        </div>
+      )}
+
+      {/* Save error */}
+      {saveError && (
+        <div
+          className="mb-6 rounded-xl bg-red-50 px-5 py-3"
+          style={{ border: '1px solid rgba(239,68,68,0.15)' }}
+        >
+          <p className="font-jost text-sm text-red-700">{saveError}</p>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Photo upload */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">
             Profile Photo{!isPhotoComplete && incompleteBadge}
           </h2>
@@ -228,7 +329,10 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Personal info */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">
             Personal Information{!isPostcodeComplete && incompleteBadge}
           </h2>
@@ -237,7 +341,7 @@ export default function CleanerProfilePage() {
               <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
                 Full Name
               </label>
-              <p className="mt-1.5 font-jost text-sm text-ink">{name || '—'}</p>
+              <p className="mt-1.5 font-jost text-sm text-ink">{capitalise(name) || '—'}</p>
             </div>
             <div>
               <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
@@ -260,10 +364,10 @@ export default function CleanerProfilePage() {
                 value={postcode}
                 onChange={(e) => {
                   setPostcode(e.target.value);
-                  setSaved(false);
+                  markDirty();
                 }}
                 placeholder="e.g. SW1A 1AA"
-                className="mt-1.5 w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                className="mt-1.5 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
                 style={{ border: '1px solid rgba(14,14,12,0.1)' }}
               />
             </div>
@@ -282,7 +386,10 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Bio */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">
             About You{!isBioComplete && incompleteBadge}
           </h2>
@@ -290,10 +397,10 @@ export default function CleanerProfilePage() {
             value={bio}
             onChange={(e) => {
               setBio(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             placeholder="Tell customers about yourself, your experience, and what makes you a great cleaner..."
-            className="w-full rounded-lg px-4 py-3 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none transition"
+            className="w-full rounded-lg px-4 py-3 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none transition"
             style={{ border: '1px solid rgba(14,14,12,0.1)' }}
             rows={4}
           />
@@ -303,7 +410,10 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Specialties */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">
             Specialties{!isSpecialtiesComplete && incompleteBadge}
           </h2>
@@ -318,7 +428,7 @@ export default function CleanerProfilePage() {
                 className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                   selectedSpecialties.includes(s)
                     ? 'bg-ink text-cream shadow-sm'
-                    : 'bg-white text-ink-2 hover:bg-cream-2'
+                    : 'bg-cream text-ink-2 hover:bg-cream-2'
                 }`}
                 style={
                   selectedSpecialties.includes(s)
@@ -348,7 +458,10 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Languages */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">
             Languages Spoken{!isLanguagesComplete && incompleteBadge}
           </h2>
@@ -360,7 +473,7 @@ export default function CleanerProfilePage() {
                 className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                   selectedLanguages.includes(l)
                     ? 'bg-ink text-cream shadow-sm'
-                    : 'bg-white text-ink-2 hover:bg-cream-2'
+                    : 'bg-cream text-ink-2 hover:bg-cream-2'
                 }`}
                 style={
                   selectedLanguages.includes(l)
@@ -382,7 +495,7 @@ export default function CleanerProfilePage() {
                 value={customLanguage}
                 onChange={(e) => setCustomLanguage(e.target.value)}
                 placeholder="e.g. Swahili"
-                className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
                 style={{ border: '1px solid rgba(14,14,12,0.1)' }}
               />
               <button
@@ -397,7 +510,7 @@ export default function CleanerProfilePage() {
                     setCustomLanguages((prev) => [...prev, lang]);
                     setSelectedLanguages((prev) => [...prev, lang]);
                     setCustomLanguage('');
-                    setSaved(false);
+                    markDirty();
                   }
                 }}
                 disabled={!customLanguage.trim()}
@@ -410,7 +523,10 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Travel radius */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div
+          className="rounded-xl bg-white p-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel Radius</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
             How far from your postcode are you willing to travel?
@@ -421,12 +537,12 @@ export default function CleanerProfilePage() {
               value={travelRadius}
               onChange={(e) => {
                 setTravelRadius(e.target.value);
-                setSaved(false);
+                markDirty();
               }}
               min="1"
               max="50"
               placeholder="e.g. 10"
-              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
               style={{ border: '1px solid rgba(14,14,12,0.1)' }}
             />
             <span className="font-jost text-sm font-light text-ink-2">miles</span>
@@ -439,7 +555,7 @@ export default function CleanerProfilePage() {
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
-            <span className="font-jost text-sm font-light text-gold flex items-center gap-1">
+            <span className="font-jost text-sm font-light text-green-600 flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -454,7 +570,7 @@ export default function CleanerProfilePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full px-8 py-2.5 bg-gold text-ink font-jost text-[13px] font-light shadow-sm hover:bg-gold/90 transition disabled:opacity-50"
+            className="rounded-full px-8 py-2.5 bg-ink text-cream font-jost text-[13px] font-light shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Profile'}
           </button>

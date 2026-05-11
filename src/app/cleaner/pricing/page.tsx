@@ -23,6 +23,8 @@ export default function CleanerPricingPage() {
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
   const [serviceRates, setServiceRates] = useState<Record<string, string>>({});
   const [hoursPerWeek, setHoursPerWeek] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -45,28 +47,73 @@ export default function CleanerPricingPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
+  const markDirty = useCallback(() => {
+    setDirty(true);
+    setSaved(false);
+    setSaveError('');
+  }, []);
+
+  // Warn on browser close/refresh with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  // Intercept sidebar link clicks when dirty
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href === '/cleaner/pricing') return;
+      if (href.startsWith('/cleaner') || href === '/') {
+        // eslint-disable-next-line no-alert
+        const ok = window.confirm('You have unsaved changes. Leave without saving?');
+        if (!ok) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [dirty]);
+
   const toggleService = (s: string) => {
     setServiceTypes((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
-    setSaved(false);
+    markDirty();
   };
 
   const handleSave = useCallback(async () => {
     setSaving(true);
-    const res = await fetch('/api/cleaner/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        hourlyRate: Number(hourlyRate),
-        serviceTypes,
-        serviceRates,
-        hoursPerWeek: hoursPerWeek ? Number(hoursPerWeek) : null,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/cleaner/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hourlyRate: Number(hourlyRate),
+          serviceTypes,
+          serviceRates,
+          hoursPerWeek: hoursPerWeek ? Number(hoursPerWeek) : null,
+        }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setDirty(false);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        const data = await res.json().catch(() => null);
+        setSaveError(data?.error || 'Failed to save. Please try again.');
+      }
+    } catch {
+      setSaveError('Network error. Please check your connection and try again.');
     }
+    setSaving(false);
   }, [hourlyRate, serviceTypes, serviceRates, hoursPerWeek]);
 
   if (loading) {
@@ -90,6 +137,48 @@ export default function CleanerPricingPage() {
           Manage your rates and the services you offer
         </p>
       </div>
+
+      {/* Unsaved changes banner */}
+      {dirty && (
+        <div
+          className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 px-5 py-3"
+          style={{ border: '1px solid rgba(217,119,6,0.2)' }}
+        >
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-amber-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"
+              />
+            </svg>
+            <span className="font-jost text-sm text-amber-800">You have unsaved changes</span>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save now'}
+          </button>
+        </div>
+      )}
+
+      {/* Save error */}
+      {saveError && (
+        <div
+          className="mb-6 rounded-xl bg-red-50 px-5 py-3"
+          style={{ border: '1px solid rgba(239,68,68,0.15)' }}
+        >
+          <p className="font-jost text-sm text-red-700">{saveError}</p>
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Service types */}
@@ -147,7 +236,7 @@ export default function CleanerPricingPage() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setHourlyRate(val);
-                  setSaved(false);
+                  markDirty();
                   const num = parseFloat(val);
                   if (!isNaN(num)) {
                     if (num < 14) setRateError('Minimum rate on Rena is £14/hr');
@@ -200,7 +289,7 @@ export default function CleanerPricingPage() {
                               ...prev,
                               [svc]: e.target.value,
                             }));
-                            setSaved(false);
+                            markDirty();
                           }}
                           placeholder="—"
                           className="w-full rounded-lg bg-white py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
@@ -279,7 +368,7 @@ export default function CleanerPricingPage() {
                                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                                   onChange={(e) => {
                                     setServiceRates((prev) => ({ ...prev, [key]: e.target.value }));
-                                    setSaved(false);
+                                    markDirty();
                                   }}
                                 />
                               </div>
@@ -347,7 +436,7 @@ export default function CleanerPricingPage() {
                                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                                   onChange={(e) => {
                                     setServiceRates((prev) => ({ ...prev, [key]: e.target.value }));
-                                    setSaved(false);
+                                    markDirty();
                                   }}
                                 />
                               </div>
@@ -386,7 +475,7 @@ export default function CleanerPricingPage() {
               value={hoursPerWeek}
               onChange={(e) => {
                 setHoursPerWeek(e.target.value);
-                setSaved(false);
+                markDirty();
               }}
               min="1"
               max="80"
@@ -404,7 +493,7 @@ export default function CleanerPricingPage() {
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
-            <span className="font-jost text-sm font-light text-gold flex items-center gap-1">
+            <span className="font-jost text-sm font-light text-green-600 flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -419,7 +508,7 @@ export default function CleanerPricingPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full px-8 py-2.5 bg-gold text-ink font-jost text-[13px] font-light shadow-sm hover:bg-gold/90 transition disabled:opacity-50"
+            className="rounded-full px-8 py-2.5 bg-ink text-cream font-jost text-[13px] font-light shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Pricing'}
           </button>
