@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -42,13 +43,45 @@ const navItems = [
   },
 ];
 
+interface ProfileData {
+  name?: string;
+  tier?: string;
+  image?: string;
+  bio?: string;
+  postcode?: string;
+  specialties?: string[];
+  languages?: string[];
+  serviceTypes?: string[];
+  serviceRates?: Record<string, string>;
+  hourlyRate?: number;
+  hoursPerWeek?: number;
+  onboardingComplete?: boolean;
+}
+
+function getCompletionSections(data: ProfileData | null) {
+  if (!data) return { sections: [], percent: 0 };
+  const sections = [
+    { label: 'Photo', done: !!data.image },
+    { label: 'Bio', done: !!(data.bio && data.bio.trim()) },
+    { label: 'Postcode', done: !!(data.postcode && data.postcode.trim()) },
+    { label: 'Specialties', done: !!(data.specialties && data.specialties.length > 0) },
+    { label: 'Languages', done: !!(data.languages && data.languages.length > 0) },
+    { label: 'Services', done: !!(data.serviceTypes && data.serviceTypes.length > 0) },
+    { label: 'Pricing', done: !!(data.hourlyRate && data.hourlyRate > 0) },
+  ];
+  const doneCount = sections.filter((s) => s.done).length;
+  return { sections, percent: Math.round((doneCount / sections.length) * 100) };
+}
+
 export default function CleanerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cleanerName, setCleanerName] = useState('');
   const [cleanerTier, setCleanerTier] = useState('');
+  const [cleanerImage, setCleanerImage] = useState('');
   const [initials, setInitials] = useState('');
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -67,6 +100,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         }
         setCleanerName(data.name || 'Cleaner');
         setCleanerTier(data.tier || 'STARTER');
+        setCleanerImage(data.image || '');
+        setProfileData(data);
         const parts = (data.name || '').split(' ');
         setInitials(
           parts
@@ -78,6 +113,9 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
       })
       .catch(() => {});
   }, [router, pathname]);
+
+  const { sections, percent } = getCompletionSections(profileData);
+  const allComplete = percent === 100;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -97,7 +135,10 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           </svg>
         </button>
         <div className="flex items-center gap-2">
-          <span className="font-cormorant text-lg font-light text-cream">Cleaner Portal</span>
+          <span className="font-cormorant text-lg font-light text-cream">Rena</span>
+          <span className="font-jost text-[10px] uppercase tracking-[0.15em] text-cream/50">
+            Cleaner
+          </span>
         </div>
         <div className="w-6" />
       </div>
@@ -106,7 +147,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         {/* Sidebar overlay for mobile */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-ink/50 z-40 lg:hidden"
+            className="fixed inset-0 bg-ink/50 z-40 lg:hidden backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -118,29 +159,100 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
             w-64 h-screen bg-ink
             transform transition-transform duration-200 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+            flex flex-col
           `}
         >
-          {/* Cleaner info header */}
-          <div className="p-6" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+          {/* Brand */}
+          <div className="px-6 pt-6 pb-2">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="font-cormorant text-xl font-light text-cream">Rena</span>
+              <span className="font-jost text-[9px] uppercase tracking-[0.2em] text-gold/70">
+                Cleaner Portal
+              </span>
+            </Link>
+          </div>
+
+          {/* Cleaner info */}
+          <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-cormorant font-light">
-                {initials || '..'}
+              <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {cleanerImage ? (
+                  <Image
+                    src={cleanerImage}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-gold font-cormorant font-light text-sm">
+                    {initials || '..'}
+                  </span>
+                )}
               </div>
-              <div>
-                <p className="font-jost font-light text-cream text-sm">
+              <div className="min-w-0">
+                <p className="font-jost font-light text-cream text-sm truncate">
                   {cleanerName || 'Loading...'}
                 </p>
-                <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-gold">
+                <span className="font-jost text-[10px] uppercase tracking-[0.12em] text-gold/80">
                   {cleanerTier
                     ? `${cleanerTier.charAt(0) + cleanerTier.slice(1).toLowerCase()} Tier`
                     : ''}
                 </span>
               </div>
             </div>
+
+            {/* Profile completion */}
+            {profileData && !allComplete && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-cream/40">
+                    Profile
+                  </span>
+                  <span className="font-jost text-[10px] font-medium text-gold">{percent}%</span>
+                </div>
+                <div className="h-1 bg-cream/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gold rounded-full transition-all duration-500"
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {sections
+                    .filter((s) => !s.done)
+                    .map((s) => (
+                      <span
+                        key={s.label}
+                        className="font-jost text-[9px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5"
+                      >
+                        {s.label}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+            {profileData && allComplete && (
+              <div className="mt-3 flex items-center gap-1.5">
+                <svg
+                  className="w-3.5 h-3.5 text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <span className="font-jost text-[10px] text-green-400/80">Profile complete</span>
+              </div>
+            )}
           </div>
 
           {/* Navigation */}
-          <nav className="p-4 space-y-1">
+          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -149,16 +261,16 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={`
-                    flex items-center gap-3 px-3 py-2.5 text-sm font-jost font-light transition-colors
+                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-jost font-light transition-all duration-150
                     ${
                       isActive
                         ? 'bg-cream/10 text-cream'
-                        : 'text-cream/60 hover:bg-cream/5 hover:text-cream/80'
+                        : 'text-cream/50 hover:bg-cream/5 hover:text-cream/80'
                     }
                   `}
                 >
                   <svg
-                    className="w-5 h-5 flex-shrink-0"
+                    className="w-[18px] h-[18px] flex-shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -171,22 +283,24 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                     />
                   </svg>
                   {item.label}
-                  {isActive && <div className="ml-auto w-1 h-1 rounded-full bg-gold" />}
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold" />}
                 </Link>
               );
             })}
           </nav>
 
           {/* Bottom section */}
-          <div
-            className="absolute bottom-0 left-0 right-0 p-4"
-            style={{ borderTop: '0.5px solid rgba(255,255,255,0.1)' }}
-          >
+          <div className="p-3" style={{ borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2.5 text-sm font-jost font-light text-cream/40 hover:text-cream/60 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-jost font-light text-cream/35 hover:text-cream/60 hover:bg-cream/5 transition-all duration-150"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-[18px] h-[18px]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

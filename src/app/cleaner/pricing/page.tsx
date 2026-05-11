@@ -256,33 +256,40 @@ export default function CleanerPricingPage() {
                         { label: '3 bed', guide: '£320 – £380' },
                         { label: '4 bed', guide: '£390 – £450' },
                         { label: '5 bed+', guide: '£480 – £580' },
-                      ].map((row) => (
-                        <tr
-                          key={row.label}
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                        >
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                            {row.label}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
-                                £
-                              </span>
-                              <input
-                                type="number"
-                                placeholder="—"
-                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                                onChange={() => setSaved(false)}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
-                            {row.guide}
-                          </td>
-                        </tr>
-                      ))}
+                      ].map((row) => {
+                        const key = `eot_${row.label}`;
+                        return (
+                          <tr
+                            key={row.label}
+                            style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                          >
+                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
+                              {row.label}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
+                                  £
+                                </span>
+                                <input
+                                  type="number"
+                                  placeholder="—"
+                                  value={serviceRates[key] || ''}
+                                  className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
+                                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                  onChange={(e) => {
+                                    setServiceRates((prev) => ({ ...prev, [key]: e.target.value }));
+                                    setSaved(false);
+                                  }}
+                                />
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
+                              {row.guide}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -317,33 +324,40 @@ export default function CleanerPricingPage() {
                         { label: '2 bed', guide: '£75 – £110' },
                         { label: '3 bed', guide: '£95 – £140' },
                         { label: '4 bed+', guide: '£130 – £165' },
-                      ].map((row) => (
-                        <tr
-                          key={row.label}
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                        >
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                            {row.label}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
-                                £
-                              </span>
-                              <input
-                                type="number"
-                                placeholder="—"
-                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                                onChange={() => setSaved(false)}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
-                            {row.guide}
-                          </td>
-                        </tr>
-                      ))}
+                      ].map((row) => {
+                        const key = `airbnb_${row.label}`;
+                        return (
+                          <tr
+                            key={row.label}
+                            style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                          >
+                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
+                              {row.label}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
+                                  £
+                                </span>
+                                <input
+                                  type="number"
+                                  placeholder="—"
+                                  value={serviceRates[key] || ''}
+                                  className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
+                                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                  onChange={(e) => {
+                                    setServiceRates((prev) => ({ ...prev, [key]: e.target.value }));
+                                    setSaved(false);
+                                  }}
+                                />
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
+                              {row.guide}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

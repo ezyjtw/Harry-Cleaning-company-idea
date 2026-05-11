@@ -58,6 +58,7 @@ export async function GET() {
     rightToWorkDocType: profile.rightToWorkDocType,
     rightToWorkExpiresAt: profile.rightToWorkExpiresAt,
     identityVerifiedAt: profile.identityVerifiedAt,
+    testimonials: profile.testimonials || [],
     onboardingComplete,
   });
 }
@@ -82,6 +83,7 @@ export async function PUT(request: NextRequest) {
     image,
     postcode,
     password,
+    testimonials,
   } = body;
 
   const profile = await prisma.cleanerProfile.findUnique({
@@ -143,6 +145,12 @@ export async function PUT(request: NextRequest) {
   if (postcode !== undefined) {
     profileUpdate.postcode = postcode.trim();
     profileUpdate.location = postcode.trim();
+  }
+  if (testimonials !== undefined) {
+    if (!Array.isArray(testimonials) || testimonials.length > 3) {
+      return NextResponse.json({ error: 'Maximum 3 testimonials allowed' }, { status: 400 });
+    }
+    profileUpdate.testimonials = testimonials;
   }
 
   await prisma.$transaction(async (tx) => {

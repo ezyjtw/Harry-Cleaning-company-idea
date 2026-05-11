@@ -292,6 +292,8 @@ model CleanerProfile {
   rightToWorkExpiresAt  DateTime?          // null for indefinite right (UK/Irish citizens)
   rightToWorkVerifiedAt DateTime?
 
+  testimonials          Json?
+
   providerId            String?
 
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
