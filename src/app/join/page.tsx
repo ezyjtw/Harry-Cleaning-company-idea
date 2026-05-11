@@ -29,9 +29,8 @@ interface FormData {
   languages: string[];
   bio: string;
 
-  // Step 2 – Pricing
-  hourlyRate: string;
-  sameDayRate: string;
+  // Step 2 – Pricing (keyed by service type from step 1)
+  serviceRates: Record<string, string>;
   hoursPerWeek: string;
 
   // Step 3 – Identity & Right to Work
@@ -71,8 +70,7 @@ const INITIAL_FORM: FormData = {
   languages: [],
   bio: '',
 
-  hourlyRate: '',
-  sameDayRate: '',
+  serviceRates: {},
   hoursPerWeek: '',
 
   photoIdFile: '',
@@ -101,32 +99,42 @@ const SERVICE_TYPE_OPTIONS = ['Standard', 'Deep', 'End of Tenancy', 'AirBnB'];
 
 const SERVICE_RATE_INFO: Record<
   string,
-  { label: string; description: string; range: string; model: string }
+  { label: string; description: string; range: string; model: string; hourly: boolean }
 > = {
   Standard: {
     label: 'Regular Cleaning',
     description: 'Weekly or fortnightly recurring cleans',
     range: '£14 – £35/hr',
     model: '2–4 hours',
+    hourly: true,
   },
   Deep: {
     label: 'Deep Cleaning',
     description: 'Intensive top-to-bottom cleaning',
     range: '£20 – £51/hr',
     model: '3–8 hours',
+    hourly: true,
   },
   'End of Tenancy': {
     label: 'End of Tenancy',
     description: 'Fixed price by property size',
     range: '£150 – £580',
     model: 'Fixed by property size',
+    hourly: false,
   },
   AirBnB: {
     label: 'Airbnb / Short-Let',
     description: 'Fixed price turnaround between guests',
     range: '£45 – £165',
     model: 'Fixed by property size',
+    hourly: false,
   },
+};
+
+const SAME_DAY_RATE_INFO = {
+  label: 'Same-Day Cleaning',
+  description: 'Urgent booking for same-day service',
+  range: '£18 – £46/hr',
 };
 
 const SPECIALTY_OPTIONS = [
@@ -791,9 +799,15 @@ export default function JoinAsCleanerPage() {
     }
 
     if (step === 2) {
-      if (!form.hourlyRate || Number(form.hourlyRate) < 1) e.hourlyRate = 'Enter your hourly rate';
-      if (!form.sameDayRate || Number(form.sameDayRate) < 1)
-        e.sameDayRate = 'Enter your same-day rate';
+      for (const svc of form.serviceTypes) {
+        const info = SERVICE_RATE_INFO[svc];
+        if (info?.hourly && (!form.serviceRates[svc] || Number(form.serviceRates[svc]) < 1)) {
+          e[`rate_${svc}`] = `Enter your ${info.label.toLowerCase()} rate`;
+        }
+      }
+      if (!form.serviceRates['Same Day'] || Number(form.serviceRates['Same Day']) < 1) {
+        e['rate_Same Day'] = 'Enter your same-day rate';
+      }
       if (!form.hoursPerWeek || Number(form.hoursPerWeek) < 1)
         e.hoursPerWeek = 'Enter your typical hours per week';
     }
@@ -1340,61 +1354,46 @@ export default function JoinAsCleanerPage() {
               Pricing &amp; Availability
             </h2>
 
-            {/* Typical rates table for selected services */}
-            <div
-              className="overflow-hidden rounded-lg"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            >
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-ink/[0.03]">
-                    <th className="px-4 py-2.5 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                      Service type
-                    </th>
-                    <th className="px-4 py-2.5 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                      Typical rate
-                    </th>
-                    <th className="hidden sm:table-cell px-4 py-2.5 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                      Duration
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.serviceTypes.map((svc) => {
-                    const info = SERVICE_RATE_INFO[svc];
-                    if (!info) return null;
-                    return (
-                      <tr key={svc} style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
-                        <td className="px-4 py-3">
-                          <p className="font-jost text-[13px] text-ink">{info.label}</p>
-                          <p className="font-jost text-[11px] text-ink-3">{info.description}</p>
-                        </td>
-                        <td className="px-4 py-3 font-jost text-[13px] text-gold">{info.range}</td>
-                        <td className="hidden sm:table-cell px-4 py-3 font-jost text-[13px] text-ink-2">
-                          {info.model}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
-                    <td className="px-4 py-3">
-                      <p className="font-jost text-[13px] text-ink">Same-Day Cleaning</p>
-                      <p className="font-jost text-[11px] text-ink-3">
-                        Urgent booking for same-day service
+            {/* Per-service rate inputs for hourly services */}
+            <div className="space-y-4">
+              {form.serviceTypes
+                .filter((svc) => SERVICE_RATE_INFO[svc]?.hourly)
+                .map((svc) => {
+                  const info = SERVICE_RATE_INFO[svc];
+                  return (
+                    <div key={svc}>
+                      <Label>{info.label} Rate</Label>
+                      <div className="relative mt-1">
+                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
+                          &pound;
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="0.50"
+                          required
+                          value={form.serviceRates[svc] || ''}
+                          onChange={(e) =>
+                            set('serviceRates', {
+                              ...form.serviceRates,
+                              [svc]: e.target.value,
+                            })
+                          }
+                          className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                        />
+                      </div>
+                      <p className="mt-1 font-jost text-[11px] text-ink-3">
+                        Typical range: {info.range}
                       </p>
-                    </td>
-                    <td className="px-4 py-3 font-jost text-[13px] text-gold">£18 – £46/hr</td>
-                    <td className="hidden sm:table-cell px-4 py-3 font-jost text-[13px] text-ink-2">
-                      2–4 hours
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                      <FieldError message={errors[`rate_${svc}`]} />
+                    </div>
+                  );
+                })}
 
-            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Same-day rate — always shown */}
               <div>
-                <Label>Hourly Rate (your net rate)</Label>
+                <Label>{SAME_DAY_RATE_INFO.label} Rate</Label>
                 <div className="relative mt-1">
                   <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
                     &pound;
@@ -1404,37 +1403,34 @@ export default function JoinAsCleanerPage() {
                     min="1"
                     step="0.50"
                     required
-                    placeholder="e.g. 16"
-                    value={form.hourlyRate}
-                    onChange={(e) => set('hourlyRate', e.target.value)}
+                    value={form.serviceRates['Same Day'] || ''}
+                    onChange={(e) =>
+                      set('serviceRates', {
+                        ...form.serviceRates,
+                        'Same Day': e.target.value,
+                      })
+                    }
                     className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
                     style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   />
                 </div>
-                <FieldError message={errors.hourlyRate} />
-              </div>
-
-              <div>
-                <Label>Same-Day Rate</Label>
-                <div className="relative mt-1">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
-                    &pound;
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.50"
-                    required
-                    placeholder="e.g. 21"
-                    value={form.sameDayRate}
-                    onChange={(e) => set('sameDayRate', e.target.value)}
-                    className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  />
-                </div>
-                <FieldError message={errors.sameDayRate} />
+                <p className="mt-1 font-jost text-[11px] text-ink-3">
+                  Typical range: {SAME_DAY_RATE_INFO.range}
+                </p>
+                <FieldError message={errors['rate_Same Day']} />
               </div>
             </div>
+
+            {/* Note about fixed-price services */}
+            {form.serviceTypes.some((svc) => !SERVICE_RATE_INFO[svc]?.hourly) && (
+              <p className="font-jost text-[12px] text-ink-3">
+                {form.serviceTypes
+                  .filter((svc) => !SERVICE_RATE_INFO[svc]?.hourly)
+                  .map((svc) => SERVICE_RATE_INFO[svc]?.label || svc)
+                  .join(' and ')}{' '}
+                pricing is set in your profile once your account is approved.
+              </p>
+            )}
 
             <div>
               <Label>Typical Working Hours / Week</Label>
@@ -1975,20 +1971,32 @@ export default function JoinAsCleanerPage() {
                   Pricing
                 </h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
+                  {form.serviceTypes
+                    .filter((svc) => SERVICE_RATE_INFO[svc]?.hourly)
+                    .map((svc) => (
+                      <div key={svc}>
+                        <dt className="inline font-normal text-ink">
+                          {SERVICE_RATE_INFO[svc]?.label}:
+                        </dt>{' '}
+                        <dd className="inline">&pound;{form.serviceRates[svc] || '–'}/hr</dd>
+                      </div>
+                    ))}
                   <div>
-                    <dt className="inline font-normal text-ink">Hourly:</dt>{' '}
-                    <dd className="inline">&pound;{form.hourlyRate}/hr</dd>
+                    <dt className="inline font-normal text-ink">Same-Day:</dt>{' '}
+                    <dd className="inline">&pound;{form.serviceRates['Same Day'] || '–'}/hr</dd>
                   </div>
-                  <div>
-                    <dt className="inline font-normal text-ink">Same-day:</dt>{' '}
-                    <dd className="inline">&pound;{form.sameDayRate}/hr</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-normal text-ink">Services:</dt>{' '}
-                    <dd className="inline">
-                      {form.serviceTypes.map((s) => SERVICE_RATE_INFO[s]?.label || s).join(', ')}
-                    </dd>
-                  </div>
+                  {form.serviceTypes.some((svc) => !SERVICE_RATE_INFO[svc]?.hourly) && (
+                    <div>
+                      <dt className="inline font-normal text-ink">Fixed-price:</dt>{' '}
+                      <dd className="inline">
+                        {form.serviceTypes
+                          .filter((svc) => !SERVICE_RATE_INFO[svc]?.hourly)
+                          .map((s) => SERVICE_RATE_INFO[s]?.label || s)
+                          .join(', ')}{' '}
+                        (set in profile)
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt className="inline font-normal text-ink">Hours/week:</dt>{' '}
                     <dd className="inline">{form.hoursPerWeek}</dd>
