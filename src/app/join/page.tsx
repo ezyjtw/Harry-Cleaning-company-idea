@@ -95,7 +95,7 @@ const STORAGE_KEY = 'rena-join-wizard';
 /*  Option lists                                                       */
 /* ------------------------------------------------------------------ */
 
-const SERVICE_TYPE_OPTIONS = ['Standard', 'Deep', 'End of Tenancy', 'AirBnB'];
+const SERVICE_TYPE_OPTIONS = ['Standard', 'Deep', 'Same Day', 'End of Tenancy', 'AirBnB'];
 
 const SERVICE_RATE_INFO: Record<
   string,
@@ -122,6 +122,13 @@ const SERVICE_RATE_INFO: Record<
     model: 'Fixed by property size',
     hourly: false,
   },
+  'Same Day': {
+    label: 'Same-Day Cleaning',
+    description: 'Urgent booking for same-day service',
+    range: '£18 – £46/hr',
+    model: '2–4 hours',
+    hourly: true,
+  },
   AirBnB: {
     label: 'Airbnb / Short-Let',
     description: 'Fixed price turnaround between guests',
@@ -129,12 +136,6 @@ const SERVICE_RATE_INFO: Record<
     model: 'Fixed by property size',
     hourly: false,
   },
-};
-
-const SAME_DAY_RATE_INFO = {
-  label: 'Same-Day Cleaning',
-  description: 'Urgent booking for same-day service',
-  range: '£18 – £46/hr',
 };
 
 const SPECIALTY_OPTIONS = [
@@ -805,9 +806,6 @@ export default function JoinAsCleanerPage() {
           e[`rate_${svc}`] = `Enter your ${info.label.toLowerCase()} rate`;
         }
       }
-      if (!form.serviceRates['Same Day'] || Number(form.serviceRates['Same Day']) < 1) {
-        e['rate_Same Day'] = 'Enter your same-day rate';
-      }
       if (!form.hoursPerWeek || Number(form.hoursPerWeek) < 1)
         e.hoursPerWeek = 'Enter your typical hours per week';
     }
@@ -1390,35 +1388,6 @@ export default function JoinAsCleanerPage() {
                     </div>
                   );
                 })}
-
-              {/* Same-day rate — always shown */}
-              <div>
-                <Label>{SAME_DAY_RATE_INFO.label} Rate</Label>
-                <div className="relative mt-1">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
-                    &pound;
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.50"
-                    required
-                    value={form.serviceRates['Same Day'] || ''}
-                    onChange={(e) =>
-                      set('serviceRates', {
-                        ...form.serviceRates,
-                        'Same Day': e.target.value,
-                      })
-                    }
-                    className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  />
-                </div>
-                <p className="mt-1 font-jost text-[11px] text-ink-3">
-                  Typical range: {SAME_DAY_RATE_INFO.range}
-                </p>
-                <FieldError message={errors['rate_Same Day']} />
-              </div>
             </div>
 
             {/* Note about fixed-price services */}
@@ -1981,10 +1950,6 @@ export default function JoinAsCleanerPage() {
                         <dd className="inline">&pound;{form.serviceRates[svc] || '–'}/hr</dd>
                       </div>
                     ))}
-                  <div>
-                    <dt className="inline font-normal text-ink">Same-Day:</dt>{' '}
-                    <dd className="inline">&pound;{form.serviceRates['Same Day'] || '–'}/hr</dd>
-                  </div>
                   {form.serviceTypes.some((svc) => !SERVICE_RATE_INFO[svc]?.hourly) && (
                     <div>
                       <dt className="inline font-normal text-ink">Fixed-price:</dt>{' '}
