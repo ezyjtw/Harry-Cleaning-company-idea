@@ -93,11 +93,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate hourly rate
-    const hourlyRate = Number(body.hourlyRate) || 15;
-    if (hourlyRate < 14 || hourlyRate > 35) {
+    // Derive hourly rate from serviceRates if not provided directly
+    let hourlyRate = Number(body.hourlyRate) || 0;
+    if (!hourlyRate && body.serviceRates && typeof body.serviceRates === 'object') {
+      const standardRate = Number(body.serviceRates['Standard']);
+      if (standardRate > 0) {
+        hourlyRate = standardRate;
+      } else {
+        const rates = Object.values(body.serviceRates)
+          .map(Number)
+          .filter((r: number) => r > 0);
+        hourlyRate = rates.length > 0 ? Math.min(...rates) : 15;
+      }
+    }
+    if (!hourlyRate) hourlyRate = 15;
+    if (hourlyRate < 14 || hourlyRate > 100) {
       return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £35' },
+        { error: 'Hourly rate must be between £14 and £100' },
         { status: 400 }
       );
     }

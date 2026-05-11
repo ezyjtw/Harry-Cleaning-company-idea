@@ -790,8 +790,15 @@ export default function JoinAsCleanerPage() {
     if (step === 2) {
       for (const svc of form.serviceTypes) {
         const info = SERVICE_RATE_INFO[svc];
-        if (info?.hourly && (!form.serviceRates[svc] || Number(form.serviceRates[svc]) < 1)) {
-          e[`rate_${svc}`] = `Enter your ${info.label.toLowerCase()} rate`;
+        if (info?.hourly) {
+          const rate = Number(form.serviceRates[svc]);
+          if (!form.serviceRates[svc] || rate < 1) {
+            e[`rate_${svc}`] = `Enter your ${info.label.toLowerCase()} rate`;
+          } else if (rate < 14) {
+            e[`rate_${svc}`] = 'Minimum rate is £14/hr';
+          } else if (rate > 100) {
+            e[`rate_${svc}`] = 'Maximum rate is £100/hr';
+          }
         }
       }
       if (!form.hoursPerWeek || Number(form.hoursPerWeek) < 1)
@@ -1522,7 +1529,7 @@ export default function JoinAsCleanerPage() {
 
             {/* ---- Right to Work ---- */}
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
-              <h3 className="font-cormorant text-xl text-ink">Right to Work</h3>
+              <h3 className="font-cormorant text-xl font-light text-ink">Right to Work</h3>
               <p className="mt-1 font-jost text-xs font-light text-ink-3">
                 UK law requires us to verify your right to work before you can accept bookings.
               </p>
@@ -1696,7 +1703,9 @@ export default function JoinAsCleanerPage() {
                 className="space-y-4 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">DBS Certificate Details</h3>
+                <h3 className="font-cormorant text-xl font-light text-ink">
+                  DBS Certificate Details
+                </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label>Certificate Number</Label>
@@ -1759,7 +1768,7 @@ export default function JoinAsCleanerPage() {
                 className="space-y-3 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">
+                <h3 className="font-cormorant text-xl font-light text-ink">
                   How to Get a DBS Certificate
                 </h3>
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -1821,7 +1830,7 @@ export default function JoinAsCleanerPage() {
 
             {/* Liveness / Selfie Verification */}
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
-              <h3 className="font-cormorant text-xl text-ink">Identity Verification</h3>
+              <h3 className="font-cormorant text-xl font-light text-ink">Identity Verification</h3>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
                 photo ID you uploaded in the previous step. This is a one-time check to protect both
