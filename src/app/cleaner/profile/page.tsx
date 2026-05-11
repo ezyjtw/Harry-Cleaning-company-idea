@@ -46,9 +46,6 @@ export default function CleanerProfilePage() {
   const [customLanguage, setCustomLanguage] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [testimonials, setTestimonials] = useState<
-    { clientName: string; rating: number; text: string }[]
-  >([]);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -71,9 +68,6 @@ export default function CleanerProfilePage() {
         setSelectedSpecialties(data.specialties || []);
         setTravelRadius(String(data.radius || 10));
         setPhoto(data.image || null);
-        if (data.testimonials && Array.isArray(data.testimonials) && data.testimonials.length > 0) {
-          setTestimonials(data.testimonials);
-        }
         if (data.languages && data.languages.length > 0) {
           setSelectedLanguages(data.languages);
           const custom = data.languages.filter((l: string) => !languageOptions.includes(l));
@@ -119,7 +113,6 @@ export default function CleanerProfilePage() {
         postcode,
         image: photo,
         yearsExperience: yearsExperience ? Number(yearsExperience) : null,
-        testimonials: testimonials.filter((t) => t.clientName.trim() && t.text.trim()),
       }),
     });
     setSaving(false);
@@ -127,16 +120,7 @@ export default function CleanerProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }
-  }, [
-    bio,
-    selectedSpecialties,
-    selectedLanguages,
-    travelRadius,
-    postcode,
-    photo,
-    yearsExperience,
-    testimonials,
-  ]);
+  }, [bio, selectedSpecialties, selectedLanguages, travelRadius, postcode, photo, yearsExperience]);
 
   const isPhotoComplete = !!photo;
   const isPostcodeComplete = !!postcode.trim();
@@ -450,125 +434,6 @@ export default function CleanerProfilePage() {
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
             Customers within this radius will be able to find you
           </p>
-        </div>
-
-        {/* Client testimonials */}
-        <div
-          className="bg-cream p-6 rounded-xl"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-        >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-1">Client Testimonials</h2>
-          <p className="font-jost text-sm font-light text-ink-2 mb-4">
-            Add up to 3 reviews from previous clients to showcase your work
-          </p>
-
-          <div className="space-y-4">
-            {testimonials.map((t, i) => (
-              <div
-                key={i}
-                className="rounded-lg bg-white p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.08)' }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <input
-                    type="text"
-                    value={t.clientName}
-                    onChange={(e) => {
-                      const updated = [...testimonials];
-                      updated[i] = { ...updated[i], clientName: e.target.value };
-                      setTestimonials(updated);
-                      setSaved(false);
-                    }}
-                    placeholder="Client name"
-                    className="font-jost text-sm font-light text-ink bg-transparent focus:outline-none placeholder:text-ink-3/50 w-40"
-                  />
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => {
-                          const updated = [...testimonials];
-                          updated[i] = { ...updated[i], rating: star };
-                          setTestimonials(updated);
-                          setSaved(false);
-                        }}
-                      >
-                        <svg
-                          className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-gold' : 'text-ink-3/20 hover:text-gold/40'}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTestimonials(testimonials.filter((_, j) => j !== i));
-                        setSaved(false);
-                      }}
-                      className="ml-2 text-ink-3/40 hover:text-red-400 transition-colors"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  value={t.text}
-                  onChange={(e) => {
-                    const updated = [...testimonials];
-                    updated[i] = { ...updated[i], text: e.target.value };
-                    setTestimonials(updated);
-                    setSaved(false);
-                  }}
-                  placeholder="What did this client say about your work?"
-                  className="w-full font-jost text-sm font-light text-ink-2 bg-transparent focus:outline-none resize-none placeholder:text-ink-3/40"
-                  rows={2}
-                />
-              </div>
-            ))}
-          </div>
-
-          {testimonials.length < 3 && (
-            <button
-              type="button"
-              onClick={() => {
-                setTestimonials([...testimonials, { clientName: '', rating: 5, text: '' }]);
-                setSaved(false);
-              }}
-              className="mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 font-jost text-sm font-light text-ink hover:bg-cream-2 transition-colors"
-              style={{ border: '1px dashed rgba(14,14,12,0.15)' }}
-            >
-              <svg
-                className="w-4 h-4 text-ink-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Add testimonial ({testimonials.length}/3)
-            </button>
-          )}
         </div>
 
         {/* Save button */}
