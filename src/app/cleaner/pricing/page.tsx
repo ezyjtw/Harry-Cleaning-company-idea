@@ -167,44 +167,6 @@ export default function CleanerPricingPage() {
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
             Suggested range: £15–£22/hr
           </p>
-
-          {/* Earnings preview */}
-          {(() => {
-            const rate = parseFloat(hourlyRate);
-            if (isNaN(rate) || rate < 14 || rate > 35) return null;
-            const fee = 0.1;
-            return (
-              <div
-                className="mt-4 rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <p className="font-jost text-sm font-medium text-ink mb-1">Your rate: £{rate}/hr</p>
-                <p className="font-jost text-xs text-ink-3 mb-3">
-                  Rena platform fee: 10% (deducted from your payout)
-                </p>
-                <div className="space-y-1">
-                  {[2, 3, 4].map((h) => {
-                    const gross = rate * h;
-                    const feeAmt = Math.round(gross * fee * 100) / 100;
-                    const net = Math.round(gross * (1 - fee) * 100) / 100;
-                    return (
-                      <p key={h} className="font-jost text-sm text-ink-2">
-                        {h}hr visit: you earn{' '}
-                        <span className="font-medium text-ink">£{net.toFixed(2)}</span>
-                        <span className="text-ink-3 ml-1">
-                          (gross £{gross.toFixed(2)}, minus £{feeAmt.toFixed(2)} fee)
-                        </span>
-                      </p>
-                    );
-                  })}
-                </div>
-                <p className="font-jost text-xs text-ink-3 mt-3">
-                  The customer pays a separate 6% service fee — your advertised rate is what you
-                  charge.
-                </p>
-              </div>
-            );
-          })()}
         </div>
 
         {/* Per-service rates */}
@@ -394,24 +356,9 @@ export default function CleanerPricingPage() {
             >
               <p className="font-jost text-sm font-medium text-ink mb-2">How fees work</p>
               <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
-                For End of Tenancy and Airbnb bookings, Rena charges a 15% platform fee on your
-                listed price. The customer also pays a separate 6% service fee — this does not
-                affect your earnings.
+                Fixed-price services (End of Tenancy &amp; Airbnb) have a 15% platform fee instead
+                of the usual 10%, due to our pricing model.
               </p>
-              <div
-                className="mt-4 rounded-lg bg-white p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
-              >
-                <p className="font-jost text-xs font-medium text-ink mb-1">
-                  Example: you charge £270 for a 2-bed EOT
-                </p>
-                <p className="font-jost text-xs font-light text-ink-2">
-                  Customer pays: £270 + £16.20 (6%) = £286.20
-                </p>
-                <p className="font-jost text-xs font-light text-ink-2">
-                  You receive: £270 − £40.50 (15%) = £229.50
-                </p>
-              </div>
             </div>
           </div>
         )}
