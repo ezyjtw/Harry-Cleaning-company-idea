@@ -62,7 +62,7 @@ export default function ProfilePreviewPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const listedRate = data ? Math.round(data.hourlyRate * 1.1 * 100) / 100 : 0;
+  const listedRate = data ? data.hourlyRate : 0;
   const sameDayRate = data ? Math.round(data.hourlyRate * 1.4 * 100) / 100 : 0;
 
   if (loading) {
