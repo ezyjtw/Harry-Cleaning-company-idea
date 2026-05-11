@@ -246,6 +246,11 @@ model CleanerProfile {
   bio                   String?            @db.Text
   hourlyRate            Decimal            @default(15.00) @db.Decimal(10, 2)
   specialties           String[]
+  languages             String[]
+  serviceTypes          String[]
+  serviceRates          Json?
+  hoursPerWeek          Int?
+  yearsExperience       Int?
   tier                  CleanerTier        @default(STARTER)
   verified              Boolean            @default(false)
   documentsUploaded     Boolean            @default(false)

@@ -37,6 +37,11 @@ export async function GET() {
     bio: profile.bio || '',
     hourlyRate: Number(profile.hourlyRate),
     specialties: profile.specialties,
+    languages: profile.languages || [],
+    serviceTypes: profile.serviceTypes || [],
+    serviceRates: profile.serviceRates || {},
+    hoursPerWeek: profile.hoursPerWeek,
+    yearsExperience: profile.yearsExperience,
     tier: profile.tier,
     location: profile.location,
     postcode: profile.postcode,
@@ -64,7 +69,20 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { bio, hourlyRate, specialties, radius, image, postcode, password } = body;
+  const {
+    bio,
+    hourlyRate,
+    specialties,
+    languages,
+    serviceTypes,
+    serviceRates,
+    hoursPerWeek,
+    yearsExperience,
+    radius,
+    image,
+    postcode,
+    password,
+  } = body;
 
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: user.id },
@@ -114,6 +132,13 @@ export async function PUT(request: NextRequest) {
   if (bio !== undefined) profileUpdate.bio = bio.trim();
   if (hourlyRate !== undefined) profileUpdate.hourlyRate = Number(hourlyRate);
   if (specialties !== undefined) profileUpdate.specialties = specialties;
+  if (languages !== undefined) profileUpdate.languages = languages;
+  if (serviceTypes !== undefined) profileUpdate.serviceTypes = serviceTypes;
+  if (serviceRates !== undefined) profileUpdate.serviceRates = serviceRates;
+  if (hoursPerWeek !== undefined)
+    profileUpdate.hoursPerWeek = hoursPerWeek ? Number(hoursPerWeek) : null;
+  if (yearsExperience !== undefined)
+    profileUpdate.yearsExperience = yearsExperience ? Number(yearsExperience) : null;
   if (radius !== undefined) profileUpdate.radius = Number(radius);
   if (postcode !== undefined) {
     profileUpdate.postcode = postcode.trim();

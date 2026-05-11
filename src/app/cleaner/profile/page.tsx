@@ -33,9 +33,12 @@ export default function CleanerProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [photo, setPhoto] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [postcode, setPostcode] = useState('');
   const [bio, setBio] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('15');
-  const [rateError, setRateError] = useState('');
+  const [yearsExperience, setYearsExperience] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [travelRadius, setTravelRadius] = useState('10');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
@@ -44,7 +47,6 @@ export default function CleanerProfilePage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Fetch profile data on mount
   useEffect(() => {
     fetch('/api/cleaner/profile')
       .then((res) => {
@@ -57,11 +59,20 @@ export default function CleanerProfilePage() {
       })
       .then((data) => {
         if (!data) return;
+        setName(data.name || '');
+        setEmail(data.email || '');
+        setPhone(data.phone || '');
+        setPostcode(data.postcode || '');
         setBio(data.bio || '');
-        setHourlyRate(String(data.hourlyRate || 15));
+        setYearsExperience(String(data.yearsExperience || ''));
         setSelectedSpecialties(data.specialties || []);
         setTravelRadius(String(data.radius || 10));
         setPhoto(data.image || null);
+        if (data.languages && data.languages.length > 0) {
+          setSelectedLanguages(data.languages);
+          const custom = data.languages.filter((l: string) => !languageOptions.includes(l));
+          setCustomLanguages(custom);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -96,10 +107,12 @@ export default function CleanerProfilePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         bio,
-        hourlyRate: Number(hourlyRate),
         specialties: selectedSpecialties,
+        languages: selectedLanguages,
         radius: Number(travelRadius),
+        postcode,
         image: photo,
+        yearsExperience: yearsExperience ? Number(yearsExperience) : null,
       }),
     });
     setSaving(false);
@@ -107,7 +120,7 @@ export default function CleanerProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }
-  }, [bio, hourlyRate, selectedSpecialties, travelRadius, photo]);
+  }, [bio, selectedSpecialties, selectedLanguages, travelRadius, postcode, photo, yearsExperience]);
 
   if (loading) {
     return (
@@ -163,7 +176,7 @@ export default function CleanerProfilePage() {
             </div>
             <div>
               <label
-                className="inline-flex items-center gap-2 px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,6 +202,58 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
+        {/* Personal info */}
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Personal Information</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
+                Full Name
+              </label>
+              <p className="mt-1.5 font-jost text-sm text-ink">{name || '—'}</p>
+            </div>
+            <div>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
+                Email
+              </label>
+              <p className="mt-1.5 font-jost text-sm text-ink">{email || '—'}</p>
+            </div>
+            <div>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
+                Phone
+              </label>
+              <p className="mt-1.5 font-jost text-sm text-ink">{phone || '—'}</p>
+            </div>
+            <div>
+              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
+                Postcode
+              </label>
+              <input
+                type="text"
+                value={postcode}
+                onChange={(e) => {
+                  setPostcode(e.target.value);
+                  setSaved(false);
+                }}
+                placeholder="e.g. SW1A 1AA"
+                className="mt-1.5 w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+              />
+            </div>
+            {yearsExperience && (
+              <div>
+                <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
+                  Years of Experience
+                </label>
+                <p className="mt-1.5 font-jost text-sm text-ink">{yearsExperience}</p>
+              </div>
+            )}
+          </div>
+          <p className="mt-4 font-jost text-[11px] text-ink-3">
+            To update your name, email, or phone, please contact support.
+          </p>
+        </div>
+
         {/* Bio */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">About You</h2>
@@ -199,8 +264,8 @@ export default function CleanerProfilePage() {
               setSaved(false);
             }}
             placeholder="Tell customers about yourself, your experience, and what makes you a great cleaner..."
-            className="w-full px-4 py-3 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 resize-none bg-cream"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            className="w-full rounded-lg px-4 py-3 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none transition"
+            style={{ border: '1px solid rgba(14,14,12,0.1)' }}
             rows={4}
           />
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
@@ -208,102 +273,31 @@ export default function CleanerProfilePage() {
           </p>
         </div>
 
-        {/* Hourly rate */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Hourly Rate</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-jost text-sm font-light text-ink-2">
-                £
-              </span>
-              <input
-                type="number"
-                value={hourlyRate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setHourlyRate(val);
-                  setSaved(false);
-                  const num = parseFloat(val);
-                  if (!isNaN(num)) {
-                    if (num < 14) setRateError('Minimum rate on Rena is £14/hr');
-                    else if (num > 35)
-                      setRateError('Rates above £35/hr require admin review before publishing');
-                    else setRateError('');
-                  }
-                }}
-                min="14"
-                max="35"
-                className="w-32 pl-7 pr-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-            <span className="font-jost text-sm font-light text-ink-2">per hour</span>
-          </div>
-          {rateError && <p className="font-jost text-sm text-red-600 mt-2">{rateError}</p>}
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Suggested range: £15–£22/hr
-          </p>
-
-          {/* Earnings preview */}
-          {(() => {
-            const rate = parseFloat(hourlyRate);
-            if (isNaN(rate) || rate < 14 || rate > 35) return null;
-            const fee = 0.1;
-            return (
-              <div
-                className="mt-4 rounded-lg bg-cream-2 p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-              >
-                <p className="font-jost text-sm font-medium text-ink mb-1">Your rate: £{rate}/hr</p>
-                <p className="font-jost text-xs text-ink-3 mb-3">
-                  Rena platform fee: 10% (deducted from your payout)
-                </p>
-                <div className="space-y-1">
-                  {[2, 3, 4].map((h) => {
-                    const gross = rate * h;
-                    const feeAmt = Math.round(gross * fee * 100) / 100;
-                    const net = Math.round(gross * (1 - fee) * 100) / 100;
-                    return (
-                      <p key={h} className="font-jost text-sm text-ink-2">
-                        {h}hr visit: you earn{' '}
-                        <span className="font-medium text-ink">£{net.toFixed(2)}</span>
-                        <span className="text-ink-3 ml-1">
-                          (gross £{gross.toFixed(2)}, minus £{feeAmt.toFixed(2)} fee)
-                        </span>
-                      </p>
-                    );
-                  })}
-                </div>
-                <p className="font-jost text-xs text-ink-3 mt-3">
-                  The customer pays a separate 6% service fee — your advertised rate is what you
-                  charge.
-                </p>
-              </div>
-            );
-          })()}
-        </div>
-
         {/* Specialties */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">Specialties</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
-            Select the cleaning services you offer
+            Select the cleaning specialties you offer
           </p>
           <div className="flex flex-wrap gap-2">
             {specialtyOptions.map((s) => (
               <button
                 key={s}
                 onClick={() => toggleSpecialty(s)}
-                className={`px-3 py-2 font-jost text-sm font-light transition-colors ${
+                className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                   selectedSpecialties.includes(s)
-                    ? 'bg-ink text-cream'
-                    : 'bg-cream text-ink-2 hover:bg-cream-2'
+                    ? 'bg-ink text-cream shadow-sm'
+                    : 'bg-white text-ink-2 hover:bg-cream-2'
                 }`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                style={
+                  selectedSpecialties.includes(s)
+                    ? undefined
+                    : { border: '1px solid rgba(14,14,12,0.1)' }
+                }
               >
                 {selectedSpecialties.includes(s) && (
                   <svg
-                    className="w-4 h-4 inline mr-1 -mt-0.5"
+                    className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -322,197 +316,6 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
-        {/* EOT & Airbnb Pricing */}
-        {(selectedSpecialties.includes('End of Tenancy') ||
-          selectedSpecialties.includes('AirBnB / Short-Let')) && (
-          <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-cormorant text-lg font-light text-ink mb-2">Service Pricing</h2>
-            <p className="font-jost text-sm font-light text-ink-2 mb-5">
-              Set your prices for each property size. You are free to set any price you choose. The
-              guide below shows typical rates on Rena to help you stay competitive.
-            </p>
-
-            {selectedSpecialties.includes('End of Tenancy') && (
-              <div className="mb-6">
-                <h3 className="font-jost text-sm font-medium text-ink mb-3">End of Tenancy</h3>
-                <div
-                  className="overflow-hidden"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  <table className="min-w-full">
-                    <thead className="bg-cream-2">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Property
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Your price
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Rena guide
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { label: 'Studio', guide: '£150 – £200' },
-                        { label: '1 bed', guide: '£190 – £240' },
-                        { label: '2 bed', guide: '£250 – £300' },
-                        { label: '3 bed', guide: '£320 – £380' },
-                        { label: '4 bed', guide: '£390 – £450' },
-                        { label: '5 bed+', guide: '£480 – £580' },
-                      ].map((row) => (
-                        <tr
-                          key={row.label}
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                        >
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                            {row.label}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
-                                £
-                              </span>
-                              <input
-                                type="number"
-                                placeholder="—"
-                                className="w-24 pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                                onChange={() => setSaved(false)}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
-                            {row.guide}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {selectedSpecialties.includes('AirBnB / Short-Let') && (
-              <div className="mb-6">
-                <h3 className="font-jost text-sm font-medium text-ink mb-3">Airbnb / Short-Let</h3>
-                <div
-                  className="overflow-hidden"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  <table className="min-w-full">
-                    <thead className="bg-cream-2">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Property
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Your price
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Rena guide
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { label: 'Studio', guide: '£45 – £65' },
-                        { label: '1 bed', guide: '£55 – £85' },
-                        { label: '2 bed', guide: '£75 – £110' },
-                        { label: '3 bed', guide: '£95 – £140' },
-                        { label: '4 bed+', guide: '£130 – £165' },
-                      ].map((row) => (
-                        <tr
-                          key={row.label}
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                        >
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                            {row.label}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
-                                £
-                              </span>
-                              <input
-                                type="number"
-                                placeholder="—"
-                                className="w-24 pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                                onChange={() => setSaved(false)}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
-                            {row.guide}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Fee info box */}
-            <div className="bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}>
-              <p className="font-jost text-sm font-medium text-ink mb-2">How fees work</p>
-              <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
-                For End of Tenancy and Airbnb bookings, Rena charges a 15% platform fee on your
-                listed price. This is deducted from your payout after the job is completed. The
-                customer also pays a separate 6% service fee on top of your listed price &mdash;
-                this does not affect your earnings.
-              </p>
-              <div
-                className="mt-4 bg-cream p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.06)' }}
-              >
-                <p className="font-jost text-xs font-medium text-ink mb-1">
-                  Example: you charge &pound;270 for a 2-bed EOT
-                </p>
-                <p className="font-jost text-xs font-light text-ink-2">
-                  Customer pays: &pound;270 + &pound;16.20 (6%) = &pound;286.20
-                </p>
-                <p className="font-jost text-xs font-light text-ink-2">
-                  You receive: &pound;270 &minus; &pound;40.50 (15%) = &pound;229.50
-                </p>
-              </div>
-              <p className="font-jost text-xs font-light text-ink-3 mt-3">
-                For all other services (regular, one-off, same-day, deep clean), the standard 10%
-                platform fee applies and the customer pays a separate 6% service fee.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Travel radius */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel Radius</h2>
-          <p className="font-jost text-sm font-light text-ink-2 mb-3">
-            How many miles from your home location are you willing to travel for a job?
-          </p>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              value={travelRadius}
-              onChange={(e) => {
-                setTravelRadius(e.target.value);
-                setSaved(false);
-              }}
-              min="1"
-              max="50"
-              placeholder="e.g. 10"
-              className="w-32 px-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            />
-            <span className="font-jost text-sm font-light text-ink-2">miles</span>
-          </div>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Customers within this radius of your home will be able to find you
-          </p>
-        </div>
-
         {/* Languages */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h2 className="font-cormorant text-lg font-light text-ink mb-4">Languages Spoken</h2>
@@ -521,12 +324,16 @@ export default function CleanerProfilePage() {
               <button
                 key={l}
                 onClick={() => toggleLanguage(l)}
-                className={`px-3 py-2 font-jost text-sm font-light transition-colors ${
+                className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                   selectedLanguages.includes(l)
-                    ? 'bg-ink text-cream'
-                    : 'bg-cream text-ink-2 hover:bg-cream-2'
+                    ? 'bg-ink text-cream shadow-sm'
+                    : 'bg-white text-ink-2 hover:bg-cream-2'
                 }`}
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                style={
+                  selectedLanguages.includes(l)
+                    ? undefined
+                    : { border: '1px solid rgba(14,14,12,0.1)' }
+                }
               >
                 {l}
               </button>
@@ -542,8 +349,8 @@ export default function CleanerProfilePage() {
                 value={customLanguage}
                 onChange={(e) => setCustomLanguage(e.target.value)}
                 placeholder="e.g. Swahili"
-                className="w-48 px-4 py-2.5 font-jost font-light text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 bg-cream"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
               />
               <button
                 type="button"
@@ -561,12 +368,39 @@ export default function CleanerProfilePage() {
                   }
                 }}
                 disabled={!customLanguage.trim()}
-                className="px-4 py-2.5 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg px-4 py-2.5 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Travel radius */}
+        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel Radius</h2>
+          <p className="font-jost text-sm font-light text-ink-2 mb-3">
+            How far from your postcode are you willing to travel?
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={travelRadius}
+              onChange={(e) => {
+                setTravelRadius(e.target.value);
+                setSaved(false);
+              }}
+              min="1"
+              max="50"
+              placeholder="e.g. 10"
+              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+            />
+            <span className="font-jost text-sm font-light text-ink-2">miles</span>
+          </div>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
+            Customers within this radius will be able to find you
+          </p>
         </div>
 
         {/* Save button */}
@@ -587,7 +421,7 @@ export default function CleanerProfilePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-8 py-2.5 bg-ink text-cream font-jost font-light hover:bg-ink/90 transition-colors disabled:opacity-50"
+            className="rounded-full px-8 py-2.5 bg-gold text-ink font-jost text-[13px] font-light shadow-sm hover:bg-gold/90 transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Profile'}
           </button>
