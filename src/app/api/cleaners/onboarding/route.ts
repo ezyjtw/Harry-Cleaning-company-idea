@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
 
     // Validate hourly rate
     const hourlyRate = Number(hourlyRateStr) || 15;
-    if (hourlyRate < 14 || hourlyRate > 100) {
+    if (hourlyRate < 14 || hourlyRate > 35) {
       return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £100' },
+        { error: 'Hourly rate must be between £14 and £35' },
         { status: 400 }
       );
     }

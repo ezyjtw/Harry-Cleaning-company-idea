@@ -42,7 +42,7 @@ if (typeof setInterval !== 'undefined') {
 
 // ─── Protected Routes ───────────────────────────────────────────────────────
 
-const protectedRoutes = ['/dashboard', '/account', '/admin', '/cleaner'];
+const protectedRoutes = ['/dashboard', '/account', '/admin'];
 const _adminRoutes = ['/admin'];
 const authRoutes = ['/login', '/register', '/forgot-password'];
 

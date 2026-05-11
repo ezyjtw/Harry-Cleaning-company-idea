@@ -25,27 +25,14 @@ function LoginForm() {
         redirect: false,
       });
 
-      if (!result || result.error) {
+      if (result?.error) {
         setError('Invalid email or password. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      if (!result.ok) {
-        setError('Login failed. Please check your credentials and try again.');
-        setLoading(false);
-        return;
-      }
-
-      if (callbackUrl) {
+      } else if (callbackUrl) {
         router.push(callbackUrl);
       } else {
+        // Fetch session to determine role-based redirect
         try {
           const sessionRes = await fetch('/api/auth/session');
-          if (!sessionRes.ok) {
-            router.push('/dashboard');
-            return;
-          }
           const session = await sessionRes.json();
           const role = session?.user?.role;
           if (role === 'CLEANER') router.push('/cleaner');
