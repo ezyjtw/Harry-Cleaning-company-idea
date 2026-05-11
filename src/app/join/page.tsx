@@ -225,7 +225,7 @@ function toggleInArray(arr: string[], value: string): string[] {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+    <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
       {children}
     </label>
   );
@@ -235,15 +235,15 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+      className="mt-1.5 w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+      style={{ border: '1px solid rgba(14,14,12,0.1)' }}
     />
   );
 }
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1 text-xs text-red-600">{message}</p>;
+  return <p className="mt-1.5 font-jost text-[12px] text-red-500">{message}</p>;
 }
 
 function PillToggle({
@@ -259,10 +259,12 @@ function PillToggle({
     <button
       type="button"
       onClick={onClick}
-      className={`px-4 py-1.5 font-jost text-sm font-light transition ${
-        active ? 'bg-ink text-cream' : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
+      className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
+        active
+          ? 'bg-ink text-cream shadow-sm'
+          : 'bg-white text-ink-2 hover:bg-cream-2 hover:text-ink'
       }`}
-      style={active ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }}
+      style={active ? undefined : { border: '1px solid rgba(14,14,12,0.1)' }}
     >
       {label}
     </button>
@@ -296,7 +298,7 @@ function CustomAddInput({
   }
 
   return (
-    <div className="mt-2">
+    <div className="mt-3">
       <div className="flex gap-2">
         <input
           type="text"
@@ -312,18 +314,18 @@ function CustomAddInput({
               handleAdd();
             }
           }}
-          className="flex-1 px-3 py-1.5 font-jost text-sm font-light text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-ink/20"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="flex-1 rounded-lg bg-white px-4 py-2 font-jost text-[13px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+          style={{ border: '1px solid rgba(14,14,12,0.1)' }}
         />
         <button
           type="button"
           onClick={handleAdd}
-          className="shrink-0 bg-ink px-4 py-1.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
+          className="shrink-0 rounded-lg bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90"
         >
           Add
         </button>
       </div>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1.5 font-jost text-[12px] text-red-500">{error}</p>}
     </div>
   );
 }
@@ -447,8 +449,8 @@ function EarningsCalculator() {
 
       {showTakeHome && (
         <div
-          className="mt-4 rounded-lg bg-ink/[0.03] p-4"
-          style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
+          className="mt-4 rounded-xl bg-cream-2/50 p-4"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
@@ -518,14 +520,14 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <button
               onClick={onApply}
-              className="bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-gold/90"
+              className="rounded-full bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink shadow-sm transition hover:bg-gold/90"
             >
               Apply Now
             </button>
             <a
               href="#why-rena"
-              className="px-8 py-4 font-jost text-sm uppercase tracking-[0.15em] text-cream/80 transition hover:text-cream"
-              style={{ border: '0.5px solid rgba(255,255,255,0.2)' }}
+              className="rounded-full px-8 py-4 font-jost text-sm uppercase tracking-[0.15em] text-cream/80 transition hover:text-cream"
+              style={{ border: '1px solid rgba(255,255,255,0.2)' }}
             >
               Learn More
             </a>
@@ -582,8 +584,8 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
             </p>
           </div>
           <div
-            className="mt-10 bg-cream-2 p-6 sm:p-10"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            className="mt-10 rounded-2xl bg-white p-6 shadow-sm sm:p-10"
+            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
             <EarningsCalculator />
           </div>
@@ -629,8 +631,8 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
             ].map((item) => (
               <div
                 key={item.title}
-                className="bg-cream p-6"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="rounded-xl bg-white p-6 shadow-sm"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 <h3 className="font-cormorant text-lg font-light text-ink">{item.title}</h3>
                 <p
@@ -660,7 +662,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
           </div>
           <button
             onClick={onApply}
-            className="mt-8 bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-gold/90"
+            className="mt-8 rounded-full bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink shadow-sm transition hover:bg-gold/90"
           >
             Start Your Application
           </button>
@@ -968,17 +970,20 @@ export default function JoinAsCleanerPage() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2 text-3xl text-gold">
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center bg-cream min-h-screen flex flex-col items-center justify-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gold/10 text-3xl text-gold">
           &#10024;
         </div>
-        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Application Received!</h1>
-        <p className="mt-4 font-jost font-light text-ink-2">
-          Thank you for applying to join Rena, {form.name}! Your account has been created.
+        <h1 className="mt-8 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+          Application Received!
+        </h1>
+        <p className="mt-4 max-w-md font-jost text-sm font-light text-ink-2 leading-relaxed">
+          Thank you for applying to join Rena, {form.name}! Your account has been created and is
+          being reviewed.
         </p>
         <Link
           href="/login"
-          className="mt-6 inline-block bg-ink px-8 py-3 font-jost text-[11px] uppercase tracking-[0.15em] text-cream transition hover:bg-ink/90"
+          className="mt-8 inline-block rounded-full bg-gold px-10 py-3 font-jost text-[13px] font-light text-ink shadow-sm transition hover:bg-gold/90"
         >
           Log in to your dashboard
         </Link>
@@ -1002,38 +1007,42 @@ export default function JoinAsCleanerPage() {
   /* ================================================================ */
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-cream">
-      <h1 className="font-cormorant text-3xl font-light text-ink">Become a Cleaner</h1>
-      <p className="mt-2 font-jost font-light text-ink-2">
-        Join our network of trusted cleaning professionals. Complete the steps below to get started.
-      </p>
+    <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8 bg-cream min-h-screen">
+      <div className="text-center">
+        <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">Application</p>
+        <h1 className="mt-2 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+          Become a Cleaner
+        </h1>
+        <p className="mx-auto mt-3 max-w-lg font-jost text-sm font-light text-ink-2">
+          Complete the steps below to join our network of trusted cleaning professionals.
+        </p>
+      </div>
 
       {/* ---------- Step indicator ---------- */}
-      <nav className="mt-8" aria-label="Progress">
+      <nav className="mt-10" aria-label="Progress">
         <ol className="flex items-center justify-between">
           {STEPS.map((step, idx) => {
             const isCompleted = idx < currentStep;
             const isCurrent = idx === currentStep;
             return (
-              <li key={step.label} className="flex flex-1 flex-col items-center gap-1">
-                {/* connector line */}
+              <li key={step.label} className="flex flex-1 flex-col items-center gap-2">
                 <div className="flex w-full items-center">
                   {idx > 0 && (
                     <div
-                      className={`h-px flex-1 ${idx <= currentStep ? 'bg-gold' : 'bg-cream-2'}`}
+                      className={`h-[1.5px] flex-1 transition-colors duration-300 ${idx <= currentStep ? 'bg-gold' : 'bg-ink/[0.06]'}`}
                     />
                   )}
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center font-cormorant text-sm font-light transition ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-cormorant text-sm font-light transition-all duration-300 ${
                       isCompleted
-                        ? 'bg-gold text-cream'
+                        ? 'bg-gold text-cream shadow-sm'
                         : isCurrent
-                          ? 'bg-ink text-cream'
-                          : 'bg-cream-2 text-ink-3'
+                          ? 'bg-ink text-cream shadow-md'
+                          : 'bg-white text-ink-3'
                     }`}
                     style={
                       !isCompleted && !isCurrent
-                        ? { border: '0.5px solid rgba(14,14,12,0.1)' }
+                        ? { border: '1px solid rgba(14,14,12,0.08)' }
                         : undefined
                     }
                   >
@@ -1041,12 +1050,12 @@ export default function JoinAsCleanerPage() {
                   </div>
                   {idx < STEPS.length - 1 && (
                     <div
-                      className={`h-px flex-1 ${idx < currentStep ? 'bg-gold' : 'bg-cream-2'}`}
+                      className={`h-[1.5px] flex-1 transition-colors duration-300 ${idx < currentStep ? 'bg-gold' : 'bg-ink/[0.06]'}`}
                     />
                   )}
                 </div>
                 <span
-                  className={`hidden text-xs sm:block font-jost ${
+                  className={`hidden text-[11px] sm:block font-jost tracking-wide ${
                     isCurrent ? 'font-normal text-ink' : isCompleted ? 'text-gold' : 'text-ink-3'
                   }`}
                 >
@@ -1060,8 +1069,8 @@ export default function JoinAsCleanerPage() {
 
       {/* ---------- Step content card ---------- */}
       <div
-        className="mt-8 bg-cream-2 p-6 animate-fade-in sm:p-8"
-        style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        className="mt-10 rounded-2xl bg-white p-6 shadow-sm animate-fade-in sm:p-8"
+        style={{ border: '1px solid rgba(14,14,12,0.06)' }}
       >
         {/* ===== Step 0 – Personal ===== */}
         {currentStep === 0 && (
@@ -1162,8 +1171,8 @@ export default function JoinAsCleanerPage() {
                 <div className="mt-2 flex items-center gap-4">
                   {/* Preview circle */}
                   <div
-                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-2"
+                    style={{ border: '1px solid rgba(14,14,12,0.08)' }}
                   >
                     {form.profilePhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1189,7 +1198,7 @@ export default function JoinAsCleanerPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <label className="inline-block cursor-pointer bg-ink px-4 py-2 font-jost text-sm font-light text-cream transition hover:bg-ink/90">
+                    <label className="inline-block cursor-pointer rounded-lg bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
                       Upload photo
                       <input
                         type="file"
@@ -1337,8 +1346,8 @@ export default function JoinAsCleanerPage() {
                 value={form.bio}
                 onChange={(e) => set('bio', e.target.value)}
                 placeholder="Tell potential customers about yourself, your experience, and what makes your service special..."
-                className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition resize-none"
+                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
               />
               <FieldError message={errors.bio} />
             </div>
@@ -1361,8 +1370,8 @@ export default function JoinAsCleanerPage() {
                   return (
                     <div key={svc}>
                       <Label>{info.label} Rate</Label>
-                      <div className="relative mt-1">
-                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-jost font-light text-ink-3">
+                      <div className="relative mt-1.5">
+                        <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center font-jost text-[14px] font-light text-ink-3">
                           &pound;
                         </span>
                         <input
@@ -1377,11 +1386,11 @@ export default function JoinAsCleanerPage() {
                               [svc]: e.target.value,
                             })
                           }
-                          className="w-full py-2 pl-7 pr-3 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                          className="w-full rounded-lg bg-white py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                          style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                         />
                       </div>
-                      <p className="mt-1 font-jost text-[11px] text-ink-3">
+                      <p className="mt-1.5 font-jost text-[11px] text-ink-3">
                         Typical range: {info.range}
                       </p>
                       <FieldError message={errors[`rate_${svc}`]} />
@@ -1427,8 +1436,8 @@ export default function JoinAsCleanerPage() {
                 Passport or driving licence accepted.
               </p>
               <div
-                className="mt-2 bg-cream p-4"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-2 rounded-lg bg-cream-2/50 p-4"
+                style={{ border: '1px dashed rgba(14,14,12,0.12)' }}
               >
                 <input
                   type="file"
@@ -1443,7 +1452,7 @@ export default function JoinAsCleanerPage() {
                       reader.readAsDataURL(file);
                     }
                   }}
-                  className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                  className="block w-full font-jost text-[13px] font-light text-ink-2 file:mr-4 file:rounded-lg file:border-0 file:bg-ink file:px-5 file:py-2 file:font-jost file:text-[13px] file:font-light file:text-cream file:cursor-pointer hover:file:bg-ink/90 file:transition"
                 />
               </div>
               {form.photoIdFile && <p className="mt-1 text-xs text-green-600">Photo ID uploaded</p>}
@@ -1451,7 +1460,7 @@ export default function JoinAsCleanerPage() {
             </div>
 
             {/* ---- Right to Work ---- */}
-            <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+            <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
               <h2 className="font-cormorant text-xl font-light text-ink">Right to Work</h2>
               <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 UK law requires us to verify your right to work before you can accept bookings.
@@ -1462,8 +1471,8 @@ export default function JoinAsCleanerPage() {
                 <select
                   value={form.rightToWorkDocType}
                   onChange={(e) => set('rightToWorkDocType', e.target.value)}
-                  className="mt-1 block w-full border bg-cream px-3 py-2 font-jost text-sm font-light text-ink"
-                  style={{ borderColor: 'rgba(14,14,12,0.1)' }}
+                  className="mt-1.5 block w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
+                  style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                 >
                   <option value="">Select document type...</option>
                   <option value="uk_passport">UK Passport</option>
@@ -1489,8 +1498,8 @@ export default function JoinAsCleanerPage() {
                     onChange={(e) => set('rightToWorkShareCode', e.target.value.toUpperCase())}
                     placeholder="e.g. A1B2C3D4E"
                     maxLength={9}
-                    className="mt-1 block w-full border bg-cream px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50"
-                    style={{ borderColor: 'rgba(14,14,12,0.1)' }}
+                    className="mt-1.5 block w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                   />
                   <FieldError message={errors.rightToWorkShareCode} />
                 </div>
@@ -1505,8 +1514,8 @@ export default function JoinAsCleanerPage() {
                     type="date"
                     value={form.rightToWorkExpiryDate}
                     onChange={(e) => set('rightToWorkExpiryDate', e.target.value)}
-                    className="mt-1 block w-full border bg-cream px-3 py-2 font-jost text-sm font-light text-ink"
-                    style={{ borderColor: 'rgba(14,14,12,0.1)' }}
+                    className="mt-1.5 block w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                   />
                 </div>
               )}
@@ -1517,8 +1526,8 @@ export default function JoinAsCleanerPage() {
                   Upload a clear photo or scan of your right to work document.
                 </p>
                 <div
-                  className="mt-2 bg-cream p-4"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  className="mt-2 rounded-lg bg-cream-2/50 p-4"
+                  style={{ border: '1px dashed rgba(14,14,12,0.12)' }}
                 >
                   <input
                     type="file"
@@ -1533,7 +1542,7 @@ export default function JoinAsCleanerPage() {
                         reader.readAsDataURL(file);
                       }
                     }}
-                    className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                    className="block w-full font-jost text-[13px] font-light text-ink-2 file:mr-4 file:rounded-lg file:border-0 file:bg-ink file:px-5 file:py-2 file:font-jost file:text-[13px] file:font-light file:text-cream file:cursor-pointer hover:file:bg-ink/90 file:transition"
                   />
                 </div>
                 {form.rightToWorkDocFile && (
@@ -1544,10 +1553,10 @@ export default function JoinAsCleanerPage() {
             </div>
 
             <div
-              className="bg-cream px-4 py-3"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className="rounded-lg bg-cream-2/50 px-4 py-3"
+              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
             >
-              <p className="font-jost text-sm font-light text-ink-2">
+              <p className="font-jost text-[12px] font-light text-ink-3 leading-relaxed">
                 Your documents are encrypted and stored securely. They are only used for identity
                 and right to work verification purposes. We are required by law to verify your
                 eligibility to work in the United Kingdom before you can accept bookings.
@@ -1594,20 +1603,20 @@ export default function JoinAsCleanerPage() {
                     key={opt.value}
                     type="button"
                     onClick={() => set('dbsOption', opt.value)}
-                    className={`p-4 text-left transition ${
+                    className={`rounded-xl p-4 text-left transition-all duration-200 ${
                       form.dbsOption === opt.value
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream text-ink hover:bg-cream-2'
+                        ? 'bg-ink text-cream shadow-md'
+                        : 'bg-white text-ink hover:shadow-sm'
                     }`}
                     style={
                       form.dbsOption !== opt.value
-                        ? { border: '0.5px solid rgba(14,14,12,0.1)' }
+                        ? { border: '1px solid rgba(14,14,12,0.08)' }
                         : undefined
                     }
                   >
-                    <span className="block font-jost text-sm font-normal">{opt.title}</span>
+                    <span className="block font-jost text-[14px] font-normal">{opt.title}</span>
                     <span
-                      className={`mt-1 block font-jost text-[11px] ${form.dbsOption === opt.value ? 'text-cream/70' : 'text-ink-3'}`}
+                      className={`mt-1 block font-jost text-[12px] font-light ${form.dbsOption === opt.value ? 'text-cream/70' : 'text-ink-3'}`}
                     >
                       {opt.desc}
                     </span>
@@ -1620,8 +1629,8 @@ export default function JoinAsCleanerPage() {
             {/* Existing DBS Details */}
             {form.dbsOption === 'existing' && (
               <div
-                className="space-y-4 bg-cream p-5 animate-fade-in"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="space-y-4 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 <h3 className="font-jost text-sm font-normal text-ink">DBS Certificate Details</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1653,8 +1662,8 @@ export default function JoinAsCleanerPage() {
                     number and status via the DBS Update Service.
                   </p>
                   <div
-                    className="mt-2 bg-cream-2 p-4"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    className="mt-2 rounded-lg bg-cream-2/50 p-4"
+                    style={{ border: '1px dashed rgba(14,14,12,0.12)' }}
                   >
                     <input
                       type="file"
@@ -1669,7 +1678,7 @@ export default function JoinAsCleanerPage() {
                           reader.readAsDataURL(file);
                         }
                       }}
-                      className="block w-full font-jost text-sm font-light text-ink-2 file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:font-jost file:text-sm file:font-light file:text-cream hover:file:bg-ink/90"
+                      className="block w-full font-jost text-[13px] font-light text-ink-2 file:mr-4 file:rounded-lg file:border-0 file:bg-ink file:px-5 file:py-2 file:font-jost file:text-[13px] file:font-light file:text-cream file:cursor-pointer hover:file:bg-ink/90 file:transition"
                     />
                   </div>
                   {form.dbsCertFile && (
@@ -1683,8 +1692,8 @@ export default function JoinAsCleanerPage() {
             {/* Want a DBS — instructions */}
             {form.dbsOption === 'want' && (
               <div
-                className="space-y-3 bg-cream p-5 animate-fade-in"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="space-y-3 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 <h3 className="font-jost text-sm font-normal text-ink">
                   How to Get a DBS Certificate
@@ -1731,8 +1740,8 @@ export default function JoinAsCleanerPage() {
             {/* No DBS — nudge */}
             {form.dbsOption === 'none' && (
               <div
-                className="space-y-3 bg-cream p-5 animate-fade-in"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="space-y-3 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
                   You can still register without a DBS certificate, but please be aware that
@@ -1747,7 +1756,7 @@ export default function JoinAsCleanerPage() {
             )}
 
             {/* Liveness / Selfie Verification */}
-            <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+            <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
               <h2 className="font-cormorant text-xl font-light text-ink">Identity Verification</h2>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
@@ -1756,13 +1765,13 @@ export default function JoinAsCleanerPage() {
               </p>
 
               <div
-                className="mt-4 bg-cream p-5"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-4 rounded-xl bg-cream-2/50 p-5"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 <div className="flex items-start gap-4">
                   <div
-                    className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-2"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white"
+                    style={{ border: '1px solid rgba(14,14,12,0.08)' }}
                   >
                     {form.selfiePhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1800,7 +1809,7 @@ export default function JoinAsCleanerPage() {
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
                     </p>
                     <div className="mt-3 flex items-center gap-3">
-                      <label className="inline-block cursor-pointer bg-ink px-4 py-2 font-jost text-sm font-light text-cream transition hover:bg-ink/90">
+                      <label className="inline-block cursor-pointer rounded-lg bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
                         {form.selfiePhoto ? 'Retake Selfie' : 'Take Selfie'}
                         <input
                           type="file"
@@ -1834,10 +1843,10 @@ export default function JoinAsCleanerPage() {
             </div>
 
             <div
-              className="bg-cream px-4 py-3"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className="rounded-lg bg-cream-2/50 px-4 py-3"
+              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
             >
-              <p className="font-jost text-sm font-light text-ink-2">
+              <p className="font-jost text-[12px] font-light text-ink-3 leading-relaxed">
                 Your selfie and DBS certificate are encrypted and processed securely. The selfie is
                 compared against your photo ID to confirm your identity. All data is handled in
                 accordance with UK GDPR and destroyed after the verification is complete.
@@ -1852,11 +1861,13 @@ export default function JoinAsCleanerPage() {
             <h2 className="font-cormorant text-xl font-light text-ink">Payout Setup</h2>
 
             <div
-              className="bg-cream px-4 py-4"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className="rounded-xl bg-cream-2/50 px-5 py-5"
+              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
             >
-              <h3 className="font-jost font-normal text-ink">We use Ryft for payouts</h3>
-              <p className="mt-2 font-jost text-sm font-light text-ink-2">
+              <h3 className="font-jost text-[14px] font-normal text-ink">
+                We use Ryft for payouts
+              </h3>
+              <p className="mt-2 font-jost text-[13px] font-light text-ink-2 leading-relaxed">
                 Ryft is a secure payment platform. Once your application is approved, you&apos;ll be
                 redirected to Ryft to set up your payouts. This lets you receive earnings directly
                 into your bank account.
@@ -1866,15 +1877,15 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={() => setRyftMessage(true)}
-              className="w-full bg-ink py-3 font-jost text-base font-normal text-cream hover:bg-ink/90 transition"
+              className="w-full rounded-xl bg-ink py-3 font-jost text-[14px] font-normal text-cream hover:bg-ink/90 transition"
             >
               Set Up Ryft
             </button>
 
             {ryftMessage && (
               <div
-                className="bg-cream px-4 py-3 font-jost text-sm font-light text-ink-2 animate-fade-in"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="rounded-lg bg-gold/10 px-4 py-3 font-jost text-[13px] font-light text-ink-2 animate-fade-in"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 Coming soon &mdash; Ryft integration is under development. You can continue with
                 your application for now.
@@ -1891,7 +1902,10 @@ export default function JoinAsCleanerPage() {
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Personal */}
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   Personal
                 </h3>
@@ -1932,7 +1946,10 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Experience */}
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   Experience
                 </h3>
@@ -1957,7 +1974,10 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Pricing */}
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   Pricing
                 </h3>
@@ -1992,7 +2012,10 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Identity */}
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   Identity
                 </h3>
@@ -2009,7 +2032,10 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* DBS */}
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   DBS Check
                 </h3>
@@ -2046,7 +2072,10 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Right to Work */}
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                   Right to Work
                 </h3>
@@ -2087,7 +2116,10 @@ export default function JoinAsCleanerPage() {
 
             {/* Bio */}
             {form.bio && (
-              <div className="p-4" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="rounded-xl bg-cream-2/50 p-4"
+                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              >
                 <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">Bio</h3>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2 whitespace-pre-line">
                   {form.bio}
@@ -2096,17 +2128,16 @@ export default function JoinAsCleanerPage() {
             )}
 
             {/* T&C checkbox */}
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg p-3 hover:bg-cream-2/50 transition">
               <input
                 type="checkbox"
                 checked={form.agreedToTerms}
                 onChange={(e) => set('agreedToTerms', e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-ink"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="mt-0.5 h-4 w-4 rounded accent-gold"
               />
-              <span className="font-jost text-sm font-light text-ink-2">
+              <span className="font-jost text-[13px] font-light text-ink-2">
                 I agree to the{' '}
-                <span className="font-normal text-ink underline">Terms &amp; Conditions</span> and
+                <span className="font-normal text-gold underline">Terms &amp; Conditions</span> and
                 consent to a background check as part of the verification process.
               </span>
             </label>
@@ -2114,8 +2145,8 @@ export default function JoinAsCleanerPage() {
 
             {errors.submit && (
               <div
-                className="bg-red-50 px-4 py-3 font-jost text-sm font-light text-red-700"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="rounded-lg bg-red-50 px-4 py-3 font-jost text-[13px] font-light text-red-700"
+                style={{ border: '1px solid rgba(239,68,68,0.15)' }}
               >
                 {errors.submit}
               </div>
@@ -2124,13 +2155,13 @@ export default function JoinAsCleanerPage() {
         )}
 
         {/* ---------- Navigation buttons ---------- */}
-        <div className="mt-8 flex items-center justify-between">
+        <div className="mt-10 flex items-center justify-between">
           {currentStep > 0 ? (
             <button
               type="button"
               onClick={goBack}
-              className="px-5 py-2.5 font-jost text-sm font-normal text-ink hover:bg-cream transition"
-              style={{ border: '0.5px solid #0e0e0c' }}
+              className="rounded-full px-6 py-2.5 font-jost text-[13px] font-light text-ink hover:bg-cream-2 transition"
+              style={{ border: '1px solid rgba(14,14,12,0.12)' }}
             >
               Back
             </button>
@@ -2142,16 +2173,16 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goNext}
-              className="bg-ink px-6 py-2.5 font-jost text-sm font-normal text-cream hover:bg-ink/90 transition"
+              className="rounded-full bg-gold px-8 py-2.5 font-jost text-[13px] font-light text-ink shadow-sm hover:bg-gold/90 transition"
             >
-              Next
+              Continue
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-ink px-6 py-2.5 font-jost text-sm font-normal text-cream hover:bg-ink/90 transition disabled:opacity-50"
+              className="rounded-full bg-gold px-8 py-2.5 font-jost text-[13px] font-light text-ink shadow-sm hover:bg-gold/90 transition disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Application'}
             </button>
