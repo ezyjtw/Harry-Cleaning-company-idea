@@ -122,6 +122,29 @@ export default function CleanerProfilePage() {
     }
   }, [bio, selectedSpecialties, selectedLanguages, travelRadius, postcode, photo, yearsExperience]);
 
+  const isPhotoComplete = !!photo;
+  const isPostcodeComplete = !!postcode.trim();
+  const isBioComplete = !!bio.trim();
+  const isSpecialtiesComplete = selectedSpecialties.length > 0;
+  const isLanguagesComplete = selectedLanguages.length > 0;
+
+  const incompleteBadge = (
+    <span
+      className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-jost text-[11px] font-medium text-amber-700"
+      style={{ border: '1px solid rgba(217,119,6,0.2)' }}
+    >
+      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"
+        />
+      </svg>
+      Incomplete
+    </span>
+  );
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
@@ -147,7 +170,9 @@ export default function CleanerProfilePage() {
       <div className="space-y-6">
         {/* Photo upload */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Profile Photo</h2>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+            Profile Photo{!isPhotoComplete && incompleteBadge}
+          </h2>
           <div className="flex items-center gap-6">
             <div className="w-24 h-24 rounded-full bg-cream-2 border-2 border-dashed border-ink-3/30 flex items-center justify-center overflow-hidden flex-shrink-0">
               {photo ? (
@@ -204,7 +229,9 @@ export default function CleanerProfilePage() {
 
         {/* Personal info */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Personal Information</h2>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+            Personal Information{!isPostcodeComplete && incompleteBadge}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
@@ -256,7 +283,9 @@ export default function CleanerProfilePage() {
 
         {/* Bio */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">About You</h2>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+            About You{!isBioComplete && incompleteBadge}
+          </h2>
           <textarea
             value={bio}
             onChange={(e) => {
@@ -275,7 +304,9 @@ export default function CleanerProfilePage() {
 
         {/* Specialties */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Specialties</h2>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+            Specialties{!isSpecialtiesComplete && incompleteBadge}
+          </h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
             Select the cleaning specialties you offer
           </p>
@@ -318,7 +349,9 @@ export default function CleanerProfilePage() {
 
         {/* Languages */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Languages Spoken</h2>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+            Languages Spoken{!isLanguagesComplete && incompleteBadge}
+          </h2>
           <div className="flex flex-wrap gap-2">
             {[...languageOptions, ...customLanguages].map((l) => (
               <button
