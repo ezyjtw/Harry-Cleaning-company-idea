@@ -28,9 +28,11 @@ export default function HeroSection() {
               Trusted home cleaning
             </p>
 
-            <h1 className="mb-5 font-cormorant text-[28px] font-light leading-[1.1] text-white sm:text-[36px] md:mb-7 md:text-[50px] whitespace-nowrap">
+            <h1 className="mb-5 font-cormorant text-[28px] font-light leading-[1.1] text-white sm:text-[36px] md:mb-7 md:text-[50px]">
               Join the cleaning{' '}
-              <em className="not-italic font-etna tracking-widest text-white">RENA-LUTION</em>
+              <em className="not-italic font-etna tracking-wider text-white md:tracking-widest">
+                RENA-LUTION
+              </em>
             </h1>
 
             <p className="mb-3 font-cormorant text-[24px] font-light leading-[1.2] text-white/90 md:text-[34px]">
