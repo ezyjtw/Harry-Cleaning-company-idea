@@ -49,12 +49,20 @@ interface ProfileData {
   image?: string;
   bio?: string;
   postcode?: string;
+  location?: string;
   specialties?: string[];
   languages?: string[];
   serviceTypes?: string[];
   serviceRates?: Record<string, string>;
   hourlyRate?: number;
   hoursPerWeek?: number;
+  yearsExperience?: number | null;
+  rating?: number;
+  completedJobs?: number;
+  reviewCount?: number;
+  availableNow?: boolean;
+  verificationStatus?: string;
+  backgroundCheckPassed?: boolean;
   onboardingComplete?: boolean;
 }
 
@@ -82,6 +90,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const [cleanerImage, setCleanerImage] = useState('');
   const [initials, setInitials] = useState('');
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -290,6 +299,261 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               );
             })}
           </nav>
+
+          {/* Profile Preview */}
+          {profileData && profileData.onboardingComplete && (
+            <div className="px-3 pb-2" style={{ borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => setPreviewExpanded(!previewExpanded)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-cream/50 hover:text-cream/80 transition-colors"
+              >
+                <span className="font-jost text-[10px] uppercase tracking-[0.12em]">
+                  Profile Preview
+                </span>
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${previewExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
+                </svg>
+              </button>
+
+              {/* Collapsed card view */}
+              <div className="rounded-lg bg-white overflow-hidden">
+                <div className="flex items-start gap-2.5 px-3 pt-3 pb-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cream overflow-hidden">
+                    {cleanerImage ? (
+                      <Image
+                        src={cleanerImage}
+                        alt=""
+                        width={36}
+                        height={36}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="font-jost text-[14px] font-semibold text-ink">
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <p className="truncate font-jost text-[13px] font-medium text-ink">
+                        {cleanerName}
+                      </p>
+                      {profileData.verificationStatus === 'VERIFIED' && (
+                        <svg
+                          className="h-3.5 w-3.5 shrink-0 text-teal"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="font-jost text-[10px] font-light text-ink-3">
+                      {profileData.location || profileData.postcode || ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-jost text-[14px] font-semibold text-ink">
+                      &pound;
+                      {(Math.round((profileData.hourlyRate || 0) * 1.1 * 100) / 100).toFixed(2)}
+                    </span>
+                    <span className="font-jost text-[9px] font-light text-ink-3">/hr</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-3">
+                  <span className="inline-flex text-yellow-400 text-[11px]">
+                    {'★'.repeat(Math.floor(profileData.rating || 0))}
+                    {(profileData.rating || 0) % 1 >= 0.5 && '★'}
+                    {'☆'.repeat(
+                      5 -
+                        Math.floor(profileData.rating || 0) -
+                        ((profileData.rating || 0) % 1 >= 0.5 ? 1 : 0)
+                    )}
+                  </span>
+                  <span className="font-jost text-[10px] font-light text-ink-3">
+                    {profileData.rating || 0} ({profileData.reviewCount || 0})
+                  </span>
+                  {profileData.availableNow && (
+                    <span className="ml-auto flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                      <span className="font-jost text-[9px] font-medium text-teal">Available</span>
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1.5 line-clamp-2 px-3 font-jost text-[11px] font-light leading-relaxed text-ink-2">
+                  {profileData.bio || 'No bio added yet'}
+                </p>
+
+                {profileData.specialties && profileData.specialties.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1 px-3">
+                    {profileData.specialties.slice(0, 3).map((s) => (
+                      <span
+                        key={s}
+                        className="rounded-full bg-cream px-2 py-0.5 font-jost text-[9px] font-medium text-ink-2"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-2 flex items-center justify-between border-t border-ink/5 px-3 py-2">
+                  <span className="font-jost text-[9px] font-light text-ink-3">
+                    {profileData.yearsExperience ?? 0} yrs exp &middot;{' '}
+                    {profileData.completedJobs || 0} jobs
+                  </span>
+                  <span className="font-jost text-[9px] font-medium uppercase tracking-[0.08em] text-ink underline underline-offset-2">
+                    Book now
+                  </span>
+                </div>
+              </div>
+
+              {/* Expanded full profile view */}
+              {previewExpanded && (
+                <div className="mt-2 rounded-lg bg-white overflow-hidden max-h-[50vh] overflow-y-auto">
+                  {/* Header */}
+                  <div className="bg-cream px-4 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white overflow-hidden">
+                        {cleanerImage ? (
+                          <Image
+                            src={cleanerImage}
+                            alt=""
+                            width={56}
+                            height={56}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="font-cormorant text-[22px] font-semibold text-ink">
+                            {cleanerName.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="truncate font-cormorant text-[18px] font-light text-ink">
+                            {cleanerName}
+                          </h3>
+                          {(profileData.verificationStatus === 'VERIFIED' ||
+                            profileData.backgroundCheckPassed) && (
+                            <svg
+                              className="h-4 w-4 shrink-0 text-teal"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        <p className="font-jost text-[11px] font-light text-ink-3">
+                          {profileData.location || profileData.postcode || ''}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="inline-flex text-yellow-400 text-[11px]">
+                            {'★'.repeat(Math.floor(profileData.rating || 0))}
+                            {(profileData.rating || 0) % 1 >= 0.5 && '★'}
+                            {'☆'.repeat(
+                              5 -
+                                Math.floor(profileData.rating || 0) -
+                                ((profileData.rating || 0) % 1 >= 0.5 ? 1 : 0)
+                            )}
+                          </span>
+                          <span className="font-jost text-[10px] font-light text-ink-2">
+                            {profileData.rating || 0} ({profileData.reviewCount || 0} reviews)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-right">
+                      <span className="font-cormorant text-[22px] font-semibold text-ink">
+                        &pound;
+                        {(Math.round((profileData.hourlyRate || 0) * 1.1 * 100) / 100).toFixed(2)}
+                      </span>
+                      <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
+                    </div>
+                    {profileData.specialties && profileData.specialties.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {profileData.specialties.map((s) => (
+                          <span
+                            key={s}
+                            className="rounded-full bg-white px-2.5 py-0.5 font-jost text-[10px] font-medium text-ink-2"
+                          >
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* About */}
+                  <div className="px-4 py-3">
+                    <h4 className="font-cormorant text-[15px] font-semibold text-ink">About</h4>
+                    <p className="mt-1 font-jost text-[11px] font-light leading-relaxed text-ink-2">
+                      {profileData.bio || 'No bio added yet.'}
+                    </p>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-px bg-ink/5 mx-4">
+                    {[
+                      { value: profileData.yearsExperience ?? '-', label: 'Yrs exp' },
+                      { value: profileData.completedJobs || 0, label: 'Jobs' },
+                      { value: profileData.rating || 0, label: 'Rating' },
+                      { value: '~15 min', label: 'Response' },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white px-3 py-2.5 text-center">
+                        <div className="font-cormorant text-[16px] font-semibold text-ink">
+                          {stat.value}
+                        </div>
+                        <div className="font-jost text-[9px] font-light text-ink-3">
+                          {stat.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Languages */}
+                  {profileData.languages && profileData.languages.length > 0 && (
+                    <div className="px-4 py-3">
+                      <h4 className="font-cormorant text-[15px] font-semibold text-ink">
+                        Languages
+                      </h4>
+                      <p className="mt-1 font-jost text-[11px] font-light text-ink-2">
+                        {profileData.languages.join(', ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Preview CTA */}
+                  <div className="px-4 py-3 border-t border-ink/5">
+                    <div className="rounded-md bg-ink px-4 py-2.5 text-center font-jost text-[11px] font-medium text-cream">
+                      Book now
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Bottom section */}
           <div className="p-3" style={{ borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>

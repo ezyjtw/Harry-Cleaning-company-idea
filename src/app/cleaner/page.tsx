@@ -25,22 +25,6 @@ interface RecentReview {
   date: string;
 }
 
-interface ProfilePreview {
-  name: string;
-  image: string;
-  bio: string;
-  hourlyRate: number;
-  specialties: string[];
-  location: string;
-  postcode: string;
-  yearsExperience: number | null;
-  completedJobs: number;
-  rating: number;
-  reviewCount: number;
-  availableNow: boolean;
-  identityVerified: boolean;
-}
-
 interface DashboardData {
   profile: {
     name: string;
@@ -71,7 +55,6 @@ export default function CleanerDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [availableNow, setAvailableNow] = useState(false);
   const [jobs, setJobs] = useState<UpcomingJob[]>([]);
-  const [profilePreview, setProfilePreview] = useState<ProfilePreview | null>(null);
 
   useEffect(() => {
     fetch('/api/cleaner/dashboard')
@@ -92,30 +75,6 @@ export default function CleanerDashboard() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [router]);
-
-  useEffect(() => {
-    fetch('/api/cleaner/profile')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((p) => {
-        if (!p) return;
-        setProfilePreview({
-          name: p.name || '',
-          image: p.image || '',
-          bio: p.bio || '',
-          hourlyRate: Number(p.hourlyRate) || 0,
-          specialties: p.specialties || [],
-          location: p.location || p.postcode || '',
-          postcode: p.postcode || '',
-          yearsExperience: p.yearsExperience ?? null,
-          completedJobs: p.completedJobs || 0,
-          rating: Number(p.rating) || 0,
-          reviewCount: 0,
-          availableNow: false,
-          identityVerified: p.verificationStatus === 'VERIFIED',
-        });
-      })
-      .catch(() => {});
-  }, []);
 
   const toggleAvailable = useCallback(async () => {
     const next = !availableNow;
@@ -665,139 +624,6 @@ export default function CleanerDashboard() {
           </div>
         </div>
       </div>
-
-      {/* Profile Preview */}
-      {profilePreview && (
-        <div className="mt-8">
-          <div
-            className="rounded-xl bg-white overflow-hidden"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-          >
-            <div
-              className="px-6 py-4 flex items-center justify-between"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
-            >
-              <div>
-                <h2 className="font-cormorant text-lg font-light text-ink">Your Profile Card</h2>
-                <p className="font-jost text-[13px] font-light text-ink-3 mt-0.5">
-                  This is how customers see your profile when browsing cleaners
-                </p>
-              </div>
-              <Link
-                href="/cleaner/complete-profile"
-                className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-gold/80 transition-colors"
-              >
-                Edit Profile
-              </Link>
-            </div>
-            <div className="p-6">
-              <div className="max-w-sm">
-                <div
-                  className="flex flex-col bg-white shadow-sm"
-                  style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
-                >
-                  {/* Top section */}
-                  <div className="flex items-start gap-4 px-5 pt-5 pb-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream font-jost text-[18px] font-semibold text-ink">
-                      {profilePreview.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-jost text-[16px] font-medium text-ink">
-                          {profilePreview.name}
-                        </h3>
-                        {profilePreview.identityVerified && (
-                          <svg
-                            className="h-4 w-4 shrink-0 text-teal"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <p className="font-jost text-[12px] font-light text-ink-3">
-                        {profilePreview.location}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-jost text-[20px] font-semibold text-ink">
-                        &pound;
-                        {(Math.round(profilePreview.hourlyRate * 1.1 * 100) / 100).toFixed(2)}
-                      </span>
-                      <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
-                    </div>
-                  </div>
-
-                  {/* Rating row */}
-                  <div className="flex items-center gap-2 px-5">
-                    <span
-                      className="inline-flex text-yellow-400"
-                      aria-label={`${profilePreview.rating} out of 5 stars`}
-                    >
-                      {'★'.repeat(Math.floor(profilePreview.rating))}
-                      {profilePreview.rating % 1 >= 0.5 && '★'}
-                      {'☆'.repeat(
-                        5 -
-                          Math.floor(profilePreview.rating) -
-                          (profilePreview.rating % 1 >= 0.5 ? 1 : 0)
-                      )}
-                    </span>
-                    <span className="font-jost text-[12px] font-light text-ink-2">
-                      {profilePreview.rating} ({data.stats.reviewCount})
-                    </span>
-                    {availableNow && (
-                      <span className="ml-auto flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
-                        </span>
-                        <span className="font-jost text-[11px] font-medium text-teal">
-                          Available today
-                        </span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Bio */}
-                  <p className="mt-3 line-clamp-2 px-5 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                    {profilePreview.bio || 'No bio added yet'}
-                  </p>
-
-                  {/* Specialties */}
-                  {profilePreview.specialties.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5 px-5">
-                      {profilePreview.specialties.slice(0, 3).map((s) => (
-                        <span
-                          key={s}
-                          className="rounded-full bg-cream px-3 py-1 font-jost text-[11px] font-medium text-ink-2"
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Footer */}
-                  <div className="mt-4 flex items-center justify-between border-t border-ink/5 px-5 py-3">
-                    <span className="font-jost text-[11px] font-light text-ink-3">
-                      {profilePreview.yearsExperience ?? 0} yrs experience &middot;{' '}
-                      {profilePreview.completedJobs} jobs
-                    </span>
-                    <span className="font-jost text-[11px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4">
-                      Book now
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
