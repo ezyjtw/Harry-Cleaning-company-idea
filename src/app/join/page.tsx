@@ -1589,7 +1589,7 @@ export default function JoinAsCleanerPage() {
                     },
                     {
                       value: 'want' as const,
-                      title: 'I don’t have one but I’d like to get one',
+                      title: 'No, but I want to apply for a DBS check',
                       desc: 'We’ll show you how to apply for a DBS check',
                     },
                     {
