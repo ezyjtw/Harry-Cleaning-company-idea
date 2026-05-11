@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+interface Testimonial {
+  clientName: string;
+  rating: number;
+  text: string;
+  categories?: { thoroughness: number; punctuality: number; communication: number };
+}
+
 interface PreviewData {
   name: string;
   image: string;
@@ -21,6 +28,7 @@ interface PreviewData {
   availableNow: boolean;
   identityVerified: boolean;
   backgroundChecked: boolean;
+  testimonials: Testimonial[];
 }
 
 export default function ProfilePreviewPage() {
@@ -56,6 +64,9 @@ export default function ProfilePreviewPage() {
           availableNow: p.availableNow || false,
           identityVerified: p.verificationStatus === 'VERIFIED',
           backgroundChecked: p.backgroundCheckPassed || false,
+          testimonials: (Array.isArray(p.testimonials) ? p.testimonials : []).filter(
+            (t: Testimonial) => t.clientName?.trim() && t.text?.trim()
+          ),
         });
       })
       .catch(() => {})
@@ -360,15 +371,51 @@ export default function ProfilePreviewPage() {
                 </section>
               )}
 
-              {/* Reviews placeholder */}
+              {/* Reviews */}
               <section className="mt-8">
                 <h3 className="font-cormorant text-[22px] font-semibold text-ink">
-                  Reviews ({data.reviewCount})
+                  Reviews ({data.reviewCount + data.testimonials.length})
                 </h3>
                 <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
                   Only verified customers who completed a booking can leave reviews.
                 </p>
-                {data.reviewCount === 0 && (
+                <div className="mt-6 space-y-0">
+                  {data.testimonials.map((t, i) => (
+                    <div key={`testimonial-${i}`} className="border-t border-ink/5 py-5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-jost text-[14px] font-medium text-ink">
+                          {t.clientName}
+                        </span>
+                        <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-ink-3">
+                          Testimonial
+                        </span>
+                      </div>
+                      <div className="mt-1">{stars(t.rating)}</div>
+                      {t.categories && (
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {[
+                            { label: 'Thoroughness', v: t.categories.thoroughness },
+                            { label: 'Punctuality', v: t.categories.punctuality },
+                            { label: 'Communication', v: t.categories.communication },
+                          ].map((cat) => (
+                            <span
+                              key={cat.label}
+                              className="font-jost text-[11px] font-light text-ink-3"
+                            >
+                              {cat.label}: {cat.v}/5
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {t.text && (
+                        <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+                          {t.text}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {data.reviewCount === 0 && data.testimonials.length === 0 && (
                   <p className="py-8 text-center font-jost text-[14px] font-light text-ink-3">
                     No reviews yet.
                   </p>
