@@ -2049,9 +2049,7 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                  Personal
-                </h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">Personal</h3>
                 <div className="mt-2 flex items-start gap-3">
                   {form.profilePhoto && (
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
@@ -2093,9 +2091,7 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                  Experience
-                </h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">Experience</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Years:</dt>{' '}
@@ -2121,9 +2117,7 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                  Pricing
-                </h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">Pricing</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   {form.serviceTypes
                     .filter((svc) => SERVICE_RATE_INFO[svc]?.hourly)
@@ -2159,13 +2153,32 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                  Identity
-                </h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">Identity</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Photo ID:</dt>{' '}
-                    <dd className="inline">{form.photoIdFile || 'Not uploaded'}</dd>
+                    <dd className="inline">
+                      {form.photoIdFile ? (
+                        <span className="inline-flex items-center gap-1 text-green-700">
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          Uploaded
+                        </span>
+                      ) : (
+                        'Not uploaded'
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="inline font-normal text-ink">Selfie verified:</dt>{' '}
@@ -2179,9 +2192,7 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                  DBS Check
-                </h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">DBS Check</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Option:</dt>{' '}
@@ -2207,7 +2218,28 @@ export default function JoinAsCleanerPage() {
                       </div>
                       <div>
                         <dt className="inline font-normal text-ink">Certificate:</dt>{' '}
-                        <dd className="inline">{form.dbsCertFile || 'Not uploaded'}</dd>
+                        <dd className="inline">
+                          {form.dbsCertFile ? (
+                            <span className="inline-flex items-center gap-1 text-green-700">
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              Uploaded
+                            </span>
+                          ) : (
+                            'Not uploaded'
+                          )}
+                        </dd>
                       </div>
                     </>
                   )}
@@ -2219,9 +2251,7 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-                  Right to Work
-                </h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">Right to Work</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Document type:</dt>{' '}
@@ -2239,7 +2269,28 @@ export default function JoinAsCleanerPage() {
                   </div>
                   <div>
                     <dt className="inline font-normal text-ink">Document:</dt>{' '}
-                    <dd className="inline">{form.rightToWorkDocFile || 'Not uploaded'}</dd>
+                    <dd className="inline">
+                      {form.rightToWorkDocFile ? (
+                        <span className="inline-flex items-center gap-1 text-green-700">
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          Uploaded
+                        </span>
+                      ) : (
+                        'Not uploaded'
+                      )}
+                    </dd>
                   </div>
                   {form.rightToWorkShareCode && (
                     <div>
@@ -2263,7 +2314,7 @@ export default function JoinAsCleanerPage() {
                 className="rounded-xl bg-cream-2/50 p-4"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">Bio</h3>
+                <h3 className="font-cormorant text-lg font-light text-ink">Bio</h3>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2 whitespace-pre-line">
                   {form.bio}
                 </p>
