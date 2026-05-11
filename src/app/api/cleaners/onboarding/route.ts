@@ -1,6 +1,6 @@
+import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 
 import prisma from '@/lib/db/prisma';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
 
     // Validate hourly rate
     const hourlyRate = Number(hourlyRateStr) || 15;
-    if (hourlyRate < 14 || hourlyRate > 35) {
+    if (hourlyRate < 14 || hourlyRate > 100) {
       return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £35' },
+        { error: 'Hourly rate must be between £14 and £100' },
         { status: 400 }
       );
     }
@@ -207,9 +207,7 @@ export async function POST(request: NextRequest) {
           originalName: dbsCertFile.name || 'dbs_certificate.pdf',
           mimeType: dbsCertFile.type || 'application/pdf',
           metadata: {
-            certNumber: dbsCertNumber
-              ? `${dbsCertNumber.slice(0, 4)}********`
-              : null,
+            certNumber: dbsCertNumber ? `${dbsCertNumber.slice(0, 4)}********` : null,
             issueDate: dbsIssueDate || null,
           },
           ipAddress,

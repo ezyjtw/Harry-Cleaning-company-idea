@@ -790,8 +790,15 @@ export default function JoinAsCleanerPage() {
     if (step === 2) {
       for (const svc of form.serviceTypes) {
         const info = SERVICE_RATE_INFO[svc];
-        if (info?.hourly && (!form.serviceRates[svc] || Number(form.serviceRates[svc]) < 1)) {
-          e[`rate_${svc}`] = `Enter your ${info.label.toLowerCase()} rate`;
+        if (info?.hourly) {
+          const rate = Number(form.serviceRates[svc]);
+          if (!form.serviceRates[svc] || rate < 1) {
+            e[`rate_${svc}`] = `Enter your ${info.label.toLowerCase()} rate`;
+          } else if (rate < 14) {
+            e[`rate_${svc}`] = `Minimum rate is £14/hr`;
+          } else if (rate > 100) {
+            e[`rate_${svc}`] = `Maximum rate is £100/hr`;
+          }
         }
       }
       if (!form.hoursPerWeek || Number(form.hoursPerWeek) < 1)
