@@ -224,11 +224,7 @@ function toggleInArray(arr: string[], value: string): string[] {
 /* ------------------------------------------------------------------ */
 
 function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
-      {children}
-    </label>
-  );
+  return <label className="block font-jost text-sm font-light text-ink-2">{children}</label>;
 }
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -383,7 +379,7 @@ function EarningsCalculator() {
 
   return (
     <div className="mt-6">
-      <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+      <label className="block font-jost text-sm font-light text-ink-2">
         How many hours per week would you like to work?
       </label>
       <div className="mt-3 flex items-center gap-4">
@@ -405,25 +401,19 @@ function EarningsCalculator() {
           <p className="font-cormorant text-2xl sm:text-3xl font-light text-ink">
             £{weekly.toLocaleString()}
           </p>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
-            Per week
-          </p>
+          <p className="font-jost text-xs font-light text-ink-3 mt-1">Per week</p>
         </div>
         <div className="text-center">
           <p className="font-cormorant text-2xl sm:text-3xl font-light text-gold">
             £{monthly.toLocaleString()}
           </p>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
-            Per month
-          </p>
+          <p className="font-jost text-xs font-light text-ink-3 mt-1">Per month</p>
         </div>
         <div className="text-center">
           <p className="font-cormorant text-2xl sm:text-3xl font-light text-ink">
             £{yearly.toLocaleString()}
           </p>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
-            Per year (gross)
-          </p>
+          <p className="font-jost text-xs font-light text-ink-3 mt-1">Per year (gross)</p>
         </div>
       </div>
 
@@ -457,15 +447,13 @@ function EarningsCalculator() {
               <p className="font-cormorant text-lg font-light text-ink">
                 £{tax.incomeTax.toLocaleString()}
               </p>
-              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-                Income tax
-              </p>
+              <p className="font-jost text-[11px] font-light text-ink-3 mt-0.5">Income tax</p>
             </div>
             <div>
               <p className="font-cormorant text-lg font-light text-ink">
                 £{tax.nationalInsurance.toLocaleString()}
               </p>
-              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+              <p className="font-jost text-[11px] font-light text-ink-3 mt-0.5">
                 National Insurance
               </p>
             </div>
@@ -473,9 +461,7 @@ function EarningsCalculator() {
               <p className="font-cormorant text-lg font-light text-gold">
                 £{tax.takeHome.toLocaleString()}
               </p>
-              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-                Est. take-home
-              </p>
+              <p className="font-jost text-[11px] font-light text-ink-3 mt-0.5">Est. take-home</p>
             </div>
           </div>
           <p className="mt-3 font-jost text-[10px] text-ink-3/70 text-center">
@@ -1076,8 +1062,8 @@ export default function JoinAsCleanerPage() {
         {currentStep === 0 && (
           <div className="space-y-5">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               Personal Information
             </h2>
@@ -1282,7 +1268,7 @@ export default function JoinAsCleanerPage() {
                         <button
                           type="button"
                           onClick={() => set('profilePhoto', '')}
-                          className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 underline hover:text-ink"
+                          className="font-jost text-xs font-light text-ink-3 underline hover:text-ink"
                         >
                           Remove
                         </button>
@@ -1302,8 +1288,8 @@ export default function JoinAsCleanerPage() {
         {currentStep === 1 && (
           <div className="space-y-5">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               Experience &amp; Skills
             </h2>
@@ -1425,8 +1411,8 @@ export default function JoinAsCleanerPage() {
         {currentStep === 2 && (
           <div className="space-y-5">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               Pricing &amp; Availability
             </h2>
@@ -1499,15 +1485,15 @@ export default function JoinAsCleanerPage() {
         {currentStep === 3 && (
           <div className="space-y-5">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               Identity Verification
             </h2>
 
             <div>
               <Label>Photo ID</Label>
-              <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
                 Passport or driving licence accepted.
               </p>
               <div
@@ -1537,7 +1523,7 @@ export default function JoinAsCleanerPage() {
             {/* ---- Right to Work ---- */}
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
               <h3 className="font-cormorant text-xl text-ink">Right to Work</h3>
-              <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              <p className="mt-1 font-jost text-xs font-light text-ink-3">
                 UK law requires us to verify your right to work before you can accept bookings.
               </p>
 
@@ -1564,7 +1550,7 @@ export default function JoinAsCleanerPage() {
               {form.rightToWorkDocType === 'share_code' && (
                 <div className="mt-4">
                   <Label>Home Office share code</Label>
-                  <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
                     Get your code at gov.uk/prove-right-to-work
                   </p>
                   <input
@@ -1597,7 +1583,7 @@ export default function JoinAsCleanerPage() {
 
               <div className="mt-4">
                 <Label>Upload document</Label>
-                <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
                   Upload a clear photo or scan of your right to work document.
                 </p>
                 <div
@@ -1644,8 +1630,8 @@ export default function JoinAsCleanerPage() {
         {currentStep === 4 && (
           <div className="space-y-5">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               DBS &amp; Background Check
             </h2>
@@ -1735,7 +1721,7 @@ export default function JoinAsCleanerPage() {
                 </div>
                 <div>
                   <Label>Upload DBS Certificate</Label>
-                  <p className="mt-0.5 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                  <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
                     Clear photo or scan of the full certificate. We will verify the certificate
                     number and status via the DBS Update Service.
                   </p>
@@ -1992,8 +1978,8 @@ export default function JoinAsCleanerPage() {
         {currentStep === 5 && (
           <div className="space-y-5">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               Payout Setup
             </h2>
@@ -2036,8 +2022,8 @@ export default function JoinAsCleanerPage() {
         {currentStep === 6 && (
           <div className="space-y-6">
             <h2
-              className="font-cormorant text-2xl text-ink pb-3 mb-1"
-              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
             >
               Review &amp; Submit
             </h2>
