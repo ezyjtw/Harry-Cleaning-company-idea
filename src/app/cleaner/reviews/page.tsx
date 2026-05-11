@@ -1,7 +1,8 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface ReviewItem {
   id: string;
@@ -33,6 +34,124 @@ interface Testimonial {
   clientName: string;
   rating: number;
   text: string;
+  image?: string;
+}
+
+function TestimonialCard({
+  testimonial: t,
+  onChange,
+  onDelete,
+}: {
+  testimonial: Testimonial;
+  onChange: (t: Testimonial) => void;
+  onDelete: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange({ ...t, image: reader.result as string });
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="rounded-xl bg-cream p-4" style={{ border: '1px solid rgba(14,14,12,0.06)' }}>
+      <div className="flex items-start gap-3">
+        {/* Photo upload */}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex-shrink-0 w-12 h-12 rounded-full bg-ink/5 flex items-center justify-center overflow-hidden hover:bg-ink/10 transition-colors"
+        >
+          {t.image ? (
+            <Image
+              src={t.image}
+              alt={t.clientName || 'Client'}
+              width={48}
+              height={48}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <svg
+              className="w-5 h-5 text-ink-3/40"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          )}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhoto}
+          className="hidden"
+        />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <input
+              type="text"
+              value={t.clientName}
+              onChange={(e) => onChange({ ...t, clientName: e.target.value })}
+              placeholder="Client name"
+              className="font-jost text-sm text-ink bg-transparent focus:outline-none placeholder:text-ink-3/50 w-44"
+            />
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} type="button" onClick={() => onChange({ ...t, rating: star })}>
+                  <svg
+                    className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={onDelete}
+                className="ml-2 text-ink-3/30 hover:text-red-400 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <textarea
+            value={t.text}
+            onChange={(e) => onChange({ ...t, text: e.target.value })}
+            placeholder="What did this client say about your work?"
+            className="w-full font-jost text-sm font-light text-ink-2 bg-transparent focus:outline-none resize-none placeholder:text-ink-3/40"
+            rows={2}
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const ratingFilters = [0, 5, 4, 3, 2, 1];
@@ -173,7 +292,7 @@ export default function ReviewsPage() {
               <button
                 onClick={saveTestimonials}
                 disabled={testimonialsSaving}
-                className="rounded-full px-4 py-1.5 bg-gold text-ink font-jost text-[12px] font-light hover:bg-gold/90 transition disabled:opacity-50"
+                className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition disabled:opacity-50"
               >
                 {testimonialsSaving ? 'Saving...' : 'Save'}
               </button>
@@ -186,77 +305,20 @@ export default function ReviewsPage() {
 
         <div className="space-y-3">
           {testimonials.map((t, i) => (
-            <div
+            <TestimonialCard
               key={i}
-              className="rounded-xl bg-cream p-4"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <input
-                  type="text"
-                  value={t.clientName}
-                  onChange={(e) => {
-                    const updated = [...testimonials];
-                    updated[i] = { ...updated[i], clientName: e.target.value };
-                    setTestimonials(updated);
-                    setTestimonialsSaved(false);
-                  }}
-                  placeholder="Client name"
-                  className="font-jost text-sm text-ink bg-transparent focus:outline-none placeholder:text-ink-3/50 w-44"
-                />
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => {
-                        const updated = [...testimonials];
-                        updated[i] = { ...updated[i], rating: star };
-                        setTestimonials(updated);
-                        setTestimonialsSaved(false);
-                      }}
-                    >
-                      <svg
-                        className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTestimonials(testimonials.filter((_, j) => j !== i));
-                      setTestimonialsSaved(false);
-                    }}
-                    className="ml-2 text-ink-3/30 hover:text-red-400 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <textarea
-                value={t.text}
-                onChange={(e) => {
-                  const updated = [...testimonials];
-                  updated[i] = { ...updated[i], text: e.target.value };
-                  setTestimonials(updated);
-                  setTestimonialsSaved(false);
-                }}
-                placeholder="What did this client say about your work?"
-                className="w-full font-jost text-sm font-light text-ink-2 bg-transparent focus:outline-none resize-none placeholder:text-ink-3/40"
-                rows={2}
-              />
-            </div>
+              testimonial={t}
+              onChange={(updated) => {
+                const list = [...testimonials];
+                list[i] = updated;
+                setTestimonials(list);
+                setTestimonialsSaved(false);
+              }}
+              onDelete={() => {
+                setTestimonials(testimonials.filter((_, j) => j !== i));
+                setTestimonialsSaved(false);
+              }}
+            />
           ))}
         </div>
 
@@ -264,7 +326,10 @@ export default function ReviewsPage() {
           <button
             type="button"
             onClick={() => {
-              setTestimonials([...testimonials, { clientName: '', rating: 5, text: '' }]);
+              setTestimonials([
+                ...testimonials,
+                { clientName: '', rating: 5, text: '', image: '' },
+              ]);
               setTestimonialsSaved(false);
             }}
             className="mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 font-jost text-sm font-light text-ink hover:bg-cream-2 transition-colors"
