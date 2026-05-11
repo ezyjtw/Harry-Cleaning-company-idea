@@ -739,7 +739,16 @@ export default function JoinAsCleanerPage() {
       if (!form.postcode.trim()) e.postcode = 'Postcode is required';
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
         e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
-      if (!form.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
+      if (!form.dateOfBirth) {
+        e.dateOfBirth = 'Date of birth is required';
+      } else {
+        const dob = new Date(form.dateOfBirth);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
+        if (age < 18) e.dateOfBirth = 'You must be at least 18 years old to register';
+      }
       if (!form.password || form.password.length < 8)
         e.password = 'Password must be at least 8 characters';
       else if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
@@ -1064,6 +1073,15 @@ export default function JoinAsCleanerPage() {
                 <Input
                   type="date"
                   required
+                  max={
+                    new Date(
+                      new Date().getFullYear() - 18,
+                      new Date().getMonth(),
+                      new Date().getDate()
+                    )
+                      .toISOString()
+                      .split('T')[0]
+                  }
                   value={form.dateOfBirth}
                   onChange={(e) => set('dateOfBirth', e.target.value)}
                 />
