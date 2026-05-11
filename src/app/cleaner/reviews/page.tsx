@@ -34,8 +34,27 @@ interface Testimonial {
   clientName: string;
   rating: number;
   text: string;
-  image?: string;
+  images?: string[];
+  categories: {
+    thoroughness: number;
+    punctuality: number;
+    communication: number;
+  };
 }
+
+const CATEGORY_LABELS: { key: keyof Testimonial['categories']; label: string }[] = [
+  { key: 'thoroughness', label: 'Thoroughness' },
+  { key: 'punctuality', label: 'Punctuality' },
+  { key: 'communication', label: 'Communication' },
+];
+
+const EMPTY_TESTIMONIAL: Testimonial = {
+  clientName: '',
+  rating: 5,
+  text: '',
+  images: [],
+  categories: { thoroughness: 5, punctuality: 5, communication: 5 },
+};
 
 function TestimonialCard({
   testimonial: t,
@@ -48,76 +67,94 @@ function TestimonialCard({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return;
-    const reader = new FileReader();
-    reader.onload = () => onChange({ ...t, image: reader.result as string });
-    reader.readAsDataURL(file);
+  const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const current = t.images || [];
+    const remaining = 4 - current.length;
+    if (remaining <= 0) return;
+    files.slice(0, remaining).forEach((file) => {
+      if (file.size > 2 * 1024 * 1024) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        onChange({
+          ...t,
+          images: [...(t.images || []), reader.result as string],
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
   };
 
+  const removePhoto = (index: number) => {
+    onChange({ ...t, images: (t.images || []).filter((_, i) => i !== index) });
+  };
+
+  const cats = t.categories || { thoroughness: 5, punctuality: 5, communication: 5 };
+
   return (
-    <div className="rounded-xl bg-cream p-4" style={{ border: '1px solid rgba(14,14,12,0.06)' }}>
-      <div className="flex items-start gap-3">
-        {/* Photo upload */}
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex-shrink-0 w-12 h-12 rounded-full bg-ink/5 flex items-center justify-center overflow-hidden hover:bg-ink/10 transition-colors"
-        >
-          {t.image ? (
-            <Image
-              src={t.image}
-              alt={t.clientName || 'Client'}
-              width={48}
-              height={48}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <svg
-              className="w-5 h-5 text-ink-3/40"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+    <div className="rounded-xl bg-cream p-5" style={{ border: '1px solid rgba(14,14,12,0.06)' }}>
+      {/* Header: name, stars, delete */}
+      <div className="flex items-center justify-between mb-4">
+        <input
+          type="text"
+          value={t.clientName}
+          onChange={(e) => onChange({ ...t, clientName: e.target.value })}
+          placeholder="Client name"
+          className="font-jost text-sm text-ink bg-transparent focus:outline-none placeholder:text-ink-3/50 w-48"
+        />
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button key={star} type="button" onClick={() => onChange({ ...t, rating: star })}>
+              <svg
+                className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onDelete}
+            className="ml-2 text-ink-3/30 hover:text-red-400 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          )}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          onChange={handlePhoto}
-          className="hidden"
-        />
+          </button>
+        </div>
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-3">
-            <input
-              type="text"
-              value={t.clientName}
-              onChange={(e) => onChange({ ...t, clientName: e.target.value })}
-              placeholder="Client name"
-              className="font-jost text-sm text-ink bg-transparent focus:outline-none placeholder:text-ink-3/50 w-44"
-            />
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} type="button" onClick={() => onChange({ ...t, rating: star })}>
+      {/* Review text */}
+      <textarea
+        value={t.text}
+        onChange={(e) => onChange({ ...t, text: e.target.value })}
+        placeholder="What did this client say about your work?"
+        className="w-full font-jost text-sm font-light text-ink-2 bg-transparent focus:outline-none resize-none placeholder:text-ink-3/40 mb-4"
+        rows={2}
+      />
+
+      {/* Category ratings */}
+      <div className="flex flex-wrap gap-x-6 gap-y-2 mb-4">
+        {CATEGORY_LABELS.map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-2">
+            <span className="font-jost text-xs font-light text-ink-3 w-28">{label}</span>
+            <div className="flex gap-0.5">
+              {[1, 2, 3, 4, 5].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => onChange({ ...t, categories: { ...cats, [key]: v } })}
+                >
                   <svg
-                    className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
+                    className={`w-3.5 h-3.5 transition-colors ${v <= cats[key] ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -125,12 +162,32 @@ function TestimonialCard({
                   </svg>
                 </button>
               ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Evidence photos */}
+      <div>
+        <p className="font-jost text-xs font-light text-ink-3 mb-2">
+          Evidence of clean (up to 4 photos)
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {(t.images || []).map((img, i) => (
+            <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden group">
+              <Image
+                src={img}
+                alt="Evidence"
+                width={80}
+                height={80}
+                className="w-full h-full object-cover"
+              />
               <button
                 type="button"
-                onClick={onDelete}
-                className="ml-2 text-ink-3/30 hover:text-red-400 transition-colors"
+                onClick={() => removePhoto(i)}
+                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-ink/70 text-cream flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -140,15 +197,39 @@ function TestimonialCard({
                 </svg>
               </button>
             </div>
-          </div>
-          <textarea
-            value={t.text}
-            onChange={(e) => onChange({ ...t, text: e.target.value })}
-            placeholder="What did this client say about your work?"
-            className="w-full font-jost text-sm font-light text-ink-2 bg-transparent focus:outline-none resize-none placeholder:text-ink-3/40"
-            rows={2}
-          />
+          ))}
+          {(t.images || []).length < 4 && (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-20 h-20 rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-ink/5 transition-colors"
+              style={{ border: '1px dashed rgba(14,14,12,0.15)' }}
+            >
+              <svg
+                className="w-5 h-5 text-ink-3/40"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              <span className="font-jost text-[10px] text-ink-3/50">Add</span>
+            </button>
+          )}
         </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handlePhotos}
+          className="hidden"
+        />
       </div>
     </div>
   );
@@ -276,7 +357,7 @@ export default function ReviewsPage() {
           <h2 className="font-cormorant text-lg font-light text-ink">Client Testimonials</h2>
           <div className="flex items-center gap-2">
             {testimonialsSaved && (
-              <span className="font-jost text-xs font-light text-gold flex items-center gap-1">
+              <span className="font-jost text-xs font-light text-green-600 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -326,10 +407,7 @@ export default function ReviewsPage() {
           <button
             type="button"
             onClick={() => {
-              setTestimonials([
-                ...testimonials,
-                { clientName: '', rating: 5, text: '', image: '' },
-              ]);
+              setTestimonials([...testimonials, { ...EMPTY_TESTIMONIAL }]);
               setTestimonialsSaved(false);
             }}
             className="mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 font-jost text-sm font-light text-ink hover:bg-cream-2 transition-colors"
@@ -352,6 +430,81 @@ export default function ReviewsPage() {
           </button>
         )}
       </div>
+
+      {/* Saved testimonials displayed as review cards */}
+      {testimonialsSaved &&
+        testimonials.filter((t) => t.clientName.trim() && t.text.trim()).length > 0 && (
+          <div className="mb-8">
+            <h2 className="font-cormorant text-lg font-light text-ink mb-4">Your Testimonials</h2>
+            <div className="space-y-4">
+              {testimonials
+                .filter((t) => t.clientName.trim() && t.text.trim())
+                .map((t, i) => {
+                  const cats = t.categories || {
+                    thoroughness: 5,
+                    punctuality: 5,
+                    communication: 5,
+                  };
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-xl bg-white p-5"
+                      style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-jost text-sm font-light text-ink">{t.clientName}</p>
+                          <p className="font-jost text-[11px] text-ink-3">Client testimonial</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, si) => (
+                            <svg
+                              key={si}
+                              className={`w-4 h-4 ${si < t.rating ? 'text-gold' : 'text-ink-3/15'}`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="font-jost text-sm font-light text-ink-2 mb-3">{t.text}</p>
+
+                      {/* Category ratings */}
+                      <div className="flex flex-wrap gap-3 mb-3">
+                        {CATEGORY_LABELS.map(({ key, label }) => (
+                          <span
+                            key={key}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3 py-1 font-jost text-xs font-light text-ink-2"
+                          >
+                            {label}: {cats[key]}/5
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Evidence photos */}
+                      {t.images && t.images.length > 0 && (
+                        <div className="flex gap-2 mt-2">
+                          {t.images.map((img, pi) => (
+                            <div key={pi} className="w-16 h-16 rounded-lg overflow-hidden">
+                              <Image
+                                src={img}
+                                alt="Evidence of clean"
+                                width={64}
+                                height={64}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
       {/* Overall rating and breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
