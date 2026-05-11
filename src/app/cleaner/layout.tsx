@@ -166,7 +166,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           <div className="px-6 pt-6 pb-2">
             <Link href="/" className="flex items-center gap-2">
               <span className="font-cormorant text-xl font-light text-cream">Rena</span>
-              <span className="font-jost text-[9px] uppercase tracking-[0.2em] text-gold/70">
+              <span className="font-jost text-[9px] uppercase tracking-[0.2em] text-cream/70">
                 Cleaner Portal
               </span>
             </Link>
@@ -194,7 +194,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                 <p className="font-jost font-light text-cream text-sm truncate">
                   {cleanerName || 'Loading...'}
                 </p>
-                <span className="font-jost text-[10px] uppercase tracking-[0.12em] text-gold/80">
+                <span className="font-jost text-[10px] uppercase tracking-[0.12em] text-cream/60">
                   {cleanerTier
                     ? `${cleanerTier.charAt(0) + cleanerTier.slice(1).toLowerCase()} Tier`
                     : ''}
