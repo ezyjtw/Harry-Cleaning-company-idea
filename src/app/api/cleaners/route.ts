@@ -93,26 +93,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Derive hourly rate from serviceRates if not provided directly
-    let hourlyRate = Number(body.hourlyRate) || 0;
-    if (!hourlyRate && body.serviceRates && typeof body.serviceRates === 'object') {
-      const standardRate = Number(body.serviceRates['Standard']);
-      if (standardRate > 0) {
-        hourlyRate = standardRate;
-      } else {
-        const rates = Object.values(body.serviceRates)
-          .map(Number)
-          .filter((r: number) => r > 0);
-        hourlyRate = rates.length > 0 ? Math.min(...rates) : 15;
-      }
+    // Derive hourly rate — prioritise serviceRates (what the join form sends)
+    let hourlyRate = 0;
+    if (body.serviceRates && typeof body.serviceRates === 'object') {
+      const allRates = Object.values(body.serviceRates)
+        .map(Number)
+        .filter((r: number) => r > 0);
+      if (allRates.length > 0) hourlyRate = allRates[0];
     }
-    if (!hourlyRate) hourlyRate = 15;
-    if (hourlyRate < 14 || hourlyRate > 100) {
-      return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £100' },
-        { status: 400 }
-      );
-    }
+    if (!hourlyRate) hourlyRate = Number(body.hourlyRate) || 0;
+    if (!hourlyRate || hourlyRate < 14) hourlyRate = 15;
 
     // Check if email already exists
     const existing = await prisma.user.findUnique({

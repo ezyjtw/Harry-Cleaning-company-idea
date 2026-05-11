@@ -69,14 +69,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate hourly rate
-    const hourlyRate = Number(hourlyRateStr) || 15;
-    if (hourlyRate < 14 || hourlyRate > 35) {
-      return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £35' },
-        { status: 400 }
-      );
-    }
+    // Derive hourly rate — default to 15 if missing or invalid
+    let hourlyRate = Number(hourlyRateStr) || 0;
+    if (!hourlyRate || hourlyRate < 14) hourlyRate = 15;
 
     // Validate file sizes
     const files = [
