@@ -41,7 +41,7 @@ interface FormData {
   rightToWorkExpiryDate: string;
 
   // Step 4 – DBS & Background Check
-  dbsOption: 'existing' | 'new' | '';
+  dbsOption: 'existing' | 'want' | 'none' | '';
   dbsCertFile: string;
   dbsCertNumber: string;
   dbsCertIssueDate: string;
@@ -1564,60 +1564,55 @@ export default function JoinAsCleanerPage() {
             </h2>
             <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
               A DBS (Disclosure and Barring Service) check helps us ensure the safety of our
-              customers. You can either provide an existing certificate or apply for a new one
-              through Rena.
+              customers. Customers strongly prefer cleaners who are DBS checked.
             </p>
 
             {/* DBS Option Selection */}
             <div>
-              <Label>Do you have an existing DBS certificate?</Label>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => set('dbsOption', 'existing')}
-                  className={`p-4 text-left transition ${
-                    form.dbsOption === 'existing'
-                      ? 'bg-ink text-cream'
-                      : 'bg-cream text-ink hover:bg-cream-2'
-                  }`}
-                  style={
-                    form.dbsOption !== 'existing'
-                      ? { border: '0.5px solid rgba(14,14,12,0.1)' }
-                      : undefined
-                  }
-                >
-                  <span className="block font-jost text-sm font-normal">
-                    Yes, I have a DBS certificate
-                  </span>
-                  <span
-                    className={`mt-1 block font-jost text-[11px] ${form.dbsOption === 'existing' ? 'text-cream/70' : 'text-ink-3'}`}
+              <Label>Do you have a DBS certificate?</Label>
+              <div className="mt-3 grid gap-3">
+                {(
+                  [
+                    {
+                      value: 'existing' as const,
+                      title: 'Yes, I have a DBS certificate',
+                      desc: 'Upload your existing certificate for verification',
+                    },
+                    {
+                      value: 'want' as const,
+                      title: 'I don’t have one but I’d like to get one',
+                      desc: 'We’ll show you how to apply for a DBS check',
+                    },
+                    {
+                      value: 'none' as const,
+                      title: 'I don’t have a DBS certificate',
+                      desc: 'You can still join, but DBS-checked cleaners get more bookings',
+                    },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => set('dbsOption', opt.value)}
+                    className={`p-4 text-left transition ${
+                      form.dbsOption === opt.value
+                        ? 'bg-ink text-cream'
+                        : 'bg-cream text-ink hover:bg-cream-2'
+                    }`}
+                    style={
+                      form.dbsOption !== opt.value
+                        ? { border: '0.5px solid rgba(14,14,12,0.1)' }
+                        : undefined
+                    }
                   >
-                    Upload your existing certificate for verification
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => set('dbsOption', 'new')}
-                  className={`p-4 text-left transition ${
-                    form.dbsOption === 'new'
-                      ? 'bg-ink text-cream'
-                      : 'bg-cream text-ink hover:bg-cream-2'
-                  }`}
-                  style={
-                    form.dbsOption !== 'new'
-                      ? { border: '0.5px solid rgba(14,14,12,0.1)' }
-                      : undefined
-                  }
-                >
-                  <span className="block font-jost text-sm font-normal">
-                    No, I need a new DBS check
-                  </span>
-                  <span
-                    className={`mt-1 block font-jost text-[11px] ${form.dbsOption === 'new' ? 'text-cream/70' : 'text-ink-3'}`}
-                  >
-                    We&apos;ll guide you through the application process
-                  </span>
-                </button>
+                    <span className="block font-jost text-sm font-normal">{opt.title}</span>
+                    <span
+                      className={`mt-1 block font-jost text-[11px] ${form.dbsOption === opt.value ? 'text-cream/70' : 'text-ink-3'}`}
+                    >
+                      {opt.desc}
+                    </span>
+                  </button>
+                ))}
               </div>
               <FieldError message={errors.dbsOption} />
             </div>
@@ -1685,41 +1680,68 @@ export default function JoinAsCleanerPage() {
               </div>
             )}
 
-            {/* New DBS Application */}
-            {form.dbsOption === 'new' && (
+            {/* Want a DBS — instructions */}
+            {form.dbsOption === 'want' && (
               <div
                 className="space-y-3 bg-cream p-5 animate-fade-in"
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
-                <h3 className="font-jost text-sm font-normal text-ink">Apply for a DBS Check</h3>
+                <h3 className="font-jost text-sm font-normal text-ink">
+                  How to Get a DBS Certificate
+                </h3>
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
-                  Rena partners with an accredited DBS umbrella body to process your check. Once
-                  your application is submitted, the DBS check typically takes 2-8 weeks to
-                  complete.
+                  You can apply for a Basic DBS check online through the GOV.UK website. It
+                  typically costs £18 and takes 2–4 weeks to arrive.
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-gold">&#10003;</span>
+                    <span className="mt-0.5 font-jost text-sm text-gold">1.</span>
                     <p className="font-jost text-sm font-light text-ink-2">
-                      Basic DBS check &mdash; included free with your Rena application
+                      Visit{' '}
+                      <a
+                        href="https://www.gov.uk/request-copy-criminal-record"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gold underline"
+                      >
+                        gov.uk/request-copy-criminal-record
+                      </a>
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-gold">&#10003;</span>
+                    <span className="mt-0.5 font-jost text-sm text-gold">2.</span>
                     <p className="font-jost text-sm font-light text-ink-2">
-                      Enhanced DBS check &mdash; required for certain service types (£23 fee
-                      applies)
+                      Select &ldquo;Basic DBS check&rdquo; and follow the application steps
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-gold">&#10003;</span>
+                    <span className="mt-0.5 font-jost text-sm text-gold">3.</span>
                     <p className="font-jost text-sm font-light text-ink-2">
-                      You can start accepting bookings once your DBS is returned and verified
+                      Once you receive your certificate, upload it in your Rena profile
                     </p>
                   </div>
                 </div>
-                <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                  We&apos;ll email you with instructions after you submit your application.
+                <p className="font-jost text-[11px] text-ink-3">
+                  You can continue your application now and upload your DBS certificate later from
+                  your profile.
+                </p>
+              </div>
+            )}
+
+            {/* No DBS — nudge */}
+            {form.dbsOption === 'none' && (
+              <div
+                className="space-y-3 bg-cream p-5 animate-fade-in"
+                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              >
+                <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
+                  You can still register without a DBS certificate, but please be aware that
+                  customers strongly prefer DBS-checked cleaners. Cleaners with a verified DBS badge
+                  typically receive{' '}
+                  <strong className="font-normal text-ink">3–5x more bookings</strong>.
+                </p>
+                <p className="font-jost text-[11px] text-ink-3">
+                  You can apply for a DBS check at any time and upload it to your profile later.
                 </p>
               </div>
             )}
@@ -1997,9 +2019,11 @@ export default function JoinAsCleanerPage() {
                     <dd className="inline">
                       {form.dbsOption === 'existing'
                         ? 'Existing certificate'
-                        : form.dbsOption === 'new'
-                          ? 'New application'
-                          : 'Not selected'}
+                        : form.dbsOption === 'want'
+                          ? 'Will apply'
+                          : form.dbsOption === 'none'
+                            ? 'Not yet'
+                            : 'Not selected'}
                     </dd>
                   </div>
                   {form.dbsOption === 'existing' && (
