@@ -1075,7 +1075,12 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 0 – Personal ===== */}
         {currentStep === 0 && (
           <div className="space-y-5">
-            <h2 className="font-cormorant text-xl font-light text-ink">Personal Information</h2>
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
+              Personal Information
+            </h2>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -1168,11 +1173,11 @@ export default function JoinAsCleanerPage() {
               </div>
               <div>
                 <Label>Profile Picture</Label>
-                <div className="mt-2 flex items-center gap-4">
+                <div className="mt-3 flex items-start gap-5">
                   {/* Preview circle */}
                   <div
-                    className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-2"
-                    style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+                    className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-2"
+                    style={{ border: '2px solid rgba(14,14,12,0.08)' }}
                   >
                     {form.profilePhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1183,7 +1188,7 @@ export default function JoinAsCleanerPage() {
                       />
                     ) : (
                       <svg
-                        className="h-6 w-6 text-ink-3"
+                        className="h-10 w-10 text-ink-3/40"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1198,36 +1203,93 @@ export default function JoinAsCleanerPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <label className="inline-block cursor-pointer rounded-lg bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
-                      Upload photo
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === 'string') {
-                              set('profilePhoto', reader.result);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                      />
-                    </label>
-                    {form.profilePhoto && (
-                      <button
-                        type="button"
-                        onClick={() => set('profilePhoto', '')}
-                        className="ml-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 underline hover:text-ink"
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                          />
+                        </svg>
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              if (typeof reader.result === 'string') {
+                                set('profilePhoto', reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      <label
+                        className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
+                        style={{ border: '1px solid rgba(14,14,12,0.12)' }}
                       >
-                        Remove
-                      </button>
-                    )}
-                    <p className="mt-1 font-jost text-[11px] text-ink-3">
-                      JPG, PNG or WebP. Max 5 MB.
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                          />
+                        </svg>
+                        Take Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="user"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              if (typeof reader.result === 'string') {
+                                set('profilePhoto', reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {form.profilePhoto && (
+                        <button
+                          type="button"
+                          onClick={() => set('profilePhoto', '')}
+                          className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 underline hover:text-ink"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 font-jost text-[11px] text-ink-3">
+                      JPG, PNG or WebP. Max 5 MB. A clear headshot works best.
                     </p>
                   </div>
                 </div>
@@ -1239,7 +1301,12 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 1 – Experience ===== */}
         {currentStep === 1 && (
           <div className="space-y-5">
-            <h2 className="font-cormorant text-xl font-light text-ink">Experience &amp; Skills</h2>
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
+              Experience &amp; Skills
+            </h2>
 
             <div>
               <Label>Years of Experience</Label>
@@ -1357,7 +1424,10 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 2 – Pricing ===== */}
         {currentStep === 2 && (
           <div className="space-y-5">
-            <h2 className="font-cormorant text-xl font-light text-ink">
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
               Pricing &amp; Availability
             </h2>
 
@@ -1428,7 +1498,12 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 3 – Identity ===== */}
         {currentStep === 3 && (
           <div className="space-y-5">
-            <h2 className="font-cormorant text-xl font-light text-ink">Identity Verification</h2>
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
+              Identity Verification
+            </h2>
 
             <div>
               <Label>Photo ID</Label>
@@ -1461,7 +1536,7 @@ export default function JoinAsCleanerPage() {
 
             {/* ---- Right to Work ---- */}
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
-              <h2 className="font-cormorant text-xl font-light text-ink">Right to Work</h2>
+              <h3 className="font-cormorant text-xl text-ink">Right to Work</h3>
               <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 UK law requires us to verify your right to work before you can accept bookings.
               </p>
@@ -1568,7 +1643,10 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 4 – DBS & Background Check ===== */}
         {currentStep === 4 && (
           <div className="space-y-5">
-            <h2 className="font-cormorant text-xl font-light text-ink">
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
               DBS &amp; Background Check
             </h2>
             <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -1757,7 +1835,7 @@ export default function JoinAsCleanerPage() {
 
             {/* Liveness / Selfie Verification */}
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
-              <h2 className="font-cormorant text-xl font-light text-ink">Identity Verification</h2>
+              <h3 className="font-cormorant text-xl text-ink">Identity Verification</h3>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
                 photo ID you uploaded in the previous step. This is a one-time check to protect both
@@ -1808,13 +1886,68 @@ export default function JoinAsCleanerPage() {
                       Please look directly at the camera in a well-lit area. Remove sunglasses and
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
                     </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <label className="inline-block cursor-pointer rounded-lg bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
-                        {form.selfiePhoto ? 'Retake Selfie' : 'Take Selfie'}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                          />
+                        </svg>
+                        {form.selfiePhoto ? 'Retake' : 'Take Selfie'}
                         <input
                           type="file"
                           accept="image/*"
                           capture="user"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              if (typeof reader.result === 'string') {
+                                set('selfiePhoto', reader.result);
+                                set('livenessComplete', true);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      <label
+                        className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
+                        style={{ border: '1px solid rgba(14,14,12,0.12)' }}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                          />
+                        </svg>
+                        Upload Photo
+                        <input
+                          type="file"
+                          accept="image/*"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
@@ -1858,7 +1991,12 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 5 – Payout ===== */}
         {currentStep === 5 && (
           <div className="space-y-5">
-            <h2 className="font-cormorant text-xl font-light text-ink">Payout Setup</h2>
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
+              Payout Setup
+            </h2>
 
             <div
               className="rounded-xl bg-cream-2/50 px-5 py-5"
@@ -1897,7 +2035,12 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 6 – Review & Submit ===== */}
         {currentStep === 6 && (
           <div className="space-y-6">
-            <h2 className="font-cormorant text-xl font-light text-ink">Review &amp; Submit</h2>
+            <h2
+              className="font-cormorant text-2xl text-ink pb-3 mb-1"
+              style={{ borderBottom: '2px solid rgba(184,151,90,0.3)' }}
+            >
+              Review &amp; Submit
+            </h2>
 
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -2173,7 +2316,7 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goNext}
-              className="rounded-full bg-gold px-8 py-2.5 font-jost text-[13px] font-light text-ink shadow-sm hover:bg-gold/90 transition"
+              className="rounded-full bg-ink px-8 py-2.5 font-jost text-[13px] font-light text-cream shadow-sm hover:bg-ink/90 transition"
             >
               Continue
             </button>
@@ -2182,7 +2325,7 @@ export default function JoinAsCleanerPage() {
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="rounded-full bg-gold px-8 py-2.5 font-jost text-[13px] font-light text-ink shadow-sm hover:bg-gold/90 transition disabled:opacity-50"
+              className="rounded-full bg-ink px-8 py-2.5 font-jost text-[13px] font-light text-cream shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Application'}
             </button>
