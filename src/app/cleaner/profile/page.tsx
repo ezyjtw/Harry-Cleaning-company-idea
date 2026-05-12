@@ -79,7 +79,11 @@ export default function CleanerProfilePage() {
         setPhone(data.phone || '');
         setPostcode(data.postcode || '');
         setBio(data.bio || '');
-        setYearsExperience(String(data.yearsExperience || ''));
+        setYearsExperience(
+          data.yearsExperience !== null && data.yearsExperience !== undefined
+            ? String(data.yearsExperience)
+            : ''
+        );
         setSelectedSpecialties(data.specialties || []);
         setTravelRadius(String(data.radius || 10));
         setPhoto(data.image || null);
