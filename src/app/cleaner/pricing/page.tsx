@@ -18,7 +18,7 @@ export default function CleanerPricingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [hourlyRate, setHourlyRate] = useState('15');
+  const [hourlyRate, setHourlyRate] = useState('14');
   const [rateError, setRateError] = useState('');
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
   const [serviceRates, setServiceRates] = useState<Record<string, string>>({});
@@ -38,7 +38,7 @@ export default function CleanerPricingPage() {
       })
       .then((data) => {
         if (!data) return;
-        setHourlyRate(String(data.hourlyRate || 15));
+        setHourlyRate(String(data.hourlyRate || 14));
         setServiceTypes(data.serviceTypes || []);
         setServiceRates(data.serviceRates || {});
         setHoursPerWeek(String(data.hoursPerWeek || ''));
@@ -254,7 +254,7 @@ export default function CleanerPricingPage() {
           </div>
           {rateError && <p className="font-jost text-sm text-red-500 mt-2">{rateError}</p>}
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Suggested range: £15–£22/hr
+            Suggested range: £14–£22/hr
           </p>
         </div>
 
