@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+import AvailabilityCalendar from '@/components/AvailabilityCalendar';
+
 interface Testimonial {
   clientName: string;
   rating: number;
@@ -29,6 +31,7 @@ interface PreviewData {
   identityVerified: boolean;
   backgroundChecked: boolean;
   testimonials: Testimonial[];
+  availabilitySlots: { dayOfWeek: number; startTime: string; endTime: string }[];
 }
 
 export default function ProfilePreviewPage() {
@@ -38,16 +41,37 @@ export default function ProfilePreviewPage() {
   const [view, setView] = useState<'card' | 'full'>('card');
 
   useEffect(() => {
-    fetch('/api/cleaner/profile')
-      .then((res) => {
+    const dayMap: Record<string, number> = {
+      monday: 1,
+      tuesday: 2,
+      wednesday: 3,
+      thursday: 4,
+      friday: 5,
+      saturday: 6,
+      sunday: 0,
+    };
+    Promise.all([
+      fetch('/api/cleaner/profile').then((res) => {
         if (res.status === 401) {
           router.push('/login');
           return null;
         }
         return res.ok ? res.json() : null;
-      })
-      .then((p) => {
+      }),
+      fetch('/api/cleaner/availability').then((res) => (res.ok ? res.json() : null)),
+    ])
+      .then(([p, avail]) => {
         if (!p) return;
+        const slots: PreviewData['availabilitySlots'] = [];
+        if (avail?.weeklySlots) {
+          for (const [dayName, daySlots] of Object.entries(avail.weeklySlots)) {
+            const dow = dayMap[dayName];
+            if (dow === undefined) continue;
+            for (const s of daySlots as { start: string; end: string }[]) {
+              slots.push({ dayOfWeek: dow, startTime: s.start, endTime: s.end });
+            }
+          }
+        }
         setData({
           name: p.name || '',
           image: p.image || '',
@@ -67,6 +91,7 @@ export default function ProfilePreviewPage() {
           testimonials: (Array.isArray(p.testimonials) ? p.testimonials : []).filter(
             (t: Testimonial) => t.clientName?.trim() && t.text?.trim()
           ),
+          availabilitySlots: slots,
         });
       })
       .catch(() => {})
@@ -370,6 +395,12 @@ export default function ProfilePreviewPage() {
                   </p>
                 </section>
               )}
+
+              {/* Availability */}
+              <section className="mt-8">
+                <h3 className="font-cormorant text-[22px] font-semibold text-ink">Availability</h3>
+                <AvailabilityCalendar slots={data.availabilitySlots} />
+              </section>
 
               {/* Reviews */}
               <section className="mt-8">

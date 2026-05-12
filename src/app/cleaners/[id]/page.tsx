@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
 import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
@@ -63,6 +64,11 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       return days[s.dayOfWeek] || '';
     }),
+    availabilitySlots: profile.availabilitySlots.map((s) => ({
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime,
+      endTime: s.endTime,
+    })),
     languages: [] as string[],
     yearsExperience: 0,
   };
@@ -204,18 +210,7 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
         {/* Availability */}
         <section className="mt-10">
           <h2 className="font-cormorant text-[22px] font-semibold text-ink">Availability</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-              <span
-                key={day}
-                className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium ${
-                  cleaner.availability.includes(day) ? 'bg-ink text-cream' : 'bg-cream text-ink-3'
-                }`}
-              >
-                {day}
-              </span>
-            ))}
-          </div>
+          <AvailabilityCalendar slots={cleaner.availabilitySlots} />
         </section>
 
         {/* Languages */}
