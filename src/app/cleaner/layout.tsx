@@ -206,7 +206,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                 )}
               </div>
               <div className="min-w-0">
-                <p className="font-jost font-light text-cream text-sm truncate">
+                <p className="font-jost font-light text-cream text-sm truncate uppercase">
                   {cleanerName || 'Loading...'}
                 </p>
                 <span className="font-jost text-[10px] uppercase tracking-[0.12em] text-cream/60">

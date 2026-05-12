@@ -191,7 +191,7 @@ export default function ProfilePreviewPage() {
                 {avatar(48, 'text-[18px]')}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="truncate font-jost text-[16px] font-medium text-ink">
+                    <h3 className="truncate font-jost text-[16px] font-medium text-ink uppercase">
                       {data.name}
                     </h3>
                     {verifiedBadge('h-4 w-4')}
@@ -270,7 +270,7 @@ export default function ProfilePreviewPage() {
                 {avatar(80, 'text-[32px]')}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
-                    <h2 className="font-cormorant text-[28px] font-light leading-tight text-ink sm:text-[34px]">
+                    <h2 className="font-cormorant text-[28px] font-light leading-tight text-ink sm:text-[34px] uppercase">
                       {data.name}
                     </h2>
                     {verifiedBadge('h-5 w-5')}

@@ -102,7 +102,7 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
-                <h1 className="font-cormorant text-[32px] font-light leading-tight text-ink sm:text-[40px]">
+                <h1 className="font-cormorant text-[32px] font-light leading-tight text-ink sm:text-[40px] uppercase">
                   {cleaner.name}
                 </h1>
                 <VerificationBadge

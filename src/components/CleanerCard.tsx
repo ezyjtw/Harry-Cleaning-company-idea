@@ -35,7 +35,9 @@ export default function CleanerCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate font-jost text-[16px] font-medium text-ink">{cleaner.name}</h3>
+            <h3 className="truncate font-jost text-[16px] font-medium text-ink uppercase">
+              {cleaner.name}
+            </h3>
             {(cleaner.identityVerified || cleaner.backgroundChecked) && (
               <svg
                 className="h-4 w-4 shrink-0 text-teal"
