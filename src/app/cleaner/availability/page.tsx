@@ -42,51 +42,71 @@ const dayToApi: Record<DayOfWeek, string> = {
   Saturday: 'saturday',
   Sunday: 'sunday',
 };
-const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7am to 9pm
-const HOUR_LABELS = HOURS.map((h) => {
-  const suffix = h < 12 ? 'am' : 'pm';
-  const display = h <= 12 ? h : h - 12;
-  return `${display}${suffix}`;
-});
 
-function timeToHour(t: string): number {
-  const [h] = t.split(':').map(Number);
-  return h;
+// Half-hour time slots from 7:00 to 21:00
+const HALF_HOURS: string[] = [];
+for (let h = 7; h <= 21; h++) {
+  HALF_HOURS.push(`${h.toString().padStart(2, '0')}:00`);
+  if (h < 21) HALF_HOURS.push(`${h.toString().padStart(2, '0')}:30`);
 }
 
-function slotsToHourSet(slots: TimeSlot[]): Set<number> {
+function formatTime(t: string): string {
+  const [hStr, mStr] = t.split(':');
+  const h = parseInt(hStr, 10);
+  const suffix = h < 12 ? 'am' : 'pm';
+  const display = h === 0 ? 12 : h <= 12 ? h : h - 12;
+  return mStr === '00' ? `${display}${suffix}` : `${display}:${mStr}${suffix}`;
+}
+
+function slotsToIndexSet(slots: TimeSlot[]): Set<number> {
   const set = new Set<number>();
   for (const s of slots) {
-    const start = timeToHour(s.start);
-    const end = timeToHour(s.end);
-    for (let h = start; h < end; h++) {
-      if (h >= HOURS[0] && h <= HOURS[HOURS.length - 1]) set.add(h);
+    const [sh, sm] = s.start.split(':').map(Number);
+    const [eh, em] = s.end.split(':').map(Number);
+    const startIdx = (sh - 7) * 2 + (sm >= 30 ? 1 : 0);
+    const endIdx = (eh - 7) * 2 + (em >= 30 ? 1 : 0);
+    for (let i = startIdx; i < endIdx; i++) {
+      if (i >= 0 && i < HALF_HOURS.length) set.add(i);
     }
   }
   return set;
 }
 
-function hourSetToSlots(hours: Set<number>): TimeSlot[] {
-  const sorted = Array.from(hours).sort((a, b) => a - b);
+function indexSetToSlots(indices: Set<number>): TimeSlot[] {
+  const sorted = Array.from(indices).sort((a, b) => a - b);
   if (sorted.length === 0) return [];
   const slots: TimeSlot[] = [];
   let start = sorted[0];
   let prev = sorted[0];
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i] !== prev + 1) {
-      slots.push({
-        start: `${start.toString().padStart(2, '0')}:00`,
-        end: `${(prev + 1).toString().padStart(2, '0')}:00`,
-      });
+      slots.push({ start: HALF_HOURS[start], end: indexToEndTime(prev) });
       start = sorted[i];
     }
     prev = sorted[i];
   }
-  slots.push({
-    start: `${start.toString().padStart(2, '0')}:00`,
-    end: `${(prev + 1).toString().padStart(2, '0')}:00`,
-  });
+  slots.push({ start: HALF_HOURS[start], end: indexToEndTime(prev) });
   return slots;
+}
+
+function indexToEndTime(idx: number): string {
+  const time = HALF_HOURS[idx];
+  const [h, m] = time.split(':').map(Number);
+  if (m === 0) return `${h.toString().padStart(2, '0')}:30`;
+  return `${(h + 1).toString().padStart(2, '0')}:00`;
+}
+
+function getMonday(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatDateShort(d: Date): string {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 export default function AvailabilityPage() {
@@ -109,6 +129,30 @@ export default function AvailabilityPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState<'add' | 'remove'>('add');
 
+  const [weekOffset, setWeekOffset] = useState(0);
+  const today = new Date();
+  const thisMonday = getMonday(today);
+  const weekStart = new Date(thisMonday);
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const weekEnd = weekDates[6];
+
+  const blockedSet = new Set(blockedDates.map((b) => b.date));
+
+  const isToday = (d: Date) =>
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear();
+
+  const isDayBlocked = (dayIdx: number) => {
+    const dateStr = weekDates[dayIdx].toISOString().split('T')[0];
+    return blockedSet.has(dateStr);
+  };
+
   useEffect(() => {
     fetch('/api/cleaner/availability')
       .then((res) => {
@@ -124,7 +168,7 @@ export default function AvailabilityPage() {
         for (const d of daysOfWeek) {
           const apiDay = dayToApi[d];
           const slots: TimeSlot[] = data.weeklySlots?.[apiDay] || [];
-          newGrid[d] = slotsToHourSet(slots);
+          newGrid[d] = slotsToIndexSet(slots);
         }
         setGrid(newGrid as Record<DayOfWeek, Set<number>>);
         setSameDayBookings(data.availableNow ?? true);
@@ -134,14 +178,14 @@ export default function AvailabilityPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const toggleCell = useCallback((day: DayOfWeek, hour: number) => {
+  const toggleCell = useCallback((day: DayOfWeek, idx: number) => {
     setGrid((prev) => {
       const next = { ...prev };
       const set = new Set(prev[day]);
-      if (set.has(hour)) {
-        set.delete(hour);
+      if (set.has(idx)) {
+        set.delete(idx);
       } else {
-        set.add(hour);
+        set.add(idx);
       }
       next[day] = set;
       return next;
@@ -151,25 +195,25 @@ export default function AvailabilityPage() {
   }, []);
 
   const handleCellMouseDown = useCallback(
-    (day: DayOfWeek, hour: number) => {
-      const isActive = grid[day].has(hour);
+    (day: DayOfWeek, idx: number) => {
+      const isActive = grid[day].has(idx);
       setDragMode(isActive ? 'remove' : 'add');
       setIsDragging(true);
-      toggleCell(day, hour);
+      toggleCell(day, idx);
     },
     [grid, toggleCell]
   );
 
   const handleCellMouseEnter = useCallback(
-    (day: DayOfWeek, hour: number) => {
+    (day: DayOfWeek, idx: number) => {
       if (!isDragging) return;
       setGrid((prev) => {
         const next = { ...prev };
         const set = new Set(prev[day]);
         if (dragMode === 'add') {
-          set.add(hour);
+          set.add(idx);
         } else {
-          set.delete(hour);
+          set.delete(idx);
         }
         next[day] = set;
         return next;
@@ -198,7 +242,7 @@ export default function AvailabilityPage() {
   const fillDay = (day: DayOfWeek) => {
     setGrid((prev) => ({
       ...prev,
-      [day]: new Set(HOURS),
+      [day]: new Set(HALF_HOURS.map((_, i) => i)),
     }));
     setDirty(true);
     setSaved(false);
@@ -228,7 +272,7 @@ export default function AvailabilityPage() {
     try {
       const weeklySlots: Record<string, TimeSlot[]> = {};
       for (const d of daysOfWeek) {
-        weeklySlots[dayToApi[d]] = hourSetToSlots(grid[d]);
+        weeklySlots[dayToApi[d]] = indexSetToSlots(grid[d]);
       }
       await fetch('/api/cleaner/availability', {
         method: 'PUT',
@@ -260,7 +304,8 @@ export default function AvailabilityPage() {
     );
   }
 
-  const totalHours = daysOfWeek.reduce((sum, d) => sum + grid[d].size, 0);
+  const totalHalfHours = daysOfWeek.reduce((sum, d) => sum + grid[d].size, 0);
+  const totalHours = totalHalfHours / 2;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -314,7 +359,7 @@ export default function AvailabilityPage() {
           <div>
             <h2 className="font-cormorant text-lg font-light text-ink">Weekly Schedule</h2>
             <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-              {totalHours} hours per week
+              {totalHours} hours per week &middot; This template repeats every week
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -335,73 +380,142 @@ export default function AvailabilityPage() {
           </div>
         </div>
 
+        {/* Week navigation */}
+        <div
+          className="px-6 py-3 flex items-center justify-between"
+          style={{ borderBottom: '1px solid rgba(14,14,12,0.04)' }}
+        >
+          <button
+            onClick={() => setWeekOffset((w) => Math.max(w - 1, 0))}
+            disabled={weekOffset === 0}
+            className="p-1.5 rounded-lg hover:bg-cream transition disabled:opacity-30"
+          >
+            <svg className="w-4 h-4 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <span className="font-jost text-[13px] font-light text-ink">
+            {formatDateShort(weekStart)} – {formatDateShort(weekEnd)}
+            {weekOffset === 0 && (
+              <span className="ml-2 text-gold font-medium text-[11px]">This week</span>
+            )}
+          </span>
+          <button
+            onClick={() => setWeekOffset((w) => Math.min(w + 1, 8))}
+            disabled={weekOffset >= 8}
+            className="p-1.5 rounded-lg hover:bg-cream transition disabled:opacity-30"
+          >
+            <svg className="w-4 h-4 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
         {/* Calendar grid */}
         <div className="overflow-x-auto select-none" onMouseLeave={handleMouseUp}>
           <table className="w-full min-w-[600px]">
             <thead>
               <tr>
-                <th className="w-16 px-3 py-3" />
-                {daysOfWeek.map((day) => (
-                  <th key={day} className="px-1 py-3 text-center">
-                    <span className="font-jost text-[12px] font-medium text-ink hidden sm:inline">
-                      {day}
-                    </span>
-                    <span className="font-jost text-[12px] font-medium text-ink sm:hidden">
-                      {dayAbbrevs[day]}
-                    </span>
-                    <div className="mt-1 flex justify-center gap-1">
-                      <button
-                        onClick={() => fillDay(day)}
-                        className="font-jost text-[9px] uppercase tracking-wider text-gold hover:text-gold/70 transition"
-                        title="Select all"
+                <th className="w-14 px-2 py-3" />
+                {daysOfWeek.map((day, i) => {
+                  const blocked = isDayBlocked(i);
+                  return (
+                    <th key={day} className="px-0.5 py-3 text-center">
+                      <span
+                        className={`font-jost text-[11px] font-medium ${blocked ? 'text-ink-3/40' : 'text-ink-3'}`}
                       >
-                        All
-                      </button>
-                      <span className="text-ink-3/30">|</span>
-                      <button
-                        onClick={() => clearDay(day)}
-                        className="font-jost text-[9px] uppercase tracking-wider text-ink-3 hover:text-ink transition"
-                        title="Clear all"
+                        {dayAbbrevs[day]}
+                      </span>
+                      <br />
+                      <span
+                        className={`font-jost text-[11px] ${
+                          isToday(weekDates[i])
+                            ? 'text-gold font-medium'
+                            : blocked
+                              ? 'text-ink-3/40'
+                              : 'text-ink-3 font-light'
+                        }`}
                       >
-                        Clear
-                      </button>
-                    </div>
-                  </th>
-                ))}
+                        {weekDates[i].getDate()}
+                      </span>
+                      {blocked && (
+                        <span className="block font-jost text-[8px] uppercase text-red-400">
+                          Blocked
+                        </span>
+                      )}
+                      {!blocked && (
+                        <div className="mt-1 flex justify-center gap-1">
+                          <button
+                            onClick={() => fillDay(day)}
+                            className="font-jost text-[8px] uppercase tracking-wider text-gold hover:text-gold/70 transition"
+                          >
+                            All
+                          </button>
+                          <span className="text-ink-3/20 text-[8px]">|</span>
+                          <button
+                            onClick={() => clearDay(day)}
+                            className="font-jost text-[8px] uppercase tracking-wider text-ink-3 hover:text-ink transition"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {HOURS.map((hour, hi) => (
-                <tr key={hour}>
-                  <td className="px-3 py-0 text-right align-top">
-                    <span className="font-jost text-[11px] font-light text-ink-3 leading-none">
-                      {HOUR_LABELS[hi]}
-                    </span>
-                  </td>
-                  {daysOfWeek.map((day) => {
-                    const active = grid[day].has(hour);
-                    return (
-                      <td key={day} className="px-1 py-0">
-                        <div
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleCellMouseDown(day, hour);
-                          }}
-                          onMouseEnter={() => handleCellMouseEnter(day, hour)}
-                          className={`h-8 rounded-sm cursor-pointer transition-colors ${
-                            active ? 'bg-gold/20 hover:bg-gold/30' : 'bg-cream hover:bg-cream-2'
-                          }`}
-                          style={{
-                            border: active
-                              ? '1px solid rgba(47,128,237,0.3)'
-                              : '1px solid rgba(14,14,12,0.05)',
-                          }}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {HALF_HOURS.map((time, ri) => {
+                const isHour = time.endsWith(':00');
+                return (
+                  <tr key={time}>
+                    <td className="px-2 py-0 text-right align-top">
+                      {isHour && (
+                        <span className="font-jost text-[10px] font-light text-ink-3 leading-none">
+                          {formatTime(time)}
+                        </span>
+                      )}
+                    </td>
+                    {daysOfWeek.map((day, di) => {
+                      const blocked = isDayBlocked(di);
+                      const active = !blocked && grid[day].has(ri);
+                      return (
+                        <td key={day} className="px-0.5 py-0">
+                          <div
+                            onMouseDown={(e) => {
+                              if (blocked) return;
+                              e.preventDefault();
+                              handleCellMouseDown(day, ri);
+                            }}
+                            onMouseEnter={() => {
+                              if (!blocked) handleCellMouseEnter(day, ri);
+                            }}
+                            className={`h-4 ${isHour ? 'rounded-t-sm' : 'rounded-b-sm'} ${
+                              blocked
+                                ? 'bg-ink/5 cursor-not-allowed'
+                                : active
+                                  ? 'bg-gold/20 hover:bg-gold/30 cursor-pointer'
+                                  : 'bg-cream hover:bg-cream-2 cursor-pointer'
+                            } transition-colors`}
+                            style={{
+                              border: active
+                                ? '1px solid rgba(47,128,237,0.3)'
+                                : '1px solid rgba(14,14,12,0.04)',
+                              borderTop: isHour || active ? undefined : 'none',
+                            }}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -412,7 +526,7 @@ export default function AvailabilityPage() {
           style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}
         >
           {daysOfWeek.map((day) => {
-            const slots = hourSetToSlots(grid[day]);
+            const slots = indexSetToSlots(grid[day]);
             return (
               <div key={day} className="flex items-center gap-1.5">
                 <span className="font-jost text-[11px] font-medium text-ink">

@@ -32,6 +32,7 @@ interface PreviewData {
   backgroundChecked: boolean;
   testimonials: Testimonial[];
   availabilitySlots: { dayOfWeek: number; startTime: string; endTime: string }[];
+  blockedDates: string[];
 }
 
 export default function ProfilePreviewPage() {
@@ -92,6 +93,7 @@ export default function ProfilePreviewPage() {
             (t: Testimonial) => t.clientName?.trim() && t.text?.trim()
           ),
           availabilitySlots: slots,
+          blockedDates: (avail?.blockedDates || []).map((b: { date: string }) => b.date),
         });
       })
       .catch(() => {})
@@ -399,7 +401,10 @@ export default function ProfilePreviewPage() {
               {/* Availability */}
               <section className="mt-8">
                 <h3 className="font-cormorant text-[22px] font-semibold text-ink">Availability</h3>
-                <AvailabilityCalendar slots={data.availabilitySlots} />
+                <AvailabilityCalendar
+                  slots={data.availabilitySlots}
+                  blockedDates={data.blockedDates}
+                />
               </section>
 
               {/* Reviews */}

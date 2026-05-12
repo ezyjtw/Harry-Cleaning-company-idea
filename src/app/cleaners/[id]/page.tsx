@@ -17,6 +17,10 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
         select: { id: true, name: true, image: true },
       },
       availabilitySlots: true,
+      availabilityOverrides: {
+        where: { isBlocked: true, date: { gte: new Date() } },
+        select: { date: true },
+      },
     },
   });
 
@@ -69,6 +73,7 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
       startTime: s.startTime,
       endTime: s.endTime,
     })),
+    blockedDates: profile.availabilityOverrides.map((o) => o.date.toISOString().split('T')[0]),
     languages: [] as string[],
     yearsExperience: 0,
   };
@@ -210,7 +215,10 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
         {/* Availability */}
         <section className="mt-10">
           <h2 className="font-cormorant text-[22px] font-semibold text-ink">Availability</h2>
-          <AvailabilityCalendar slots={cleaner.availabilitySlots} />
+          <AvailabilityCalendar
+            slots={cleaner.availabilitySlots}
+            blockedDates={cleaner.blockedDates}
+          />
         </section>
 
         {/* Languages */}
