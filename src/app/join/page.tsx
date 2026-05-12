@@ -784,6 +784,7 @@ export default function JoinAsCleanerPage() {
     if (step === 1) {
       if (!form.yearsExperience) e.yearsExperience = 'Required';
       if (form.serviceTypes.length === 0) e.serviceTypes = 'Select at least one service type';
+      if (form.languages.length === 0) e.languages = 'Select at least one language';
       if (!form.bio.trim()) e.bio = 'Please write a short bio';
     }
 
@@ -1396,6 +1397,7 @@ export default function JoinAsCleanerPage() {
                   }
                 }}
               />
+              <FieldError message={errors.languages} />
             </div>
 
             <div>
