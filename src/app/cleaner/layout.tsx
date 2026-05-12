@@ -148,7 +148,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           </svg>
         </button>
         <div className="flex items-center gap-2">
-          <span className="font-cormorant text-lg font-light text-cream">Rena</span>
+          <span className="font-etna text-lg tracking-widest text-cream">RENA</span>
           <span className="font-jost text-[10px] uppercase tracking-[0.15em] text-cream/50">
             Cleaner
           </span>
