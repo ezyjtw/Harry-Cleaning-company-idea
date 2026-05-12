@@ -12,6 +12,21 @@ const SPECIALTY_OPTIONS = [
   'Bathroom Specialist',
 ];
 
+const LANGUAGE_OPTIONS = [
+  'English',
+  'Spanish',
+  'French',
+  'Portuguese',
+  'Polish',
+  'Romanian',
+  'Arabic',
+  'Hindi',
+  'Mandarin',
+  'Tagalog',
+  'Italian',
+  'German',
+];
+
 const UK_POSTCODE_RE = /^([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}|GIR\s?0AA)$/i;
 
 interface ProfileData {
@@ -20,6 +35,7 @@ interface ProfileData {
   bio: string;
   postcode: string | null;
   specialties: string[];
+  languages: string[];
   hourlyRate: number;
   onboardingComplete: boolean;
 }
@@ -28,6 +44,7 @@ interface MissingFields {
   bio: boolean;
   postcode: boolean;
   specialties: boolean;
+  languages: boolean;
   password: boolean;
 }
 
@@ -40,6 +57,7 @@ export default function CompleteProfilePage() {
     bio: false,
     postcode: false,
     specialties: false,
+    languages: false,
     password: false,
   });
 
@@ -47,6 +65,7 @@ export default function CompleteProfilePage() {
   const [postcode, setPostcode] = useState('');
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [hourlyRate, setHourlyRate] = useState('');
+  const [languages, setLanguages] = useState<string[]>([]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,12 +90,14 @@ export default function CompleteProfilePage() {
         setBio(data.bio || '');
         setPostcode(data.postcode || '');
         setSpecialties(data.specialties || []);
-        setHourlyRate(String(data.hourlyRate || 15));
+        setLanguages(data.languages || []);
+        setHourlyRate(String(data.hourlyRate || 14));
 
         setMissing({
           bio: !data.bio,
           postcode: !data.postcode,
           specialties: data.specialties.length === 0,
+          languages: !data.languages || data.languages.length === 0,
           password: true,
         });
       })
@@ -88,6 +109,10 @@ export default function CompleteProfilePage() {
     setSpecialties((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }, []);
 
+  const toggleLanguage = useCallback((l: string) => {
+    setLanguages((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));
+  }, []);
+
   function validate(): boolean {
     const e: Record<string, string> = {};
 
@@ -95,6 +120,7 @@ export default function CompleteProfilePage() {
     if (!postcode.trim()) e.postcode = 'Postcode is required';
     else if (!UK_POSTCODE_RE.test(postcode.trim())) e.postcode = 'Enter a valid UK postcode';
     if (specialties.length === 0) e.specialties = 'Select at least one specialty';
+    if (languages.length === 0) e.languages = 'Select at least one language';
 
     const rate = Number(hourlyRate);
     if (!hourlyRate || rate < 14 || rate > 35) e.hourlyRate = 'Rate must be between £14 and £35';
@@ -118,6 +144,7 @@ export default function CompleteProfilePage() {
         bio: bio.trim(),
         postcode: postcode.trim(),
         specialties,
+        languages,
         hourlyRate: Number(hourlyRate),
       };
       if (missing.password && password) {
@@ -241,6 +268,36 @@ export default function CompleteProfilePage() {
             ))}
           </div>
           {errors.specialties && <p className="mt-1 text-xs text-red-600">{errors.specialties}</p>}
+        </div>
+
+        {/* Languages */}
+        <div>
+          <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            Languages Spoken
+          </label>
+          <p className="mt-1 font-jost text-xs font-light text-ink-3">
+            Select at least one language you speak
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {LANGUAGE_OPTIONS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => toggleLanguage(l)}
+                className={`px-4 py-1.5 font-jost text-sm font-light transition ${
+                  languages.includes(l)
+                    ? 'bg-ink text-cream'
+                    : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
+                }`}
+                style={
+                  languages.includes(l) ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }
+                }
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          {errors.languages && <p className="mt-1 text-xs text-red-600">{errors.languages}</p>}
         </div>
 
         {/* Hourly rate */}
