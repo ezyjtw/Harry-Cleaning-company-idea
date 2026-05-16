@@ -32,6 +32,7 @@ export interface Cleaner {
   eotPrices?: Record<number, number>;
   /** Cleaner's own Airbnb prices by property size. Key: 0=Studio, 1=1bed, ..., 4=4+bed */
   airbnbPrices?: Record<number, number>;
+  distance?: number | null;
 }
 
 export interface CategoryRatings {
