@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
+import { lookupPostcode } from '@/lib/utils/postcode';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -95,6 +96,8 @@ export async function POST(request: NextRequest) {
     const specialties = specialtiesStr ? JSON.parse(specialtiesStr) : [];
     const languages = languagesStr ? JSON.parse(languagesStr) : [];
 
+    const geo = await lookupPostcode(postcode.trim());
+
     // Create User + CleanerProfile in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -115,6 +118,8 @@ export async function POST(request: NextRequest) {
           specialties,
           location: postcode.trim(),
           postcode: postcode.trim(),
+          latitude: geo?.latitude ?? null,
+          longitude: geo?.longitude ?? null,
           radius: 10,
           verificationStatus: 'PENDING',
           rightToWorkDocType: rightToWorkDocType || null,

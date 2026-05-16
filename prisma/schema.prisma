@@ -265,6 +265,7 @@ model CleanerProfile {
   latitude              Float?
   longitude             Float?
   radius                Int                @default(10) // miles
+  travelMode            String             @default("public_transport")
   availableNow          Boolean            @default(false)
   responseTime          Int? // average response time in minutes
   completedJobs         Int                @default(0)

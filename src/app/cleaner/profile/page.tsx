@@ -48,6 +48,7 @@ export default function CleanerProfilePage() {
   const [yearsExperience, setYearsExperience] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [travelRadius, setTravelRadius] = useState('10');
+  const [travelMode, setTravelMode] = useState('public_transport');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguages, setCustomLanguages] = useState<string[]>([]);
   const [customLanguage, setCustomLanguage] = useState('');
@@ -86,6 +87,7 @@ export default function CleanerProfilePage() {
         );
         setSelectedSpecialties(data.specialties || []);
         setTravelRadius(String(data.radius || 10));
+        setTravelMode(data.travelMode || 'public_transport');
         setPhoto(data.image || null);
         if (data.languages && data.languages.length > 0) {
           setSelectedLanguages(data.languages);
@@ -163,6 +165,7 @@ export default function CleanerProfilePage() {
           specialties: selectedSpecialties,
           languages: selectedLanguages,
           radius: Number(travelRadius),
+          travelMode,
           postcode,
           image: photo,
           yearsExperience: yearsExperience ? Number(yearsExperience) : null,
@@ -180,7 +183,16 @@ export default function CleanerProfilePage() {
       setSaveError('Network error. Please check your connection and try again.');
     }
     setSaving(false);
-  }, [bio, selectedSpecialties, selectedLanguages, travelRadius, postcode, photo, yearsExperience]);
+  }, [
+    bio,
+    selectedSpecialties,
+    selectedLanguages,
+    travelRadius,
+    travelMode,
+    postcode,
+    photo,
+    yearsExperience,
+  ]);
 
   const isPhotoComplete = !!photo;
   const isPostcodeComplete = !!postcode.trim();
@@ -569,34 +581,99 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
-        {/* Travel radius */}
+        {/* Travel & Location */}
         <div
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel Radius</h2>
-          <p className="font-jost text-sm font-light text-ink-2 mb-3">
-            How far from your postcode are you willing to travel?
-          </p>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              value={travelRadius}
-              onChange={(e) => {
-                setTravelRadius(e.target.value);
-                markDirty();
-              }}
-              min="1"
-              max="50"
-              placeholder="e.g. 10"
-              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-            />
-            <span className="font-jost text-sm font-light text-ink-2">miles</span>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel & Location</h2>
+
+          <div className="mb-5">
+            <p className="font-jost text-sm font-light text-ink-2 mb-3">
+              How far from your postcode are you willing to travel?
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={travelRadius}
+                onChange={(e) => {
+                  setTravelRadius(e.target.value);
+                  markDirty();
+                }}
+                min="1"
+                max="50"
+                placeholder="e.g. 10"
+                className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+              />
+              <span className="font-jost text-sm font-light text-ink-2">miles</span>
+            </div>
+            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
+              Customers within this radius will be able to find you
+            </p>
           </div>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Customers within this radius will be able to find you
-          </p>
+
+          <div>
+            <p className="font-jost text-sm font-light text-ink-2 mb-3">
+              How do you travel to jobs?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                {
+                  value: 'car',
+                  label: 'Car',
+                  icon: 'M8 17h1m7 0h1M5 11h14M6 3h12l2 5H4l2-5zM4 8v8a1 1 0 001 1h14a1 1 0 001-1V8',
+                },
+                {
+                  value: 'public_transport',
+                  label: 'Public Transport',
+                  icon: 'M8 21l-2-3h12l-2 3M12 3C7 3 4 5 4 8v6a2 2 0 002 2h12a2 2 0 002-2V8c0-3-3-5-8-5zM8 14h.01M16 14h.01M7 11h10',
+                },
+                {
+                  value: 'bicycle',
+                  label: 'Bicycle',
+                  icon: 'M5 19a4 4 0 100-8 4 4 0 000 8zm14 0a4 4 0 100-8 4 4 0 000 8zM5 15l4-8h4l2 4h4',
+                },
+                {
+                  value: 'walking',
+                  label: 'Walking',
+                  icon: 'M13 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-2 3l-2 8 3 3v4h2v-5l-2-2 1-4 2 2h4v-2h-3l-3-3z',
+                },
+              ].map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => {
+                    setTravelMode(mode.value);
+                    markDirty();
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-jost text-[13px] font-light transition-all ${
+                    travelMode === mode.value
+                      ? 'bg-ink text-cream shadow-sm'
+                      : 'bg-cream text-ink-2 hover:bg-cream-2'
+                  }`}
+                  style={
+                    travelMode !== mode.value
+                      ? { border: '1px solid rgba(14,14,12,0.1)' }
+                      : undefined
+                  }
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d={mode.icon}
+                    />
+                  </svg>
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
+              Helps us estimate realistic travel time to jobs
+            </p>
+          </div>
         </div>
 
         {/* Save button */}

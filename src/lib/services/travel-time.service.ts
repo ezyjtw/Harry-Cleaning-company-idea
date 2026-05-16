@@ -1,3 +1,5 @@
+export type TravelMode = 'car' | 'public_transport' | 'bicycle' | 'walking';
+
 export interface TravelEstimate {
   distanceKm: number;
   durationMinutes: number;
@@ -9,11 +11,11 @@ export interface LocationCoords {
   longitude: number;
 }
 
-// Average travel speeds for London (km/h)
-const TRAVEL_SPEEDS = {
-  innerLondon: 15, // mph -> km/h
-  outerLondon: 25,
-  default: 20,
+const SPEED_BY_MODE: Record<TravelMode, number> = {
+  car: 30,
+  public_transport: 20,
+  bicycle: 15,
+  walking: 5,
 };
 
 const MINIMUM_GAP_MINUTES = 30;
@@ -41,9 +43,13 @@ export class TravelTimeService {
   /**
    * Estimate travel time between two locations
    */
-  static estimateTravelTime(from: LocationCoords, to: LocationCoords): TravelEstimate {
+  static estimateTravelTime(
+    from: LocationCoords,
+    to: LocationCoords,
+    travelMode: TravelMode = 'public_transport'
+  ): TravelEstimate {
     const distanceKm = this.calculateDistance(from, to);
-    const speedKmh = TRAVEL_SPEEDS.default;
+    const speedKmh = SPEED_BY_MODE[travelMode] || 20;
     const durationMinutes = Math.ceil((distanceKm / speedKmh) * 60);
     const travelFee =
       distanceKm > FREE_TRAVEL_RADIUS_KM

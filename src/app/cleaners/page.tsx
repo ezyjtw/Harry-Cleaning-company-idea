@@ -60,7 +60,7 @@ function CleanersContent() {
         // Map API response to match Cleaner type (fill defaults for missing fields)
         const mapped: Cleaner[] = data.cleaners.map((c: Record<string, unknown>) => ({
           id: c.id as string,
-          name: c.name as string || '',
+          name: (c.name as string) || '',
           photo: (c.photo || c.image || '') as string,
           rating: (c.rating as number) || 0,
           reviewCount: (c.reviewCount as number) || 0,
@@ -84,6 +84,7 @@ function CleanersContent() {
           categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
           bringsProducts: false,
           productFee: 0,
+          distance: (c.distance as number) ?? null,
         }));
         setAllCleaners(mapped);
         if (postcodeFilter) {
@@ -165,6 +166,11 @@ function CleanersContent() {
           return b.hourlyRate - a.hourlyRate;
         case 'reviews':
           return b.reviewCount - a.reviewCount;
+        case 'distance':
+          return (
+            (((a as Record<string, unknown>).distance as number) ?? Infinity) -
+            (((b as Record<string, unknown>).distance as number) ?? Infinity)
+          );
         default:
           return 0;
       }
@@ -422,6 +428,7 @@ function CleanersContent() {
                       onViewProfile={() => setSelectedCleaner(cleaner)}
                       fixedServicePrice={fixedPrice}
                       fixedServiceLabel={fixedLabel}
+                      distance={(cleaner as Record<string, unknown>).distance as number | null}
                     />
                   );
                 })}

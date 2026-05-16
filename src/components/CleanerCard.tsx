@@ -12,6 +12,8 @@ interface CleanerCardProps {
   fixedServicePrice?: number | null;
   /** Label like "2-bed EOT" to display alongside fixed price */
   fixedServiceLabel?: string;
+  /** Distance in miles from customer's search postcode */
+  distance?: number | null;
 }
 
 export default function CleanerCard({
@@ -19,6 +21,7 @@ export default function CleanerCard({
   onViewProfile,
   fixedServicePrice,
   fixedServiceLabel,
+  distance,
 }: CleanerCardProps) {
   return (
     <div
@@ -53,7 +56,12 @@ export default function CleanerCard({
               </svg>
             )}
           </div>
-          <p className="font-jost text-[12px] font-light text-ink-3">{cleaner.location}</p>
+          <p className="font-jost text-[12px] font-light text-ink-3">
+            {cleaner.location}
+            {distance !== null && distance !== undefined && (
+              <span className="ml-1 text-gold">&middot; {distance} mi away</span>
+            )}
+          </p>
         </div>
 
         {/* Rate */}

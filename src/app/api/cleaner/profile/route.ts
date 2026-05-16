@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET() {
   const user = await getCleanerSession();
@@ -54,7 +55,10 @@ export async function GET() {
     tier: profile.tier,
     location: profile.location,
     postcode: profile.postcode,
+    latitude: profile.latitude,
+    longitude: profile.longitude,
     radius: profile.radius,
+    travelMode: profile.travelMode,
     verified: profile.verified,
     verificationStatus: profile.verificationStatus,
     rating: Number(profile.rating),
@@ -91,6 +95,7 @@ export async function PUT(request: NextRequest) {
     hoursPerWeek,
     yearsExperience,
     radius,
+    travelMode,
     image,
     postcode,
     password,
@@ -153,9 +158,20 @@ export async function PUT(request: NextRequest) {
   if (yearsExperience !== undefined)
     profileUpdate.yearsExperience = yearsExperience ? Number(yearsExperience) : null;
   if (radius !== undefined) profileUpdate.radius = Number(radius);
+  if (travelMode !== undefined) {
+    const validModes = ['car', 'public_transport', 'bicycle', 'walking'];
+    if (validModes.includes(travelMode)) {
+      profileUpdate.travelMode = travelMode;
+    }
+  }
   if (postcode !== undefined) {
     profileUpdate.postcode = postcode.trim();
     profileUpdate.location = postcode.trim();
+    const geo = await lookupPostcode(postcode.trim());
+    if (geo) {
+      profileUpdate.latitude = geo.latitude;
+      profileUpdate.longitude = geo.longitude;
+    }
   }
   if (testimonials !== undefined) {
     if (!Array.isArray(testimonials) || testimonials.length > 3) {

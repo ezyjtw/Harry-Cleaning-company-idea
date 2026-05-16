@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -22,38 +23,50 @@ export async function GET(request: NextRequest) {
     where.availableNow = true;
   }
 
-  if (postcode) {
-    // Partial postcode prefix match for area filtering
-    const prefix = postcode.split(' ')[0].toUpperCase();
-    where.postcode = { startsWith: prefix };
-  }
-
   if (specialty) {
     where.specialties = { has: specialty };
   }
 
-  const [cleaners, total] = await Promise.all([
-    prisma.cleanerProfile.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            reviewsReceived: { select: { id: true } },
-          },
+  let customerGeo: { latitude: number; longitude: number } | null = null;
+
+  if (postcode) {
+    const geo = await lookupPostcode(postcode);
+    if (geo) {
+      customerGeo = { latitude: geo.latitude, longitude: geo.longitude };
+      where.latitude = { not: null };
+      where.longitude = { not: null };
+    } else {
+      const prefix = postcode.split(' ')[0].toUpperCase();
+      where.postcode = { startsWith: prefix };
+    }
+  }
+
+  const cleaners = await prisma.cleanerProfile.findMany({
+    where,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          reviewsReceived: { select: { id: true } },
         },
       },
-      orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.cleanerProfile.count({ where }),
-  ]);
+    },
+    orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
+  });
 
-  return NextResponse.json({
-    cleaners: cleaners.map((c) => ({
+  let results = cleaners.map((c) => {
+    let distance: number | null = null;
+    if (customerGeo && c.latitude !== null && c.longitude !== null) {
+      distance = haversineDistance(
+        customerGeo.latitude,
+        customerGeo.longitude,
+        c.latitude,
+        c.longitude
+      );
+    }
+    return {
       id: c.user.id,
       name: c.user.name,
       photo: c.user.image || '',
@@ -74,7 +87,21 @@ export async function GET(request: NextRequest) {
       backgroundChecked: c.backgroundCheckPassed,
       responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
       radius: c.radius,
-    })),
+      travelMode: c.travelMode,
+      distance,
+    };
+  });
+
+  if (customerGeo) {
+    results = results.filter((r) => r.distance !== null && r.distance <= r.radius);
+    results.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+  }
+
+  const total = results.length;
+  const paged = results.slice((page - 1) * limit, page * limit);
+
+  return NextResponse.json({
+    cleaners: paged,
     count: total,
     page,
     pageCount: Math.ceil(total / limit),
@@ -103,6 +130,8 @@ export async function POST(request: NextRequest) {
     }
     if (!hourlyRate) hourlyRate = Number(body.hourlyRate) || 0;
     if (!hourlyRate || hourlyRate < 14) hourlyRate = 15;
+
+    const geo = await lookupPostcode(body.postcode.trim());
 
     // Check if email already exists
     const existing = await prisma.user.findUnique({
@@ -146,7 +175,10 @@ export async function POST(request: NextRequest) {
             yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
             location: body.postcode?.trim() || null,
             postcode: body.postcode?.trim() || null,
+            latitude: geo?.latitude ?? null,
+            longitude: geo?.longitude ?? null,
             radius: 10,
+            travelMode: body.travelMode || 'public_transport',
             verificationStatus: 'PENDING',
             rightToWorkDocType: body.rightToWorkDocType || null,
             rightToWorkShareCode: body.rightToWorkShareCode || null,
@@ -229,7 +261,10 @@ export async function POST(request: NextRequest) {
           yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
           location: body.postcode?.trim() || null,
           postcode: body.postcode?.trim() || null,
+          latitude: geo?.latitude ?? null,
+          longitude: geo?.longitude ?? null,
           radius: 10,
+          travelMode: body.travelMode || 'public_transport',
           verificationStatus: 'PENDING',
           rightToWorkDocType: body.rightToWorkDocType || null,
           rightToWorkShareCode: body.rightToWorkShareCode || null,
