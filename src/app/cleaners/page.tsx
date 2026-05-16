@@ -168,8 +168,8 @@ function CleanersContent() {
           return b.reviewCount - a.reviewCount;
         case 'distance':
           return (
-            (((a as Record<string, unknown>).distance as number) ?? Infinity) -
-            (((b as Record<string, unknown>).distance as number) ?? Infinity)
+            (((a as unknown as Record<string, unknown>).distance as number) ?? Infinity) -
+            (((b as unknown as Record<string, unknown>).distance as number) ?? Infinity)
           );
         default:
           return 0;
@@ -428,7 +428,9 @@ function CleanersContent() {
                       onViewProfile={() => setSelectedCleaner(cleaner)}
                       fixedServicePrice={fixedPrice}
                       fixedServiceLabel={fixedLabel}
-                      distance={(cleaner as Record<string, unknown>).distance as number | null}
+                      distance={
+                        (cleaner as unknown as Record<string, unknown>).distance as number | null
+                      }
                     />
                   );
                 })}
