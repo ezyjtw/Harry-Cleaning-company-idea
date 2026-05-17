@@ -248,7 +248,15 @@ export class CleanerQueueService {
     const escrowAmount =
       queueEntry.booking.escrowAmount ?? queueEntry.booking.totalPrice.toNumber();
     const actualTotal = queueEntry.quotedTotal;
-    const refundDue = new Decimal(escrowAmount).minus(actualTotal).toDecimalPlaces(2).toNumber();
+    // Refund includes: (escrow - accepted quote) + any promo discount amount
+    const discountAmount = queueEntry.booking.payment?.discountAmount
+      ? Number(queueEntry.booking.payment.discountAmount)
+      : 0;
+    const refundDue = new Decimal(escrowAmount)
+      .minus(actualTotal)
+      .plus(discountAmount)
+      .toDecimalPlaces(2)
+      .toNumber();
 
     // 2. Transaction: accept this cleaner, supersede others, update booking
     await prisma.$transaction(async (tx) => {

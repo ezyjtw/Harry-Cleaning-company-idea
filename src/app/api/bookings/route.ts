@@ -84,9 +84,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
     }
 
-    const totalPrice = body.totalPrice || 0;
-    const platformFee = totalPrice * 0.06;
-    const cleanerEarnings = (totalPrice - platformFee) * 0.9;
+    let totalPrice = body.totalPrice || 0;
+    let discountPercent = 0;
+    let discountAmount = 0;
+    let promoCode: string | null = null;
+
+    // Validate and apply promo code
+    if (body.promoCode) {
+      const promo = await prisma.promoCode.findUnique({
+        where: { code: body.promoCode.toUpperCase().trim() },
+      });
+      const now = new Date();
+      if (
+        promo &&
+        promo.isActive &&
+        (!promo.validUntil || promo.validUntil >= now) &&
+        promo.validFrom <= now &&
+        (!promo.maxUses || promo.usedCount < promo.maxUses)
+      ) {
+        discountPercent = promo.discountPercent;
+        discountAmount = Math.round(totalPrice * (discountPercent / 100) * 100) / 100;
+        totalPrice = Math.round((totalPrice - discountAmount) * 100) / 100;
+        promoCode = promo.code;
+        await prisma.promoCode.update({
+          where: { id: promo.id },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+    }
+
+    // Cleaner always earns from undiscounted amount — Rena absorbs discount
+    const undiscountedTotal = body.totalPrice || 0;
+    const platformFee = undiscountedTotal * 0.06;
+    const cleanerEarnings = (undiscountedTotal - platformFee) * 0.9;
 
     // Get or create address
     let addressId: string | null = null;
@@ -120,7 +150,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create Ryft payment session
+    // Create Ryft payment session (customer pays discounted amount)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     let paymentSession = null;
 
@@ -133,6 +163,19 @@ export async function POST(request: NextRequest) {
         description: `${body.serviceType} cleaning - ${body.date}`,
         returnUrl: `${appUrl}/booking/confirmation?bookingId=${booking.id}&token=${booking.guestToken || ''}`,
       });
+
+      if (paymentSession) {
+        await prisma.payment.create({
+          data: {
+            bookingId: booking.id,
+            ryftPaymentId: paymentSession.sessionId,
+            amount: totalPrice,
+            discountPercent: discountPercent || null,
+            discountAmount: discountAmount || null,
+            promoCode,
+          },
+        });
+      }
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Payment session creation failed:', error);

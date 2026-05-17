@@ -494,19 +494,36 @@ model Notification {
 }
 
 model Payment {
-  id            String        @id @default(cuid())
-  bookingId     String        @unique
-  ryftPaymentId String?       @unique
-  amount        Decimal       @db.Decimal(10, 2)
-  status        PaymentStatus @default(PENDING)
-  refundAmount  Decimal?      @db.Decimal(10, 2)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  bookingId       String        @unique
+  ryftPaymentId   String?       @unique
+  amount          Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  refundAmount    Decimal?      @db.Decimal(10, 2)
+  discountPercent Int?
+  discountAmount  Decimal?      @db.Decimal(10, 2)
+  promoCode       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([ryftPaymentId])
+}
+
+model PromoCode {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int
+  maxUses         Int?
+  usedCount       Int       @default(0)
+  validFrom       DateTime  @default(now())
+  validUntil      DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@index([code])
 }
 
 model Dispute {

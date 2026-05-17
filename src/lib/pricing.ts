@@ -103,3 +103,48 @@ export function getPriceBreakdown(
     total,
   };
 }
+
+/**
+ * Apply a Rena-absorbed discount to a price breakdown.
+ *
+ * Rule: Cleaner is always paid in full (pre-discount earnings).
+ * Discount is absorbed first from Rena's commission, then from the service fee.
+ * Customer pays: total - discountAmount.
+ */
+export function applyDiscount(
+  breakdown: ReturnType<typeof getPriceBreakdown>,
+  discountPercent: number
+) {
+  if (discountPercent <= 0 || discountPercent > 100) {
+    return {
+      ...breakdown,
+      discountPercent: 0,
+      discountAmount: 0,
+      discountedTotal: breakdown.total,
+    };
+  }
+
+  const discountAmount = Math.round(breakdown.total * (discountPercent / 100) * 100) / 100;
+  const discountedTotal = Math.round((breakdown.total - discountAmount) * 100) / 100;
+
+  // Allocation: discount absorbed by Rena's take (commission first, then service fee)
+  const renaAbsorbedFromCommission = Math.min(discountAmount, breakdown.platformCommission);
+  const renaAbsorbedFromServiceFee = Math.min(
+    discountAmount - renaAbsorbedFromCommission,
+    breakdown.serviceFee
+  );
+
+  return {
+    ...breakdown,
+    discountPercent,
+    discountAmount,
+    discountedTotal,
+    // Cleaner always gets full payout regardless of discount
+    cleanerEarnings: breakdown.cleanerEarnings,
+    // Rena's adjusted take
+    effectiveCommission:
+      Math.round((breakdown.platformCommission - renaAbsorbedFromCommission) * 100) / 100,
+    effectiveServiceFee:
+      Math.round((breakdown.serviceFee - renaAbsorbedFromServiceFee) * 100) / 100,
+  };
+}
