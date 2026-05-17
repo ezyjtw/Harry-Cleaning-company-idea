@@ -220,6 +220,12 @@ export default function CleanerDashboard() {
               href: '/verify',
             },
             {
+              label: 'Proof of insurance',
+              description: 'Upload your public liability insurance',
+              done: data.profile.insuranceVerified || isPending || data.profile.verified,
+              href: '/cleaner/profile',
+            },
+            {
               label: 'Background check',
               description: 'DBS certificate or apply for a new check',
               done: isPending || data.profile.verified,

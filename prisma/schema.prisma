@@ -64,10 +64,10 @@ enum PaymentStatus {
 }
 
 enum CleanerQueueStatus {
-  PENDING    // Waiting for cleaner response
-  ACCEPTED   // Cleaner accepted the job
-  REJECTED   // Cleaner declined
-  EXPIRED    // Timed out without response
+  PENDING // Waiting for cleaner response
+  ACCEPTED // Cleaner accepted the job
+  REJECTED // Cleaner declined
+  EXPIRED // Timed out without response
   SUPERSEDED // Another cleaner accepted first
 }
 
@@ -218,89 +218,95 @@ model User {
   isSuspended      Boolean       @default(false)
   lockedUntil      DateTime?
 
-  accounts          Account[]
-  sessions          Session[]
-  cleanerProfile    CleanerProfile?
-  addresses         Address[]
-  bookingsAsClient  Booking[]       @relation("ClientBookings")
-  bookingsAsCleaner Booking[]       @relation("CleanerBookings")
-  reviewsGiven      Review[]        @relation("ReviewsGiven")
-  reviewsReceived   Review[]        @relation("ReviewsReceived")
-  sentMessages      Message[]       @relation("SentMessages")
-  receivedMessages  Message[]       @relation("ReceivedMessages")
-  notifications     Notification[]
-  disputesRaised    Dispute[]       @relation("DisputesRaised")
-  ownedCompany      Company?        @relation("CompanyOwner")
-  teamMemberships   TeamMember[]
-  complaints        Complaint[]     @relation("ComplaintsFiled")
+  accounts            Account[]
+  sessions            Session[]
+  cleanerProfile      CleanerProfile?
+  addresses           Address[]
+  bookingsAsClient    Booking[]             @relation("ClientBookings")
+  bookingsAsCleaner   Booking[]             @relation("CleanerBookings")
+  reviewsGiven        Review[]              @relation("ReviewsGiven")
+  reviewsReceived     Review[]              @relation("ReviewsReceived")
+  sentMessages        Message[]             @relation("SentMessages")
+  receivedMessages    Message[]             @relation("ReceivedMessages")
+  notifications       Notification[]
+  disputesRaised      Dispute[]             @relation("DisputesRaised")
+  ownedCompany        Company?              @relation("CompanyOwner")
+  teamMemberships     TeamMember[]
+  complaints          Complaint[]           @relation("ComplaintsFiled")
   cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
-  pushSubscriptions PushSubscription[]
+  pushSubscriptions   PushSubscription[]
 
   @@index([email])
   @@index([role])
 }
 
 model CleanerProfile {
-  id                    String             @id @default(cuid())
-  userId                String             @unique
-  bio                   String?            @db.Text
-  hourlyRate            Decimal            @default(15.00) @db.Decimal(10, 2)
+  id                    String      @id @default(cuid())
+  userId                String      @unique
+  bio                   String?     @db.Text
+  hourlyRate            Decimal     @default(15.00) @db.Decimal(10, 2)
   specialties           String[]
   languages             String[]
   serviceTypes          String[]
   serviceRates          Json?
   hoursPerWeek          Int?
   yearsExperience       Int?
-  tier                  CleanerTier        @default(STARTER)
-  verified              Boolean            @default(false)
-  documentsUploaded     Boolean            @default(false)
-  backgroundCheckPassed Boolean            @default(false)
+  tier                  CleanerTier @default(STARTER)
+  verified              Boolean     @default(false)
+  documentsUploaded     Boolean     @default(false)
+  backgroundCheckPassed Boolean     @default(false)
 
   // DBS certificate — destroyed after verification, only metadata retained
-  dbsCertVerified       Boolean            @default(false)
-  dbsCertNumber         String?            // retained after destruction
-  dbsCertIssueDate      DateTime?          // retained after destruction
-  dbsCertDestroyedAt    DateTime?          // when the actual file was destroyed
-  location              String?
-  latitude              Float?
-  longitude             Float?
-  radius                Int                @default(10) // miles
-  travelMode            String             @default("public_transport")
-  availableNow          Boolean            @default(false)
-  responseTime          Int? // average response time in minutes
-  completedJobs         Int                @default(0)
-  rating                Decimal            @default(0) @db.Decimal(3, 2)
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  serviceRadius         Int                @default(10)
-  travelFee             Decimal            @default(0) @db.Decimal(10, 2)
-  cancellationRate      Decimal            @default(0) @db.Decimal(5, 2)
-  completionRate        Decimal            @default(100) @db.Decimal(5, 2)
-  responseSpeed         Int? // average response speed in seconds
-  postcode              String?
-  ryftAccountId         String?
-  verificationStatus    VerificationStatus @default(UNVERIFIED)
-  identityVerifiedAt    DateTime?
-  verificationMeta      Json?
-  totalJobsCompleted    Int                @default(0)
-  availabilitySummary   String?            @db.Text
+  dbsCertVerified     Boolean            @default(false)
+  dbsCertNumber       String? // retained after destruction
+  dbsCertIssueDate    DateTime? // retained after destruction
+  dbsCertDestroyedAt  DateTime? // when the actual file was destroyed
+  location            String?
+  latitude            Float?
+  longitude           Float?
+  radius              Int                @default(10) // miles
+  travelMode          String             @default("public_transport")
+  availableNow        Boolean            @default(false)
+  responseTime        Int? // average response time in minutes
+  completedJobs       Int                @default(0)
+  rating              Decimal            @default(0) @db.Decimal(3, 2)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  serviceRadius       Int                @default(10)
+  travelFee           Decimal            @default(0) @db.Decimal(10, 2)
+  cancellationRate    Decimal            @default(0) @db.Decimal(5, 2)
+  completionRate      Decimal            @default(100) @db.Decimal(5, 2)
+  responseSpeed       Int? // average response speed in seconds
+  postcode            String?
+  ryftAccountId       String?
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+  identityVerifiedAt  DateTime?
+  verificationMeta    Json?
+  totalJobsCompleted  Int                @default(0)
+  availabilitySummary String?            @db.Text
+
+  // Insurance verification
+  insuranceVerified   Boolean   @default(false)
+  insuranceExpiresAt  DateTime?
+  insuranceVerifiedAt DateTime?
 
   // Right to work verification
   rightToWorkStatus     VerificationStatus @default(UNVERIFIED)
-  rightToWorkDocType    String?            // "uk_passport", "brp", "eu_settled", "eu_pre_settled", "share_code", "visa"
-  rightToWorkDocFile    String?            // stored file reference
-  rightToWorkShareCode  String?            // gov.uk share code if applicable
-  rightToWorkExpiresAt  DateTime?          // null for indefinite right (UK/Irish citizens)
+  rightToWorkDocType    String? // "uk_passport", "brp", "eu_settled", "eu_pre_settled", "share_code", "visa"
+  rightToWorkDocFile    String? // stored file reference
+  rightToWorkShareCode  String? // gov.uk share code if applicable
+  rightToWorkExpiresAt  DateTime? // null for indefinite right (UK/Irish citizens)
   rightToWorkVerifiedAt DateTime?
 
-  testimonials          Json?
+  testimonials Json?
 
-  providerId            String?
+  providerId String?
 
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider              Provider?              @relation(fields: [providerId], references: [id])
   availabilitySlots     AvailabilitySlot[]
   availabilityOverrides AvailabilityOverride[]
+  rateModifiers         RateModifier[]
 
   @@index([userId])
   @@index([tier])
@@ -309,6 +315,22 @@ model CleanerProfile {
   @@index([location])
   @@index([rating])
   @@index([providerId])
+}
+
+model RateModifier {
+  id               String   @id @default(cuid())
+  cleanerProfileId String
+  date             DateTime @db.Date
+  modifierPercent  Int
+  reason           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([cleanerProfileId, date])
+  @@index([cleanerProfileId])
+  @@index([date])
 }
 
 model Address {
@@ -363,39 +385,39 @@ model Booking {
   checklistCompleted Boolean       @default(false)
   arrivalConfirmed   Boolean       @default(false)
 
-  providerId         String?
+  providerId String?
 
-  client   User?     @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
-  cleaner  User      @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
-  address  Address?  @relation(fields: [addressId], references: [id])
-  provider Provider? @relation(fields: [providerId], references: [id])
-  review   Review?
-  messages Message[]
-  payment  Payment?
-  dispute  Dispute?
+  client        User?                 @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  cleaner       User                  @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
+  address       Address?              @relation(fields: [addressId], references: [id])
+  provider      Provider?             @relation(fields: [providerId], references: [id])
+  review        Review?
+  messages      Message[]
+  payment       Payment?
+  dispute       Dispute?
   complaints    Complaint[]
   bookingAddons BookingAddon[]
   cleanerQueue  BookingCleanerQueue[]
 
   // ─── Pricing snapshot (captured at booking creation) ─────
-  cleanerHourlyRate    Float?             // cleaner's standard rate at booking time
-  cleanerDeepRate      Float?             // derived deep rate (standard * 1.45) — set for EOT/Airbnb
-  propertySize         PropertySize?      // for EOT/Airbnb
-  bookingFrequency     BookingFrequency?  // WEEKLY | FORTNIGHTLY | ONE_OFF
-  serviceMultiplier    Float?             // multiplier applied
-  cleanerGross         Float?             // rate * hours * multiplier
-  cleanerFee           Float?             // 10% deducted from cleaner
-  cleanerEarns         Float?             // cleanerGross * 0.90
-  customerSubtotal     Float?             // = cleanerGross (or fixed price before customer fee)
-  customerServiceFee   Float?             // 6% added on top for customer (hourly) or embedded (fixed)
-  addonTotal           Float?             @default(0)
-  renaEarns            Float?             // cleanerFee + customerServiceFee
+  cleanerHourlyRate  Float? // cleaner's standard rate at booking time
+  cleanerDeepRate    Float? // derived deep rate (standard * 1.45) — set for EOT/Airbnb
+  propertySize       PropertySize? // for EOT/Airbnb
+  bookingFrequency   BookingFrequency? // WEEKLY | FORTNIGHTLY | ONE_OFF
+  serviceMultiplier  Float? // multiplier applied
+  cleanerGross       Float? // rate * hours * multiplier
+  cleanerFee         Float? // 10% deducted from cleaner
+  cleanerEarns       Float? // cleanerGross * 0.90
+  customerSubtotal   Float? // = cleanerGross (or fixed price before customer fee)
+  customerServiceFee Float? // 6% added on top for customer (hourly) or embedded (fixed)
+  addonTotal         Float?            @default(0)
+  renaEarns          Float? // cleanerFee + customerServiceFee
 
   // ─── Top 3 Queue & Escrow ─────
-  isQueuedBooking      Boolean            @default(false)
-  escrowAmount         Float?             // max quote held in escrow (most expensive of top 3)
-  escrowRefundAmount   Float?             // difference refunded after cleaner accepts
-  acceptedFromQueue    Boolean            @default(false)
+  isQueuedBooking    Boolean @default(false)
+  escrowAmount       Float? // max quote held in escrow (most expensive of top 3)
+  escrowRefundAmount Float? // difference refunded after cleaner accepts
+  acceptedFromQueue  Boolean @default(false)
 
   @@index([clientId])
   @@index([cleanerId])
@@ -472,14 +494,14 @@ model Notification {
 }
 
 model Payment {
-  id              String        @id @default(cuid())
-  bookingId       String        @unique
-  ryftPaymentId   String?       @unique
-  amount          Decimal       @db.Decimal(10, 2)
-  status          PaymentStatus @default(PENDING)
-  refundAmount    Decimal?      @db.Decimal(10, 2)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  bookingId     String        @unique
+  ryftPaymentId String?       @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDING)
+  refundAmount  Decimal?      @db.Decimal(10, 2)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -499,8 +521,8 @@ model Dispute {
   resolvedAt  DateTime?
   updatedAt   DateTime      @updatedAt
 
-  booking  Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  raisedBy User             @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
+  booking  Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy User              @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
   evidence DisputeEvidence[]
 
   @@index([bookingId])
@@ -626,14 +648,14 @@ model Company {
   phone              String?
   email              String?
   registrationNumber String?
-  verificationStatus CompanyVerificationStatus  @default(PENDING)
-  staffCount         Int                        @default(1)
+  verificationStatus CompanyVerificationStatus @default(PENDING)
+  staffCount         Int                       @default(1)
   operatingAreas     String[]
   specialties        String[]
-  insuranceVerified  Boolean                    @default(false)
-  isActive           Boolean                    @default(true)
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
+  insuranceVerified  Boolean                   @default(false)
+  isActive           Boolean                   @default(true)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 
   owner    User         @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   provider Provider?
@@ -645,14 +667,14 @@ model Company {
 }
 
 model TeamMember {
-  id          String         @id @default(cuid())
-  companyId   String
-  userId      String
-  role        TeamMemberRole @default(CLEANER)
-  isActive    Boolean        @default(true)
-  canAcceptJobs Boolean      @default(false)
-  joinedAt    DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id            String         @id @default(cuid())
+  companyId     String
+  userId        String
+  role          TeamMemberRole @default(CLEANER)
+  isActive      Boolean        @default(true)
+  canAcceptJobs Boolean        @default(false)
+  joinedAt      DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -666,20 +688,20 @@ model TeamMember {
 // ─── Complaint & Evidence System ─────────────────────────────────────────────
 
 model Complaint {
-  id          String            @id @default(cuid())
-  bookingId   String
-  filedById   String
-  category    ComplaintCategory
-  severity    ComplaintSeverity @default(MEDIUM)
-  subject     String
-  description String            @db.Text
-  status      DisputeStatus     @default(OPEN)
-  resolution  String?           @db.Text
-  refundAmount Decimal?         @db.Decimal(10, 2)
-  isRedoClean Boolean           @default(false)
-  createdAt   DateTime          @default(now())
-  resolvedAt  DateTime?
-  updatedAt   DateTime          @updatedAt
+  id           String            @id @default(cuid())
+  bookingId    String
+  filedById    String
+  category     ComplaintCategory
+  severity     ComplaintSeverity @default(MEDIUM)
+  subject      String
+  description  String            @db.Text
+  status       DisputeStatus     @default(OPEN)
+  resolution   String?           @db.Text
+  refundAmount Decimal?          @db.Decimal(10, 2)
+  isRedoClean  Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  resolvedAt   DateTime?
+  updatedAt    DateTime          @updatedAt
 
   booking  Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   filedBy  User                @relation("ComplaintsFiled", fields: [filedById], references: [id], onDelete: Cascade)
@@ -691,7 +713,6 @@ model Complaint {
   @@index([category])
   @@index([severity])
 }
-
 
 model ComplaintEvidence {
   id          String       @id @default(cuid())
@@ -708,14 +729,14 @@ model ComplaintEvidence {
 }
 
 model DisputeEvidence {
-  id         String       @id @default(cuid())
-  disputeId  String
-  type       EvidenceType
-  url        String
-  fileName   String?
-  description String?     @db.Text
-  uploadedBy String // userId
-  uploadedAt DateTime     @default(now())
+  id          String       @id @default(cuid())
+  disputeId   String
+  type        EvidenceType
+  url         String
+  fileName    String?
+  description String?      @db.Text
+  uploadedBy  String // userId
+  uploadedAt  DateTime     @default(now())
 
   dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
 
@@ -730,8 +751,8 @@ model ServiceType {
   slug           String       @unique // "regular", "one-off", "same-day", "deep", "eot", "airbnb"
   name           String
   pricingModel   PricingModel // HOURLY | FIXED
-  baseMultiplier Float        // 1.0 for regular, 1.15 for one-off, etc
-  minimumHours   Float?       // null for fixed-price services
+  baseMultiplier Float // 1.0 for regular, 1.15 for one-off, etc
+  minimumHours   Float? // null for fixed-price services
   minimumCharge  Float?
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
@@ -742,13 +763,13 @@ model ServiceType {
 }
 
 model FixedServicePrice {
-  id            String       @id @default(cuid())
-  serviceTypeId String
-  serviceType   ServiceType  @relation(fields: [serviceTypeId], references: [id])
-  propertySize  PropertySize // STUDIO | ONE_BED | TWO_BED | THREE_BED | FOUR_BED | FIVE_PLUS
+  id             String       @id @default(cuid())
+  serviceTypeId  String
+  serviceType    ServiceType  @relation(fields: [serviceTypeId], references: [id])
+  propertySize   PropertySize // STUDIO | ONE_BED | TWO_BED | THREE_BED | FOUR_BED | FIVE_PLUS
   estimatedHours Float
-  customerPrice Float        // what customer pays (incl. platform fee)
-  createdAt     DateTime     @default(now())
+  customerPrice  Float // what customer pays (incl. platform fee)
+  createdAt      DateTime     @default(now())
 
   @@unique([serviceTypeId, propertySize])
 }
@@ -778,7 +799,7 @@ model BookingAddon {
   booking   Booking      @relation(fields: [bookingId], references: [id])
   addonId   String
   addon     ServiceAddon @relation(fields: [addonId], references: [id])
-  price     Float        // snapshot price at time of booking
+  price     Float // snapshot price at time of booking
 
   @@unique([bookingId, addonId])
 }
@@ -786,19 +807,19 @@ model BookingAddon {
 // ─── Top 3 Cleaner Queue ────────────────────────────────────────────────────
 
 model BookingCleanerQueue {
-  id              String             @id @default(cuid())
-  bookingId       String
-  cleanerId       String             // userId of the cleaner
-  rank            Int                // 1 = best match, 2 = second, 3 = third
-  status          CleanerQueueStatus @default(PENDING)
-  quotedTotal     Float              // total customer would pay with this cleaner
-  cleanerEarns    Float              // what the cleaner nets after fees
-  matchScore      Float              // score from matching algorithm
-  notifiedAt      DateTime?          // when the cleaner was notified
-  respondedAt     DateTime?          // when they accepted/rejected
-  expiresAt       DateTime?          // auto-expire deadline
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id           String             @id @default(cuid())
+  bookingId    String
+  cleanerId    String // userId of the cleaner
+  rank         Int // 1 = best match, 2 = second, 3 = third
+  status       CleanerQueueStatus @default(PENDING)
+  quotedTotal  Float // total customer would pay with this cleaner
+  cleanerEarns Float // what the cleaner nets after fees
+  matchScore   Float // score from matching algorithm
+  notifiedAt   DateTime? // when the cleaner was notified
+  respondedAt  DateTime? // when they accepted/rejected
+  expiresAt    DateTime? // auto-expire deadline
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   cleaner User    @relation("CleanerQueueEntries", fields: [cleanerId], references: [id], onDelete: Cascade)
@@ -831,21 +852,21 @@ model AbandonedLead {
 // ─── Analytics Event Tracking ───────────────────────────────────────────────
 
 model AnalyticsEvent {
-  id           String   @id @default(cuid())
-  sessionId    String   // anonymous session identifier
-  userId       String?  // null for unauthenticated visitors
-  eventType    String   // e.g. "FUNNEL_STEP", "PAGE_VIEW", "FORM_INTERACTION", "DROP_OFF"
-  funnel       String?  // e.g. "booking", "cleaner_signup", "client_signup"
-  funnelStep   Int?     // step number in funnel (1, 2, 3...)
-  stepName     String?  // e.g. "postcode_entered", "service_selected", "payment_submitted"
-  page         String?  // URL path
-  referrer     String?  // where they came from
-  metadata     Json?    // flexible extra data (form field, error message, time on step, etc.)
-  deviceType   String?  // "mobile", "tablet", "desktop"
-  browser      String?
-  ipAddress    String?
-  duration     Int?     // time spent on this step in seconds
-  createdAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  sessionId  String // anonymous session identifier
+  userId     String? // null for unauthenticated visitors
+  eventType  String // e.g. "FUNNEL_STEP", "PAGE_VIEW", "FORM_INTERACTION", "DROP_OFF"
+  funnel     String? // e.g. "booking", "cleaner_signup", "client_signup"
+  funnelStep Int? // step number in funnel (1, 2, 3...)
+  stepName   String? // e.g. "postcode_entered", "service_selected", "payment_submitted"
+  page       String? // URL path
+  referrer   String? // where they came from
+  metadata   Json? // flexible extra data (form field, error message, time on step, etc.)
+  deviceType String? // "mobile", "tablet", "desktop"
+  browser    String?
+  ipAddress  String?
+  duration   Int? // time spent on this step in seconds
+  createdAt  DateTime @default(now())
 
   @@index([sessionId])
   @@index([userId])
@@ -858,15 +879,15 @@ model AnalyticsEvent {
 // ─── GDPR Consent & Data Retention ──────────────────────────────────────────
 
 model GdprConsent {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String?
-  email       String   // for guest users who haven't created an account
-  consentType String   // "marketing", "analytics", "essential", "data_processing"
+  email       String // for guest users who haven't created an account
+  consentType String // "marketing", "analytics", "essential", "data_processing"
   granted     Boolean
   ipAddress   String?
   userAgent   String?
-  version     String   @default("1.0") // consent policy version
-  createdAt   DateTime @default(now())
+  version     String    @default("1.0") // consent policy version
+  createdAt   DateTime  @default(now())
   revokedAt   DateTime?
 
   @@index([userId])
@@ -876,14 +897,14 @@ model GdprConsent {
 }
 
 model DataRetentionLog {
-  id           String   @id @default(cuid())
-  entityType   String   // "User", "Booking", "Message", "AnalyticsEvent"
-  entityId     String
-  action       String   // "ANONYMISED", "DELETED", "EXPORTED", "RETENTION_EXTENDED"
-  reason       String   // "user_request", "retention_policy", "legal_hold"
-  performedBy  String?  // admin userId or "SYSTEM"
-  metadata     Json?
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  entityType  String // "User", "Booking", "Message", "AnalyticsEvent"
+  entityId    String
+  action      String // "ANONYMISED", "DELETED", "EXPORTED", "RETENTION_EXTENDED"
+  reason      String // "user_request", "retention_policy", "legal_hold"
+  performedBy String? // admin userId or "SYSTEM"
+  metadata    Json?
+  createdAt   DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([action])
@@ -898,7 +919,7 @@ model DataDeletionRequest {
   reason      String?   @db.Text
   requestedAt DateTime  @default(now())
   completedAt DateTime?
-  processedBy String?   // admin userId
+  processedBy String? // admin userId
   notes       String?   @db.Text
 
   @@index([userId])
@@ -909,26 +930,26 @@ model DataDeletionRequest {
 // ─── Secure Document Storage ────────────────────────────────────────────────
 
 model DocumentUpload {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
-  profileId       String?  // CleanerProfile id if relevant
-  documentType    String   // "dbs_certificate", "right_to_work", "photo_id", "insurance"
+  profileId       String? // CleanerProfile id if relevant
+  documentType    String // "dbs_certificate", "right_to_work", "photo_id", "insurance"
   originalName    String
-  storagePath     String   // encrypted file path in storage
+  storagePath     String // encrypted file path in storage
   mimeType        String
-  fileSize        Int      // bytes
-  encryptionKeyId String   // reference to encryption key used
-  checksum        String   // SHA-256 hash of original file for integrity verification
-  isVerified      Boolean  @default(false)
-  verifiedBy      String?  // admin userId
+  fileSize        Int // bytes
+  encryptionKeyId String // reference to encryption key used
+  checksum        String // SHA-256 hash of original file for integrity verification
+  isVerified      Boolean   @default(false)
+  verifiedBy      String? // admin userId
   verifiedAt      DateTime?
-  isDestroyed     Boolean  @default(false)
+  isDestroyed     Boolean   @default(false)
   destroyedAt     DateTime?
-  destroyedReason String?  // "retention_policy", "user_request", "admin_action"
+  destroyedReason String? // "retention_policy", "user_request", "admin_action"
   expiresAt       DateTime? // when the document itself expires (e.g. visa expiry)
-  metadata        Json?    // flexible extra data (cert number, issue date, etc.)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  metadata        Json? // flexible extra data (cert number, issue date, etc.)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([userId])
   @@index([profileId])
@@ -940,20 +961,20 @@ model DocumentUpload {
 // ─── Data Processing Agreements ─────────────────────────────────────────────
 
 model DpaAgreement {
-  id                String    @id @default(cuid())
-  processorName     String    // e.g. "Ryft", "Resend", "Railway"
-  processorType     String    // "payment_processor", "email_provider", "hosting", "analytics"
-  dataCategories    String[]  // what data is processed
-  legalBasis        String    // "contract", "consent", "legitimate_interest"
-  agreementDate     DateTime?
-  expiryDate        DateTime?
-  documentRef       String?   // reference to signed agreement
-  contactEmail      String?
-  status            String    @default("PENDING") // PENDING, ACTIVE, EXPIRED, TERMINATED
-  reviewDate        DateTime? // next review date
-  notes             String?   @db.Text
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  processorName  String // e.g. "Ryft", "Resend", "Railway"
+  processorType  String // "payment_processor", "email_provider", "hosting", "analytics"
+  dataCategories String[] // what data is processed
+  legalBasis     String // "contract", "consent", "legitimate_interest"
+  agreementDate  DateTime?
+  expiryDate     DateTime?
+  documentRef    String? // reference to signed agreement
+  contactEmail   String?
+  status         String    @default("PENDING") // PENDING, ACTIVE, EXPIRED, TERMINATED
+  reviewDate     DateTime? // next review date
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([status])
   @@index([reviewDate])
@@ -965,8 +986,8 @@ model BreachIncident {
   id                  String    @id @default(cuid())
   title               String
   description         String    @db.Text
-  severity            String    // "LOW", "MEDIUM", "HIGH", "CRITICAL"
-  dataTypesAffected   String[]  // e.g. ["personal_data", "financial_data", "identity_documents"]
+  severity            String // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  dataTypesAffected   String[] // e.g. ["personal_data", "financial_data", "identity_documents"]
   individualsAffected Int       @default(0)
   detectedAt          DateTime
   reportedToIcoAt     DateTime? // must be within 72 hours if required
@@ -976,10 +997,10 @@ model BreachIncident {
   rootCause           String?   @db.Text
   remedialActions     String?   @db.Text
   lessonsLearned      String?   @db.Text
-  reportedBy          String    // userId
+  reportedBy          String // userId
   status              String    @default("DETECTED") // DETECTED, CONTAINED, REPORTED_TO_ICO, RESOLVED
   isNotifiable        Boolean   @default(false) // whether it meets ICO notification threshold
-  affectedUsers       Json?     // list of affected user IDs (encrypted)
+  affectedUsers       Json? // list of affected user IDs (encrypted)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -991,19 +1012,19 @@ model BreachIncident {
 // ─── ICO Registration ───────────────────────────────────────────────────────
 
 model IcoRegistration {
-  id                  String    @id @default(cuid())
-  registrationNumber  String?   // ICO registration reference
-  registeredName      String    // company name on registration
-  registrationDate    DateTime?
-  renewalDate         DateTime?
-  feeAmount           Decimal?  @db.Decimal(10, 2)
-  status              String    @default("PENDING") // PENDING, ACTIVE, RENEWAL_DUE, EXPIRED
-  dpoName             String?   // Data Protection Officer
-  dpoEmail            String?
-  dpoPhone            String?
-  notes               String?   @db.Text
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  registrationNumber String? // ICO registration reference
+  registeredName     String // company name on registration
+  registrationDate   DateTime?
+  renewalDate        DateTime?
+  feeAmount          Decimal?  @db.Decimal(10, 2)
+  status             String    @default("PENDING") // PENDING, ACTIVE, RENEWAL_DUE, EXPIRED
+  dpoName            String? // Data Protection Officer
+  dpoEmail           String?
+  dpoPhone           String?
+  notes              String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 // ─── Push Notification Subscriptions ────────────────────────────────────────

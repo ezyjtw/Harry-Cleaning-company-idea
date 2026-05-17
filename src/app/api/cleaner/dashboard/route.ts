@@ -28,6 +28,7 @@ export async function GET() {
           availableNow: true,
           verified: true,
           verificationStatus: true,
+          insuranceVerified: true,
           bio: true,
           postcode: true,
           specialties: true,
@@ -124,6 +125,7 @@ export async function GET() {
       availableNow: profile.availableNow,
       verified: profile.verified,
       verificationStatus: profile.verificationStatus,
+      insuranceVerified: profile.insuranceVerified,
       profileComplete: !!profile.bio && !!profile.postcode && profile.specialties.length > 0,
     },
     stats: {

@@ -67,6 +67,8 @@ export async function GET() {
     dbsCertNumber: profile.dbsCertNumber,
     dbsCertVerified: profile.dbsCertVerified,
     dbsCertIssueDate: profile.dbsCertIssueDate,
+    insuranceVerified: profile.insuranceVerified,
+    insuranceExpiresAt: profile.insuranceExpiresAt,
     rightToWorkStatus: profile.rightToWorkStatus,
     rightToWorkDocType: profile.rightToWorkDocType,
     rightToWorkExpiresAt: profile.rightToWorkExpiresAt,
@@ -113,9 +115,9 @@ export async function PUT(request: NextRequest) {
   // Validate hourly rate
   if (hourlyRate !== undefined) {
     const rate = Number(hourlyRate);
-    if (isNaN(rate) || rate < 14 || rate > 35) {
+    if (isNaN(rate) || rate < 14 || rate > 100) {
       return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £35' },
+        { error: 'Hourly rate must be between £14 and £100' },
         { status: 400 }
       );
     }

@@ -17,6 +17,7 @@ export interface Cleaner {
   postcodeAreas: string[];
   verified: boolean;
   identityVerified: boolean;
+  insured: boolean;
   backgroundChecked: boolean;
   yearsExperience: number;
   completedJobs: number;

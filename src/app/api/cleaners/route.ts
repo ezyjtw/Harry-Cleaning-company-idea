@@ -14,9 +14,11 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20));
 
+  const now = new Date();
   const where: Record<string, unknown> = {
     verified: true,
     user: { accountStatus: 'ACTIVE', isDeleted: false },
+    OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
   };
 
   if (availableNow === 'true') {
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest) {
       tier: c.tier.toLowerCase(),
       verified: c.verified,
       identityVerified: c.verificationStatus === 'VERIFIED',
+      insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
       backgroundChecked: c.backgroundCheckPassed,
       responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
       radius: c.radius,
