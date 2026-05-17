@@ -14,7 +14,7 @@ export function generateOrganizationSchema() {
       'Book trusted, vetted cleaners in your area. Fair pricing with just a 6% service fee.',
     address: {
       '@type': 'PostalAddress',
-      addressLocality: 'London',
+      addressLocality: 'North-East London and Essex',
       addressCountry: 'GB',
     },
     sameAs: [],

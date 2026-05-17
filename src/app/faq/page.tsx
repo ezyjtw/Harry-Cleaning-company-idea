@@ -16,7 +16,7 @@ const faqCategories = [
       },
       {
         q: 'What areas does Rena cover?',
-        a: "We're launching in North East London and parts of Essex, with plans to rapidly expand our coverage across the UK. Quality matters to us — we only recruit cleaners who are reliable, vetted, and consistently deliver a high standard of service. Enter your postcode on the homepage to check availability. If we're not in your area yet, you'll be able to leave your email and we'll notify you as soon as we launch near you.",
+        a: "We currently serve north-east London and Essex, with plans to expand across the UK. We only recruit cleaners who are reliable, vetted, and consistently deliver a high standard of service. Enter your postcode on the homepage to check availability. If we're not in your area yet, leave your email and we'll notify you as soon as we launch near you.",
       },
       {
         q: 'Do I need to create an account to book?',

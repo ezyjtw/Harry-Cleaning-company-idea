@@ -40,7 +40,7 @@ export const PAGE_METADATA = {
   home: generatePageMetadata({
     title: 'Book Trusted Cleaners',
     description:
-      'Book vetted, trusted cleaners in London. Fair pricing with just a 6% service fee. No hidden charges.',
+      'Book vetted, trusted cleaners in north-east London and Essex. Fair pricing with just a 6% service fee. No hidden charges.',
     path: '/',
   }),
   cleaners: generatePageMetadata({

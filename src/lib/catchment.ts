@@ -5,7 +5,7 @@
  * Prefixes are matched against the leading letters of a UK postcode
  * (e.g. "E" matches E1, E4, E10, E17 etc.).
  */
-export const COVERED_POSTCODE_PREFIXES = ['E', 'IG'];
+export const COVERED_POSTCODE_PREFIXES = ['E', 'IG', 'RM', 'SS', 'CM', 'EN'];
 
 /**
  * Extract the letter prefix from a UK postcode (e.g. "E17 4QR" → "E", "SW1A 1AA" → "SW").

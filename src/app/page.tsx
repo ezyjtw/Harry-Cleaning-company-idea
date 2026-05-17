@@ -30,12 +30,12 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
-      <JsonLd data={generateLocalBusinessSchema('London')} />
+      <JsonLd data={generateLocalBusinessSchema('North-East London and Essex')} />
       <JsonLd
         data={generateServiceSchema({
           name: 'Home Cleaning Services',
           description:
-            'Professional home cleaning services in London. Regular, deep clean, end of tenancy, and more.',
+            'Professional home cleaning services in north-east London and Essex. Regular, deep clean, end of tenancy, and more.',
           price: 14,
         })}
       />
