@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { hasLocale } from 'next-intl';
-import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { hasLocale, NextIntlClientProvider } from 'next-intl';
+import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +47,8 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   setRequestLocale(locale);
 
+  const messages = await getMessages();
+
   return (
     <html lang={locale} className="scroll-smooth">
       <head>
@@ -72,26 +74,28 @@ export default async function LocaleLayout({ children, params }: Props) {
         <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">
-        <AuthProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-white"
-          >
-            Skip to main content
-          </a>
-          <ServiceWorkerRegistration />
-          <div id="layout-nav">
-            <Navbar />
-          </div>
-          <main id="main-content" className="flex-1" role="main">
-            {children}
-          </main>
-          <div id="layout-footer">
-            <Footer />
-          </div>
-          <CookieConsent />
-          <AIChatWidget />
-        </AuthProvider>
+        <NextIntlClientProvider messages={messages}>
+          <AuthProvider>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-white"
+            >
+              Skip to main content
+            </a>
+            <ServiceWorkerRegistration />
+            <div id="layout-nav">
+              <Navbar />
+            </div>
+            <main id="main-content" className="flex-1" role="main">
+              {children}
+            </main>
+            <div id="layout-footer">
+              <Footer />
+            </div>
+            <CookieConsent />
+            <AIChatWidget />
+          </AuthProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

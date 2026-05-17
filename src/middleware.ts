@@ -131,10 +131,10 @@ export function middleware(request: NextRequest) {
     [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://embedded.ryftpay.com",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "connect-src 'self' https://api.ryftpay.com https://*.sentry.io",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://api.ryftpay.com https://*.sentry.io https://api.postcodes.io",
       'frame-src https://embedded.ryftpay.com',
       "object-src 'none'",
       "base-uri 'self'",
