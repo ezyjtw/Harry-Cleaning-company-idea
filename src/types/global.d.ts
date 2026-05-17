@@ -33,11 +33,14 @@ interface RyftInstance {
       clientSecret: string;
       appearance?: Record<string, unknown>;
       onPaymentResult?: (result: { status: string }) => void;
+      onPaymentError?: (error: { message: string }) => void;
     }
   ): void;
 }
 
-interface Window {
-  openCookieSettings?: () => void;
-  Ryft?: RyftInstance;
+declare global {
+  interface Window {
+    openCookieSettings?: () => void;
+    Ryft?: RyftInstance;
+  }
 }
