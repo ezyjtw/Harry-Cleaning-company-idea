@@ -14,6 +14,11 @@ const SERVICE_FILTERS = [
   'End of Tenancy',
   'Airbnb Cleaning',
   'Pet-Friendly',
+  'Eco-Friendly Products',
+  'Kosher Kitchen',
+  'Halal-Conscious Cleaning',
+  'Prayer Room Care',
+  'Elderly/Assisted Living',
 ];
 
 type SortOption = 'rating' | 'price-low' | 'price-high' | 'reviews' | 'available-now' | 'distance';

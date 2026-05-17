@@ -12,6 +12,13 @@ const specialtyOptions = [
   'Carpet Cleaning',
   'Window Cleaning',
   'Oven Cleaning',
+  'Kosher Kitchen',
+  'Halal-Conscious Cleaning',
+  'Prayer Room Care',
+  'Post-Construction',
+  'Eco-Friendly Products',
+  'Pet-Friendly',
+  'Elderly/Assisted Living',
 ];
 
 const languageOptions = [

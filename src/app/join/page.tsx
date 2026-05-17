@@ -145,6 +145,11 @@ const SPECIALTY_OPTIONS = [
   'Pet-Friendly',
   'Kitchen Specialist',
   'Bathroom Specialist',
+  'Kosher Kitchen',
+  'Halal-Conscious Cleaning',
+  'Prayer Room Care',
+  'Post-Construction',
+  'Elderly/Assisted Living',
 ];
 
 const LANGUAGE_OPTIONS = [
