@@ -1,3 +1,7 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
+
 function ShieldIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -58,30 +62,16 @@ function LockIcon() {
   );
 }
 
-const guarantees = [
-  {
-    icon: <ShieldIcon />,
-    title: 'Vetted cleaners',
-    body: 'Every cleaner is ID-verified and personally vetted before they can take a single booking.',
-  },
-  {
-    icon: <IdIcon />,
-    title: 'ID verified',
-    body: 'Government-issued ID verified in person. You always know exactly who is coming to your home.',
-  },
-  {
-    icon: <ProcessIcon />,
-    title: 'Rigorous onboarding',
-    body: 'Interview, reference checks, and a trial clean. Only a fraction of applicants make it through.',
-  },
-  {
-    icon: <LockIcon />,
-    title: 'Fully insured',
-    body: 'Every booking is covered by our insurance policy. Your home and belongings are protected.',
-  },
-];
-
 export default function GuaranteeSection() {
+  const t = useTranslations('Guarantees');
+
+  const guarantees = [
+    { icon: <ShieldIcon />, title: t('vettedTitle'), body: t('vettedDesc') },
+    { icon: <IdIcon />, title: t('idTitle'), body: t('idDesc') },
+    { icon: <ProcessIcon />, title: t('onboardingTitle'), body: t('onboardingDesc') },
+    { icon: <LockIcon />, title: t('insuredTitle'), body: t('insuredDesc') },
+  ];
+
   return (
     <section className="bg-cream">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
@@ -89,28 +79,27 @@ export default function GuaranteeSection() {
           {/* Left */}
           <div>
             <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
-              Trust and safety
+              {t('sectionTitle')}
             </p>
             <h2 className="mb-5 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-6 md:text-[42px]">
-              Know who walks through your door
+              {t('sectionSubtitle')}
             </h2>
             <p className="mb-8 max-w-[440px] font-jost text-[15px] font-light leading-[1.8] text-ink-3 md:mb-10">
-              We only work with vetted, trusted cleaners who have passed a rigorous onboarding
-              process. Full background checks, verified identity, and insured on every visit.
+              {t('sectionDescription')}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <a
                 href="/services"
                 className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                Book a clean
+                {t('bookClean')}
               </a>
               <a
                 href="/guarantees"
                 className="rounded-md px-7 py-3.5 text-center font-jost text-[14px] font-normal text-ink transition-colors hover:bg-cream-2"
                 style={{ border: '1px solid rgba(27,42,74,0.15)' }}
               >
-                Our guarantees
+                {t('ourGuarantees')}
               </a>
             </div>
           </div>

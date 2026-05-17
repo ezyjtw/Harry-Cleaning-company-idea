@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 const reviews = [
@@ -42,6 +43,7 @@ const reviews = [
 
 export default function ReviewsSection() {
   const [current, setCurrent] = useState(0);
+  const t = useTranslations('Reviews');
 
   const prev = () => setCurrent((c) => (c === 0 ? reviews.length - 1 : c - 1));
   const next = () => setCurrent((c) => (c === reviews.length - 1 ? 0 : c + 1));
@@ -50,10 +52,10 @@ export default function ReviewsSection() {
     <section className="bg-ink">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
         <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold-2">
-          Reviews
+          {t('sectionTitle')}
         </p>
         <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-white md:mb-14 md:text-[42px]">
-          What our customers say
+          {t('sectionSubtitle')}
         </h2>
 
         {/* Slider */}

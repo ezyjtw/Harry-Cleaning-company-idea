@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import createIntlMiddleware from 'next-intl/middleware';
+
+import { routing } from '@/i18n/routing';
 
 // ─── In-Memory Rate Limiter ─────────────────────────────────────────────────
 
@@ -43,8 +46,9 @@ if (typeof setInterval !== 'undefined') {
 // ─── Protected Routes ───────────────────────────────────────────────────────
 
 const protectedRoutes = ['/dashboard', '/account', '/admin'];
-const _adminRoutes = ['/admin'];
 const authRoutes = ['/login', '/register', '/forgot-password'];
+
+const intlMiddleware = createIntlMiddleware(routing);
 
 // ─── Middleware ─────────────────────────────────────────────────────────────
 
@@ -57,6 +61,23 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Skip locale processing for API routes and static assets
+  if (pathname.startsWith('/api')) {
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.next();
+  }
+
   // Canonical domain redirect: apex → www
   const host = request.headers.get('host') || '';
   if (host === 'renacleaning.co.uk') {
@@ -66,7 +87,34 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 301);
   }
 
-  const response = NextResponse.next();
+  // Strip locale prefix from pathname for auth checks
+  const pathnameWithoutLocale = pathname.replace(/^\/(en|pl)/, '') || '/';
+
+  // Auth protection - check for session token
+  const sessionToken =
+    request.cookies.get('next-auth.session-token')?.value ||
+    request.cookies.get('__Secure-next-auth.session-token')?.value;
+
+  const isAuthenticated = !!sessionToken;
+
+  // Redirect unauthenticated users from protected routes
+  const isProtectedRoute = protectedRoutes.some((route) => pathnameWithoutLocale.startsWith(route));
+
+  if (isProtectedRoute && !isAuthenticated) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Redirect authenticated users away from auth routes
+  const isAuthRoute = authRoutes.some((route) => pathnameWithoutLocale.startsWith(route));
+
+  if (isAuthRoute && isAuthenticated) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Run next-intl middleware for locale detection and routing
+  const response = intlMiddleware(request);
 
   // Security headers
   response.headers.set('X-Frame-Options', 'DENY');
@@ -94,42 +142,17 @@ export function middleware(request: NextRequest) {
     ].join('; ')
   );
 
-  // Rate limiting for API routes
-  if (pathname.startsWith('/api')) {
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
+  // Rate limiting for non-API page routes
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
 
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
-      );
-    }
-  }
-
-  // Auth protection - check for session token
-  const sessionToken =
-    request.cookies.get('next-auth.session-token')?.value ||
-    request.cookies.get('__Secure-next-auth.session-token')?.value;
-
-  const isAuthenticated = !!sessionToken;
-
-  // Redirect unauthenticated users from protected routes
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
-
-  if (isProtectedRoute && !isAuthenticated) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Redirect authenticated users away from auth routes
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
-
-  if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   return response;
@@ -142,8 +165,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - public folder assets
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/|icons/|images/|manifest\\.json|sw\\.js).*)',
   ],
 };

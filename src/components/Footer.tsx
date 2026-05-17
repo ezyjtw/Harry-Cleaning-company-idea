@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 export default function Footer() {
+  const t = useTranslations('Footer');
+
   return (
     <footer className="bg-ink">
       {/* Link columns */}
@@ -11,15 +14,15 @@ export default function Footer() {
           {/* Customers */}
           <div>
             <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
-              For Customers
+              {t('forCustomers')}
             </h3>
             <ul className="mt-4 space-y-2.5">
               {[
-                { href: '/services', label: 'Book a Clean' },
-                { href: '/cleaners', label: 'Find Cleaners' },
-                { href: '/how-it-works', label: 'How It Works' },
-                { href: '/pricing', label: 'Pricing' },
-                { href: '/faq', label: 'FAQ' },
+                { href: '/services', label: t('bookClean') },
+                { href: '/cleaners', label: t('findCleaners') },
+                { href: '/how-it-works', label: t('howItWorks') },
+                { href: '/pricing', label: t('pricing') },
+                { href: '/faq', label: t('faq') },
               ].map((link) => (
                 <li key={link.href}>
                   <Link
@@ -36,13 +39,13 @@ export default function Footer() {
           {/* Cleaners */}
           <div>
             <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
-              For Cleaners
+              {t('forCleaners')}
             </h3>
             <ul className="mt-4 space-y-2.5">
               {[
-                { href: '/join', label: 'Become a Cleaner' },
-                { href: '/cleaner', label: 'Cleaner Dashboard' },
-                { href: '/cleaner/earnings', label: 'Earnings' },
+                { href: '/join', label: t('becomeCleaner') },
+                { href: '/cleaner', label: t('cleanerDashboard') },
+                { href: '/cleaner/earnings', label: t('earnings') },
               ].map((link) => (
                 <li key={link.href}>
                   <Link
@@ -59,13 +62,13 @@ export default function Footer() {
           {/* Company */}
           <div>
             <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
-              Company
+              {t('company')}
             </h3>
             <ul className="mt-4 space-y-2.5">
               {[
-                { href: '/about', label: 'About Us' },
-                { href: '/contact', label: 'Contact' },
-                { href: '/company', label: 'Partner With Us' },
+                { href: '/about', label: t('aboutUs') },
+                { href: '/contact', label: t('contact') },
+                { href: '/company', label: t('partnerWithUs') },
               ].map((link) => (
                 <li key={link.href}>
                   <Link
@@ -82,13 +85,13 @@ export default function Footer() {
           {/* Legal */}
           <div>
             <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
-              Legal
+              {t('legal')}
             </h3>
             <ul className="mt-4 space-y-2.5">
               {[
-                { href: '/privacy', label: 'Privacy Policy' },
-                { href: '/terms', label: 'Terms of Service' },
-                { href: '#cookie-settings', label: 'Cookie Settings' },
+                { href: '/privacy', label: t('privacyPolicy') },
+                { href: '/terms', label: t('termsOfService') },
+                { href: '#cookie-settings', label: t('cookieSettings') },
               ].map((link) => (
                 <li key={link.href}>
                   {link.href === '#cookie-settings' ? (

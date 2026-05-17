@@ -1,30 +1,24 @@
-const steps = [
-  {
-    num: '01',
-    title: 'Enter your postcode',
-    body: 'Tell us what you need and we\u2019ll show you available, vetted cleaners nearby with real ratings and reviews.',
-  },
-  {
-    num: '02',
-    title: 'Choose someone you trust',
-    body: 'Browse profiles, read verified reviews from real customers, and pick the person that feels right for your home. Once you book, your cleaner will respond as soon as possible. If they can\u2019t take the job, your preferred backup cleaner will be notified and respond shortly.',
-  },
-  {
-    num: '03',
-    title: 'They arrive, you relax',
-    body: 'Your cleaner arrives on time. If anything falls short, we offer full refunds and will help you rebook another cleaner to get the job done.',
-  },
-];
+'use client';
+
+import { useTranslations } from 'next-intl';
 
 export default function HowItWorks() {
+  const t = useTranslations('HowItWorks');
+
+  const steps = [
+    { num: '01', title: t('step1Title'), body: t('step1Description') },
+    { num: '02', title: t('step2Title'), body: t('step2Description') },
+    { num: '03', title: t('step3Title'), body: t('step3Description') },
+  ];
+
   return (
     <section id="how-it-works" className="bg-cream">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
         <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
-          How it works
+          {t('sectionTitle')}
         </p>
         <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
-          Booked and sorted in minutes
+          {t('sectionSubtitle')}
         </h2>
 
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">

@@ -1,17 +1,20 @@
 'use client';
 
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 import HeroQuoteWidget from '../src/components/HeroQuoteWidget';
 
-const trustItems = [
-  { label: 'Vetted cleaners' },
-  { label: 'ID verified' },
-  { label: 'Insured' },
-  { label: 'Verified reviews' },
-];
-
 export default function HeroSection() {
+  const t = useTranslations('Hero');
+
+  const trustItems = [
+    { label: t('vettedCleaners') },
+    { label: t('idVerified') },
+    { label: t('insured') },
+    { label: t('verifiedReviews') },
+  ];
+
   return (
     <section className="relative overflow-hidden">
       {/* Background image */}
@@ -25,23 +28,22 @@ export default function HeroSection() {
           {/* Left column */}
           <div>
             <p className="mb-5 font-jost text-[12px] uppercase tracking-[0.2em] text-white/80">
-              Trusted home cleaning
+              {t('trustedHome')}
             </p>
 
             <h1 className="mb-2 font-cormorant text-[34px] font-light leading-[1.1] text-white sm:text-[44px] md:mb-3 md:text-[60px]">
-              Join the cleaning
+              {t('joinThe')}
             </h1>
             <p className="mb-5 font-etna text-[34px] tracking-wider text-white sm:text-[44px] md:mb-7 md:text-[60px] md:tracking-widest">
-              RENA-LUTION
+              {t('revolution')}
             </p>
 
             <p className="mb-3 font-cormorant text-[24px] font-light leading-[1.2] text-white/90 md:text-[34px]">
-              Pick the cleaner that fits you.
+              {t('subtitle')}
             </p>
 
             <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
-              Browse personally vetted cleaners in your area. Read genuine reviews, choose someone
-              you trust, and book in two minutes.
+              {t('description')}
             </p>
 
             <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">
@@ -49,13 +51,13 @@ export default function HeroSection() {
                 href="/cleaners"
                 className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                Book a cleaner
+                {t('bookCleaner')}
               </a>
               <a
                 href="#how-it-works"
                 className="rounded-md border border-white/30 px-7 py-3.5 text-center font-jost text-[14px] font-normal text-white transition-colors hover:border-white/50"
               >
-                How it works
+                {t('howItWorks')}
               </a>
             </div>
 

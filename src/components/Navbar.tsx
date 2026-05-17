@@ -1,14 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useState, useRef, useEffect } from 'react';
 
 import { useAuth } from '@/hooks/useAuth';
+
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Navbar() {
   const { user, isAuthenticated, isCleaner, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations('Nav');
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -42,26 +46,29 @@ export default function Navbar() {
           RENA
         </Link>
 
-        {/* Hamburger icon — all screen sizes */}
-        <button
-          onClick={() => setOpen(!open)}
-          className="flex flex-col gap-1.5"
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-        >
-          <span
-            className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? 'translate-y-[5px] rotate-45' : ''}`}
-          />
-          <span
-            className={`block h-[2px] w-6 rounded bg-ink transition-opacity ${open ? 'opacity-0' : ''}`}
-          />
-          <span
-            className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? '-translate-y-[5px] -rotate-45' : ''}`}
-          />
-        </button>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          {/* Hamburger icon */}
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex flex-col gap-1.5"
+            aria-label={open ? t('closeMenu') : t('openMenu')}
+            aria-expanded={open}
+          >
+            <span
+              className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? 'translate-y-[5px] rotate-45' : ''}`}
+            />
+            <span
+              className={`block h-[2px] w-6 rounded bg-ink transition-opacity ${open ? 'opacity-0' : ''}`}
+            />
+            <span
+              className={`block h-[2px] w-6 rounded bg-ink transition-transform ${open ? '-translate-y-[5px] -rotate-45' : ''}`}
+            />
+          </button>
+        </div>
       </div>
 
-      {/* Dropdown panel — right-aligned under burger icon */}
+      {/* Dropdown panel */}
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-ink/20" onClick={() => setOpen(false)} />
@@ -72,16 +79,16 @@ export default function Navbar() {
           >
             <div className="px-5 py-5">
               <p className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
-                I need a cleaner
+                {t('customerSection')}
               </p>
               <div className="mt-3 flex flex-col gap-1">
                 {[
-                  { href: '/services', label: 'Book a Clean' },
-                  { href: '/cleaners', label: 'Find Cleaners' },
-                  { href: '/#how-it-works', label: 'How It Works' },
-                  { href: '/pricing', label: 'Pricing' },
-                  { href: '/faq', label: 'FAQ' },
-                  { href: '/contact', label: 'Contact Us' },
+                  { href: '/services', label: t('bookClean') },
+                  { href: '/cleaners', label: t('findCleaners') },
+                  { href: '/#how-it-works', label: t('howItWorks') },
+                  { href: '/pricing', label: t('pricing') },
+                  { href: '/faq', label: t('faq') },
+                  { href: '/contact', label: t('contactUs') },
                 ].map((link) => (
                   <Link
                     key={link.href}
@@ -97,7 +104,7 @@ export default function Navbar() {
               {!isCleaner && (
                 <>
                   <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
-                    I&apos;m a cleaner
+                    {t('cleanerSection')}
                   </p>
                   <div className="mt-3 flex flex-col gap-1">
                     <Link
@@ -105,7 +112,7 @@ export default function Navbar() {
                       onClick={() => setOpen(false)}
                       className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                     >
-                      Become a Cleaner
+                      {t('becomeCleaner')}
                     </Link>
                   </div>
                 </>
@@ -114,14 +121,14 @@ export default function Navbar() {
               {isCleaner && (
                 <>
                   <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
-                    My Cleaner Account
+                    {t('myCleanerAccount')}
                   </p>
                   <div className="mt-3 flex flex-col gap-1">
                     {[
-                      { href: '/cleaner', label: 'Dashboard' },
-                      { href: '/cleaner/jobs', label: 'My Jobs' },
-                      { href: '/cleaner/earnings', label: 'Earnings' },
-                      { href: '/cleaner/profile', label: 'Profile' },
+                      { href: '/cleaner', label: t('dashboard') },
+                      { href: '/cleaner/jobs', label: t('myJobs') },
+                      { href: '/cleaner/earnings', label: t('earnings') },
+                      { href: '/cleaner/profile', label: t('profile') },
                     ].map((link) => (
                       <Link
                         key={link.href}
@@ -139,7 +146,7 @@ export default function Navbar() {
               {isAdmin && (
                 <>
                   <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
-                    Admin
+                    {t('admin')}
                   </p>
                   <div className="mt-3 flex flex-col gap-1">
                     <Link
@@ -147,7 +154,7 @@ export default function Navbar() {
                       onClick={() => setOpen(false)}
                       className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                     >
-                      Admin Dashboard
+                      {t('adminDashboard')}
                     </Link>
                   </div>
                 </>
@@ -166,7 +173,7 @@ export default function Navbar() {
                       }}
                       className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
                     >
-                      Sign out
+                      {t('signOut')}
                     </button>
                   </>
                 ) : (
@@ -176,14 +183,14 @@ export default function Navbar() {
                       onClick={() => setOpen(false)}
                       className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
                     >
-                      Log in
+                      {t('logIn')}
                     </Link>
                     <Link
                       href="/signup"
                       onClick={() => setOpen(false)}
                       className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
                     >
-                      Sign up
+                      {t('signUp')}
                     </Link>
                   </>
                 )}

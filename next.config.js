@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const createNextIntlPlugin = require('next-intl/plugin');
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
 // NEXTAUTH_URL must match the canonical domain users actually visit.
 // Set NEXTAUTH_URL=https://www.renacleaning.co.uk in Railway env vars.
 // Fallback to Railway's public domain only for preview/staging deployments.
@@ -52,4 +57,4 @@ const nextConfig = {
   reactStrictMode: true,
 };
 
-module.exports = nextConfig;
+module.exports = withNextIntl(nextConfig);

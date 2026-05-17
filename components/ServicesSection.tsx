@@ -1,57 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
-
-const services = [
-  {
-    id: 'regular',
-    title: 'Regular cleaning',
-    description:
-      'Weekly or fortnightly visits with your preferred cleaner. Consistent quality at a time that works for you.',
-    price: 'From £14/hr',
-  },
-  {
-    id: 'same-day',
-    title: 'Same day cleaning',
-    description:
-      "Need a cleaner today? We'll match you with a vetted, available cleaner near you for a same-day visit.",
-    price: 'From £18/hr',
-  },
-  {
-    id: 'deep',
-    title: 'Deep cleaning',
-    description:
-      'Top-to-bottom. Inside appliances, skirting boards, and every corner. A thorough reset for your home.',
-    price: 'From £20/hr',
-  },
-  {
-    id: 'end-of-tenancy',
-    title: 'End of tenancy',
-    description:
-      'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
-    price: 'From £150',
-  },
-  {
-    id: 'airbnb',
-    title: 'Airbnb cleaning',
-    description:
-      'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
-    price: 'From £45',
-  },
-];
 
 export default function ServicesSection() {
   const [active, setActive] = useState(0);
+  const t = useTranslations('Services');
+
+  const services = [
+    { id: 'regular', title: t('regular'), description: t('regularDesc'), price: t('regularPrice') },
+    {
+      id: 'same-day',
+      title: t('sameDay'),
+      description: t('sameDayDesc'),
+      price: t('sameDayPrice'),
+    },
+    { id: 'deep', title: t('deep'), description: t('deepDesc'), price: t('deepPrice') },
+    { id: 'end-of-tenancy', title: t('eot'), description: t('eotDesc'), price: t('eotPrice') },
+    { id: 'airbnb', title: t('airbnb'), description: t('airbnbDesc'), price: t('airbnbPrice') },
+  ];
 
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
         <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
-          Our services
+          {t('sectionTitle')}
         </p>
         <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
-          Whatever your home needs
+          {t('sectionSubtitle')}
         </h2>
 
         <div
@@ -96,7 +73,7 @@ export default function ServicesSection() {
                 href={`/services/${services[active].id}`}
                 className="rounded-md bg-gold px-7 py-3 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                Get a Quote
+                {t('getQuote')}
               </Link>
             </div>
           </div>

@@ -1,11 +1,17 @@
-const stats = [
-  { value: '4.8', label: 'Average rating' },
-  { value: '96%', label: 'Rebook their cleaner' },
-  { value: '<2 min', label: 'Average booking time' },
-  { value: 'Same day', label: 'Available in most areas' },
-];
+'use client';
+
+import { useTranslations } from 'next-intl';
 
 export default function StatsBar() {
+  const t = useTranslations('Stats');
+
+  const stats = [
+    { value: t('ratingValue'), label: t('ratingLabel') },
+    { value: t('rebookValue'), label: t('rebookLabel') },
+    { value: t('bookingTimeValue'), label: t('bookingTimeLabel') },
+    { value: t('sameDayValue'), label: t('sameDayLabel') },
+  ];
+
   return (
     <section className="grid grid-cols-2 gap-y-6 bg-ink px-5 py-6 md:flex md:justify-center md:px-14 md:py-5">
       {stats.map((stat, i) => (

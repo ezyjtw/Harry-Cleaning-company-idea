@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useState, useEffect, useCallback } from 'react';
 
 interface CookiePreferences {
-  essential: boolean; // always true, cannot be disabled
+  essential: boolean;
   analytics: boolean;
   marketing: boolean;
 }
@@ -44,6 +45,7 @@ export default function CookieConsent() {
     analytics: false,
     marketing: false,
   });
+  const t = useTranslations('Cookie');
 
   useEffect(() => {
     const stored = getStoredConsent();
@@ -53,7 +55,6 @@ export default function CookieConsent() {
       setPreferences(stored);
     }
 
-    // Expose a global function so the footer "Cookie Settings" link can reopen the banner
     window.openCookieSettings = () => {
       setVisible(true);
       setShowDetails(true);
@@ -65,7 +66,6 @@ export default function CookieConsent() {
     setPreferences(prefs);
     setVisible(false);
 
-    // Send consent to the server for GDPR record-keeping
     fetch('/api/gdpr/consent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,12 +101,11 @@ export default function CookieConsent() {
         style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
       >
         <div className="p-5 sm:p-6">
-          <h2 className="font-cormorant text-xl font-light text-ink">Cookie Preferences</h2>
+          <h2 className="font-cormorant text-xl font-light text-ink">{t('title')}</h2>
           <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
-            We use cookies to provide essential site functionality, analyse how you use our
-            platform, and for marketing purposes. You can choose which types of cookies to allow.{' '}
+            {t('description')}{' '}
             <Link href="/privacy#cookies" className="text-gold underline hover:text-gold/80">
-              Read our Privacy Policy
+              {t('readPrivacy')}
             </Link>
             .
           </p>
@@ -116,10 +115,8 @@ export default function CookieConsent() {
               <label className="flex items-center gap-3">
                 <input type="checkbox" checked disabled className="h-4 w-4 accent-gold" />
                 <div>
-                  <span className="font-jost text-sm font-normal text-ink">Essential</span>
-                  <p className="font-jost text-xs font-light text-ink-3">
-                    Required for the platform to function. Cannot be disabled.
-                  </p>
+                  <span className="font-jost text-sm font-normal text-ink">{t('essential')}</span>
+                  <p className="font-jost text-xs font-light text-ink-3">{t('essentialDesc')}</p>
                 </div>
               </label>
 
@@ -131,10 +128,8 @@ export default function CookieConsent() {
                   className="h-4 w-4 accent-gold"
                 />
                 <div>
-                  <span className="font-jost text-sm font-normal text-ink">Analytics</span>
-                  <p className="font-jost text-xs font-light text-ink-3">
-                    Helps us understand how you use the platform and improve the experience.
-                  </p>
+                  <span className="font-jost text-sm font-normal text-ink">{t('analytics')}</span>
+                  <p className="font-jost text-xs font-light text-ink-3">{t('analyticsDesc')}</p>
                 </div>
               </label>
 
@@ -146,10 +141,8 @@ export default function CookieConsent() {
                   className="h-4 w-4 accent-gold"
                 />
                 <div>
-                  <span className="font-jost text-sm font-normal text-ink">Marketing</span>
-                  <p className="font-jost text-xs font-light text-ink-3">
-                    Allows us to show you relevant content and measure campaign effectiveness.
-                  </p>
+                  <span className="font-jost text-sm font-normal text-ink">{t('marketing')}</span>
+                  <p className="font-jost text-xs font-light text-ink-3">{t('marketingDesc')}</p>
                 </div>
               </label>
             </div>
@@ -160,14 +153,14 @@ export default function CookieConsent() {
               onClick={acceptAll}
               className="bg-ink px-5 py-2 font-jost text-sm text-cream hover:bg-ink/90"
             >
-              Accept All
+              {t('acceptAll')}
             </button>
             <button
               onClick={rejectNonEssential}
               className="border px-5 py-2 font-jost text-sm text-ink hover:bg-cream-2"
               style={{ borderColor: 'rgba(14,14,12,0.2)' }}
             >
-              Essential Only
+              {t('essentialOnly')}
             </button>
             {showDetails ? (
               <button
@@ -175,14 +168,14 @@ export default function CookieConsent() {
                 className="border px-5 py-2 font-jost text-sm text-gold hover:bg-cream-2"
                 style={{ borderColor: 'rgba(184,151,90,0.3)' }}
               >
-                Save Preferences
+                {t('savePreferences')}
               </button>
             ) : (
               <button
                 onClick={() => setShowDetails(true)}
                 className="font-jost text-sm text-ink-3 underline hover:text-ink"
               >
-                Customise
+                {t('customise')}
               </button>
             )}
           </div>
