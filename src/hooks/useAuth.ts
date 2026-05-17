@@ -1,18 +1,18 @@
-'use client'
+'use client';
 
-import { useSession, signIn, signOut } from 'next-auth/react'
+import { useSession, signIn, signOut } from 'next-auth/react';
 
 export function useAuth() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useSession();
 
   const user = session?.user
     ? {
-        id: (session.user as any).id as string,
+        id: session.user.id,
         name: session.user.name ?? '',
         email: session.user.email ?? '',
-        role: (session.user as any).role as 'CLIENT' | 'CLEANER' | 'ADMIN',
+        role: session.user.role,
       }
-    : null
+    : null;
 
   return {
     user,
@@ -23,5 +23,5 @@ export function useAuth() {
     isAdmin: user?.role === 'ADMIN',
     signIn,
     signOut,
-  }
+  };
 }

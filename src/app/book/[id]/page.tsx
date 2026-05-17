@@ -56,34 +56,50 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const cleaner = getCleanerById(params.id);
 
   // Fetch saved addresses and past bookings from API
-  const [savedAddresses, setSavedAddresses] = useState<Array<{ id: string; label?: string; address: string; isDefault: boolean }>>([]);
-  const [pastBookings, setPastBookings] = useState<Array<{ id: string; date: string; address: string; serviceType: string; cleanerName: string; duration: number; totalPrice: number }>>([]);
+  const [savedAddresses, setSavedAddresses] = useState<
+    Array<{ id: string; label?: string; address: string; isDefault: boolean }>
+  >([]);
+  const [pastBookings, setPastBookings] = useState<
+    Array<{
+      id: string;
+      date: string;
+      address: string;
+      serviceType: string;
+      cleanerName: string;
+      duration: number;
+      totalPrice: number;
+    }>
+  >([]);
 
   useEffect(() => {
     fetch('/api/addresses')
       .then((res) => (res.ok ? res.json() : []))
       .then((data: Array<Record<string, unknown>>) => {
-        setSavedAddresses(data.map((a) => ({
-          id: a.id as string,
-          label: a.label as string | undefined,
-          address: `${a.line1}${a.line2 ? ', ' + a.line2 : ''}, ${a.city}, ${a.postcode}`,
-          isDefault: (a.isDefault as boolean) || false,
-        })));
+        setSavedAddresses(
+          data.map((a) => ({
+            id: a.id as string,
+            label: a.label as string | undefined,
+            address: `${a.line1}${a.line2 ? `, ${a.line2}` : ''}, ${a.city}, ${a.postcode}`,
+            isDefault: (a.isDefault as boolean) || false,
+          }))
+        );
       })
       .catch(() => {});
 
     fetch('/api/bookings?status=COMPLETED')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((result: { data: Array<Record<string, unknown>> }) => {
-        setPastBookings((result.data || []).slice(0, 5).map((b) => ({
-          id: b.id as string,
-          date: new Date(b.date as string).toLocaleDateString(),
-          address: ((b.address as Record<string, unknown>)?.line1 as string) || '',
-          serviceType: b.serviceType as string,
-          cleanerName: ((b.cleaner as Record<string, unknown>)?.name as string) || '',
-          duration: Number(b.duration) || 2,
-          totalPrice: Number(b.totalPrice) || 0,
-        })));
+        setPastBookings(
+          (result.data || []).slice(0, 5).map((b) => ({
+            id: b.id as string,
+            date: new Date(b.date as string).toLocaleDateString(),
+            address: ((b.address as Record<string, unknown>)?.line1 as string) || '',
+            serviceType: b.serviceType as string,
+            cleanerName: ((b.cleaner as Record<string, unknown>)?.name as string) || '',
+            duration: Number(b.duration) || 2,
+            totalPrice: Number(b.totalPrice) || 0,
+          }))
+        );
       })
       .catch(() => {});
   }, []);
@@ -267,10 +283,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </p>
 
         {/* Booking summary */}
-        <div
-          className="mt-6 bg-cream-2 p-5"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-        >
+        <div className="mt-6 bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <div className="grid gap-2 font-jost text-sm font-light">
             <div className="flex justify-between">
               <span className="text-ink-3">Cleaner</span>
@@ -282,7 +295,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </div>
             <div className="flex justify-between">
               <span className="text-ink-3">Date &amp; Time</span>
-              <span className="font-normal text-ink">{form.date} at {form.time}</span>
+              <span className="font-normal text-ink">
+                {form.date} at {form.time}
+              </span>
             </div>
             <div
               className="flex justify-between pt-2 mt-2"
@@ -308,15 +323,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
               const publicKey = process.env.NEXT_PUBLIC_RYFT_PUBLIC_KEY;
               if (!publicKey) {
-                el.innerHTML = '<p class="text-center text-ink-3 font-jost text-sm">Payment provider not configured</p>';
+                el.innerHTML =
+                  '<p class="text-center text-ink-3 font-jost text-sm">Payment provider not configured</p>';
                 return;
               }
 
               const script = document.createElement('script');
               script.src = 'https://embedded.ryftpay.com/v1/dropin.js';
               script.onload = () => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const Ryft = (window as any).Ryft;
+                const Ryft = window.Ryft;
                 if (!Ryft) return;
 
                 Ryft.init({
@@ -324,8 +339,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   environment: publicKey.startsWith('pk_sandbox') ? 'sandbox' : 'production',
                 });
 
+                if (!bookingData.payment?.clientSecret) return;
+
                 Ryft.renderDropIn(el, {
-                  clientSecret: bookingData.payment!.clientSecret,
+                  clientSecret: bookingData.payment.clientSecret,
                   appearance: {
                     theme: 'minimal',
                     variables: {
@@ -367,7 +384,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </div>
 
         <button
-          onClick={() => { setPaymentStep(false); setPaymentPending(false); }}
+          onClick={() => {
+            setPaymentStep(false);
+            setPaymentPending(false);
+          }}
           className="mt-6 w-full py-2 font-jost text-sm font-light text-ink-3 hover:text-ink transition"
         >
           &larr; Back to booking details

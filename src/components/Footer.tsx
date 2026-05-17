@@ -95,9 +95,7 @@ export default function Footer() {
                     <button
                       type="button"
                       onClick={() => {
-                        const fn = (window as unknown as Record<string, (() => void) | undefined>)
-                          .openCookieSettings;
-                        if (fn) fn();
+                        if (window.openCookieSettings) window.openCookieSettings();
                       }}
                       className="font-jost text-[13px] font-light text-white/50 transition-colors hover:text-white/80"
                     >

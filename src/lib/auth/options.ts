@@ -1,6 +1,6 @@
+import bcrypt from 'bcryptjs';
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
 
 import prisma from '@/lib/db/prisma';
 
@@ -49,9 +49,7 @@ export const authOptions: NextAuthOptions = {
           const updateData: Record<string, unknown> = { failedLoginCount: newCount };
 
           if (newCount >= MAX_FAILED_ATTEMPTS) {
-            updateData.lockedUntil = new Date(
-              Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000
-            );
+            updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
           }
 
           await prisma.user.update({
@@ -79,15 +77,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as unknown as Record<string, unknown>).role;
+        token.role = user.role;
         token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as Record<string, unknown>).role = token.role;
-        (session.user as Record<string, unknown>).id = token.id;
+        session.user.role = token.role;
+        session.user.id = token.id;
       }
       return session;
     },

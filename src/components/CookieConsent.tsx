@@ -54,7 +54,7 @@ export default function CookieConsent() {
     }
 
     // Expose a global function so the footer "Cookie Settings" link can reopen the banner
-    (window as unknown as Record<string, () => void>).openCookieSettings = () => {
+    window.openCookieSettings = () => {
       setVisible(true);
       setShowDetails(true);
     };
