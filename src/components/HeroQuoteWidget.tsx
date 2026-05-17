@@ -320,7 +320,7 @@ export default function HeroQuoteWidget() {
           sessionStorage.setItem('rena_active_quote', JSON.stringify(data));
         }
       } catch {
-        // silently fail
+        // error state handled by !quote check in renderStep3
       } finally {
         setQuoteLoading(false);
       }
@@ -688,7 +688,30 @@ export default function HeroQuoteWidget() {
       );
     }
 
-    if (!quote) return null;
+    if (!quote) {
+      return (
+        <div className="py-10 text-center">
+          <p className="mb-1 font-cormorant text-[22px] font-light text-ink">
+            Something went wrong
+          </p>
+          <p className="mb-5 font-jost text-[13px] font-light text-ink-3">
+            We couldn&apos;t calculate your quote. Please try again.
+          </p>
+          <button
+            onClick={() => fetchQuote()}
+            className="rounded-md bg-gold px-6 py-3 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
+          >
+            Try again
+          </button>
+          <button
+            onClick={() => setStep(2)}
+            className="mt-3 block w-full py-2 font-jost text-[12px] text-ink-3 transition hover:text-ink"
+          >
+            Go back
+          </button>
+        </div>
+      );
+    }
 
     return (
       <>
@@ -878,7 +901,21 @@ export default function HeroQuoteWidget() {
   );
 
   const renderStep5 = () => {
-    if (!quote) return null;
+    if (!quote) {
+      return (
+        <div className="py-10 text-center">
+          <p className="mb-5 font-jost text-[14px] font-light text-ink-2">
+            Your quote is no longer available.
+          </p>
+          <button
+            onClick={handleReset}
+            className="rounded-md bg-gold px-6 py-3 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
+          >
+            Start over
+          </button>
+        </div>
+      );
+    }
     return (
       <>
         <div className="mb-5 text-center">
