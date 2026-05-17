@@ -31,6 +31,7 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     availableNow: (c.availableNow as boolean) || false,
     responseTime: (c.responseTime as string) || '~15 min',
     categoryRatings: DEFAULT_CATEGORY_RATINGS,
+    insured: (c.insured as boolean) || false,
     bringsProducts: false,
     productFee: 0,
   };
@@ -59,18 +60,15 @@ export function useCleanersApi() {
     [cleaners]
   );
 
-  const getReviewsForCleaner = useCallback(
-    async (cleanerId: string): Promise<Review[]> => {
-      try {
-        const res = await fetch(`/api/cleaners/${cleanerId}/reviews`);
-        if (!res.ok) return [];
-        return res.json();
-      } catch {
-        return [];
-      }
-    },
-    []
-  );
+  const getReviewsForCleaner = useCallback(async (cleanerId: string): Promise<Review[]> => {
+    try {
+      const res = await fetch(`/api/cleaners/${cleanerId}/reviews`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  }, []);
 
   return { cleaners, loading, getCleanerById, getReviewsForCleaner };
 }

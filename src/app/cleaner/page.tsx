@@ -34,6 +34,7 @@ interface DashboardData {
     availableNow: boolean;
     verified: boolean;
     verificationStatus: string;
+    insuranceVerified: boolean;
     profileComplete: boolean;
   };
   stats: {

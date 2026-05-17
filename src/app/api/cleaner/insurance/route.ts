@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fileData, fileName, expiryDate } = body;
+    const { fileData, fileName, mimeType, expiryDate } = body;
 
     if (!fileData || !fileName) {
       return NextResponse.json({ error: 'fileData and fileName are required' }, { status: 400 });
@@ -106,12 +106,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const fileBuffer = Buffer.from(fileData, 'base64');
+
     const document = await DocumentStorageService.uploadDocument({
       userId: user.id,
       profileId: profile.id,
       documentType: 'insurance',
-      fileData,
-      fileName,
+      fileBuffer,
+      originalName: fileName,
+      mimeType: mimeType || 'application/pdf',
       expiresAt: expiry,
       metadata: { policyExpiryDate: expiryDate },
     });
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
         document: {
           id: document.id,
           fileName: document.originalName,
-          expiresAt: document.expiresAt,
+          expiresAt: expiry,
         },
       },
       { status: 201 }
