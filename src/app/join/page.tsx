@@ -898,9 +898,16 @@ export default function JoinAsCleanerPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        setErrors({
-          submit: data?.error || 'Something went wrong. Please try again.',
-        });
+        let message = 'Something went wrong. Please try again.';
+        if (response.status === 409) {
+          message =
+            data?.error || 'An account with this email already exists. Please log in instead.';
+        } else if (response.status === 400) {
+          message = data?.error || 'Please check your details and try again.';
+        } else if (data?.error && typeof data.error === 'string' && data.error.length < 120) {
+          message = data.error;
+        }
+        setErrors({ submit: message });
         return;
       }
 

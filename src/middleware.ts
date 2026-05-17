@@ -57,6 +57,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Canonical domain redirect: apex → www
+  const host = request.headers.get('host') || '';
+  if (host === 'renacleaning.co.uk') {
+    const url = request.nextUrl.clone();
+    url.host = 'www.renacleaning.co.uk';
+    url.port = '';
+    return NextResponse.redirect(url, 301);
+  }
+
   const response = NextResponse.next();
 
   // Security headers

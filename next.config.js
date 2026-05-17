@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 
-if (!process.env.NEXTAUTH_URL && process.env.RAILWAY_PUBLIC_DOMAIN) {
-  process.env.NEXTAUTH_URL = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+// NEXTAUTH_URL must match the canonical domain users actually visit.
+// Set NEXTAUTH_URL=https://www.renacleaning.co.uk in Railway env vars.
+// Fallback to Railway's public domain only for preview/staging deployments.
+if (!process.env.NEXTAUTH_URL) {
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    process.env.NEXTAUTH_URL = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  }
 }
 
 const nextConfig = {
