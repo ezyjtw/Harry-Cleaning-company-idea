@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         await prisma.payment.create({
           data: {
             bookingId: booking.id,
-            ryftPaymentId: paymentSession.sessionId,
+            ryftPaymentId: paymentSession.id,
             amount: totalPrice,
             discountPercent: discountPercent || null,
             discountAmount: discountAmount || null,
