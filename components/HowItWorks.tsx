@@ -92,7 +92,7 @@ function StarRating({ rating }: { rating: number }) {
 function MiniCleanerCard({ cleaner }: { cleaner: (typeof SAMPLE_CLEANERS)[number] }) {
   return (
     <div
-      className="h-[220px] w-[240px] shrink-0 rounded-lg bg-white p-4 shadow-sm"
+      className="flex-1 rounded-lg bg-white p-4 shadow-sm"
       style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
     >
       <div className="mb-2 flex items-start gap-2.5">
@@ -188,15 +188,24 @@ function CleanerCarousel() {
     el.scrollBy({ left: dir === 'left' ? -256 : 256, behavior: 'smooth' });
   };
 
+  const pairs: (typeof SAMPLE_CLEANERS)[number][][] = [];
+  for (let i = 0; i < SAMPLE_CLEANERS.length; i += 2) {
+    pairs.push(SAMPLE_CLEANERS.slice(i, i + 2));
+  }
+
   return (
-    <div className="relative">
+    <div className="relative h-full">
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide"
+        className="flex h-full gap-3 overflow-x-auto scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {SAMPLE_CLEANERS.map((cleaner) => (
-          <MiniCleanerCard key={cleaner.name} cleaner={cleaner} />
+        {pairs.map((pair, idx) => (
+          <div key={idx} className="flex shrink-0 flex-col gap-3" style={{ width: '100%' }}>
+            {pair.map((cleaner) => (
+              <MiniCleanerCard key={cleaner.name} cleaner={cleaner} />
+            ))}
+          </div>
         ))}
       </div>
 
@@ -265,15 +274,15 @@ export default function HowItWorks() {
               {t('step1Description')}
             </p>
             <div
-              className="h-[220px] overflow-hidden rounded-md shadow-sm"
+              className="aspect-[4/5] overflow-hidden rounded-md bg-white shadow-sm"
               style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
             >
               <Image
                 src="/images/Enter your postcode.png"
                 alt="Enter your postcode to find cleaners near you"
                 width={380}
-                height={220}
-                className="h-full w-full object-cover"
+                height={475}
+                className="h-full w-full object-contain"
               />
             </div>
           </div>
@@ -290,7 +299,7 @@ export default function HowItWorks() {
             <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step2Description')}
             </p>
-            <div className="h-[220px] overflow-hidden rounded-md">
+            <div className="aspect-[4/5] overflow-hidden rounded-md">
               <CleanerCarousel />
             </div>
           </div>
@@ -308,7 +317,7 @@ export default function HowItWorks() {
               {t('step3Description')}
             </p>
             <div
-              className="flex h-[220px] items-center justify-center rounded-md bg-white"
+              className="flex aspect-[4/5] items-center justify-center rounded-md bg-white"
               style={{ border: '1px dashed rgba(27,42,74,0.15)' }}
             >
               <div className="text-center">
