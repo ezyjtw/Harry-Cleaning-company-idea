@@ -257,7 +257,7 @@ export default function HowItWorks() {
           {t('sectionTitle')}
         </p>
         <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
-          {t('sectionSubtitle')}
+          <span className="font-etna tracking-wider">RENA</span> {t('sectionSubtitle')}
         </h2>
 
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">
