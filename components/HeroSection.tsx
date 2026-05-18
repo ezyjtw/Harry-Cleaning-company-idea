@@ -39,7 +39,7 @@ export default function HeroSection() {
               <span className="italic">{t('revolutionSuffix')}</span>
             </p>
 
-            <p className="mb-3 font-cormorant text-[24px] font-light leading-[1.2] text-white/90 md:text-[34px]">
+            <p className="mb-3 font-cormorant text-[24px] font-semibold leading-[1.2] text-white/90 md:text-[34px]">
               {t('subtitle')}
             </p>
 
