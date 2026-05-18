@@ -92,16 +92,16 @@ function StarRating({ rating }: { rating: number }) {
 function MiniCleanerCard({ cleaner }: { cleaner: (typeof SAMPLE_CLEANERS)[number] }) {
   return (
     <div
-      className="w-[280px] shrink-0 rounded-lg bg-white p-5 shadow-sm"
+      className="h-[220px] w-[240px] shrink-0 rounded-lg bg-white p-4 shadow-sm"
       style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
     >
-      <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream font-jost text-[16px] font-semibold text-ink">
+      <div className="mb-2 flex items-start gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cream font-jost text-[14px] font-semibold text-ink">
           {cleaner.name.charAt(0)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <h4 className="truncate font-jost text-[14px] font-medium uppercase text-ink">
+            <h4 className="truncate font-jost text-[12px] font-medium uppercase text-ink">
               {cleaner.name}
             </h4>
             {cleaner.verified && (
@@ -121,16 +121,16 @@ function MiniCleanerCard({ cleaner }: { cleaner: (typeof SAMPLE_CLEANERS)[number
           <p className="font-jost text-[11px] font-light text-ink-3">{cleaner.location}</p>
         </div>
         <div className="text-right">
-          <span className="font-jost text-[16px] font-semibold text-ink">
+          <span className="font-jost text-[14px] font-semibold text-ink">
             &pound;{cleaner.hourlyRate}
           </span>
-          <span className="font-jost text-[10px] font-light text-ink-3">/hr</span>
+          <span className="font-jost text-[9px] font-light text-ink-3">/hr</span>
         </div>
       </div>
 
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-1.5">
         <StarRating rating={cleaner.rating} />
-        <span className="font-jost text-[11px] font-light text-ink-2">
+        <span className="font-jost text-[10px] font-light text-ink-2">
           {cleaner.rating} ({cleaner.reviewCount})
         </span>
         {cleaner.availableNow && (
@@ -139,20 +139,20 @@ function MiniCleanerCard({ cleaner }: { cleaner: (typeof SAMPLE_CLEANERS)[number
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
             </span>
-            <span className="font-jost text-[10px] font-medium text-teal">Available today</span>
+            <span className="font-jost text-[9px] font-medium text-teal">Available</span>
           </span>
         )}
       </div>
 
-      <p className="mb-3 line-clamp-2 font-jost text-[12px] font-light leading-relaxed text-ink-2">
+      <p className="mb-2 line-clamp-2 font-jost text-[11px] font-light leading-relaxed text-ink-2">
         {cleaner.bio}
       </p>
 
       <div className="flex flex-wrap gap-1">
-        {cleaner.specialties.slice(0, 3).map((s) => (
+        {cleaner.specialties.slice(0, 2).map((s) => (
           <span
             key={s}
-            className="rounded-full bg-cream px-2.5 py-0.5 font-jost text-[10px] font-medium text-ink-2"
+            className="rounded-full bg-cream px-2 py-0.5 font-jost text-[9px] font-medium text-ink-2"
           >
             {s}
           </span>
@@ -185,7 +185,7 @@ function CleanerCarousel() {
   const scroll = (dir: 'left' | 'right') => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollBy({ left: dir === 'left' ? -300 : 300, behavior: 'smooth' });
+    el.scrollBy({ left: dir === 'left' ? -256 : 256, behavior: 'smooth' });
   };
 
   return (
@@ -265,7 +265,7 @@ export default function HowItWorks() {
               {t('step1Description')}
             </p>
             <div
-              className="overflow-hidden rounded-md shadow-sm"
+              className="h-[220px] overflow-hidden rounded-md shadow-sm"
               style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
             >
               <Image
@@ -273,7 +273,7 @@ export default function HowItWorks() {
                 alt="Enter your postcode to find cleaners near you"
                 width={380}
                 height={220}
-                className="w-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
           </div>
@@ -290,7 +290,9 @@ export default function HowItWorks() {
             <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step2Description')}
             </p>
-            <CleanerCarousel />
+            <div className="h-[220px] overflow-hidden rounded-md">
+              <CleanerCarousel />
+            </div>
           </div>
 
           {/* Step 3 — They arrive, you relax */}
@@ -306,7 +308,7 @@ export default function HowItWorks() {
               {t('step3Description')}
             </p>
             <div
-              className="flex h-[180px] items-center justify-center rounded-md bg-white"
+              className="flex h-[220px] items-center justify-center rounded-md bg-white"
               style={{ border: '1px dashed rgba(27,42,74,0.15)' }}
             >
               <div className="text-center">
