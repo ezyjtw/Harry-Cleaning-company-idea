@@ -361,7 +361,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   const { error } = await stripe.confirmPayment({
                     elements,
                     confirmParams: {
-                      return_url: bookingData.payment?.returnUrl || window.location.href,
+                      return_url: window.location.href,
                     },
                     redirect: 'if_required',
                   });
