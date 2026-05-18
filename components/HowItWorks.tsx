@@ -57,6 +57,32 @@ const SAMPLE_CLEANERS = [
     availableNow: false,
     verified: true,
   },
+  {
+    name: 'Aisha Johnson',
+    location: 'Chelmsford, Essex',
+    rating: 4.7,
+    reviewCount: 189,
+    hourlyRate: 20,
+    bio: 'Experienced in end-of-tenancy and Airbnb turnovers. Fast, thorough, and always on time.',
+    specialties: ['End of Tenancy', 'Airbnb Cleaning'],
+    yearsExperience: 6,
+    completedJobs: 189,
+    availableNow: true,
+    verified: true,
+  },
+  {
+    name: 'Sofia Dimitrova',
+    location: 'Stratford, London',
+    rating: 4.88,
+    reviewCount: 310,
+    hourlyRate: 19,
+    bio: 'Meticulous and friendly. I treat every home as if it were my own. Specialising in regular and deep cleans.',
+    specialties: ['Regular Cleaning', 'Deep Cleaning'],
+    yearsExperience: 5,
+    completedJobs: 310,
+    availableNow: true,
+    verified: true,
+  },
 ];
 
 function StarRating({ rating }: { rating: number }) {
