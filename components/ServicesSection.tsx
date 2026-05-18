@@ -67,7 +67,39 @@ export default function ServicesSection() {
           className="flex flex-col md:flex-row"
           style={{ border: '1px solid rgba(27,42,74,0.08)', borderTop: 'none' }}
         >
-          <div className="flex-1 p-6 md:p-10">
+          {/* Mobile: image background with text overlay */}
+          <div className="relative md:hidden">
+            <Image
+              key={`mobile-${services[active].id}`}
+              src={SERVICE_IMAGES[services[active].id]}
+              alt={services[active].title}
+              fill
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-ink/60" />
+            <div className="relative z-10 p-6">
+              <h3 className="mb-3 font-jost text-[20px] font-semibold text-white">
+                {services[active].title}
+              </h3>
+              <p className="mb-6 font-jost text-[15px] font-light leading-[1.8] text-white/85">
+                {services[active].description}
+              </p>
+              <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                <span className="font-cormorant text-[32px] font-light text-white">
+                  {services[active].price}
+                </span>
+                <Link
+                  href={`/services/${services[active].id}`}
+                  className="rounded-md bg-gold px-7 py-3 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+                >
+                  {t('getQuote')}
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop: side-by-side layout */}
+          <div className="hidden flex-1 p-6 md:block md:p-10">
             <h3 className="mb-3 font-jost text-[20px] font-semibold text-ink md:text-[24px]">
               {services[active].title}
             </h3>
