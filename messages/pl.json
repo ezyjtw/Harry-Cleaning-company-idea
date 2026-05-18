@@ -95,17 +95,15 @@
   "Guarantees": {
     "sectionTitle": "Zaufanie i bezpieczeństwo",
     "sectionSubtitle": "Wiedz, kto wchodzi do Twojego domu",
-    "sectionDescription": "Współpracujemy tylko ze zweryfikowanymi, zaufanymi sprzątaczami, którzy przeszli rygorystyczny proces rekrutacji. Pełne sprawdzenie przeszłości, zweryfikowana tożsamość i ubezpieczenie przy każdej wizycie.",
+    "sectionDescription": "Współpracujemy tylko ze zweryfikowanymi, zaufanymi sprzątaczami, którzy przeszli rygorystyczny proces rekrutacji. Tożsamość zweryfikowana osobiście, rekomendowani przez lokalnych klientów i w pełni ubezpieczeni przy każdej wizycie.",
     "bookClean": "Zarezerwuj sprzątanie",
     "ourGuarantees": "Nasze gwarancje",
-    "vettedTitle": "Zweryfikowani sprzątacze",
-    "vettedDesc": "Każdy sprzątacz jest zweryfikowany pod kątem tożsamości i osobiście sprawdzony, zanim przyjmie jakiekolwiek zlecenie.",
-    "idTitle": "Tożsamość potwierdzona",
-    "idDesc": "Dokument tożsamości wydany przez rząd, zweryfikowany osobiście. Zawsze wiesz dokładnie, kto przychodzi do Twojego domu.",
+    "vettedTitle": "Tożsamość zweryfikowana i sprawdzona",
+    "vettedDesc": "Dokument tożsamości każdego sprzątacza jest weryfikowany osobiście i jest on indywidualnie sprawdzony, zanim przyjmie jakiekolwiek zlecenie. Zawsze wiesz dokładnie, kto przychodzi do Twojego domu.",
     "onboardingTitle": "Rygorystyczna rekrutacja",
-    "onboardingDesc": "Rozmowa kwalifikacyjna, sprawdzenie referencji i próbne sprzątanie. Tylko niewielka część kandydatów przechodzi pomyślnie.",
+    "onboardingDesc": "Rozmowa kwalifikacyjna, sprawdzenie referencji i bezpośrednia rekomendacja od lokalnego klienta. Tylko niewielka część kandydatów przechodzi pomyślnie.",
     "insuredTitle": "Pełne ubezpieczenie",
-    "insuredDesc": "Każda rezerwacja jest objęta naszą polisą ubezpieczeniową. Twój dom i mienie są chronione."
+    "insuredDesc": "RENA posiada własne ubezpieczenie, a każdy sprzątacz na platformie musi posiadać własne ubezpieczenie od odpowiedzialności cywilnej. Każde sprzątanie jest objęte ochroną."
   },
   "Reviews": {
     "sectionTitle": "Opinie",

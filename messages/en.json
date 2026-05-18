@@ -95,17 +95,15 @@
   "Guarantees": {
     "sectionTitle": "Trust and safety",
     "sectionSubtitle": "Know who walks through your door",
-    "sectionDescription": "We only work with vetted, trusted cleaners who have passed a rigorous onboarding process. Full background checks, verified identity, and insured on every visit.",
+    "sectionDescription": "We only work with vetted, trusted cleaners who have passed a rigorous onboarding process. ID verified in person, referred by local customers, and fully insured on every visit.",
     "bookClean": "Book a clean",
     "ourGuarantees": "Our guarantees",
-    "vettedTitle": "Vetted cleaners",
-    "vettedDesc": "Every cleaner is ID-verified and personally vetted before they can take a single booking.",
-    "idTitle": "ID verified",
-    "idDesc": "Government-issued ID verified in person. You always know exactly who is coming to your home.",
+    "vettedTitle": "ID verified & vetted",
+    "vettedDesc": "Every cleaner's government-issued ID is verified in person and they are personally vetted before they can take a single booking. You always know exactly who is coming to your home.",
     "onboardingTitle": "Rigorous onboarding",
-    "onboardingDesc": "Interview, reference checks, and a trial clean. Only a fraction of applicants make it through.",
+    "onboardingDesc": "Interview, reference checks, and a direct referral from a local customer. Only a fraction of applicants make it through.",
     "insuredTitle": "Fully insured",
-    "insuredDesc": "Every booking is covered by our insurance policy. Your home and belongings are protected."
+    "insuredDesc": "RENA carries its own insurance and every cleaner on the platform is required to hold their own public liability insurance. Every clean is covered."
   },
   "Reviews": {
     "sectionTitle": "Reviews",

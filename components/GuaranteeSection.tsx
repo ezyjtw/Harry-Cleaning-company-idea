@@ -22,16 +22,6 @@ function ShieldIcon() {
   );
 }
 
-function IdIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="4" width="16" height="12" rx="2" stroke="#2F80ED" strokeWidth="1.5" />
-      <circle cx="8" cy="9" r="2" stroke="#00BFA6" strokeWidth="1.2" />
-      <path d="M12 8H16M12 11H15" stroke="#2F80ED" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function ProcessIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -67,7 +57,6 @@ export default function GuaranteeSection() {
 
   const guarantees = [
     { icon: <ShieldIcon />, title: t('vettedTitle'), body: t('vettedDesc') },
-    { icon: <IdIcon />, title: t('idTitle'), body: t('idDesc') },
     { icon: <ProcessIcon />, title: t('onboardingTitle'), body: t('onboardingDesc') },
     { icon: <LockIcon />, title: t('insuredTitle'), body: t('insuredDesc') },
   ];
