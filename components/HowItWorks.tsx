@@ -256,13 +256,13 @@ export default function HowItWorks() {
         <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
           {t('sectionTitle')}
         </p>
-        <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
+        <h2 className="mb-10 font-cormorant text-[24px] font-light leading-tight text-ink md:mb-14 md:text-[32px]">
           <span className="font-etna tracking-wider">RENA</span> {t('sectionSubtitle')}
         </h2>
 
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">
           {/* Step 1 — Enter your postcode */}
-          <div>
+          <div className="flex flex-col">
             <div className="mb-5 font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
               01
             </div>
@@ -270,7 +270,7 @@ export default function HowItWorks() {
             <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">
               {t('step1Title')}
             </h3>
-            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
+            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
               {t('step1Description')}
             </p>
             <div
@@ -288,7 +288,7 @@ export default function HowItWorks() {
           </div>
 
           {/* Step 2 — Choose someone you trust */}
-          <div>
+          <div className="flex flex-col">
             <div className="mb-5 font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
               02
             </div>
@@ -296,7 +296,7 @@ export default function HowItWorks() {
             <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">
               {t('step2Title')}
             </h3>
-            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
+            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
               {t('step2Description')}
             </p>
             <div className="aspect-[4/5] overflow-hidden rounded-md">
@@ -305,7 +305,7 @@ export default function HowItWorks() {
           </div>
 
           {/* Step 3 — They arrive, you relax */}
-          <div>
+          <div className="flex flex-col">
             <div className="mb-5 font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
               03
             </div>
@@ -313,7 +313,7 @@ export default function HowItWorks() {
             <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">
               {t('step3Title')}
             </h3>
-            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
+            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
               {t('step3Description')}
             </p>
             <div
