@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -14,7 +15,7 @@ const services: {
   price: string;
   priceNote?: string;
   badge?: string;
-  icon: React.ReactNode;
+  image: string;
   idealFor: string;
 }[] = [
   {
@@ -35,21 +36,7 @@ const services: {
     priceNote: 'Save up to 10% with a recurring schedule',
     badge: 'Most Popular',
     idealFor: 'Busy households wanting a reliable, ongoing clean',
-    icon: (
-      <svg
-        className="h-7 w-7"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-        />
-      </svg>
-    ),
+    image: '/images/Regular cleaning.png',
   },
   {
     id: 'same-day',
@@ -66,21 +53,7 @@ const services: {
     ],
     price: 'From £18/hr',
     idealFor: 'Last-minute guests, property viewings, or urgent tidying',
-    icon: (
-      <svg
-        className="h-7 w-7"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
+    image: '/images/Same day cleaning.png',
   },
   {
     id: 'deep',
@@ -100,21 +73,7 @@ const services: {
     priceNote: 'Typically 3–8 hours depending on property size',
     badge: 'Best Value',
     idealFor: 'Seasonal refreshes, pre-event prep, or a fresh start',
-    icon: (
-      <svg
-        className="h-7 w-7"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-        />
-      </svg>
-    ),
+    image: '/images/Deep cleaning.png',
   },
   {
     id: 'airbnb',
@@ -133,21 +92,7 @@ const services: {
     price: 'From £55',
     priceNote: 'Fixed price based on property size',
     idealFor: 'Airbnb hosts, holiday lets, and short-stay properties',
-    icon: (
-      <svg
-        className="h-7 w-7"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-        />
-      </svg>
-    ),
+    image: '/images/Air BnB cleaning.png',
   },
   {
     id: 'end-of-tenancy',
@@ -168,21 +113,7 @@ const services: {
     price: '£150 – £580',
     priceNote: 'Cleaner-set prices by property size',
     idealFor: 'Tenants moving out who want their full deposit returned',
-    icon: (
-      <svg
-        className="h-7 w-7"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819"
-        />
-      </svg>
-    ),
+    image: '/images/End of Tenancy.png',
   },
 ];
 
@@ -242,11 +173,14 @@ export default function ServicesPage() {
                     {/* Left/Right column — visual panel */}
                     <div className="flex items-center justify-center bg-cream-2 px-8 py-10 lg:w-[320px] lg:shrink-0 lg:py-12">
                       <div className="text-center">
-                        <div
-                          className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-gold"
-                          style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
-                        >
-                          {service.icon}
+                        <div className="mx-auto mb-4 h-[160px] w-[160px] overflow-hidden rounded-lg">
+                          <Image
+                            src={service.image}
+                            alt={service.title}
+                            width={160}
+                            height={160}
+                            className="h-full w-full object-cover"
+                          />
                         </div>
                         <p className="mt-5 font-cormorant text-3xl font-light text-ink sm:text-[34px]">
                           {service.price}
