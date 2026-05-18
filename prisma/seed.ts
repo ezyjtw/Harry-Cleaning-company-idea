@@ -274,6 +274,137 @@ async function main() {
   }
   console.log('  Service types seeded');
 
+  // ─── Platform Config ──────────────────────────────────────
+  const platformConfigs = [
+    {
+      key: 'cleaner_fee_pct',
+      value: '0.10',
+      description: 'Platform commission taken from cleaner (10%)',
+    },
+    { key: 'customer_fee_pct', value: '0.06', description: 'Service fee charged to customer (6%)' },
+    {
+      key: 'deep_multiplier',
+      value: '1.45',
+      description: 'Rate multiplier for deep clean / fixed-price services',
+    },
+    {
+      key: 'fortnightly_multiplier',
+      value: '1.05',
+      description: 'Rate multiplier for fortnightly bookings',
+    },
+    { key: 'min_cleaner_rate', value: '14', description: 'Minimum cleaner hourly rate (£)' },
+    { key: 'max_cleaner_rate', value: '35', description: 'Maximum cleaner hourly rate (£)' },
+  ];
+
+  for (const cfg of platformConfigs) {
+    await prisma.platformConfig.upsert({
+      where: { key: cfg.key },
+      update: { value: cfg.value, description: cfg.description },
+      create: cfg,
+    });
+  }
+  console.log('  Platform config seeded');
+
+  // ─── Fixed Service Prices (EOT & Airbnb) ──────────────────
+  const eotService = await prisma.serviceType.findUnique({ where: { slug: 'eot' } });
+  const airbnbService = await prisma.serviceType.findUnique({ where: { slug: 'airbnb' } });
+
+  if (eotService) {
+    const eotPrices: {
+      propertySize: 'STUDIO' | 'ONE_BED' | 'TWO_BED' | 'THREE_BED' | 'FOUR_BED' | 'FIVE_PLUS';
+      customerPrice: number;
+      estimatedHours: number;
+    }[] = [
+      { propertySize: 'STUDIO', customerPrice: 175, estimatedHours: 4 },
+      { propertySize: 'ONE_BED', customerPrice: 215, estimatedHours: 5 },
+      { propertySize: 'TWO_BED', customerPrice: 275, estimatedHours: 6 },
+      { propertySize: 'THREE_BED', customerPrice: 350, estimatedHours: 7 },
+      { propertySize: 'FOUR_BED', customerPrice: 420, estimatedHours: 8 },
+      { propertySize: 'FIVE_PLUS', customerPrice: 520, estimatedHours: 10 },
+    ];
+    for (const fp of eotPrices) {
+      await prisma.fixedServicePrice.upsert({
+        where: {
+          serviceTypeId_propertySize: {
+            serviceTypeId: eotService.id,
+            propertySize: fp.propertySize,
+          },
+        },
+        update: { customerPrice: fp.customerPrice, estimatedHours: fp.estimatedHours },
+        create: { serviceTypeId: eotService.id, ...fp },
+      });
+    }
+    console.log('  EOT fixed prices seeded');
+  }
+
+  if (airbnbService) {
+    const airbnbPrices: {
+      propertySize: 'STUDIO' | 'ONE_BED' | 'TWO_BED' | 'THREE_BED' | 'FOUR_BED' | 'FIVE_PLUS';
+      customerPrice: number;
+      estimatedHours: number;
+    }[] = [
+      { propertySize: 'STUDIO', customerPrice: 55, estimatedHours: 2 },
+      { propertySize: 'ONE_BED', customerPrice: 70, estimatedHours: 2.5 },
+      { propertySize: 'TWO_BED', customerPrice: 90, estimatedHours: 3 },
+      { propertySize: 'THREE_BED', customerPrice: 115, estimatedHours: 3.5 },
+      { propertySize: 'FOUR_BED', customerPrice: 145, estimatedHours: 4.5 },
+      { propertySize: 'FIVE_PLUS', customerPrice: 180, estimatedHours: 5.5 },
+    ];
+    for (const fp of airbnbPrices) {
+      await prisma.fixedServicePrice.upsert({
+        where: {
+          serviceTypeId_propertySize: {
+            serviceTypeId: airbnbService.id,
+            propertySize: fp.propertySize,
+          },
+        },
+        update: { customerPrice: fp.customerPrice, estimatedHours: fp.estimatedHours },
+        create: { serviceTypeId: airbnbService.id, ...fp },
+      });
+    }
+    console.log('  Airbnb fixed prices seeded');
+  }
+
+  // ─── Service Add-ons ──────────────────────────────────────
+  if (eotService) {
+    const eotAddons = [
+      { name: 'Oven clean', price: 35 },
+      { name: 'Fridge clean', price: 25 },
+      { name: 'Interior windows', price: 30 },
+      { name: 'Carpet steam clean (per room)', price: 40 },
+    ];
+    for (const addon of eotAddons) {
+      const existing = await prisma.serviceAddon.findFirst({
+        where: { serviceTypeId: eotService.id, name: addon.name },
+      });
+      if (!existing) {
+        await prisma.serviceAddon.create({
+          data: { serviceTypeId: eotService.id, ...addon },
+        });
+      }
+    }
+    console.log('  EOT add-ons seeded');
+  }
+
+  if (airbnbService) {
+    const airbnbAddons = [
+      { name: 'Linen change', price: 15 },
+      { name: 'Welcome pack setup', price: 10 },
+      { name: 'Fridge restock check', price: 10 },
+    ];
+    for (const addon of airbnbAddons) {
+      const existing = await prisma.serviceAddon.findFirst({
+        where: { serviceTypeId: airbnbService.id, name: addon.name },
+      });
+      if (!existing) {
+        await prisma.serviceAddon.create({
+          data: { serviceTypeId: airbnbService.id, ...addon },
+        });
+      }
+    }
+    console.log('  Airbnb add-ons seeded');
+  }
+
   // ─── Sample Booking ────────────────────────────────────────
   const mariaCleaner = await prisma.user.findUnique({ where: { email: 'maria@example.com' } });
   if (mariaCleaner) {
