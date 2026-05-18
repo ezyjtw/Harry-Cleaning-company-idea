@@ -468,11 +468,10 @@ export default function HeroQuoteWidget() {
         </button>
       </div>
 
-      {postcodeError ? (
+      {postcodeError && (
         <p className="mb-7 mt-2 font-jost text-[12px] text-red-500">{postcodeError}</p>
-      ) : (
-        <p className="mb-7 mt-2 font-jost text-[12px] text-ink-3">e.g. SW1A 1AA or E4 7AP</p>
       )}
+      {!postcodeError && <div className="mb-7 mt-2" />}
 
       {/* Out-of-area waitlist */}
       {showWaitlist && !waitlistSubmitted && (
