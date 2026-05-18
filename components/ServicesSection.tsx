@@ -1,8 +1,17 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+
+const SERVICE_IMAGES: Record<string, string> = {
+  regular: '/images/Regular cleaning.png',
+  'same-day': '/images/Same day cleaning.png',
+  deep: '/images/Deep cleaning.png',
+  'end-of-tenancy': '/images/End of Tenancy.png',
+  airbnb: '/images/Air BnB cleaning.png',
+};
 
 export default function ServicesSection() {
   const [active, setActive] = useState(0);
@@ -55,10 +64,10 @@ export default function ServicesSection() {
 
         {/* Expanded detail */}
         <div
-          className="p-6 md:p-10"
+          className="flex flex-col md:flex-row"
           style={{ border: '1px solid rgba(27,42,74,0.08)', borderTop: 'none' }}
         >
-          <div className="max-w-[600px]">
+          <div className="flex-1 p-6 md:p-10">
             <h3 className="mb-3 font-jost text-[20px] font-semibold text-ink md:text-[24px]">
               {services[active].title}
             </h3>
@@ -76,6 +85,15 @@ export default function ServicesSection() {
                 {t('getQuote')}
               </Link>
             </div>
+          </div>
+          <div className="relative hidden w-[280px] shrink-0 overflow-hidden md:block lg:w-[340px]">
+            <Image
+              key={services[active].id}
+              src={SERVICE_IMAGES[services[active].id]}
+              alt={services[active].title}
+              fill
+              className="object-cover"
+            />
           </div>
         </div>
       </div>
