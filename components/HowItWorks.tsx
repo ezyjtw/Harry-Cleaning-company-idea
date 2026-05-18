@@ -251,30 +251,28 @@ export default function HowItWorks() {
           {t('sectionSubtitle')}
         </h2>
 
-        <div className="grid grid-cols-1 gap-14 md:gap-16">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">
           {/* Step 1 — Enter your postcode */}
           <div>
-            <div className="mb-6 flex items-baseline gap-4">
-              <span className="font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
-                01
-              </span>
-              <div>
-                <div className="mb-1 h-[2px] w-8 rounded bg-gold" />
-                <h3 className="font-jost text-[16px] font-semibold text-ink">{t('step1Title')}</h3>
-              </div>
+            <div className="mb-5 font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
+              01
             </div>
-            <p className="mb-6 max-w-[600px] font-jost text-[14px] font-light leading-[1.7] text-ink-3">
+            <div className="mb-5 h-[2px] w-8 rounded bg-gold" />
+            <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">
+              {t('step1Title')}
+            </h3>
+            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step1Description')}
             </p>
             <div
-              className="max-w-[500px] overflow-hidden rounded-lg shadow-sm"
+              className="overflow-hidden rounded-md shadow-sm"
               style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
             >
               <Image
                 src="/images/Enter your postcode.png"
                 alt="Enter your postcode to find cleaners near you"
-                width={500}
-                height={280}
+                width={380}
+                height={220}
                 className="w-full object-cover"
               />
             </div>
@@ -282,16 +280,14 @@ export default function HowItWorks() {
 
           {/* Step 2 — Choose someone you trust */}
           <div>
-            <div className="mb-6 flex items-baseline gap-4">
-              <span className="font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
-                02
-              </span>
-              <div>
-                <div className="mb-1 h-[2px] w-8 rounded bg-gold" />
-                <h3 className="font-jost text-[16px] font-semibold text-ink">{t('step2Title')}</h3>
-              </div>
+            <div className="mb-5 font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
+              02
             </div>
-            <p className="mb-6 max-w-[600px] font-jost text-[14px] font-light leading-[1.7] text-ink-3">
+            <div className="mb-5 h-[2px] w-8 rounded bg-gold" />
+            <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">
+              {t('step2Title')}
+            </h3>
+            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step2Description')}
             </p>
             <CleanerCarousel />
@@ -299,20 +295,18 @@ export default function HowItWorks() {
 
           {/* Step 3 — They arrive, you relax */}
           <div>
-            <div className="mb-6 flex items-baseline gap-4">
-              <span className="font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
-                03
-              </span>
-              <div>
-                <div className="mb-1 h-[2px] w-8 rounded bg-gold" />
-                <h3 className="font-jost text-[16px] font-semibold text-ink">{t('step3Title')}</h3>
-              </div>
+            <div className="mb-5 font-cormorant text-[64px] font-semibold leading-none text-ink/10 md:text-[72px]">
+              03
             </div>
-            <p className="mb-6 max-w-[600px] font-jost text-[14px] font-light leading-[1.7] text-ink-3">
+            <div className="mb-5 h-[2px] w-8 rounded bg-gold" />
+            <h3 className="mb-2.5 font-jost text-[16px] font-semibold text-ink">
+              {t('step3Title')}
+            </h3>
+            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step3Description')}
             </p>
             <div
-              className="flex h-[200px] max-w-[500px] items-center justify-center rounded-lg bg-white md:h-[280px]"
+              className="flex h-[180px] items-center justify-center rounded-md bg-white"
               style={{ border: '1px dashed rgba(27,42,74,0.15)' }}
             >
               <div className="text-center">
