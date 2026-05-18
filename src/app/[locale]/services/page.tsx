@@ -354,7 +354,7 @@ export default function ServicesPage() {
                           href={`/services/${service.id}`}
                           className="inline-block bg-ink px-8 py-3.5 text-center font-jost text-[11px] uppercase tracking-[0.14em] text-cream transition-colors hover:bg-gold"
                         >
-                          Book a Cleaner Now
+                          Get a Quote
                         </Link>
                         <Link
                           href="/cleaners"
@@ -474,15 +474,15 @@ export default function ServicesPage() {
             Ready to book your clean?
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-jost font-light text-cream/70 leading-relaxed">
-            Book in under two minutes. Choose your service, pick your cleaner, and book a time that
-            works for you.
+            Get a quote in under two minutes. Choose your service, pick your cleaner, and book a
+            time that works for you.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/services/regular"
               className="inline-block bg-gold px-10 py-4 font-jost text-[12px] uppercase tracking-[0.14em] text-white transition-opacity hover:opacity-90"
             >
-              Book a Cleaner Now
+              Get a Quote
             </Link>
             <Link
               href="/pricing"

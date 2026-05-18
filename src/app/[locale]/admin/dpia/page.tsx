@@ -72,7 +72,7 @@ const dpiaItems = [
   },
   {
     title: '6. Payment Data',
-    description: 'Payment card details processed via Stripe (PCI-DSS compliant processor).',
+    description: 'Payment card details processed via Ryft (PCI-DSS compliant processor).',
     lawfulBasis: 'Contract performance',
     risk: 'Medium',
     mitigations: [
@@ -229,7 +229,7 @@ export default function DpiaPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 shrink-0 text-ink-3">&#9744;</span>
-              Set up data processing agreements with all third-party services (Stripe, Resend,
+              Set up data processing agreements with all third-party services (Ryft, Resend,
               Railway)
             </li>
             <li className="flex items-start gap-2">

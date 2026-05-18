@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { createPaymentSession, getPaymentSession } from '@/lib/services/stripe-payment.service';
+import { createPaymentSession, getPaymentSession } from '@/lib/services/ryft-payment.service';
 
-// POST /api/payments — Create a Stripe payment intent
+// POST /api/payments — Create a Ryft payment session
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();

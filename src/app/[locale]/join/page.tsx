@@ -597,7 +597,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
             {[
               {
                 title: 'Next Business Day Payouts',
-                desc: 'No waiting weeks for your money. Complete a job today, see the payment in your bank account the next business day via Stripe.',
+                desc: 'No waiting weeks for your money. Complete a job today, see the payment in your bank account the next business day via Ryft.',
               },
               {
                 title: 'Everything Looked After',
@@ -675,7 +675,7 @@ export default function JoinAsCleanerPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [stripeMessage, setStripeMessage] = useState(false);
+  const [ryftMessage, setRyftMessage] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
 
@@ -2012,29 +2012,29 @@ export default function JoinAsCleanerPage() {
               style={{ border: '1px solid rgba(14,14,12,0.06)' }}
             >
               <h3 className="font-jost text-[14px] font-normal text-ink">
-                We use Stripe for payouts
+                We use Ryft for payouts
               </h3>
               <p className="mt-2 font-jost text-[13px] font-light text-ink-2 leading-relaxed">
-                Stripe is a secure payment platform. Once your application is approved, you&apos;ll
-                be redirected to Stripe to set up your payouts. This lets you receive earnings
-                directly into your bank account.
+                Ryft is a secure payment platform. Once your application is approved, you&apos;ll be
+                redirected to Ryft to set up your payouts. This lets you receive earnings directly
+                into your bank account.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() => setStripeMessage(true)}
+              onClick={() => setRyftMessage(true)}
               className="w-full rounded-xl bg-ink py-3 font-jost text-[14px] font-normal text-cream hover:bg-ink/90 transition"
             >
-              Set Up Stripe
+              Set Up Ryft
             </button>
 
-            {stripeMessage && (
+            {ryftMessage && (
               <div
                 className="rounded-lg bg-gold/10 px-4 py-3 font-jost text-[13px] font-light text-ink-2 animate-fade-in"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                Coming soon &mdash; Stripe integration is under development. You can continue with
+                Coming soon &mdash; Ryft integration is under development. You can continue with
                 your application for now.
               </div>
             )}

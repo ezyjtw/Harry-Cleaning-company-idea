@@ -144,7 +144,7 @@ export class CustomerAssistant {
     return {
       message:
         "We offer several cleaning services:\n\n**Regular Clean** - Routine maintenance cleaning\n**One-Off Clean** - Single visit, no commitment\n**Same-Day Clean** - Need it today? We can help\n**Deep Clean** - Thorough top-to-bottom cleaning\n**End of Tenancy** - Fixed-price move-out clean (from £175)\n**Airbnb Turnover** - Fixed-price turnaround for short lets (from £55)\n\nAll cleaners are vetted, insured, and ID-verified. Just a small 6% service fee on top of the cleaner's rate.\n\nWould you like a quote for any of these services?",
-      suggestedActions: ['Book a cleaner now', 'Book now', 'View cleaners'],
+      suggestedActions: ['Get a quote', 'Book now', 'View cleaners'],
     };
   }
 }

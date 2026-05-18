@@ -256,8 +256,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           totalPrice: priceBreakdown.total,
         });
 
-        // If we have a real Stripe payment intent, show the payment step
-        if (data.payment?.clientSecret && !data.payment.clientSecret.includes('_mock_')) {
+        // If we have a real Ryft payment session, show the payment step
+        if (data.payment?.clientSecret && !data.payment.clientSecret.startsWith('cs_mock_')) {
           setPaymentStep(true);
         } else {
           // Mock/dev mode — skip payment, go straight to confirmation
@@ -271,7 +271,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // ─── Stripe Payment Step ────────────────────────────────────
+  // ─── Ryft Payment Step ─────────────────────────────────────
   if (paymentStep && bookingData?.payment) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream">
@@ -279,7 +279,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           Complete Payment
         </h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
-          Secure payment powered by Stripe. Your funds are held in escrow until the job is complete.
+          Secure payment powered by Ryft. Your funds are held in escrow until the job is complete.
         </p>
 
         {/* Booking summary */}
@@ -311,17 +311,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* Stripe Elements container */}
+        {/* Ryft Drop-in container */}
         <div className="mt-6">
           <div
-            id="stripe-payment-element"
+            id="ryft-dropin"
             className="min-h-[200px] bg-white p-6"
             style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             ref={(el) => {
               if (!el || el.dataset.mounted === 'true') return;
               el.dataset.mounted = 'true';
 
-              const publicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+              const publicKey = process.env.NEXT_PUBLIC_RYFT_PUBLIC_KEY;
               if (!publicKey) {
                 el.innerHTML =
                   '<p class="text-center text-ink-3 font-jost text-sm">Payment provider not configured</p>';
@@ -329,54 +329,39 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               }
 
               const script = document.createElement('script');
-              script.src = 'https://js.stripe.com/v3/';
+              script.src = 'https://embedded.ryftpay.com/v1/dropin.js';
               script.onload = () => {
-                const stripe = window.Stripe?.(publicKey);
-                if (!stripe || !bookingData.payment?.clientSecret) return;
+                const Ryft = window.Ryft;
+                if (!Ryft) return;
 
-                const elements = stripe.elements({
+                Ryft.init({
+                  publicApiKey: publicKey,
+                  environment: publicKey.startsWith('pk_sandbox') ? 'sandbox' : 'production',
+                });
+
+                if (!bookingData.payment?.clientSecret) return;
+
+                Ryft.renderDropIn(el, {
                   clientSecret: bookingData.payment.clientSecret,
                   appearance: {
-                    theme: 'flat',
+                    theme: 'minimal',
                     variables: {
                       fontFamily: 'Jost, sans-serif',
                       colorPrimary: '#0e0e0c',
                       borderRadius: '0px',
                     },
                   },
-                });
-
-                const paymentElement = elements.create('payment');
-                paymentElement.mount(el);
-
-                const form = el.closest('div')?.parentElement;
-                const submitBtn = document.createElement('button');
-                submitBtn.type = 'button';
-                submitBtn.className =
-                  'w-full mt-4 bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition';
-                submitBtn.textContent = 'Pay Now';
-                submitBtn.onclick = async () => {
-                  submitBtn.disabled = true;
-                  submitBtn.textContent = 'Processing...';
-                  const { error } = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                      return_url: window.location.href,
-                    },
-                    redirect: 'if_required',
-                  });
-
-                  if (error) {
+                  onPaymentResult: (result: { status: string }) => {
+                    if (result.status === 'Captured' || result.status === 'Approved') {
+                      setPaymentStep(false);
+                      setSubmitted(true);
+                    }
+                  },
+                  onPaymentError: (error: { message: string }) => {
                     // eslint-disable-next-line no-console
-                    console.error('[Stripe] Payment error:', error.message);
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Pay Now';
-                  } else {
-                    setPaymentStep(false);
-                    setSubmitted(true);
-                  }
-                };
-                form?.appendChild(submitBtn);
+                    console.error('[Ryft] Payment error:', error.message);
+                  },
+                });
               };
               document.head.appendChild(script);
             }}
@@ -393,7 +378,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             />
           </svg>
           <p className="font-jost text-xs font-light text-ink-2">
-            Your payment is encrypted and processed securely by Stripe, a PCI-certified payment
+            Your payment is encrypted and processed securely by Ryft, an FCA-regulated payment
             provider. Funds are held in escrow and only released when the job is confirmed complete.
           </p>
         </div>
