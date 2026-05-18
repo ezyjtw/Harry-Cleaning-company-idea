@@ -267,14 +267,14 @@ export default function HowItWorks() {
               {t('step1Description')}
             </p>
             <div
-              className="overflow-hidden rounded-lg shadow-sm"
+              className="max-w-[500px] overflow-hidden rounded-lg shadow-sm"
               style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
             >
               <Image
                 src="/images/Enter your postcode.png"
                 alt="Enter your postcode to find cleaners near you"
-                width={800}
-                height={400}
+                width={500}
+                height={280}
                 className="w-full object-cover"
               />
             </div>
@@ -312,7 +312,7 @@ export default function HowItWorks() {
               {t('step3Description')}
             </p>
             <div
-              className="flex h-[300px] items-center justify-center rounded-lg bg-white md:h-[400px]"
+              className="flex h-[200px] max-w-[500px] items-center justify-center rounded-lg bg-white md:h-[280px]"
               style={{ border: '1px dashed rgba(27,42,74,0.15)' }}
             >
               <div className="text-center">
