@@ -171,22 +171,20 @@ export default function ServicesPage() {
                     className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}
                   >
                     {/* Left/Right column — visual panel */}
-                    <div className="flex items-center justify-center bg-cream-2 px-8 py-10 lg:w-[320px] lg:shrink-0 lg:py-12">
-                      <div className="text-center">
-                        <div className="mx-auto mb-4 h-[160px] w-[160px] overflow-hidden rounded-lg">
-                          <Image
-                            src={service.image}
-                            alt={service.title}
-                            width={160}
-                            height={160}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <p className="mt-5 font-cormorant text-3xl font-light text-ink sm:text-[34px]">
+                    <div className="relative overflow-hidden lg:w-[320px] lg:shrink-0">
+                      <Image
+                        src={service.image}
+                        alt={service.title}
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/20 to-transparent" />
+                      <div className="relative flex h-full min-h-[220px] flex-col items-center justify-end px-8 pb-8 pt-10 text-center">
+                        <p className="font-cormorant text-3xl font-light text-white sm:text-[34px]">
                           {service.price}
                         </p>
                         {service.priceNote && (
-                          <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
+                          <p className="mt-2 font-jost text-[12px] font-light text-white/70">
                             {service.priceNote}
                           </p>
                         )}
