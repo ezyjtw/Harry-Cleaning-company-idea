@@ -52,7 +52,8 @@
   "Hero": {
     "trustedHome": "Zaufane sprzątanie domu",
     "joinThe": "Dołącz do rewolucji",
-    "revolution": "RENA-LUCJI",
+    "revolutionPrefix": "RENA-",
+    "revolutionSuffix": "LUCJI",
     "subtitle": "Wybierz sprzątacza, który do Ciebie pasuje.",
     "description": "Przeglądaj osobiście zweryfikowanych sprzątaczy w Twojej okolicy. Czytaj prawdziwe opinie, wybierz kogoś, komu ufasz, i zarezerwuj w dwie minuty.",
     "bookCleaner": "Zarezerwuj sprzątacza",

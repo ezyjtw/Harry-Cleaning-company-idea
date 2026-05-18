@@ -35,7 +35,8 @@ export default function HeroSection() {
               {t('joinThe')}
             </h1>
             <p className="mb-5 font-etna text-[34px] tracking-wider text-white sm:text-[44px] md:mb-7 md:text-[60px] md:tracking-widest">
-              {t('revolution')}
+              {t('revolutionPrefix')}
+              <span className="italic">{t('revolutionSuffix')}</span>
             </p>
 
             <p className="mb-3 font-cormorant text-[24px] font-light leading-[1.2] text-white/90 md:text-[34px]">
