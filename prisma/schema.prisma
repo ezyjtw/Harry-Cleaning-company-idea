@@ -278,7 +278,7 @@ model CleanerProfile {
   completionRate      Decimal            @default(100) @db.Decimal(5, 2)
   responseSpeed       Int? // average response speed in seconds
   postcode            String?
-  ryftAccountId       String?
+  stripeAccountId     String?
   verificationStatus  VerificationStatus @default(UNVERIFIED)
   identityVerifiedAt  DateTime?
   verificationMeta    Json?
@@ -496,7 +496,7 @@ model Notification {
 model Payment {
   id              String        @id @default(cuid())
   bookingId       String        @unique
-  ryftPaymentId   String?       @unique
+  stripePaymentId String?       @unique
   amount          Decimal       @db.Decimal(10, 2)
   status          PaymentStatus @default(PENDING)
   refundAmount    Decimal?      @db.Decimal(10, 2)
@@ -509,7 +509,7 @@ model Payment {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([status])
-  @@index([ryftPaymentId])
+  @@index([stripePaymentId])
 }
 
 model PromoCode {
@@ -979,7 +979,7 @@ model DocumentUpload {
 
 model DpaAgreement {
   id             String    @id @default(cuid())
-  processorName  String // e.g. "Ryft", "Resend", "Railway"
+  processorName  String // e.g. "Stripe", "Resend", "Railway"
   processorType  String // "payment_processor", "email_provider", "hosting", "analytics"
   dataCategories String[] // what data is processed
   legalBasis     String // "contract", "consent", "legitimate_interest"

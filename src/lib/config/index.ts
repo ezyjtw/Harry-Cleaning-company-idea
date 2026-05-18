@@ -8,10 +8,10 @@ export const appConfig = {
     secret: getEnvVar('NEXTAUTH_SECRET'),
     url: getEnvVar('NEXTAUTH_URL'),
   },
-  ryft: {
-    publicKey: getEnvVar('NEXT_PUBLIC_RYFT_PUBLIC_KEY'),
-    secretKey: getEnvVar('RYFT_SECRET_KEY'),
-    webhookSecret: getEnvVar('RYFT_WEBHOOK_SECRET'),
+  stripe: {
+    publicKey: getEnvVar('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY'),
+    secretKey: getEnvVar('STRIPE_SECRET_KEY'),
+    webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET'),
   },
   email: {
     host: getEnvVar('SMTP_HOST', 'smtp.gmail.com'),

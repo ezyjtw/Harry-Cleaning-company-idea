@@ -3,12 +3,12 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 
-const RYFT_API_BASE = 'https://api.ryftpay.com/v1';
+const STRIPE_API_BASE = 'https://api.stripe.com/v1';
 
 /**
- * POST /api/cleaners/payout — Create or retrieve a Ryft Connect onboarding link
+ * POST /api/cleaners/payout — Create or retrieve a Stripe Connect onboarding link
  *
- * Ryft Connect enables cleaners to set up their own payout account
+ * Stripe Connect enables cleaners to set up their own payout account
  * so they can receive earnings directly to their bank account.
  */
 export async function POST(request: NextRequest) {
@@ -29,92 +29,141 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cleaner profile not found' }, { status: 404 });
     }
 
-    const apiKey = process.env.RYFT_SECRET_KEY;
+    const apiKey = process.env.STRIPE_SECRET_KEY;
 
     if (!apiKey) {
-      // Dev/mock mode — return a simulated onboarding link
       return NextResponse.json({
         onboardingUrl: null,
         mock: true,
-        message: 'Ryft not configured — payout setup will be available in production',
+        message: 'Stripe not configured — payout setup will be available in production',
         status: 'not_configured',
       });
     }
 
-    // Check if cleaner already has a Ryft sub-account
     const meta = (profile.verificationMeta as Record<string, unknown>) || {};
-    const existingSubAccountId = meta.ryftSubAccountId as string | undefined;
+    const existingAccountId = meta.stripeAccountId as string | undefined;
 
-    if (existingSubAccountId) {
-      // Retrieve existing sub-account status
-      const res = await fetch(`${RYFT_API_BASE}/sub-accounts/${existingSubAccountId}`, {
+    if (existingAccountId) {
+      const res = await fetch(`${STRIPE_API_BASE}/accounts/${existingAccountId}`, {
         headers: {
-          Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`,
+          Authorization: `Bearer ${apiKey}`,
         },
       });
 
       if (res.ok) {
         const data = await res.json();
-        if (data.status === 'active') {
+        if (data.charges_enabled && data.payouts_enabled) {
           return NextResponse.json({
             status: 'active',
             message: 'Payout account is already set up and active',
-            subAccountId: existingSubAccountId,
+            accountId: existingAccountId,
+          });
+        }
+
+        // Account exists but not fully onboarded — create a new account link
+        const linkBody = new URLSearchParams({
+          account: existingAccountId,
+          refresh_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cleaner/profile`,
+          return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cleaners/payout/callback?cleanerId=${cleanerId}`,
+          type: 'account_onboarding',
+        });
+
+        const linkRes = await fetch(`${STRIPE_API_BASE}/account_links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: linkBody.toString(),
+        });
+
+        if (linkRes.ok) {
+          const linkData = await linkRes.json();
+          return NextResponse.json({
+            onboardingUrl: linkData.url,
+            accountId: existingAccountId,
+            status: 'pending',
           });
         }
       }
     }
 
-    // Create a new Ryft Connect onboarding session
-    const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cleaners/payout/callback?cleanerId=${cleanerId}`;
+    // Create a new Stripe Connect account
+    const accountBody = new URLSearchParams({
+      type: 'express',
+      country: 'GB',
+      email: profile.user.email,
+      'capabilities[card_payments][requested]': 'true',
+      'capabilities[transfers][requested]': 'true',
+      business_type: 'individual',
+      'metadata[cleanerId]': cleanerId,
+      'metadata[profileId]': profile.id,
+    });
 
-    const res = await fetch(`${RYFT_API_BASE}/sub-accounts`, {
+    const res = await fetch(`${STRIPE_API_BASE}/accounts`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        name: profile.user.name,
-        email: profile.user.email,
-        type: 'individual',
-        metadata: { cleanerId, profileId: profile.id },
-        returnUrl,
-      }),
+      body: accountBody.toString(),
     });
 
     if (!res.ok) {
       const errorBody = await res.text();
       // eslint-disable-next-line no-console
-      console.error('[Ryft Connect] Sub-account creation failed:', res.status, errorBody);
-      return NextResponse.json(
-        { error: 'Failed to create payout account' },
-        { status: 502 }
-      );
+      console.error('[Stripe Connect] Account creation failed:', res.status, errorBody);
+      return NextResponse.json({ error: 'Failed to create payout account' }, { status: 502 });
     }
 
-    const data = await res.json();
+    const accountData = await res.json();
 
-    // Store the sub-account ID on the profile
+    // Store the account ID on the profile
     await prisma.cleanerProfile.update({
       where: { id: profile.id },
       data: {
+        stripeAccountId: accountData.id,
         verificationMeta: {
           ...(meta as object),
-          ryftSubAccountId: data.id,
-          ryftOnboardingStatus: data.status,
+          stripeAccountId: accountData.id,
+          stripeOnboardingStatus: 'pending',
         },
       },
     });
 
+    // Create an account link for onboarding
+    const linkBody = new URLSearchParams({
+      account: accountData.id,
+      refresh_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cleaner/profile`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cleaners/payout/callback?cleanerId=${cleanerId}`,
+      type: 'account_onboarding',
+    });
+
+    const linkRes = await fetch(`${STRIPE_API_BASE}/account_links`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: linkBody.toString(),
+    });
+
+    if (linkRes.ok) {
+      const linkData = await linkRes.json();
+      return NextResponse.json({
+        onboardingUrl: linkData.url,
+        accountId: accountData.id,
+        status: 'pending',
+      });
+    }
+
     return NextResponse.json({
-      onboardingUrl: data.onboardingUrl || data.url,
-      subAccountId: data.id,
-      status: data.status,
+      accountId: accountData.id,
+      status: 'pending',
     });
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('[Ryft Connect] Error:', error);
+    console.error('[Stripe Connect] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to set up payout' },
       { status: 500 }
@@ -143,20 +192,20 @@ export async function GET(request: NextRequest) {
     }
 
     const meta = (profile.verificationMeta as Record<string, unknown>) || {};
-    const subAccountId = meta.ryftSubAccountId as string | undefined;
+    const accountId = (meta.stripeAccountId as string) || profile.stripeAccountId;
 
-    if (!subAccountId) {
+    if (!accountId) {
       return NextResponse.json({ status: 'not_started', payoutReady: false });
     }
 
-    const apiKey = process.env.RYFT_SECRET_KEY;
+    const apiKey = process.env.STRIPE_SECRET_KEY;
     if (!apiKey) {
       return NextResponse.json({ status: 'not_configured', payoutReady: false, mock: true });
     }
 
-    const res = await fetch(`${RYFT_API_BASE}/sub-accounts/${subAccountId}`, {
+    const res = await fetch(`${STRIPE_API_BASE}/accounts/${accountId}`, {
       headers: {
-        Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`,
+        Authorization: `Bearer ${apiKey}`,
       },
     });
 
@@ -166,13 +215,13 @@ export async function GET(request: NextRequest) {
 
     const data = await res.json();
     return NextResponse.json({
-      status: data.status,
-      payoutReady: data.status === 'active',
-      subAccountId,
+      status: data.charges_enabled && data.payouts_enabled ? 'active' : 'pending',
+      payoutReady: data.charges_enabled && data.payouts_enabled,
+      accountId,
     });
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('[Ryft Connect] Status check error:', error);
+    console.error('[Stripe Connect] Status check error:', error);
     return NextResponse.json({ error: 'Failed to check payout status' }, { status: 500 });
   }
 }

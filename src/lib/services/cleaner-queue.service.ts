@@ -7,7 +7,7 @@ import { MatchingService } from './matching.service';
 import type { MatchingCriteria } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { QuoteInput, QuoteResult } from './pricing.service';
-import { createPaymentSession } from './ryft-payment.service';
+import { createPaymentSession } from './stripe-payment.service';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ export interface QueuedCleanerQuote {
 export interface CleanerQueueResult {
   bookingId: string;
   queuedCleaners: QueuedCleanerQuote[];
-  escrowAmount: number; // highest quote — held in Ryft escrow
+  escrowAmount: number; // highest quote — held in Stripe escrow
   lowestQuote: number;
   highestQuote: number;
   payment: {
@@ -51,7 +51,7 @@ export interface QueueAcceptResult {
 export class CleanerQueueService {
   /**
    * Create a queued booking: find top 3 cleaners, generate quotes for each,
-   * escrow the highest quote via Ryft, and notify all 3.
+   * escrow the highest quote via Stripe, and notify all 3.
    */
   static async createQueuedBooking(params: {
     criteria: MatchingCriteria;
@@ -148,7 +148,7 @@ export class CleanerQueueService {
       });
     }
 
-    // 6. Create Ryft payment session for the ESCROW amount (highest quote)
+    // 6. Create Stripe payment intent for the ESCROW amount (highest quote)
     let paymentSession = null;
     try {
       paymentSession = await createPaymentSession({
@@ -287,10 +287,10 @@ export class CleanerQueueService {
       });
     });
 
-    // 3. If there's a refund due (escrow > actual), initiate partial refund via Ryft
-    if (refundDue > 0 && queueEntry.booking.payment?.ryftPaymentId) {
+    // 3. If there's a refund due (escrow > actual), initiate partial refund via Stripe
+    if (refundDue > 0 && queueEntry.booking.payment?.stripePaymentId) {
       try {
-        await this.initiatePartialRefund(queueEntry.booking.payment.ryftPaymentId, refundDue);
+        await this.initiatePartialRefund(queueEntry.booking.payment.stripePaymentId, refundDue);
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Partial refund initiation failed:', error);
@@ -456,38 +456,41 @@ export class CleanerQueueService {
   }
 
   /**
-   * Initiate a partial refund via Ryft for the escrow difference.
+   * Initiate a partial refund via Stripe for the escrow difference.
    */
   private static async initiatePartialRefund(
-    ryftPaymentId: string,
+    stripePaymentId: string,
     refundAmount: number
   ): Promise<void> {
-    const apiKey = process.env.RYFT_SECRET_KEY;
+    const apiKey = process.env.STRIPE_SECRET_KEY;
 
     if (!apiKey) {
       // eslint-disable-next-line no-console
       console.log(
-        `[Ryft] Mock partial refund: £${refundAmount.toFixed(2)} for session ${ryftPaymentId}`
+        `[Stripe] Mock partial refund: £${refundAmount.toFixed(2)} for payment ${stripePaymentId}`
       );
       return;
     }
 
-    const res = await fetch(`https://api.ryftpay.com/v1/payment-sessions/${ryftPaymentId}/refund`, {
+    const body = new URLSearchParams({
+      payment_intent: stripePaymentId,
+      amount: String(Math.round(refundAmount * 100)),
+    });
+
+    const res = await fetch('https://api.stripe.com/v1/refunds', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        amount: Math.round(refundAmount * 100), // pence
-      }),
+      body: body.toString(),
     });
 
     if (!res.ok) {
       const errorBody = await res.text();
       // eslint-disable-next-line no-console
-      console.error('[Ryft] Partial refund failed:', res.status, errorBody);
-      throw new Error(`Ryft refund error: ${res.status}`);
+      console.error('[Stripe] Partial refund failed:', res.status, errorBody);
+      throw new Error(`Stripe refund error: ${res.status}`);
     }
   }
 }

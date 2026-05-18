@@ -8,7 +8,7 @@ import {
   sendCleanerAssignment,
   sendGuestBookingConfirmation,
 } from '@/lib/services/email.service';
-import { createPaymentSession } from '@/lib/services/ryft-payment.service';
+import { createPaymentSession } from '@/lib/services/stripe-payment.service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create Ryft payment session (customer pays discounted amount)
+    // Create Stripe payment intent (customer pays discounted amount)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     let paymentSession = null;
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         await prisma.payment.create({
           data: {
             bookingId: booking.id,
-            ryftPaymentId: paymentSession.id,
+            stripePaymentId: paymentSession.id,
             amount: totalPrice,
             discountPercent: discountPercent || null,
             discountAmount: discountAmount || null,

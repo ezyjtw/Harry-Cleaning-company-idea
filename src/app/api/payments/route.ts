@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { createPaymentSession, getPaymentSession } from '@/lib/services/ryft-payment.service';
+import { createPaymentSession, getPaymentSession } from '@/lib/services/stripe-payment.service';
 
-// POST /api/payments — Create a Ryft payment session
+// POST /api/payments — Create a Stripe payment intent
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
@@ -34,7 +34,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (booking.clientId !== user.id && user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'You can only pay for your own bookings.' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'You can only pay for your own bookings.' },
+        { status: 403 }
+      );
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';

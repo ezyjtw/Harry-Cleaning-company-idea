@@ -25,22 +25,26 @@ declare module 'next-auth/jwt' {
   }
 }
 
-interface RyftInstance {
-  init(config: { publicApiKey: string; environment: string }): void;
-  renderDropIn(
-    element: HTMLElement,
-    config: {
-      clientSecret: string;
-      appearance?: Record<string, unknown>;
-      onPaymentResult?: (result: { status: string }) => void;
-      onPaymentError?: (error: { message: string }) => void;
-    }
-  ): void;
+interface StripeElementsInstance {
+  create(
+    type: string,
+    options?: Record<string, unknown>
+  ): {
+    mount(el: HTMLElement): void;
+    on(event: string, handler: (ev: unknown) => void): void;
+    destroy(): void;
+  };
+  getElement(type: string): unknown;
 }
 
 declare global {
   interface Window {
     openCookieSettings?: () => void;
-    Ryft?: RyftInstance;
+    Stripe?: (publishableKey: string) => {
+      elements(options?: Record<string, unknown>): StripeElementsInstance;
+      confirmPayment(
+        options: Record<string, unknown>
+      ): Promise<{ error?: { message: string }; paymentIntent?: { status: string } }>;
+    };
   }
 }

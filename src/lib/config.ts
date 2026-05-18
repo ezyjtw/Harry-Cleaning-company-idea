@@ -14,10 +14,10 @@ export const config = {
     secret: getEnvVar('NEXTAUTH_SECRET', false),
     url: getEnvVar('NEXTAUTH_URL', false),
   },
-  ryft: {
-    publicKey: getEnvVar('NEXT_PUBLIC_RYFT_PUBLIC_KEY', false),
-    secretKey: getEnvVar('RYFT_SECRET_KEY', false),
-    webhookSecret: getEnvVar('RYFT_WEBHOOK_SECRET', false),
+  stripe: {
+    publicKey: getEnvVar('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', false),
+    secretKey: getEnvVar('STRIPE_SECRET_KEY', false),
+    webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET', false),
   },
   email: {
     host: getEnvVar('SMTP_HOST', false),

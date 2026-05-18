@@ -9,7 +9,7 @@ import type { ServiceSlug } from '@/lib/services/pricing.service';
  * POST /api/bookings/queue
  *
  * Create a queued booking with the top 3 cleaners.
- * Escrows the highest quote via Ryft so funds are guaranteed.
+ * Escrows the highest quote via Stripe so funds are guaranteed.
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
