@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: t('description'),
     openGraph: {
       type: 'website',
-      locale: locale === 'pl' ? 'pl_PL' : 'en_GB',
+      locale: 'en_GB',
       siteName: 'Rena Cleaning Network',
     },
   };

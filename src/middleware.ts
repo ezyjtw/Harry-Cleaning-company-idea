@@ -88,7 +88,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Strip locale prefix from pathname for auth checks
-  const pathnameWithoutLocale = pathname.replace(/^\/(en|pl)/, '') || '/';
+  const pathnameWithoutLocale = pathname.replace(/^\/en/, '') || '/';
 
   // Auth protection - check for session token
   const sessionToken =

@@ -6,8 +6,6 @@ import { useState, useRef, useEffect } from 'react';
 
 import { useAuth } from '@/hooks/useAuth';
 
-import LanguageSwitcher from './LanguageSwitcher';
-
 export default function Navbar() {
   const { user, isAuthenticated, isCleaner, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
@@ -47,7 +45,6 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-3">
-          <LanguageSwitcher />
           {/* Hamburger icon */}
           <button
             onClick={() => setOpen(!open)}
