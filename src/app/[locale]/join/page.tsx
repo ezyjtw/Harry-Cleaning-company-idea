@@ -788,6 +788,8 @@ export default function JoinAsCleanerPage() {
 
     if (step === 1) {
       if (!form.yearsExperience) e.yearsExperience = 'Required';
+      else if (Number(form.yearsExperience) > 50) e.yearsExperience = 'Maximum 50 years';
+      else if (Number(form.yearsExperience) < 0) e.yearsExperience = 'Must be 0 or more';
       if (form.serviceTypes.length === 0) e.serviceTypes = 'Select at least one service type';
       if (form.languages.length === 0) e.languages = 'Select at least one language';
       if (!form.bio.trim()) e.bio = 'Please write a short bio';
@@ -1319,6 +1321,7 @@ export default function JoinAsCleanerPage() {
               <Input
                 type="number"
                 min="0"
+                max="50"
                 required
                 value={form.yearsExperience}
                 onChange={(e) => set('yearsExperience', e.target.value)}

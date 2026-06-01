@@ -123,6 +123,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (body.yearsExperience !== undefined && Number(body.yearsExperience) > 50) {
+      return NextResponse.json({ error: 'Years of experience cannot exceed 50' }, { status: 400 });
+    }
+
     // Derive hourly rate — prioritise serviceRates (what the join form sends)
     let hourlyRate = 0;
     if (body.serviceRates && typeof body.serviceRates === 'object') {
