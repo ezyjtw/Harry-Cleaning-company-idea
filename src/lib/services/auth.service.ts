@@ -3,6 +3,7 @@ import crypto from 'crypto';
 
 import prisma from '@/lib/db/prisma';
 import { sendEmailVerification, sendPasswordReset as sendPasswordResetEmail } from '@/lib/services/email.service';
+import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -44,8 +45,9 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
   }
 
   // Validate password strength
-  if (input.password.length < 8) {
-    return { success: false, message: 'Password must be at least 8 characters.' };
+  const pwCheck = validatePasswordPolicy(input.password);
+  if (!pwCheck.valid) {
+    return { success: false, message: pwCheck.errors[0] };
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -200,8 +202,9 @@ export async function resetPassword(
   token: string,
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
-  if (newPassword.length < 8) {
-    return { success: false, message: 'Password must be at least 8 characters.' };
+  const pwCheck = validatePasswordPolicy(newPassword);
+  if (!pwCheck.valid) {
+    return { success: false, message: pwCheck.errors[0] };
   }
 
   const record = await prisma.verificationToken.findUnique({ where: { token } });
@@ -261,8 +264,9 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
-  if (newPassword.length < 8) {
-    return { success: false, message: 'New password must be at least 8 characters.' };
+  const pwCheck = validatePasswordPolicy(newPassword);
+  if (!pwCheck.valid) {
+    return { success: false, message: pwCheck.errors[0] };
   }
 
   const user = await prisma.user.findUnique({

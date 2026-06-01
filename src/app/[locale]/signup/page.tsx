@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 
+import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import { validatePasswordPolicy } from '@/lib/utils/password-policy';
+
 export default function SignupPage() {
   const router = useRouter();
   const [role, setRole] = useState<'CLIENT' | 'CLEANER' | null>(null);
@@ -22,7 +25,8 @@ export default function SignupPage() {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = 'Name is required';
     if (!form.email.includes('@')) errs.email = 'Valid email is required';
-    if (form.password.length < 8) errs.password = 'Password must be at least 8 characters';
+    const pwResult = validatePasswordPolicy(form.password);
+    if (!pwResult.valid) errs.password = pwResult.errors[0];
     if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -246,6 +250,7 @@ export default function SignupPage() {
                 style={inputStyle('password')}
                 placeholder="Min. 8 characters"
               />
+              <PasswordRequirements password={form.password} />
               {errors.password && (
                 <p className="mt-1.5 font-jost text-xs font-light text-red-500">
                   {errors.password}

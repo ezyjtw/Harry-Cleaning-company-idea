@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -781,9 +783,13 @@ export default function JoinAsCleanerPage() {
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
         if (age < 18) e.dateOfBirth = 'You must be at least 18 years old to register';
       }
-      if (!form.password || form.password.length < 8)
-        e.password = 'Password must be at least 8 characters';
-      else if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+      if (!form.password) e.password = 'Password is required';
+      else {
+        const pwResult = validatePasswordPolicy(form.password);
+        if (!pwResult.valid) e.password = pwResult.errors[0];
+        else if (form.password !== form.confirmPassword)
+          e.confirmPassword = 'Passwords do not match';
+      }
     }
 
     if (step === 1) {
@@ -1163,6 +1169,7 @@ export default function JoinAsCleanerPage() {
                     value={form.password}
                     onChange={(e) => set('password', e.target.value)}
                   />
+                  <PasswordRequirements password={form.password} />
                   <FieldError message={errors.password} />
                 </div>
                 <div>

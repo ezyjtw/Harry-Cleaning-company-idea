@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 
+import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import { validatePasswordPolicy } from '@/lib/utils/password-policy';
+
 interface Address {
   id: string;
   label: string;
@@ -153,8 +156,9 @@ export default function AccountPage() {
     setPasswordError('');
     setPasswordSuccess(false);
 
-    if (passwordForm.new.length < 8) {
-      setPasswordError('New password must be at least 8 characters.');
+    const pwResult = validatePasswordPolicy(passwordForm.new);
+    if (!pwResult.valid) {
+      setPasswordError(pwResult.errors[0]);
       return;
     }
     if (passwordForm.new !== passwordForm.confirm) {
@@ -479,7 +483,7 @@ export default function AccountPage() {
               onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 sm:max-w-md"
             />
-            <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters.</p>
+            <PasswordRequirements password={passwordForm.new} />
           </div>
           <div>
             <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
