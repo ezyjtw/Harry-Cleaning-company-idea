@@ -9,6 +9,7 @@ import {
   sendGuestBookingConfirmation,
 } from '@/lib/services/email.service';
 import { createPaymentSession } from '@/lib/services/ryft-payment.service';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,8 +51,16 @@ export async function GET(request: NextRequest) {
       prisma.booking.count({ where }),
     ]);
 
+    const resolvedBookings = await Promise.all(
+      bookings.map(async (b) => ({
+        ...b,
+        cleaner: { ...b.cleaner, image: await resolveProfileImageUrl(b.cleaner?.image) },
+        client: { ...b.client, image: await resolveProfileImageUrl(b.client?.image) },
+      }))
+    );
+
     return NextResponse.json({
-      data: bookings,
+      data: resolvedBookings,
       total,
       page,
       pageSize,

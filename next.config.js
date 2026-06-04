@@ -15,6 +15,10 @@ if (!process.env.NEXTAUTH_URL) {
 }
 
 const nextConfig = {
+  experimental: {
+    instrumentationHook: true,
+  },
+
   env: {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   },

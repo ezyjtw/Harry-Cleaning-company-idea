@@ -3,8 +3,10 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
+import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET(request: NextRequest) {
@@ -59,42 +61,47 @@ export async function GET(request: NextRequest) {
     orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
   });
 
-  let results = cleaners.map((c) => {
-    let distance: number | null = null;
-    if (customerGeo && c.latitude !== null && c.longitude !== null) {
-      distance = haversineDistance(
-        customerGeo.latitude,
-        customerGeo.longitude,
-        c.latitude,
-        c.longitude
-      );
-    }
-    return {
-      id: c.user.id,
-      name: c.user.name,
-      photo: c.user.image || '',
-      image: c.user.image,
-      rating: Number(c.rating),
-      reviewCount: c.user.reviewsReceived.length,
-      completedJobs: c.completedJobs,
-      hourlyRate: Number(c.hourlyRate),
-      sameDayRate: Math.round(Number(c.hourlyRate) * 1.4 * 100) / 100,
-      bio: c.bio,
-      specialties: c.specialties,
-      location: c.location || '',
-      postcode: c.postcode,
-      availableNow: c.availableNow,
-      tier: c.tier.toLowerCase(),
-      verified: c.verified,
-      identityVerified: c.verificationStatus === 'VERIFIED',
-      insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
-      backgroundChecked: c.backgroundCheckPassed,
-      responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
-      radius: c.radius,
-      travelMode: c.travelMode,
-      distance,
-    };
-  });
+  let results = await Promise.all(
+    cleaners.map(async (c) => {
+      let distance: number | null = null;
+      if (customerGeo && c.latitude !== null && c.longitude !== null) {
+        distance = haversineDistance(
+          customerGeo.latitude,
+          customerGeo.longitude,
+          c.latitude,
+          c.longitude
+        );
+      }
+
+      const photoUrl = await resolveProfileImageUrl(c.user.image);
+
+      return {
+        id: c.user.id,
+        name: c.user.name,
+        photo: photoUrl || '',
+        image: photoUrl,
+        rating: Number(c.rating),
+        reviewCount: c.user.reviewsReceived.length,
+        completedJobs: c.completedJobs,
+        hourlyRate: Number(c.hourlyRate),
+        sameDayRate: Math.round(Number(c.hourlyRate) * 1.4 * 100) / 100,
+        bio: c.bio,
+        specialties: c.specialties,
+        location: c.location || '',
+        postcode: c.postcode,
+        availableNow: c.availableNow,
+        tier: c.tier.toLowerCase(),
+        verified: c.verified,
+        identityVerified: c.verificationStatus === 'VERIFIED',
+        insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
+        backgroundChecked: c.backgroundCheckPassed,
+        responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
+        radius: c.radius,
+        travelMode: c.travelMode,
+        distance,
+      };
+    })
+  );
 
   if (customerGeo) {
     results = results.filter((r) => r.distance !== null && r.distance <= r.radius);
@@ -112,8 +119,37 @@ export async function GET(request: NextRequest) {
   });
 }
 
+async function uploadProfilePhoto(userId: string, dataUrl: string): Promise<string | null> {
+  const match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!match) return null;
+
+  const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+  const buffer = Buffer.from(match[2], 'base64');
+
+  const MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024;
+  if (buffer.length > MAX_PROFILE_PHOTO_SIZE) return null;
+
+  const objectKey = `profile-photos/${userId}.${ext}`;
+  await putObject(objectKey, buffer, `image/${match[1]}`);
+  return objectKey;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit(`cleaner-signup:${ip}`, 3, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many signup attempts. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
 
     // Validate required fields
@@ -157,6 +193,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Existing client — upgrade to cleaner
+      let upgradePhotoKey: string | null = null;
+      if (
+        body.profilePhoto &&
+        typeof body.profilePhoto === 'string' &&
+        body.profilePhoto.startsWith('data:image/')
+      ) {
+        upgradePhotoKey = await uploadProfilePhoto(existing.id, body.profilePhoto);
+      }
+
       const result = await prisma.$transaction(async (tx) => {
         const user = await tx.user.update({
           where: { id: existing.id },
@@ -166,7 +211,7 @@ export async function POST(request: NextRequest) {
             passwordHash: body.password
               ? await bcrypt.hash(body.password, 12)
               : existing.passwordHash,
-            image: body.profilePhoto || existing.image,
+            image: upgradePhotoKey || existing.image,
           },
         });
 
@@ -251,7 +296,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create User + CleanerProfile in a transaction
+    // Upload profile photo to R2 before the transaction (need userId for key, but
+    // for new users we generate a temporary ID first, then update after creation)
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -260,7 +306,7 @@ export async function POST(request: NextRequest) {
           phone: body.phone.trim(),
           role: 'CLEANER',
           passwordHash: body.password ? await bcrypt.hash(body.password, 12) : null,
-          image: body.profilePhoto || null,
+          image: null,
         },
       });
 
@@ -300,6 +346,21 @@ export async function POST(request: NextRequest) {
 
       return { user, profile };
     });
+
+    // Upload profile photo to R2 after user creation (need the real userId for the key)
+    if (
+      body.profilePhoto &&
+      typeof body.profilePhoto === 'string' &&
+      body.profilePhoto.startsWith('data:image/')
+    ) {
+      const photoKey = await uploadProfilePhoto(result.user.id, body.profilePhoto);
+      if (photoKey) {
+        await prisma.user.update({
+          where: { id: result.user.id },
+          data: { image: photoKey },
+        });
+      }
+    }
 
     await AuditService.log({
       userId: result.user.id,
