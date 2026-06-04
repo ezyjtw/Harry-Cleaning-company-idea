@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import prisma from '@/lib/db/prisma';
 import { getSessionUser } from '@/lib/auth/session';
+import prisma from '@/lib/db/prisma';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 export async function GET(
   _request: Request,
@@ -53,7 +54,15 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
     }
 
-    return NextResponse.json(booking);
+    return NextResponse.json({
+      ...booking,
+      cleaner: booking.cleaner
+        ? { ...booking.cleaner, image: await resolveProfileImageUrl(booking.cleaner.image) }
+        : booking.cleaner,
+      client: booking.client
+        ? { ...booking.client, image: await resolveProfileImageUrl(booking.client.image) }
+        : booking.client,
+    });
   } catch {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }

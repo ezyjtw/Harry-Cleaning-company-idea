@@ -1,18 +1,13 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-
 import { prisma } from '@/lib/db/prisma';
+import { putObject, getObject, deleteObject } from '@/lib/storage/r2-client';
 import {
   encryptDocument,
   decryptDocument,
   computeChecksum,
   generateKeyId,
-  secureWipe,
 } from '@/lib/utils/document-encryption';
 
 import { AuditService } from './audit.service';
-
-const UPLOAD_DIR = process.env.DOCUMENT_STORAGE_PATH || './uploads/documents';
 
 export type DocumentType = 'dbs_certificate' | 'right_to_work' | 'photo_id' | 'insurance';
 
@@ -38,42 +33,27 @@ interface DocumentResult {
 
 export class DocumentStorageService {
   /**
-   * Ensures the upload directory exists.
-   */
-  private static async ensureUploadDir(): Promise<void> {
-    const dir = path.resolve(UPLOAD_DIR);
-    await fs.mkdir(dir, { recursive: true });
-  }
-
-  /**
-   * Uploads and encrypts a document, storing it securely.
+   * Uploads and encrypts a document, storing it in R2.
    */
   static async uploadDocument(params: UploadDocumentParams): Promise<DocumentResult> {
-    await this.ensureUploadDir();
-
     const keyId = generateKeyId();
     const checksum = computeChecksum(params.fileBuffer);
     const encrypted = encryptDocument(params.fileBuffer, keyId);
 
-    // Generate secure storage path
-    const ext = path.extname(params.originalName);
-    const storageName = `${keyId}${ext}.enc`;
-    const storagePath = path.join(UPLOAD_DIR, params.documentType, storageName);
+    const ext = params.originalName.includes('.')
+      ? params.originalName.substring(params.originalName.lastIndexOf('.'))
+      : '';
+    const objectKey = `documents/${params.documentType}/${keyId}${ext}.enc`;
 
-    // Ensure subdirectory exists
-    await fs.mkdir(path.dirname(path.resolve(storagePath)), { recursive: true });
+    await putObject(objectKey, encrypted, 'application/octet-stream');
 
-    // Write encrypted file
-    await fs.writeFile(path.resolve(storagePath), encrypted);
-
-    // Create database record
     const doc = await prisma.documentUpload.create({
       data: {
         userId: params.userId,
         profileId: params.profileId,
         documentType: params.documentType,
         originalName: params.originalName,
-        storagePath,
+        storagePath: objectKey,
         mimeType: params.mimeType,
         fileSize: params.fileBuffer.length,
         encryptionKeyId: keyId,
@@ -83,7 +63,6 @@ export class DocumentStorageService {
       },
     });
 
-    // Audit log
     const auditAction =
       params.documentType === 'dbs_certificate'
         ? 'DBS_CERT_UPLOADED'
@@ -116,7 +95,7 @@ export class DocumentStorageService {
   }
 
   /**
-   * Retrieves and decrypts a document (admin only).
+   * Retrieves and decrypts a document from R2 (admin only).
    */
   static async getDocument(
     documentId: string,
@@ -129,16 +108,14 @@ export class DocumentStorageService {
 
     if (!doc || doc.isDestroyed) return null;
 
-    const encrypted = await fs.readFile(path.resolve(doc.storagePath));
+    const encrypted = await getObject(doc.storagePath);
     const decrypted = decryptDocument(encrypted, doc.encryptionKeyId);
 
-    // Verify integrity
     const currentChecksum = computeChecksum(decrypted);
     if (currentChecksum !== doc.checksum) {
       throw new Error('Document integrity check failed — file may have been tampered with');
     }
 
-    // Audit the access
     const auditAction =
       doc.documentType === 'dbs_certificate'
         ? 'DBS_CERT_VIEWED'
@@ -163,7 +140,15 @@ export class DocumentStorageService {
   }
 
   /**
-   * Securely destroys a document — overwrites file with random data, then deletes.
+   * Destroys a document by deleting it from R2 and marking the DB record.
+   *
+   * R2 is object storage — overwriting with random bytes writes to new storage
+   * regions while old ciphertext may persist until internal reclamation. The
+   * overwrite provides no real security guarantee. Instead we rely on crypto-
+   * shredding: the per-document encryption key is derived from the master key
+   * plus encryptionKeyId. Once this row is marked destroyed and the object
+   * deleted, the ciphertext is unrecoverable even if storage media is not
+   * immediately wiped.
    */
   static async destroyDocument(
     documentId: string,
@@ -176,18 +161,12 @@ export class DocumentStorageService {
 
     if (!doc || doc.isDestroyed) return;
 
-    // Overwrite file with random data before deletion
     try {
-      const filePath = path.resolve(doc.storagePath);
-      const fileData = await fs.readFile(filePath);
-      const wiped = secureWipe(fileData);
-      await fs.writeFile(filePath, wiped);
-      await fs.unlink(filePath);
+      await deleteObject(doc.storagePath);
     } catch {
-      // File may already be gone — continue with DB cleanup
+      // Object may already be gone — continue with DB cleanup
     }
 
-    // Mark as destroyed in DB
     await prisma.documentUpload.update({
       where: { id: documentId },
       data: {
@@ -303,7 +282,6 @@ export class DocumentStorageService {
         },
       });
 
-      // Update the cleaner profile verification status
       if (doc.profileId) {
         if (doc.documentType === 'dbs_certificate') {
           await prisma.cleanerProfile.update({

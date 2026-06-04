@@ -905,7 +905,7 @@ export default function JoinAsCleanerPage() {
           hasDbsCert: !!dbsCertFile,
           hasSelfie: !!selfiePhoto,
           selfiePhoto: !!selfiePhoto,
-          profilePhoto: profilePhoto?.slice(0, 200) || null,
+          profilePhoto: profilePhoto || null,
         }),
       });
 
@@ -927,19 +927,20 @@ export default function JoinAsCleanerPage() {
       const result = await response.json();
       const cleanerId = result.cleaner?.id;
 
-      // Upload documents in the background after profile creation
+      // Upload documents after profile creation
       if (cleanerId) {
-        const docs: { data: string; type: string }[] = [];
+        const docs: { data: string; type: string; label: string }[] = [];
         if (photoIdFile && photoIdFile.startsWith('data:'))
-          docs.push({ data: photoIdFile, type: 'photo_id' });
+          docs.push({ data: photoIdFile, type: 'photo_id', label: 'Photo ID' });
         if (rightToWorkDocFile && rightToWorkDocFile.startsWith('data:'))
-          docs.push({ data: rightToWorkDocFile, type: 'right_to_work' });
+          docs.push({ data: rightToWorkDocFile, type: 'right_to_work', label: 'Right to Work' });
         if (dbsCertFile && dbsCertFile.startsWith('data:'))
-          docs.push({ data: dbsCertFile, type: 'dbs_certificate' });
+          docs.push({ data: dbsCertFile, type: 'dbs_certificate', label: 'DBS Certificate' });
 
+        const failedUploads: string[] = [];
         for (const doc of docs) {
           try {
-            await fetch('/api/cleaners/documents', {
+            const uploadRes = await fetch('/api/cleaners/documents', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -948,9 +949,18 @@ export default function JoinAsCleanerPage() {
                 fileData: doc.data,
               }),
             });
+            if (!uploadRes.ok) {
+              failedUploads.push(doc.label);
+            }
           } catch {
-            // Document upload failure shouldn't block application success
+            failedUploads.push(doc.label);
           }
+        }
+
+        if (failedUploads.length > 0) {
+          setErrors({
+            submit: `Your application was submitted, but the following documents failed to upload: ${failedUploads.join(', ')}. Please re-upload them from your cleaner dashboard after logging in.`,
+          });
         }
       }
 

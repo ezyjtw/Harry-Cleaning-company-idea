@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 export async function GET(
   _request: Request,
@@ -34,10 +35,12 @@ export async function GET(
       take: 20,
     });
 
+    const imageUrl = await resolveProfileImageUrl(profile.user.image);
+
     return NextResponse.json({
       id: profile.user.id,
       name: profile.user.name,
-      image: profile.user.image,
+      image: imageUrl,
       bio: profile.bio,
       hourlyRate: Number(profile.hourlyRate),
       specialties: profile.specialties,

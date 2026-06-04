@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import prisma from '@/lib/db/prisma';
 import { getSessionUser } from '@/lib/auth/session';
+import prisma from '@/lib/db/prisma';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -23,7 +24,10 @@ export async function PUT(request: NextRequest) {
       select: { id: true, name: true, email: true, phone: true, role: true, image: true },
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json({
+      ...user,
+      image: await resolveProfileImageUrl(user.image),
+    });
   } catch {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
@@ -67,7 +71,10 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json({
+      ...user,
+      image: await resolveProfileImageUrl(user.image),
+    });
   } catch {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
