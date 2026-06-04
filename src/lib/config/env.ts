@@ -59,6 +59,16 @@ const ENV_SCHEMA: EnvVarConfig[] = [
   },
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error tracking DSN' },
   { name: 'REDIS_URL', required: false, description: 'Redis connection string for caching' },
+  { name: 'R2_ACCOUNT_ID', required: true, description: 'Cloudflare R2 account ID' },
+  { name: 'R2_ACCESS_KEY_ID', required: true, description: 'Cloudflare R2 access key ID' },
+  { name: 'R2_SECRET_ACCESS_KEY', required: true, description: 'Cloudflare R2 secret access key' },
+  { name: 'R2_BUCKET_NAME', required: true, description: 'Cloudflare R2 bucket name' },
+  {
+    name: 'DOCUMENT_ENCRYPTION_KEY',
+    required: true,
+    description: 'Master encryption key for document storage (min 32 chars)',
+    validate: (v) => v.length >= 32,
+  },
 ];
 
 export interface ValidationResult {

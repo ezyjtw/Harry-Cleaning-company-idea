@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET() {
@@ -39,11 +40,13 @@ export async function GET() {
     profile.specialties.length > 0 &&
     !!profile.user.passwordHash;
 
+  const imageUrl = await resolveProfileImageUrl(profile.user.image);
+
   return NextResponse.json({
     name: profile.user.name,
     email: profile.user.email,
     phone: profile.user.phone,
-    image: profile.user.image,
+    image: imageUrl,
     bio: profile.bio || '',
     hourlyRate: Number(profile.hourlyRate),
     specialties: profile.specialties,
@@ -191,7 +194,20 @@ export async function PUT(request: NextRequest) {
     }
 
     const userUpdate: Record<string, unknown> = {};
-    if (image !== undefined) userUpdate.image = image;
+    if (image !== undefined) {
+      if (typeof image === 'string' && image.startsWith('data:image/')) {
+        const match = image.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (match) {
+          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const buffer = Buffer.from(match[2], 'base64');
+          const objectKey = `profile-photos/${user.id}.${ext}`;
+          await putObject(objectKey, buffer, `image/${match[1]}`);
+          userUpdate.image = objectKey;
+        }
+      } else if (typeof image === 'string' && image.length > 0) {
+        userUpdate.image = image;
+      }
+    }
     if (password !== undefined) userUpdate.passwordHash = await bcrypt.hash(password, 12);
     if (Object.keys(userUpdate).length > 0) {
       await tx.user.update({

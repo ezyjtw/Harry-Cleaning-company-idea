@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import {
   sendBookingConfirmation,
   sendCleanerAssignment,
@@ -50,8 +51,16 @@ export async function GET(request: NextRequest) {
       prisma.booking.count({ where }),
     ]);
 
+    const resolvedBookings = await Promise.all(
+      bookings.map(async (b) => ({
+        ...b,
+        cleaner: { ...b.cleaner, image: await resolveProfileImageUrl(b.cleaner?.image) },
+        client: { ...b.client, image: await resolveProfileImageUrl(b.client?.image) },
+      }))
+    );
+
     return NextResponse.json({
-      data: bookings,
+      data: resolvedBookings,
       total,
       page,
       pageSize,
