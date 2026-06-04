@@ -3,10 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     const profile = await prisma.cleanerProfile.findFirst({
       where: { userId: params.id },

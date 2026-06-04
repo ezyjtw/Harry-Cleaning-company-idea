@@ -4,10 +4,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     const user = await getSessionUser();
     if (!user) {

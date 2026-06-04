@@ -3,13 +3,13 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import {
   sendBookingConfirmation,
   sendCleanerAssignment,
   sendGuestBookingConfirmation,
 } from '@/lib/services/email.service';
 import { createPaymentSession } from '@/lib/services/ryft-payment.service';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 export async function GET(request: NextRequest) {
   try {

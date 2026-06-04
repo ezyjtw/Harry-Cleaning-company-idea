@@ -57,6 +57,17 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     default: 'Rena Cleaning Network',
     description: 'Application display name',
   },
+  { name: 'RESEND_API_KEY', required: true, description: 'Resend API key for transactional email' },
+  {
+    name: 'RESEND_FROM_EMAIL',
+    required: true,
+    description: 'Verified sender address for Resend (e.g. "Rena <noreply@yourdomain.com>")',
+  },
+  {
+    name: 'RESEND_NOTIFICATION_EMAIL',
+    required: true,
+    description: 'Founder email address for signup notification alerts',
+  },
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error tracking DSN' },
   { name: 'REDIS_URL', required: false, description: 'Redis connection string for caching' },
   { name: 'R2_ACCOUNT_ID', required: true, description: 'Cloudflare R2 account ID' },
