@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { sendSignupNotification } from '@/lib/services/email.service';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET(request: NextRequest) {
@@ -227,6 +228,14 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      sendSignupNotification({
+        name: result.user.name || body.name,
+        email: result.user.email,
+        phone: body.phone?.trim() || '',
+        role: 'CLEANER',
+        createdAt: result.user.createdAt.toISOString(),
+      }).catch(() => {});
+
       return NextResponse.json(
         {
           message: 'Account upgraded to cleaner successfully',
@@ -312,6 +321,14 @@ export async function POST(request: NextRequest) {
         hasSelfie: !!body.selfiePhoto,
       },
     });
+
+    sendSignupNotification({
+      name: result.user.name || body.name,
+      email: result.user.email,
+      phone: body.phone?.trim() || '',
+      role: 'CLEANER',
+      createdAt: result.user.createdAt.toISOString(),
+    }).catch(() => {});
 
     return NextResponse.json(
       {

@@ -34,7 +34,7 @@ interface PaymentEmailData {
 // ─── Resend Client ──────────────────────────────────────────
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Rena <noreply@rena.com>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || '';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@rena.com';
 
 // ─── Helper ─────────────────────────────────────────────────
@@ -315,7 +315,35 @@ export async function sendAbandonmentEmail(
   return sendEmail(email, subject, htmlBody);
 }
 
-// ─── Team Invite Email ──────────────────────────────────────
+// ─── Signup Notification Email ─────────────────────────────
+
+export async function sendSignupNotification(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  role: 'CLIENT' | 'CLEANER';
+  createdAt: string;
+}): Promise<boolean> {
+  const notificationEmail = process.env.RESEND_NOTIFICATION_EMAIL;
+  if (!notificationEmail) return false;
+
+  const roleLabel = data.role === 'CLEANER' ? 'Cleaner' : 'Customer';
+  const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/users`;
+  const subject = `New ${roleLabel} signup: ${data.name}`;
+  const htmlBody = `
+    <h1>New ${roleLabel} Signup</h1>
+    <ul>
+      <li><strong>Name:</strong> ${data.name}</li>
+      <li><strong>Email:</strong> ${data.email}</li>
+      ${data.phone ? `<li><strong>Phone:</strong> ${data.phone}</li>` : ''}
+      <li><strong>Role:</strong> ${roleLabel}</li>
+      <li><strong>Signed up:</strong> ${data.createdAt}</li>
+    </ul>
+    <p><a href="${adminUrl}">View in admin dashboard</a></p>
+  `;
+
+  return sendEmail(notificationEmail, subject, htmlBody);
+}
 
 // ─── Payment Failure Email ─────────────────────────────────
 
