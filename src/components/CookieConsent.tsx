@@ -95,9 +95,9 @@ export default function CookieConsent() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 p-4 sm:p-6">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 p-4 sm:p-6">
       <div
-        className="mx-auto max-w-2xl bg-white shadow-lg"
+        className="pointer-events-auto mx-auto max-w-2xl bg-white shadow-lg"
         style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
       >
         <div className="p-5 sm:p-6">
