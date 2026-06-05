@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
-  const { user, isAuthenticated, isLoading, isCleaner, isAdmin, signOut } = useAuth();
+  const { user, isAuthenticated, isCleaner, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const t = useTranslations('Nav');
@@ -158,9 +158,7 @@ export default function Navbar() {
               )}
 
               <div className="mt-6 flex items-center gap-4 border-t border-ink/5 pt-5">
-                {isLoading ? (
-                  <div className="h-9 w-24 animate-pulse rounded-md bg-ink/5" />
-                ) : isAuthenticated ? (
+                {isAuthenticated ? (
                   <>
                     <span className="font-jost text-[13px] font-normal text-ink-2">
                       {user?.name}
