@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
+import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
@@ -60,45 +61,47 @@ export async function GET(request: NextRequest) {
     orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
   });
 
-  let results = await Promise.all(cleaners.map(async (c) => {
-    let distance: number | null = null;
-    if (customerGeo && c.latitude !== null && c.longitude !== null) {
-      distance = haversineDistance(
-        customerGeo.latitude,
-        customerGeo.longitude,
-        c.latitude,
-        c.longitude
-      );
-    }
+  let results = await Promise.all(
+    cleaners.map(async (c) => {
+      let distance: number | null = null;
+      if (customerGeo && c.latitude !== null && c.longitude !== null) {
+        distance = haversineDistance(
+          customerGeo.latitude,
+          customerGeo.longitude,
+          c.latitude,
+          c.longitude
+        );
+      }
 
-    const photoUrl = await resolveProfileImageUrl(c.user.image);
+      const photoUrl = await resolveProfileImageUrl(c.user.image);
 
-    return {
-      id: c.user.id,
-      name: c.user.name,
-      photo: photoUrl || '',
-      image: photoUrl,
-      rating: Number(c.rating),
-      reviewCount: c.user.reviewsReceived.length,
-      completedJobs: c.completedJobs,
-      hourlyRate: Number(c.hourlyRate),
-      sameDayRate: Math.round(Number(c.hourlyRate) * 1.4 * 100) / 100,
-      bio: c.bio,
-      specialties: c.specialties,
-      location: c.location || '',
-      postcode: c.postcode,
-      availableNow: c.availableNow,
-      tier: c.tier.toLowerCase(),
-      verified: c.verified,
-      identityVerified: c.verificationStatus === 'VERIFIED',
-      insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
-      backgroundChecked: c.backgroundCheckPassed,
-      responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
-      radius: c.radius,
-      travelMode: c.travelMode,
-      distance,
-    };
-  }));
+      return {
+        id: c.user.id,
+        name: c.user.name,
+        photo: photoUrl || '',
+        image: photoUrl,
+        rating: Number(c.rating),
+        reviewCount: c.user.reviewsReceived.length,
+        completedJobs: c.completedJobs,
+        hourlyRate: Number(c.hourlyRate),
+        sameDayRate: Math.round(Number(c.hourlyRate) * 1.4 * 100) / 100,
+        bio: c.bio,
+        specialties: c.specialties,
+        location: c.location || '',
+        postcode: c.postcode,
+        availableNow: c.availableNow,
+        tier: c.tier.toLowerCase(),
+        verified: c.verified,
+        identityVerified: c.verificationStatus === 'VERIFIED',
+        insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
+        backgroundChecked: c.backgroundCheckPassed,
+        responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
+        radius: c.radius,
+        travelMode: c.travelMode,
+        distance,
+      };
+    })
+  );
 
   if (customerGeo) {
     results = results.filter((r) => r.distance !== null && r.distance <= r.radius);
@@ -191,7 +194,11 @@ export async function POST(request: NextRequest) {
 
       // Existing client — upgrade to cleaner
       let upgradePhotoKey: string | null = null;
-      if (body.profilePhoto && typeof body.profilePhoto === 'string' && body.profilePhoto.startsWith('data:image/')) {
+      if (
+        body.profilePhoto &&
+        typeof body.profilePhoto === 'string' &&
+        body.profilePhoto.startsWith('data:image/')
+      ) {
         upgradePhotoKey = await uploadProfilePhoto(existing.id, body.profilePhoto);
       }
 
@@ -266,6 +273,26 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      if (
+        body.selfiePhoto &&
+        typeof body.selfiePhoto === 'string' &&
+        body.selfiePhoto.startsWith('data:image/')
+      ) {
+        const match = body.selfiePhoto.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (match) {
+          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const buffer = Buffer.from(match[2], 'base64');
+          await DocumentStorageService.uploadDocument({
+            userId: result.user.id,
+            profileId: result.profile.id,
+            documentType: 'selfie',
+            fileBuffer: buffer,
+            originalName: `selfie.${ext}`,
+            mimeType: `image/${match[1]}`,
+          }).catch(() => {});
+        }
+      }
+
       return NextResponse.json(
         {
           message: 'Account upgraded to cleaner successfully',
@@ -333,7 +360,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Upload profile photo to R2 after user creation (need the real userId for the key)
-    if (body.profilePhoto && typeof body.profilePhoto === 'string' && body.profilePhoto.startsWith('data:image/')) {
+    if (
+      body.profilePhoto &&
+      typeof body.profilePhoto === 'string' &&
+      body.profilePhoto.startsWith('data:image/')
+    ) {
       const photoKey = await uploadProfilePhoto(result.user.id, body.profilePhoto);
       if (photoKey) {
         await prisma.user.update({
@@ -363,6 +394,26 @@ export async function POST(request: NextRequest) {
         hasSelfie: !!body.selfiePhoto,
       },
     });
+
+    if (
+      body.selfiePhoto &&
+      typeof body.selfiePhoto === 'string' &&
+      body.selfiePhoto.startsWith('data:image/')
+    ) {
+      const match = body.selfiePhoto.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (match) {
+        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        await DocumentStorageService.uploadDocument({
+          userId: result.user.id,
+          profileId: result.profile.id,
+          documentType: 'selfie',
+          fileBuffer: buffer,
+          originalName: `selfie.${ext}`,
+          mimeType: `image/${match[1]}`,
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json(
       {
