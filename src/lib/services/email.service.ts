@@ -315,6 +315,40 @@ export async function sendAbandonmentEmail(
   return sendEmail(email, subject, htmlBody);
 }
 
+// ─── Verification Decision Email ───────────────────────────
+
+export async function sendVerificationDecision(data: {
+  cleanerName: string;
+  cleanerEmail: string;
+  approved: boolean;
+  reason?: string;
+}): Promise<boolean> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  if (data.approved) {
+    const subject = "You're verified — start receiving bookings on Rena";
+    const htmlBody = `
+      <h1>You&rsquo;re verified!</h1>
+      <p>Hi ${data.cleanerName},</p>
+      <p>Great news — your Rena application has been approved. You can now start receiving bookings from customers in your area.</p>
+      <p><a href="${appUrl}/cleaner" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Go to your dashboard</a></p>
+      <p>Thank you for joining Rena Cleaning Network!</p>
+    `;
+    return sendEmail(data.cleanerEmail, subject, htmlBody);
+  }
+
+  const subject = 'Update on your Rena application';
+  const htmlBody = `
+    <h1>Application update</h1>
+    <p>Hi ${data.cleanerName},</p>
+    <p>Thank you for your interest in joining Rena Cleaning Network. Unfortunately, we were unable to approve your application at this time.</p>
+    ${data.reason ? `<blockquote style="border-left:4px solid #d1d5db;padding:12px 16px;margin:16px 0;color:#374151;background:#f9fafb;border-radius:0 8px 8px 0;">&ldquo;${data.reason}&rdquo;</blockquote>` : ''}
+    <p>If you have questions or believe this was made in error, please contact us at <a href="mailto:support@renacleaning.co.uk">support@renacleaning.co.uk</a>.</p>
+    <p>Best regards,<br/>The Rena Team</p>
+  `;
+  return sendEmail(data.cleanerEmail, subject, htmlBody);
+}
+
 // ─── Signup Notification Email ─────────────────────────────
 
 export async function sendSignupNotification(data: {

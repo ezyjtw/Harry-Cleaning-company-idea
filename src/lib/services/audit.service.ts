@@ -52,6 +52,12 @@ export type AuditAction =
   | 'DOCUMENT_DOWNLOADED'
   | 'DOCUMENT_DESTROYED'
   | 'DOCUMENT_ENCRYPTED'
+  | 'DOCUMENT_VIEWED'
+  // Selfie actions
+  | 'SELFIE_UPLOADED'
+  // Cleaner verification actions
+  | 'CLEANER_VERIFIED'
+  | 'CLEANER_REJECTED'
   // Compliance actions
   | 'DATA_BREACH_DETECTED'
   | 'DATA_BREACH_REPORTED_ICO'
