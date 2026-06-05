@@ -6,6 +6,7 @@ import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
+import { sendSignupNotification } from '@/lib/services/email.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
@@ -293,6 +294,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      sendSignupNotification({
+        name: result.user.name || body.name,
+        email: result.user.email,
+        phone: body.phone?.trim() || '',
+        role: 'CLEANER',
+        createdAt: result.user.createdAt.toISOString(),
+      }).catch(() => {});
+
       return NextResponse.json(
         {
           message: 'Account upgraded to cleaner successfully',
@@ -414,6 +423,14 @@ export async function POST(request: NextRequest) {
         }).catch(() => {});
       }
     }
+
+    sendSignupNotification({
+      name: result.user.name || body.name,
+      email: result.user.email,
+      phone: body.phone?.trim() || '',
+      role: 'CLEANER',
+      createdAt: result.user.createdAt.toISOString(),
+    }).catch(() => {});
 
     return NextResponse.json(
       {
