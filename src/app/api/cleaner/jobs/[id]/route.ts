@@ -67,6 +67,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       serviceType: booking.serviceType,
       totalPrice: Number(booking.totalPrice),
       cleanerEarnings: Number(booking.cleanerEarnings),
+      paymentStatus: booking.paymentStatus,
       notes: booking.notes,
       cleanerNotes: booking.cleanerNotes,
       bedrooms: (booking.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
@@ -136,7 +137,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   // Notify customer of status changes
   if (updated.clientId) {
-    const notificationMap: Record<string, { type: 'BOOKING_CONFIRMED' | 'BOOKING_COMPLETED' | 'BOOKING_CANCELLED'; title: string; body: string }> = {
+    const notificationMap: Record<
+      string,
+      {
+        type: 'BOOKING_CONFIRMED' | 'BOOKING_COMPLETED' | 'BOOKING_CANCELLED';
+        title: string;
+        body: string;
+      }
+    > = {
       ACCEPTED: {
         type: 'BOOKING_CONFIRMED',
         title: 'Booking accepted',
@@ -161,38 +169,44 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const notif = notificationMap[status];
     if (notif) {
-      await prisma.notification.create({
-        data: {
-          userId: updated.clientId,
-          type: notif.type,
-          title: notif.title,
-          body: notif.body,
-          data: { bookingId: updated.id },
-        },
-      }).catch(() => {}); // Don't fail the request if notification fails
+      await prisma.notification
+        .create({
+          data: {
+            userId: updated.clientId,
+            type: notif.type,
+            title: notif.title,
+            body: notif.body,
+            data: { bookingId: updated.id },
+          },
+        })
+        .catch(() => {}); // Don't fail the request if notification fails
     }
   }
 
   // On completion: increment cleaner's completedJobs counter
   if (status === 'COMPLETED') {
-    await prisma.cleanerProfile.updateMany({
-      where: { userId: user.id },
-      data: { completedJobs: { increment: 1 } },
-    }).catch(() => {});
+    await prisma.cleanerProfile
+      .updateMany({
+        where: { userId: user.id },
+        data: { completedJobs: { increment: 1 } },
+      })
+      .catch(() => {});
 
     // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'BOOKING_COMPLETED',
-        entityType: 'Booking',
-        entityId: updated.id,
-        metadata: {
-          cleanerEarnings: Number(updated.cleanerEarnings),
-          totalPrice: Number(updated.totalPrice),
+    await prisma.auditLog
+      .create({
+        data: {
+          userId: user.id,
+          action: 'BOOKING_COMPLETED',
+          entityType: 'Booking',
+          entityId: updated.id,
+          metadata: {
+            cleanerEarnings: Number(updated.cleanerEarnings),
+            totalPrice: Number(updated.totalPrice),
+          },
         },
-      },
-    }).catch(() => {});
+      })
+      .catch(() => {});
   }
 
   return NextResponse.json({
