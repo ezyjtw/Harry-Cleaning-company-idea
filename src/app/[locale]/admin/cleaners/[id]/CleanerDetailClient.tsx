@@ -269,7 +269,9 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <h3 className="text-gray-500 mb-1">Hourly rate</h3>
-            <p className="font-medium text-gray-900">&pound;{cleaner.hourlyRate.toFixed(2)}</p>
+            <p className="font-medium text-gray-900">
+              &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}
+            </p>
           </div>
           <div>
             <h3 className="text-gray-500 mb-1">Hours/week</h3>
