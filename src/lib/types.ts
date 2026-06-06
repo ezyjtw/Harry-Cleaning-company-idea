@@ -1,4 +1,4 @@
-export type CleanerTier = 'standard' | 'premium' | 'elite';
+export type CleanerTier = 'starter' | 'bronze' | 'silver' | 'gold' | 'elite';
 
 export interface Cleaner {
   id: string;

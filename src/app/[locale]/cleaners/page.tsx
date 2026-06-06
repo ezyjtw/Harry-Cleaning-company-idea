@@ -13,6 +13,13 @@ import {
 } from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
 
+const FILTER_LABEL_TO_SERVICE_SLUG: Record<string, string> = {
+  'Regular Cleaning': 'regular',
+  'Deep Cleaning': 'deep',
+  'End of Tenancy': 'end_of_tenancy',
+  'Airbnb / Short-Let': 'airbnb',
+};
+
 const SERVICE_FILTERS = [
   'All',
   'Regular Cleaning',
@@ -82,7 +89,7 @@ function CleanersContent() {
           bio: (c.bio as string) || '',
           specialties: (c.specialties as string[]) || [],
           languages: [],
-          tier: (c.tier as string) || 'standard',
+          tier: (c.tier as string) || 'starter',
           location: (c.location as string) || '',
           postcodeAreas: [],
           verified: (c.verified as boolean) || false,
@@ -90,13 +97,15 @@ function CleanersContent() {
           backgroundChecked: (c.backgroundChecked as boolean) || false,
           yearsExperience: 0,
           completedJobs: (c.completedJobs as number) || 0,
-          availability: [],
-          timeSlots: {},
+          availability: (c.availability as string[]) || [],
+          timeSlots: (c.timeSlots as Record<string, string[]>) || {},
           availableNow: (c.availableNow as boolean) || false,
           responseTime: (c.responseTime as string) || '~15 min',
           categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
           bringsProducts: false,
           productFee: 0,
+          eotPrices: (c.eotPrices as Record<string, number>) || undefined,
+          airbnbPrices: (c.airbnbPrices as Record<string, number>) || undefined,
           distance: (c.distance as number) ?? null,
         }));
         setAllCleaners(mapped);
@@ -124,7 +133,7 @@ function CleanersContent() {
         deep: 'Deep Cleaning',
         'end-of-tenancy': 'End of Tenancy',
         eot: 'End of Tenancy',
-        airbnb: 'Airbnb Cleaning',
+        airbnb: 'Airbnb / Short-Let',
       };
       const mapped = filterMap[serviceType];
       if (mapped) setFilters([mapped]);
@@ -136,7 +145,7 @@ function CleanersContent() {
   }, [searchParams]);
 
   const isEotFilter = filters.includes('End of Tenancy');
-  const isAirbnbFilter = filters.includes('Airbnb Cleaning');
+  const isAirbnbFilter = filters.includes('Airbnb / Short-Let');
 
   const handlePostcodeSearch = () => {
     if (!postcodeSearch.trim()) {
@@ -160,7 +169,11 @@ function CleanersContent() {
         c.specialties.some((s) => s.toLowerCase().includes(q));
       const matchesFilter =
         filters.length === 0 ||
-        filters.every((f) => c.specialties.some((s) => s.toLowerCase().includes(f.toLowerCase())));
+        filters.every((f) => {
+          const serviceSlug = FILTER_LABEL_TO_SERVICE_SLUG[f];
+          if (serviceSlug) return c.serviceTypes.includes(serviceSlug);
+          return c.specialties.some((s) => s.toLowerCase().includes(f.toLowerCase()));
+        });
       const matchesAvailability = !availableNowOnly || c.availableNow;
       const matchesSameDay = !sameDayOnly || c.availableNow;
       return matchesSearch && matchesFilter && matchesAvailability && matchesSameDay;

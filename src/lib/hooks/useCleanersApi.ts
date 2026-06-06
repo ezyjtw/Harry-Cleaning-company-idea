@@ -20,7 +20,7 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     bio: (c.bio as string) || '',
     specialties: (c.specialties as string[]) || [],
     languages: [],
-    tier: ((c.tier as string) || 'standard') as Cleaner['tier'],
+    tier: ((c.tier as string) || 'starter') as Cleaner['tier'],
     location: (c.location as string) || '',
     postcodeAreas: [],
     verified: (c.verified as boolean) || false,
@@ -28,14 +28,17 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     backgroundChecked: (c.backgroundChecked as boolean) || false,
     yearsExperience: 0,
     completedJobs: (c.completedJobs as number) || 0,
-    availability: [],
-    timeSlots: {},
+    availability: (c.availability as string[]) || [],
+    timeSlots: (c.timeSlots as Record<string, string[]>) || {},
     availableNow: (c.availableNow as boolean) || false,
     responseTime: (c.responseTime as string) || '~15 min',
     categoryRatings: DEFAULT_CATEGORY_RATINGS,
     insured: (c.insured as boolean) || false,
     bringsProducts: false,
     productFee: 0,
+    eotPrices: (c.eotPrices as Record<string, number>) || undefined,
+    airbnbPrices: (c.airbnbPrices as Record<string, number>) || undefined,
+    distance: (c.distance as number) ?? null,
   };
 }
 
