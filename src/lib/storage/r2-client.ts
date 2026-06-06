@@ -12,7 +12,9 @@ function getR2Client(): S3Client {
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
-    throw new Error('R2 storage is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY.');
+    throw new Error(
+      'R2 storage is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY.'
+    );
   }
 
   return new S3Client({
@@ -81,11 +83,9 @@ export async function getPresignedDownloadUrl(
   expiresInSeconds: number = DOCUMENT_URL_TTL
 ): Promise<string> {
   const client = getR2Client();
-  return getSignedUrl(
-    client,
-    new GetObjectCommand({ Bucket: getBucket(), Key: key }),
-    { expiresIn: expiresInSeconds }
-  );
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: getBucket(), Key: key }), {
+    expiresIn: expiresInSeconds,
+  });
 }
 
 // In-process presigned URL cache. Keyed by R2 object key.
@@ -114,14 +114,17 @@ export async function getCachedPresignedUrl(
 }
 
 // Periodic cleanup of expired cache entries
-setInterval(() => {
-  const now = Date.now();
-  urlCache.forEach((entry, key) => {
-    if (entry.expiresAt < now) {
-      urlCache.delete(key);
-    }
-  });
-}, 10 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    urlCache.forEach((entry, key) => {
+      if (entry.expiresAt < now) {
+        urlCache.delete(key);
+      }
+    });
+  },
+  10 * 60 * 1000
+);
 
 /**
  * Resolves a User.image value to a displayable URL.
@@ -130,7 +133,9 @@ setInterval(() => {
  * - HTTP(S) URLs → passed through
  * - null/empty → returns null
  */
-export async function resolveProfileImageUrl(imageValue: string | null | undefined): Promise<string | null> {
+export async function resolveProfileImageUrl(
+  imageValue: string | null | undefined
+): Promise<string | null> {
   if (!imageValue) return null;
   if (imageValue.startsWith('data:') || imageValue.startsWith('http')) return imageValue;
 

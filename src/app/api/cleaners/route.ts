@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
+import { DocumentStorageService } from '@/lib/services/document-storage.service';
+import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
@@ -318,6 +320,34 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      if (
+        body.selfiePhoto &&
+        typeof body.selfiePhoto === 'string' &&
+        body.selfiePhoto.startsWith('data:image/')
+      ) {
+        const match = body.selfiePhoto.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (match) {
+          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const buffer = Buffer.from(match[2], 'base64');
+          await DocumentStorageService.uploadDocument({
+            userId: result.user.id,
+            profileId: result.profile.id,
+            documentType: 'selfie',
+            fileBuffer: buffer,
+            originalName: `selfie.${ext}`,
+            mimeType: `image/${match[1]}`,
+          }).catch(() => {});
+        }
+      }
+
+      sendSignupNotification({
+        name: result.user.name || body.name,
+        email: result.user.email,
+        phone: body.phone?.trim() || '',
+        role: 'CLEANER',
+        createdAt: result.user.createdAt.toISOString(),
+      }).catch(() => {});
+
       return NextResponse.json(
         {
           message: 'Account upgraded to cleaner successfully',
@@ -422,6 +452,34 @@ export async function POST(request: NextRequest) {
         hasSelfie: !!body.selfiePhoto,
       },
     });
+
+    if (
+      body.selfiePhoto &&
+      typeof body.selfiePhoto === 'string' &&
+      body.selfiePhoto.startsWith('data:image/')
+    ) {
+      const match = body.selfiePhoto.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (match) {
+        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        await DocumentStorageService.uploadDocument({
+          userId: result.user.id,
+          profileId: result.profile.id,
+          documentType: 'selfie',
+          fileBuffer: buffer,
+          originalName: `selfie.${ext}`,
+          mimeType: `image/${match[1]}`,
+        }).catch(() => {});
+      }
+    }
+
+    sendSignupNotification({
+      name: result.user.name || body.name,
+      email: result.user.email,
+      phone: body.phone?.trim() || '',
+      role: 'CLEANER',
+      createdAt: result.user.createdAt.toISOString(),
+    }).catch(() => {});
 
     return NextResponse.json(
       {

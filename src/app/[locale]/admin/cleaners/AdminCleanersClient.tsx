@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import type { CleanerRow } from './page';
@@ -127,6 +128,9 @@ export default function AdminCleanersClient({
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                   Verified
                 </th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                  Docs
+                </th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                   Active
                 </th>
@@ -137,10 +141,14 @@ export default function AdminCleanersClient({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paginated.map((cleaner) => (
-                <tr key={cleaner.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={cleaner.fullId} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-900">{cleaner.name}</p>
-                    <p className="text-xs text-gray-400">{cleaner.email}</p>
+                    <Link href={`/admin/cleaners/${cleaner.fullId}`} className="block">
+                      <p className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                        {cleaner.name}
+                      </p>
+                      <p className="text-xs text-gray-400">{cleaner.email}</p>
+                    </Link>
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
                     <span
@@ -197,6 +205,16 @@ export default function AdminCleanersClient({
                         />
                       </svg>
                     )}
+                  </td>
+                  <td className="px-6 py-4 hidden md:table-cell">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">{cleaner.docCount}</span>
+                      {cleaner.hasSelfie && (
+                        <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                          Selfie
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 hidden sm:table-cell">
                     {cleaner.activeBookings}

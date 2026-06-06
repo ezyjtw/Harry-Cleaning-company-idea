@@ -9,7 +9,12 @@ import {
 
 import { AuditService } from './audit.service';
 
-export type DocumentType = 'dbs_certificate' | 'right_to_work' | 'photo_id' | 'insurance';
+export type DocumentType =
+  | 'dbs_certificate'
+  | 'right_to_work'
+  | 'photo_id'
+  | 'insurance'
+  | 'selfie';
 
 interface UploadDocumentParams {
   userId: string;

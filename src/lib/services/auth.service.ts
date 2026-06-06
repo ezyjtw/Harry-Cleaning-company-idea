@@ -1,8 +1,13 @@
-import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
+import bcrypt from 'bcryptjs';
+
 import prisma from '@/lib/db/prisma';
-import { sendEmailVerification, sendPasswordReset as sendPasswordResetEmail } from '@/lib/services/email.service';
+import {
+  sendEmailVerification,
+  sendPasswordReset as sendPasswordResetEmail,
+  sendSignupNotification,
+} from '@/lib/services/email.service';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
 const SALT_ROUNDS = 12;
@@ -81,6 +86,14 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
 
   // Send verification email (fire and forget — don't block registration)
   sendEmailVerification(email, token).catch(() => {});
+
+  sendSignupNotification({
+    name: input.name,
+    email,
+    phone: input.phone,
+    role: input.role,
+    createdAt: user.createdAt.toISOString(),
+  }).catch(() => {});
 
   return {
     success: true,
@@ -232,9 +245,7 @@ export async function resetPassword(
 /**
  * Verify a user's email address.
  */
-export async function verifyEmail(
-  token: string
-): Promise<{ success: boolean; message: string }> {
+export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
   const record = await prisma.verificationToken.findUnique({ where: { token } });
 
   if (!record || record.expires < new Date()) {
