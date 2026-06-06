@@ -31,10 +31,8 @@ export interface Cleaner {
   categoryRatings: CategoryRatings;
   bringsProducts: boolean;
   productFee: number; // additional cost if cleaner brings products
-  /** Cleaner's own EOT prices by property size (bedrooms). Key: 0=Studio, 1=1bed, ..., 5=5+bed */
-  eotPrices?: Record<number, number>;
-  /** Cleaner's own Airbnb prices by property size. Key: 0=Studio, 1=1bed, ..., 4=4+bed */
-  airbnbPrices?: Record<number, number>;
+  eotPrices?: Record<string, number>;
+  airbnbPrices?: Record<string, number>;
   distance?: number | null;
 }
 

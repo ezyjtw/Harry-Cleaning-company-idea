@@ -5,6 +5,12 @@ import { useState, useEffect, Suspense, useCallback } from 'react';
 
 import CleanerCard from '@/components/CleanerCard';
 import CleanerProfileModal from '@/components/CleanerProfileModal';
+import {
+  BEDROOMS_TO_EOT_SIZE,
+  BEDROOMS_TO_AIRBNB_SIZE,
+  eotSizeLabel,
+  airbnbSizeLabel,
+} from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
 
 const SERVICE_FILTERS = [
@@ -406,23 +412,19 @@ function CleanersContent() {
                   const bedroomKey = propertySize ?? 2;
                   let fixedPrice: number | null = null;
                   let fixedLabel: string | undefined;
-                  const sizeLabels: Record<number, string> = {
-                    0: 'studio',
-                    1: '1-bed',
-                    2: '2-bed',
-                    3: '3-bed',
-                    4: '4-bed',
-                    5: '5+ bed',
-                  };
 
                   if (isEotFilter && cleaner.eotPrices) {
-                    const key = Math.min(bedroomKey, 5);
-                    fixedPrice = cleaner.eotPrices[key] ?? null;
-                    fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} EOT`;
+                    const slug = BEDROOMS_TO_EOT_SIZE[bedroomKey];
+                    if (slug) {
+                      fixedPrice = cleaner.eotPrices[slug] ?? null;
+                      fixedLabel = `${eotSizeLabel(slug)} EOT`;
+                    }
                   } else if (isAirbnbFilter && cleaner.airbnbPrices) {
-                    const key = Math.min(bedroomKey, 4);
-                    fixedPrice = cleaner.airbnbPrices[key] ?? null;
-                    fixedLabel = `${sizeLabels[key] ?? `${key}-bed`} Airbnb`;
+                    const slug = BEDROOMS_TO_AIRBNB_SIZE[bedroomKey];
+                    if (slug) {
+                      fixedPrice = cleaner.airbnbPrices[slug] ?? null;
+                      fixedLabel = `${airbnbSizeLabel(slug)} Airbnb`;
+                    }
                   }
 
                   return (

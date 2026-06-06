@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isInCatchmentArea } from '@/lib/catchment';
+import { BEDROOMS_TO_EOT_SIZE, BEDROOMS_TO_AIRBNB_SIZE } from '@/lib/constants/services';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 // ─── Types ──────────────────────────────────────────────────────
 
 type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
-
-type PropertySize = 'STUDIO' | 'ONE_BED' | 'TWO_BED' | 'THREE_BED' | 'FOUR_BED' | 'FIVE_PLUS';
 
 interface QuoteResult {
   mode: 'area';
@@ -35,7 +34,7 @@ interface ServiceTypeData {
   pricingModel: 'HOURLY' | 'FIXED';
   baseMultiplier: number;
   minimumHours: number | null;
-  fixedPrices: { propertySize: PropertySize; customerPrice: number; estimatedHours: number }[];
+  fixedPrices: { propertySize: string; customerPrice: number; estimatedHours: number }[];
   addons: ServiceAddon[];
 }
 
@@ -59,22 +58,14 @@ const SERVICE_TO_CATEGORY: Record<ServiceSlug, string> = {
   airbnb: 'airbnb',
 };
 
-const PROPERTY_SIZE_LABELS: Record<PropertySize, string> = {
-  STUDIO: 'Studio',
-  ONE_BED: '1 Bed',
-  TWO_BED: '2 Bed',
-  THREE_BED: '3 Bed',
-  FOUR_BED: '4 Bed',
-  FIVE_PLUS: '5+ Bed',
-};
-
-const BEDROOM_TO_PROPERTY: Record<number, PropertySize> = {
-  0: 'STUDIO',
-  1: 'ONE_BED',
-  2: 'TWO_BED',
-  3: 'THREE_BED',
-  4: 'FOUR_BED',
-  5: 'FIVE_PLUS',
+const PROPERTY_SIZE_LABELS: Record<string, string> = {
+  studio: 'Studio',
+  '1bed': '1 Bed',
+  '2bed': '2 Bed',
+  '3bed': '3 Bed',
+  '4bed': '4 Bed',
+  '5bedPlus': '5+ Bed',
+  '4bedPlus': '4+ Bed',
 };
 
 const EOT_SUGGESTED_RANGES: Record<number, [number, number]> = {
@@ -284,14 +275,17 @@ export default function HeroQuoteWidget() {
     async (_addonIds: string[] = selectedAddons) => {
       if (bedrooms === null || bathrooms === null || !confirmedPostcode) return;
 
-      const propertySize = BEDROOM_TO_PROPERTY[bedrooms] ?? 'FIVE_PLUS';
+      const propertySizeSlug =
+        serviceSlug === 'eot'
+          ? (BEDROOMS_TO_EOT_SIZE[bedrooms] ?? 'studio')
+          : (BEDROOMS_TO_AIRBNB_SIZE[bedrooms] ?? 'studio');
       const body: Record<string, unknown> = {
         postcode: confirmedPostcode,
         serviceSlug,
       };
 
       if (isFixed) {
-        body.propertySize = propertySize;
+        body.propertySize = propertySizeSlug;
       } else {
         body.hours = hours;
       }
@@ -717,7 +711,14 @@ export default function HeroQuoteWidget() {
             style={{ border: '1px solid rgba(27,42,74,0.1)' }}
           >
             {isFixed
-              ? PROPERTY_SIZE_LABELS[BEDROOM_TO_PROPERTY[bedrooms ?? 1] ?? 'ONE_BED']
+              ? (() => {
+                  const b = bedrooms ?? 1;
+                  const slug =
+                    serviceSlug === 'eot'
+                      ? (BEDROOMS_TO_EOT_SIZE[b] ?? 'studio')
+                      : (BEDROOMS_TO_AIRBNB_SIZE[b] ?? 'studio');
+                  return PROPERTY_SIZE_LABELS[slug] ?? slug;
+                })()
               : `${bedrooms} bed · ${bathrooms} bath`}
           </span>
           <span

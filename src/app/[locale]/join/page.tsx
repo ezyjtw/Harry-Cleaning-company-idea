@@ -6,6 +6,12 @@ import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import {
+  SERVICE_TYPE_SLUGS,
+  SERVICE_RATE_INFO as CANONICAL_RATE_INFO,
+  serviceTypeLabel,
+  type ServiceTypeSlug,
+} from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -97,44 +103,44 @@ const STORAGE_KEY = 'rena-join-wizard';
 /*  Option lists                                                       */
 /* ------------------------------------------------------------------ */
 
-const SERVICE_TYPE_OPTIONS = ['Standard', 'Deep', 'Same Day', 'End of Tenancy', 'AirBnB'];
+const SERVICE_TYPE_OPTIONS: ServiceTypeSlug[] = [...SERVICE_TYPE_SLUGS];
 
 const SERVICE_RATE_INFO: Record<
   string,
   { label: string; description: string; range: string; model: string; hourly: boolean }
 > = {
-  Standard: {
-    label: 'Regular Cleaning',
+  regular: {
+    label: CANONICAL_RATE_INFO.regular.label,
     description: 'Weekly or fortnightly recurring cleans',
-    range: '£14 – £35/hr',
+    range: CANONICAL_RATE_INFO.regular.range,
     model: '2–4 hours',
     hourly: true,
   },
-  Deep: {
-    label: 'Deep Cleaning',
+  deep: {
+    label: CANONICAL_RATE_INFO.deep.label,
     description: 'Intensive top-to-bottom cleaning',
-    range: '£20 – £51/hr',
+    range: CANONICAL_RATE_INFO.deep.range,
     model: '3–8 hours',
     hourly: true,
   },
-  'End of Tenancy': {
-    label: 'End of Tenancy',
+  end_of_tenancy: {
+    label: CANONICAL_RATE_INFO.end_of_tenancy.label,
     description: 'Fixed price by property size',
-    range: '£150 – £580',
+    range: CANONICAL_RATE_INFO.end_of_tenancy.range,
     model: 'Fixed by property size',
     hourly: false,
   },
-  'Same Day': {
-    label: 'Same-Day Cleaning',
+  same_day: {
+    label: CANONICAL_RATE_INFO.same_day.label,
     description: 'Urgent booking for same-day service',
-    range: '£18 – £46/hr',
+    range: CANONICAL_RATE_INFO.same_day.range,
     model: '2–4 hours',
     hourly: true,
   },
-  AirBnB: {
-    label: 'Airbnb / Short-Let',
+  airbnb: {
+    label: CANONICAL_RATE_INFO.airbnb.label,
     description: 'Fixed price turnaround between guests',
-    range: '£45 – £165',
+    range: CANONICAL_RATE_INFO.airbnb.range,
     model: 'Fixed by property size',
     hourly: false,
   },
@@ -901,9 +907,9 @@ export default function JoinAsCleanerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...restFormData,
-          hourlyRateRegular: Number(form.serviceRates['Standard']) || null,
-          hourlyRateDeep: Number(form.serviceRates['Deep']) || null,
-          hourlyRateSameDay: Number(form.serviceRates['Same Day']) || null,
+          hourlyRateRegular: Number(form.serviceRates['regular']) || null,
+          hourlyRateDeep: Number(form.serviceRates['deep']) || null,
+          hourlyRateSameDay: Number(form.serviceRates['same_day']) || null,
           hasPhotoId: !!photoIdFile,
           hasRtwDoc: !!rightToWorkDocFile,
           hasDbsCert: !!dbsCertFile,
@@ -1426,7 +1432,7 @@ export default function JoinAsCleanerPage() {
                 {SERVICE_TYPE_OPTIONS.map((s) => (
                   <PillToggle
                     key={s}
-                    label={s}
+                    label={serviceTypeLabel(s)}
                     active={form.serviceTypes.includes(s)}
                     onClick={() => toggleArray('serviceTypes', s)}
                   />
@@ -2202,7 +2208,11 @@ export default function JoinAsCleanerPage() {
                   </div>
                   <div>
                     <dt className="inline font-normal text-ink">Services:</dt>{' '}
-                    <dd className="inline">{form.serviceTypes.join(', ') || 'None'}</dd>
+                    <dd className="inline">
+                      {form.serviceTypes
+                        .map((s) => serviceTypeLabel(s as ServiceTypeSlug))
+                        .join(', ') || 'None'}
+                    </dd>
                   </div>
                   <div>
                     <dt className="inline font-normal text-ink">Specialties:</dt>{' '}

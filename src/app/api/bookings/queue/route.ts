@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { normalizeToPricingSlug } from '@/lib/constants/services';
 import { CleanerQueueService } from '@/lib/services/cleaner-queue.service';
 import type { MatchingCriteria } from '@/lib/services/matching.service';
-import type { ServiceSlug } from '@/lib/services/pricing.service';
 
 /**
  * POST /api/bookings/queue
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const result = await CleanerQueueService.createQueuedBooking({
       criteria,
       quoteInput: {
-        serviceSlug: body.serviceType as ServiceSlug,
+        serviceSlug: normalizeToPricingSlug(body.serviceType),
         hours: body.duration ? Number(body.duration) : undefined,
         propertySize: body.propertySize ?? undefined,
         frequency: body.frequency ?? undefined,
