@@ -11,7 +11,6 @@ const cleanerQuoteSchema = z.object({
   serviceSlug: z.enum(SERVICE_SLUGS),
   hours: z.number().min(2).max(12).optional(),
   propertySize: z.string().optional(),
-  frequency: z.enum(['WEEKLY', 'FORTNIGHTLY', 'ONE_OFF']).optional(),
   addons: z.array(z.string()).optional(),
 });
 

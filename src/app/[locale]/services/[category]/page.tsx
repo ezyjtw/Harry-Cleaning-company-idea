@@ -11,14 +11,7 @@ import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
-import type {
-  ServiceCategory,
-  BookingFrequency,
-  KeyAccess,
-  RoomConfig,
-  Cleaner,
-  Review,
-} from '@/lib/types';
+import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner, Review } from '@/lib/types';
 
 /** Given a start time like "8:00 AM" and duration in hours, returns end time string */
 function getEndTime(startTime: string, durationHours: number): string {
@@ -54,7 +47,6 @@ const SERVICE_DESCRIPTIONS: Record<ServiceCategory, string> = {
 
 /** Minimum cleaner rate (£14) × service multiplier, rounded down to nearest £ */
 const MIN_CLEANER_RATE = 14;
-const ONE_OFF_MULTIPLIER = 1.1;
 const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
   regular: MIN_CLEANER_RATE, // £14
   'same-day': Math.floor(MIN_CLEANER_RATE * 1.3), // £18
@@ -62,7 +54,6 @@ const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
   airbnb: 0, // fixed-price
   'end-of-tenancy': 0, // fixed-price
 };
-const ONE_OFF_STARTING_RATE = Math.floor(MIN_CLEANER_RATE * ONE_OFF_MULTIPLIER); // £15
 
 /** Short label describing the rate type for the current service */
 const SERVICE_RATE_LABELS: Record<ServiceCategory, string> = {
@@ -79,11 +70,8 @@ function getCleanerRateForService(cleaner: Cleaner, cat: ServiceCategory): numbe
   return cleaner.hourlyRateRegular ?? 0;
 }
 
-/** The listed (display) rate for a cleaner on a given service, applying the one-off multiplier when needed. */
-function getServiceListedRate(cleaner: Cleaner, cat: ServiceCategory, isOneOff: boolean): number {
-  const raw = getCleanerRateForService(cleaner, cat);
-  const multiplier = isOneOff ? ONE_OFF_MULTIPLIER : 1;
-  return Math.round(raw * multiplier * 100) / 100;
+function getServiceListedRate(cleaner: Cleaner, cat: ServiceCategory): number {
+  return getCleanerRateForService(cleaner, cat);
 }
 
 /** Extract the area prefix from a UK postcode (e.g. "SW1A 1AA" → "SW") */
@@ -228,7 +216,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const preSelectedCleanerId = searchParams.get('cleaner') ?? '';
   const preSelectedCleaner = preSelectedCleanerId ? getCleanerById(preSelectedCleanerId) : null;
 
-  // Phase: "quote" = first page (postcode, rooms, hours, products, frequency, email)
+  // Phase: "quote" = first page (postcode, rooms, hours, products, email)
   // Phase: "cleaner" = second page (flexible/set time, cleaner selection, key, notes)
   const [phase, setPhase] = useState<WizardPhase>('quote');
 
@@ -249,7 +237,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
-  const [frequency, setFrequency] = useState<BookingFrequency>('one-off');
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
 
@@ -329,7 +316,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             keyAccess,
             keyAccessNote: keyAccessNote || undefined,
           },
-          frequency,
         }),
       });
 
@@ -417,17 +403,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     return () => window.removeEventListener('popstate', handlePopState);
   }, [goBack]);
 
-  const frequencyDiscount = isRegular
-    ? frequency === 'weekly'
-      ? 0.1
-      : frequency === 'biweekly'
-        ? 0.05
-        : 0
-    : 0;
-
-  // One-off bookings on the regular page use the 1.10x one-off surge
-  const isOneOffOnRegular = isRegular && frequency === 'one-off';
-
   const priceBreakdown = useMemo(() => {
     if (isFixedPrice(category) && fixedPriceQuote) {
       // Range-based model for Airbnb & End of Tenancy — suggested range by property size
@@ -454,17 +429,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const rawRate = activeCleaner
       ? getCleanerRateForService(activeCleaner, category)
       : MIN_CLEANER_RATE;
-    const multiplier = isOneOffOnRegular ? ONE_OFF_MULTIPLIER : 1;
-    const listedHourlyRate = Math.round(rawRate * multiplier * 100) / 100;
-    const listedSubtotal = Math.round(rawRate * effectiveHours * multiplier * 100) / 100;
-    const discount = listedSubtotal * frequencyDiscount;
-    const cleaningSubtotal = Math.round((listedSubtotal - discount) * 100) / 100;
+    const listedHourlyRate = Math.round(rawRate * 100) / 100;
+    const listedSubtotal = Math.round(rawRate * effectiveHours * 100) / 100;
+    const cleaningSubtotal = listedSubtotal;
     const serviceFee = Math.round(cleaningSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
     return {
       isFixed: false as const,
       listedSubtotal,
       listedHourlyRate,
-      discount: Math.round(discount * 100) / 100,
+      discount: 0,
       cleaningSubtotal,
       displayServiceFee: serviceFee,
       total:
@@ -475,15 +448,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
-  }, [
-    preSelectedCleaner,
-    selectedCleaner,
-    effectiveHours,
-    category,
-    frequencyDiscount,
-    isOneOffOnRegular,
-    fixedPriceQuote,
-  ]);
+  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, fixedPriceQuote]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
@@ -933,49 +898,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             </div>
 
-            {/* Frequency — only shown for Regular Cleaning */}
-            {isRegular && (
-              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">How Often?</h2>
-                <p className="mt-2 font-jost text-xs font-light text-gold">
-                  Save with a regular schedule — weekly cleans get the best rate.
-                </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  {(
-                    [
-                      { value: 'one-off' as BookingFrequency, label: 'One-off', tag: '+10% surge' },
-                      { value: 'weekly' as BookingFrequency, label: 'Weekly', tag: 'Best rate' },
-                      {
-                        value: 'biweekly' as BookingFrequency,
-                        label: 'Fortnightly',
-                        tag: 'Save 5%',
-                      },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setFrequency(opt.value)}
-                      className={`rounded-xl p-4 text-center transition-all duration-200 ${
-                        frequency === opt.value
-                          ? 'bg-gold/5 ring-2 ring-gold shadow-sm'
-                          : 'bg-cream ring-1 ring-ink/[0.06] hover:-translate-y-0.5 hover:shadow-md'
-                      }`}
-                    >
-                      <p className="font-jost text-sm font-normal text-ink">{opt.label}</p>
-                      {opt.tag && (
-                        <p
-                          className={`mt-1.5 font-jost text-[11px] font-medium ${frequency === opt.value ? 'text-gold' : opt.value === 'one-off' ? 'text-ink-3' : 'text-gold'}`}
-                        >
-                          {opt.tag}
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Email */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <h2 className="font-jost font-medium text-base text-ink">Your Email</h2>
@@ -1060,18 +982,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   {preSelectedCleaner && (
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
                       {preSelectedCleaner.name} — &pound;
-                      {getServiceListedRate(
-                        preSelectedCleaner,
-                        category,
-                        isOneOffOnRegular
-                      ).toFixed(2)}
+                      {getServiceListedRate(preSelectedCleaner, category).toFixed(2)}
                       /hr
                     </p>
                   )}
                   {!preSelectedCleaner && (
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
                       Starting at &pound;
-                      {isOneOffOnRegular ? ONE_OFF_STARTING_RATE : SERVICE_STARTING_RATES[category]}
+                      {SERVICE_STARTING_RATES[category]}
                       /hr
                     </p>
                   )}
@@ -1082,16 +1000,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
                       </span>
                     </div>
-                    {frequencyDiscount > 0 && (
-                      <div className="flex justify-between font-jost text-sm">
-                        <span className="font-light text-gold">
-                          {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                        </span>
-                        <span className="text-gold">
-                          -&pound;{priceBreakdown.discount.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
                     <div className="flex justify-between font-jost text-sm">
                       <span className="font-light text-ink-3">
                         Service fee ({SERVICE_FEE_PERCENT}%)
@@ -1113,11 +1021,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       </span>
                     </div>
                   </div>
-                  {isOneOffOnRegular && (
-                    <p className="mt-2 font-jost font-light text-xs text-ink-3">
-                      Includes 10% one-off surge. Save with a weekly or fortnightly schedule.
-                    </p>
-                  )}
                   <p className="mt-3 font-jost font-light text-xs text-ink-3">
                     {!preSelectedCleaner
                       ? 'Final price depends on your chosen cleaner\u2019s rate. No hidden charges.'
@@ -1157,16 +1060,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                   <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
                   <SummaryRow
-                    label="Frequency"
-                    value={
-                      frequency === 'weekly'
-                        ? 'Weekly (best rate)'
-                        : frequency === 'biweekly'
-                          ? 'Fortnightly (5% off)'
-                          : 'One-off (+10% surge)'
-                    }
-                  />
-                  <SummaryRow
                     label="Products"
                     value={
                       cleanerBringsProducts
@@ -1203,16 +1096,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
                   </div>
-                  {priceBreakdown.discount > 0 && (
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-gold">
-                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                      </span>
-                      <span className="text-gold">
-                        -&pound;{priceBreakdown.discount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
                   <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                     <span className="font-jost font-normal text-ink">Total</span>
                     <span className="font-cormorant font-light text-3xl text-ink">
@@ -1342,7 +1225,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <span className="text-ink-3/30">|</span>
               <span>
                 &pound;
-                {getServiceListedRate(preSelectedCleaner, category, isOneOffOnRegular).toFixed(2)}
+                {getServiceListedRate(preSelectedCleaner, category).toFixed(2)}
                 /hr ({SERVICE_RATE_LABELS[category]})
               </span>
             </div>
@@ -2532,11 +2415,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="font-cormorant font-light text-lg text-ink">
-                          &pound;{getServiceListedRate(c, category, isOneOffOnRegular).toFixed(2)}
+                          &pound;{getServiceListedRate(c, category).toFixed(2)}
                         </span>
                         <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
                         <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
-                          {isOneOffOnRegular ? 'one-off rate' : SERVICE_RATE_LABELS[category]}
+                          {SERVICE_RATE_LABELS[category]}
                         </p>
                       </div>
                     </div>
@@ -2710,15 +2593,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                               <div className="shrink-0 text-right">
                                 <span className="font-cormorant font-light text-lg text-ink">
                                   &pound;
-                                  {getServiceListedRate(c, category, isOneOffOnRegular).toFixed(2)}
+                                  {getServiceListedRate(c, category).toFixed(2)}
                                 </span>
                                 <span className="font-jost font-light text-[11px] text-ink-3">
                                   /hr
                                 </span>
                                 <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
-                                  {isOneOffOnRegular
-                                    ? 'one-off rate'
-                                    : SERVICE_RATE_LABELS[category]}
+                                  {SERVICE_RATE_LABELS[category]}
                                 </p>
                               </div>
                             </div>
@@ -2780,11 +2661,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   {!isFixedPrice(category) && (
                     <div className="shrink-0 text-right">
                       <span className="font-cormorant font-light text-2xl text-ink">
-                        &pound;{getServiceListedRate(sc, category, isOneOffOnRegular).toFixed(2)}
+                        &pound;{getServiceListedRate(sc, category).toFixed(2)}
                       </span>
                       <span className="font-jost font-light text-xs text-ink-3">/hr</span>
                       <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
-                        {isOneOffOnRegular ? 'one-off rate' : SERVICE_RATE_LABELS[category]}
+                        {SERVICE_RATE_LABELS[category]}
                       </p>
                     </div>
                   )}
@@ -2993,16 +2874,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
               />
               <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
-              <SummaryRow
-                label="Frequency"
-                value={
-                  frequency === 'weekly'
-                    ? 'Weekly (10% off)'
-                    : frequency === 'biweekly'
-                      ? 'Fortnightly (5% off)'
-                      : 'One-off'
-                }
-              />
+              <SummaryRow label="Frequency" value="One-off" />
               <SummaryRow
                 label="Products"
                 value={
@@ -3061,16 +2933,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
                   </div>
-                  {priceBreakdown.discount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-normal text-gold">
-                        {frequency === 'weekly' ? 'Weekly' : 'Fortnightly'} discount
-                      </span>
-                      <span className="font-jost font-normal text-gold">
-                        -&pound;{priceBreakdown.discount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
                 </>
                 <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                   <span className="font-jost font-normal text-ink">Total</span>
@@ -3103,8 +2965,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       {profileCleaner && (
         <CleanerProfileSlideOut
           cleaner={profileCleaner}
-          listedRate={getServiceListedRate(profileCleaner, category, isOneOffOnRegular)}
-          rateLabel={isOneOffOnRegular ? 'one-off rate' : SERVICE_RATE_LABELS[category]}
+          listedRate={getServiceListedRate(profileCleaner, category)}
+          rateLabel={SERVICE_RATE_LABELS[category]}
           effectiveHours={effectiveHours}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {

@@ -63,7 +63,6 @@ export interface CleanerQuoteInput {
   serviceSlug: ServiceSlug;
   hours?: number;
   propertySize?: string;
-  frequency?: 'WEEKLY' | 'FORTNIGHTLY' | 'ONE_OFF';
   addons?: string[];
 }
 
@@ -150,11 +149,7 @@ export class PricingService {
     }
     const hourlyRate = Number(rateValue);
 
-    let multiplier = serviceType.baseMultiplier;
-    if (input.serviceSlug === 'regular' && input.frequency === 'FORTNIGHTLY') {
-      const config = await this.getConfig();
-      multiplier = new Decimal(multiplier).mul(config['fortnightly_multiplier'] || 1).toNumber();
-    }
+    const multiplier = serviceType.baseMultiplier;
 
     const cleanerListedPrice = new Decimal(hourlyRate)
       .mul(hours)
@@ -465,22 +460,11 @@ export function validateServiceTypePricing(
       error: 'hourlyRateSameDay is required when offering same-day cleaning.',
     };
   }
-  if (serviceTypes.includes('end_of_tenancy')) {
-    if (!data.eotPrices || !Object.values(data.eotPrices).some((v) => v > 0)) {
-      return {
-        valid: false,
-        error: 'At least one End of Tenancy property size price is required.',
-      };
-    }
-  }
-  if (serviceTypes.includes('airbnb')) {
-    if (!data.airbnbPrices || !Object.values(data.airbnbPrices).some((v) => v > 0)) {
-      return {
-        valid: false,
-        error: 'At least one Airbnb property size price is required.',
-      };
-    }
-  }
+  // Fixed-price services (end_of_tenancy, airbnb) do NOT require prices at
+  // signup time. Cleaners add property-size prices later from the pricing
+  // dashboard. Until prices are set the cleaner simply won't appear in
+  // fixed-price search results or be bookable for those services — enforced
+  // by the search API (requires prices) and booking API (server-side quote).
   return { valid: true };
 }
 

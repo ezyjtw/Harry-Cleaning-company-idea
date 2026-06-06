@@ -10,6 +10,7 @@ import {
   BEDROOMS_TO_AIRBNB_SIZE,
   eotSizeLabel,
   airbnbSizeLabel,
+  SPECIALTY_OPTIONS,
 } from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
 
@@ -18,13 +19,8 @@ const SERVICE_FILTERS = [
   'Regular Cleaning',
   'Deep Cleaning',
   'End of Tenancy',
-  'Airbnb Cleaning',
-  'Pet-Friendly',
-  'Eco-Friendly Products',
-  'Kosher Kitchen',
-  'Halal-Conscious Cleaning',
-  'Prayer Room Care',
-  'Elderly/Assisted Living',
+  'Airbnb / Short-Let',
+  ...SPECIALTY_OPTIONS.filter((s) => s !== 'Regular Cleaning' && s !== 'Deep Cleaning'),
 ];
 
 type SortOption = 'rating' | 'price-low' | 'price-high' | 'reviews' | 'available-now' | 'distance';

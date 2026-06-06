@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
         serviceSlug: normalizeToPricingSlug(body.serviceType),
         hours: body.duration ? Number(body.duration) : undefined,
         propertySize: body.propertySize ?? undefined,
-        frequency: body.frequency ?? undefined,
         addons: body.addons ?? [],
       },
       customerEmail: body.email,

@@ -228,7 +228,6 @@ export default function HeroQuoteWidget() {
   const [bathrooms, setBathrooms] = useState<number | null>(null);
   const [serviceSlug, setServiceSlug] = useState<ServiceSlug>('regular');
   const [hours, setHours] = useState(3);
-  const [frequency, setFrequency] = useState<'WEEKLY' | 'FORTNIGHTLY' | 'ONE_OFF'>('ONE_OFF');
 
   // Step 3 — quote & addons
   const [quote, setQuote] = useState<QuoteResult | null>(null);
@@ -599,30 +598,6 @@ export default function HeroQuoteWidget() {
         </div>
       )}
 
-      {/* Frequency — regular only */}
-      {serviceSlug === 'regular' && (
-        <div className="mb-6">
-          <p className="mb-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            Frequency
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { val: 'WEEKLY' as const, label: 'Weekly' },
-              { val: 'FORTNIGHTLY' as const, label: 'Fortnightly' },
-              { val: 'ONE_OFF' as const, label: 'One-off' },
-            ].map(({ val, label }) => (
-              <OptionButton
-                key={val}
-                selected={frequency === val}
-                onClick={() => setFrequency(val)}
-              >
-                {label}
-              </OptionButton>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Price range preview for EOT/Airbnb */}
       {isFixed &&
         bedrooms !== null &&
@@ -937,6 +912,14 @@ export default function HeroQuoteWidget() {
           className="mb-3 flex w-full items-center justify-center rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
         >
           Choose a cleaner
+        </a>
+
+        <a
+          href={`/cleaners?postcode=${encodeURIComponent(confirmedPostcode)}`}
+          className="mb-3 flex w-full items-center justify-center rounded-md py-3 font-jost text-[13px] tracking-[0.08em] text-ink transition hover:bg-cream"
+          style={{ border: '1px solid rgba(27,42,74,0.10)' }}
+        >
+          Browse cleaners
         </a>
 
         <button

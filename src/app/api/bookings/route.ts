@@ -108,7 +108,6 @@ export async function POST(request: NextRequest) {
         serviceSlug: pricingSlug,
         hours: body.duration ? Number(body.duration) : undefined,
         propertySize: body.propertySize || undefined,
-        frequency: body.frequency || undefined,
         addons: body.addons || undefined,
       });
     } catch (error) {
@@ -223,7 +222,7 @@ export async function POST(request: NextRequest) {
         duration: body.duration,
         rooms: body.rooms || null,
         extras: body.extras || [],
-        frequency: body.frequency || 'one-off',
+        frequency: 'one_off',
         totalPrice,
         platformFee,
         cleanerEarnings,

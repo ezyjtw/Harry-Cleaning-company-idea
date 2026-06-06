@@ -36,6 +36,9 @@ interface DashboardData {
     verificationStatus: string;
     insuranceVerified: boolean;
     profileComplete: boolean;
+    serviceTypes: string[];
+    eotPrices: Record<string, unknown> | null;
+    airbnbPrices: Record<string, unknown> | null;
   };
   stats: {
     todaysJobs: number;
@@ -390,6 +393,58 @@ export default function CleanerDashboard() {
           )}
         </div>
       </div>
+
+      {/* EoT / Airbnb pricing banner */}
+      {(() => {
+        const st = data.profile.serviceTypes;
+        const hasEot = st.includes('end_of_tenancy');
+        const hasAirbnb = st.includes('airbnb');
+        const eotEmpty =
+          hasEot && (!data.profile.eotPrices || Object.keys(data.profile.eotPrices).length === 0);
+        const airbnbEmpty =
+          hasAirbnb &&
+          (!data.profile.airbnbPrices || Object.keys(data.profile.airbnbPrices).length === 0);
+        if (!eotEmpty && !airbnbEmpty) return null;
+        const missing = [eotEmpty && 'End of Tenancy', airbnbEmpty && 'Airbnb']
+          .filter(Boolean)
+          .join(' and ');
+        return (
+          <div
+            className="mb-6 rounded-xl bg-amber-50 px-5 py-4 flex items-start gap-3"
+            style={{ border: '1px solid rgba(217,119,6,0.15)' }}
+          >
+            <svg
+              className="w-5 h-5 text-amber-600 mt-0.5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <div>
+              <p className="font-jost text-sm font-normal text-amber-800">
+                {missing} pricing not set
+              </p>
+              <p className="font-jost text-[13px] font-light text-amber-700 mt-0.5">
+                You&apos;ve added {missing.toLowerCase()} to your services but haven&apos;t set
+                prices yet. You won&apos;t appear in search results for these services until pricing
+                is configured.
+              </p>
+              <Link
+                href="/cleaner/pricing"
+                className="inline-block mt-2 font-jost text-[13px] font-normal text-amber-900 underline underline-offset-2 hover:text-amber-700 transition"
+              >
+                Set up pricing &rarr;
+              </Link>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

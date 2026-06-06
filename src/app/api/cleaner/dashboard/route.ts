@@ -32,6 +32,9 @@ export async function GET() {
           bio: true,
           postcode: true,
           specialties: true,
+          serviceTypes: true,
+          eotPrices: true,
+          airbnbPrices: true,
         },
       }),
 
@@ -127,6 +130,9 @@ export async function GET() {
       verificationStatus: profile.verificationStatus,
       insuranceVerified: profile.insuranceVerified,
       profileComplete: !!profile.bio && !!profile.postcode && profile.specialties.length > 0,
+      serviceTypes: profile.serviceTypes,
+      eotPrices: profile.eotPrices,
+      airbnbPrices: profile.airbnbPrices,
     },
     stats: {
       todaysJobs,
