@@ -27,5 +27,8 @@ export async function register() {
         `Server startup blocked: document encryption validation failed — ${encryptionResult.error}`
       );
     }
+
+    const { checkReferenceDataIntegrity } = await import('@/lib/db/reference-data-check');
+    await checkReferenceDataIntegrity();
   }
 }
