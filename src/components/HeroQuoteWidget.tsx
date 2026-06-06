@@ -275,16 +275,17 @@ export default function HeroQuoteWidget() {
     async (_addonIds: string[] = selectedAddons) => {
       if (bedrooms === null || bathrooms === null || !confirmedPostcode) return;
 
-      const propertySizeSlug =
-        serviceSlug === 'eot'
-          ? (BEDROOMS_TO_EOT_SIZE[bedrooms] ?? 'studio')
-          : (BEDROOMS_TO_AIRBNB_SIZE[bedrooms] ?? 'studio');
       const body: Record<string, unknown> = {
         postcode: confirmedPostcode,
         serviceSlug,
       };
 
       if (isFixed) {
+        const propertySizeSlug =
+          serviceSlug === 'eot'
+            ? BEDROOMS_TO_EOT_SIZE[bedrooms]
+            : BEDROOMS_TO_AIRBNB_SIZE[bedrooms];
+        if (!propertySizeSlug) return;
         body.propertySize = propertySizeSlug;
       } else {
         body.hours = hours;
@@ -714,9 +715,8 @@ export default function HeroQuoteWidget() {
               ? (() => {
                   const b = bedrooms ?? 1;
                   const slug =
-                    serviceSlug === 'eot'
-                      ? (BEDROOMS_TO_EOT_SIZE[b] ?? 'studio')
-                      : (BEDROOMS_TO_AIRBNB_SIZE[b] ?? 'studio');
+                    serviceSlug === 'eot' ? BEDROOMS_TO_EOT_SIZE[b] : BEDROOMS_TO_AIRBNB_SIZE[b];
+                  if (!slug) return `${b} bed`;
                   return PROPERTY_SIZE_LABELS[slug] ?? slug;
                 })()
               : `${bedrooms} bed · ${bathrooms} bath`}
