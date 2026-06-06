@@ -332,6 +332,11 @@ export async function sendVerificationDecision(data: {
       <p>Hi ${data.cleanerName},</p>
       <p>Great news — your Rena application has been approved. You can now start receiving bookings from customers in your area.</p>
       <p><a href="${appUrl}/cleaner" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Go to your dashboard</a></p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+      <h2 style="font-size:18px;margin:0 0 8px;">Connect your payment account</h2>
+      <p>To start receiving bookings and payments, you need to connect your bank account securely via Stripe. This takes about 5 minutes.</p>
+      <p><a href="${appUrl}/en/cleaner/stripe/connect" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Connect your payment account</a></p>
+      <p style="font-size:13px;color:#6b7280;">This is required to receive payments. Note: your first payout will be held for 7&ndash;14 days as part of Stripe&rsquo;s verification process. After that, you&rsquo;ll be paid every Wednesday.</p>
       <p>Thank you for joining Rena Cleaning Network!</p>
     `;
     return sendEmail(data.cleanerEmail, subject, htmlBody);

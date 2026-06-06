@@ -80,6 +80,9 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     description: 'Master encryption key for document storage (min 32 chars)',
     validate: (v) => v.length >= 32,
   },
+  { name: 'STRIPE_SECRET_KEY', required: true, description: 'Stripe secret API key for Connect' },
+  { name: 'STRIPE_PUBLISHABLE_KEY', required: true, description: 'Stripe publishable key' },
+  { name: 'STRIPE_WEBHOOK_SECRET', required: true, description: 'Stripe webhook signing secret' },
 ];
 
 export interface ValidationResult {

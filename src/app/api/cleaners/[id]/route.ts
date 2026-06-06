@@ -6,7 +6,12 @@ import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     const profile = await prisma.cleanerProfile.findFirst({
-      where: { userId: params.id },
+      where: {
+        userId: params.id,
+        verified: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+      },
       include: {
         user: {
           select: {
