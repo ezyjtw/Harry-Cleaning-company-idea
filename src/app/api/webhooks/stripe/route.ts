@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 
 import prisma from '@/lib/db/prisma';
+import {
+  sendBookingConfirmation,
+  sendPaymentFailureNotification,
+} from '@/lib/services/email.service';
 import stripe from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
@@ -43,6 +47,8 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // ── Connect account events (PR 2) ─────────────────────────────
+
   if (event.type === 'account.updated') {
     const account = event.data.object as Stripe.Account;
 
@@ -79,6 +85,137 @@ export async function POST(request: NextRequest) {
         data: {
           stripeChargesEnabled: false,
           stripePayoutsEnabled: false,
+        },
+      });
+    }
+  }
+
+  // ── Payment events (PR 3) ─────────────────────────────────────
+
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const bookingId = pi.metadata?.bookingId;
+
+    if (bookingId) {
+      const chargeId =
+        typeof pi.latest_charge === 'string'
+          ? pi.latest_charge
+          : (pi.latest_charge as Stripe.Charge)?.id;
+
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          paymentStatus: 'SUCCEEDED',
+          status: 'CONFIRMED',
+          ...(chargeId ? { stripeChargeId: chargeId } : {}),
+        },
+      });
+
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          client: { select: { name: true, email: true } },
+          cleaner: { select: { name: true, email: true } },
+        },
+      });
+
+      if (booking?.client) {
+        await sendBookingConfirmation(
+          {
+            id: booking.id,
+            customerName: booking.client.name || 'Customer',
+            cleanerName: booking.cleaner?.name || 'Your cleaner',
+            date: booking.date.toISOString().split('T')[0],
+            time: booking.startTime,
+            address: '',
+            serviceType: booking.serviceType,
+            totalPrice: Number(booking.totalPrice),
+          },
+          { name: booking.client.name || 'Customer', email: booking.client.email }
+        ).catch(() => {});
+      }
+
+      if (booking?.cleaner) {
+        await prisma.notification
+          .create({
+            data: {
+              userId: booking.cleanerId,
+              type: 'BOOKING_CONFIRMED',
+              title: 'Payment received',
+              body: `Payment confirmed for ${booking.serviceType} cleaning on ${booking.date.toISOString().split('T')[0]}`,
+              data: { bookingId },
+            },
+          })
+          .catch(() => {});
+      }
+    }
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const bookingId = pi.metadata?.bookingId;
+
+    if (bookingId) {
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: { paymentStatus: 'FAILED' },
+      });
+
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: { client: { select: { name: true, email: true } } },
+      });
+
+      if (booking?.client) {
+        const failureMessage = pi.last_payment_error?.message || 'Payment could not be processed';
+        await sendPaymentFailureNotification(
+          {
+            bookingId,
+            customerName: booking.client.name || 'Customer',
+            reason: failureMessage,
+          },
+          { name: booking.client.name || 'Customer', email: booking.client.email }
+        ).catch(() => {});
+      }
+    }
+  }
+
+  if (event.type === 'payment_intent.requires_action') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const bookingId = pi.metadata?.bookingId;
+
+    if (bookingId) {
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: { paymentStatus: 'REQUIRES_ACTION' },
+      });
+    }
+  }
+
+  if (event.type === 'payment_intent.canceled') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const bookingId = pi.metadata?.bookingId;
+
+    if (bookingId) {
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: { paymentStatus: 'CANCELED' },
+      });
+    }
+  }
+
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge;
+    const booking = await prisma.booking.findUnique({
+      where: { stripeChargeId: charge.id },
+    });
+
+    if (booking) {
+      const isFullRefund = charge.amount_refunded >= charge.amount;
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
         },
       });
     }

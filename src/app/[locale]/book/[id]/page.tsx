@@ -1,7 +1,8 @@
 'use client';
 
+import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
@@ -12,6 +13,7 @@ import VerificationBadge from '@/components/VerificationBadge';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import stripePromise from '@/lib/stripe-client';
 import type { ServiceCategory } from '@/lib/types';
 
 const URL_SLUG_TO_DB_SLUG: Record<string, string> = {
@@ -127,12 +129,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     notes: '',
   });
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
   const [paymentStep, setPaymentStep] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null);
+  const [saveCard, setSaveCard] = useState(true);
   const [bookingData, setBookingData] = useState<{
     id: string;
-    payment: { sessionId: string; clientSecret: string } | null;
   } | null>(null);
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
@@ -145,6 +149,23 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     customerTotal: number;
   } | null>(null);
   const { trackStep, trackConversion } = useAnalytics('booking');
+
+  const handleSaveCardToggle = useCallback(
+    async (checked: boolean) => {
+      setSaveCard(checked);
+      if (stripePaymentIntentId) {
+        await fetch('/api/customer/payment-intent/update-save-preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentIntentId: stripePaymentIntentId,
+            savePaymentMethod: checked,
+          }),
+        }).catch(() => {});
+      }
+    },
+    [stripePaymentIntentId]
+  );
 
   // Track initial page view and service selection step
   useEffect(() => {
@@ -302,7 +323,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
       if (response.ok) {
         const data = await response.json();
-        setBookingData(data.booking ? { id: data.booking.id, payment: data.payment } : null);
+        setBookingData(data.booking ? { id: data.booking.id } : null);
 
         trackConversion({
           cleanerId: cleaner.id,
@@ -310,12 +331,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           totalPrice: priceBreakdown.total,
         });
 
-        // If we have a real Ryft payment session, show the payment step
-        if (data.payment?.clientSecret && !data.payment.clientSecret.startsWith('cs_mock_')) {
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
+          setStripePaymentIntentId(data.booking?.stripePaymentIntentId || null);
           setPaymentStep(true);
-        } else {
-          // Mock/dev mode — skip payment, go straight to confirmation
-          setSubmitted(true);
         }
       }
     } catch {
@@ -325,15 +344,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // ─── Ryft Payment Step ─────────────────────────────────────
-  if (paymentStep && bookingData?.payment) {
+  // ─── Stripe Payment Step ────────────────────────────────────
+  if (paymentStep && clientSecret) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream">
         <h1 className="font-cormorant text-3xl font-light text-ink text-center">
           Complete Payment
         </h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
-          Secure payment powered by Ryft. Your funds are held in escrow until the job is complete.
+          Secure payment powered by Stripe.
         </p>
 
         {/* Booking summary */}
@@ -357,6 +376,21 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               className="flex justify-between pt-2 mt-2"
               style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
             >
+              <span className="text-ink-3">Booking total</span>
+              <span className="font-normal text-ink">
+                &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-3">Service fee</span>
+              <span className="font-normal text-ink">
+                &pound;{priceBreakdown.serviceFee.toFixed(2)}
+              </span>
+            </div>
+            <div
+              className="flex justify-between pt-2 mt-2"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
               <span className="font-normal text-ink">Total</span>
               <span className="font-cormorant text-2xl font-light text-gold">
                 &pound;{priceBreakdown.total.toFixed(2)}
@@ -365,87 +399,19 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* Ryft Drop-in container */}
-        <div className="mt-6">
-          <div
-            id="ryft-dropin"
-            className="min-h-[200px] bg-white p-6"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-            ref={(el) => {
-              if (!el || el.dataset.mounted === 'true') return;
-              el.dataset.mounted = 'true';
-
-              const publicKey = process.env.NEXT_PUBLIC_RYFT_PUBLIC_KEY;
-              if (!publicKey) {
-                el.innerHTML =
-                  '<p class="text-center text-ink-3 font-jost text-sm">Payment provider not configured</p>';
-                return;
-              }
-
-              const script = document.createElement('script');
-              script.src = 'https://embedded.ryftpay.com/v1/dropin.js';
-              script.onload = () => {
-                const Ryft = window.Ryft;
-                if (!Ryft) return;
-
-                Ryft.init({
-                  publicApiKey: publicKey,
-                  environment: publicKey.startsWith('pk_sandbox') ? 'sandbox' : 'production',
-                });
-
-                if (!bookingData.payment?.clientSecret) return;
-
-                Ryft.renderDropIn(el, {
-                  clientSecret: bookingData.payment.clientSecret,
-                  appearance: {
-                    theme: 'minimal',
-                    variables: {
-                      fontFamily: 'Jost, sans-serif',
-                      colorPrimary: '#0e0e0c',
-                      borderRadius: '0px',
-                    },
-                  },
-                  onPaymentResult: (result: { status: string }) => {
-                    if (result.status === 'Captured' || result.status === 'Approved') {
-                      setPaymentStep(false);
-                      setSubmitted(true);
-                    }
-                  },
-                  onPaymentError: (error: { message: string }) => {
-                    // eslint-disable-next-line no-console
-                    console.error('[Ryft] Payment error:', error.message);
-                  },
-                });
-              };
-              document.head.appendChild(script);
+        {/* Stripe Payment Element */}
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <StripeCheckoutForm
+            total={priceBreakdown.total}
+            bookingId={bookingData?.id || ''}
+            saveCard={saveCard}
+            onSaveCardChange={handleSaveCardToggle}
+            onBack={() => {
+              setPaymentStep(false);
+              setPaymentPending(false);
             }}
           />
-        </div>
-
-        {/* Security notice */}
-        <div className="mt-4 flex items-start gap-2.5">
-          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <p className="font-jost text-xs font-light text-ink-2">
-            Your payment is encrypted and processed securely by Ryft, an FCA-regulated payment
-            provider. Funds are held in escrow and only released when the job is confirmed complete.
-          </p>
-        </div>
-
-        <button
-          onClick={() => {
-            setPaymentStep(false);
-            setPaymentPending(false);
-          }}
-          className="mt-6 w-full py-2 font-jost text-sm font-light text-ink-3 hover:text-ink transition"
-        >
-          &larr; Back to booking details
-        </button>
+        </Elements>
       </div>
     );
   }
@@ -1119,7 +1085,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 Exact price shown. No hidden charges, ever.
               </p>
 
-              {/* Escrow notice */}
+              {/* Security notice */}
               <div
                 className="mt-3 pt-3 flex items-start gap-2.5"
                 style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
@@ -1132,19 +1098,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   />
                 </svg>
                 <div className="font-jost text-xs font-light text-ink-2 leading-relaxed">
-                  <p>
-                    Your payment is held in escrow until the job is confirmed complete.
-                    {(backupCleanerIds.length > 0 || autoAssignBackup) && (
-                      <>
-                        {' '}
-                        If the cleaner changes, your payment will be updated to reflect the new
-                        rate.
-                      </>
-                    )}
-                    {autoAssignBackup && (
-                      <> Any cleaner we assign will be the same price or lower.</>
-                    )}
-                  </p>
+                  <p>Your payment is encrypted and processed securely by Stripe.</p>
                 </div>
               </div>
             </div>
@@ -1172,5 +1126,100 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       </div>
       {/* End two-column grid */}
     </div>
+  );
+}
+
+function StripeCheckoutForm({
+  total,
+  bookingId,
+  saveCard,
+  onSaveCardChange,
+  onBack,
+}: {
+  total: number;
+  bookingId: string;
+  saveCard: boolean;
+  onSaveCardChange: (checked: boolean) => void;
+  onBack: () => void;
+}) {
+  const stripeHook = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripeHook || !elements) return;
+
+    setProcessing(true);
+    setError(null);
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+
+    const result = await stripeHook.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${appUrl}/en/booking-confirmation/${bookingId}`,
+      },
+    });
+
+    if (result.error) {
+      setError(result.error.message || 'Payment failed. Please try again.');
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handlePayment}>
+      <div className="mt-6 bg-white p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <PaymentElement onReady={() => setReady(true)} />
+      </div>
+
+      <label className="mt-4 flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={saveCard}
+          onChange={(e) => onSaveCardChange(e.target.checked)}
+          className="h-4 w-4 accent-ink"
+        />
+        <span className="font-jost text-sm font-light text-ink-2">
+          Save this card for future bookings
+        </span>
+      </label>
+
+      {error && (
+        <div className="mt-4 bg-red-50 px-4 py-3 font-jost text-sm text-red-700">{error}</div>
+      )}
+
+      <div className="mt-4 flex items-start gap-2.5">
+        <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
+          <path
+            fillRule="evenodd"
+            d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <p className="font-jost text-xs font-light text-ink-2">
+          Your payment is encrypted and processed securely by Stripe.
+        </p>
+      </div>
+
+      <button
+        type="submit"
+        disabled={!ready || processing || !stripeHook}
+        className="mt-6 w-full bg-ink py-3 font-jost text-lg font-normal text-cream hover:bg-ink/90 disabled:opacity-60"
+      >
+        {processing ? 'Processing...' : `Pay £${total.toFixed(2)}`}
+      </button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-3 w-full py-2 font-jost text-sm font-light text-ink-3 hover:text-ink transition"
+      >
+        &larr; Back to booking details
+      </button>
+    </form>
   );
 }

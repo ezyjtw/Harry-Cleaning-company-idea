@@ -92,7 +92,7 @@ const faqCategories = [
       },
       {
         q: 'What payment methods do you accept?',
-        a: 'We accept all major credit and debit cards (Visa, Mastercard, American Express) as well as Apple Pay and Google Pay. All payments are processed through Ryft for maximum security.',
+        a: 'We accept all major credit and debit cards (Visa, Mastercard, American Express) as well as Apple Pay and Google Pay. All payments are processed through Stripe for maximum security.',
       },
       {
         q: 'When am I charged?',

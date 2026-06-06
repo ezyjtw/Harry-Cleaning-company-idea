@@ -25,22 +25,8 @@ declare module 'next-auth/jwt' {
   }
 }
 
-interface RyftInstance {
-  init(config: { publicApiKey: string; environment: string }): void;
-  renderDropIn(
-    element: HTMLElement,
-    config: {
-      clientSecret: string;
-      appearance?: Record<string, unknown>;
-      onPaymentResult?: (result: { status: string }) => void;
-      onPaymentError?: (error: { message: string }) => void;
-    }
-  ): void;
-}
-
 declare global {
   interface Window {
     openCookieSettings?: () => void;
-    Ryft?: RyftInstance;
   }
 }

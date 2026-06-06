@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       duration: Number(booking.duration),
       totalPrice: Number(booking.totalPrice),
       status: booking.status,
+      paymentStatus: booking.paymentStatus,
       guestEmail: booking.guestEmail || '',
       guestName: booking.guestName || '',
       notes: booking.notes || '',
@@ -79,7 +80,11 @@ export async function DELETE(request: NextRequest) {
 
   const updated = await prisma.booking.update({
     where: { guestToken: token },
-    data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: 'Cancelled by guest' },
+    data: {
+      status: 'CANCELLED',
+      cancelledAt: new Date(),
+      cancellationReason: 'Cancelled by guest',
+    },
   });
 
   return NextResponse.json({

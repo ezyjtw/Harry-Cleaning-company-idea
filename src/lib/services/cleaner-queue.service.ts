@@ -2,12 +2,12 @@ import type { Prisma } from '@prisma/client';
 import Decimal from 'decimal.js';
 
 import { prisma } from '@/lib/db/prisma';
+import stripe from '@/lib/stripe';
 
 import { MatchingService } from './matching.service';
 import type { MatchingCriteria } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { CleanerQuoteInput, QuoteResult } from './pricing.service';
-import { createPaymentSession } from './ryft-payment.service';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ export interface QueueAcceptResult {
 export class CleanerQueueService {
   /**
    * Create a queued booking: find top 3 cleaners, generate quotes for each,
-   * escrow the highest quote via Ryft, and notify all 3.
+   * escrow the highest quote via Stripe, and notify all 3.
    */
   static async createQueuedBooking(params: {
     criteria: MatchingCriteria;
@@ -70,7 +70,14 @@ export class CleanerQueueService {
     };
     returnUrl: string;
   }): Promise<CleanerQueueResult> {
-    const { criteria, quoteInput, customerEmail, customerName, bookingData, returnUrl } = params;
+    const {
+      criteria,
+      quoteInput,
+      customerEmail: _customerEmail,
+      customerName: _customerName,
+      bookingData,
+      returnUrl: _returnUrl,
+    } = params;
 
     // 1. Find top matches
     const matchResult = await MatchingService.findMatches(criteria);
@@ -148,21 +155,11 @@ export class CleanerQueueService {
       });
     }
 
-    // 6. Create Ryft payment session for the ESCROW amount (highest quote)
-    let paymentSession = null;
-    try {
-      paymentSession = await createPaymentSession({
-        amount: holdAmount,
-        bookingId: booking.id,
-        customerEmail,
-        customerName,
-        description: `${bookingData.serviceType} cleaning — escrow for top ${topCleaners.length} cleaners`,
-        returnUrl: `${returnUrl}?bookingId=${booking.id}&token=${guestToken}`,
-      });
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Escrow payment session creation failed:', error);
-    }
+    // TODO(PR4): Create Stripe PaymentIntent for the escrow amount.
+    // With immediate-capture, the queue flow will need to charge the customer
+    // upfront for the highest quote, then refund the difference when a cleaner
+    // accepts at a lower price. PR4 will redesign this for the Stripe model.
+    const _paymentSession = null;
 
     // 7. Notify all queued cleaners
     for (const q of quotes) {
@@ -197,13 +194,8 @@ export class CleanerQueueService {
       holdAmount,
       lowestQuote,
       highestQuote: holdAmount,
-      payment: paymentSession
-        ? {
-            sessionId: paymentSession.id,
-            clientSecret: paymentSession.clientSecret,
-            status: paymentSession.status,
-          }
-        : null,
+      // TODO(PR4): Return Stripe PaymentIntent clientSecret here once escrow is redesigned
+      payment: null,
     };
   }
 
@@ -219,7 +211,7 @@ export class CleanerQueueService {
     const queueEntry = await prisma.bookingCleanerQueue.findUnique({
       where: { bookingId_cleanerId: { bookingId, cleanerId } },
       include: {
-        booking: { include: { payment: true } },
+        booking: true,
         cleaner: true,
       },
     });
@@ -249,15 +241,7 @@ export class CleanerQueueService {
       ? Number(queueEntry.booking.totalAmountCharged)
       : queueEntry.booking.totalPrice.toNumber();
     const actualTotal = queueEntry.quotedTotal;
-    // Refund includes: (escrow - accepted quote) + any promo discount amount
-    const discountAmount = queueEntry.booking.payment?.discountAmount
-      ? Number(queueEntry.booking.payment.discountAmount)
-      : 0;
-    const refundDue = new Decimal(holdAmount)
-      .minus(actualTotal)
-      .plus(discountAmount)
-      .toDecimalPlaces(2)
-      .toNumber();
+    const refundDue = new Decimal(holdAmount).minus(actualTotal).toDecimalPlaces(2).toNumber();
 
     // 2. Transaction: accept this cleaner, supersede others, update booking
     await prisma.$transaction(async (tx) => {
@@ -288,14 +272,13 @@ export class CleanerQueueService {
       });
     });
 
-    // 3. If there's a refund due (escrow > actual), initiate partial refund via Ryft
-    if (refundDue > 0 && queueEntry.booking.payment?.ryftPaymentId) {
+    // 3. If there's a refund due (escrow > actual), initiate partial refund via Stripe
+    if (refundDue > 0 && queueEntry.booking.stripePaymentIntentId) {
       try {
-        await this.initiatePartialRefund(queueEntry.booking.payment.ryftPaymentId, refundDue);
+        await this.initiatePartialRefund(queueEntry.booking.stripePaymentIntentId, refundDue);
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Partial refund initiation failed:', error);
-        // The refund amount is recorded on the booking — can be retried
       }
     }
 
@@ -456,39 +439,13 @@ export class CleanerQueueService {
     };
   }
 
-  /**
-   * Initiate a partial refund via Ryft for the escrow difference.
-   */
   private static async initiatePartialRefund(
-    ryftPaymentId: string,
+    paymentIntentId: string,
     refundAmount: number
   ): Promise<void> {
-    const apiKey = process.env.RYFT_SECRET_KEY;
-
-    if (!apiKey) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[Ryft] Mock partial refund: £${refundAmount.toFixed(2)} for session ${ryftPaymentId}`
-      );
-      return;
-    }
-
-    const res = await fetch(`https://api.ryftpay.com/v1/payment-sessions/${ryftPaymentId}/refund`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`,
-      },
-      body: JSON.stringify({
-        amount: Math.round(refundAmount * 100), // pence
-      }),
+    await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      amount: Math.round(refundAmount * 100),
     });
-
-    if (!res.ok) {
-      const errorBody = await res.text();
-      // eslint-disable-next-line no-console
-      console.error('[Ryft] Partial refund failed:', res.status, errorBody);
-      throw new Error(`Ryft refund error: ${res.status}`);
-    }
   }
 }

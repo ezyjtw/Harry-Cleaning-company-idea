@@ -13,6 +13,7 @@ export interface BookingRow {
   time: string;
   amount: number;
   status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'disputed';
+  paymentStatus: string;
 }
 
 function mapStatus(prismaStatus: string): BookingRow['status'] {
@@ -60,6 +61,7 @@ async function getBookings(): Promise<{
     time: b.startTime,
     amount: Number(b.totalPrice),
     status: mapStatus(b.status),
+    paymentStatus: b.paymentStatus,
   }));
 
   const serviceTypes = Array.from(new Set(rows.map((b) => b.serviceType)));
