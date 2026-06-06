@@ -103,17 +103,19 @@ export class MatchingService {
 
     // 4. Filter by service type qualification
     const qualified = inServiceArea.filter((cleaner) => {
-      if (!cleaner.specialties || cleaner.specialties.length === 0) return true;
-      // Map service type to specialty
-      const serviceTypeMap: Record<string, string> = {
-        standard: 'Regular Cleaning',
-        deep: 'Deep Cleaning',
-        'end-of-tenancy': 'End of Tenancy',
-        airbnb: 'AirBnB Turnover',
-        office: 'Office Cleaning',
+      if (!cleaner.serviceTypes || cleaner.serviceTypes.length === 0) return true;
+      const slugMap: Record<string, string> = {
+        regular: 'regular',
+        standard: 'regular',
+        deep: 'deep',
+        'same-day': 'same_day',
+        same_day: 'same_day',
+        'end-of-tenancy': 'end_of_tenancy',
+        end_of_tenancy: 'end_of_tenancy',
+        airbnb: 'airbnb',
       };
-      const specialty = serviceTypeMap[criteria.serviceType];
-      return !specialty || cleaner.specialties.includes(specialty);
+      const slug = slugMap[criteria.serviceType] || criteria.serviceType;
+      return cleaner.serviceTypes.includes(slug);
     });
 
     // 5. Check for overlapping bookings

@@ -14,6 +14,14 @@ import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type { ServiceCategory } from '@/lib/types';
 
+const URL_SLUG_TO_DB_SLUG: Record<string, string> = {
+  regular: 'regular',
+  'same-day': 'same_day',
+  deep: 'deep',
+  'end-of-tenancy': 'end_of_tenancy',
+  airbnb: 'airbnb',
+};
+
 const SERVICE_TYPES = [
   {
     value: 'regular',
@@ -552,14 +560,29 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
         <div className="mt-6 grid gap-3">
           {SERVICE_TYPES.filter((s) => {
-            // Same-day is available if the cleaner is available now
-            if (s.value === 'same-day') return cleaner.availableNow;
-            // Match service label to cleaner specialties
-            return cleaner.specialties.some(
-              (sp) =>
-                s.label.toLowerCase().includes(sp.toLowerCase()) ||
-                sp.toLowerCase().includes(s.label.toLowerCase())
-            );
+            if (s.value === 'same-day')
+              return cleaner.availableNow && cleaner.serviceTypes.includes('same_day');
+            const dbSlug = URL_SLUG_TO_DB_SLUG[s.value];
+            if (!dbSlug || !cleaner.serviceTypes.includes(dbSlug)) return false;
+            if (dbSlug === 'regular')
+              return cleaner.hourlyRateRegular !== null && cleaner.hourlyRateRegular !== undefined;
+            if (dbSlug === 'deep')
+              return cleaner.hourlyRateDeep !== null && cleaner.hourlyRateDeep !== undefined;
+            if (dbSlug === 'same_day')
+              return cleaner.hourlyRateSameDay !== null && cleaner.hourlyRateSameDay !== undefined;
+            if (dbSlug === 'end_of_tenancy')
+              return (
+                cleaner.eotPrices !== null &&
+                cleaner.eotPrices !== undefined &&
+                Object.keys(cleaner.eotPrices).length > 0
+              );
+            if (dbSlug === 'airbnb')
+              return (
+                cleaner.airbnbPrices !== null &&
+                cleaner.airbnbPrices !== undefined &&
+                Object.keys(cleaner.airbnbPrices).length > 0
+              );
+            return true;
           }).map((s) => {
             const isSameDayPastDeadline = s.value === 'same-day' && new Date().getHours() >= 12;
             return (

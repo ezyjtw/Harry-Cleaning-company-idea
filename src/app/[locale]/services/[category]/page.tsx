@@ -178,10 +178,28 @@ function calculateFixedPriceRange(
 
 const isFixedPrice = (cat: ServiceCategory) => cat === 'airbnb' || cat === 'end-of-tenancy';
 
-const TIER_INFO = {
-  standard: { label: 'Standard', color: 'bg-cream-2 text-ink-2', desc: 'Reliable and affordable' },
-  premium: { label: 'Premium', color: 'bg-cream-2 text-ink', desc: 'Experienced & highly rated' },
-  elite: { label: 'Elite', color: 'bg-cream-2 text-gold', desc: 'Top-tier, best of the best' },
+const TIER_INFO: Record<string, { label: string; color: string; desc: string }> = {
+  starter: { label: 'Starter', color: 'bg-slate-50 text-slate-500', desc: 'New to the platform' },
+  bronze: {
+    label: 'Bronze',
+    color: 'bg-amber-50/60 text-amber-700',
+    desc: 'Reliable and affordable',
+  },
+  silver: {
+    label: 'Silver',
+    color: 'bg-slate-50 text-slate-600',
+    desc: 'Experienced and consistent',
+  },
+  gold: {
+    label: 'Gold',
+    color: 'bg-amber-50 text-amber-600',
+    desc: 'Highly rated, proven track record',
+  },
+  elite: {
+    label: 'Elite',
+    color: 'bg-[#0f172a]/5 text-[#0f172a]',
+    desc: 'Top-tier, best of the best',
+  },
 };
 
 function calculateSuggestedHours(rooms: RoomConfig, category: ServiceCategory): number {
@@ -2363,7 +2381,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div>
             {/* Tier legend */}
             <div className="mt-6 flex flex-wrap gap-3">
-              {(['elite', 'premium', 'standard'] as const).map((tier) => (
+              {(['elite', 'gold', 'silver', 'bronze', 'starter'] as const).map((tier) => (
                 <span
                   key={tier}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-jost text-[11px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[tier].color}`}
