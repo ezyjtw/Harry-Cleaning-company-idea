@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const profile = await prisma.cleanerProfile.findUnique({
       where: { userId: user.id },
-      select: { id: true, hourlyRate: true },
+      select: { id: true, hourlyRateRegular: true },
     });
 
     if (!profile) {

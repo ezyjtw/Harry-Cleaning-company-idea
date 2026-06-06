@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       bookingId: result.bookingId,
       cleanerName: result.cleanerName,
       actualTotal: result.actualTotal,
-      escrowAmount: result.escrowAmount,
+      holdAmount: result.holdAmount,
       refundDue: result.refundDue,
       message: result.message,
     });

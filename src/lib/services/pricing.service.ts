@@ -6,190 +6,414 @@ import { prisma } from '@/lib/db/prisma';
 
 export type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
 
-export interface QuoteInput {
+export type EotPropertySize = 'studio' | '1bed' | '2bed' | '3bed' | '4bed' | '5bedPlus';
+export type AirbnbPropertySize = 'studio' | '1bed' | '2bed' | '3bed' | '4bedPlus';
+
+const FIXED_SERVICES: ServiceSlug[] = ['eot', 'airbnb'];
+
+const COMMISSION_RATES: Record<ServiceSlug, number> = {
+  regular: 0.1,
+  'one-off': 0.1,
+  'same-day': 0.1,
+  deep: 0.1,
+  eot: 0.15,
+  airbnb: 0.15,
+};
+
+const PLATFORM_FEE_RATE = 0.06;
+
+export const EOT_PRICE_FLOORS: Record<EotPropertySize, number> = {
+  studio: 75,
+  '1bed': 95,
+  '2bed': 125,
+  '3bed': 160,
+  '4bed': 195,
+  '5bedPlus': 240,
+};
+
+export const AIRBNB_PRICE_FLOORS: Record<AirbnbPropertySize, number> = {
+  studio: 22.5,
+  '1bed': 27.5,
+  '2bed': 37.5,
+  '3bed': 47.5,
+  '4bedPlus': 65,
+};
+
+export const EOT_GUIDE_RANGES: Record<EotPropertySize, { min: number; max: number }> = {
+  studio: { min: 150, max: 200 },
+  '1bed': { min: 190, max: 240 },
+  '2bed': { min: 250, max: 300 },
+  '3bed': { min: 320, max: 380 },
+  '4bed': { min: 390, max: 450 },
+  '5bedPlus': { min: 480, max: 580 },
+};
+
+export const AIRBNB_GUIDE_RANGES: Record<AirbnbPropertySize, { min: number; max: number }> = {
+  studio: { min: 45, max: 65 },
+  '1bed': { min: 55, max: 85 },
+  '2bed': { min: 75, max: 110 },
+  '3bed': { min: 95, max: 140 },
+  '4bedPlus': { min: 130, max: 165 },
+};
+
+export const MIN_HOURLY_RATE = 14;
+
+export interface CleanerQuoteInput {
+  cleanerId: string;
   serviceSlug: ServiceSlug;
-  cleanerHourlyRate: number; // cleaner's advertised standard rate
-  hours?: number; // required for hourly services
-  propertySize?: string; // required for EOT and Airbnb
+  hours?: number;
+  propertySize?: string;
   frequency?: 'WEEKLY' | 'FORTNIGHTLY' | 'ONE_OFF';
-  addons?: string[]; // addon IDs
+  addons?: string[];
 }
 
 export interface QuoteResult {
   serviceType: string;
-  cleanerHourlyRate: number;
-  cleanerDeepRate: number | null; // derived for EOT/Airbnb
+  isFixedPrice: boolean;
   hours: number | null;
   propertySize: string | null;
-  isFixedPrice: boolean;
+  commissionRate: number;
 
-  // Cleaner side
-  cleanerGross: number; // what cleaner earns before Rena's 10% cut
-  cleanerFee: number; // 10% deducted — Rena's cut from cleaner
-  cleanerEarns: number; // net payout to cleaner
+  cleanerListedPrice: number;
+  cleanerCommission: number;
+  cleanerPayout: number;
 
-  // Customer side
-  customerSubtotal: number; // base price before 6% service fee
-  customerServiceFee: number; // 6% on top (hourly) or embedded (fixed)
+  customerPlatformFee: number;
+  customerTotal: number;
+
   addonTotal: number;
-  totalCharged: number; // customer pays this
-
-  // Rena
-  renaEarns: number; // total Rena revenue on this booking
   breakdown: string;
+}
+
+export interface AreaQuoteResult {
+  serviceType: string;
+  isFixedPrice: boolean;
+  cleanerCount: number;
+  minTotal: number;
+  maxTotal: number;
+  minCleanerPrice: number;
+  maxCleanerPrice: number;
 }
 
 // ─── Service ────────────────────────────────────────────────────
 
 export class PricingService {
-  private async getConfig(): Promise<Record<string, number>> {
-    const configs = await prisma.platformConfig.findMany();
-    return Object.fromEntries(configs.map((c) => [c.key, parseFloat(c.value)]));
+  async calculateQuote(input: CleanerQuoteInput): Promise<QuoteResult> {
+    const profile = await prisma.cleanerProfile.findFirst({
+      where: { userId: input.cleanerId },
+      select: {
+        hourlyRateRegular: true,
+        hourlyRateDeep: true,
+        hourlyRateSameDay: true,
+        eotPrices: true,
+        airbnbPrices: true,
+        serviceTypes: true,
+      },
+    });
+
+    if (!profile) throw new Error('Cleaner not found');
+
+    const commissionRate = COMMISSION_RATES[input.serviceSlug];
+    const isFixed = FIXED_SERVICES.includes(input.serviceSlug);
+
+    if (isFixed) {
+      return this.calculateFixedQuote(input, profile, commissionRate);
+    }
+    return this.calculateHourlyQuote(input, profile, commissionRate);
   }
 
-  async calculateQuote(input: QuoteInput): Promise<QuoteResult> {
-    const config = await this.getConfig();
-    const cleanerFeePct = config['cleaner_fee_pct']; // 0.10
-    const customerFeePct = config['customer_fee_pct']; // 0.06
-    const deepMultiplier = config['deep_multiplier']; // 1.45
+  private async calculateHourlyQuote(
+    input: CleanerQuoteInput,
+    profile: {
+      hourlyRateRegular: Decimal | null;
+      hourlyRateDeep: Decimal | null;
+      hourlyRateSameDay: Decimal | null;
+      serviceTypes: string[];
+    },
+    commissionRate: number
+  ): Promise<QuoteResult> {
+    if (!input.hours) throw new Error('hours required for hourly services');
 
     const serviceType = await prisma.serviceType.findUnique({
       where: { slug: input.serviceSlug },
-      include: { fixedPrices: true, addons: true },
+      include: { addons: true },
     });
-
     if (!serviceType) throw new Error(`Unknown service: ${input.serviceSlug}`);
-
-    // ── Fixed-price services (EOT, Airbnb) ───────────────────────
-    if (serviceType.pricingModel === 'FIXED') {
-      if (!input.propertySize) {
-        throw new Error('propertySize required for fixed-price services');
-      }
-
-      const fixedPrice = serviceType.fixedPrices.find(
-        (fp) => fp.propertySize === input.propertySize
-      );
-      if (!fixedPrice) throw new Error(`No price found for ${input.propertySize}`);
-
-      // Use deep rate for cleaner payout on intensive fixed-price jobs
-      const cleanerDeepRate = new Decimal(input.cleanerHourlyRate)
-        .mul(deepMultiplier)
-        .toDecimalPlaces(2)
-        .toNumber();
-
-      // EOT cleaners get an additional 10% bonus on top of deep rate × hours
-      const isEot = input.serviceSlug === 'eot';
-      const eotBonusMultiplier = isEot ? 1.1 : 1.0;
-
-      const cleanerGross = new Decimal(cleanerDeepRate)
-        .mul(fixedPrice.estimatedHours)
-        .mul(eotBonusMultiplier)
-        .toDecimalPlaces(2)
-        .toNumber();
-
-      const cleanerFee = new Decimal(cleanerGross).mul(cleanerFeePct).toDecimalPlaces(2).toNumber();
-
-      const cleanerEarns = new Decimal(cleanerGross)
-        .minus(cleanerFee)
-        .toDecimalPlaces(2)
-        .toNumber();
-
-      const addonTotal = this.calcAddonTotal(input.addons ?? [], serviceType.addons);
-      const totalCharged = new Decimal(fixedPrice.customerPrice)
-        .plus(addonTotal)
-        .toDecimalPlaces(2)
-        .toNumber();
-      // Customer fee is embedded in fixed price — not added on top
-      const customerServiceFee = 0;
-
-      const renaEarns = new Decimal(totalCharged)
-        .minus(cleanerEarns)
-        .minus(this.calcCleanerAddonEarnings(input.addons ?? [], serviceType.addons))
-        .toDecimalPlaces(2)
-        .toNumber();
-
-      return {
-        serviceType: serviceType.name,
-        cleanerHourlyRate: input.cleanerHourlyRate,
-        cleanerDeepRate,
-        hours: fixedPrice.estimatedHours,
-        propertySize: input.propertySize,
-        isFixedPrice: true,
-        cleanerGross,
-        cleanerFee,
-        cleanerEarns,
-        customerSubtotal: fixedPrice.customerPrice,
-        customerServiceFee,
-        addonTotal,
-        totalCharged,
-        renaEarns,
-        breakdown: `Fixed price £${fixedPrice.customerPrice}. Cleaner paid at deep rate £${cleanerDeepRate}/hr × ${fixedPrice.estimatedHours} hrs${isEot ? ' × 1.10 EOT bonus' : ''} = £${cleanerGross} gross, earns £${cleanerEarns} after 10% Rena fee. Rena keeps £${renaEarns}.`,
-      };
-    }
-
-    // ── Hourly services ───────────────────────────────────────────
-    if (!input.hours) throw new Error('hours required for hourly services');
 
     const minHours = serviceType.minimumHours ?? 2;
     const hours = Math.max(input.hours, minHours);
 
+    const rateField = this.getHourlyRateField(input.serviceSlug);
+    const rateValue = profile[rateField as keyof typeof profile] as Decimal | null;
+    if (!rateValue) {
+      throw new Error(`This cleaner has not set a rate for ${input.serviceSlug} cleaning`);
+    }
+    const hourlyRate = Number(rateValue);
+
     let multiplier = serviceType.baseMultiplier;
     if (input.serviceSlug === 'regular' && input.frequency === 'FORTNIGHTLY') {
-      multiplier = new Decimal(multiplier).mul(config['fortnightly_multiplier']).toNumber();
+      const config = await this.getConfig();
+      multiplier = new Decimal(multiplier).mul(config['fortnightly_multiplier'] || 1).toNumber();
     }
 
-    const cleanerGross = new Decimal(input.cleanerHourlyRate)
+    const cleanerListedPrice = new Decimal(hourlyRate)
       .mul(hours)
       .mul(multiplier)
       .toDecimalPlaces(2)
       .toNumber();
 
-    const cleanerFee = new Decimal(cleanerGross).mul(cleanerFeePct).toDecimalPlaces(2).toNumber();
-
-    const cleanerEarns = new Decimal(cleanerGross).minus(cleanerFee).toDecimalPlaces(2).toNumber();
-
-    // Customer sees the listed rate (cleaner gross + 10% platform markup baked in)
-    const customerSubtotal = new Decimal(cleanerGross)
-      .plus(cleanerFee)
+    const cleanerCommission = new Decimal(cleanerListedPrice)
+      .mul(commissionRate)
       .toDecimalPlaces(2)
       .toNumber();
 
-    // 6% service fee is charged on the listed rate, not the raw cleaner rate
-    const customerServiceFee = new Decimal(customerSubtotal)
-      .mul(customerFeePct)
+    const cleanerPayout = new Decimal(cleanerListedPrice)
+      .minus(cleanerCommission)
       .toDecimalPlaces(2)
       .toNumber();
 
     const addonTotal = this.calcAddonTotal(input.addons ?? [], serviceType.addons);
 
-    const totalCharged = new Decimal(customerSubtotal)
-      .plus(customerServiceFee)
+    const customerPlatformFee = new Decimal(cleanerListedPrice)
       .plus(addonTotal)
+      .mul(PLATFORM_FEE_RATE)
       .toDecimalPlaces(2)
       .toNumber();
 
-    const renaEarns = new Decimal(cleanerFee)
-      .plus(customerServiceFee)
+    const customerTotal = new Decimal(cleanerListedPrice)
+      .plus(customerPlatformFee)
+      .plus(addonTotal)
       .toDecimalPlaces(2)
       .toNumber();
 
     return {
       serviceType: serviceType.name,
-      cleanerHourlyRate: input.cleanerHourlyRate,
-      cleanerDeepRate: null,
+      isFixedPrice: false,
       hours,
       propertySize: null,
-      isFixedPrice: false,
-      cleanerGross,
-      cleanerFee,
-      cleanerEarns,
-      customerSubtotal,
-      customerServiceFee,
+      commissionRate,
+      cleanerListedPrice,
+      cleanerCommission,
+      cleanerPayout,
+      customerPlatformFee,
+      customerTotal,
       addonTotal,
-      totalCharged,
-      renaEarns,
-      breakdown: `${hours} hrs × £${input.cleanerHourlyRate}/hr × ${multiplier}x = £${cleanerGross}. Listed rate (incl. 10% markup): £${customerSubtotal}. Customer pays £${customerServiceFee} service fee (6%). Cleaner pays £${cleanerFee} platform fee (10%). Rena earns £${renaEarns}.`,
+      breakdown: `${hours} hrs × £${hourlyRate}/hr${multiplier !== 1 ? ` × ${multiplier}x` : ''} = £${cleanerListedPrice}. Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
     };
+  }
+
+  private async calculateFixedQuote(
+    input: CleanerQuoteInput,
+    profile: {
+      eotPrices: unknown;
+      airbnbPrices: unknown;
+      serviceTypes: string[];
+    },
+    commissionRate: number
+  ): Promise<QuoteResult> {
+    if (!input.propertySize) {
+      throw new Error('propertySize required for fixed-price services');
+    }
+
+    const serviceType = await prisma.serviceType.findUnique({
+      where: { slug: input.serviceSlug },
+      include: { addons: true },
+    });
+    if (!serviceType) throw new Error(`Unknown service: ${input.serviceSlug}`);
+
+    const prices =
+      input.serviceSlug === 'eot'
+        ? (profile.eotPrices as Record<string, number> | null)
+        : (profile.airbnbPrices as Record<string, number> | null);
+
+    if (!prices) {
+      throw new Error(`This cleaner has not set prices for ${input.serviceSlug} cleaning`);
+    }
+
+    const cleanerListedPrice = prices[input.propertySize];
+    if (!cleanerListedPrice || cleanerListedPrice <= 0) {
+      throw new Error(
+        `This cleaner has not set a price for ${input.propertySize} in ${input.serviceSlug} cleaning`
+      );
+    }
+
+    const cleanerCommission = new Decimal(cleanerListedPrice)
+      .mul(commissionRate)
+      .toDecimalPlaces(2)
+      .toNumber();
+
+    const cleanerPayout = new Decimal(cleanerListedPrice)
+      .minus(cleanerCommission)
+      .toDecimalPlaces(2)
+      .toNumber();
+
+    const addonTotal = this.calcAddonTotal(input.addons ?? [], serviceType.addons);
+
+    const customerPlatformFee = new Decimal(cleanerListedPrice)
+      .plus(addonTotal)
+      .mul(PLATFORM_FEE_RATE)
+      .toDecimalPlaces(2)
+      .toNumber();
+
+    const customerTotal = new Decimal(cleanerListedPrice)
+      .plus(customerPlatformFee)
+      .plus(addonTotal)
+      .toDecimalPlaces(2)
+      .toNumber();
+
+    return {
+      serviceType: serviceType.name,
+      isFixedPrice: true,
+      hours: null,
+      propertySize: input.propertySize,
+      commissionRate,
+      cleanerListedPrice,
+      cleanerCommission,
+      cleanerPayout,
+      customerPlatformFee,
+      customerTotal,
+      addonTotal,
+      breakdown: `Fixed price £${cleanerListedPrice} (${input.propertySize}). Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
+    };
+  }
+
+  async calculateAreaQuote(params: {
+    postcode: string;
+    serviceSlug: ServiceSlug;
+    hours?: number;
+    propertySize?: string;
+  }): Promise<AreaQuoteResult> {
+    const { lookupPostcode } = await import('@/lib/utils/postcode');
+    const geo = await lookupPostcode(params.postcode);
+
+    const isFixed = FIXED_SERVICES.includes(params.serviceSlug);
+
+    const serviceTypeFilter = this.getServiceTypeFilterValue(params.serviceSlug);
+
+    const where: Record<string, unknown> = {
+      verified: true,
+      user: { accountStatus: 'ACTIVE', isDeleted: false },
+      serviceTypes: { has: serviceTypeFilter },
+    };
+
+    if (geo) {
+      where.latitude = { not: null };
+      where.longitude = { not: null };
+    }
+
+    const cleaners = await prisma.cleanerProfile.findMany({
+      where,
+      select: {
+        hourlyRateRegular: true,
+        hourlyRateDeep: true,
+        hourlyRateSameDay: true,
+        eotPrices: true,
+        airbnbPrices: true,
+        latitude: true,
+        longitude: true,
+        radius: true,
+      },
+    });
+
+    let filtered = cleaners;
+    if (geo) {
+      const { haversineDistance } = await import('@/lib/utils/postcode');
+      filtered = cleaners.filter((c) => {
+        if (c.latitude === null || c.longitude === null) return false;
+        const dist = haversineDistance(geo.latitude, geo.longitude, c.latitude, c.longitude);
+        return dist <= c.radius;
+      });
+    }
+
+    const prices: number[] = [];
+    for (const c of filtered) {
+      if (isFixed) {
+        if (!params.propertySize) continue;
+        const priceMap =
+          params.serviceSlug === 'eot'
+            ? (c.eotPrices as Record<string, number> | null)
+            : (c.airbnbPrices as Record<string, number> | null);
+        const price = priceMap?.[params.propertySize];
+        if (price && price > 0) prices.push(price);
+      } else {
+        const rateField = this.getHourlyRateField(params.serviceSlug);
+        const rate = c[rateField as keyof typeof c] as Decimal | null;
+        if (rate) {
+          const hourly = Number(rate);
+          const hours = params.hours || 2;
+          prices.push(hourly * hours);
+        }
+      }
+    }
+
+    if (prices.length === 0) {
+      const serviceType = await prisma.serviceType.findUnique({
+        where: { slug: params.serviceSlug },
+      });
+      return {
+        serviceType: serviceType?.name || params.serviceSlug,
+        isFixedPrice: isFixed,
+        cleanerCount: 0,
+        minTotal: 0,
+        maxTotal: 0,
+        minCleanerPrice: 0,
+        maxCleanerPrice: 0,
+      };
+    }
+
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const minFee = new Decimal(minPrice).mul(PLATFORM_FEE_RATE).toDecimalPlaces(2).toNumber();
+    const maxFee = new Decimal(maxPrice).mul(PLATFORM_FEE_RATE).toDecimalPlaces(2).toNumber();
+
+    const serviceType = await prisma.serviceType.findUnique({
+      where: { slug: params.serviceSlug },
+    });
+
+    return {
+      serviceType: serviceType?.name || params.serviceSlug,
+      isFixedPrice: isFixed,
+      cleanerCount: prices.length,
+      minTotal: new Decimal(minPrice).plus(minFee).toDecimalPlaces(2).toNumber(),
+      maxTotal: new Decimal(maxPrice).plus(maxFee).toDecimalPlaces(2).toNumber(),
+      minCleanerPrice: minPrice,
+      maxCleanerPrice: maxPrice,
+    };
+  }
+
+  private getHourlyRateField(serviceSlug: ServiceSlug): string {
+    switch (serviceSlug) {
+      case 'regular':
+      case 'one-off':
+        return 'hourlyRateRegular';
+      case 'deep':
+        return 'hourlyRateDeep';
+      case 'same-day':
+        return 'hourlyRateSameDay';
+      default:
+        return 'hourlyRateRegular';
+    }
+  }
+
+  private getServiceTypeFilterValue(serviceSlug: ServiceSlug): string {
+    switch (serviceSlug) {
+      case 'regular':
+      case 'one-off':
+        return 'regular';
+      case 'deep':
+        return 'deep';
+      case 'same-day':
+        return 'same_day';
+      case 'eot':
+        return 'end_of_tenancy';
+      case 'airbnb':
+        return 'airbnb';
+    }
+  }
+
+  private async getConfig(): Promise<Record<string, number>> {
+    const configs = await prisma.platformConfig.findMany();
+    return Object.fromEntries(configs.map((c) => [c.key, parseFloat(c.value)]));
   }
 
   private calcAddonTotal(addonIds: string[], available: { id: string; price: number }[]): number {
@@ -198,30 +422,10 @@ export class PricingService {
     return matched.reduce((sum, a) => sum + a.price, 0);
   }
 
-  /**
-   * For fixed-price services, cleaner earns 86% of each add-on.
-   */
-  private calcCleanerAddonEarnings(
-    addonIds: string[],
-    available: { id: string; price: number }[]
-  ): number {
-    if (!addonIds.length) return 0;
-    const matched = available.filter((a) => addonIds.includes(a.id));
-    return matched.reduce(
-      (sum, a) => new Decimal(sum).plus(new Decimal(a.price).mul(0.85)).toNumber(),
-      0
-    );
-  }
-
-  /**
-   * Validate a cleaner's proposed hourly rate against platform min/max.
-   */
   async validateCleanerRate(rate: number): Promise<{ valid: boolean; message?: string }> {
-    const config = await this.getConfig();
-    const min = config['min_cleaner_rate'];
-    const max = config['max_cleaner_rate'];
-    if (rate < min) return { valid: false, message: `Minimum rate is £${min}/hr` };
-    if (rate > max) return { valid: false, message: `Maximum rate is £${max}/hr` };
+    if (rate < MIN_HOURLY_RATE) {
+      return { valid: false, message: `Minimum rate is £${MIN_HOURLY_RATE}/hr` };
+    }
     return { valid: true };
   }
 }
@@ -236,3 +440,97 @@ export const isSameDay = (scheduledAt: Date): boolean => {
   cutoff.setHours(12, 0, 0, 0);
   return scheduledAt.toDateString() === now.toDateString() && now < cutoff;
 };
+
+// ─── Validation Helpers ─────────────────────────────────────────
+
+export function validateServiceTypePricing(
+  serviceTypes: string[],
+  data: {
+    hourlyRateRegular?: number | null;
+    hourlyRateDeep?: number | null;
+    hourlyRateSameDay?: number | null;
+    eotPrices?: Record<string, number> | null;
+    airbnbPrices?: Record<string, number> | null;
+  }
+): { valid: boolean; error?: string } {
+  if (serviceTypes.includes('regular') && !data.hourlyRateRegular) {
+    return { valid: false, error: 'hourlyRateRegular is required when offering regular cleaning.' };
+  }
+  if (serviceTypes.includes('deep') && !data.hourlyRateDeep) {
+    return { valid: false, error: 'hourlyRateDeep is required when offering deep cleaning.' };
+  }
+  if (serviceTypes.includes('same_day') && !data.hourlyRateSameDay) {
+    return {
+      valid: false,
+      error: 'hourlyRateSameDay is required when offering same-day cleaning.',
+    };
+  }
+  if (serviceTypes.includes('end_of_tenancy')) {
+    if (!data.eotPrices || !Object.values(data.eotPrices).some((v) => v > 0)) {
+      return {
+        valid: false,
+        error: 'At least one End of Tenancy property size price is required.',
+      };
+    }
+  }
+  if (serviceTypes.includes('airbnb')) {
+    if (!data.airbnbPrices || !Object.values(data.airbnbPrices).some((v) => v > 0)) {
+      return {
+        valid: false,
+        error: 'At least one Airbnb property size price is required.',
+      };
+    }
+  }
+  return { valid: true };
+}
+
+export function validatePriceFloors(data: {
+  hourlyRateRegular?: number | null;
+  hourlyRateDeep?: number | null;
+  hourlyRateSameDay?: number | null;
+  eotPrices?: Record<string, number> | null;
+  airbnbPrices?: Record<string, number> | null;
+}): { valid: boolean; error?: string } {
+  const hourlyFields = [
+    { key: 'hourlyRateRegular', label: 'Regular hourly rate', value: data.hourlyRateRegular },
+    { key: 'hourlyRateDeep', label: 'Deep clean hourly rate', value: data.hourlyRateDeep },
+    { key: 'hourlyRateSameDay', label: 'Same-day hourly rate', value: data.hourlyRateSameDay },
+  ];
+
+  for (const field of hourlyFields) {
+    if (field.value !== null && field.value !== undefined && field.value < MIN_HOURLY_RATE) {
+      return {
+        valid: false,
+        error: `${field.label} must be at least £${MIN_HOURLY_RATE}/hr.`,
+      };
+    }
+  }
+
+  if (data.eotPrices) {
+    for (const [size, price] of Object.entries(data.eotPrices)) {
+      if (price <= 0) continue;
+      const floor = EOT_PRICE_FLOORS[size as EotPropertySize];
+      if (floor && price < floor) {
+        return {
+          valid: false,
+          error: `End of Tenancy price for ${size} must be at least £${floor}. You entered £${price}.`,
+        };
+      }
+    }
+  }
+
+  if (data.airbnbPrices) {
+    for (const [size, price] of Object.entries(data.airbnbPrices)) {
+      if (price <= 0) continue;
+      const floor = AIRBNB_PRICE_FLOORS[size as AirbnbPropertySize];
+      if (floor && price < floor) {
+        return {
+          valid: false,
+          error: `Airbnb price for ${size} must be at least £${floor}. You entered £${price}.`,
+        };
+      }
+    }
+  }
+
+  return { valid: true };
+}

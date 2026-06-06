@@ -7,6 +7,7 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
+import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
   const availableNow = searchParams.get('available_now');
   const postcode = searchParams.get('postcode');
   const specialty = searchParams.get('specialty');
+  const service = searchParams.get('service');
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20));
 
@@ -31,6 +33,31 @@ export async function GET(request: NextRequest) {
 
   if (specialty) {
     where.specialties = { has: specialty };
+  }
+
+  if (service) {
+    const serviceTypeMap: Record<string, string> = {
+      regular: 'regular',
+      deep: 'deep',
+      same_day: 'same_day',
+      'same-day': 'same_day',
+      end_of_tenancy: 'end_of_tenancy',
+      eot: 'end_of_tenancy',
+      airbnb: 'airbnb',
+    };
+    const mappedService = serviceTypeMap[service] || service;
+    where.serviceTypes = { has: mappedService };
+
+    const rateFilter: Record<string, Record<string, unknown>> = {
+      regular: { hourlyRateRegular: { not: null } },
+      deep: { hourlyRateDeep: { not: null } },
+      same_day: { hourlyRateSameDay: { not: null } },
+      end_of_tenancy: { eotPrices: { not: null } },
+      airbnb: { airbnbPrices: { not: null } },
+    };
+    if (rateFilter[mappedService]) {
+      Object.assign(where, rateFilter[mappedService]);
+    }
   }
 
   let customerGeo: { latitude: number; longitude: number } | null = null;
@@ -84,8 +111,12 @@ export async function GET(request: NextRequest) {
         rating: Number(c.rating),
         reviewCount: c.user.reviewsReceived.length,
         completedJobs: c.completedJobs,
-        hourlyRate: Number(c.hourlyRate),
-        sameDayRate: Math.round(Number(c.hourlyRate) * 1.4 * 100) / 100,
+        hourlyRateRegular: c.hourlyRateRegular ? Number(c.hourlyRateRegular) : null,
+        hourlyRateDeep: c.hourlyRateDeep ? Number(c.hourlyRateDeep) : null,
+        hourlyRateSameDay: c.hourlyRateSameDay ? Number(c.hourlyRateSameDay) : null,
+        eotPrices: c.eotPrices || null,
+        airbnbPrices: c.airbnbPrices || null,
+        serviceTypes: c.serviceTypes || [],
         bio: c.bio,
         specialties: c.specialties,
         location: c.location || '',
@@ -165,16 +196,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Years of experience cannot exceed 50' }, { status: 400 });
     }
 
-    // Derive hourly rate — prioritise serviceRates (what the join form sends)
-    let hourlyRate = 0;
-    if (body.serviceRates && typeof body.serviceRates === 'object') {
-      const allRates = Object.values(body.serviceRates)
-        .map(Number)
-        .filter((r: number) => r > 0);
-      if (allRates.length > 0) hourlyRate = allRates[0];
+    // Parse per-service pricing fields
+    const pricingData = {
+      hourlyRateRegular: body.hourlyRateRegular ? Number(body.hourlyRateRegular) : null,
+      hourlyRateDeep: body.hourlyRateDeep ? Number(body.hourlyRateDeep) : null,
+      hourlyRateSameDay: body.hourlyRateSameDay ? Number(body.hourlyRateSameDay) : null,
+      eotPrices: body.eotPrices || null,
+      airbnbPrices: body.airbnbPrices || null,
+    };
+
+    const effectiveServiceTypes = body.serviceTypes || [];
+
+    if (effectiveServiceTypes.length > 0) {
+      const stpCheck = validateServiceTypePricing(effectiveServiceTypes, pricingData);
+      if (!stpCheck.valid) {
+        return NextResponse.json({ error: stpCheck.error }, { status: 400 });
+      }
+
+      const floorCheck = validatePriceFloors(pricingData);
+      if (!floorCheck.valid) {
+        return NextResponse.json({ error: floorCheck.error }, { status: 400 });
+      }
     }
-    if (!hourlyRate) hourlyRate = Number(body.hourlyRate) || 0;
-    if (!hourlyRate || hourlyRate < 14) hourlyRate = 15;
 
     const geo = await lookupPostcode(body.postcode.trim());
 
@@ -220,11 +263,14 @@ export async function POST(request: NextRequest) {
           data: {
             userId: user.id,
             bio: body.bio?.trim() || null,
-            hourlyRate,
+            hourlyRateRegular: pricingData.hourlyRateRegular,
+            hourlyRateDeep: pricingData.hourlyRateDeep,
+            hourlyRateSameDay: pricingData.hourlyRateSameDay,
+            eotPrices: pricingData.eotPrices || undefined,
+            airbnbPrices: pricingData.airbnbPrices || undefined,
             specialties: body.specialties || [],
             languages: body.languages || [],
             serviceTypes: body.serviceTypes || [],
-            serviceRates: body.serviceRates || undefined,
             hoursPerWeek: body.hoursPerWeek ? Number(body.hoursPerWeek) : null,
             yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
             location: body.postcode?.trim() || null,
@@ -335,11 +381,14 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           bio: body.bio?.trim() || null,
-          hourlyRate: hourlyRate,
+          hourlyRateRegular: pricingData.hourlyRateRegular,
+          hourlyRateDeep: pricingData.hourlyRateDeep,
+          hourlyRateSameDay: pricingData.hourlyRateSameDay,
+          eotPrices: pricingData.eotPrices || undefined,
+          airbnbPrices: pricingData.airbnbPrices || undefined,
           specialties: body.specialties || [],
           languages: body.languages || [],
           serviceTypes: body.serviceTypes || [],
-          serviceRates: body.serviceRates || undefined,
           hoursPerWeek: body.hoursPerWeek ? Number(body.hoursPerWeek) : null,
           yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
           location: body.postcode?.trim() || null,

@@ -55,7 +55,9 @@ export async function GET() {
           select: {
             id: true,
             bio: true,
-            hourlyRate: true,
+            hourlyRateRegular: true,
+            hourlyRateDeep: true,
+            hourlyRateSameDay: true,
             specialties: true,
             tier: true,
             verified: true,

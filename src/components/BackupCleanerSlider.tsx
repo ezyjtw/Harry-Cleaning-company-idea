@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import StarRating from '@/components/StarRating';
-import { getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type { Cleaner, ServiceCategory } from '@/lib/types';
 
 interface BackupCleanerSliderProps {
@@ -208,7 +208,7 @@ export default function BackupCleanerSlider({
                               }
                             }
                           }
-                          return <>&pound;{getListedRate(c.hourlyRate)}/hr</>;
+                          return <>&pound;{(c.hourlyRateRegular ?? 0).toFixed(2)}/hr</>;
                         })()}
                       </div>
                       <div className="mt-1 font-jost text-xs font-light text-ink-3">

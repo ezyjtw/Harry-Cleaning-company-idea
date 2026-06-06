@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { generateEstimate, type RoomDetail } from '@/lib/estimator';
-import { getPriceBreakdown } from '@/lib/pricing';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,19 +21,22 @@ export async function POST(request: NextRequest) {
 
     let priceEstimate = null;
     if (cleanerId) {
-      const profile = await prisma.cleanerProfile.findFirst({
-        where: { userId: cleanerId },
-        select: { hourlyRate: true },
-      });
-
-      if (profile) {
-        const hourlyRate = Number(profile.hourlyRate);
-        const sameDayRate = Math.round(hourlyRate * 1.4 * 100) / 100;
-        const multiplier = estimate.recommendedServiceType === 'deep' ? 1.45 : 1;
+      const { pricingService } = await import('@/lib/services/pricing.service');
+      const serviceSlug = estimate.recommendedServiceType === 'deep' ? 'deep' : 'regular';
+      try {
+        const quote = await pricingService.calculateQuote({
+          cleanerId,
+          serviceSlug: serviceSlug as 'regular' | 'deep',
+          hours: estimate.recommendedDuration,
+        });
         priceEstimate = {
-          standard: getPriceBreakdown(hourlyRate, estimate.recommendedDuration, multiplier),
-          sameDay: getPriceBreakdown(sameDayRate, estimate.recommendedDuration, multiplier),
+          customerTotal: quote.customerTotal,
+          cleanerListedPrice: quote.cleanerListedPrice,
+          customerPlatformFee: quote.customerPlatformFee,
+          breakdown: quote.breakdown,
         };
+      } catch {
+        // cleaner may not have pricing set
       }
     }
 
@@ -59,11 +61,11 @@ export async function GET(request: NextRequest) {
     // Calculate average rate from cleaners in database
     const avgResult = await prisma.cleanerProfile.aggregate({
       where: { verified: true },
-      _avg: { hourlyRate: true },
+      _avg: { hourlyRateRegular: true },
       _count: true,
     });
 
-    const avgRate = Number(avgResult._avg.hourlyRate) || 14; // fallback to floor rate
+    const avgRate = Number(avgResult._avg.hourlyRateRegular) || 14;
     const cleanerCount = avgResult._count || 0;
 
     const SERVICE_MULTIPLIERS: Record<string, number> = {

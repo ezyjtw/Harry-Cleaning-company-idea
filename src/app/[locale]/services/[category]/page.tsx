@@ -10,7 +10,7 @@ import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
-import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type {
   ServiceCategory,
   BookingFrequency,
@@ -52,14 +52,6 @@ const SERVICE_DESCRIPTIONS: Record<ServiceCategory, string> = {
     'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
 };
 
-const SERVICE_MULTIPLIERS: Record<ServiceCategory, number> = {
-  regular: 1.0,
-  'same-day': 1.3,
-  deep: 1.45,
-  airbnb: 1.0, // fixed-price — multiplier not used
-  'end-of-tenancy': 1.0, // fixed-price — multiplier not used
-};
-
 /** Minimum cleaner rate (£14) × service multiplier, rounded down to nearest £ */
 const MIN_CLEANER_RATE = 14;
 const ONE_OFF_MULTIPLIER = 1.1;
@@ -81,19 +73,17 @@ const SERVICE_RATE_LABELS: Record<ServiceCategory, string> = {
   'end-of-tenancy': 'fixed price',
 };
 
-/**
- * Get the customer-facing listed rate for a cleaner on a given service.
- * For same-day, uses the cleaner's dedicated sameDayRate.
- * For other hourly services, applies the service multiplier to the base hourly rate.
- */
-function getServiceListedRate(
-  cleaner: { hourlyRate: number; sameDayRate: number },
-  cat: ServiceCategory,
-  isOneOff: boolean
-): number {
-  if (cat === 'same-day') return getListedRate(cleaner.sameDayRate);
-  const multiplier = isOneOff ? ONE_OFF_MULTIPLIER : (SERVICE_MULTIPLIERS[cat] ?? 1);
-  return getListedRate(cleaner.hourlyRate * multiplier);
+function getCleanerRateForService(cleaner: Cleaner, cat: ServiceCategory): number {
+  if (cat === 'same-day') return cleaner.hourlyRateSameDay ?? cleaner.hourlyRateRegular ?? 0;
+  if (cat === 'deep') return cleaner.hourlyRateDeep ?? 0;
+  return cleaner.hourlyRateRegular ?? 0;
+}
+
+/** The listed (display) rate for a cleaner on a given service, applying the one-off multiplier when needed. */
+function getServiceListedRate(cleaner: Cleaner, cat: ServiceCategory, isOneOff: boolean): number {
+  const raw = getCleanerRateForService(cleaner, cat);
+  const multiplier = isOneOff ? ONE_OFF_MULTIPLIER : 1;
+  return Math.round(raw * multiplier * 100) / 100;
 }
 
 /** Extract the area prefix from a UK postcode (e.g. "SW1A 1AA" → "SW") */
@@ -314,13 +304,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     if (bookingSubmitting) return;
     setBookingSubmitting(true);
     try {
-      const totalPrice = selectedCleaner
-        ? getPriceBreakdown(
-            selectedCleaner.hourlyRate,
-            effectiveHours,
-            SERVICE_MULTIPLIERS[category] ?? 1
-          ).total
-        : 0;
+      const totalPrice =
+        priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
 
       const response = await fetch('/api/bookings', {
         method: 'POST',
@@ -465,30 +450,29 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         listedSubtotal: lowSubtotal,
       };
     }
-    // Hourly model for other services
-    // Same-day bookings use the cleaner's sameDayRate (which already includes the premium)
-    const rawRate =
-      category === 'same-day'
-        ? (preSelectedCleaner?.sameDayRate ??
-          selectedCleaner?.sameDayRate ??
-          Math.ceil(MIN_CLEANER_RATE * 1.3))
-        : (preSelectedCleaner?.hourlyRate ?? selectedCleaner?.hourlyRate ?? MIN_CLEANER_RATE);
-    // Apply 1.10x one-off surge when booking a one-off on the regular page
-    // Same-day uses 1.0 multiplier since the premium is already in sameDayRate
-    const baseMultiplier = category === 'same-day' ? 1.0 : (SERVICE_MULTIPLIERS[category] ?? 1);
-    const multiplier = isOneOffOnRegular ? ONE_OFF_MULTIPLIER : baseMultiplier;
-    const listedHourlyRate = getListedRate(rawRate * multiplier);
-    const breakdown = getPriceBreakdown(rawRate, effectiveHours, multiplier);
-    const discount = breakdown.listedSubtotal * frequencyDiscount;
-    const cleaningSubtotal = Math.round((breakdown.listedSubtotal - discount) * 100) / 100;
+    const activeCleaner = preSelectedCleaner ?? selectedCleaner;
+    const rawRate = activeCleaner
+      ? getCleanerRateForService(activeCleaner, category)
+      : MIN_CLEANER_RATE;
+    const multiplier = isOneOffOnRegular ? ONE_OFF_MULTIPLIER : 1;
+    const listedHourlyRate = Math.round(rawRate * multiplier * 100) / 100;
+    const listedSubtotal = Math.round(rawRate * effectiveHours * multiplier * 100) / 100;
+    const discount = listedSubtotal * frequencyDiscount;
+    const cleaningSubtotal = Math.round((listedSubtotal - discount) * 100) / 100;
     const serviceFee = Math.round(cleaningSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
     return {
       isFixed: false as const,
-      ...breakdown,
+      listedSubtotal,
       listedHourlyRate,
       discount: Math.round(discount * 100) / 100,
       cleaningSubtotal,
       displayServiceFee: serviceFee,
+      total:
+        Math.round(
+          (listedSubtotal + Math.round(listedSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100) *
+            100
+        ) / 100,
+      serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
   }, [
@@ -1610,7 +1594,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             const todaySlots = c.timeSlots[todayAbbr] ?? [];
             const tier = TIER_INFO[c.tier];
             const isSelected = selectedCleanerIds.includes(c.id);
-            const listedRate = getListedRate(c.sameDayRate);
+            const listedRate = c.hourlyRateSameDay ?? c.hourlyRateRegular ?? 0;
 
             return (
               <div

@@ -58,8 +58,11 @@ interface ProfileData {
   specialties?: string[];
   languages?: string[];
   serviceTypes?: string[];
-  serviceRates?: Record<string, string>;
-  hourlyRate?: number;
+  hourlyRateRegular?: number | null;
+  hourlyRateDeep?: number | null;
+  hourlyRateSameDay?: number | null;
+  eotPrices?: Record<string, number> | null;
+  airbnbPrices?: Record<string, number> | null;
   hoursPerWeek?: number;
   yearsExperience?: number | null;
   rating?: number;
@@ -80,7 +83,7 @@ function getCompletionSections(data: ProfileData | null) {
     { label: 'Specialties', done: !!(data.specialties && data.specialties.length > 0) },
     { label: 'Languages', done: !!(data.languages && data.languages.length > 0) },
     { label: 'Services', done: !!(data.serviceTypes && data.serviceTypes.length > 0) },
-    { label: 'Pricing', done: !!(data.hourlyRate && data.hourlyRate > 0) },
+    { label: 'Pricing', done: !!(data.hourlyRateRegular && data.hourlyRateRegular > 0) },
   ];
   const doneCount = sections.filter((s) => s.done).length;
   return { sections, percent: Math.round((doneCount / sections.length) * 100) };

@@ -1,6 +1,5 @@
 import Link from 'next/link';
 
-import { getListedRate } from '@/lib/pricing';
 import type { Cleaner } from '@/lib/types';
 
 import StarRating from './StarRating';
@@ -89,7 +88,7 @@ export default function CleanerCard({
           ) : (
             <>
               <span className="font-jost text-[20px] font-semibold text-ink">
-                &pound;{getListedRate(cleaner.hourlyRate).toFixed(2)}
+                &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}
               </span>
               <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
             </>

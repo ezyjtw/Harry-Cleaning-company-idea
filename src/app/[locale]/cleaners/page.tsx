@@ -69,8 +69,10 @@ function CleanersContent() {
           photo: (c.photo || c.image || '') as string,
           rating: (c.rating as number) || 0,
           reviewCount: (c.reviewCount as number) || 0,
-          hourlyRate: (c.hourlyRate as number) || 0,
-          sameDayRate: (c.sameDayRate as number) || 0,
+          hourlyRateRegular: (c.hourlyRateRegular as number) || null,
+          hourlyRateDeep: (c.hourlyRateDeep as number) || null,
+          hourlyRateSameDay: (c.hourlyRateSameDay as number) || null,
+          serviceTypes: (c.serviceTypes as string[]) || [],
           bio: (c.bio as string) || '',
           specialties: (c.specialties as string[]) || [],
           languages: [],
@@ -166,9 +168,9 @@ function CleanersContent() {
         case 'rating':
           return b.rating - a.rating;
         case 'price-low':
-          return a.hourlyRate - b.hourlyRate;
+          return (a.hourlyRateRegular ?? 0) - (b.hourlyRateRegular ?? 0);
         case 'price-high':
-          return b.hourlyRate - a.hourlyRate;
+          return (b.hourlyRateRegular ?? 0) - (a.hourlyRateRegular ?? 0);
         case 'reviews':
           return b.reviewCount - a.reviewCount;
         case 'distance':

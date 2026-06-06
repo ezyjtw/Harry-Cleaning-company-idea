@@ -244,11 +244,18 @@ model CleanerProfile {
   id                    String      @id @default(cuid())
   userId                String      @unique
   bio                   String?     @db.Text
-  hourlyRate            Decimal     @default(15.00) @db.Decimal(10, 2)
   specialties           String[]
   languages             String[]
   serviceTypes          String[]
-  serviceRates          Json?
+
+  // Per-service hourly rates (null = doesn't offer this service)
+  hourlyRateRegular     Decimal?    @db.Decimal(10, 2)
+  hourlyRateDeep        Decimal?    @db.Decimal(10, 2)
+  hourlyRateSameDay     Decimal?    @db.Decimal(10, 2)
+
+  // Fixed-price services — JSON with property-size keys
+  eotPrices             Json?
+  airbnbPrices          Json?
   hoursPerWeek          Int?
   yearsExperience       Int?
   tier                  CleanerTier @default(STARTER)
@@ -400,23 +407,18 @@ model Booking {
   cleanerQueue  BookingCleanerQueue[]
 
   // ─── Pricing snapshot (captured at booking creation) ─────
-  cleanerHourlyRate  Float? // cleaner's standard rate at booking time
-  cleanerDeepRate    Float? // derived deep rate (standard * 1.45) — set for EOT/Airbnb
-  propertySize       PropertySize? // for EOT/Airbnb
-  bookingFrequency   BookingFrequency? // WEEKLY | FORTNIGHTLY | ONE_OFF
-  serviceMultiplier  Float? // multiplier applied
-  cleanerGross       Float? // rate * hours * multiplier
-  cleanerFee         Float? // 10% deducted from cleaner
-  cleanerEarns       Float? // cleanerGross * 0.90
-  customerSubtotal   Float? // = cleanerGross (or fixed price before customer fee)
-  customerServiceFee Float? // 6% added on top for customer (hourly) or embedded (fixed)
-  addonTotal         Float?            @default(0)
-  renaEarns          Float? // cleanerFee + customerServiceFee
+  propertySize              PropertySize?
+  bookingFrequency          BookingFrequency?
+  cleanerPayoutAmount       Decimal?  @db.Decimal(10, 2)
+  platformCommissionAmount  Decimal?  @db.Decimal(10, 2)
+  platformFeeAmount         Decimal?  @db.Decimal(10, 2)
+  totalAmountCharged        Decimal?  @db.Decimal(10, 2)
+  customerSubtotal          Float?
+  customerServiceFee        Float?
+  renaEarns                 Float?
 
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)
-  escrowAmount       Float? // max quote held in escrow (most expensive of top 3)
-  escrowRefundAmount Float? // difference refunded after cleaner accepts
   acceptedFromQueue  Boolean @default(false)
 
   @@index([clientId])

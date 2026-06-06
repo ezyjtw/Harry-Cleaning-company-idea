@@ -113,7 +113,7 @@ export default function CleanerProfilePage() {
         setPhone(data.phone || '');
         setPostcode(data.postcode || '');
         setBio(data.bio || '');
-        setHourlyRate(data.hourlyRate ? String(data.hourlyRate) : '15');
+        setHourlyRate(data.hourlyRateRegular ? String(data.hourlyRateRegular) : '15');
         setYearsExperience(
           data.yearsExperience !== null && data.yearsExperience !== undefined
             ? String(data.yearsExperience)
@@ -216,7 +216,7 @@ export default function CleanerProfilePage() {
           travelMode,
           postcode,
           image: photo,
-          hourlyRate: Number(hourlyRate),
+          hourlyRateRegular: Number(hourlyRate),
           yearsExperience: yearsExperience ? Number(yearsExperience) : null,
         }),
       });

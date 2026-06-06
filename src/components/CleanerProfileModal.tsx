@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { getListedRate } from '@/lib/pricing';
 import type { Cleaner } from '@/lib/types';
 
 import StarRating from './StarRating';
@@ -17,7 +16,12 @@ interface ReviewData {
   date: string;
   verified: boolean;
   cleanerReply?: string;
-  categoryRatings: { thoroughness: number; punctuality: number; communication: number; value: number };
+  categoryRatings: {
+    thoroughness: number;
+    punctuality: number;
+    communication: number;
+    value: number;
+  };
 }
 
 interface CleanerProfileModalProps {
@@ -37,7 +41,11 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
           customerName: ((r.client as Record<string, unknown>)?.name as string) || 'Customer',
           rating: Number(r.rating),
           comment: (r.text as string) || '',
-          date: new Date(r.createdAt as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+          date: new Date(r.createdAt as string).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          }),
           verified: (r.isVerifiedBooking as boolean) || false,
           cleanerReply: (r.reply as string) || undefined,
           categoryRatings: {
@@ -160,7 +168,7 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
                 </span>
                 <div className="mt-0.5 flex items-baseline gap-0.5">
                   <span className="font-cormorant text-[30px] font-semibold text-ink">
-                    &pound;{getListedRate(cleaner.hourlyRate)}
+                    &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}
                   </span>
                   <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
                 </div>

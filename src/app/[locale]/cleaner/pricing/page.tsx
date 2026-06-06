@@ -11,6 +11,23 @@ const SERVICE_RATE_INFO: Record<string, { label: string; range: string; hourly: 
   AirBnB: { label: 'Airbnb / Short-Let', range: '£45 – £165', hourly: false },
 };
 
+const EOT_SIZES = [
+  { label: 'Studio', guide: '£150 – £200' },
+  { label: '1 bed', guide: '£190 – £240' },
+  { label: '2 bed', guide: '£250 – £300' },
+  { label: '3 bed', guide: '£320 – £380' },
+  { label: '4 bed', guide: '£390 – £450' },
+  { label: '5 bed+', guide: '£480 – £580' },
+];
+
+const AIRBNB_SIZES = [
+  { label: 'Studio', guide: '£45 – £65' },
+  { label: '1 bed', guide: '£55 – £85' },
+  { label: '2 bed', guide: '£75 – £110' },
+  { label: '3 bed', guide: '£95 – £140' },
+  { label: '4 bed+', guide: '£130 – £165' },
+];
+
 const specialtyOptions = ['Standard', 'Deep', 'Same Day', 'End of Tenancy', 'AirBnB'];
 
 export default function CleanerPricingPage() {
@@ -18,10 +35,12 @@ export default function CleanerPricingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [hourlyRate, setHourlyRate] = useState('14');
-  const [rateError, setRateError] = useState('');
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
-  const [serviceRates, setServiceRates] = useState<Record<string, string>>({});
+  const [hourlyRateRegular, setHourlyRateRegular] = useState('');
+  const [hourlyRateDeep, setHourlyRateDeep] = useState('');
+  const [hourlyRateSameDay, setHourlyRateSameDay] = useState('');
+  const [eotPrices, setEotPrices] = useState<Record<string, string>>({});
+  const [airbnbPrices, setAirbnbPrices] = useState<Record<string, string>>({});
   const [hoursPerWeek, setHoursPerWeek] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -38,9 +57,24 @@ export default function CleanerPricingPage() {
       })
       .then((data) => {
         if (!data) return;
-        setHourlyRate(String(data.hourlyRate || 14));
         setServiceTypes(data.serviceTypes || []);
-        setServiceRates(data.serviceRates || {});
+        setHourlyRateRegular(data.hourlyRateRegular ? String(data.hourlyRateRegular) : '');
+        setHourlyRateDeep(data.hourlyRateDeep ? String(data.hourlyRateDeep) : '');
+        setHourlyRateSameDay(data.hourlyRateSameDay ? String(data.hourlyRateSameDay) : '');
+        if (data.eotPrices && typeof data.eotPrices === 'object') {
+          const parsed: Record<string, string> = {};
+          for (const [k, v] of Object.entries(data.eotPrices)) {
+            parsed[k] = String(v);
+          }
+          setEotPrices(parsed);
+        }
+        if (data.airbnbPrices && typeof data.airbnbPrices === 'object') {
+          const parsed: Record<string, string> = {};
+          for (const [k, v] of Object.entries(data.airbnbPrices)) {
+            parsed[k] = String(v);
+          }
+          setAirbnbPrices(parsed);
+        }
         setHoursPerWeek(String(data.hoursPerWeek || ''));
       })
       .catch(() => {})
@@ -53,7 +87,6 @@ export default function CleanerPricingPage() {
     setSaveError('');
   }, []);
 
-  // Warn on browser close/refresh with unsaved changes
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirty) e.preventDefault();
@@ -62,7 +95,6 @@ export default function CleanerPricingPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  // Intercept sidebar link clicks when dirty
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: MouseEvent) => {
@@ -92,13 +124,25 @@ export default function CleanerPricingPage() {
     setSaving(true);
     setSaveError('');
     try {
+      const eotNumeric: Record<string, number> = {};
+      for (const [k, v] of Object.entries(eotPrices)) {
+        if (v) eotNumeric[k] = Number(v);
+      }
+      const airbnbNumeric: Record<string, number> = {};
+      for (const [k, v] of Object.entries(airbnbPrices)) {
+        if (v) airbnbNumeric[k] = Number(v);
+      }
+
       const res = await fetch('/api/cleaner/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          hourlyRate: Number(hourlyRate),
           serviceTypes,
-          serviceRates,
+          hourlyRateRegular: hourlyRateRegular ? Number(hourlyRateRegular) : null,
+          hourlyRateDeep: hourlyRateDeep ? Number(hourlyRateDeep) : null,
+          hourlyRateSameDay: hourlyRateSameDay ? Number(hourlyRateSameDay) : null,
+          eotPrices: Object.keys(eotNumeric).length > 0 ? eotNumeric : null,
+          airbnbPrices: Object.keys(airbnbNumeric).length > 0 ? airbnbNumeric : null,
           hoursPerWeek: hoursPerWeek ? Number(hoursPerWeek) : null,
         }),
       });
@@ -114,7 +158,15 @@ export default function CleanerPricingPage() {
       setSaveError('Network error. Please check your connection and try again.');
     }
     setSaving(false);
-  }, [hourlyRate, serviceTypes, serviceRates, hoursPerWeek]);
+  }, [
+    serviceTypes,
+    hourlyRateRegular,
+    hourlyRateDeep,
+    hourlyRateSameDay,
+    eotPrices,
+    airbnbPrices,
+    hoursPerWeek,
+  ]);
 
   if (loading) {
     return (
@@ -129,6 +181,12 @@ export default function CleanerPricingPage() {
     );
   }
 
+  const serviceToState: Record<string, { value: string; setter: (v: string) => void }> = {
+    Standard: { value: hourlyRateRegular, setter: setHourlyRateRegular },
+    Deep: { value: hourlyRateDeep, setter: setHourlyRateDeep },
+    'Same Day': { value: hourlyRateSameDay, setter: setHourlyRateSameDay },
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
@@ -138,7 +196,6 @@ export default function CleanerPricingPage() {
         </p>
       </div>
 
-      {/* Unsaved changes banner */}
       {dirty && (
         <div
           className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 px-5 py-3"
@@ -170,7 +227,6 @@ export default function CleanerPricingPage() {
         </div>
       )}
 
-      {/* Save error */}
       {saveError && (
         <div
           className="mb-6 rounded-xl bg-red-50 px-5 py-3"
@@ -222,46 +278,10 @@ export default function CleanerPricingPage() {
           </div>
         </div>
 
-        {/* Base hourly rate */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Base Hourly Rate</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-jost text-sm font-light text-ink-2">
-                £
-              </span>
-              <input
-                type="number"
-                value={hourlyRate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setHourlyRate(val);
-                  markDirty();
-                  const num = parseFloat(val);
-                  if (!isNaN(num)) {
-                    if (num < 14) setRateError('Minimum rate on Rena is £14/hr');
-                    else if (num > 35) setRateError('Rates above £35/hr require admin review');
-                    else setRateError('');
-                  }
-                }}
-                min="14"
-                max="35"
-                className="w-32 rounded-lg pl-7 pr-4 py-2.5 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-            <span className="font-jost text-sm font-light text-ink-2">per hour</span>
-          </div>
-          {rateError && <p className="font-jost text-sm text-red-500 mt-2">{rateError}</p>}
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Suggested range: £14–£22/hr
-          </p>
-        </div>
-
-        {/* Per-service rates */}
+        {/* Per-service hourly rates */}
         {serviceTypes.filter((s) => SERVICE_RATE_INFO[s]?.hourly).length > 0 && (
           <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-cormorant text-lg font-light text-ink mb-2">Per-Service Rates</h2>
+            <h2 className="font-cormorant text-lg font-light text-ink mb-2">Hourly Rates</h2>
             <p className="font-jost text-sm font-light text-ink-2 mb-4">
               Set your hourly rate for each service type you offer
             </p>
@@ -270,6 +290,8 @@ export default function CleanerPricingPage() {
                 .filter((svc) => SERVICE_RATE_INFO[svc]?.hourly)
                 .map((svc) => {
                   const info = SERVICE_RATE_INFO[svc];
+                  const mapping = serviceToState[svc];
+                  if (!mapping) return null;
                   return (
                     <div key={svc}>
                       <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
@@ -281,14 +303,11 @@ export default function CleanerPricingPage() {
                         </span>
                         <input
                           type="number"
-                          min="1"
+                          min="14"
                           step="0.50"
-                          value={serviceRates[svc] || ''}
+                          value={mapping.value}
                           onChange={(e) => {
-                            setServiceRates((prev) => ({
-                              ...prev,
-                              [svc]: e.target.value,
-                            }));
+                            mapping.setter(e.target.value);
                             markDirty();
                           }}
                           placeholder="—"
@@ -306,7 +325,7 @@ export default function CleanerPricingPage() {
           </div>
         )}
 
-        {/* EOT & Airbnb Pricing */}
+        {/* EOT & Airbnb fixed-price tables */}
         {(serviceTypes.includes('End of Tenancy') || serviceTypes.includes('AirBnB')) && (
           <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
             <h2 className="font-cormorant text-lg font-light text-ink mb-2">
@@ -338,47 +357,40 @@ export default function CleanerPricingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { label: 'Studio', guide: '£150 – £200' },
-                        { label: '1 bed', guide: '£190 – £240' },
-                        { label: '2 bed', guide: '£250 – £300' },
-                        { label: '3 bed', guide: '£320 – £380' },
-                        { label: '4 bed', guide: '£390 – £450' },
-                        { label: '5 bed+', guide: '£480 – £580' },
-                      ].map((row) => {
-                        const key = `eot_${row.label}`;
-                        return (
-                          <tr
-                            key={row.label}
-                            style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                          >
-                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                              {row.label}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <div className="relative">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
-                                  £
-                                </span>
-                                <input
-                                  type="number"
-                                  placeholder="—"
-                                  value={serviceRates[key] || ''}
-                                  className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                                  onChange={(e) => {
-                                    setServiceRates((prev) => ({ ...prev, [key]: e.target.value }));
-                                    markDirty();
-                                  }}
-                                />
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
-                              {row.guide}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {EOT_SIZES.map((row) => (
+                        <tr
+                          key={row.label}
+                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                        >
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
+                            {row.label}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
+                                £
+                              </span>
+                              <input
+                                type="number"
+                                placeholder="—"
+                                value={eotPrices[row.label] || ''}
+                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
+                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                onChange={(e) => {
+                                  setEotPrices((prev) => ({
+                                    ...prev,
+                                    [row.label]: e.target.value,
+                                  }));
+                                  markDirty();
+                                }}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
+                            {row.guide}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -407,46 +419,40 @@ export default function CleanerPricingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { label: 'Studio', guide: '£45 – £65' },
-                        { label: '1 bed', guide: '£55 – £85' },
-                        { label: '2 bed', guide: '£75 – £110' },
-                        { label: '3 bed', guide: '£95 – £140' },
-                        { label: '4 bed+', guide: '£130 – £165' },
-                      ].map((row) => {
-                        const key = `airbnb_${row.label}`;
-                        return (
-                          <tr
-                            key={row.label}
-                            style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                          >
-                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                              {row.label}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <div className="relative">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
-                                  £
-                                </span>
-                                <input
-                                  type="number"
-                                  placeholder="—"
-                                  value={serviceRates[key] || ''}
-                                  className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                                  onChange={(e) => {
-                                    setServiceRates((prev) => ({ ...prev, [key]: e.target.value }));
-                                    markDirty();
-                                  }}
-                                />
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
-                              {row.guide}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {AIRBNB_SIZES.map((row) => (
+                        <tr
+                          key={row.label}
+                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                        >
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
+                            {row.label}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-jost text-sm text-ink-3">
+                                £
+                              </span>
+                              <input
+                                type="number"
+                                placeholder="—"
+                                value={airbnbPrices[row.label] || ''}
+                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
+                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                onChange={(e) => {
+                                  setAirbnbPrices((prev) => ({
+                                    ...prev,
+                                    [row.label]: e.target.value,
+                                  }));
+                                  markDirty();
+                                }}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 font-jost text-sm font-light text-ink-3">
+                            {row.guide}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

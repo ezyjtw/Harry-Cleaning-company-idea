@@ -18,7 +18,9 @@ interface PreviewData {
   name: string;
   image: string;
   bio: string;
-  hourlyRate: number;
+  hourlyRateRegular: number | null;
+  hourlyRateDeep: number | null;
+  hourlyRateSameDay: number | null;
   specialties: string[];
   languages: string[];
   location: string;
@@ -77,7 +79,9 @@ export default function ProfilePreviewPage() {
           name: p.name || '',
           image: p.image || '',
           bio: p.bio || '',
-          hourlyRate: Number(p.hourlyRate) || 0,
+          hourlyRateRegular: p.hourlyRateRegular ?? null,
+          hourlyRateDeep: p.hourlyRateDeep ?? null,
+          hourlyRateSameDay: p.hourlyRateSameDay ?? null,
           specialties: p.specialties || [],
           languages: p.languages || [],
           location: p.location || p.postcode || '',
@@ -100,8 +104,8 @@ export default function ProfilePreviewPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const listedRate = data ? data.hourlyRate : 0;
-  const sameDayRate = data ? Math.round(data.hourlyRate * 1.4 * 100) / 100 : 0;
+  const listedRate = data ? (data.hourlyRateRegular ?? 0) : 0;
+  const sameDayRate = data ? (data.hourlyRateSameDay ?? 0) : 0;
 
   if (loading) {
     return (
