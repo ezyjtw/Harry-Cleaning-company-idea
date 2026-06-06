@@ -57,8 +57,10 @@ enum BookingFrequency {
 
 enum PaymentStatus {
   PENDING
+  REQUIRES_ACTION
   SUCCEEDED
   FAILED
+  CANCELED
   REFUNDED
   PARTIALLY_REFUNDED
 }
@@ -217,6 +219,9 @@ model User {
   failedLoginCount Int           @default(0)
   isSuspended      Boolean       @default(false)
   lockedUntil      DateTime?
+
+  // Stripe
+  stripeCustomerId String?       @unique
 
   accounts            Account[]
   sessions            Session[]
@@ -423,6 +428,11 @@ model Booking {
   customerSubtotal          Float?
   customerServiceFee        Float?
   renaEarns                 Float?
+
+  // ─── Stripe Payment ─────
+  stripePaymentIntentId  String?        @unique
+  stripeChargeId         String?        @unique
+  paymentStatus          PaymentStatus  @default(PENDING)
 
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)

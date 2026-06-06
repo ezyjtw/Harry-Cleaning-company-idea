@@ -19,9 +19,6 @@ const ENV_SCHEMA: EnvVarConfig[] = [
         : 'http://localhost:3000',
     description: 'NextAuth.js base URL',
   },
-  { name: 'RYFT_SECRET_KEY', required: false, description: 'Ryft secret API key' },
-  { name: 'RYFT_WEBHOOK_SECRET', required: false, description: 'Ryft webhook signing secret' },
-  { name: 'NEXT_PUBLIC_RYFT_PUBLIC_KEY', required: false, description: 'Ryft publishable key' },
   {
     name: 'SMTP_HOST',
     required: false,
@@ -81,7 +78,16 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     validate: (v) => v.length >= 32,
   },
   { name: 'STRIPE_SECRET_KEY', required: true, description: 'Stripe secret API key for Connect' },
-  { name: 'STRIPE_PUBLISHABLE_KEY', required: true, description: 'Stripe publishable key' },
+  {
+    name: 'STRIPE_PUBLISHABLE_KEY',
+    required: true,
+    description: 'Stripe publishable key (server-side)',
+  },
+  {
+    name: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+    required: true,
+    description: 'Stripe publishable key (client-side, exposed to browser)',
+  },
   { name: 'STRIPE_WEBHOOK_SECRET', required: true, description: 'Stripe webhook signing secret' },
 ];
 

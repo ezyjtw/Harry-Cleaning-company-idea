@@ -30,6 +30,7 @@ interface Booking {
   id: string;
   serviceType: string;
   status: string;
+  paymentStatus: string;
   date: string;
   startTime: string;
   duration: number | string;
@@ -49,13 +50,7 @@ interface BookingsResponse {
   totalPages: number;
 }
 
-const UPCOMING_STATUSES = new Set([
-  'PENDING',
-  'CONFIRMED',
-  'ACCEPTED',
-  'EN_ROUTE',
-  'IN_PROGRESS',
-]);
+const UPCOMING_STATUSES = new Set(['PENDING', 'CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS']);
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -66,9 +61,7 @@ function formatDate(dateStr: string): string {
 }
 
 function formatServiceType(type: string): string {
-  return type
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return type.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function statusBadge(status: string): { text: string; className: string } {
@@ -148,18 +141,14 @@ export default function CustomerDashboard() {
         today.setHours(0, 0, 0, 0);
 
         const upcoming = allData.data
-          .filter(
-            (b) => UPCOMING_STATUSES.has(b.status) && new Date(b.date) >= today
-          )
+          .filter((b) => UPCOMING_STATUSES.has(b.status) && new Date(b.date) >= today)
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
           .slice(0, 5);
         setUpcomingBookings(upcoming);
 
         const completed = completedData.data;
 
-        const unreviewed = completed.filter(
-          (b) => b.status === 'COMPLETED' && !b.review
-        );
+        const unreviewed = completed.filter((b) => b.status === 'COMPLETED' && !b.review);
         setUnreviewedBookings(unreviewed);
 
         const seenIds = new Set<string>();
@@ -240,12 +229,8 @@ export default function CustomerDashboard() {
       {/* Section 1: Greeting + CTA */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-cormorant text-2xl font-light text-ink">
-            Hello, {firstName}
-          </h1>
-          <p className="mt-1 font-jost text-sm font-light text-ink-3">
-            Welcome to your dashboard
-          </p>
+          <h1 className="font-cormorant text-2xl font-light text-ink">Hello, {firstName}</h1>
+          <p className="mt-1 font-jost text-sm font-light text-ink-3">Welcome to your dashboard</p>
         </div>
         {mostRecentCleaner ? (
           <Link
@@ -274,9 +259,7 @@ export default function CustomerDashboard() {
             className="flex items-center justify-between px-6 py-4"
             style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
           >
-            <h2 className="font-cormorant text-lg font-light text-ink">
-              Upcoming Bookings
-            </h2>
+            <h2 className="font-cormorant text-lg font-light text-ink">Upcoming Bookings</h2>
             {upcomingBookings.length > 0 && (
               <Link
                 href="/account/bookings"
@@ -302,9 +285,7 @@ export default function CustomerDashboard() {
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              <p className="font-jost text-sm font-light text-ink-3">
-                No upcoming bookings
-              </p>
+              <p className="font-jost text-sm font-light text-ink-3">No upcoming bookings</p>
               <Link
                 href="/cleaners"
                 className="mt-3 inline-block font-jost text-sm font-normal text-gold transition-colors hover:text-gold/80"
@@ -320,11 +301,7 @@ export default function CustomerDashboard() {
                   <div
                     key={booking.id}
                     className="flex flex-col gap-3 px-6 py-4 transition-colors hover:bg-cream/30 sm:flex-row sm:items-center"
-                    style={
-                      i > 0
-                        ? { borderTop: '1px solid rgba(14,14,12,0.04)' }
-                        : undefined
-                    }
+                    style={i > 0 ? { borderTop: '1px solid rgba(14,14,12,0.04)' } : undefined}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -336,6 +313,11 @@ export default function CustomerDashboard() {
                         >
                           {badge.text}
                         </span>
+                        {booking.paymentStatus && booking.paymentStatus !== 'SUCCEEDED' && (
+                          <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] text-amber-700">
+                            {booking.paymentStatus.replace('_', ' ')}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
                         {booking.cleaner.name || 'Assigned cleaner'}
@@ -366,9 +348,7 @@ export default function CustomerDashboard() {
       {/* Section 3: Recent Cleaners — hidden if none */}
       {recentCleaners.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-cormorant text-lg font-light text-ink">
-            Your Cleaners
-          </h2>
+          <h2 className="mb-4 font-cormorant text-lg font-light text-ink">Your Cleaners</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {recentCleaners.map((cleaner) => (
               <Link
@@ -402,9 +382,7 @@ export default function CustomerDashboard() {
       {/* Section 4: Unreviewed completed bookings — hidden if none */}
       {unreviewedBookings.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-cormorant text-lg font-light text-ink">
-            Leave a Review
-          </h2>
+          <h2 className="mb-4 font-cormorant text-lg font-light text-ink">Leave a Review</h2>
           <div className="space-y-3">
             {unreviewedBookings.map((booking) => (
               <div
@@ -429,12 +407,10 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-jost text-sm font-normal text-ink">
-                    How was your clean with{' '}
-                    {booking.cleaner.name || 'your cleaner'}?
+                    How was your clean with {booking.cleaner.name || 'your cleaner'}?
                   </p>
                   <p className="font-jost text-xs font-light text-ink-3">
-                    {formatServiceType(booking.serviceType)} &middot;{' '}
-                    {formatDate(booking.date)}
+                    {formatServiceType(booking.serviceType)} &middot; {formatDate(booking.date)}
                   </p>
                 </div>
                 <Link
@@ -451,9 +427,7 @@ export default function CustomerDashboard() {
 
       {/* Section 5: Account Quick Links */}
       <section>
-        <h2 className="mb-4 font-cormorant text-lg font-light text-ink">
-          Quick Links
-        </h2>
+        <h2 className="mb-4 font-cormorant text-lg font-light text-ink">Quick Links</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Link
             href="/account"
@@ -461,12 +435,7 @@ export default function CustomerDashboard() {
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink-3 transition-colors group-hover:bg-ink/10">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -481,9 +450,7 @@ export default function CustomerDashboard() {
                 />
               </svg>
             </div>
-            <p className="font-jost text-sm font-normal text-ink">
-              Saved Addresses
-            </p>
+            <p className="font-jost text-sm font-normal text-ink">Saved Addresses</p>
           </Link>
 
           <Link
@@ -492,12 +459,7 @@ export default function CustomerDashboard() {
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink-3 transition-colors group-hover:bg-ink/10">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -515,12 +477,7 @@ export default function CustomerDashboard() {
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink-3 transition-colors group-hover:bg-ink/10">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -529,9 +486,7 @@ export default function CustomerDashboard() {
                 />
               </svg>
             </div>
-            <p className="font-jost text-sm font-normal text-ink">
-              Booking History
-            </p>
+            <p className="font-jost text-sm font-normal text-ink">Booking History</p>
           </Link>
         </div>
       </section>

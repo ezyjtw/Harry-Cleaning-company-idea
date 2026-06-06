@@ -27,3 +27,8 @@ Do not add to the dev seed.
 The integrity check in `instrumentation.ts` verifies the reference seed
 populated correctly. If it doesn't, the app refuses to boot and Railway
 rolls back the deploy.
+## Apple Pay
+
+Apple Pay via Stripe requires a domain verification file at
+`/.well-known/apple-developer-merchantid-domain-association`. After deploy, register the domain
+in Stripe dashboard, get the file content, and place it in `public/.well-known/`.

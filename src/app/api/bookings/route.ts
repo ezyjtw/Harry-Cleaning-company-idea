@@ -12,8 +12,8 @@ import {
   sendGuestBookingConfirmation,
 } from '@/lib/services/email.service';
 import { pricingService } from '@/lib/services/pricing.service';
-import { createPaymentSession } from '@/lib/services/ryft-payment.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import stripe from '@/lib/stripe';
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
+    // 1. Validate required fields
     const required = ['cleanerId', 'name', 'email', 'date', 'time', 'duration', 'serviceType'];
     for (const field of required) {
       if (!body[field]) {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify cleaner exists in database
+    // 2. Cleaner lookup with Stripe eligibility
     const cleaner = await prisma.user.findFirst({
       where: { id: body.cleanerId, role: 'CLEANER' },
       select: {
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         email: true,
         cleanerProfile: {
           select: {
+            stripeAccountId: true,
             stripeChargesEnabled: true,
             stripePayoutsEnabled: true,
           },
@@ -107,7 +108,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
     }
 
+    // 4. Stripe eligibility check
     if (
+      !cleaner.cleanerProfile?.stripeAccountId ||
       !cleaner.cleanerProfile?.stripeChargesEnabled ||
       !cleaner.cleanerProfile?.stripePayoutsEnabled
     ) {
@@ -120,10 +123,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Normalize service type to canonical pricing slug
+    // 3. Service type validation
     const pricingSlug = normalizeToPricingSlug(body.serviceType);
 
-    // Server-side price calculation — never trust client-submitted totals
+    // 5. Price calculation — never trust client-submitted totals
     let quote;
     try {
       quote = await pricingService.calculateQuote({
@@ -135,9 +138,6 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Pricing error';
-      if (message.includes('has not set')) {
-        return NextResponse.json({ error: message }, { status: 400 });
-      }
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
@@ -221,15 +221,52 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get or create address
     let addressId: string | null = null;
     if (body.addressId) {
       addressId = body.addressId;
     }
 
-    // Check for authenticated user
+    // 6. Ensure customer has Stripe Customer ID (authenticated users only)
     const sessionUser = await getSessionUser();
+    let stripeCustomerId: string | null = null;
 
+    if (sessionUser) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: sessionUser.id },
+        select: { stripeCustomerId: true, email: true, name: true },
+      });
+
+      if (dbUser?.stripeCustomerId) {
+        try {
+          await stripe.customers.retrieve(dbUser.stripeCustomerId);
+          stripeCustomerId = dbUser.stripeCustomerId;
+        } catch {
+          // Stripe Customer deleted — create a new one
+        }
+      }
+
+      if (!stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          email: dbUser?.email || sessionUser.email,
+          name: dbUser?.name || undefined,
+          metadata: { userId: sessionUser.id },
+        });
+        stripeCustomerId = customer.id;
+        await prisma.user.update({
+          where: { id: sessionUser.id },
+          data: { stripeCustomerId: customer.id },
+        });
+      }
+    }
+
+    // 7. Fee breakdown is already computed by the pricing service
+    // quote.customerPlatformFee = 6% service fee
+    // quote.cleanerCommission = 10% or 15% commission from base
+    // quote.cleanerPayout = base - commission
+    // platformFee (application_fee) = customerTotal - cleanerPayout
+    const applicationFeeGBP = totalPrice - quote.cleanerPayout;
+
+    // 8. Create Booking record FIRST with paymentStatus: PENDING
     const booking = await prisma.booking.create({
       data: {
         clientId: sessionUser?.id || null,
@@ -252,44 +289,77 @@ export async function POST(request: NextRequest) {
         cleanerPayoutAmount: quote.cleanerPayout,
         platformCommissionAmount: quote.cleanerCommission,
         platformFeeAmount: quote.customerPlatformFee,
-        totalAmountCharged: quote.customerTotal,
+        totalAmountCharged: totalPrice,
         customerSubtotal: quote.cleanerListedPrice,
         customerServiceFee: quote.customerPlatformFee,
         renaEarns: quote.cleanerCommission + quote.customerPlatformFee,
         propertySize: body.propertySize || null,
         notes: body.notes || null,
+        paymentStatus: 'PENDING',
       },
     });
 
-    // Create Ryft payment session (customer pays discounted amount)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    let paymentSession = null;
-
+    // 9. Create Stripe PaymentIntent
+    let clientSecret: string | null = null;
     try {
-      paymentSession = await createPaymentSession({
-        amount: totalPrice,
-        bookingId: booking.id,
-        customerEmail: body.email,
-        customerName: body.name,
-        description: `${body.serviceType} cleaning - ${body.date}`,
-        returnUrl: `${appUrl}/booking/confirmation?bookingId=${booking.id}&token=${booking.guestToken || ''}`,
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(totalPrice * 100),
+        currency: 'gbp',
+        ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
+        ...(stripeCustomerId ? { setup_future_usage: 'off_session' as const } : {}),
+        application_fee_amount: Math.round(applicationFeeGBP * 100),
+        transfer_data: { destination: cleaner.cleanerProfile.stripeAccountId },
+        on_behalf_of: cleaner.cleanerProfile.stripeAccountId,
+        metadata: {
+          bookingId: booking.id,
+          customerId: sessionUser?.id || '',
+          cleanerId: cleaner.id,
+          serviceType: body.serviceType,
+        },
+        automatic_payment_methods: { enabled: true },
       });
 
-      if (paymentSession) {
-        await prisma.payment.create({
-          data: {
-            bookingId: booking.id,
-            ryftPaymentId: paymentSession.id,
-            amount: totalPrice,
-            discountPercent: discountPercent || null,
-            discountAmount: discountAmount || null,
-            promoCode,
-          },
-        });
-      }
+      clientSecret = paymentIntent.client_secret;
+
+      // 10. Update Booking with stripePaymentIntentId
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { stripePaymentIntentId: paymentIntent.id },
+      });
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Payment session creation failed:', error);
+      console.error('PaymentIntent creation failed:', error);
+
+      // Mark booking as failed — don't leave orphan PENDING bookings
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          status: 'CANCELLED',
+          paymentStatus: 'FAILED',
+          cancelledAt: new Date(),
+          cancellationReason: 'Payment initialization failed',
+        },
+      });
+
+      return NextResponse.json(
+        { error: 'Failed to initialize payment. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    // Store promo code info on payment record
+    if (discountPercent > 0) {
+      await prisma.payment
+        .create({
+          data: {
+            bookingId: booking.id,
+            amount: totalPrice,
+            discountPercent,
+            discountAmount,
+            promoCode,
+          },
+        })
+        .catch(() => {});
     }
 
     // Send confirmation emails
@@ -323,7 +393,6 @@ export async function POST(request: NextRequest) {
       email: cleaner.email,
     }).catch(() => {});
 
-    // Notify the cleaner of the new booking
     await prisma.notification
       .create({
         data: {
@@ -336,7 +405,6 @@ export async function POST(request: NextRequest) {
       })
       .catch(() => {});
 
-    // Notify the customer that their booking was created
     if (sessionUser) {
       await prisma.notification
         .create({
@@ -355,13 +423,7 @@ export async function POST(request: NextRequest) {
       {
         message: 'Booking created successfully',
         booking,
-        payment: paymentSession
-          ? {
-              sessionId: paymentSession.id,
-              clientSecret: paymentSession.clientSecret,
-              status: paymentSession.status,
-            }
-          : null,
+        clientSecret,
       },
       { status: 201 }
     );
