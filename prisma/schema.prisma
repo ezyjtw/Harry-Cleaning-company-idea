@@ -787,7 +787,10 @@ model ServiceType {
   slug           String       @unique // "regular", "one-off", "same-day", "deep", "eot", "airbnb"
   name           String
   pricingModel   PricingModel // HOURLY | FIXED
-  baseMultiplier Float // 1.0 for regular, 1.15 for one-off, etc
+  // DEPRECATED: do not use in calculations. Cleaners set their own per-service rates.
+  // This field is a holdover from an older pricing model and will be dropped
+  // in a future schema cleanup PR.
+  baseMultiplier Float
   minimumHours   Float? // null for fixed-price services
   minimumCharge  Float?
   isActive       Boolean      @default(true)

@@ -149,13 +149,7 @@ export class PricingService {
     }
     const hourlyRate = Number(rateValue);
 
-    const multiplier = serviceType.baseMultiplier;
-
-    const cleanerListedPrice = new Decimal(hourlyRate)
-      .mul(hours)
-      .mul(multiplier)
-      .toDecimalPlaces(2)
-      .toNumber();
+    const cleanerListedPrice = new Decimal(hourlyRate).mul(hours).toDecimalPlaces(2).toNumber();
 
     const cleanerCommission = new Decimal(cleanerListedPrice)
       .mul(commissionRate)
@@ -193,7 +187,7 @@ export class PricingService {
       customerPlatformFee,
       customerTotal,
       addonTotal,
-      breakdown: `${hours} hrs × £${hourlyRate}/hr${multiplier !== 1 ? ` × ${multiplier}x` : ''} = £${cleanerListedPrice}. Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
+      breakdown: `${hours} hrs × £${hourlyRate}/hr = £${cleanerListedPrice}. Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
     };
   }
 
