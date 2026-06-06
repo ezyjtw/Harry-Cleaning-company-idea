@@ -90,11 +90,34 @@ export async function POST(request: NextRequest) {
     // Verify cleaner exists in database
     const cleaner = await prisma.user.findFirst({
       where: { id: body.cleanerId, role: 'CLEANER' },
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        cleanerProfile: {
+          select: {
+            stripeChargesEnabled: true,
+            stripePayoutsEnabled: true,
+          },
+        },
+      },
     });
 
     if (!cleaner) {
       return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
+    }
+
+    if (
+      !cleaner.cleanerProfile?.stripeChargesEnabled ||
+      !cleaner.cleanerProfile?.stripePayoutsEnabled
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'This cleaner is not yet set up to receive payments. Please choose another cleaner.',
+        },
+        { status: 400 }
+      );
     }
 
     // Normalize service type to canonical pricing slug

@@ -286,6 +286,13 @@ model CleanerProfile {
   responseSpeed       Int? // average response speed in seconds
   postcode            String?
   ryftAccountId       String?
+
+  // Stripe Connect
+  stripeAccountId       String?   @unique
+  stripeChargesEnabled  Boolean   @default(false)
+  stripePayoutsEnabled  Boolean   @default(false)
+  stripeOnboardedAt     DateTime?
+
   verificationStatus  VerificationStatus @default(UNVERIFIED)
   identityVerifiedAt  DateTime?
   verificationMeta    Json?
@@ -1057,4 +1064,13 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Stripe Webhook Idempotency ──────────────────────────────────────────────
+
+model StripeWebhookEvent {
+  id          String   @id
+  type        String
+  payload     Json
+  processedAt DateTime @default(now())
 }

@@ -35,6 +35,8 @@ export async function GET() {
           serviceTypes: true,
           eotPrices: true,
           airbnbPrices: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
         },
       }),
 
@@ -133,6 +135,8 @@ export async function GET() {
       serviceTypes: profile.serviceTypes,
       eotPrices: profile.eotPrices,
       airbnbPrices: profile.airbnbPrices,
+      stripeChargesEnabled: profile.stripeChargesEnabled,
+      stripePayoutsEnabled: profile.stripePayoutsEnabled,
     },
     stats: {
       todaysJobs,

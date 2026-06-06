@@ -56,6 +56,8 @@ export async function GET(request: NextRequest) {
   const now = new Date();
   const where: Record<string, unknown> = {
     verified: true,
+    stripeChargesEnabled: true,
+    stripePayoutsEnabled: true,
     user: { accountStatus: 'ACTIVE', isDeleted: false },
     OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
   };

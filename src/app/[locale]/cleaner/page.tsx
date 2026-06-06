@@ -39,6 +39,8 @@ interface DashboardData {
     serviceTypes: string[];
     eotPrices: Record<string, unknown> | null;
     airbnbPrices: Record<string, unknown> | null;
+    stripeChargesEnabled: boolean;
+    stripePayoutsEnabled: boolean;
   };
   stats: {
     todaysJobs: number;
@@ -393,6 +395,42 @@ export default function CleanerDashboard() {
           )}
         </div>
       </div>
+
+      {/* Stripe onboarding banner */}
+      {(!data.profile.stripeChargesEnabled || !data.profile.stripePayoutsEnabled) && (
+        <div
+          className="mb-6 rounded-xl bg-amber-50 px-5 py-4 flex items-start gap-3"
+          style={{ border: '1px solid rgba(217,119,6,0.15)' }}
+        >
+          <svg
+            className="w-5 h-5 text-amber-600 mt-0.5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+          <div>
+            <p className="font-jost text-sm font-normal text-amber-800">
+              Connect your payment account to start receiving bookings
+            </p>
+            <p className="font-jost text-[13px] font-light text-amber-700 mt-0.5">
+              Without this, customers can&apos;t book you. It takes about 5 minutes.
+            </p>
+            <Link
+              href="/cleaner/stripe/connect"
+              className="inline-block mt-2 rounded-full bg-amber-600 px-5 py-2 font-jost text-[12px] uppercase tracking-[0.08em] text-white hover:bg-amber-700 transition"
+            >
+              Connect now
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* EoT / Airbnb pricing banner */}
       {(() => {
