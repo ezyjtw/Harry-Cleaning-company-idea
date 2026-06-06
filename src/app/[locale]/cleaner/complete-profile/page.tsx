@@ -3,14 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
-const SPECIALTY_OPTIONS = [
-  'Standard Cleaning',
-  'Deep Cleaning',
-  'Eco-Friendly',
-  'Pet-Friendly',
-  'Kitchen Specialist',
-  'Bathroom Specialist',
-];
+import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
 
 const LANGUAGE_OPTIONS = [
   'English',

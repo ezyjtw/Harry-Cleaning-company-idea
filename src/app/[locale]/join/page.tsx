@@ -6,12 +6,14 @@ import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import WebcamCaptureModal from '@/components/WebcamCaptureModal';
 import {
   SERVICE_TYPE_SLUGS,
   SERVICE_RATE_INFO as CANONICAL_RATE_INFO,
   serviceTypeLabel,
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
+import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -145,20 +147,6 @@ const SERVICE_RATE_INFO: Record<
     hourly: false,
   },
 };
-
-const SPECIALTY_OPTIONS = [
-  'Standard Cleaning',
-  'Deep Cleaning',
-  'Eco-Friendly',
-  'Pet-Friendly',
-  'Kitchen Specialist',
-  'Bathroom Specialist',
-  'Kosher Kitchen',
-  'Halal-Conscious Cleaning',
-  'Prayer Room Care',
-  'Post-Construction',
-  'Elderly/Assisted Living',
-];
 
 const LANGUAGE_OPTIONS = [
   'English',
@@ -685,7 +673,13 @@ export default function JoinAsCleanerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [ryftMessage, setRyftMessage] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [webcamTarget, setWebcamTarget] = useState<'profilePhoto' | 'selfiePhoto' | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
+
+  useEffect(() => {
+    setIsDesktop(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+  }, []);
 
   // Track initial page view
   useEffect(() => {
@@ -767,7 +761,7 @@ export default function JoinAsCleanerPage() {
   );
 
   /* ---- Validation per step ---- */
-  function validate(step: number): boolean {
+  function collectStepErrors(step: number): Record<string, string> {
     const e: Record<string, string> = {};
 
     if (step === 0) {
@@ -859,9 +853,13 @@ export default function JoinAsCleanerPage() {
       if (!form.agreedToTerms) e.agreedToTerms = 'You must agree to continue';
     }
 
+    return e;
+  }
+
+  function validate(step: number): boolean {
+    const e = collectStepErrors(step);
     setErrors(e);
     if (Object.keys(e).length > 0) {
-      // Track validation errors for funnel analysis
       Object.entries(e).forEach(([field, message]) => {
         trackFormError(field, message, STEPS[step]?.label);
       });
@@ -886,7 +884,29 @@ export default function JoinAsCleanerPage() {
 
   /* ---- Submit ---- */
   async function handleSubmit() {
-    if (!validate(6)) return;
+    const allErrors: Record<string, string> = {};
+    let firstErrorStep: number | null = null;
+
+    for (let s = 0; s <= 6; s++) {
+      const stepErrors = collectStepErrors(s);
+      if (Object.keys(stepErrors).length > 0) {
+        Object.assign(allErrors, stepErrors);
+        if (firstErrorStep === null) firstErrorStep = s;
+      }
+    }
+
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      const errorStep = firstErrorStep ?? 0;
+      Object.entries(allErrors).forEach(([field, message]) => {
+        trackFormError(field, message, STEPS[errorStep]?.label);
+      });
+      if (errorStep !== currentStep) {
+        setCurrentStep(errorStep);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
     setSubmitting(true);
     try {
       // Strip large base64 file fields from the main request to stay under body limits.
@@ -1341,48 +1361,78 @@ export default function JoinAsCleanerPage() {
                           }}
                         />
                       </label>
-                      <label
-                        className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
-                        style={{ border: '1px solid rgba(14,14,12,0.12)' }}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                      {isDesktop ? (
+                        <button
+                          type="button"
+                          onClick={() => setWebcamTarget('profilePhoto')}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
+                          style={{ border: '1px solid rgba(14,14,12,0.12)' }}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                            />
+                          </svg>
+                          Take Photo
+                        </button>
+                      ) : (
+                        <label
+                          className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
+                          style={{ border: '1px solid rgba(14,14,12,0.12)' }}
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                            />
+                          </svg>
+                          Take Photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="user"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                if (typeof reader.result === 'string') {
+                                  set('profilePhoto', reader.result);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }}
                           />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                          />
-                        </svg>
-                        Take Photo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="user"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              if (typeof reader.result === 'string') {
-                                set('profilePhoto', reader.result);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </label>
+                        </label>
+                      )}
                       {form.profilePhoto && (
                         <button
                           type="button"
@@ -1454,7 +1504,7 @@ export default function JoinAsCleanerPage() {
                 ))}
                 {/* Custom specialties added by user */}
                 {form.specialties
-                  .filter((s) => !SPECIALTY_OPTIONS.includes(s))
+                  .filter((s) => !(SPECIALTY_OPTIONS as readonly string[]).includes(s))
                   .map((s) => (
                     <PillToggle
                       key={s}
@@ -1996,46 +2046,75 @@ export default function JoinAsCleanerPage() {
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                      {isDesktop ? (
+                        <button
+                          type="button"
+                          onClick={() => setWebcamTarget('selfiePhoto')}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                            />
+                          </svg>
+                          {form.selfiePhoto ? 'Retake' : 'Take Selfie'}
+                        </button>
+                      ) : (
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                            />
+                          </svg>
+                          {form.selfiePhoto ? 'Retake' : 'Take Selfie'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="user"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                if (typeof reader.result === 'string') {
+                                  set('selfiePhoto', reader.result);
+                                  set('livenessComplete', true);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }}
                           />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                          />
-                        </svg>
-                        {form.selfiePhoto ? 'Retake' : 'Take Selfie'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="user"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              if (typeof reader.result === 'string') {
-                                set('selfiePhoto', reader.result);
-                                set('livenessComplete', true);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </label>
+                        </label>
+                      )}
                       <label
                         className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
                         style={{ border: '1px solid rgba(14,14,12,0.12)' }}
@@ -2496,6 +2575,19 @@ export default function JoinAsCleanerPage() {
           )}
         </div>
       </div>
+
+      {webcamTarget && (
+        <WebcamCaptureModal
+          onCapture={(dataUrl) => {
+            set(webcamTarget, dataUrl);
+            if (webcamTarget === 'selfiePhoto') {
+              set('livenessComplete', true);
+            }
+          }}
+          onClose={() => setWebcamTarget(null)}
+          facingMode="user"
+        />
+      )}
     </div>
   );
 }

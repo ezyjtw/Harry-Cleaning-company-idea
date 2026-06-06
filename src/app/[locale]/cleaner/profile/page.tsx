@@ -4,22 +4,9 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useRef, useState, useEffect, useCallback } from 'react';
 
-const specialtyOptions = [
-  'Regular Cleaning',
-  'Deep Cleaning',
-  'End of Tenancy',
-  'AirBnB / Short-Let',
-  'Carpet Cleaning',
-  'Window Cleaning',
-  'Oven Cleaning',
-  'Kosher Kitchen',
-  'Halal-Conscious Cleaning',
-  'Prayer Room Care',
-  'Post-Construction',
-  'Eco-Friendly Products',
-  'Pet-Friendly',
-  'Elderly/Assisted Living',
-];
+import WebcamCaptureModal from '@/components/WebcamCaptureModal';
+import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
+const specialtyOptions = SPECIALTY_OPTIONS;
 
 const languageOptions = [
   'English',
@@ -89,6 +76,12 @@ export default function CleanerProfilePage() {
   const [modifierReason, setModifierReason] = useState('');
   const [modifierSaving, setModifierSaving] = useState(false);
   const [modifierError, setModifierError] = useState('');
+  const [showWebcam, setShowWebcam] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setIsDesktop(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+  }, []);
 
   const markDirty = useCallback(() => {
     setDirty(true);
@@ -388,28 +381,48 @@ export default function CleanerProfilePage() {
                     className="hidden"
                   />
                 </label>
-                <label
-                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                {isDesktop ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowWebcam(true)}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light hover:bg-cream-2 transition-colors"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                      />
+                      <circle cx="12" cy="13" r="3" />
+                    </svg>
+                    Take Photo
+                  </button>
+                ) : (
+                  <label
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
+                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                      />
+                      <circle cx="12" cy="13" r="3" />
+                    </svg>
+                    Take Photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      onChange={handlePhotoChange}
+                      className="hidden"
                     />
-                    <circle cx="12" cy="13" r="3" />
-                  </svg>
-                  Take Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                  />
-                </label>
+                  </label>
+                )}
               </div>
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
                 JPG, PNG. Max 5MB. A clear headshot works best.
@@ -1122,6 +1135,17 @@ export default function CleanerProfilePage() {
           </button>
         </div>
       </div>
+
+      {showWebcam && (
+        <WebcamCaptureModal
+          onCapture={(dataUrl) => {
+            setPhoto(dataUrl);
+            markDirty();
+          }}
+          onClose={() => setShowWebcam(false)}
+          facingMode="user"
+        />
+      )}
     </div>
   );
 }

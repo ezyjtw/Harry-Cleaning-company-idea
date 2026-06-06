@@ -195,6 +195,26 @@ export const AIRBNB_SIZES_WITH_GUIDE: { slug: AirbnbSizeSlug; guide: string }[] 
   { slug: '4bedPlus', guide: '£130 – £165' },
 ];
 
+// ─── Canonical Specialty Tags ───────────────────────────────────
+// Single source of truth for the cleaner specialties list.
+// Used by the join wizard, complete-profile page, and profile page.
+
+export const SPECIALTY_OPTIONS = [
+  'Regular Cleaning',
+  'Deep Cleaning',
+  'Eco-Friendly',
+  'Pet-Friendly',
+  'Kitchen Specialist',
+  'Bathroom Specialist',
+  'Carpet Cleaning',
+  'Window Cleaning',
+  'Oven Cleaning',
+  'Post-Construction',
+  'Elderly',
+] as const;
+
+export type Specialty = (typeof SPECIALTY_OPTIONS)[number];
+
 // ─── Service Rate Info (for pricing page UI) ─────────────────────
 // Maps serviceType slugs to display info for the cleaner pricing page.
 
