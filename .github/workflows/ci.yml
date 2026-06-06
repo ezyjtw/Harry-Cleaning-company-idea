@@ -21,6 +21,9 @@ jobs:
       NEXTAUTH_SECRET: "ci-test-secret"
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
       NEXT_PUBLIC_APP_NAME: "Rena Cleaning Network"
+      STRIPE_SECRET_KEY: "sk_test_dummy_for_build_only"
+      STRIPE_PUBLISHABLE_KEY: "pk_test_dummy_for_build_only"
+      STRIPE_WEBHOOK_SECRET: "whsec_dummy_for_build_only"
 
     steps:
       - name: Checkout repository
