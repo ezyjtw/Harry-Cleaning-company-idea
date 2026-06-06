@@ -21,7 +21,7 @@ export interface CleanerMatch {
   userId: string;
   name: string;
   rating: number;
-  hourlyRate: number;
+  hourlyRateRegular: number;
   tier: string;
   totalScore: number;
   scores: {
@@ -204,7 +204,7 @@ export class MatchingService {
         userId: cleaner.userId,
         name: cleaner.user.name ?? 'Unknown',
         rating: Number(cleaner.rating),
-        hourlyRate: Number(cleaner.hourlyRate),
+        hourlyRateRegular: Number(cleaner.hourlyRateRegular),
         tier: cleaner.tier,
         totalScore: Math.round(totalScore * 1000) / 1000,
         scores: {

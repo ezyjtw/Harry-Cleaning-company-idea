@@ -272,7 +272,7 @@ export class GdprService {
       cleanerProfile: user.cleanerProfile
         ? {
             bio: user.cleanerProfile.bio,
-            hourlyRate: user.cleanerProfile.hourlyRate,
+            hourlyRateRegular: user.cleanerProfile.hourlyRateRegular,
             specialties: user.cleanerProfile.specialties,
             tier: user.cleanerProfile.tier,
             location: user.cleanerProfile.location,

@@ -6,8 +6,10 @@ export interface Cleaner {
   photo: string;
   rating: number;
   reviewCount: number;
-  hourlyRate: number;
-  sameDayRate: number;
+  hourlyRateRegular: number | null;
+  hourlyRateDeep: number | null;
+  hourlyRateSameDay: number | null;
+  serviceTypes: string[];
   bio: string;
   specialties: string[];
   languages: string[];

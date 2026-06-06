@@ -895,11 +895,15 @@ export default function JoinAsCleanerPage() {
         ...formData
       } = form;
 
+      const { serviceRates: _rates, ...restFormData } = formData;
       const response = await fetch('/api/cleaners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          ...restFormData,
+          hourlyRateRegular: Number(form.serviceRates['Standard']) || null,
+          hourlyRateDeep: Number(form.serviceRates['Deep']) || null,
+          hourlyRateSameDay: Number(form.serviceRates['Same Day']) || null,
           hasPhotoId: !!photoIdFile,
           hasRtwDoc: !!rightToWorkDocFile,
           hasDbsCert: !!dbsCertFile,
@@ -1156,19 +1160,26 @@ export default function JoinAsCleanerPage() {
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
                       const day = e.target.value.padStart(2, '0');
-                      if (parts[0] && parts[1]) set('dateOfBirth', `${parts[0]}-${parts[1]}-${day}`);
+                      if (parts[0] && parts[1])
+                        set('dateOfBirth', `${parts[0]}-${parts[1]}-${day}`);
                       else set('dateOfBirth', `0000-01-${day}`);
                     }}
                     className="w-full rounded-lg bg-white px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
                     style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                   >
-                    <option value="" disabled>Day</option>
+                    <option value="" disabled>
+                      Day
+                    </option>
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
                     ))}
                   </select>
                   <select
-                    value={form.dateOfBirth ? (new Date(form.dateOfBirth).getMonth() + 1).toString() : ''}
+                    value={
+                      form.dateOfBirth ? (new Date(form.dateOfBirth).getMonth() + 1).toString() : ''
+                    }
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
                       const month = e.target.value.padStart(2, '0');
@@ -1179,13 +1190,34 @@ export default function JoinAsCleanerPage() {
                     className="w-full rounded-lg bg-white px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
                     style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                   >
-                    <option value="" disabled>Month</option>
-                    {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
-                      <option key={m} value={i + 1}>{m}</option>
+                    <option value="" disabled>
+                      Month
+                    </option>
+                    {[
+                      'Jan',
+                      'Feb',
+                      'Mar',
+                      'Apr',
+                      'May',
+                      'Jun',
+                      'Jul',
+                      'Aug',
+                      'Sep',
+                      'Oct',
+                      'Nov',
+                      'Dec',
+                    ].map((m, i) => (
+                      <option key={m} value={i + 1}>
+                        {m}
+                      </option>
                     ))}
                   </select>
                   <select
-                    value={form.dateOfBirth && !form.dateOfBirth.startsWith('0000') ? new Date(form.dateOfBirth).getFullYear().toString() : ''}
+                    value={
+                      form.dateOfBirth && !form.dateOfBirth.startsWith('0000')
+                        ? new Date(form.dateOfBirth).getFullYear().toString()
+                        : ''
+                    }
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
                       const month = parts[1] || '01';
@@ -1195,10 +1227,16 @@ export default function JoinAsCleanerPage() {
                     className="w-full rounded-lg bg-white px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
                     style={{ border: '1px solid rgba(14,14,12,0.1)' }}
                   >
-                    <option value="" disabled>Year</option>
-                    {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - 18 - i).map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
+                    <option value="" disabled>
+                      Year
+                    </option>
+                    {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - 18 - i).map(
+                      (y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
                 <FieldError message={errors.dateOfBirth} />

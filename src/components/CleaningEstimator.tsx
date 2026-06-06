@@ -9,7 +9,7 @@ import {
   type RoomDetail,
   type CleaningEstimate,
 } from '@/lib/estimator';
-import { getPriceBreakdown } from '@/lib/pricing';
+import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 interface Props {
   cleanerRate: number;
@@ -246,17 +246,17 @@ export default function CleaningEstimator({
             </div>
             <div className="rounded-lg bg-white p-3 text-center border border-gray-100">
               {(() => {
-                const multiplier = estimate.recommendedServiceType === 'deep' ? 1.45 : 1;
-                const breakdown = getPriceBreakdown(rate, estimate.recommendedDuration, multiplier);
+                const subtotal = Math.round(rate * estimate.recommendedDuration * 100) / 100;
+                const fee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+                const total = Math.round((subtotal + fee) * 100) / 100;
                 return (
                   <>
                     <div className="text-2xl font-bold text-brand-600">
-                      ${breakdown.total.toFixed(2)}
+                      &pound;{total.toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500">Estimated Total</div>
                     <div className="text-xs text-gray-400">
-                      £{breakdown.listedSubtotal.toFixed(2)} + £{breakdown.serviceFee.toFixed(2)}{' '}
-                      service fee
+                      &pound;{subtotal.toFixed(2)} + &pound;{fee.toFixed(2)} service fee
                     </div>
                   </>
                 );

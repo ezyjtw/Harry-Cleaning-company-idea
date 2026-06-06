@@ -11,7 +11,7 @@ import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
-import { getPriceBreakdown, getListedRate, SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type { ServiceCategory } from '@/lib/types';
 
 const SERVICE_TYPES = [
@@ -131,6 +131,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
+  const [serverQuote, setServerQuote] = useState<{
+    cleanerListedPrice: number;
+    customerPlatformFee: number;
+    customerTotal: number;
+  } | null>(null);
   const { trackStep, trackConversion } = useAnalytics('booking');
 
   // Track initial page view and service selection step
@@ -142,6 +147,42 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch server-side quote when service/duration/cleaner changes
+  useEffect(() => {
+    if (!params.id) return;
+    const serviceSlugMap: Record<string, string> = {
+      regular: 'regular',
+      'same-day': 'same-day',
+      deep: 'deep',
+      'end-of-tenancy': 'eot',
+      airbnb: 'airbnb',
+    };
+    const serviceSlug = serviceSlugMap[form.serviceType] || 'regular';
+    const controller = new AbortController();
+    fetch('/api/pricing/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cleanerId: params.id,
+        serviceSlug,
+        hours: form.duration,
+      }),
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setServerQuote({
+            cleanerListedPrice: data.cleanerListedPrice,
+            customerPlatformFee: data.customerPlatformFee,
+            customerTotal: data.customerTotal,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [params.id, form.serviceType, form.duration]);
+
   if (!cleaner) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
@@ -151,10 +192,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   const isLastMinute = isExpress;
-  const rate = isLastMinute ? cleaner.sameDayRate : cleaner.hourlyRate;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
-  const priceBreakdown = getPriceBreakdown(rate, form.duration, selectedService.multiplier);
+  const priceBreakdown = serverQuote
+    ? {
+        listedSubtotal: serverQuote.cleanerListedPrice,
+        serviceFee: serverQuote.customerPlatformFee,
+        total: serverQuote.customerTotal,
+      }
+    : { listedSubtotal: 0, serviceFee: 0, total: 0 };
 
   // Other cleaners available on the selected date (exclude the currently selected cleaner)
   const getDayAbbreviation = (dateStr: string): string => {
@@ -492,7 +538,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <span>
                 {cleaner.rating} ({cleaner.reviewCount} reviews)
               </span>
-              <span>&middot; &pound;{getListedRate(cleaner.hourlyRate)}/hr</span>
+              <span>&middot; &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}/hr</span>
             </div>
           </div>
         </div>
@@ -596,7 +642,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <AvailableNowBadge responseTime={cleaner.responseTime} />
             <span className="font-jost text-sm font-light text-ink-2">
               Same-day rate:{' '}
-              <strong className="font-normal text-ink">${cleaner.sameDayRate}/hr</strong>
+              <strong className="font-normal text-ink">
+                &pound;{(cleaner.hourlyRateSameDay ?? 0).toFixed(2)}/hr
+              </strong>
             </span>
           </div>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
@@ -621,10 +669,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <span>
               {cleaner.rating} ({cleaner.reviewCount} reviews)
             </span>
-            <span>&middot; &pound;{getListedRate(cleaner.hourlyRate)}/hr</span>
-            {isLastMinute && (
+            <span>&middot; &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}/hr</span>
+            {isLastMinute && cleaner.hourlyRateSameDay && (
               <span className="text-gold font-normal">
-                &middot; &pound;{getListedRate(cleaner.sameDayRate)}/hr today
+                &middot; &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr today
               </span>
             )}
           </div>
@@ -637,8 +685,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       {/* AI Estimator */}
       <div className="mt-6">
         <CleaningEstimator
-          cleanerRate={cleaner.hourlyRate}
-          sameDayRate={cleaner.sameDayRate}
+          cleanerRate={cleaner.hourlyRateRegular ?? 0}
+          sameDayRate={cleaner.hourlyRateSameDay ?? cleaner.hourlyRateRegular ?? 0}
           isLastMinute={isLastMinute}
           onEstimateApply={handleEstimateApply}
         />
@@ -1002,7 +1050,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <div>
                   <p className="font-jost text-sm font-normal text-ink">{cleaner.name}</p>
                   <p className="font-jost text-xs font-light text-ink-3">
-                    &pound;{getListedRate(cleaner.hourlyRate)}/hr
+                    &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}/hr
                   </p>
                 </div>
               </div>

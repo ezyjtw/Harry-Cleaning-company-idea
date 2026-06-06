@@ -36,7 +36,7 @@ interface ProfileData {
   postcode: string | null;
   specialties: string[];
   languages: string[];
-  hourlyRate: number;
+  hourlyRateRegular: number | null;
   onboardingComplete: boolean;
 }
 
@@ -91,7 +91,7 @@ export default function CompleteProfilePage() {
         setPostcode(data.postcode || '');
         setSpecialties(data.specialties || []);
         setLanguages(data.languages || []);
-        setHourlyRate(String(data.hourlyRate || 14));
+        setHourlyRate(String(data.hourlyRateRegular || 14));
 
         setMissing({
           bio: !data.bio,
@@ -145,7 +145,7 @@ export default function CompleteProfilePage() {
         postcode: postcode.trim(),
         specialties,
         languages,
-        hourlyRate: Number(hourlyRate),
+        hourlyRateRegular: Number(hourlyRate),
       };
       if (missing.password && password) {
         body.password = password;

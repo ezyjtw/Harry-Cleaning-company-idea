@@ -101,7 +101,10 @@ function getProviderId(company: { provider: { id: string } | null }) {
 // ─── Service ──────────────────────────────────────────────────
 
 export class CompanyAnalyticsService {
-  static async getFullAnalytics(companyId: string, months: number = 6): Promise<CompanyAnalyticsFull> {
+  static async getFullAnalytics(
+    companyId: string,
+    months: number = 6
+  ): Promise<CompanyAnalyticsFull> {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
       include: { provider: true },
@@ -233,29 +236,42 @@ export class CompanyAnalyticsService {
 
     return Promise.all(
       teamMembers.map(async (tm) => {
-        const [completed, cancelled, total, revenueAgg, durationAgg, reviewAgg] = await Promise.all([
-          prisma.booking.count({
-            where: { cleanerId: tm.userId, providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
-          }),
-          prisma.booking.count({
-            where: { cleanerId: tm.userId, providerId, status: 'CANCELLED' },
-          }),
-          prisma.booking.count({
-            where: { cleanerId: tm.userId, providerId },
-          }),
-          prisma.booking.aggregate({
-            where: { cleanerId: tm.userId, providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
-            _sum: { totalPrice: true },
-          }),
-          prisma.booking.aggregate({
-            where: { cleanerId: tm.userId, providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
-            _avg: { duration: true },
-          }),
-          prisma.review.aggregate({
-            where: { cleanerId: tm.userId, booking: { providerId } },
-            _avg: { rating: true, thoroughness: true, punctuality: true, communication: true },
-          }),
-        ]);
+        const [completed, cancelled, _total, revenueAgg, durationAgg, reviewAgg] =
+          await Promise.all([
+            prisma.booking.count({
+              where: {
+                cleanerId: tm.userId,
+                providerId,
+                status: { in: ['COMPLETED', 'REVIEWED'] },
+              },
+            }),
+            prisma.booking.count({
+              where: { cleanerId: tm.userId, providerId, status: 'CANCELLED' },
+            }),
+            prisma.booking.count({
+              where: { cleanerId: tm.userId, providerId },
+            }),
+            prisma.booking.aggregate({
+              where: {
+                cleanerId: tm.userId,
+                providerId,
+                status: { in: ['COMPLETED', 'REVIEWED'] },
+              },
+              _sum: { totalPrice: true },
+            }),
+            prisma.booking.aggregate({
+              where: {
+                cleanerId: tm.userId,
+                providerId,
+                status: { in: ['COMPLETED', 'REVIEWED'] },
+              },
+              _avg: { duration: true },
+            }),
+            prisma.review.aggregate({
+              where: { cleanerId: tm.userId, booking: { providerId } },
+              _avg: { rating: true, thoroughness: true, punctuality: true, communication: true },
+            }),
+          ]);
 
         const finishedCount = completed + cancelled;
 
@@ -266,7 +282,8 @@ export class CompanyAnalyticsService {
           totalRevenue: Number(revenueAgg._sum.totalPrice ?? 0),
           avgRating: Number(reviewAgg._avg.rating ?? 0),
           avgJobDuration: Number(durationAgg._avg.duration ?? 0),
-          cancellationRate: finishedCount > 0 ? Math.round((cancelled / finishedCount) * 1000) / 10 : 0,
+          cancellationRate:
+            finishedCount > 0 ? Math.round((cancelled / finishedCount) * 1000) / 10 : 0,
           ratingBreakdown: {
             thoroughness: Number(reviewAgg._avg.thoroughness ?? 0),
             punctuality: Number(reviewAgg._avg.punctuality ?? 0),
@@ -317,10 +334,14 @@ export class CompanyAnalyticsService {
     return {
       totalCustomers,
       repeatCustomers,
-      repeatRate: totalCustomers > 0 ? Math.round((repeatCustomers / totalCustomers) * 1000) / 10 : 0,
-      avgBookingsPerCustomer: totalCustomers > 0 ? Math.round((totalBookings / totalCustomers) * 10) / 10 : 0,
-      avgSpendPerCustomer: totalCustomers > 0 ? Math.round((totalSpent / totalCustomers) * 100) / 100 : 0,
-      avgSpendPerBooking: totalBookings > 0 ? Math.round((totalSpent / totalBookings) * 100) / 100 : 0,
+      repeatRate:
+        totalCustomers > 0 ? Math.round((repeatCustomers / totalCustomers) * 1000) / 10 : 0,
+      avgBookingsPerCustomer:
+        totalCustomers > 0 ? Math.round((totalBookings / totalCustomers) * 10) / 10 : 0,
+      avgSpendPerCustomer:
+        totalCustomers > 0 ? Math.round((totalSpent / totalCustomers) * 100) / 100 : 0,
+      avgSpendPerBooking:
+        totalBookings > 0 ? Math.round((totalSpent / totalBookings) * 100) / 100 : 0,
       topCustomers,
     };
   }
@@ -366,7 +387,8 @@ export class CompanyAnalyticsService {
     }
     const avgCompletionTimeHours =
       completionTimes.length > 0
-        ? Math.round((completionTimes.reduce((s, v) => s + v, 0) / completionTimes.length) * 10) / 10
+        ? Math.round((completionTimes.reduce((s, v) => s + v, 0) / completionTimes.length) * 10) /
+          10
         : 0;
 
     // On-time rate: completed within estimated duration + 30min buffer
@@ -383,14 +405,21 @@ export class CompanyAnalyticsService {
         }
       }
     }
-    const onTimeRate = completedWithDuration > 0 ? Math.round((onTimeCount / completedWithDuration) * 1000) / 10 : 100;
+    const onTimeRate =
+      completedWithDuration > 0
+        ? Math.round((onTimeCount / completedWithDuration) * 1000) / 10
+        : 100;
 
     // Completion and cancellation rates
-    const completed = allBookings.filter((b) => ['COMPLETED', 'REVIEWED'].includes(b.status)).length;
+    const completed = allBookings.filter((b) =>
+      ['COMPLETED', 'REVIEWED'].includes(b.status)
+    ).length;
     const cancelled = allBookings.filter((b) => b.status === 'CANCELLED').length;
     const finishedCount = completed + cancelled;
-    const completionRate = finishedCount > 0 ? Math.round((completed / finishedCount) * 1000) / 10 : 100;
-    const cancellationRate = allBookings.length > 0 ? Math.round((cancelled / allBookings.length) * 1000) / 10 : 0;
+    const completionRate =
+      finishedCount > 0 ? Math.round((completed / finishedCount) * 1000) / 10 : 100;
+    const cancellationRate =
+      allBookings.length > 0 ? Math.round((cancelled / allBookings.length) * 1000) / 10 : 0;
 
     // Cancellation reasons
     const reasonCounts: Record<string, number> = {};
@@ -504,67 +533,57 @@ export class CompanyAnalyticsService {
     companyId: string,
     providerId: string
   ): Promise<FinancialMetrics> {
-    const [revenueAgg, refundAgg, addonAgg, totalBookings, teamCount, bookingsWithAddons] = await Promise.all([
-      prisma.booking.aggregate({
-        where: { providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
-        _sum: { totalPrice: true, platformFee: true, cleanerEarnings: true, addonTotal: true },
-        _count: true,
-      }),
-      prisma.payment.aggregate({
-        where: {
-          booking: { providerId },
-          status: { in: ['REFUNDED', 'PARTIALLY_REFUNDED'] },
-        },
-        _sum: { refundAmount: true },
-        _count: true,
-      }),
-      prisma.booking.aggregate({
-        where: {
-          providerId,
-          status: { in: ['COMPLETED', 'REVIEWED'] },
-          addonTotal: { gt: 0 },
-        },
-        _sum: { addonTotal: true },
-        _count: true,
-      }),
-      prisma.booking.count({
-        where: { providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
-      }),
-      prisma.teamMember.count({
-        where: { companyId, isActive: true },
-      }),
-      prisma.booking.count({
-        where: { providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
-      }),
-    ]);
+    const [revenueAgg, refundAgg, _addonCount, totalBookings, teamCount, _bookingsWithAddons] =
+      await Promise.all([
+        prisma.booking.aggregate({
+          where: { providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
+          _sum: { totalPrice: true, platformFee: true, cleanerEarnings: true },
+          _count: true,
+        }),
+        prisma.payment.aggregate({
+          where: {
+            booking: { providerId },
+            status: { in: ['REFUNDED', 'PARTIALLY_REFUNDED'] },
+          },
+          _sum: { refundAmount: true },
+          _count: true,
+        }),
+        prisma.booking.count({
+          where: {
+            providerId,
+            status: { in: ['COMPLETED', 'REVIEWED'] },
+          },
+        }),
+        prisma.booking.count({
+          where: { providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
+        }),
+        prisma.teamMember.count({
+          where: { companyId, isActive: true },
+        }),
+        prisma.booking.count({
+          where: { providerId, status: { in: ['COMPLETED', 'REVIEWED'] } },
+        }),
+      ]);
 
     const totalRevenue = Number(revenueAgg._sum.totalPrice ?? 0);
     const totalPlatformFees = Number(revenueAgg._sum.platformFee ?? 0);
     const totalCleanerEarnings = Number(revenueAgg._sum.cleanerEarnings ?? 0);
     const refundTotal = Number(refundAgg._sum.refundAmount ?? 0);
-    const addonRevenue = Number(addonAgg._sum.addonTotal ?? 0);
 
     return {
       totalRevenue: Math.round(totalRevenue * 100) / 100,
       totalPlatformFees: Math.round(totalPlatformFees * 100) / 100,
       totalCleanerEarnings: Math.round(totalCleanerEarnings * 100) / 100,
-      platformMarginPercent: totalRevenue > 0
-        ? Math.round((totalPlatformFees / totalRevenue) * 1000) / 10
-        : 0,
-      avgBookingValue: totalBookings > 0
-        ? Math.round((totalRevenue / totalBookings) * 100) / 100
-        : 0,
+      platformMarginPercent:
+        totalRevenue > 0 ? Math.round((totalPlatformFees / totalRevenue) * 1000) / 10 : 0,
+      avgBookingValue:
+        totalBookings > 0 ? Math.round((totalRevenue / totalBookings) * 100) / 100 : 0,
       refundTotal: Math.round(refundTotal * 100) / 100,
-      refundRate: revenueAgg._count > 0
-        ? Math.round((refundAgg._count / revenueAgg._count) * 1000) / 10
-        : 0,
-      revenuePerTeamMember: teamCount > 0
-        ? Math.round((totalRevenue / teamCount) * 100) / 100
-        : 0,
-      addonRevenue: Math.round(addonRevenue * 100) / 100,
-      addonAttachmentRate: bookingsWithAddons > 0
-        ? Math.round((addonAgg._count / bookingsWithAddons) * 1000) / 10
-        : 0,
+      refundRate:
+        revenueAgg._count > 0 ? Math.round((refundAgg._count / revenueAgg._count) * 1000) / 10 : 0,
+      revenuePerTeamMember: teamCount > 0 ? Math.round((totalRevenue / teamCount) * 100) / 100 : 0,
+      addonRevenue: 0,
+      addonAttachmentRate: 0,
     };
   }
 }

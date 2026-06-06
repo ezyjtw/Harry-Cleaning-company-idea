@@ -3,13 +3,16 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { AuditService } from '@/lib/services/audit.service';
 import {
   sendBookingConfirmation,
   sendCleanerAssignment,
   sendGuestBookingConfirmation,
 } from '@/lib/services/email.service';
+import { pricingService } from '@/lib/services/pricing.service';
 import { createPaymentSession } from '@/lib/services/ryft-payment.service';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -93,12 +96,82 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
     }
 
-    let totalPrice = body.totalPrice || 0;
+    // Server-side price calculation — never trust client-submitted totals
+    let quote;
+    try {
+      quote = await pricingService.calculateQuote({
+        cleanerId: body.cleanerId,
+        serviceSlug: body.serviceType,
+        hours: body.duration ? Number(body.duration) : undefined,
+        propertySize: body.propertySize || undefined,
+        frequency: body.frequency || undefined,
+        addons: body.addons || undefined,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Pricing error';
+      if (message.includes('has not set')) {
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    // Price discrepancy detection
+    const clientTotal = body.totalPrice ? Number(body.totalPrice) : null;
+    if (clientTotal !== null) {
+      const diff = Math.abs(clientTotal - quote.customerTotal);
+      if (diff > 1.0) {
+        const ip = getClientIp(request);
+        const sessionUser = await getSessionUser();
+
+        await AuditService.log({
+          userId: sessionUser?.id,
+          action: 'PRICE_DISCREPANCY_DETECTED',
+          entityType: 'Booking',
+          entityId: body.cleanerId,
+          metadata: {
+            clientTotal,
+            serverTotal: quote.customerTotal,
+            difference: diff,
+            cleanerId: body.cleanerId,
+            serviceType: body.serviceType,
+            ip,
+          },
+          ipAddress: ip,
+          userAgent: request.headers.get('user-agent') || undefined,
+        });
+
+        const tamperCheck = checkRateLimit(`price-discrepancy:${ip}`, 4, 60 * 60 * 1000);
+        if (!tamperCheck.allowed) {
+          await AuditService.log({
+            userId: sessionUser?.id,
+            action: 'PRICE_TAMPERING_SUSPECTED',
+            entityType: 'Booking',
+            entityId: body.cleanerId,
+            metadata: { ip, discrepancyCount: 5 },
+            ipAddress: ip,
+          });
+        }
+
+        return NextResponse.json(
+          {
+            error: 'PRICE_MISMATCH',
+            message:
+              'The price has changed since this page was loaded. Please refresh and try again.',
+            expectedTotal: quote.customerTotal,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    let totalPrice = quote.customerTotal;
+    const platformFee = quote.customerPlatformFee;
+    const cleanerEarnings = quote.cleanerPayout;
+
     let discountPercent = 0;
     let discountAmount = 0;
     let promoCode: string | null = null;
 
-    // Validate and apply promo code
     if (body.promoCode) {
       const promo = await prisma.promoCode.findUnique({
         where: { code: body.promoCode.toUpperCase().trim() },
@@ -121,11 +194,6 @@ export async function POST(request: NextRequest) {
         });
       }
     }
-
-    // Cleaner always earns from undiscounted amount — Rena absorbs discount
-    const undiscountedTotal = body.totalPrice || 0;
-    const platformFee = undiscountedTotal * 0.06;
-    const cleanerEarnings = (undiscountedTotal - platformFee) * 0.9;
 
     // Get or create address
     let addressId: string | null = null;
@@ -155,6 +223,14 @@ export async function POST(request: NextRequest) {
         totalPrice,
         platformFee,
         cleanerEarnings,
+        cleanerPayoutAmount: quote.cleanerPayout,
+        platformCommissionAmount: quote.cleanerCommission,
+        platformFeeAmount: quote.customerPlatformFee,
+        totalAmountCharged: quote.customerTotal,
+        customerSubtotal: quote.cleanerListedPrice,
+        customerServiceFee: quote.customerPlatformFee,
+        renaEarns: quote.cleanerCommission + quote.customerPlatformFee,
+        propertySize: body.propertySize || null,
         notes: body.notes || null,
       },
     });

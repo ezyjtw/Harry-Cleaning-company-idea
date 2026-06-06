@@ -6,7 +6,7 @@ export interface UpdateCleanerProfileData {
   name?: string;
   photo?: string;
   bio?: string;
-  hourlyRate?: number;
+  hourlyRateRegular?: number;
   specialties?: string[];
   languages?: string[];
   location?: string;
@@ -56,8 +56,13 @@ export interface CleanerJob {
 // ─── Day-of-week mapping ─────────────────────────────────────
 
 const NUMBER_TO_DAY: Record<number, string> = {
-  0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
-  4: 'Thursday', 5: 'Friday', 6: 'Saturday',
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
 };
 
 // ─── Service Functions ──────────────────────────────────────
@@ -78,7 +83,7 @@ export async function getCleanerProfile(userId: string) {
     photo: profile.user.image || '',
     rating: Number(profile.rating),
     reviewCount: profile.completedJobs,
-    hourlyRate: Number(profile.hourlyRate),
+    hourlyRateRegular: Number(profile.hourlyRateRegular),
     bio: profile.bio || '',
     specialties: profile.specialties,
     tier: profile.tier.toLowerCase(),
@@ -89,10 +94,7 @@ export async function getCleanerProfile(userId: string) {
   };
 }
 
-export async function updateCleanerProfile(
-  userId: string,
-  data: UpdateCleanerProfileData
-) {
+export async function updateCleanerProfile(userId: string, data: UpdateCleanerProfileData) {
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId },
   });
@@ -100,7 +102,8 @@ export async function updateCleanerProfile(
 
   const profileUpdate: Record<string, unknown> = {};
   if (data.bio !== undefined) profileUpdate.bio = data.bio.trim();
-  if (data.hourlyRate !== undefined) profileUpdate.hourlyRate = data.hourlyRate;
+  if (data.hourlyRateRegular !== undefined)
+    profileUpdate.hourlyRateRegular = data.hourlyRateRegular;
   if (data.specialties !== undefined) profileUpdate.specialties = data.specialties;
   if (data.location !== undefined) profileUpdate.location = data.location;
 
@@ -153,8 +156,13 @@ export async function updateAvailability(
   if (!profile) return { success: false };
 
   const DAY_TO_NUMBER: Record<string, number> = {
-    Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
-    Thursday: 4, Friday: 5, Saturday: 6,
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
   };
 
   await prisma.$transaction(async (tx) => {
@@ -263,14 +271,19 @@ export async function getEarnings(
 
 function mapJobStatus(status: string): CleanerJob['status'] {
   switch (status) {
-    case 'PENDING': return 'pending';
+    case 'PENDING':
+      return 'pending';
     case 'CONFIRMED':
-    case 'ACCEPTED': return 'upcoming';
+    case 'ACCEPTED':
+      return 'upcoming';
     case 'EN_ROUTE':
-    case 'IN_PROGRESS': return 'in-progress';
+    case 'IN_PROGRESS':
+      return 'in-progress';
     case 'COMPLETED':
-    case 'REVIEWED': return 'completed';
-    default: return 'pending';
+    case 'REVIEWED':
+      return 'completed';
+    default:
+      return 'pending';
   }
 }
 
@@ -279,10 +292,10 @@ export async function getCleanerJobs(
   status?: CleanerJob['status']
 ): Promise<CleanerJob[]> {
   const statusMap: Record<string, string[]> = {
-    'pending': ['PENDING'],
-    'upcoming': ['CONFIRMED', 'ACCEPTED'],
+    pending: ['PENDING'],
+    upcoming: ['CONFIRMED', 'ACCEPTED'],
     'in-progress': ['EN_ROUTE', 'IN_PROGRESS'],
-    'completed': ['COMPLETED', 'REVIEWED'],
+    completed: ['COMPLETED', 'REVIEWED'],
   };
 
   const where: Record<string, unknown> = { cleanerId };

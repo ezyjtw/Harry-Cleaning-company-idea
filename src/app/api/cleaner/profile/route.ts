@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
@@ -48,11 +49,14 @@ export async function GET() {
     phone: profile.user.phone,
     image: imageUrl,
     bio: profile.bio || '',
-    hourlyRate: Number(profile.hourlyRate),
+    hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
+    hourlyRateDeep: profile.hourlyRateDeep ? Number(profile.hourlyRateDeep) : null,
+    hourlyRateSameDay: profile.hourlyRateSameDay ? Number(profile.hourlyRateSameDay) : null,
+    eotPrices: profile.eotPrices || null,
+    airbnbPrices: profile.airbnbPrices || null,
     specialties: profile.specialties,
     languages: profile.languages || [],
     serviceTypes: profile.serviceTypes || [],
-    serviceRates: profile.serviceRates || {},
     hoursPerWeek: profile.hoursPerWeek,
     yearsExperience: profile.yearsExperience,
     tier: profile.tier,
@@ -92,11 +96,14 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const {
     bio,
-    hourlyRate,
+    hourlyRateRegular,
+    hourlyRateDeep,
+    hourlyRateSameDay,
+    eotPrices,
+    airbnbPrices,
     specialties,
     languages,
     serviceTypes,
-    serviceRates,
     hoursPerWeek,
     yearsExperience,
     radius,
@@ -115,15 +122,44 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Cleaner profile not found' }, { status: 404 });
   }
 
-  // Validate hourly rate
-  if (hourlyRate !== undefined) {
-    const rate = Number(hourlyRate);
-    if (isNaN(rate) || rate < 14 || rate > 100) {
-      return NextResponse.json(
-        { error: 'Hourly rate must be between £14 and £100' },
-        { status: 400 }
-      );
-    }
+  // Validate pricing
+  const pricingData = {
+    hourlyRateRegular:
+      hourlyRateRegular !== undefined
+        ? Number(hourlyRateRegular)
+        : profile.hourlyRateRegular
+          ? Number(profile.hourlyRateRegular)
+          : null,
+    hourlyRateDeep:
+      hourlyRateDeep !== undefined
+        ? Number(hourlyRateDeep)
+        : profile.hourlyRateDeep
+          ? Number(profile.hourlyRateDeep)
+          : null,
+    hourlyRateSameDay:
+      hourlyRateSameDay !== undefined
+        ? Number(hourlyRateSameDay)
+        : profile.hourlyRateSameDay
+          ? Number(profile.hourlyRateSameDay)
+          : null,
+    eotPrices:
+      eotPrices !== undefined ? eotPrices : (profile.eotPrices as Record<string, number> | null),
+    airbnbPrices:
+      airbnbPrices !== undefined
+        ? airbnbPrices
+        : (profile.airbnbPrices as Record<string, number> | null),
+  };
+
+  const effectiveServiceTypes = serviceTypes !== undefined ? serviceTypes : profile.serviceTypes;
+
+  const stpCheck = validateServiceTypePricing(effectiveServiceTypes, pricingData);
+  if (!stpCheck.valid) {
+    return NextResponse.json({ error: stpCheck.error }, { status: 400 });
+  }
+
+  const floorCheck = validatePriceFloors(pricingData);
+  if (!floorCheck.valid) {
+    return NextResponse.json({ error: floorCheck.error }, { status: 400 });
   }
 
   // Validate radius
@@ -153,11 +189,17 @@ export async function PUT(request: NextRequest) {
 
   const profileUpdate: Record<string, unknown> = {};
   if (bio !== undefined) profileUpdate.bio = bio.trim();
-  if (hourlyRate !== undefined) profileUpdate.hourlyRate = Number(hourlyRate);
+  if (hourlyRateRegular !== undefined)
+    profileUpdate.hourlyRateRegular = hourlyRateRegular !== null ? Number(hourlyRateRegular) : null;
+  if (hourlyRateDeep !== undefined)
+    profileUpdate.hourlyRateDeep = hourlyRateDeep !== null ? Number(hourlyRateDeep) : null;
+  if (hourlyRateSameDay !== undefined)
+    profileUpdate.hourlyRateSameDay = hourlyRateSameDay !== null ? Number(hourlyRateSameDay) : null;
+  if (eotPrices !== undefined) profileUpdate.eotPrices = eotPrices;
+  if (airbnbPrices !== undefined) profileUpdate.airbnbPrices = airbnbPrices;
   if (specialties !== undefined) profileUpdate.specialties = specialties;
   if (languages !== undefined) profileUpdate.languages = languages;
   if (serviceTypes !== undefined) profileUpdate.serviceTypes = serviceTypes;
-  if (serviceRates !== undefined) profileUpdate.serviceRates = serviceRates;
   if (hoursPerWeek !== undefined)
     profileUpdate.hoursPerWeek = hoursPerWeek ? Number(hoursPerWeek) : null;
   if (yearsExperience !== undefined)
