@@ -64,14 +64,14 @@ export async function POST(request: NextRequest) {
       {
         message: `Booking queued with top ${result.queuedCleaners.length} cleaners`,
         bookingId: result.bookingId,
-        escrowAmount: result.escrowAmount,
+        holdAmount: result.holdAmount,
         lowestQuote: result.lowestQuote,
         highestQuote: result.highestQuote,
         cleaners: result.queuedCleaners.map((c) => ({
           rank: c.rank,
           name: c.cleanerName,
-          quotedTotal: c.quote.totalCharged,
-          cleanerEarns: c.quote.cleanerEarns,
+          quotedTotal: c.quote.customerTotal,
+          cleanerPayout: c.quote.cleanerPayout,
         })),
         payment: result.payment,
       },

@@ -7,8 +7,6 @@ import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import prisma from '@/lib/db/prisma';
-import { getListedRate } from '@/lib/pricing';
-
 export default async function CleanerProfilePage({ params }: { params: { id: string } }) {
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
@@ -53,8 +51,9 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
     photo: profile.user.image || '',
     rating: Number(profile.rating),
     reviewCount,
-    hourlyRate: Number(profile.hourlyRate),
-    sameDayRate: Math.round(Number(profile.hourlyRate) * 1.4 * 100) / 100,
+    hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
+    hourlyRateDeep: profile.hourlyRateDeep ? Number(profile.hourlyRateDeep) : null,
+    hourlyRateSameDay: profile.hourlyRateSameDay ? Number(profile.hourlyRateSameDay) : null,
     bio: profile.bio || '',
     specialties: profile.specialties,
     location: profile.location || '',
@@ -144,13 +143,13 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
             <div className="text-right">
               <div>
                 <span className="font-cormorant text-[32px] font-semibold text-ink">
-                  &pound;{getListedRate(cleaner.hourlyRate)}
+                  &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}
                 </span>
                 <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
               </div>
-              {cleaner.availableNow && (
+              {cleaner.availableNow && cleaner.hourlyRateSameDay && (
                 <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
-                  &pound;{cleaner.sameDayRate}/hr same-day
+                  &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr same-day
                 </p>
               )}
               <div className="mt-4 flex flex-col gap-2">

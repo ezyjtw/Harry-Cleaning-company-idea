@@ -12,21 +12,14 @@ type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb
 type PropertySize = 'STUDIO' | 'ONE_BED' | 'TWO_BED' | 'THREE_BED' | 'FOUR_BED' | 'FIVE_PLUS';
 
 interface QuoteResult {
+  mode: 'area';
   serviceType: string;
-  cleanerHourlyRate: number;
-  cleanerDeepRate: number | null;
-  hours: number | null;
-  propertySize: string | null;
   isFixedPrice: boolean;
-  cleanerGross: number;
-  cleanerFee: number;
-  cleanerEarns: number;
-  customerSubtotal: number;
-  customerServiceFee: number;
-  addonTotal: number;
-  totalCharged: number;
-  renaEarns: number;
-  breakdown: string;
+  cleanerCount: number;
+  minTotal: number;
+  maxTotal: number;
+  minCleanerPrice: number;
+  maxCleanerPrice: number;
 }
 
 interface ServiceAddon {
@@ -102,7 +95,6 @@ const AIRBNB_SUGGESTED_RANGES: Record<number, [number, number]> = {
 };
 
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
-const DEFAULT_FLOOR_RATE = 14;
 
 function getSuggestedHours(bedrooms: number, bathrooms: number, isDeep: boolean): number {
   const baseByBed: Record<number, { standard: number; deep: number }> = {
@@ -289,23 +281,20 @@ export default function HeroQuoteWidget() {
   }, [serviceSlug, services]);
 
   const fetchQuote = useCallback(
-    async (addonIds: string[] = selectedAddons) => {
-      if (bedrooms === null || bathrooms === null) return;
+    async (_addonIds: string[] = selectedAddons) => {
+      if (bedrooms === null || bathrooms === null || !confirmedPostcode) return;
 
       const propertySize = BEDROOM_TO_PROPERTY[bedrooms] ?? 'FIVE_PLUS';
       const body: Record<string, unknown> = {
+        postcode: confirmedPostcode,
         serviceSlug,
-        cleanerHourlyRate: DEFAULT_FLOOR_RATE,
       };
 
       if (isFixed) {
         body.propertySize = propertySize;
       } else {
         body.hours = hours;
-        if (serviceSlug === 'regular') body.frequency = frequency;
       }
-
-      if (addonIds.length > 0) body.addons = addonIds;
 
       setQuoteLoading(true);
       try {
@@ -325,7 +314,7 @@ export default function HeroQuoteWidget() {
         setQuoteLoading(false);
       }
     },
-    [bedrooms, bathrooms, serviceSlug, hours, frequency, isFixed, selectedAddons]
+    [bedrooms, bathrooms, serviceSlug, hours, isFixed, selectedAddons, confirmedPostcode]
   );
 
   const handleAddonToggle = (addonId: string) => {
@@ -398,7 +387,7 @@ export default function HeroQuoteWidget() {
           bedrooms,
           bathrooms,
           serviceType: serviceSlug,
-          estimatedTotal: quote?.totalCharged,
+          estimatedTotal: quote?.maxTotal,
         }),
       });
     } catch {
@@ -753,43 +742,36 @@ export default function HeroQuoteWidget() {
           style={{ border: '1px solid rgba(27,42,74,0.06)' }}
         >
           <p className="font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
-            {quote.isFixedPrice ? 'Typical price range' : 'Estimated cost'}
+            Estimated price range
           </p>
-          {quote.isFixedPrice ? (
-            (() => {
-              const ranges = serviceSlug === 'eot' ? EOT_SUGGESTED_RANGES : AIRBNB_SUGGESTED_RANGES;
-              const key = Math.min(bedrooms ?? 1, serviceSlug === 'eot' ? 5 : 4);
-              const range = ranges[key];
-              const low = range ? Math.ceil(range[0] * 1.06) : 0;
-              const high = range ? Math.ceil(range[1] * 1.06) : 0;
-              return (
-                <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
-                  &pound;{low} &ndash; &pound;{high}
-                </p>
-              );
-            })()
-          ) : (
+          {quote.cleanerCount > 0 ? (
             <>
               <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
-                &pound;{quote.totalCharged.toFixed(2)}
+                &pound;{quote.minTotal.toFixed(2)} &ndash; &pound;{quote.maxTotal.toFixed(2)}
               </p>
-              <div className="mx-auto mt-3 max-w-[240px] space-y-1 text-left">
-                <div className="flex justify-between font-jost text-[12px] text-ink-3">
-                  <span>Cleaner rate</span>
-                  <span>&pound;{quote.customerSubtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-jost text-[12px] text-ink-3">
-                  <span>Service fee ({SERVICE_FEE_PERCENT}%)</span>
-                  <span>&pound;{quote.customerServiceFee.toFixed(2)}</span>
-                </div>
-                <div
-                  className="flex justify-between pt-1 font-jost text-[12px] font-medium text-ink"
-                  style={{ borderTop: '1px solid rgba(27,42,74,0.08)' }}
-                >
-                  <span>Total</span>
-                  <span>&pound;{quote.totalCharged.toFixed(2)}</span>
-                </div>
-              </div>
+              <p className="mt-2 font-jost text-[12px] text-ink-3">
+                Based on {quote.cleanerCount} cleaner{quote.cleanerCount !== 1 ? 's' : ''} near you.
+                Includes {SERVICE_FEE_PERCENT}% service fee.
+              </p>
+            </>
+          ) : (
+            <>
+              {(() => {
+                const ranges =
+                  serviceSlug === 'eot' ? EOT_SUGGESTED_RANGES : AIRBNB_SUGGESTED_RANGES;
+                const key = Math.min(bedrooms ?? 1, serviceSlug === 'eot' ? 5 : 4);
+                const range = ranges[key];
+                const low = range ? Math.ceil(range[0] * 1.06) : 0;
+                const high = range ? Math.ceil(range[1] * 1.06) : 0;
+                return (
+                  <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
+                    &pound;{low} &ndash; &pound;{high}
+                  </p>
+                );
+              })()}
+              <p className="mt-2 font-jost text-[12px] text-ink-3">
+                Typical range for your area. Includes {SERVICE_FEE_PERCENT}% service fee.
+              </p>
             </>
           )}
           <p className="mt-3 font-jost text-[11px] text-ink-3">
@@ -944,7 +926,7 @@ export default function HeroQuoteWidget() {
           style={{ border: '1px solid rgba(27,42,74,0.06)' }}
         >
           <span className="font-cormorant text-[20px] font-light text-ink">
-            &pound;{quote.totalCharged.toFixed(2)}
+            &pound;{quote.minTotal.toFixed(2)} &ndash; &pound;{quote.maxTotal.toFixed(2)}
           </span>
           <span className="ml-2 font-jost text-[12px] text-ink-3">estimated</span>
         </div>

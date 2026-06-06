@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 
 export interface CleanerProfileUpdateInput {
   bio?: string;
-  hourlyRate?: number;
+  hourlyRateRegular?: number;
   specialties?: string[];
   location?: string;
   latitude?: number;
@@ -85,7 +85,7 @@ export class CleanerProfileService {
       where: { userId },
       data: {
         bio: data.bio,
-        hourlyRate: data.hourlyRate,
+        hourlyRateRegular: data.hourlyRateRegular,
         specialties: data.specialties,
         location: data.location,
         latitude: data.latitude,

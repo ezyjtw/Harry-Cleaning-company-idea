@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db/prisma';
 import { MatchingService } from './matching.service';
 import type { MatchingCriteria } from './matching.service';
 import { pricingService } from './pricing.service';
-import type { QuoteInput, QuoteResult } from './pricing.service';
+import type { CleanerQuoteInput, QuoteResult } from './pricing.service';
 import { createPaymentSession } from './ryft-payment.service';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ export interface QueuedCleanerQuote {
 export interface CleanerQueueResult {
   bookingId: string;
   queuedCleaners: QueuedCleanerQuote[];
-  escrowAmount: number; // highest quote — held in Ryft escrow
+  holdAmount: number;
   lowestQuote: number;
   highestQuote: number;
   payment: {
@@ -41,8 +41,8 @@ export interface QueueAcceptResult {
   cleanerId: string;
   cleanerName: string;
   actualTotal: number;
-  escrowAmount: number;
-  refundDue: number; // difference to refund
+  holdAmount: number;
+  refundDue: number;
   message: string;
 }
 
@@ -55,7 +55,7 @@ export class CleanerQueueService {
    */
   static async createQueuedBooking(params: {
     criteria: MatchingCriteria;
-    quoteInput: Omit<QuoteInput, 'cleanerHourlyRate'>;
+    quoteInput: Omit<CleanerQuoteInput, 'cleanerId'>;
     customerEmail: string;
     customerName: string;
     bookingData: {
@@ -89,7 +89,7 @@ export class CleanerQueueService {
       const cleaner = topCleaners[i];
       const quote = await pricingService.calculateQuote({
         ...quoteInput,
-        cleanerHourlyRate: cleaner.hourlyRate,
+        cleanerId: cleaner.userId,
       });
 
       quotes.push({
@@ -101,9 +101,9 @@ export class CleanerQueueService {
       });
     }
 
-    // 3. Find the highest quote — this is what we escrow
-    const escrowAmount = Math.max(...quotes.map((q) => q.quote.totalCharged));
-    const lowestQuote = Math.min(...quotes.map((q) => q.quote.totalCharged));
+    // 3. Find the highest quote — this is what we hold
+    const holdAmount = Math.max(...quotes.map((q) => q.quote.customerTotal));
+    const lowestQuote = Math.min(...quotes.map((q) => q.quote.customerTotal));
 
     // 4. Create the booking in PENDING state (no cleaner assigned yet)
     // Use the first cleaner temporarily as cleanerId is required, will be updated on accept
@@ -123,11 +123,11 @@ export class CleanerQueueService {
         duration: criteria.duration,
         notes: bookingData.notes ?? null,
         addressId: bookingData.addressId ?? null,
-        totalPrice: escrowAmount,
-        platformFee: 0, // will be set when cleaner accepts
-        cleanerEarnings: 0, // will be set when cleaner accepts
+        totalPrice: holdAmount,
+        platformFee: 0,
+        cleanerEarnings: 0,
         isQueuedBooking: true,
-        escrowAmount,
+        totalAmountCharged: holdAmount,
       },
     });
 
@@ -139,8 +139,8 @@ export class CleanerQueueService {
           bookingId: booking.id,
           cleanerId: q.cleanerId,
           rank: q.rank,
-          quotedTotal: q.quote.totalCharged,
-          cleanerEarns: q.quote.cleanerEarns,
+          quotedTotal: q.quote.customerTotal,
+          cleanerEarns: q.quote.cleanerPayout,
           matchScore: q.matchScore,
           notifiedAt: now,
           expiresAt: new Date(now.getTime() + QUEUE_EXPIRY_MINUTES * 60 * 1000),
@@ -152,7 +152,7 @@ export class CleanerQueueService {
     let paymentSession = null;
     try {
       paymentSession = await createPaymentSession({
-        amount: escrowAmount,
+        amount: holdAmount,
         bookingId: booking.id,
         customerEmail,
         customerName,
@@ -171,11 +171,11 @@ export class CleanerQueueService {
           userId: q.cleanerId,
           type: 'BOOKING_REQUEST',
           title: 'New Job Available',
-          body: `A ${bookingData.serviceType} cleaning job is available on ${criteria.date.toLocaleDateString()}. You'd earn £${q.quote.cleanerEarns.toFixed(2)}. Accept within ${QUEUE_EXPIRY_MINUTES} minutes.`,
+          body: `A ${bookingData.serviceType} cleaning job is available on ${criteria.date.toLocaleDateString()}. You'd earn £${q.quote.cleanerPayout.toFixed(2)}. Accept within ${QUEUE_EXPIRY_MINUTES} minutes.`,
           data: {
             bookingId: booking.id,
-            quotedTotal: q.quote.totalCharged,
-            cleanerEarns: q.quote.cleanerEarns,
+            quotedTotal: q.quote.customerTotal,
+            cleanerPayout: q.quote.cleanerPayout,
             expiresInMinutes: QUEUE_EXPIRY_MINUTES,
           } as Prisma.InputJsonValue,
         },
@@ -194,9 +194,9 @@ export class CleanerQueueService {
     return {
       bookingId: booking.id,
       queuedCleaners: quotes,
-      escrowAmount,
+      holdAmount,
       lowestQuote,
-      highestQuote: escrowAmount,
+      highestQuote: holdAmount,
       payment: paymentSession
         ? {
             sessionId: paymentSession.id,
@@ -245,14 +245,15 @@ export class CleanerQueueService {
       throw new Error('Another cleaner has already accepted this job');
     }
 
-    const escrowAmount =
-      queueEntry.booking.escrowAmount ?? queueEntry.booking.totalPrice.toNumber();
+    const holdAmount = queueEntry.booking.totalAmountCharged
+      ? Number(queueEntry.booking.totalAmountCharged)
+      : queueEntry.booking.totalPrice.toNumber();
     const actualTotal = queueEntry.quotedTotal;
     // Refund includes: (escrow - accepted quote) + any promo discount amount
     const discountAmount = queueEntry.booking.payment?.discountAmount
       ? Number(queueEntry.booking.payment.discountAmount)
       : 0;
-    const refundDue = new Decimal(escrowAmount)
+    const refundDue = new Decimal(holdAmount)
       .minus(actualTotal)
       .plus(discountAmount)
       .toDecimalPlaces(2)
@@ -281,8 +282,8 @@ export class CleanerQueueService {
           acceptedAt: new Date(),
           totalPrice: actualTotal,
           cleanerEarnings: queueEntry.cleanerEarns,
+          cleanerPayoutAmount: queueEntry.cleanerEarns,
           acceptedFromQueue: true,
-          escrowRefundAmount: refundDue > 0 ? refundDue : null,
         },
       });
     });
@@ -304,7 +305,7 @@ export class CleanerQueueService {
         userId: cleanerId,
         type: 'BOOKING_CONFIRMED',
         title: 'Job Confirmed!',
-        body: `You've been confirmed for a ${queueEntry.booking.serviceType} cleaning on ${queueEntry.booking.date.toLocaleDateString()}. You'll earn £${queueEntry.cleanerEarns.toFixed(2)}.`,
+        body: `You've been confirmed for a ${queueEntry.booking.serviceType} cleaning on ${queueEntry.booking.date.toLocaleDateString()}. You'll earn £${Number(queueEntry.cleanerEarns).toFixed(2)}.`,
         data: { bookingId } as Prisma.InputJsonValue,
       },
     });
@@ -332,7 +333,7 @@ export class CleanerQueueService {
       cleanerId,
       cleanerName: queueEntry.cleaner.name ?? 'Unknown',
       actualTotal,
-      escrowAmount,
+      holdAmount,
       refundDue,
       message:
         refundDue > 0
@@ -436,13 +437,13 @@ export class CleanerQueueService {
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { status: true, escrowAmount: true, totalPrice: true, isQueuedBooking: true },
+      select: { status: true, totalAmountCharged: true, totalPrice: true, isQueuedBooking: true },
     });
 
     return {
       isQueuedBooking: booking?.isQueuedBooking ?? false,
       bookingStatus: booking?.status,
-      escrowAmount: booking?.escrowAmount,
+      holdAmount: booking?.totalAmountCharged ? Number(booking.totalAmountCharged) : null,
       entries: entries.map((e) => ({
         cleanerId: e.cleanerId,
         cleanerName: e.cleaner.name,

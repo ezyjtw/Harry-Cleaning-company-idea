@@ -64,7 +64,10 @@ export type AuditAction =
   | 'DATA_BREACH_RESOLVED'
   | 'DPA_AGREEMENT_CREATED'
   | 'DPA_AGREEMENT_UPDATED'
-  | 'COMPLIANCE_JOB_RUN';
+  | 'COMPLIANCE_JOB_RUN'
+  // Pricing security actions
+  | 'PRICE_DISCREPANCY_DETECTED'
+  | 'PRICE_TAMPERING_SUSPECTED';
 
 interface AuditLogParams {
   userId?: string;

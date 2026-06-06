@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const profile = await prisma.cleanerProfile.findFirst({
       where: { userId: params.id },
-      select: { id: true, hourlyRate: true },
+      select: { id: true, hourlyRateRegular: true },
     });
 
     if (!profile) {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    const baseRate = Number(profile.hourlyRate);
+    const baseRate = Number(profile.hourlyRateRegular);
     const modifierPercent = modifier?.modifierPercent ?? 0;
     const effectiveRate = baseRate * (1 + modifierPercent / 100);
 

@@ -39,7 +39,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       name: profile.user.name,
       image: imageUrl,
       bio: profile.bio,
-      hourlyRate: Number(profile.hourlyRate),
+      hourlyRateRegular: Number(profile.hourlyRateRegular),
       specialties: profile.specialties,
       tier: profile.tier.toLowerCase(),
       verified: profile.verified,

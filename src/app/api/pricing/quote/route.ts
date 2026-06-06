@@ -4,23 +4,44 @@ import { z } from 'zod';
 
 import { pricingService } from '@/lib/services/pricing.service';
 
-const schema = z.object({
-  serviceSlug: z.enum(['regular', 'one-off', 'same-day', 'deep', 'eot', 'airbnb']),
-  cleanerHourlyRate: z.number().min(14).max(35),
+const SERVICE_SLUGS = ['regular', 'one-off', 'same-day', 'deep', 'eot', 'airbnb'] as const;
+
+const cleanerQuoteSchema = z.object({
+  cleanerId: z.string().min(1),
+  serviceSlug: z.enum(SERVICE_SLUGS),
   hours: z.number().min(2).max(12).optional(),
-  propertySize: z
-    .enum(['STUDIO', 'ONE_BED', 'TWO_BED', 'THREE_BED', 'FOUR_BED', 'FIVE_PLUS'])
-    .optional(),
+  propertySize: z.string().optional(),
   frequency: z.enum(['WEEKLY', 'FORTNIGHTLY', 'ONE_OFF']).optional(),
   addons: z.array(z.string()).optional(),
+});
+
+const areaQuoteSchema = z.object({
+  postcode: z.string().min(2),
+  serviceSlug: z.enum(SERVICE_SLUGS),
+  hours: z.number().min(2).max(12).optional(),
+  propertySize: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const input = schema.parse(body);
-    const quote = await pricingService.calculateQuote(input);
-    return NextResponse.json(quote);
+
+    if (body.cleanerId) {
+      const input = cleanerQuoteSchema.parse(body);
+      const quote = await pricingService.calculateQuote(input);
+      return NextResponse.json({ mode: 'cleaner', ...quote });
+    }
+
+    if (body.postcode) {
+      const input = areaQuoteSchema.parse(body);
+      const result = await pricingService.calculateAreaQuote(input);
+      return NextResponse.json({ mode: 'area', ...result });
+    }
+
+    return NextResponse.json(
+      { error: 'Either cleanerId or postcode is required.' },
+      { status: 400 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });

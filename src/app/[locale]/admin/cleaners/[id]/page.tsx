@@ -26,11 +26,12 @@ export interface CleanerDetail {
   createdAt: string;
   image: string | null;
   bio: string | null;
-  hourlyRate: number;
+  hourlyRateRegular: number | null;
+  hourlyRateDeep: number | null;
+  hourlyRateSameDay: number | null;
   specialties: string[];
   languages: string[];
   serviceTypes: string[];
-  serviceRates: Record<string, unknown> | null;
   postcode: string | null;
   location: string | null;
   radius: number;
@@ -98,11 +99,12 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
     createdAt: profile.user.createdAt.toISOString(),
     image: profile.user.image,
     bio: profile.bio,
-    hourlyRate: Number(profile.hourlyRate),
+    hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
+    hourlyRateDeep: profile.hourlyRateDeep ? Number(profile.hourlyRateDeep) : null,
+    hourlyRateSameDay: profile.hourlyRateSameDay ? Number(profile.hourlyRateSameDay) : null,
     specialties: profile.specialties,
     languages: profile.languages || [],
     serviceTypes: profile.serviceTypes || [],
-    serviceRates: (profile.serviceRates as Record<string, unknown>) || null,
     postcode: profile.postcode,
     location: profile.location,
     radius: profile.radius,

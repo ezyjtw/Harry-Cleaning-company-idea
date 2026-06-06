@@ -895,11 +895,15 @@ export default function JoinAsCleanerPage() {
         ...formData
       } = form;
 
+      const { serviceRates: _rates, ...restFormData } = formData;
       const response = await fetch('/api/cleaners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          ...restFormData,
+          hourlyRateRegular: Number(form.serviceRates['Standard']) || null,
+          hourlyRateDeep: Number(form.serviceRates['Deep']) || null,
+          hourlyRateSameDay: Number(form.serviceRates['Same Day']) || null,
           hasPhotoId: !!photoIdFile,
           hasRtwDoc: !!rightToWorkDocFile,
           hasDbsCert: !!dbsCertFile,

@@ -62,7 +62,7 @@ export class AIApiService {
           id: c.userId,
           name: c.user.name,
           rating: Number(c.rating),
-          hourlyRate: Number(c.hourlyRate),
+          hourlyRateRegular: Number(c.hourlyRateRegular),
           tier: c.tier,
           specialties: c.specialties,
         })),

@@ -28,8 +28,9 @@ export async function POST(request: NextRequest) {
     const postcode = formData.get('postcode') as string | null;
     const dateOfBirth = formData.get('dateOfBirth') as string | null;
     const bio = formData.get('bio') as string | null;
-    const hourlyRateStr = formData.get('hourlyRate') as string | null;
-    const sameDayRateStr = formData.get('sameDayRate') as string | null;
+    const hourlyRateRegularStr = formData.get('hourlyRateRegular') as string | null;
+    const hourlyRateDeepStr = formData.get('hourlyRateDeep') as string | null;
+    const hourlyRateSameDayStr = formData.get('hourlyRateSameDay') as string | null;
     const hoursPerWeekStr = formData.get('hoursPerWeek') as string | null;
     const serviceTypesStr = formData.get('serviceTypes') as string | null;
     const specialtiesStr = formData.get('specialties') as string | null;
@@ -70,9 +71,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Derive hourly rate — default to 15 if missing or invalid
-    let hourlyRate = Number(hourlyRateStr) || 0;
-    if (!hourlyRate || hourlyRate < 14) hourlyRate = 15;
+    const hourlyRateRegular = Number(hourlyRateRegularStr) || null;
+    const hourlyRateDeep = Number(hourlyRateDeepStr) || null;
+    const hourlyRateSameDay = Number(hourlyRateSameDayStr) || null;
 
     // Validate file sizes
     const files = [
@@ -114,7 +115,9 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           bio: bio?.trim() || null,
-          hourlyRate,
+          hourlyRateRegular,
+          hourlyRateDeep,
+          hourlyRateSameDay,
           specialties,
           location: postcode.trim(),
           postcode: postcode.trim(),
@@ -134,7 +137,6 @@ export async function POST(request: NextRequest) {
             serviceTypes,
             languages,
             dateOfBirth: dateOfBirth || null,
-            sameDayRate: Number(sameDayRateStr) || Math.round(hourlyRate * 1.3),
             hoursPerWeek: Number(hoursPerWeekStr) || 0,
           },
         },
