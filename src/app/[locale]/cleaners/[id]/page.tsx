@@ -6,6 +6,15 @@ import AvailableNowBadge from '@/components/AvailableNowBadge';
 import CategoryRatingBar from '@/components/CategoryRatingBar';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
+import {
+  serviceTypeLabel,
+  eotSizeLabel,
+  airbnbSizeLabel,
+  isServiceTypeSlug,
+  EOT_SIZE_SLUGS,
+  AIRBNB_SIZE_SLUGS,
+  type ServiceTypeSlug,
+} from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 export default async function CleanerProfilePage({ params }: { params: { id: string } }) {
   const profile = await prisma.cleanerProfile.findFirst({
@@ -54,6 +63,9 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
     hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
     hourlyRateDeep: profile.hourlyRateDeep ? Number(profile.hourlyRateDeep) : null,
     hourlyRateSameDay: profile.hourlyRateSameDay ? Number(profile.hourlyRateSameDay) : null,
+    eotPrices: (profile.eotPrices as Record<string, number>) || null,
+    airbnbPrices: (profile.airbnbPrices as Record<string, number>) || null,
+    serviceTypes: (profile.serviceTypes || []).filter(isServiceTypeSlug) as ServiceTypeSlug[],
     bio: profile.bio || '',
     specialties: profile.specialties,
     location: profile.location || '',
@@ -141,12 +153,19 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
               </div>
             </div>
             <div className="text-right">
-              <div>
-                <span className="font-cormorant text-[32px] font-semibold text-ink">
-                  &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}
-                </span>
-                <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
-              </div>
+              {cleaner.hourlyRateRegular && (
+                <div>
+                  <span className="font-cormorant text-[32px] font-semibold text-ink">
+                    &pound;{cleaner.hourlyRateRegular.toFixed(2)}
+                  </span>
+                  <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
+                </div>
+              )}
+              {cleaner.hourlyRateDeep && (
+                <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                  &pound;{cleaner.hourlyRateDeep.toFixed(2)}/hr deep clean
+                </p>
+              )}
               {cleaner.availableNow && cleaner.hourlyRateSameDay && (
                 <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
                   &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr same-day
@@ -182,6 +201,93 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
             {cleaner.bio}
           </p>
         </section>
+
+        {/* Services & Pricing */}
+        {cleaner.serviceTypes.length > 0 && (
+          <section className="mt-10">
+            <h2 className="font-cormorant text-[22px] font-semibold text-ink">
+              Services &amp; Pricing
+            </h2>
+            <div className="mt-4 space-y-3">
+              {cleaner.serviceTypes.includes('regular') && cleaner.hourlyRateRegular && (
+                <div className="flex items-center justify-between bg-cream px-4 py-3">
+                  <span className="font-jost text-[14px] font-light text-ink">
+                    {serviceTypeLabel('regular')}
+                  </span>
+                  <span className="font-jost text-[14px] font-medium text-ink">
+                    &pound;{cleaner.hourlyRateRegular.toFixed(2)}/hr
+                  </span>
+                </div>
+              )}
+              {cleaner.serviceTypes.includes('deep') && cleaner.hourlyRateDeep && (
+                <div className="flex items-center justify-between bg-cream px-4 py-3">
+                  <span className="font-jost text-[14px] font-light text-ink">
+                    {serviceTypeLabel('deep')}
+                  </span>
+                  <span className="font-jost text-[14px] font-medium text-ink">
+                    &pound;{cleaner.hourlyRateDeep.toFixed(2)}/hr
+                  </span>
+                </div>
+              )}
+              {cleaner.serviceTypes.includes('same_day') && cleaner.hourlyRateSameDay && (
+                <div className="flex items-center justify-between bg-cream px-4 py-3">
+                  <span className="font-jost text-[14px] font-light text-ink">
+                    {serviceTypeLabel('same_day')}
+                  </span>
+                  <span className="font-jost text-[14px] font-medium text-ink">
+                    &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr
+                  </span>
+                </div>
+              )}
+              {cleaner.serviceTypes.includes('end_of_tenancy') && cleaner.eotPrices && (
+                <div className="bg-cream px-4 py-3">
+                  <span className="font-jost text-[14px] font-light text-ink">
+                    {serviceTypeLabel('end_of_tenancy')}
+                  </span>
+                  <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
+                    {EOT_SIZE_SLUGS.map((slug) => {
+                      const price = cleaner.eotPrices?.[slug];
+                      if (!price) return null;
+                      return (
+                        <div key={slug} className="flex justify-between">
+                          <span className="font-jost text-[13px] font-light text-ink-3">
+                            {eotSizeLabel(slug)}
+                          </span>
+                          <span className="font-jost text-[13px] font-medium text-ink">
+                            &pound;{price.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {cleaner.serviceTypes.includes('airbnb') && cleaner.airbnbPrices && (
+                <div className="bg-cream px-4 py-3">
+                  <span className="font-jost text-[14px] font-light text-ink">
+                    {serviceTypeLabel('airbnb')}
+                  </span>
+                  <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
+                    {AIRBNB_SIZE_SLUGS.map((slug) => {
+                      const price = cleaner.airbnbPrices?.[slug];
+                      if (!price) return null;
+                      return (
+                        <div key={slug} className="flex justify-between">
+                          <span className="font-jost text-[13px] font-light text-ink-3">
+                            {airbnbSizeLabel(slug)}
+                          </span>
+                          <span className="font-jost text-[13px] font-medium text-ink">
+                            &pound;{price.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Stats */}
         <section className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4">

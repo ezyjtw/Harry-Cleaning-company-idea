@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { normalizeToPricingSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
@@ -96,12 +97,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
     }
 
+    // Normalize service type to canonical pricing slug
+    const pricingSlug = normalizeToPricingSlug(body.serviceType);
+
     // Server-side price calculation — never trust client-submitted totals
     let quote;
     try {
       quote = await pricingService.calculateQuote({
         cleanerId: body.cleanerId,
-        serviceSlug: body.serviceType,
+        serviceSlug: pricingSlug,
         hours: body.duration ? Number(body.duration) : undefined,
         propertySize: body.propertySize || undefined,
         frequency: body.frequency || undefined,

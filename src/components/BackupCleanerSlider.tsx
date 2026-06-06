@@ -4,6 +4,12 @@ import { useState, useRef } from 'react';
 
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import StarRating from '@/components/StarRating';
+import {
+  BEDROOMS_TO_EOT_SIZE,
+  BEDROOMS_TO_AIRBNB_SIZE,
+  eotSizeLabel,
+  airbnbSizeLabel,
+} from '@/lib/constants/services';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type { Cleaner, ServiceCategory } from '@/lib/types';
 
@@ -181,31 +187,34 @@ export default function BackupCleanerSlider({
                       <div className="mt-2 font-jost text-sm font-normal text-ink">
                         {(() => {
                           if (serviceCategory && propertySize !== undefined) {
-                            const priceField =
-                              serviceCategory === 'end-of-tenancy'
-                                ? 'eotPrices'
-                                : serviceCategory === 'airbnb'
-                                  ? 'airbnbPrices'
-                                  : null;
-                            if (priceField) {
-                              const maxKey = serviceCategory === 'end-of-tenancy' ? 5 : 4;
-                              const key = Math.min(propertySize, maxKey);
-                              const basePrice = c[priceField]?.[key];
-                              if (basePrice !== undefined) {
-                                const withFee =
-                                  Math.round(basePrice * (1 + SERVICE_FEE_PERCENT / 100) * 100) /
-                                  100;
-                                const sizeLabel =
-                                  propertySize === 0 ? 'studio' : `${propertySize}-bed`;
-                                return (
-                                  <>
-                                    &pound;{withFee.toFixed(2)}
-                                    <span className="block font-jost text-[11px] font-light text-ink-3">
-                                      {sizeLabel} &middot; incl. {SERVICE_FEE_PERCENT}% fee
-                                    </span>
-                                  </>
-                                );
+                            let basePrice: number | undefined;
+                            let label: string | undefined;
+
+                            if (serviceCategory === 'end-of-tenancy') {
+                              const slug = BEDROOMS_TO_EOT_SIZE[propertySize];
+                              if (slug) {
+                                basePrice = c.eotPrices?.[slug];
+                                label = eotSizeLabel(slug);
                               }
+                            } else if (serviceCategory === 'airbnb') {
+                              const slug = BEDROOMS_TO_AIRBNB_SIZE[propertySize];
+                              if (slug) {
+                                basePrice = c.airbnbPrices?.[slug];
+                                label = airbnbSizeLabel(slug);
+                              }
+                            }
+
+                            if (basePrice !== undefined && label) {
+                              const withFee =
+                                Math.round(basePrice * (1 + SERVICE_FEE_PERCENT / 100) * 100) / 100;
+                              return (
+                                <>
+                                  &pound;{withFee.toFixed(2)}
+                                  <span className="block font-jost text-[11px] font-light text-ink-3">
+                                    {label} &middot; incl. {SERVICE_FEE_PERCENT}% fee
+                                  </span>
+                                </>
+                              );
                             }
                           }
                           return <>&pound;{(c.hourlyRateRegular ?? 0).toFixed(2)}/hr</>;

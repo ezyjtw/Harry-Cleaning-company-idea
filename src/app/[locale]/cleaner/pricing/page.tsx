@@ -3,39 +3,23 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
-const SERVICE_RATE_INFO: Record<string, { label: string; range: string; hourly: boolean }> = {
-  Standard: { label: 'Regular Cleaning', range: '£14 – £35/hr', hourly: true },
-  Deep: { label: 'Deep Cleaning', range: '£20 – £51/hr', hourly: true },
-  'Same Day': { label: 'Same-Day Cleaning', range: '£18 – £46/hr', hourly: true },
-  'End of Tenancy': { label: 'End of Tenancy', range: '£150 – £580', hourly: false },
-  AirBnB: { label: 'Airbnb / Short-Let', range: '£45 – £165', hourly: false },
-};
-
-const EOT_SIZES = [
-  { label: 'Studio', guide: '£150 – £200' },
-  { label: '1 bed', guide: '£190 – £240' },
-  { label: '2 bed', guide: '£250 – £300' },
-  { label: '3 bed', guide: '£320 – £380' },
-  { label: '4 bed', guide: '£390 – £450' },
-  { label: '5 bed+', guide: '£480 – £580' },
-];
-
-const AIRBNB_SIZES = [
-  { label: 'Studio', guide: '£45 – £65' },
-  { label: '1 bed', guide: '£55 – £85' },
-  { label: '2 bed', guide: '£75 – £110' },
-  { label: '3 bed', guide: '£95 – £140' },
-  { label: '4 bed+', guide: '£130 – £165' },
-];
-
-const specialtyOptions = ['Standard', 'Deep', 'Same Day', 'End of Tenancy', 'AirBnB'];
+import {
+  SERVICE_TYPE_SLUGS,
+  SERVICE_RATE_INFO,
+  EOT_SIZES_WITH_GUIDE,
+  AIRBNB_SIZES_WITH_GUIDE,
+  serviceTypeLabel,
+  eotSizeLabel,
+  airbnbSizeLabel,
+  type ServiceTypeSlug,
+} from '@/lib/constants/services';
 
 export default function CleanerPricingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [serviceTypes, setServiceTypes] = useState<string[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceTypeSlug[]>([]);
   const [hourlyRateRegular, setHourlyRateRegular] = useState('');
   const [hourlyRateDeep, setHourlyRateDeep] = useState('');
   const [hourlyRateSameDay, setHourlyRateSameDay] = useState('');
@@ -115,8 +99,10 @@ export default function CleanerPricingPage() {
     return () => document.removeEventListener('click', handler, true);
   }, [dirty]);
 
-  const toggleService = (s: string) => {
-    setServiceTypes((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  const toggleService = (slug: ServiceTypeSlug) => {
+    setServiceTypes((prev) =>
+      prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]
+    );
     markDirty();
   };
 
@@ -182,9 +168,9 @@ export default function CleanerPricingPage() {
   }
 
   const serviceToState: Record<string, { value: string; setter: (v: string) => void }> = {
-    Standard: { value: hourlyRateRegular, setter: setHourlyRateRegular },
-    Deep: { value: hourlyRateDeep, setter: setHourlyRateDeep },
-    'Same Day': { value: hourlyRateSameDay, setter: setHourlyRateSameDay },
+    regular: { value: hourlyRateRegular, setter: setHourlyRateRegular },
+    deep: { value: hourlyRateDeep, setter: setHourlyRateDeep },
+    same_day: { value: hourlyRateSameDay, setter: setHourlyRateSameDay },
   };
 
   return (
@@ -244,37 +230,42 @@ export default function CleanerPricingPage() {
             Select the cleaning services you want to offer
           </p>
           <div className="flex flex-wrap gap-2">
-            {specialtyOptions.map((s) => (
-              <button
-                key={s}
-                onClick={() => toggleService(s)}
-                className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
-                  serviceTypes.includes(s)
-                    ? 'bg-ink text-cream shadow-sm'
-                    : 'bg-white text-ink-2 hover:bg-cream-2'
-                }`}
-                style={
-                  serviceTypes.includes(s) ? undefined : { border: '1px solid rgba(14,14,12,0.1)' }
-                }
-              >
-                {serviceTypes.includes(s) && (
-                  <svg
-                    className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                )}
-                {SERVICE_RATE_INFO[s]?.label || s}
-              </button>
-            ))}
+            {SERVICE_TYPE_SLUGS.map((slug) => {
+              const info = SERVICE_RATE_INFO[slug];
+              return (
+                <button
+                  key={slug}
+                  onClick={() => toggleService(slug)}
+                  className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
+                    serviceTypes.includes(slug)
+                      ? 'bg-ink text-cream shadow-sm'
+                      : 'bg-white text-ink-2 hover:bg-cream-2'
+                  }`}
+                  style={
+                    serviceTypes.includes(slug)
+                      ? undefined
+                      : { border: '1px solid rgba(14,14,12,0.1)' }
+                  }
+                >
+                  {serviceTypes.includes(slug) && (
+                    <svg
+                      className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                  {info.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -326,7 +317,7 @@ export default function CleanerPricingPage() {
         )}
 
         {/* EOT & Airbnb fixed-price tables */}
-        {(serviceTypes.includes('End of Tenancy') || serviceTypes.includes('AirBnB')) && (
+        {(serviceTypes.includes('end_of_tenancy') || serviceTypes.includes('airbnb')) && (
           <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
             <h2 className="font-cormorant text-lg font-light text-ink mb-2">
               Fixed-Price Services
@@ -335,9 +326,11 @@ export default function CleanerPricingPage() {
               Set your prices for each property size. The guide shows typical rates on Rena.
             </p>
 
-            {serviceTypes.includes('End of Tenancy') && (
+            {serviceTypes.includes('end_of_tenancy') && (
               <div className="mb-6">
-                <h3 className="font-jost text-sm font-medium text-ink mb-3">End of Tenancy</h3>
+                <h3 className="font-jost text-sm font-medium text-ink mb-3">
+                  {serviceTypeLabel('end_of_tenancy')}
+                </h3>
                 <div
                   className="overflow-hidden rounded-lg"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -357,13 +350,10 @@ export default function CleanerPricingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {EOT_SIZES.map((row) => (
-                        <tr
-                          key={row.label}
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                        >
+                      {EOT_SIZES_WITH_GUIDE.map((row) => (
+                        <tr key={row.slug} style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
                           <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                            {row.label}
+                            {eotSizeLabel(row.slug)}
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="relative">
@@ -373,13 +363,13 @@ export default function CleanerPricingPage() {
                               <input
                                 type="number"
                                 placeholder="—"
-                                value={eotPrices[row.label] || ''}
+                                value={eotPrices[row.slug] || ''}
                                 className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
                                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                                 onChange={(e) => {
                                   setEotPrices((prev) => ({
                                     ...prev,
-                                    [row.label]: e.target.value,
+                                    [row.slug]: e.target.value,
                                   }));
                                   markDirty();
                                 }}
@@ -397,9 +387,11 @@ export default function CleanerPricingPage() {
               </div>
             )}
 
-            {serviceTypes.includes('AirBnB') && (
+            {serviceTypes.includes('airbnb') && (
               <div className="mb-6">
-                <h3 className="font-jost text-sm font-medium text-ink mb-3">Airbnb / Short-Let</h3>
+                <h3 className="font-jost text-sm font-medium text-ink mb-3">
+                  {serviceTypeLabel('airbnb')}
+                </h3>
                 <div
                   className="overflow-hidden rounded-lg"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
@@ -419,13 +411,10 @@ export default function CleanerPricingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {AIRBNB_SIZES.map((row) => (
-                        <tr
-                          key={row.label}
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                        >
+                      {AIRBNB_SIZES_WITH_GUIDE.map((row) => (
+                        <tr key={row.slug} style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
                           <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
-                            {row.label}
+                            {airbnbSizeLabel(row.slug)}
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="relative">
@@ -435,13 +424,13 @@ export default function CleanerPricingPage() {
                               <input
                                 type="number"
                                 placeholder="—"
-                                value={airbnbPrices[row.label] || ''}
+                                value={airbnbPrices[row.slug] || ''}
                                 className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
                                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                                 onChange={(e) => {
                                   setAirbnbPrices((prev) => ({
                                     ...prev,
-                                    [row.label]: e.target.value,
+                                    [row.slug]: e.target.value,
                                   }));
                                   markDirty();
                                 }}

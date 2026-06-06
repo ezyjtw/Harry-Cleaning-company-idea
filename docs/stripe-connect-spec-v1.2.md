@@ -6,7 +6,7 @@
 
 This document is the single source of truth for Rena's payment architecture. It captures every business and technical decision made about how money flows through the platform. Every Stripe-related pull request should reference this spec.
 
-This spec covers the *what* and *why*. Implementation details belong in the individual PR descriptions that reference it.
+This spec covers the _what_ and _why_. Implementation details belong in the individual PR descriptions that reference it.
 
 ---
 
@@ -15,6 +15,7 @@ This spec covers the *what* and *why*. Implementation details belong in the indi
 Rena is a two-sided marketplace where customers book independent cleaners. The platform handles payment intake, holds funds in escrow, and disburses to cleaners after agreed conditions are met. Rena takes a commission from each booking and adds a platform service fee on top.
 
 This spec replaces Ryft as the payment provider. After implementation, Rena's payment stack is:
+
 - **Payment processor:** Stripe (UK)
 - **Marketplace product:** Stripe Connect
 - **Connected account type:** Express
@@ -30,11 +31,13 @@ This spec replaces Ryft as the payment provider. After implementation, Rena's pa
 Each cleaner sets their own prices on their profile. Two pricing structures coexist depending on service type.
 
 **Hourly services** — cleaner sets one rate per service:
+
 - Regular cleaning
 - Deep cleaning
 - Same-day cleaning
 
 **Fixed-price services** — cleaner sets one price per property size:
+
 - End of Tenancy: Studio, 1 bed, 2 bed, 3 bed, 4 bed, 5 bed+
 - Airbnb / Short-let: Studio, 1 bed, 2 bed, 3 bed, 4 bed+
 
@@ -44,13 +47,13 @@ Cleaners can update their rates at any time via their dashboard. Rate changes ap
 
 Rena takes commission from the cleaner's listed price. The commission rate depends on the service type.
 
-| Service | Commission rate | Cleaner receives |
-|---|---|---|
-| Regular cleaning | 10% | 90% |
-| Deep cleaning | 10% | 90% |
-| Same-day cleaning | 10% | 90% |
-| End of Tenancy | 15% | 85% |
-| Airbnb / Short-let | 15% | 85% |
+| Service            | Commission rate | Cleaner receives |
+| ------------------ | --------------- | ---------------- |
+| Regular cleaning   | 10%             | 90%              |
+| Deep cleaning      | 10%             | 90%              |
+| Same-day cleaning  | 10%             | 90%              |
+| End of Tenancy     | 15%             | 85%              |
+| Airbnb / Short-let | 15%             | 85%              |
 
 ### 2.3 Platform fee
 
@@ -105,6 +108,7 @@ Rena receives:
 When a customer completes checkout, the entire amount (cleaner price + 6% platform fee) is captured to **Rena's Stripe platform balance**. No funds are transferred to the cleaner at this stage.
 
 The booking record stores the breakdown:
+
 - `cleanerPayoutAmount` — the 90% or 85% destined for the cleaner
 - `platformCommissionAmount` — Rena's 10% or 15% commission
 - `platformFeeAmount` — the customer-paid 6% fee
@@ -170,6 +174,7 @@ A pairing is considered "repeat" when there is at least one prior booking betwee
 If the customer raises a dispute within the release window, the booking transitions to status `DISPUTED` and the funds remain in escrow until the dispute is resolved. The auto-release timer is paused.
 
 Disputes can be raised:
+
 - By the customer via "Report an issue" in their dashboard
 - By a Stripe chargeback (system-generated)
 
@@ -187,11 +192,11 @@ When the cleaner marks the job complete in their dashboard, this does **not** tr
 
 The refund the customer receives depends on how far in advance they cancel relative to the scheduled job time.
 
-| Time before scheduled job | Refund |
-|---|---|
-| 48+ hours | 100% refund (cleaner price + platform fee) |
-| 24–48 hours | 50% refund (50% of cleaner price + 50% of platform fee) |
-| < 24 hours | 0% refund. Cleaner paid in full. Platform fee retained. |
+| Time before scheduled job | Refund                                                  |
+| ------------------------- | ------------------------------------------------------- |
+| 48+ hours                 | 100% refund (cleaner price + platform fee)              |
+| 24–48 hours               | 50% refund (50% of cleaner price + 50% of platform fee) |
+| < 24 hours                | 0% refund. Cleaner paid in full. Platform fee retained. |
 
 For partial refunds, the cleaner receives the remaining 50% of their share once the original scheduled time has passed.
 
@@ -215,7 +220,7 @@ If the assigned cleaner declines a booking offer before the scheduled time:
 
 All refunds use Stripe's refund API on the original PaymentIntent. The 6% platform fee follows the same percentage refund as the cleaner price (full cancellation = full platform fee refund; 50% cancellation = 50% platform fee refund; etc.).
 
-For partial refunds, only the refunded portion of the cleaner's share is *not* transferred at release. The unrefunded portion still releases normally to the cleaner.
+For partial refunds, only the refunded portion of the cleaner's share is _not_ transferred at release. The unrefunded portion still releases normally to the cleaner.
 
 ---
 
@@ -224,6 +229,7 @@ For partial refunds, only the refunded portion of the cleaner's share is *not* t
 ### 7.1 When the cascade triggers
 
 The backup logic activates when:
+
 - The primary cleaner declines the booking
 - The primary cleaner no-shows
 - Other (admin override)
@@ -241,16 +247,19 @@ Two modes the customer chooses at booking:
 When a backup at a different price accepts the job:
 
 **If backup is cheaper than primary:**
+
 - Customer automatically receives a refund for the difference (cleaner price + proportional 6% fee), subject to the threshold in §7.3.1
 - Refunded via the same PaymentIntent as the original charge
 
 **If backup is more expensive (only possible in Mode A — customer-selected):**
+
 - Customer must give explicit consent before the additional charge is made
 - A consent request is sent via email and shown in their dashboard
 - If customer consents, the additional amount (price difference + 6% fee on that difference) is charged via a new PaymentIntent linked to the original booking, subject to the threshold in §7.3.1
 - If customer declines or doesn't respond within 4 hours, Rena tries the next backup in queue
 
 **In Mode B (Rena selects):**
+
 - By design, Rena only selects a backup whose price is less than or equal to the primary's
 - Customer always receives a refund (£0 if same price, positive if cheaper), subject to the threshold in §7.3.1
 - Never an upcharge in Mode B
@@ -260,19 +269,22 @@ When a backup at a different price accepts the job:
 To avoid operational noise from trivial price differences, refunds and upcharges are only processed when the absolute price difference between primary and backup is **greater than £3**.
 
 **For differences of £3 or less:**
+
 - No refund or upcharge is processed.
 - The customer is charged the primary cleaner's price.
 - If the backup is cheaper than the primary: Rena absorbs the £3-or-less difference (small uplift to commission).
 - If the customer-selected backup is more expensive than the primary: the cleaner-offer flow below applies — the cleaner sees the actual rate they'll be paid and decides whether to accept.
 
 **For differences greater than £3:**
+
 - Standard refund or consent flow applies per §7.3.
 
 **Cleaner offer flow (used when an offered job differs from the cleaner's listed rate):**
 
 When a cleaner is offered a backup job at a rate different from their normal listed rate, the offer notification (email + in-app) shows:
+
 - The customer's name and booking details
-- **The actual amount the cleaner will be paid for this job** (i.e. 90% or 85% of the *effective price*, which may be lower than their listed rate if the discrepancy threshold is in effect)
+- **The actual amount the cleaner will be paid for this job** (i.e. 90% or 85% of the _effective price_, which may be lower than their listed rate if the discrepancy threshold is in effect)
 - Whether this is a same-rate, cheaper, or higher-than-listed offer
 - Buttons to Accept or Decline
 
@@ -283,6 +295,7 @@ The cleaner is never paid less than their listed rate without seeing it first an
 **Disclosure obligations:**
 
 This rule must be disclosed in:
+
 - Rena's terms and conditions (customer and cleaner)
 - The booking flow's backup-selection screen (small explainer text for customers)
 - The cleaner-side onboarding documentation (so cleaners understand the offer flow before they get their first one)
@@ -290,6 +303,7 @@ This rule must be disclosed in:
 ### 7.4 Booking record changes
 
 When a backup takes a booking, the booking record is updated:
+
 - `cleanerUserId` is updated to the backup cleaner
 - `originalCleanerUserId` is stored
 - `backupChainPosition` increments (1 = first backup tried, 2 = second, etc.)
@@ -305,6 +319,7 @@ When a backup takes a booking, the booking record is updated:
 Cleaner onboarding to Stripe Connect happens **after** Rena's admin verification approves them. This avoids creating Stripe accounts for cleaners who will be rejected and reduces the upfront friction of the join flow.
 
 Sequence:
+
 1. Cleaner signs up via `/join` (existing flow)
 2. Cleaner submits documents and selfie (existing flow)
 3. Admin reviews and clicks **Verify** in the admin dashboard
@@ -316,6 +331,7 @@ Sequence:
 ### 8.2 Verification email
 
 The cleaner verification approval email (the one already sent today) is extended to include:
+
 - A "Connect your payment account to start earning" call-to-action
 - A button linking to the Stripe Connect onboarding URL
 
@@ -347,6 +363,7 @@ The system enforces that a cleaner cannot appear in customer search results, can
 Stripe holds the first payout of a new connected account for 7-14 days as a risk mitigation measure. This applies regardless of when funds are released from Rena's escrow. The cleaner sees the released funds in their Express balance immediately but they will not transfer to the cleaner's bank account until Stripe's hold expires.
 
 This delay is communicated transparently in:
+
 - The cleaner verification email
 - The cleaner dashboard
 - The "Become a cleaner" page (FAQs)
@@ -483,34 +500,34 @@ Stripe webhook events Rena must handle. All have idempotency enforced via `Strip
 
 ### 11.1 Account lifecycle
 
-| Event | Action |
-|---|---|
-| `account.updated` | Update `stripeChargesEnabled`, `stripePayoutsEnabled` on CleanerProfile. If both true and previously false, dismiss the dashboard banner. |
-| `capability.updated` | Logged for audit; no action needed in MVP. |
+| Event                | Action                                                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `account.updated`    | Update `stripeChargesEnabled`, `stripePayoutsEnabled` on CleanerProfile. If both true and previously false, dismiss the dashboard banner. |
+| `capability.updated` | Logged for audit; no action needed in MVP.                                                                                                |
 
 ### 11.2 Payment lifecycle
 
-| Event | Action |
-|---|---|
-| `payment_intent.succeeded` | Transition booking from `PENDING_PAYMENT` to `PAID`. Trigger cleaner notification. |
+| Event                           | Action                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| `payment_intent.succeeded`      | Transition booking from `PENDING_PAYMENT` to `PAID`. Trigger cleaner notification.  |
 | `payment_intent.payment_failed` | Mark booking as failed. Notify customer to retry or use a different payment method. |
-| `charge.refunded` | Update booking with refund amount. If full refund, transition to `REFUNDED_FULL`. |
+| `charge.refunded`               | Update booking with refund amount. If full refund, transition to `REFUNDED_FULL`.   |
 
 ### 11.3 Transfer lifecycle
 
-| Event | Action |
-|---|---|
-| `transfer.created` | Update booking `stripeTransferId`. Log for audit. |
-| `transfer.failed` | Critical: alert admin. Mark booking with transfer failure flag. |
+| Event              | Action                                                          |
+| ------------------ | --------------------------------------------------------------- |
+| `transfer.created` | Update booking `stripeTransferId`. Log for audit.               |
+| `transfer.failed`  | Critical: alert admin. Mark booking with transfer failure flag. |
 
 ### 11.4 Dispute lifecycle
 
-| Event | Action |
-|---|---|
-| `charge.dispute.created` | Transition booking to `DISPUTED`. Notify admin via email. Pause any pending escrow release. |
-| `charge.dispute.closed` | Update dispute outcome. If won, allow normal release. If lost, refund customer from Rena platform balance. |
-| `charge.dispute.funds_withdrawn` | Log for accounting. |
-| `charge.dispute.funds_reinstated` | Log for accounting. |
+| Event                             | Action                                                                                                     |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `charge.dispute.created`          | Transition booking to `DISPUTED`. Notify admin via email. Pause any pending escrow release.                |
+| `charge.dispute.closed`           | Update dispute outcome. If won, allow normal release. If lost, refund customer from Rena platform balance. |
+| `charge.dispute.funds_withdrawn`  | Log for accounting.                                                                                        |
+| `charge.dispute.funds_reinstated` | Log for accounting.                                                                                        |
 
 ---
 
@@ -579,14 +596,14 @@ These are tracked separately and resolved during their respective PRs.
 
 Implementation will proceed in 6 sequential PRs. Each PR ships independently and does not break what came before.
 
-| PR | Scope |
-|---|---|
-| 1 | Cleaner pricing storage and management UI |
-| 2 | Stripe Connect cleaner onboarding (post-admin-verification) |
-| 3 | Ryft removal + Stripe Connect checkout (single-cleaner happy path) |
-| 4 | Escrow release logic + cleaner completion + customer confirmation |
-| 5 | Cancellation, refunds, backup cascade (including §7.3.1 £3 threshold + cleaner offer flow) |
-| 6 | Disputes + admin dispute resolution UI |
+| PR  | Scope                                                                                      |
+| --- | ------------------------------------------------------------------------------------------ |
+| 1   | Cleaner pricing storage and management UI                                                  |
+| 2   | Stripe Connect cleaner onboarding (post-admin-verification)                                |
+| 3   | Ryft removal + Stripe Connect checkout (single-cleaner happy path)                         |
+| 4   | Escrow release logic + cleaner completion + customer confirmation                          |
+| 5   | Cancellation, refunds, backup cascade (including §7.3.1 £3 threshold + cleaner offer flow) |
+| 6   | Disputes + admin dispute resolution UI                                                     |
 
 Each PR's prompt to Claude Code references this spec as the source of truth for business decisions.
 
