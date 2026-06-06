@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       cleanerEarnings: Number(b.cleanerEarnings),
       platformFee: Number(b.platformFee),
       status: b.status.toLowerCase(),
+      paymentStatus: b.paymentStatus,
       duration: Number(b.duration),
       notes: b.notes,
       cleanerNotes: b.cleanerNotes,
