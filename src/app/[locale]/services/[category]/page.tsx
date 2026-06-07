@@ -8,9 +8,11 @@ import AddToCalendar from '@/components/AddToCalendar';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
+import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner, Review } from '@/lib/types';
@@ -484,6 +486,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         return b.rating - a.rating;
       });
   }, [cleaners, isSameDay, postcode, todayAbbr]);
+
+  if (category === 'same-day' && !SAME_DAY_FEATURE_ENABLED) {
+    return <SameDayComingSoonBanner />;
+  }
 
   if (submitted) {
     return (
@@ -2105,7 +2111,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink sm:text-4xl">
           {currentStep === 'choose-method' && 'How would you like to book?'}
           {currentStep === 'browse' && 'Browse Available Cleaners'}
-          {currentStep === 'set-time' && 'Pick a Date & Time'}
+          {currentStep === 'set-time' && 'Choose a Cleaner'}
           {currentStep === 'booking' && 'Complete Your Booking'}
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
@@ -2114,7 +2120,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           {currentStep === 'browse' &&
             `${cleaners.length} cleaners available \u00b7 click to view profile`}
           {currentStep === 'set-time' &&
-            `Your clean is ${effectiveHours} hours \u00b7 select a day then a start time`}
+            `${cleaners.length} cleaners available \u00b7 pick one to see their calendar`}
           {currentStep === 'booking' && 'Review your details and confirm.'}
         </p>
       </div>
