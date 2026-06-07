@@ -9,7 +9,7 @@ import { routing } from '@/i18n/routing';
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 60; // max requests per window
+const RATE_LIMIT_MAX_REQUESTS = 300; // max requests per window
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
