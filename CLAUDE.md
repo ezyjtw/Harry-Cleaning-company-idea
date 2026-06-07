@@ -45,6 +45,22 @@ Three independent in-memory rate limiting layers exist:
 - **`RateLimiter` class** (`src/lib/utils/security.ts`): used by `/api/chat`
   (30/hour) and `/api/waitlist` (10/hour).
 
+## Stripe Webhooks
+
+Two webhook destinations are configured in the Stripe dashboard, each with its own signing secret:
+
+- **`STRIPE_WEBHOOK_SECRET`** — Connected accounts destination. Receives `account.updated`,
+  `account.application.deauthorized`. This is the scope for Connect account lifecycle events.
+
+- **`STRIPE_WEBHOOK_SECRET_PLATFORM`** — Your account (Platform) destination. Receives
+  `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.requires_action`,
+  `payment_intent.canceled`, `charge.refunded`. This is the scope for payment events on direct
+  charges made via the platform.
+
+The webhook handler (`src/app/api/webhooks/stripe/route.ts`) tries both secrets in sequence.
+The first successful `constructEvent()` wins. If neither secret verifies the signature, the
+request is rejected with 400.
+
 ## Apple Pay
 
 Apple Pay via Stripe requires a domain verification file at

@@ -337,6 +337,7 @@ model CleanerProfile {
   provider              Provider?              @relation(fields: [providerId], references: [id])
   availabilitySlots     AvailabilitySlot[]
   availabilityOverrides AvailabilityOverride[]
+  availabilityDateSlots AvailabilityDateSlot[]
   rateModifiers         RateModifier[]
 
   @@index([userId])
@@ -604,6 +605,21 @@ model AvailabilityOverride {
   cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
 
   @@unique([cleanerProfileId, date])
+  @@index([cleanerProfileId])
+  @@index([date])
+}
+
+model AvailabilityDateSlot {
+  id               String         @id @default(cuid())
+  cleanerProfileId String
+  date             DateTime       @db.Date
+  startTime        String // "HH:MM"
+  endTime          String // "HH:MM"
+  createdAt        DateTime       @default(now())
+
+  cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([cleanerProfileId, date, startTime])
   @@index([cleanerProfileId])
   @@index([date])
 }

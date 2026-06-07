@@ -108,7 +108,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const toDate = new Date(`${toStr}T23:59:59`);
   const todayStr = toDateString(new Date());
 
-  const [overrides, bookings] = await Promise.all([
+  const [overrides, bookings, dateSlots] = await Promise.all([
     prisma.availabilityOverride.findMany({
       where: {
         cleanerProfileId: profile.id,
@@ -124,6 +124,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         status: { notIn: ['CANCELLED'] },
       },
       select: { date: true, startTime: true, duration: true },
+    }),
+    prisma.availabilityDateSlot.findMany({
+      where: {
+        cleanerProfileId: profile.id,
+        date: { gte: fromDate, lte: toDate },
+      },
+      select: { date: true, startTime: true, endTime: true },
     }),
   ]);
 
@@ -160,6 +167,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     slotsByDow.set(slot.dayOfWeek, existing);
   }
 
+  const dateSpecificSlots = new Map<string, TimeRange[]>();
+  for (const ds of dateSlots) {
+    const dateStr = toDateString(ds.date);
+    const existing = dateSpecificSlots.get(dateStr) || [];
+    existing.push({ start: timeToMinutes(ds.startTime), end: timeToMinutes(ds.endTime) });
+    dateSpecificSlots.set(dateStr, existing);
+  }
+
   const dates: Array<{
     date: string;
     dayOfWeek: number;
@@ -179,8 +194,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const dayOfWeek = current.getDay();
     const isPast = dateStr <= todayStr;
 
-    const weeklyRanges = slotsByDow.get(dayOfWeek) || [];
-    const hasWeeklySlots = weeklyRanges.length > 0;
+    const dateSpecific = dateSpecificSlots.get(dateStr);
+    const baseRanges = dateSpecific ?? slotsByDow.get(dayOfWeek) ?? [];
+    const hasSlots = baseRanges.length > 0;
 
     if (isPast || blockedDateSet.has(dateStr)) {
       dates.push({
@@ -188,14 +204,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         dayOfWeek,
         availableSlotCount: 0,
         slots: [],
-        isFullyBooked: isPast && hasWeeklySlots,
+        isFullyBooked: isPast && hasSlots,
         isPast,
       });
       current.setDate(current.getDate() + 1);
       continue;
     }
 
-    if (!hasWeeklySlots) {
+    if (!hasSlots) {
       dates.push({
         date: dateStr,
         dayOfWeek,
@@ -213,7 +229,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...(bookingBlocks.get(dateStr) || []),
     ];
 
-    const openRanges = subtractRanges(weeklyRanges, blockers);
+    const openRanges = subtractRanges(baseRanges, blockers);
     const slots = expandToSlots(openRanges, durationMins);
 
     dates.push({
