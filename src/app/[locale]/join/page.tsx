@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import {
   SERVICE_TYPE_SLUGS,
   SERVICE_RATE_INFO as CANONICAL_RATE_INFO,
@@ -105,7 +106,9 @@ const STORAGE_KEY = 'rena-join-wizard';
 /*  Option lists                                                       */
 /* ------------------------------------------------------------------ */
 
-const SERVICE_TYPE_OPTIONS: ServiceTypeSlug[] = [...SERVICE_TYPE_SLUGS];
+const SERVICE_TYPE_OPTIONS: ServiceTypeSlug[] = SAME_DAY_FEATURE_ENABLED
+  ? [...SERVICE_TYPE_SLUGS]
+  : SERVICE_TYPE_SLUGS.filter((s) => s !== 'same_day');
 
 const SERVICE_RATE_INFO: Record<
   string,

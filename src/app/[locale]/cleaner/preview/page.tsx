@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
 import AvailabilityCalendar from '@/components/AvailabilityCalendar';
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 
 interface Testimonial {
   clientName: string;
@@ -242,7 +243,7 @@ export default function ProfilePreviewPage() {
                 <span className="font-jost text-[12px] font-light text-ink-2">
                   {data.rating} ({data.reviewCount})
                 </span>
-                {data.availableNow && (
+                {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
                   <span className="ml-auto flex items-center gap-1.5">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
@@ -316,7 +317,7 @@ export default function ProfilePreviewPage() {
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {data.availableNow && (
+                    {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
                       <span className="flex items-center gap-1.5 rounded-full bg-teal/10 px-3 py-1">
                         <span className="relative flex h-2 w-2">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
@@ -344,7 +345,7 @@ export default function ProfilePreviewPage() {
                     </span>
                     <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
                   </div>
-                  {data.availableNow && (
+                  {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
                     <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
                       &pound;{sameDayRate.toFixed(2)}/hr same-day
                     </p>
@@ -353,7 +354,7 @@ export default function ProfilePreviewPage() {
                     <span className="inline-block rounded-md bg-ink px-6 py-3 text-center font-jost text-[13px] font-medium text-cream">
                       Book now
                     </span>
-                    {data.availableNow && (
+                    {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
                       <span className="inline-block rounded-md bg-teal px-6 py-3 text-center font-jost text-[13px] font-medium text-white">
                         Book for today
                       </span>

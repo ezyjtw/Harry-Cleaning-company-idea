@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
 
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
+
 interface TimeSlot {
   start: string;
   end: string;
@@ -316,36 +318,40 @@ export default function AvailabilityPage() {
         </p>
       </div>
 
-      {/* Same-day bookings toggle */}
-      <div
-        className="rounded-xl bg-white p-5 mb-6"
-        style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-jost text-sm font-light text-ink">Available for same-day bookings</p>
-            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-              Allow customers to book you for today at a premium rate
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setSameDayBookings(!sameDayBookings);
-              setDirty(true);
-              setSaved(false);
-            }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              sameDayBookings ? 'bg-gold' : 'bg-ink-3/30'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                sameDayBookings ? 'translate-x-6' : 'translate-x-1'
+      {/* Same-day bookings toggle — hidden while feature is disabled */}
+      {SAME_DAY_FEATURE_ENABLED && (
+        <div
+          className="rounded-xl bg-white p-5 mb-6"
+          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-jost text-sm font-light text-ink">
+                Available for same-day bookings
+              </p>
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                Allow customers to book you for today at a premium rate
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSameDayBookings(!sameDayBookings);
+                setDirty(true);
+                setSaved(false);
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                sameDayBookings ? 'bg-gold' : 'bg-ink-3/30'
               }`}
-            />
-          </button>
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  sameDayBookings ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Weekly Calendar Grid */}
       <div
