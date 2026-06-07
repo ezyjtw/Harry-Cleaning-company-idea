@@ -167,6 +167,7 @@ export async function GET(request: NextRequest) {
         backgroundChecked: c.backgroundCheckPassed,
         responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
         radius: c.radius,
+        maxTravelMinutes: c.maxTravelMinutes,
         travelMode: c.travelMode,
         distance,
         ...expandSlots(c.availabilitySlots),
@@ -175,7 +176,14 @@ export async function GET(request: NextRequest) {
   );
 
   if (customerGeo) {
-    results = results.filter((r) => r.distance !== null && r.distance <= r.radius);
+    results = results.filter((r) => {
+      if (r.distance === null) return false;
+      if (r.maxTravelMinutes !== null && r.maxTravelMinutes !== undefined) {
+        const travelMins = (r.distance / 25) * 60;
+        return travelMins <= r.maxTravelMinutes;
+      }
+      return r.distance <= r.radius;
+    });
     results.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   }
 
