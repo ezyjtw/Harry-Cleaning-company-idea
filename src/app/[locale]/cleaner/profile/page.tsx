@@ -37,12 +37,12 @@ export default function CleanerProfilePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [postcode, setPostcode] = useState('');
+  const [postcode, setPostcode] = useState(''); // personal info display — synced from homePostcode on save
   const [bio, setBio] = useState('');
   const [yearsExperience, setYearsExperience] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
-  const [travelRadius, setTravelRadius] = useState('10');
-  const [travelMode, setTravelMode] = useState('public_transport');
+  const [homePostcode, setHomePostcode] = useState('');
+  const [maxTravelMinutes, setMaxTravelMinutes] = useState('30');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguages, setCustomLanguages] = useState<string[]>([]);
   const [customLanguage, setCustomLanguage] = useState('');
@@ -113,8 +113,8 @@ export default function CleanerProfilePage() {
             : ''
         );
         setSelectedSpecialties(data.specialties || []);
-        setTravelRadius(String(data.radius || 10));
-        setTravelMode(data.travelMode || 'public_transport');
+        setHomePostcode(data.homePostcode || data.postcode || '');
+        setMaxTravelMinutes(String(data.maxTravelMinutes || 30));
         setPhoto(data.image || null);
         if (data.languages && data.languages.length > 0) {
           setSelectedLanguages(data.languages);
@@ -205,9 +205,8 @@ export default function CleanerProfilePage() {
           bio,
           specialties: selectedSpecialties,
           languages: selectedLanguages,
-          radius: Number(travelRadius),
-          travelMode,
-          postcode,
+          homePostcode,
+          maxTravelMinutes: Number(maxTravelMinutes),
           image: photo,
           hourlyRateRegular: Number(hourlyRate),
           yearsExperience: yearsExperience ? Number(yearsExperience) : null,
@@ -229,9 +228,8 @@ export default function CleanerProfilePage() {
     bio,
     selectedSpecialties,
     selectedLanguages,
-    travelRadius,
-    travelMode,
-    postcode,
+    homePostcode,
+    maxTravelMinutes,
     photo,
     hourlyRate,
     yearsExperience,
@@ -644,97 +642,53 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
-        {/* Travel & Location */}
+        {/* Service Area */}
         <div
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Travel & Location</h2>
+          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Service Area</h2>
 
           <div className="mb-5">
             <p className="font-jost text-sm font-light text-ink-2 mb-3">
-              How far from your postcode are you willing to travel?
+              Your home postcode — we use this to match you with nearby customers.
             </p>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                value={travelRadius}
-                onChange={(e) => {
-                  setTravelRadius(e.target.value);
-                  markDirty();
-                }}
-                min="1"
-                max="50"
-                placeholder="e.g. 10"
-                className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-              />
-              <span className="font-jost text-sm font-light text-ink-2">miles</span>
-            </div>
-            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-              Customers within this radius will be able to find you
-            </p>
+            <input
+              type="text"
+              value={homePostcode}
+              onChange={(e) => {
+                setHomePostcode(e.target.value);
+                markDirty();
+              }}
+              placeholder="e.g. SW1A 1AA"
+              className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition uppercase"
+              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+            />
           </div>
 
           <div>
             <p className="font-jost text-sm font-light text-ink-2 mb-3">
-              How do you travel to jobs?
+              Maximum travel time to jobs (minutes)
             </p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                {
-                  value: 'car',
-                  label: 'Car',
-                  icon: 'M8 17h1m7 0h1M5 11h14M6 3h12l2 5H4l2-5zM4 8v8a1 1 0 001 1h14a1 1 0 001-1V8',
-                },
-                {
-                  value: 'public_transport',
-                  label: 'Public Transport',
-                  icon: 'M8 21l-2-3h12l-2 3M12 3C7 3 4 5 4 8v6a2 2 0 002 2h12a2 2 0 002-2V8c0-3-3-5-8-5zM8 14h.01M16 14h.01M7 11h10',
-                },
-                {
-                  value: 'bicycle',
-                  label: 'Bicycle',
-                  icon: 'M5 19a4 4 0 100-8 4 4 0 000 8zm14 0a4 4 0 100-8 4 4 0 000 8zM5 15l4-8h4l2 4h4',
-                },
-                {
-                  value: 'walking',
-                  label: 'Walking',
-                  icon: 'M13 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-2 3l-2 8 3 3v4h2v-5l-2-2 1-4 2 2h4v-2h-3l-3-3z',
-                },
-              ].map((mode) => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => {
-                    setTravelMode(mode.value);
-                    markDirty();
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-jost text-[13px] font-light transition-all ${
-                    travelMode === mode.value
-                      ? 'bg-ink text-cream shadow-sm'
-                      : 'bg-cream text-ink-2 hover:bg-cream-2'
-                  }`}
-                  style={
-                    travelMode !== mode.value
-                      ? { border: '1px solid rgba(14,14,12,0.1)' }
-                      : undefined
-                  }
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d={mode.icon}
-                    />
-                  </svg>
-                  {mode.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={maxTravelMinutes}
+                onChange={(e) => {
+                  setMaxTravelMinutes(e.target.value);
+                  markDirty();
+                }}
+                min="5"
+                max="120"
+                step="5"
+                placeholder="e.g. 30"
+                className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
+                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+              />
+              <span className="font-jost text-sm font-light text-ink-2">minutes</span>
             </div>
             <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-              Helps us estimate realistic travel time to jobs
+              Only customers within this travel time will see your profile
             </p>
           </div>
         </div>

@@ -37,6 +37,8 @@ export async function GET() {
           airbnbPrices: true,
           stripeChargesEnabled: true,
           stripePayoutsEnabled: true,
+          homePostcode: true,
+          maxTravelMinutes: true,
         },
       }),
 
@@ -137,6 +139,8 @@ export async function GET() {
       airbnbPrices: profile.airbnbPrices,
       stripeChargesEnabled: profile.stripeChargesEnabled,
       stripePayoutsEnabled: profile.stripePayoutsEnabled,
+      homePostcode: profile.homePostcode,
+      maxTravelMinutes: profile.maxTravelMinutes,
     },
     stats: {
       todaysJobs,

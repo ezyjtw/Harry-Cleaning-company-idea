@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -60,35 +60,27 @@ function getMonday(d: Date): Date {
   return result;
 }
 
-function getSunday(d: Date): Date {
-  const result = new Date(d);
-  result.setHours(12, 0, 0, 0);
-  const day = result.getDay();
-  const diff = day === 0 ? 0 : 7 - day;
-  result.setDate(result.getDate() + diff);
-  return result;
-}
-
-function generateDateRange(start: Date, end: Date): string[] {
+function generateWeekDates(monday: Date): string[] {
   const dates: string[] = [];
-  const current = new Date(start);
-  current.setHours(12, 0, 0, 0);
-  const endTime = new Date(end);
-  endTime.setHours(12, 0, 0, 0);
-  while (current <= endTime) {
-    dates.push(toDateString(current));
-    current.setDate(current.getDate() + 1);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    dates.push(toDateString(d));
   }
   return dates;
 }
 
-function formatMobileDate(dateStr: string): { dayName: string; dateNumber: number; month: string } {
-  const d = new Date(`${dateStr}T12:00:00`);
-  return {
-    dayName: d.toLocaleDateString('en-GB', { weekday: 'short' }),
-    dateNumber: d.getDate(),
-    month: d.toLocaleDateString('en-GB', { month: 'short' }),
-  };
+function formatWeekLabel(monday: Date): string {
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  const mDay = monday.getDate();
+  const sDay = sunday.getDate();
+  const mMonth = monday.toLocaleDateString('en-GB', { month: 'short' });
+  const sMonth = sunday.toLocaleDateString('en-GB', { month: 'short' });
+  if (mMonth === sMonth) {
+    return `${mDay} – ${sDay} ${mMonth}`;
+  }
+  return `${mDay} ${mMonth} – ${sDay} ${sMonth}`;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -108,6 +100,8 @@ export default function DateTimePicker({
   const [fetchedDates, setFetchedDates] = useState<AvailabilityDate[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const today = useMemo(() => {
     const d = new Date();
@@ -155,17 +149,20 @@ export default function DateTimePicker({
     return map;
   }, [dates]);
 
-  const calendarGrid = useMemo(() => {
-    const gridStart = getMonday(today);
-    const gridEnd = getSunday(windowEnd);
-    return generateDateRange(gridStart, gridEnd);
-  }, [today, windowEnd]);
+  const currentMonday = useMemo(() => {
+    const monday = getMonday(today);
+    monday.setDate(monday.getDate() + weekOffset * 7);
+    return monday;
+  }, [today, weekOffset]);
 
-  const bookableDates = useMemo(() => {
-    return dates.filter(
-      (d) => !d.isPast && d.date > todayStr && d.date <= windowEndStr && d.availableSlotCount > 0
-    );
-  }, [dates, todayStr, windowEndStr]);
+  const weekDates = useMemo(() => generateWeekDates(currentMonday), [currentMonday]);
+
+  const maxWeekOffset = useMemo(() => {
+    const firstMonday = getMonday(today);
+    const lastMonday = getMonday(windowEnd);
+    const diff = lastMonday.getTime() - firstMonday.getTime();
+    return Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
+  }, [today, windowEnd]);
 
   const selectedDate = value?.date ?? null;
 
@@ -215,6 +212,16 @@ export default function DateTimePicker({
     };
   };
 
+  const handlePrevWeek = () => setWeekOffset((w) => Math.max(0, w - 1));
+  const handleNextWeek = () => setWeekOffset((w) => Math.min(maxWeekOffset, w + 1));
+
+  const scrollLeft = () => {
+    scrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' });
+  };
+  const scrollRight = () => {
+    scrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' });
+  };
+
   if (loading) {
     return (
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
@@ -250,8 +257,47 @@ export default function DateTimePicker({
           <p className="mt-2 font-jost text-sm font-light text-ink-3">{dateSubtitle}</p>
         )}
 
-        {/* Desktop / tablet: 7-column calendar grid */}
-        <div className="mt-5 hidden sm:block">
+        {/* Week navigation header */}
+        <div className="mt-5 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handlePrevWeek}
+            disabled={weekOffset === 0}
+            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="h-4 w-4 text-ink"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <span className="font-jost text-sm font-medium text-ink">
+            {formatWeekLabel(currentMonday)}
+          </span>
+          <button
+            type="button"
+            onClick={handleNextWeek}
+            disabled={weekOffset >= maxWeekOffset}
+            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-cream disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="h-4 w-4 text-ink"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Desktop: 7-day strip */}
+        <div className="mt-4 hidden sm:block">
           <div className="grid grid-cols-7 gap-2">
             {DAY_HEADERS.map((day) => (
               <div
@@ -264,7 +310,7 @@ export default function DateTimePicker({
           </div>
 
           <div className="grid grid-cols-7 gap-2">
-            {calendarGrid.map((dateStr) => {
+            {weekDates.map((dateStr) => {
               const { isToday, isDimmed, slotCount, isFullyBooked, isBookable, isSelected } =
                 getCellState(dateStr);
               const dateNum = new Date(`${dateStr}T12:00:00`).getDate();
@@ -309,37 +355,92 @@ export default function DateTimePicker({
           </div>
         </div>
 
-        {/* Mobile: stacked list of bookable dates only */}
-        <div className="mt-5 space-y-2 sm:hidden">
-          {bookableDates.length > 0 ? (
-            bookableDates.map((d) => {
-              const { dayName, dateNumber, month } = formatMobileDate(d.date);
-              const isSelected = d.date === selectedDate;
+        {/* Mobile: horizontal scroll-snap carousel */}
+        <div className="relative mt-4 sm:hidden">
+          <button
+            type="button"
+            onClick={scrollLeft}
+            className="absolute -left-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow ring-1 ring-ink/10"
+          >
+            <svg
+              className="h-3.5 w-3.5 text-ink"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div
+            ref={scrollRef}
+            className="flex gap-2 overflow-x-auto px-1 pb-2 scrollbar-hide"
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+          >
+            {weekDates.map((dateStr) => {
+              const { isToday, isDimmed, slotCount, isFullyBooked, isBookable, isSelected } =
+                getCellState(dateStr);
+              const d = new Date(`${dateStr}T12:00:00`);
+              const dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
+              const dateNum = d.getDate();
+              const isUnavailable = !isDimmed && slotCount === 0;
+
               return (
                 <button
-                  key={d.date}
+                  key={dateStr}
                   type="button"
-                  onClick={() => handleDateSelect(d.date)}
-                  className={`flex w-full items-center justify-between rounded-lg px-5 py-3.5 font-jost text-sm font-light ring-1 transition-all ${
+                  disabled={!isBookable}
+                  onClick={() => isBookable && handleDateSelect(dateStr)}
+                  className={`flex w-[72px] shrink-0 flex-col items-center justify-center rounded-lg px-2 py-3 font-jost text-sm ring-1 transition-all ${
                     isSelected
                       ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                      : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                      : isDimmed
+                        ? 'cursor-default bg-cream/50 text-ink-3/40 ring-transparent'
+                        : isUnavailable
+                          ? 'cursor-default bg-cream/80 text-ink-3/60 ring-ink/[0.04]'
+                          : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2'
                   }`}
+                  style={{ scrollSnapAlign: 'start' }}
                 >
-                  <span>
-                    {dayName} {dateNumber} {month}
+                  <span className="text-[10px] font-light uppercase tracking-wide text-ink-3">
+                    {dayName}
                   </span>
-                  <span className="text-ink-3">
-                    {d.availableSlotCount} {d.availableSlotCount === 1 ? 'slot' : 'slots'}
+                  <span className={`mt-0.5 text-lg font-light ${isSelected ? 'font-normal' : ''}`}>
+                    {dateNum}
                   </span>
+                  {isToday && (
+                    <span className="mt-0.5 text-[9px] font-light text-ink-3/50">Today</span>
+                  )}
+                  {!isDimmed && slotCount > 0 && (
+                    <span className="mt-0.5 text-[9px] font-light text-ink-3">
+                      {slotCount} {slotCount === 1 ? 'slot' : 'slots'}
+                    </span>
+                  )}
+                  {isUnavailable && isFullyBooked && (
+                    <span className="mt-0.5 text-[9px] font-light text-ink-3/70">Full</span>
+                  )}
+                  {isUnavailable && !isFullyBooked && (
+                    <span className="mt-0.5 text-[9px] font-light text-ink-3/50">—</span>
+                  )}
                 </button>
               );
-            })
-          ) : (
-            <p className="font-jost text-sm font-light text-ink-3">
-              No available dates. Please try a different cleaner or check back later.
-            </p>
-          )}
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={scrollRight}
+            className="absolute -right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow ring-1 ring-ink/10"
+          >
+            <svg
+              className="h-3.5 w-3.5 text-ink"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
         </div>
       </div>
 

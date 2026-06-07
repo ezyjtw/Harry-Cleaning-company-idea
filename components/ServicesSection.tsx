@@ -44,22 +44,37 @@ export default function ServicesSection() {
           className="grid grid-cols-2 gap-0 sm:grid-cols-3 md:grid-cols-5"
           style={{ border: '1px solid rgba(27,42,74,0.08)' }}
         >
-          {services.map((svc, i) => (
-            <button
-              key={svc.id}
-              onClick={() => setActive(i)}
-              className={`p-5 text-left transition-all md:p-6 ${
-                active === i ? 'bg-cream-2' : 'bg-white hover:bg-cream'
-              }`}
-              style={{
-                borderBottom: '1px solid rgba(27,42,74,0.06)',
-                borderRight: '1px solid rgba(27,42,74,0.06)',
-              }}
-            >
-              <p className="mb-1 font-jost text-[15px] font-semibold text-ink">{svc.title}</p>
-              <p className="font-jost text-[12px] text-gold">{svc.price}</p>
-            </button>
-          ))}
+          {services.map((svc, i) => {
+            const isSameDay = svc.id === 'same-day';
+            return (
+              <button
+                key={svc.id}
+                onClick={() => !isSameDay && setActive(i)}
+                disabled={isSameDay}
+                className={`p-5 text-left transition-all md:p-6 ${
+                  isSameDay
+                    ? 'cursor-default opacity-50'
+                    : active === i
+                      ? 'bg-cream-2'
+                      : 'bg-white hover:bg-cream'
+                }`}
+                style={{
+                  borderBottom: '1px solid rgba(27,42,74,0.06)',
+                  borderRight: '1px solid rgba(27,42,74,0.06)',
+                }}
+              >
+                <div className="mb-1 flex items-center gap-2">
+                  <p className="font-jost text-[15px] font-semibold text-ink">{svc.title}</p>
+                  {isSameDay && (
+                    <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
+                <p className="font-jost text-[12px] text-gold">{svc.price}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Expanded detail */}

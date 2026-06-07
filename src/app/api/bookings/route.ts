@@ -127,6 +127,8 @@ export async function POST(request: NextRequest) {
             stripeAccountId: true,
             stripeChargesEnabled: true,
             stripePayoutsEnabled: true,
+            homePostcode: true,
+            maxTravelMinutes: true,
           },
         },
       },
@@ -146,6 +148,20 @@ export async function POST(request: NextRequest) {
         {
           error:
             'This cleaner is not yet set up to receive payments. Please choose another cleaner.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 4b. Service area defensive check
+    if (
+      !cleaner.cleanerProfile?.homePostcode ||
+      cleaner.cleanerProfile?.maxTravelMinutes === null
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'This cleaner has not set up their service area yet. Please choose another cleaner or try again later.',
         },
         { status: 400 }
       );
