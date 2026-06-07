@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { normalizeToPricingSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -85,6 +86,33 @@ export async function POST(request: NextRequest) {
       if (!body[field]) {
         return NextResponse.json({ error: `${field} is required` }, { status: 400 });
       }
+    }
+
+    // 1b. Date validation
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(body.date)) {
+      return NextResponse.json({ error: 'date must be in YYYY-MM-DD format.' }, { status: 400 });
+    }
+
+    const bookingDate = new Date(`${body.date}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (bookingDate <= today) {
+      return NextResponse.json(
+        {
+          error:
+            'Booking date must be in the future. Same-day bookings are not currently available.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!SAME_DAY_FEATURE_ENABLED && body.serviceType === 'same-day') {
+      return NextResponse.json(
+        { error: 'Same-day bookings are not currently available.' },
+        { status: 400 }
+      );
     }
 
     // 2. Cleaner lookup with Stripe eligibility

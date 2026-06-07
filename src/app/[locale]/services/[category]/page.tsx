@@ -86,6 +86,21 @@ function getPostcodeArea(postcode: string): string {
 /** Day abbreviations in order */
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
+function dayAbbrToNextDate(abbr: string): string {
+  const idx = DAY_NAMES.indexOf(abbr as (typeof DAY_NAMES)[number]);
+  if (idx === -1) return abbr;
+  const today = new Date();
+  const todayDow = today.getDay();
+  let daysAhead = idx - todayDow;
+  if (daysAhead <= 0) daysAhead += 7;
+  const target = new Date(today);
+  target.setDate(target.getDate() + daysAhead);
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const _ADDITIONAL_ROOMS = [
   'Conservatory',
   'Utility Room',
@@ -320,7 +335,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           name: email.split('@')[0],
           email,
           address: postcode,
-          date: selectedDay,
+          date: dayAbbrToNextDate(selectedDay),
           time: selectedTime || 'Flexible',
           duration: effectiveHours,
           serviceType: category,
