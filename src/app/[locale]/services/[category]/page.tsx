@@ -1,13 +1,14 @@
 'use client';
 
+import { Elements } from '@stripe/react-stripe-js';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
-import AddToCalendar from '@/components/AddToCalendar';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
+import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -15,6 +16,7 @@ import { isInCatchmentArea } from '@/lib/catchment';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import stripePromise from '@/lib/stripe-client';
 import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner, Review } from '@/lib/types';
 
 const SERVICE_LABELS: Record<ServiceCategory, string> = {
@@ -257,7 +259,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [email, setEmail] = useState('');
   const [joinMailingList, setJoinMailingList] = useState(false);
 
-  // Out-of-area waitlist
+  // Postcode validation + out-of-area waitlist
+  const [postcodeError, setPostcodeError] = useState('');
   const [outsideCatchment, setOutsideCatchment] = useState(false);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
@@ -286,9 +289,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [keyAccessNote, setKeyAccessNote] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
 
-  const [submitted, setSubmitted] = useState(false);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentStep, setPaymentStep] = useState(false);
+  const [saveCard, setSaveCard] = useState(false);
 
   const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
   const selectedCleaner = selectedCleaners[0] ?? null;
@@ -357,7 +362,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       if (response.ok) {
         const data = await response.json();
         setConfirmedBookingId(data.booking?.id || '');
-        setSubmitted(true);
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
+          setPaymentStep(true);
+        }
       }
     } catch {
       // Handle error silently for now
@@ -369,13 +377,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // ─── Step-by-step back navigation ────────────────────
   // Determines which "step" the user is on for back-button behaviour
   const currentStep = useMemo(() => {
-    if (submitted) return 'submitted';
+    if (paymentStep) return 'payment';
     if (phase === 'quote') return 'quote';
     if (selectedCleanerIds.length > 0) return 'booking';
     if (scheduling === 'flexible') return 'browse';
     if (scheduling === 'set-time') return 'set-time';
     return 'choose-method';
-  }, [phase, scheduling, selectedCleanerIds, submitted]);
+  }, [phase, scheduling, selectedCleanerIds, paymentStep]);
 
   const goBack = useCallback(() => {
     if (profileCleaner) {
@@ -491,57 +499,31 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     return <SameDayComingSoonBanner />;
   }
 
-  if (submitted) {
+  if (paymentStep && clientSecret) {
+    const totalPrice =
+      priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center bg-cream min-h-screen">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-cream-2 text-3xl text-gold ring-1 ring-ink/[0.06]">
-          &#10003;
-        </div>
-        <h1 className="mt-8 font-cormorant font-light text-3xl text-ink">Booking Request Sent</h1>
-        <p className="mt-5 font-jost font-light text-ink-2">
-          {isFixedPrice(category) ? (
-            <>
-              We&apos;ve received your {serviceLabel.toLowerCase()} request
-              {selectedCleaners.length > 0
-                ? `. We\u2019ll try to match you with ${selectedCleaners.map((sc) => sc.name).join(', ')}`
-                : `. We\u2019ll assign the best available cleaner`}
-              . You&apos;ll receive a confirmation at{' '}
-              <span className="font-normal text-ink">{email}</span>.
-            </>
-          ) : (
-            <>
-              We&apos;ve sent your {serviceLabel.toLowerCase()} request
-              {selectedCleaners.length > 0
-                ? ` to ${selectedCleaners.map((sc) => sc.name).join(' & ')}`
-                : ''}
-              . You&apos;ll receive a confirmation at{' '}
-              <span className="font-normal text-ink">{email}</span>.
-            </>
-          )}
+      <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
+        <h1 className="font-cormorant text-3xl font-light text-ink text-center">
+          Complete Payment
+        </h1>
+        <p className="mt-3 text-center font-jost text-sm font-light text-ink-3">
+          {serviceLabel}
+          {selectedCleaner ? ` with ${selectedCleaner.name}` : ''} &middot; {effectiveHours} hours
+          &middot; &pound;{totalPrice.toFixed(2)}
         </p>
-        {joinMailingList && (
-          <p className="mt-3 font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
-            You&apos;ve been added to our mailing list for tips and offers.
-          </p>
-        )}
-
-        {selectedDate && (
-          <AddToCalendar
-            title={`${serviceLabel}${selectedCleaners.length > 0 ? ` - ${selectedCleaners.map((c) => c.name).join(', ')}` : ''}`}
-            description={`Cleaning booked via Rena. Ref: ${confirmedBookingId || 'TBC'}`}
-            location={postcode}
-            date={selectedDate}
-            time={selectedTime24 || '09:00'}
-            durationHours={effectiveHours}
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <StripeCheckoutForm
+            total={totalPrice}
+            bookingId={confirmedBookingId}
+            saveCard={saveCard}
+            onSaveCardChange={setSaveCard}
+            onBack={() => {
+              setPaymentStep(false);
+              setClientSecret(null);
+            }}
           />
-        )}
-
-        <Link
-          href="/"
-          className="mt-10 inline-block bg-ink px-8 py-3.5 font-jost text-[11px] uppercase tracking-[0.1em] text-cream hover:bg-gold transition"
-        >
-          Back to Home
-        </Link>
+        </Elements>
       </div>
     );
   }
@@ -633,17 +615,26 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   setPostcode(val);
-                  // Check catchment when a full postcode is entered
-                  const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+                  if (postcodeError) setPostcodeError('');
+                  const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
                   if (fullPostcode.test(val.trim())) {
                     setOutsideCatchment(!isInCatchmentArea(val));
                   } else {
                     setOutsideCatchment(false);
                   }
                 }}
+                onBlur={() => {
+                  const trimmed = postcode.trim();
+                  if (trimmed && !/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
+                    setPostcodeError('Please enter a valid UK postcode');
+                  }
+                }}
                 placeholder="e.g. SW1A 1AA"
-                className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost text-lg font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost text-lg font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 focus:ring-gold/30 ${postcodeError ? 'ring-red-400' : 'ring-ink/[0.06]'}`}
               />
+              {postcodeError && (
+                <p className="mt-1.5 font-jost text-xs font-light text-red-600">{postcodeError}</p>
+              )}
 
               {/* Out-of-area waitlist */}
               {outsideCatchment && !waitlistSubmitted && (
@@ -1006,8 +997,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Continue */}
             <button
               type="button"
-              onClick={() => setPhase('cleaner')}
-              disabled={!postcode || !email || outsideCatchment}
+              onClick={() => {
+                const trimmed = postcode.trim();
+                if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
+                  setPostcodeError('Please enter a valid UK postcode');
+                  return;
+                }
+                setPhase('cleaner');
+              }}
+              disabled={!postcode || !email || outsideCatchment || !!postcodeError}
               className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {outsideCatchment ? 'Not yet available in your area' : 'Continue'}

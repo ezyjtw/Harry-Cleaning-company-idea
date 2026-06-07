@@ -1,6 +1,6 @@
 'use client';
 
-import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -9,6 +9,7 @@ import AvailableNowBadge from '@/components/AvailableNowBadge';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
+import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -528,8 +529,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
         <div className="mt-6 grid gap-3">
           {SERVICE_TYPES.filter((s) => {
-            if (s.value === 'same-day')
-              return cleaner.availableNow && cleaner.serviceTypes.includes('same_day');
+            if (s.value === 'same-day') return true;
             const dbSlug = URL_SLUG_TO_DB_SLUG[s.value];
             if (!dbSlug || !cleaner.serviceTypes.includes(dbSlug)) return false;
             if (dbSlug === 'regular')
@@ -552,35 +552,37 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               );
             return true;
           }).map((s) => {
-            const isSameDayPastDeadline = s.value === 'same-day' && new Date().getHours() >= 12;
+            const isSameDay = s.value === 'same-day';
             return (
               <button
                 key={s.value}
-                disabled={isSameDayPastDeadline}
+                disabled={isSameDay}
                 onClick={() => {
-                  if (!isSameDayPastDeadline) {
+                  if (!isSameDay) {
                     router.push(`/services/${s.value}?cleaner=${params.id}`);
                   }
                 }}
                 className={`group/card flex items-center justify-between p-5 text-left transition ${
-                  isSameDayPastDeadline ? 'cursor-not-allowed opacity-45' : 'hover:bg-cream-2'
+                  isSameDay ? 'cursor-not-allowed opacity-50' : 'hover:bg-cream-2'
                 }`}
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
+                    {isSameDay && (
+                      <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
+                        Coming Soon
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
                     {s.description}
                   </p>
-                  {isSameDayPastDeadline && (
-                    <p className="mt-1 font-jost text-[12px] font-medium text-red-400">
-                      Same-day booking is closed for today
-                    </p>
-                  )}
                 </div>
                 <svg
                   className={`ml-3 h-5 w-5 shrink-0 transition ${
-                    isSameDayPastDeadline
+                    isSameDay
                       ? 'text-ink-3'
                       : 'text-ink-3 group-hover/card:translate-x-0.5 group-hover/card:text-ink'
                   }`}
@@ -857,8 +859,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
                     {SERVICE_TYPES.map((s) => (
-                      <option key={s.value} value={s.value}>
+                      <option key={s.value} value={s.value} disabled={s.value === 'same-day'}>
                         {s.label}
+                        {s.value === 'same-day' ? ' (Coming Soon)' : ''}
                       </option>
                     ))}
                   </select>
@@ -1124,100 +1127,5 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       </div>
       {/* End two-column grid */}
     </div>
-  );
-}
-
-function StripeCheckoutForm({
-  total,
-  bookingId,
-  saveCard,
-  onSaveCardChange,
-  onBack,
-}: {
-  total: number;
-  bookingId: string;
-  saveCard: boolean;
-  onSaveCardChange: (checked: boolean) => void;
-  onBack: () => void;
-}) {
-  const stripeHook = useStripe();
-  const elements = useElements();
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripeHook || !elements) return;
-
-    setProcessing(true);
-    setError(null);
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-
-    const result = await stripeHook.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${appUrl}/en/booking-confirmation/${bookingId}`,
-      },
-    });
-
-    if (result.error) {
-      setError(result.error.message || 'Payment failed. Please try again.');
-      setProcessing(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handlePayment}>
-      <div className="mt-6 bg-white p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-        <PaymentElement onReady={() => setReady(true)} />
-      </div>
-
-      <label className="mt-4 flex items-center gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={saveCard}
-          onChange={(e) => onSaveCardChange(e.target.checked)}
-          className="h-4 w-4 accent-ink"
-        />
-        <span className="font-jost text-sm font-light text-ink-2">
-          Save this card for future bookings
-        </span>
-      </label>
-
-      {error && (
-        <div className="mt-4 bg-red-50 px-4 py-3 font-jost text-sm text-red-700">{error}</div>
-      )}
-
-      <div className="mt-4 flex items-start gap-2.5">
-        <svg className="mt-0.5 h-4 w-4 shrink-0" fill="#b8975a" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-            clipRule="evenodd"
-          />
-        </svg>
-        <p className="font-jost text-xs font-light text-ink-2">
-          Your payment is encrypted and processed securely by Stripe.
-        </p>
-      </div>
-
-      <button
-        type="submit"
-        disabled={!ready || processing || !stripeHook}
-        className="mt-6 w-full bg-ink py-3 font-jost text-lg font-normal text-cream hover:bg-ink/90 disabled:opacity-60"
-      >
-        {processing ? 'Processing...' : `Pay £${total.toFixed(2)}`}
-      </button>
-
-      <button
-        type="button"
-        onClick={onBack}
-        className="mt-3 w-full py-2 font-jost text-sm font-light text-ink-3 hover:text-ink transition"
-      >
-        &larr; Back to booking details
-      </button>
-    </form>
   );
 }

@@ -43,6 +43,7 @@ interface FormData {
   // Step 2 – Pricing (keyed by service type from step 1)
   serviceRates: Record<string, string>;
   hoursPerWeek: string;
+  maxTravelMinutes: string;
 
   // Step 3 – Identity & Right to Work
   photoIdFile: string;
@@ -83,6 +84,7 @@ const INITIAL_FORM: FormData = {
 
   serviceRates: {},
   hoursPerWeek: '',
+  maxTravelMinutes: '30',
 
   photoIdFile: '',
   rightToWorkDocType: '',
@@ -820,6 +822,10 @@ export default function JoinAsCleanerPage() {
       }
       if (!form.hoursPerWeek || Number(form.hoursPerWeek) < 1)
         e.hoursPerWeek = 'Enter your typical hours per week';
+      const mtm = Number(form.maxTravelMinutes);
+      if (!form.maxTravelMinutes || isNaN(mtm) || mtm < 5)
+        e.maxTravelMinutes = 'Minimum travel time is 5 minutes';
+      else if (mtm > 120) e.maxTravelMinutes = 'Maximum travel time is 120 minutes';
     }
 
     if (step === 3) {
@@ -1651,6 +1657,24 @@ export default function JoinAsCleanerPage() {
                 onChange={(e) => set('hoursPerWeek', e.target.value)}
               />
               <FieldError message={errors.hoursPerWeek} />
+            </div>
+
+            <div>
+              <Label>Maximum Travel Time to Jobs (minutes)</Label>
+              <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
+                How far from your postcode are you willing to travel? Only customers within this
+                travel time will see your profile.
+              </p>
+              <Input
+                type="number"
+                min="5"
+                max="120"
+                step="5"
+                required
+                value={form.maxTravelMinutes}
+                onChange={(e) => set('maxTravelMinutes', e.target.value)}
+              />
+              <FieldError message={errors.maxTravelMinutes} />
             </div>
           </div>
         )}

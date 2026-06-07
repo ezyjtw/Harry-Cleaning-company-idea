@@ -20,12 +20,6 @@ const serviceRates = [
     typical: '2\u20134 hours',
   },
   {
-    type: 'One-Off Cleaning',
-    description: 'Single visit, no recurring commitment',
-    rate: '\u00A315 \u2013 \u00A339/hr',
-    typical: '2\u20134 hours',
-  },
-  {
     type: 'Deep Cleaning',
     description: 'Intensive top-to-bottom cleaning',
     rate: '\u00A320 \u2013 \u00A351/hr',
@@ -48,6 +42,7 @@ const serviceRates = [
     description: 'Urgent booking for same-day service',
     rate: '\u00A318 \u2013 \u00A346/hr',
     typical: '2\u20134 hours',
+    comingSoon: true,
   },
 ];
 
@@ -57,7 +52,7 @@ const comparisonFeatures = [
   { feature: 'Transparent pricing', rena: 'Yes', competitor1: 'Partial', competitor2: 'No' },
   { feature: 'Escrow protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
   { feature: 'Satisfaction guarantee', rena: 'Yes', competitor1: 'Limited', competitor2: 'Yes' },
-  { feature: 'Same-day booking', rena: 'Yes', competitor1: 'Yes', competitor2: 'No' },
+  { feature: 'Same-day booking', rena: 'Coming Soon', competitor1: 'Yes', competitor2: 'No' },
   { feature: 'No subscription required', rena: 'Yes', competitor1: 'No', competitor2: 'Yes' },
 ];
 
@@ -197,9 +192,22 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {serviceRates.map((service) => (
-                  <tr key={service.type} style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}>
+                  <tr
+                    key={service.type}
+                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}
+                    className={'comingSoon' in service && service.comingSoon ? 'opacity-50' : ''}
+                  >
                     <td className="px-6 py-4">
-                      <div className="text-sm font-normal text-ink font-jost">{service.type}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-normal text-ink font-jost">
+                          {service.type}
+                        </span>
+                        {'comingSoon' in service && service.comingSoon && (
+                          <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
+                            Coming Soon
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm font-jost font-light text-ink-3">
                         {service.description}
                       </div>

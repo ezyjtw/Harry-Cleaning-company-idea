@@ -273,10 +273,13 @@ model CleanerProfile {
   dbsCertNumber       String? // retained after destruction
   dbsCertIssueDate    DateTime? // retained after destruction
   dbsCertDestroyedAt  DateTime? // when the actual file was destroyed
+  // DEPRECATED: dual-written from homePostcode for backward compatibility with matching service.
+  // Future PR will migrate matching to homeLatitude/homeLongitude/maxTravelMinutes
+  // and drop these legacy fields. Do not write to these directly — set home* fields instead.
   location            String?
   latitude            Float?
   longitude           Float?
-  radius              Int                @default(10) // @deprecated — replaced by maxTravelMinutes; kept for rollback
+  radius              Int                @default(10)
   travelMode          String             @default("public_transport")
   availableNow        Boolean            @default(false)
   responseTime        Int? // average response time in minutes
@@ -289,6 +292,7 @@ model CleanerProfile {
   cancellationRate    Decimal            @default(0) @db.Decimal(5, 2)
   completionRate      Decimal            @default(100) @db.Decimal(5, 2)
   responseSpeed       Int? // average response speed in seconds
+  // DEPRECATED: dual-written from homePostcode. See location/latitude/longitude deprecation above.
   postcode            String?
   ryftAccountId       String?
 

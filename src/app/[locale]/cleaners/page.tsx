@@ -24,6 +24,7 @@ const FILTER_LABEL_TO_SERVICE_SLUG: Record<string, string> = {
 const SERVICE_FILTERS = [
   'All',
   'Regular Cleaning',
+  'Same Day',
   'Deep Cleaning',
   'End of Tenancy',
   'Airbnb / Short-Let',
@@ -50,6 +51,7 @@ function CleanersContent() {
   const searchParams = useSearchParams();
   const [postcode, setPostcode] = useState(searchParams.get('postcode') || '');
   const [postcodeSearch, setPostcodeSearch] = useState(searchParams.get('postcode') || '');
+  const [postcodeError, setPostcodeError] = useState('');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>(postcode ? 'distance' : 'rating');
@@ -147,9 +149,16 @@ function CleanersContent() {
     if (!postcodeSearch.trim()) {
       setPostcode('');
       setCleanerCount(null);
+      setPostcodeError('');
       return;
     }
-    setPostcode(postcodeSearch.trim().toUpperCase());
+    const trimmed = postcodeSearch.trim();
+    if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
+      setPostcodeError('Please enter a valid UK postcode');
+      return;
+    }
+    setPostcodeError('');
+    setPostcode(trimmed.toUpperCase());
     setSort('distance');
   };
 
@@ -219,7 +228,10 @@ function CleanersContent() {
                 type="text"
                 placeholder="Enter your postcode"
                 value={postcodeSearch}
-                onChange={(e) => setPostcodeSearch(e.target.value)}
+                onChange={(e) => {
+                  setPostcodeSearch(e.target.value);
+                  if (postcodeError) setPostcodeError('');
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && handlePostcodeSearch()}
                 className="flex-1 bg-transparent px-4 py-3.5 font-jost text-[14px] text-ink placeholder:text-ink-3 focus:outline-none"
               />
@@ -231,6 +243,9 @@ function CleanersContent() {
               </button>
             </div>
           </div>
+          {postcodeError && (
+            <p className="mt-2 font-jost text-xs font-light text-red-400">{postcodeError}</p>
+          )}
 
           {postcode && cleanerCount !== null && (
             <div className="mt-4 flex items-center gap-3">
@@ -344,6 +359,20 @@ function CleanersContent() {
               All
             </button>
             {SERVICE_FILTERS.filter((f) => f !== 'All').map((f) => {
+              const isSameDay = f === 'Same Day';
+              if (isSameDay) {
+                return (
+                  <span
+                    key={f}
+                    className="flex items-center gap-1.5 rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide border border-ink/10 text-ink-3/50 cursor-not-allowed"
+                  >
+                    {f}
+                    <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em]">
+                      Soon
+                    </span>
+                  </span>
+                );
+              }
               const isActive = filters.includes(f);
               return (
                 <button

@@ -150,18 +150,21 @@ export default function ServicesPage() {
             {services.map((service, index) => {
               const isExpanded = expandedId === service.id;
               const isEven = index % 2 === 0;
+              const isSameDay = service.id === 'same-day';
 
               return (
                 <div
                   key={service.id}
-                  className="group relative bg-white transition-shadow duration-300 hover:shadow-lg"
+                  className={`group relative bg-white transition-shadow duration-300 ${isSameDay ? 'opacity-50' : 'hover:shadow-lg'}`}
                   style={{ border: '0.5px solid rgba(27,42,74,0.1)' }}
                 >
                   {/* Badge */}
-                  {service.badge && (
+                  {(service.badge || isSameDay) && (
                     <div className="absolute -top-3 right-6 sm:right-8">
-                      <span className="inline-block bg-gold px-4 py-1 font-jost text-[10px] uppercase tracking-[0.14em] text-white">
-                        {service.badge}
+                      <span
+                        className={`inline-block px-4 py-1 font-jost text-[10px] uppercase tracking-[0.14em] text-white ${isSameDay ? 'bg-ink/40' : 'bg-gold'}`}
+                      >
+                        {isSameDay ? 'Coming Soon' : service.badge}
                       </span>
                     </div>
                   )}
@@ -225,76 +228,88 @@ export default function ServicesPage() {
                       </div>
 
                       {/* Toggle details button */}
-                      <button
-                        type="button"
-                        onClick={() => toggle(service.id)}
-                        className="mt-6 flex items-center gap-2 font-jost text-[12px] uppercase tracking-[0.1em] text-gold transition-colors hover:text-ink"
-                      >
-                        {isExpanded ? 'Hide details' : "See what's included"}
-                        <svg
-                          className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2}
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19.5 8.25l-7.5 7.5-7.5-7.5"
-                          />
-                        </svg>
-                      </button>
+                      {!isSameDay && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => toggle(service.id)}
+                            className="mt-6 flex items-center gap-2 font-jost text-[12px] uppercase tracking-[0.1em] text-gold transition-colors hover:text-ink"
+                          >
+                            {isExpanded ? 'Hide details' : "See what's included"}
+                            <svg
+                              className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={2}
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                              />
+                            </svg>
+                          </button>
 
-                      {/* Expanded details */}
-                      {isExpanded && (
-                        <div
-                          className="mt-6 fade-in"
-                          style={{ borderTop: '0.5px solid rgba(27,42,74,0.08)' }}
-                        >
-                          <h3 className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                            What&apos;s included
-                          </h3>
-                          <div className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
-                            {service.details.map((detail, i) => (
-                              <div key={i} className="flex items-start gap-3">
-                                <svg
-                                  className="mt-1 h-4 w-4 shrink-0 text-gold"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  strokeWidth={2}
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                                <span className="font-jost font-light text-[14px] text-ink-2">
-                                  {detail}
-                                </span>
+                          {/* Expanded details */}
+                          {isExpanded && (
+                            <div
+                              className="mt-6 fade-in"
+                              style={{ borderTop: '0.5px solid rgba(27,42,74,0.08)' }}
+                            >
+                              <h3 className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                                What&apos;s included
+                              </h3>
+                              <div className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
+                                {service.details.map((detail, i) => (
+                                  <div key={i} className="flex items-start gap-3">
+                                    <svg
+                                      className="mt-1 h-4 w-4 shrink-0 text-gold"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      strokeWidth={2}
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    <span className="font-jost font-light text-[14px] text-ink-2">
+                                      {detail}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </div>
+                            </div>
+                          )}
+                        </>
                       )}
 
                       {/* CTA */}
                       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <Link
-                          href={`/services/${service.id}`}
-                          className="inline-block bg-ink px-8 py-3.5 text-center font-jost text-[11px] uppercase tracking-[0.14em] text-cream transition-colors hover:bg-gold"
-                        >
-                          Book a Cleaner Now
-                        </Link>
-                        <Link
-                          href="/cleaners"
-                          className="inline-block px-8 py-3.5 text-center font-jost text-[11px] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-cream-2"
-                          style={{ border: '0.5px solid rgba(27,42,74,0.15)' }}
-                        >
-                          Browse Cleaners
-                        </Link>
+                        {isSameDay ? (
+                          <span className="inline-block bg-ink/30 px-8 py-3.5 text-center font-jost text-[11px] uppercase tracking-[0.14em] text-cream cursor-not-allowed">
+                            Coming Soon
+                          </span>
+                        ) : (
+                          <>
+                            <Link
+                              href={`/services/${service.id}`}
+                              className="inline-block bg-ink px-8 py-3.5 text-center font-jost text-[11px] uppercase tracking-[0.14em] text-cream transition-colors hover:bg-gold"
+                            >
+                              Book a Cleaner Now
+                            </Link>
+                            <Link
+                              href="/cleaners"
+                              className="inline-block px-8 py-3.5 text-center font-jost text-[11px] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-cream-2"
+                              style={{ border: '0.5px solid rgba(27,42,74,0.15)' }}
+                            >
+                              Browse Cleaners
+                            </Link>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

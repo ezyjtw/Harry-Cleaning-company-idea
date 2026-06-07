@@ -166,9 +166,9 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
                   &pound;{cleaner.hourlyRateDeep.toFixed(2)}/hr deep clean
                 </p>
               )}
-              {cleaner.availableNow && cleaner.hourlyRateSameDay && (
-                <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
-                  &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr same-day
+              {cleaner.hourlyRateSameDay && (
+                <p className="mt-1 font-jost text-[12px] font-light text-ink-3 opacity-50">
+                  &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr same-day (coming soon)
                 </p>
               )}
               <div className="mt-4 flex flex-col gap-2">
@@ -230,10 +230,15 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
                 </div>
               )}
               {cleaner.serviceTypes.includes('same_day') && cleaner.hourlyRateSameDay && (
-                <div className="flex items-center justify-between bg-cream px-4 py-3">
-                  <span className="font-jost text-[14px] font-light text-ink">
-                    {serviceTypeLabel('same_day')}
-                  </span>
+                <div className="flex items-center justify-between bg-cream px-4 py-3 opacity-50">
+                  <div className="flex items-center gap-2">
+                    <span className="font-jost text-[14px] font-light text-ink">
+                      {serviceTypeLabel('same_day')}
+                    </span>
+                    <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
+                      Coming Soon
+                    </span>
+                  </div>
                   <span className="font-jost text-[14px] font-medium text-ink">
                     &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr
                   </span>

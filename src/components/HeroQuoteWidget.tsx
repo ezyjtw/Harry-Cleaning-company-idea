@@ -560,18 +560,35 @@ export default function HeroQuoteWidget() {
         What type of clean?
       </p>
       <div className="mb-6 flex flex-wrap gap-2">
-        {(Object.keys(SERVICE_LABELS) as ServiceSlug[]).map((key) => (
-          <OptionButton
-            key={key}
-            selected={serviceSlug === key}
-            onClick={() => {
-              setServiceSlug(key);
-              if ((key === 'eot' || key === 'airbnb') && bathrooms === null) setBathrooms(1);
-            }}
-          >
-            {SERVICE_LABELS[key]}
-          </OptionButton>
-        ))}
+        {(Object.keys(SERVICE_LABELS) as ServiceSlug[]).map((key) => {
+          const isSameDay = key === 'same-day';
+          if (isSameDay) {
+            return (
+              <span
+                key={key}
+                className="flex items-center gap-1.5 rounded-md px-4 py-2 font-jost text-[13px] text-ink-3/50 cursor-not-allowed"
+                style={{ border: '1px solid rgba(27,42,74,0.08)' }}
+              >
+                {SERVICE_LABELS[key]}
+                <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[9px] uppercase tracking-[0.08em] text-ink-3">
+                  Soon
+                </span>
+              </span>
+            );
+          }
+          return (
+            <OptionButton
+              key={key}
+              selected={serviceSlug === key}
+              onClick={() => {
+                setServiceSlug(key);
+                if ((key === 'eot' || key === 'airbnb') && bathrooms === null) setBathrooms(1);
+              }}
+            >
+              {SERVICE_LABELS[key]}
+            </OptionButton>
+          );
+        })}
       </div>
 
       {/* Hours slider — hourly services only */}

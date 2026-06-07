@@ -66,6 +66,8 @@ export async function GET() {
     longitude: profile.longitude,
     radius: profile.radius,
     travelMode: profile.travelMode,
+    homePostcode: profile.homePostcode,
+    maxTravelMinutes: profile.maxTravelMinutes,
     verified: profile.verified,
     verificationStatus: profile.verificationStatus,
     rating: Number(profile.rating),
@@ -112,6 +114,8 @@ export async function PUT(request: NextRequest) {
     postcode,
     password,
     testimonials,
+    homePostcode,
+    maxTravelMinutes,
   } = body;
 
   const profile = await prisma.cleanerProfile.findUnique({
@@ -211,7 +215,35 @@ export async function PUT(request: NextRequest) {
       profileUpdate.travelMode = travelMode;
     }
   }
-  if (postcode !== undefined) {
+  if (homePostcode !== undefined) {
+    const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+    const trimmedPostcode = homePostcode.trim();
+    if (!UK_POSTCODE_RE.test(trimmedPostcode)) {
+      return NextResponse.json({ error: 'Please enter a valid UK postcode' }, { status: 400 });
+    }
+    profileUpdate.homePostcode = trimmedPostcode.toUpperCase();
+    profileUpdate.postcode = trimmedPostcode.toUpperCase();
+    profileUpdate.location = trimmedPostcode.toUpperCase();
+    const geo = await lookupPostcode(trimmedPostcode);
+    if (geo) {
+      profileUpdate.homeLatitude = geo.latitude;
+      profileUpdate.homeLongitude = geo.longitude;
+      profileUpdate.homeGeocodedAt = new Date();
+      profileUpdate.latitude = geo.latitude;
+      profileUpdate.longitude = geo.longitude;
+    }
+  }
+  if (maxTravelMinutes !== undefined) {
+    const mtm = Number(maxTravelMinutes);
+    if (isNaN(mtm) || mtm < 5 || mtm > 120) {
+      return NextResponse.json(
+        { error: 'Max travel time must be between 5 and 120 minutes' },
+        { status: 400 }
+      );
+    }
+    profileUpdate.maxTravelMinutes = mtm;
+  }
+  if (postcode !== undefined && homePostcode === undefined) {
     profileUpdate.postcode = postcode.trim();
     profileUpdate.location = postcode.trim();
     const geo = await lookupPostcode(postcode.trim());

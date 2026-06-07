@@ -43,6 +43,8 @@ interface DashboardData {
     airbnbPrices: Record<string, unknown> | null;
     stripeChargesEnabled: boolean;
     stripePayoutsEnabled: boolean;
+    homePostcode: string | null;
+    maxTravelMinutes: number | null;
   };
   stats: {
     todaysJobs: number;
@@ -399,6 +401,49 @@ export default function CleanerDashboard() {
           </div>
         )}
       </div>
+
+      {/* Service area banner — non-dismissible */}
+      {(!data.profile.homePostcode || data.profile.maxTravelMinutes === null) && (
+        <div
+          className="mb-6 rounded-xl bg-amber-50 px-5 py-4 flex items-start gap-3"
+          style={{ border: '1px solid rgba(217,119,6,0.15)' }}
+        >
+          <svg
+            className="w-5 h-5 text-amber-600 mt-0.5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <div>
+            <p className="font-jost text-sm font-normal text-amber-800">
+              Set your service area to appear in customer searches
+            </p>
+            <p className="font-jost text-[13px] font-light text-amber-700 mt-0.5">
+              Add your home postcode and maximum travel time so we can match you with nearby
+              customers.
+            </p>
+            <Link
+              href="/cleaner/profile"
+              className="inline-block mt-2 rounded-full bg-amber-600 px-5 py-2 font-jost text-[12px] uppercase tracking-[0.08em] text-white hover:bg-amber-700 transition"
+            >
+              Set up now
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Stripe onboarding banner */}
       {(!data.profile.stripeChargesEnabled || !data.profile.stripePayoutsEnabled) && (
