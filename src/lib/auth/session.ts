@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
-import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
+import { getServerSession } from 'next-auth';
 
 import prisma from '@/lib/db/prisma';
+
 import { authOptions } from './options';
 
 interface SessionUser {
@@ -12,12 +13,20 @@ interface SessionUser {
   role: string;
 }
 
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-do-not-use-in-production';
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error('NEXTAUTH_SECRET environment variable is not set. Cannot sign or verify tokens.');
+}
+const JWT_SECRET: string = process.env.NEXTAUTH_SECRET;
 
 /**
  * Generate a signed JWT token for mobile/API clients.
  */
-export function generateApiToken(user: { id: string; email: string; name: string; role: string }): string {
+export function generateApiToken(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}): string {
   return jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role },
     JWT_SECRET,
@@ -41,7 +50,14 @@ async function verifyBearerToken(token: string): Promise<SessionUser | null> {
     // Verify the user still exists and is active
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, role: true, accountStatus: true, isSuspended: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        accountStatus: true,
+        isSuspended: true,
+      },
     });
 
     if (!user || user.accountStatus !== 'ACTIVE' || user.isSuspended) {
