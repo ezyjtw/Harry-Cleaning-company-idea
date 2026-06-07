@@ -27,6 +27,24 @@ Do not add to the dev seed.
 The integrity check in `instrumentation.ts` verifies the reference seed
 populated correctly. If it doesn't, the app refuses to boot and Railway
 rolls back the deploy.
+
+## Rate limiting
+
+Three independent in-memory rate limiting layers exist:
+
+- **Middleware global** (`src/middleware.ts`): 300 req/min per IP, applies to
+  every request. Sized for normal authenticated browsing — single page loads
+  can fire 10+ requests (page + CSRF + API calls + assets). Per-route limits
+  below provide the security-sensitive enforcement.
+
+- **Per-route via `checkRateLimit()`** (`src/lib/rate-limit.ts`): stricter
+  limits on auth-sensitive endpoints — login 5/15min, signup 3/hour, password
+  reset 3/15min, cleaner signup 3/hour, admin doc download 60/hour. These
+  exist for security and should stay tight.
+
+- **`RateLimiter` class** (`src/lib/utils/security.ts`): used by `/api/chat`
+  (30/hour) and `/api/waitlist` (10/hour).
+
 ## Apple Pay
 
 Apple Pay via Stripe requires a domain verification file at
