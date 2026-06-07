@@ -71,11 +71,10 @@ export async function GET(request: NextRequest) {
     const SERVICE_MULTIPLIERS: Record<string, number> = {
       standard: 1.0,
       regular: 1.0,
-      deep: 1.45,
-      'end-of-tenancy': 1.45,
-      'same-day': 1.3,
-      'one-off': 1.1,
-      airbnb: 1.45,
+      deep: 1.0,
+      'end-of-tenancy': 1.0,
+      'same-day': 1.0,
+      airbnb: 1.0,
     };
 
     const hours = Math.max(2, bedrooms * 0.5 + bathrooms * 0.75 + 1);

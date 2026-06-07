@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { pricingService } from '@/lib/services/pricing.service';
 
-const SERVICE_SLUGS = ['regular', 'one-off', 'same-day', 'deep', 'eot', 'airbnb'] as const;
+const SERVICE_SLUGS = ['regular', 'same-day', 'deep', 'eot', 'airbnb'] as const;
 
 const cleanerQuoteSchema = z.object({
   cleanerId: z.string().min(1),
