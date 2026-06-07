@@ -67,6 +67,7 @@ export async function GET() {
     include: {
       availabilitySlots: true,
       availabilityOverrides: { where: { isBlocked: true }, orderBy: { date: 'asc' } },
+      availabilityDateSlots: { orderBy: { date: 'asc' } },
     },
   });
 
@@ -98,12 +99,20 @@ export async function GET() {
     reason: o.reason || '',
   }));
 
+  const dateSlots: Record<string, Array<{ start: string; end: string }>> = {};
+  for (const ds of profile.availabilityDateSlots) {
+    const dateStr = ds.date.toISOString().split('T')[0];
+    if (!dateSlots[dateStr]) dateSlots[dateStr] = [];
+    dateSlots[dateStr].push({ start: ds.startTime, end: ds.endTime });
+  }
+
   return NextResponse.json({
     cleanerId: user.id,
     availableNow: profile.availableNow,
     bookingBufferMinutes: profile.bookingBufferMinutes,
     weeklySlots,
     blockedDates,
+    dateSlots,
   });
 }
 

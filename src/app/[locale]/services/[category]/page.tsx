@@ -507,11 +507,73 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         <h1 className="font-cormorant text-3xl font-light text-ink text-center">
           Complete Payment
         </h1>
-        <p className="mt-3 text-center font-jost text-sm font-light text-ink-3">
-          {serviceLabel}
-          {selectedCleaner ? ` with ${selectedCleaner.name}` : ''} &middot; {effectiveHours} hours
-          &middot; &pound;{totalPrice.toFixed(2)}
+        <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
+          Secure payment powered by Stripe.
         </p>
+
+        {/* Booking summary */}
+        <div className="mt-6 bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <div className="grid gap-2 font-jost text-sm font-light">
+            {(preSelectedCleaner || selectedCleaner) && (
+              <div className="flex justify-between">
+                <span className="text-ink-3">Cleaner</span>
+                <span className="font-normal text-ink">
+                  {(preSelectedCleaner || selectedCleaner)?.name}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-ink-3">Service</span>
+              <span className="font-normal text-ink">{serviceLabel}</span>
+            </div>
+            {selectedDate && (
+              <div className="flex justify-between">
+                <span className="text-ink-3">Date &amp; Time</span>
+                <span className="font-normal text-ink">
+                  {selectedDate}
+                  {selectedTimeDisplay ? ` at ${selectedTimeDisplay}` : ''}
+                </span>
+              </div>
+            )}
+            {!isFixedPrice(category) && (
+              <div className="flex justify-between">
+                <span className="text-ink-3">Duration</span>
+                <span className="font-normal text-ink">{effectiveHours} hours</span>
+              </div>
+            )}
+            <div
+              className="flex justify-between pt-2 mt-2"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
+              <span className="text-ink-3">Subtotal</span>
+              <span className="font-normal text-ink">
+                &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
+              <span className="font-normal text-ink">
+                &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+              </span>
+            </div>
+            {productCost > 0 && (
+              <div className="flex justify-between">
+                <span className="text-ink-3">Cleaning products</span>
+                <span className="font-normal text-ink">&pound;{productCost.toFixed(2)}</span>
+              </div>
+            )}
+            <div
+              className="flex justify-between pt-2 mt-2"
+              style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+            >
+              <span className="font-normal text-ink">Total</span>
+              <span className="font-cormorant text-2xl font-light text-gold">
+                &pound;{(totalPrice + productCost).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <Elements stripe={stripePromise} options={{ clientSecret }}>
           <StripeCheckoutForm
             total={totalPrice}

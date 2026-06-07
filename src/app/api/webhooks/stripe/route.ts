@@ -17,17 +17,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_PLATFORM,
+  ].filter((s): s is string => !!s);
+
+  if (secrets.length === 0) {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
   }
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch {
+  let event: Stripe.Event | undefined;
+  for (let i = 0; i < secrets.length; i++) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secrets[i]);
+      // eslint-disable-next-line no-console
+      console.log(`[Stripe Webhook] Verified with secret ${i + 1} of ${secrets.length}`);
+      break;
+    } catch {
+      // Try next secret
+    }
+  }
+
+  if (!event) {
     // eslint-disable-next-line no-console
-    console.error('[Stripe Webhook] Signature verification failed');
+    console.error('[Stripe Webhook] Signature verification failed against all configured secrets');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
