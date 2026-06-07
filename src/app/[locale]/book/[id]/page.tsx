@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback } from 'react';
 import AddToCalendar from '@/components/AddToCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
+import DateTimePicker from '@/components/booking/DateTimePicker';
+import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -878,30 +880,26 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Preferred Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Preferred Time
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={form.time}
-                    onChange={(e) => setForm({ ...form, time: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                <div className="sm:col-span-2">
+                  <DateTimePicker
+                    cleanerId={params.id}
+                    durationHours={form.duration}
+                    value={
+                      form.date && form.time
+                        ? { date: form.date, time: form.time, time24: form.time }
+                        : null
+                    }
+                    onChange={(sel: DateTimeSelection | null) => {
+                      if (sel && sel.date && sel.time24) {
+                        setForm((prev) => ({ ...prev, date: sel.date, time: sel.time24 }));
+                      } else if (sel && sel.date) {
+                        setForm((prev) => ({ ...prev, date: sel.date, time: '' }));
+                      } else {
+                        setForm((prev) => ({ ...prev, date: '', time: '' }));
+                      }
+                    }}
+                    dateLabel="Preferred Date"
+                    timeLabel="Preferred Time"
                   />
                 </div>
               </div>
