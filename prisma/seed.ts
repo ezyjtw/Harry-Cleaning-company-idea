@@ -223,13 +223,6 @@ async function main() {
       minimumHours: 2,
     },
     {
-      slug: 'one-off',
-      name: 'One-Off Cleaning',
-      pricingModel: 'HOURLY' as const,
-      baseMultiplier: 1.0,
-      minimumHours: 2,
-    },
-    {
       slug: 'same-day',
       name: 'Same Day Cleaning',
       pricingModel: 'HOURLY' as const,

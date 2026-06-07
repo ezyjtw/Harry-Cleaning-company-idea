@@ -183,8 +183,14 @@ export class MatchingService {
 
       // Score components (all normalized to 0-1)
       const ratingScore = Number(cleaner.rating) / 5;
-      const distanceScore =
-        distanceKm > 0 ? Math.max(0, 1 - distanceKm / (cleaner.serviceRadius || 10)) : 0.5;
+      let distanceScore: number;
+      if (travelMinutes > 0 && cleaner.maxTravelMinutes) {
+        distanceScore = Math.max(0, 1 - travelMinutes / cleaner.maxTravelMinutes);
+      } else if (distanceKm > 0) {
+        distanceScore = Math.max(0, 1 - distanceKm / (cleaner.radius || 10));
+      } else {
+        distanceScore = 0.5;
+      }
       const reliabilityScore = (100 - Number(cleaner.cancellationRate || 0)) / 100;
       const completionRateScore = Number(cleaner.completionRate || 100) / 100;
       const responseSpeedScore = cleaner.responseSpeed

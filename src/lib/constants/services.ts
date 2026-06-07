@@ -156,11 +156,10 @@ export const BEDROOMS_TO_AIRBNB_SIZE: Record<number, AirbnbSizeSlug> = {
 // Maps booking-form service values (kebab-case) to pricing-service
 // ServiceSlug values. Used by the booking API.
 
-export type PricingServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
+export type PricingServiceSlug = 'regular' | 'same-day' | 'deep' | 'eot' | 'airbnb';
 
 const BOOKING_TO_PRICING_SLUG: Record<string, PricingServiceSlug> = {
   regular: 'regular',
-  'one-off': 'one-off',
   'same-day': 'same-day',
   deep: 'deep',
   eot: 'eot',

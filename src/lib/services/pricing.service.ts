@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 
 // ─── Types ──────────────────────────────────────────────────────
 
-export type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
+export type ServiceSlug = 'regular' | 'same-day' | 'deep' | 'eot' | 'airbnb';
 
 export type EotPropertySize = 'studio' | '1bed' | '2bed' | '3bed' | '4bed' | '5bedPlus';
 export type AirbnbPropertySize = 'studio' | '1bed' | '2bed' | '3bed' | '4bedPlus';
@@ -13,7 +13,6 @@ const FIXED_SERVICES: ServiceSlug[] = ['eot', 'airbnb'];
 
 const COMMISSION_RATES: Record<ServiceSlug, number> = {
   regular: 0.1,
-  'one-off': 0.1,
   'same-day': 0.1,
   deep: 0.1,
   eot: 0.15,
@@ -373,7 +372,6 @@ export class PricingService {
   private getHourlyRateField(serviceSlug: ServiceSlug): string {
     switch (serviceSlug) {
       case 'regular':
-      case 'one-off':
         return 'hourlyRateRegular';
       case 'deep':
         return 'hourlyRateDeep';
@@ -387,7 +385,6 @@ export class PricingService {
   private getServiceTypeFilterValue(serviceSlug: ServiceSlug): string {
     switch (serviceSlug) {
       case 'regular':
-      case 'one-off':
         return 'regular';
       case 'deep':
         return 'deep';

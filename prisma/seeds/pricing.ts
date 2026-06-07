@@ -11,13 +11,6 @@ const serviceTypes = [
     minimumHours: 2.0,
   },
   {
-    slug: 'one-off',
-    name: 'One-Off Cleaning',
-    pricingModel: 'HOURLY' as const,
-    baseMultiplier: 1.1,
-    minimumHours: 2.0,
-  },
-  {
     slug: 'same-day',
     name: 'Same-Day Cleaning',
     pricingModel: 'HOURLY' as const,

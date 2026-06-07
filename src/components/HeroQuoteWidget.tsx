@@ -8,7 +8,7 @@ import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 // ─── Types ──────────────────────────────────────────────────────
 
-type ServiceSlug = 'regular' | 'one-off' | 'same-day' | 'deep' | 'eot' | 'airbnb';
+type ServiceSlug = 'regular' | 'same-day' | 'deep' | 'eot' | 'airbnb';
 
 interface QuoteResult {
   mode: 'area';
@@ -42,7 +42,6 @@ interface ServiceTypeData {
 
 const SERVICE_LABELS: Record<ServiceSlug, string> = {
   regular: 'Regular',
-  'one-off': 'One-off',
   'same-day': 'Same day',
   deep: 'Deep clean',
   eot: 'End of tenancy',
@@ -51,7 +50,6 @@ const SERVICE_LABELS: Record<ServiceSlug, string> = {
 
 const SERVICE_TO_CATEGORY: Record<ServiceSlug, string> = {
   regular: 'regular',
-  'one-off': 'regular',
   'same-day': 'same-day',
   deep: 'deep',
   eot: 'end-of-tenancy',
@@ -414,7 +412,6 @@ export default function HeroQuoteWidget() {
       bedrooms: String(bedrooms),
       bathrooms: String(bathrooms ?? 1),
     });
-    if (serviceSlug === 'one-off') params.set('oneOff', '1');
     return `/services/${category}?${params.toString()}`;
   };
 

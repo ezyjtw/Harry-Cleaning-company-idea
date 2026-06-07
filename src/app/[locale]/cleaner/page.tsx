@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
+
 interface UpcomingJob {
   id: string;
   clientName: string;
@@ -370,30 +372,32 @@ export default function CleanerDashboard() {
             Here&apos;s your overview for today
           </p>
         </div>
-        <div
-          className="flex items-center gap-3 rounded-full bg-white px-5 py-2.5 shadow-sm"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <span className="text-sm font-jost font-light text-ink-2">Available Now</span>
-          <button
-            onClick={toggleAvailable}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              availableNow ? 'bg-gold' : 'bg-ink-3/20'
-            }`}
+        {SAME_DAY_FEATURE_ENABLED && (
+          <div
+            className="flex items-center gap-3 rounded-full bg-white px-5 py-2.5 shadow-sm"
+            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                availableNow ? 'translate-x-6' : 'translate-x-1'
+            <span className="text-sm font-jost font-light text-ink-2">Available Now</span>
+            <button
+              onClick={toggleAvailable}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                availableNow ? 'bg-gold' : 'bg-ink-3/20'
               }`}
-            />
-          </button>
-          {availableNow && (
-            <span className="flex items-center gap-1.5 text-xs text-gold font-jost">
-              <span className="w-1.5 h-1.5 bg-gold rounded-full animate-pulse" />
-              Live
-            </span>
-          )}
-        </div>
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  availableNow ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            {availableNow && (
+              <span className="flex items-center gap-1.5 text-xs text-gold font-jost">
+                <span className="w-1.5 h-1.5 bg-gold rounded-full animate-pulse" />
+                Live
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stripe onboarding banner */}

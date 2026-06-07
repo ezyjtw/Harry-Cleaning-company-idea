@@ -101,6 +101,7 @@ export async function GET() {
   return NextResponse.json({
     cleanerId: user.id,
     availableNow: profile.availableNow,
+    bookingBufferMinutes: profile.bookingBufferMinutes,
     weeklySlots,
     blockedDates,
   });
@@ -113,7 +114,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { weeklySlots, blockedDates, availableNow } = body;
+  const { weeklySlots, blockedDates, availableNow, bookingBufferMinutes } = body;
 
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: user.id },
@@ -234,10 +235,15 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    if (typeof availableNow === 'boolean') {
+    const profileUpdate: Record<string, unknown> = {};
+    if (typeof availableNow === 'boolean') profileUpdate.availableNow = availableNow;
+    if (bookingBufferMinutes === 30 || bookingBufferMinutes === 60) {
+      profileUpdate.bookingBufferMinutes = bookingBufferMinutes;
+    }
+    if (Object.keys(profileUpdate).length > 0) {
       await tx.cleanerProfile.update({
         where: { id: profile.id },
-        data: { availableNow },
+        data: profileUpdate,
       });
     }
   });

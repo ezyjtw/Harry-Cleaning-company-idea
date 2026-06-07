@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import {
   SERVICE_TYPE_SLUGS,
   SERVICE_RATE_INFO,
@@ -170,7 +171,9 @@ export default function CleanerPricingPage() {
   const serviceToState: Record<string, { value: string; setter: (v: string) => void }> = {
     regular: { value: hourlyRateRegular, setter: setHourlyRateRegular },
     deep: { value: hourlyRateDeep, setter: setHourlyRateDeep },
-    same_day: { value: hourlyRateSameDay, setter: setHourlyRateSameDay },
+    ...(SAME_DAY_FEATURE_ENABLED
+      ? { same_day: { value: hourlyRateSameDay, setter: setHourlyRateSameDay } }
+      : {}),
   };
 
   return (

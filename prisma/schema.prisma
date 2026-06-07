@@ -256,7 +256,7 @@ model CleanerProfile {
   // Per-service hourly rates (null = doesn't offer this service)
   hourlyRateRegular     Decimal?    @db.Decimal(10, 2)
   hourlyRateDeep        Decimal?    @db.Decimal(10, 2)
-  hourlyRateSameDay     Decimal?    @db.Decimal(10, 2)
+  hourlyRateSameDay     Decimal?    @db.Decimal(10, 2) // @deprecated — same-day feature disabled; kept for future re-enable
 
   // Fixed-price services — JSON with property-size keys
   eotPrices             Json?
@@ -276,7 +276,7 @@ model CleanerProfile {
   location            String?
   latitude            Float?
   longitude           Float?
-  radius              Int                @default(10) // miles
+  radius              Int                @default(10) // @deprecated — replaced by maxTravelMinutes; kept for rollback
   travelMode          String             @default("public_transport")
   availableNow        Boolean            @default(false)
   responseTime        Int? // average response time in minutes
@@ -284,7 +284,7 @@ model CleanerProfile {
   rating              Decimal            @default(0) @db.Decimal(3, 2)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
-  serviceRadius       Int                @default(10)
+  serviceRadius       Int                @default(10) // @deprecated — replaced by maxTravelMinutes; kept for rollback
   travelFee           Decimal            @default(0) @db.Decimal(10, 2)
   cancellationRate    Decimal            @default(0) @db.Decimal(5, 2)
   completionRate      Decimal            @default(100) @db.Decimal(5, 2)
@@ -318,6 +318,14 @@ model CleanerProfile {
   rightToWorkVerifiedAt DateTime?
 
   testimonials Json?
+
+  // Booking buffer & travel-time matching
+  bookingBufferMinutes Int       @default(30)
+  homePostcode         String?
+  homeLatitude         Float?
+  homeLongitude        Float?
+  homeGeocodedAt       DateTime?
+  maxTravelMinutes     Int?
 
   providerId String?
 
