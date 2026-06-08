@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
-import { normalizeToPricingSlug } from '@/lib/constants/services';
+import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
@@ -386,7 +386,7 @@ export async function POST(request: NextRequest) {
         customerSubtotal: quote.cleanerListedPrice,
         customerServiceFee: quote.customerPlatformFee,
         renaEarns: quote.cleanerCommission + quote.customerPlatformFee,
-        propertySize: body.propertySize || null,
+        propertySize: propertySizeSlugToEnum(body.propertySize),
         notes: body.notes || null,
         paymentStatus: 'PENDING',
         backupCleanerIds,
