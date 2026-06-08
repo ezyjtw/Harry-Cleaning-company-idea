@@ -71,7 +71,11 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Only allow cancellation if status is PENDING or CONFIRMED
-  if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') {
+  if (
+    booking.status !== 'PENDING' &&
+    booking.status !== 'AWAITING_CLEANER' &&
+    booking.status !== 'CONFIRMED'
+  ) {
     return NextResponse.json(
       { error: 'Booking can only be cancelled when in PENDING or CONFIRMED status' },
       { status: 422 }

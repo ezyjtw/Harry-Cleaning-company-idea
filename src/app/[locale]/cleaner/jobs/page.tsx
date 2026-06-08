@@ -26,6 +26,7 @@ interface Job {
 
 const statusMap: Record<string, JobStatus> = {
   pending: 'pending',
+  awaiting_cleaner: 'pending',
   confirmed: 'pending',
   accepted: 'upcoming',
   en_route: 'en-route',
@@ -42,7 +43,7 @@ function toDisplayStatus(apiStatus: string): JobStatus {
 function toApiStatuses(displayStatus: JobStatus): string[] {
   switch (displayStatus) {
     case 'pending':
-      return ['PENDING', 'CONFIRMED'];
+      return ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED'];
     case 'upcoming':
       return ['ACCEPTED'];
     case 'en-route':
@@ -127,7 +128,8 @@ export default function CleanerJobsPage() {
   // Fetch counts for all tabs on mount
   useEffect(() => {
     async function fetchCounts() {
-      const allStatuses = 'PENDING,CONFIRMED,ACCEPTED,EN_ROUTE,IN_PROGRESS,COMPLETED,REVIEWED';
+      const allStatuses =
+        'PENDING,AWAITING_CLEANER,CONFIRMED,ACCEPTED,EN_ROUTE,IN_PROGRESS,COMPLETED,REVIEWED';
       const res = await fetch(`/api/cleaner/jobs?status=${allStatuses}&limit=200`);
       if (res.status === 401) {
         router.push('/login');

@@ -272,6 +272,7 @@ export async function getEarnings(
 function mapJobStatus(status: string): CleanerJob['status'] {
   switch (status) {
     case 'PENDING':
+    case 'AWAITING_CLEANER':
       return 'pending';
     case 'CONFIRMED':
     case 'ACCEPTED':
@@ -292,7 +293,7 @@ export async function getCleanerJobs(
   status?: CleanerJob['status']
 ): Promise<CleanerJob[]> {
   const statusMap: Record<string, string[]> = {
-    pending: ['PENDING'],
+    pending: ['PENDING', 'AWAITING_CLEANER'],
     upcoming: ['CONFIRMED', 'ACCEPTED'],
     'in-progress': ['EN_ROUTE', 'IN_PROGRESS'],
     completed: ['COMPLETED', 'REVIEWED'],

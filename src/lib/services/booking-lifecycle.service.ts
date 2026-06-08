@@ -4,7 +4,8 @@ import { prisma } from '@/lib/db/prisma';
 
 // Valid state transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  PENDING: ['CONFIRMED', 'CANCELLED'],
+  PENDING: ['AWAITING_CLEANER', 'CANCELLED'],
+  AWAITING_CLEANER: ['ACCEPTED', 'CANCELLED'],
   CONFIRMED: ['ACCEPTED', 'CANCELLED'],
   ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
   EN_ROUTE: ['IN_PROGRESS', 'CANCELLED'],
@@ -108,7 +109,7 @@ export class BookingLifecycleService {
     bookingDate: Date,
     status: string
   ): { canCancel: boolean; refundPercent: number; reason?: string } {
-    if (!['PENDING', 'CONFIRMED', 'ACCEPTED'].includes(status)) {
+    if (!['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'].includes(status)) {
       return {
         canCancel: false,
         refundPercent: 0,

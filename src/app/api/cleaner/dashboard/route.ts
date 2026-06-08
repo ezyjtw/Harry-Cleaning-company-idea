@@ -54,7 +54,7 @@ export async function GET() {
       where: {
         cleanerId: user.id,
         date: { gte: startOfDay, lt: new Date(startOfDay.getTime() + 86400000) },
-        status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
+        status: { in: ['AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
       },
     }),
 
@@ -73,7 +73,7 @@ export async function GET() {
       where: {
         cleanerId: user.id,
         date: { gte: startOfDay },
-        status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+        status: { in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'] },
       },
       include: {
         client: { select: { name: true } },
@@ -104,7 +104,7 @@ export async function GET() {
     prisma.booking.count({
       where: {
         backupCleanerIds: { has: user.id },
-        status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+        status: { in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'] },
       },
     }),
   ]);

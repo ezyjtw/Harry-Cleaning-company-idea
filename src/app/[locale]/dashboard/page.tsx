@@ -50,7 +50,14 @@ interface BookingsResponse {
   totalPages: number;
 }
 
-const UPCOMING_STATUSES = new Set(['PENDING', 'CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS']);
+const UPCOMING_STATUSES = new Set([
+  'PENDING',
+  'AWAITING_CLEANER',
+  'CONFIRMED',
+  'ACCEPTED',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+]);
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -68,6 +75,8 @@ function statusBadge(status: string): { text: string; className: string } {
   switch (status) {
     case 'PENDING':
       return { text: 'Pending', className: 'bg-gold/10 text-gold' };
+    case 'AWAITING_CLEANER':
+      return { text: 'Awaiting cleaner', className: 'bg-amber-50 text-amber-600' };
     case 'CONFIRMED':
     case 'ACCEPTED':
       return { text: 'Confirmed', className: 'bg-green-50 text-green-600' };

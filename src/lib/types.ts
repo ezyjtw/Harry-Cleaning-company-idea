@@ -295,6 +295,7 @@ export type ReviewVisibility = 'VISIBLE' | 'HIDDEN' | 'FLAGGED';
 // ─── Extended Booking Status ───────────────────────────────
 export type BookingStatusExtended =
   | 'PENDING'
+  | 'AWAITING_CLEANER'
   | 'CONFIRMED'
   | 'ACCEPTED'
   | 'EN_ROUTE'

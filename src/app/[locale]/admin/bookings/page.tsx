@@ -12,7 +12,14 @@ export interface BookingRow {
   date: string;
   time: string;
   amount: number;
-  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'disputed';
+  status:
+    | 'pending'
+    | 'awaiting_cleaner'
+    | 'confirmed'
+    | 'in-progress'
+    | 'completed'
+    | 'cancelled'
+    | 'disputed';
   paymentStatus: string;
 }
 
@@ -20,6 +27,8 @@ function mapStatus(prismaStatus: string): BookingRow['status'] {
   switch (prismaStatus) {
     case 'PENDING':
       return 'pending';
+    case 'AWAITING_CLEANER':
+      return 'awaiting_cleaner';
     case 'CONFIRMED':
     case 'ACCEPTED':
       return 'confirmed';

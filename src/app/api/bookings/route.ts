@@ -357,8 +357,7 @@ export async function POST(request: NextRequest) {
     // quote.customerPlatformFee = 6% service fee
     // quote.cleanerCommission = 10% or 15% commission from base
     // quote.cleanerPayout = base - commission
-    // platformFee (application_fee) = customerTotal - cleanerPayout
-    const applicationFeeGBP = totalPrice - quote.cleanerPayout;
+    // Full amount captured to platform balance; cleaner paid via transfer at release (A6).
 
     // 8. Create Booking record FIRST with paymentStatus: PENDING
     const booking = await prisma.booking.create({
@@ -403,9 +402,6 @@ export async function POST(request: NextRequest) {
         currency: 'gbp',
         ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
         ...(stripeCustomerId ? { setup_future_usage: 'off_session' as const } : {}),
-        application_fee_amount: Math.round(applicationFeeGBP * 100),
-        transfer_data: { destination: cleaner.cleanerProfile.stripeAccountId },
-        on_behalf_of: cleaner.cleanerProfile.stripeAccountId,
         metadata: {
           bookingId: booking.id,
           customerId: sessionUser?.id || '',

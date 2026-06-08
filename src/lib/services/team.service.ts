@@ -212,7 +212,7 @@ export class TeamService {
           where: {
             cleanerId: tm.userId,
             date: { gte: now },
-            status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+            status: { in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'] },
           },
         });
 
