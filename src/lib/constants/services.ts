@@ -1,3 +1,5 @@
+import { PropertySize } from '@prisma/client';
+
 // ─── Canonical Service Type Slugs ────────────────────────────────
 // These are the ONLY values stored in CleanerProfile.serviceTypes and
 // used across the pricing service, search API, and booking API.
@@ -163,6 +165,25 @@ export function bedroomIndexToPropertySize(
     return BEDROOMS_TO_AIRBNB_SIZE[bedroomIndex] ?? null;
   }
   return null;
+}
+
+// ─── Slug → Prisma PropertySize Enum ────────────────────────────
+// The pricing service and cleaner JSON use lowercase slugs (studio, 1bed…).
+// The Booking.propertySize column is a Prisma enum (STUDIO, ONE_BED…).
+
+const SLUG_TO_PROPERTY_SIZE: Record<string, PropertySize> = {
+  studio: PropertySize.STUDIO,
+  '1bed': PropertySize.ONE_BED,
+  '2bed': PropertySize.TWO_BED,
+  '3bed': PropertySize.THREE_BED,
+  '4bed': PropertySize.FOUR_BED,
+  '4bedPlus': PropertySize.FOUR_BED,
+  '5bedPlus': PropertySize.FIVE_PLUS,
+};
+
+export function propertySizeSlugToEnum(slug: string | undefined | null): PropertySize | null {
+  if (!slug) return null;
+  return SLUG_TO_PROPERTY_SIZE[slug] ?? null;
 }
 
 // ─── Booking Service Slug Normalization ──────────────────────────
