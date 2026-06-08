@@ -14,6 +14,8 @@ interface Booking {
   price: number;
   status: BookingStatus;
   address: string;
+  backupCleanerNames: string[];
+  autoAssignBackup: boolean;
 }
 
 const statusStyles: Record<BookingStatus, string> = {
@@ -70,6 +72,8 @@ export default function BookingsPage() {
           price: Number(b.totalPrice || b.price || 0),
           status: mapStatus(String(b.status || 'PENDING')),
           address: b.address || b.fullAddress || '',
+          backupCleanerNames: (b.backupCleanerNames as string[]) || [],
+          autoAssignBackup: (b.autoAssignBackup as boolean) || false,
         }));
         setBookings(items);
       })
@@ -241,6 +245,19 @@ export default function BookingsPage() {
                           />
                         </svg>
                         <span>{booking.address}</span>
+                      </div>
+                    )}
+                    {(booking.backupCleanerNames.length > 0 || booking.autoAssignBackup) && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>
+                          {booking.backupCleanerNames.length > 0
+                            ? `Backups: ${booking.backupCleanerNames.join(', ')}`
+                            : ''}
+                          {booking.backupCleanerNames.length > 0 && booking.autoAssignBackup
+                            ? ' · '
+                            : ''}
+                          {booking.autoAssignBackup ? 'Auto-assign enabled' : ''}
+                        </span>
                       </div>
                     )}
                   </div>

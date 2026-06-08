@@ -447,6 +447,13 @@ model Booking {
   stripeChargeId         String?        @unique
   paymentStatus          PaymentStatus  @default(PENDING)
 
+  // ─── Backup cleaners ─────
+  // Ordered list of backup cleaner User.ids (same id type as cleanerId).
+  // If the primary cleaner declines, cascade logic (A5) can activate the next backup.
+  backupCleanerIds   String[]
+  // Customer delegates backup selection to Rena ("Provide me an appropriate cleaner" toggle)
+  autoAssignBackup   Boolean @default(false)
+
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)
   acceptedFromQueue  Boolean @default(false)

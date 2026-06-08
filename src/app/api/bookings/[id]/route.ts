@@ -51,8 +51,19 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
     }
 
+    let backupCleanerNames: string[] = [];
+    if (booking.backupCleanerIds.length > 0) {
+      const backupUsers = await prisma.user.findMany({
+        where: { id: { in: booking.backupCleanerIds } },
+        select: { id: true, name: true },
+      });
+      const nameMap = new Map(backupUsers.map((u) => [u.id, u.name || 'Cleaner']));
+      backupCleanerNames = booking.backupCleanerIds.map((id) => nameMap.get(id) || 'Cleaner');
+    }
+
     return NextResponse.json({
       ...booking,
+      backupCleanerNames,
       cleaner: booking.cleaner
         ? { ...booking.cleaner, image: await resolveProfileImageUrl(booking.cleaner.image) }
         : booking.cleaner,

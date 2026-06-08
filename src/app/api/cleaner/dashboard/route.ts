@@ -16,83 +16,98 @@ export async function GET() {
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(endOfWeek.getDate() + 7);
 
-  const [profile, todaysJobs, weeklyBookings, upcomingJobs, recentReviews, thirtyDayBookings] =
-    await Promise.all([
-      // Cleaner profile
-      prisma.cleanerProfile.findUnique({
-        where: { userId: user.id },
-        select: {
-          rating: true,
-          tier: true,
-          completedJobs: true,
-          availableNow: true,
-          verified: true,
-          verificationStatus: true,
-          insuranceVerified: true,
-          bio: true,
-          postcode: true,
-          specialties: true,
-          serviceTypes: true,
-          eotPrices: true,
-          airbnbPrices: true,
-          stripeChargesEnabled: true,
-          stripePayoutsEnabled: true,
-          homePostcode: true,
-          maxTravelMinutes: true,
-        },
-      }),
+  const [
+    profile,
+    todaysJobs,
+    weeklyBookings,
+    upcomingJobs,
+    recentReviews,
+    thirtyDayBookings,
+    backupBookingCount,
+  ] = await Promise.all([
+    // Cleaner profile
+    prisma.cleanerProfile.findUnique({
+      where: { userId: user.id },
+      select: {
+        rating: true,
+        tier: true,
+        completedJobs: true,
+        availableNow: true,
+        verified: true,
+        verificationStatus: true,
+        insuranceVerified: true,
+        bio: true,
+        postcode: true,
+        specialties: true,
+        serviceTypes: true,
+        eotPrices: true,
+        airbnbPrices: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+        homePostcode: true,
+        maxTravelMinutes: true,
+      },
+    }),
 
-      // Today's jobs count
-      prisma.booking.count({
-        where: {
-          cleanerId: user.id,
-          date: { gte: startOfDay, lt: new Date(startOfDay.getTime() + 86400000) },
-          status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
-        },
-      }),
+    // Today's jobs count
+    prisma.booking.count({
+      where: {
+        cleanerId: user.id,
+        date: { gte: startOfDay, lt: new Date(startOfDay.getTime() + 86400000) },
+        status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
+      },
+    }),
 
-      // Weekly earnings
-      prisma.booking.findMany({
-        where: {
-          cleanerId: user.id,
-          date: { gte: startOfWeek, lt: endOfWeek },
-          status: { in: ['COMPLETED', 'REVIEWED'] },
-        },
-        select: { cleanerEarnings: true, date: true },
-      }),
+    // Weekly earnings
+    prisma.booking.findMany({
+      where: {
+        cleanerId: user.id,
+        date: { gte: startOfWeek, lt: endOfWeek },
+        status: { in: ['COMPLETED', 'REVIEWED'] },
+      },
+      select: { cleanerEarnings: true, date: true },
+    }),
 
-      // Upcoming jobs (next 7 days, pending or confirmed)
-      prisma.booking.findMany({
-        where: {
-          cleanerId: user.id,
-          date: { gte: startOfDay },
-          status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
-        },
-        include: {
-          client: { select: { name: true } },
-          address: { select: { line1: true, postcode: true } },
-        },
-        orderBy: { date: 'asc' },
-        take: 5,
-      }),
+    // Upcoming jobs (next 7 days, pending or confirmed)
+    prisma.booking.findMany({
+      where: {
+        cleanerId: user.id,
+        date: { gte: startOfDay },
+        status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+      },
+      include: {
+        client: { select: { name: true } },
+        address: { select: { line1: true, postcode: true } },
+      },
+      orderBy: { date: 'asc' },
+      take: 5,
+    }),
 
-      // Recent reviews
-      prisma.review.findMany({
-        where: { cleanerId: user.id, visibility: 'VISIBLE' },
-        include: { client: { select: { name: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 3,
-      }),
+    // Recent reviews
+    prisma.review.findMany({
+      where: { cleanerId: user.id, visibility: 'VISIBLE' },
+      include: { client: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+    }),
 
-      // Last 30 days bookings for response rate
-      prisma.booking.count({
-        where: {
-          cleanerId: user.id,
-          createdAt: { gte: new Date(now.getTime() - 30 * 86400000) },
-          status: { notIn: ['CANCELLED'] },
-        },
-      }),
-    ]);
+    // Last 30 days bookings for response rate
+    prisma.booking.count({
+      where: {
+        cleanerId: user.id,
+        createdAt: { gte: new Date(now.getTime() - 30 * 86400000) },
+        status: { notIn: ['CANCELLED'] },
+      },
+    }),
+
+    // Bookings where this cleaner is a backup (active bookings only)
+    prisma.booking.count({
+      where: {
+        backupCleanerIds: { has: user.id },
+        status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+      },
+    }),
+  ]);
 
   if (!profile) {
     return NextResponse.json({ error: 'Cleaner profile not found' }, { status: 404 });
@@ -148,6 +163,7 @@ export async function GET() {
       rating: Number(profile.rating).toFixed(1),
       reviewCount: profile.completedJobs,
       responseRate,
+      backupBookingCount,
     },
     dailyPercents,
     upcomingJobs: upcomingJobs.map((j) => ({

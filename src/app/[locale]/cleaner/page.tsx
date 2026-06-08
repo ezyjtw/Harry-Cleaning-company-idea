@@ -52,6 +52,7 @@ interface DashboardData {
     rating: string;
     reviewCount: number;
     responseRate: number;
+    backupBookingCount: number;
   };
   dailyPercents: number[];
   upcomingJobs: UpcomingJob[];
@@ -552,6 +553,23 @@ export default function CleanerDashboard() {
           </div>
         ))}
       </div>
+
+      {data.stats.backupBookingCount > 0 && (
+        <div
+          className="mb-6 rounded-xl bg-amber-50/50 px-5 py-4 flex items-center gap-3"
+          style={{ border: '1px solid rgba(217,119,6,0.12)' }}
+        >
+          <span className="font-cormorant text-2xl font-light text-amber-700">
+            {data.stats.backupBookingCount}
+          </span>
+          <p className="font-jost text-sm font-light text-ink-2">
+            You&apos;re listed as a backup cleaner for{' '}
+            {data.stats.backupBookingCount === 1
+              ? '1 booking'
+              : `${data.stats.backupBookingCount} bookings`}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upcoming Jobs */}
