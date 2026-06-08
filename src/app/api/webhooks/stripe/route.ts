@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         where: { id: bookingId },
         data: {
           paymentStatus: 'SUCCEEDED',
-          status: 'CONFIRMED',
+          status: 'AWAITING_CLEANER',
           ...(chargeId ? { stripeChargeId: chargeId } : {}),
         },
       });

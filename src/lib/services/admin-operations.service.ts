@@ -9,7 +9,7 @@ export class AdminOperationsService {
   static async assignCleaner(bookingId: string, cleanerId: string, adminId?: string) {
     const booking = await prisma.booking.update({
       where: { id: bookingId },
-      data: { cleanerId, status: 'CONFIRMED', adminNotes: `Manually assigned by admin` },
+      data: { cleanerId, status: 'AWAITING_CLEANER', adminNotes: `Manually assigned by admin` },
     });
 
     await AuditService.log({

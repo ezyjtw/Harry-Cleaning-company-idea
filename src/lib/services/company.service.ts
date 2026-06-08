@@ -161,7 +161,9 @@ export class CompanyService {
     ] = await Promise.all([
       prisma.booking.count({ where: { providerId } }),
       prisma.booking.count({ where: { providerId, status: 'COMPLETED' } }),
-      prisma.booking.count({ where: { providerId, status: 'PENDING' } }),
+      prisma.booking.count({
+        where: { providerId, status: { in: ['PENDING', 'AWAITING_CLEANER'] } },
+      }),
       prisma.booking.count({ where: { providerId, status: 'CANCELLED' } }),
       prisma.booking.aggregate({
         where: { providerId, status: 'COMPLETED' },

@@ -143,9 +143,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       ? (((totalBookings - lastMonthBookings) / lastMonthBookings) * 100).toFixed(1)
       : '0';
   const revenueChange =
-    revLastMonth > 0
-      ? (((revMTD - revLastMonth) / revLastMonth) * 100).toFixed(1)
-      : '0';
+    revLastMonth > 0 ? (((revMTD - revLastMonth) / revLastMonth) * 100).toFixed(1) : '0';
 
   return {
     totalBookings,
@@ -226,7 +224,10 @@ export async function getCleaners(
   }
 
   if (filters.verified !== undefined) {
-    where.cleanerProfile = { ...(where.cleanerProfile as object || {}), verified: filters.verified };
+    where.cleanerProfile = {
+      ...((where.cleanerProfile as object) || {}),
+      verified: filters.verified,
+    };
   }
 
   const [users, total] = await Promise.all([
@@ -247,7 +248,18 @@ export async function getCleaners(
         _count: {
           select: {
             bookingsAsCleaner: {
-              where: { status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] } },
+              where: {
+                status: {
+                  in: [
+                    'PENDING',
+                    'AWAITING_CLEANER',
+                    'CONFIRMED',
+                    'ACCEPTED',
+                    'EN_ROUTE',
+                    'IN_PROGRESS',
+                  ],
+                },
+              },
             },
           },
         },
@@ -363,7 +375,7 @@ export async function getDisputes(
     dateRaised: d.createdAt.toISOString().split('T')[0],
     status: d.status.toLowerCase().replace('_', '-'),
     amount: Number(d.booking.totalPrice),
-    filedBy: d.raisedBy.role === 'CLEANER' ? 'cleaner' as const : 'customer' as const,
+    filedBy: d.raisedBy.role === 'CLEANER' ? ('cleaner' as const) : ('customer' as const),
   }));
 
   return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };

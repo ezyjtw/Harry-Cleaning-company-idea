@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       id: b.id,
       clientName: b.client?.name || b.guestName || 'Guest',
       address:
-        b.status === 'PENDING'
+        b.status === 'PENDING' || b.status === 'AWAITING_CLEANER'
           ? b.address?.postcode || 'TBD'
           : `${b.address?.line1 || ''}, ${b.address?.postcode || ''}`,
       fullAddress: `${b.address?.line1 || ''}, ${b.address?.city || ''} ${b.address?.postcode || ''}`,

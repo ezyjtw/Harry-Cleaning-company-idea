@@ -94,9 +94,11 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
         <div className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2 text-3xl text-gold">
           &#10003;
         </div>
-        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Booking Confirmed!</h1>
+        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Payment Received!</h1>
         <p className="mt-4 font-jost font-light text-ink-2">
-          Your payment was successful. You&apos;ll receive a confirmation email shortly.
+          Your payment was successful. We&apos;re waiting for{' '}
+          {booking?.cleanerName || 'your cleaner'} to confirm your booking. You&apos;ll receive an
+          email when they accept.
         </p>
 
         {booking && (

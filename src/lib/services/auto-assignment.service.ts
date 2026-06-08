@@ -38,7 +38,7 @@ export class AutoAssignmentService {
       where: { id: bookingId },
       data: {
         cleanerId: bestMatch.userId,
-        status: 'CONFIRMED',
+        status: 'AWAITING_CLEANER',
       },
     });
 
@@ -90,7 +90,7 @@ export class AutoAssignmentService {
     // Reassign
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { cleanerId: nextBest.userId, status: 'CONFIRMED' },
+      data: { cleanerId: nextBest.userId, status: 'AWAITING_CLEANER' },
     });
 
     // Notify new cleaner

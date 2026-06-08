@@ -2,11 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * GBP-to-pence conversion used at the Stripe API boundary.
- * This is the exact operation done in POST /api/bookings when creating PaymentIntents:
- *   amount: Math.round(totalPrice * 100)
- *   application_fee_amount: Math.round(applicationFeeGBP * 100)
- *
- * Floating-point rounding errors here would cause Stripe to charge the wrong amount.
+ * Used when creating PaymentIntents (charge amount) and Transfers (cleaner payout).
+ * Floating-point rounding errors here would cause Stripe to move the wrong amount.
  */
 
 function gbpToPence(gbp: number): number {

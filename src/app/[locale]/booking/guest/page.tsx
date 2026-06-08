@@ -23,6 +23,7 @@ interface Booking {
 
 const STATUS_STEPS = [
   { key: 'PENDING', label: 'Pending' },
+  { key: 'AWAITING_CLEANER', label: 'Awaiting Cleaner' },
   { key: 'CONFIRMED', label: 'Confirmed' },
   { key: 'ACCEPTED', label: 'Accepted' },
   { key: 'EN_ROUTE', label: 'En Route' },
@@ -218,7 +219,11 @@ function GuestBookingContent() {
     );
   }
 
-  const canCancel = !cancelled && (booking.status === 'PENDING' || booking.status === 'CONFIRMED');
+  const canCancel =
+    !cancelled &&
+    (booking.status === 'PENDING' ||
+      booking.status === 'AWAITING_CLEANER' ||
+      booking.status === 'CONFIRMED');
 
   const formattedDate = new Date(booking.date).toLocaleDateString('en-GB', {
     weekday: 'long',

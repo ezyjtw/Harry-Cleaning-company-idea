@@ -42,7 +42,16 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
         select: {
           bookingsAsCleaner: {
             where: {
-              status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
+              status: {
+                in: [
+                  'PENDING',
+                  'AWAITING_CLEANER',
+                  'CONFIRMED',
+                  'ACCEPTED',
+                  'EN_ROUTE',
+                  'IN_PROGRESS',
+                ],
+              },
             },
           },
         },

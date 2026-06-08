@@ -144,12 +144,10 @@ export async function getBookingsByCleaner(cleanerId: string) {
   }));
 }
 
-export async function updateBookingStatus(
-  id: string,
-  status: string
-) {
+export async function updateBookingStatus(id: string, status: string) {
   const statusMap: Record<string, string> = {
     pending: 'PENDING',
+    'awaiting-cleaner': 'AWAITING_CLEANER',
     confirmed: 'CONFIRMED',
     accepted: 'ACCEPTED',
     'in-progress': 'IN_PROGRESS',
@@ -201,11 +199,7 @@ export async function cancelBooking(
   return { success: true, refundAmount: Number(booking.totalPrice) };
 }
 
-export async function rescheduleBooking(
-  id: string,
-  newDate: string,
-  newTime: string
-) {
+export async function rescheduleBooking(id: string, newDate: string, newTime: string) {
   const booking = await prisma.booking.findUnique({ where: { id } });
   if (!booking) return null;
 

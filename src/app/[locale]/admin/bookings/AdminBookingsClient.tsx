@@ -34,6 +34,7 @@ export default function AdminBookingsClient({
 
   const statusStyles: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-700',
+    awaiting_cleaner: 'bg-amber-100 text-amber-700',
     confirmed: 'bg-blue-100 text-blue-700',
     'in-progress': 'bg-orange-100 text-orange-700',
     completed: 'bg-green-100 text-green-700',
@@ -87,6 +88,7 @@ export default function AdminBookingsClient({
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
+          <option value="awaiting_cleaner">Awaiting Cleaner</option>
           <option value="confirmed">Confirmed</option>
           <option value="in-progress">In Progress</option>
           <option value="completed">Completed</option>

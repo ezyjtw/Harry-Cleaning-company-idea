@@ -6,6 +6,7 @@ import prisma from '@/lib/db/prisma';
 
 type BookingStatus =
   | 'PENDING'
+  | 'AWAITING_CLEANER'
   | 'CONFIRMED'
   | 'ACCEPTED'
   | 'EN_ROUTE'
@@ -16,7 +17,8 @@ type BookingStatus =
   | 'DISPUTED';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  PENDING: ['ACCEPTED', 'CANCELLED'],
+  PENDING: ['CANCELLED'],
+  AWAITING_CLEANER: ['ACCEPTED', 'CANCELLED'],
   CONFIRMED: ['ACCEPTED', 'CANCELLED'],
   ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
   EN_ROUTE: ['IN_PROGRESS', 'CANCELLED'],
@@ -56,7 +58,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       clientName: booking.client?.name || booking.guestName || 'Guest',
       clientEmail: booking.client?.email || booking.guestEmail || '',
       address:
-        booking.status === 'PENDING'
+        booking.status === 'PENDING' || booking.status === 'AWAITING_CLEANER'
           ? booking.address?.postcode || 'TBD'
           : `${booking.address?.line1 || ''}, ${booking.address?.postcode || ''}`,
       fullAddress: `${booking.address?.line1 || ''}, ${booking.address?.city || ''} ${booking.address?.postcode || ''}`,

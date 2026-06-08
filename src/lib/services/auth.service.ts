@@ -319,7 +319,7 @@ export async function deleteAccount(
   await prisma.booking.updateMany({
     where: {
       clientId: userId,
-      status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] },
+      status: { in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'] },
     },
     data: {
       status: 'CANCELLED',

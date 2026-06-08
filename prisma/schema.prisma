@@ -25,6 +25,7 @@ enum CleanerTier {
 
 enum BookingStatus {
   PENDING
+  AWAITING_CLEANER
   CONFIRMED
   ACCEPTED
   EN_ROUTE
@@ -446,6 +447,14 @@ model Booking {
   stripePaymentIntentId  String?        @unique
   stripeChargeId         String?        @unique
   paymentStatus          PaymentStatus  @default(PENDING)
+
+  // ─── Transfer / fund release ─────
+  stripeTransferId       String?        @unique
+  transferStatus         String         @default("PENDING")
+  transferAttempt        Int            @default(0)
+  transferFailureReason  String?
+  releaseDueAt           DateTime?
+  completionConfirmedAt  DateTime?
 
   // ─── Backup cleaners ─────
   // Ordered list of backup cleaner User.ids (same id type as cleanerId).

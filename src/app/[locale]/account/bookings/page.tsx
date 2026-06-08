@@ -37,6 +37,8 @@ function mapStatus(apiStatus: string): BookingStatus {
   switch (apiStatus.toUpperCase()) {
     case 'PENDING':
       return 'Pending';
+    case 'AWAITING_CLEANER':
+      return 'Pending';
     case 'CONFIRMED':
     case 'ACCEPTED':
     case 'EN_ROUTE':

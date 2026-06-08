@@ -155,12 +155,6 @@ export class CleanerQueueService {
       });
     }
 
-    // TODO(PR4): Create Stripe PaymentIntent for the escrow amount.
-    // With immediate-capture, the queue flow will need to charge the customer
-    // upfront for the highest quote, then refund the difference when a cleaner
-    // accepts at a lower price. PR4 will redesign this for the Stripe model.
-    const _paymentSession = null;
-
     // 7. Notify all queued cleaners
     for (const q of quotes) {
       await prisma.notification.create({
@@ -262,7 +256,7 @@ export class CleanerQueueService {
         where: { id: bookingId },
         data: {
           cleanerId,
-          status: 'CONFIRMED',
+          status: 'ACCEPTED',
           acceptedAt: new Date(),
           totalPrice: actualTotal,
           cleanerEarnings: queueEntry.cleanerEarns,
