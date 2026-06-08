@@ -56,9 +56,20 @@ export async function GET(request: NextRequest) {
       prisma.booking.count({ where }),
     ]);
 
+    const allBackupIds = Array.from(new Set(bookings.flatMap((b) => b.backupCleanerIds)));
+    const backupUsers =
+      allBackupIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: allBackupIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+    const backupNameMap = new Map(backupUsers.map((u) => [u.id, u.name || 'Cleaner']));
+
     const resolvedBookings = await Promise.all(
       bookings.map(async (b) => ({
         ...b,
+        backupCleanerNames: b.backupCleanerIds.map((id) => backupNameMap.get(id) || 'Cleaner'),
         cleaner: { ...b.cleaner, image: await resolveProfileImageUrl(b.cleaner?.image) },
         client: { ...b.client, image: await resolveProfileImageUrl(b.client?.image) },
       }))
@@ -265,6 +276,45 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ─── Backup cleaner validation ─────
+    const backupCleanerIds: string[] = Array.isArray(body.backupCleanerIds)
+      ? body.backupCleanerIds
+      : [];
+    const autoAssignBackup: boolean = body.autoAssignBackup === true;
+
+    if (backupCleanerIds.length > 3) {
+      return NextResponse.json({ error: 'Maximum 3 backup cleaners allowed.' }, { status: 400 });
+    }
+
+    if (backupCleanerIds.length > 0) {
+      if (new Set(backupCleanerIds).size !== backupCleanerIds.length) {
+        return NextResponse.json(
+          { error: 'Duplicate backup cleaner IDs are not allowed.' },
+          { status: 400 }
+        );
+      }
+
+      if (backupCleanerIds.includes(body.cleanerId)) {
+        return NextResponse.json(
+          { error: 'Primary cleaner cannot be in the backup list.' },
+          { status: 400 }
+        );
+      }
+
+      const backupProfiles = await prisma.cleanerProfile.findMany({
+        where: { userId: { in: backupCleanerIds } },
+        select: { userId: true },
+      });
+      const foundIds = new Set(backupProfiles.map((p) => p.userId));
+      const missing = backupCleanerIds.filter((id) => !foundIds.has(id));
+      if (missing.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid backup cleaner IDs: ${missing.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
     let addressId: string | null = null;
     if (body.addressId) {
       addressId = body.addressId;
@@ -340,6 +390,8 @@ export async function POST(request: NextRequest) {
         propertySize: body.propertySize || null,
         notes: body.notes || null,
         paymentStatus: 'PENDING',
+        backupCleanerIds,
+        autoAssignBackup,
       },
     });
 

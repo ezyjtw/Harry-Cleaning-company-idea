@@ -12,6 +12,8 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
     startTime: string;
     totalPrice: number;
     cleanerName: string;
+    backupCleanerNames: string[];
+    autoAssignBackup: boolean;
   } | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const maxPolls = 15;
@@ -27,6 +29,8 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
           startTime: data.startTime,
           totalPrice: Number(data.totalPrice),
           cleanerName: data.cleaner?.name || 'Your cleaner',
+          backupCleanerNames: data.backupCleanerNames || [],
+          autoAssignBackup: data.autoAssignBackup || false,
         });
       }
     } catch {
@@ -119,6 +123,20 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
                 <span className="text-ink-3">Time</span>
                 <span className="font-normal text-ink">{booking.startTime}</span>
               </div>
+              {booking.backupCleanerNames.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-ink-3">Backup cleaners</span>
+                  <span className="font-normal text-ink">
+                    {booking.backupCleanerNames.join(', ')}
+                  </span>
+                </div>
+              )}
+              {booking.autoAssignBackup && (
+                <div className="flex justify-between">
+                  <span className="text-ink-3">Auto-assign</span>
+                  <span className="font-normal text-ink">Rena will choose a backup if needed</span>
+                </div>
+              )}
               <div
                 className="flex justify-between pt-2 mt-2"
                 style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}

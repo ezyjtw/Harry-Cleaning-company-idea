@@ -335,6 +335,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           totalPrice,
           isGuest: true,
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
+          autoAssignBackup,
           rooms: {
             ...rooms,
             cleanerBringsProducts,
