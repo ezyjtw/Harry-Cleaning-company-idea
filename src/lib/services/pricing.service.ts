@@ -459,20 +459,39 @@ export function validateServiceTypePricing(
   return { valid: true };
 }
 
-export function validatePriceFloors(data: {
-  hourlyRateRegular?: number | null;
-  hourlyRateDeep?: number | null;
-  hourlyRateSameDay?: number | null;
-  eotPrices?: Record<string, number> | null;
-  airbnbPrices?: Record<string, number> | null;
-}): { valid: boolean; error?: string } {
+export function validatePriceFloors(
+  data: {
+    hourlyRateRegular?: number | null;
+    hourlyRateDeep?: number | null;
+    hourlyRateSameDay?: number | null;
+    eotPrices?: Record<string, number> | null;
+    airbnbPrices?: Record<string, number> | null;
+  },
+  serviceTypes?: string[]
+): { valid: boolean; error?: string } {
   const hourlyFields = [
-    { key: 'hourlyRateRegular', label: 'Regular hourly rate', value: data.hourlyRateRegular },
-    { key: 'hourlyRateDeep', label: 'Deep clean hourly rate', value: data.hourlyRateDeep },
-    { key: 'hourlyRateSameDay', label: 'Same-day hourly rate', value: data.hourlyRateSameDay },
+    {
+      key: 'hourlyRateRegular',
+      service: 'regular',
+      label: 'Regular hourly rate',
+      value: data.hourlyRateRegular,
+    },
+    {
+      key: 'hourlyRateDeep',
+      service: 'deep',
+      label: 'Deep clean hourly rate',
+      value: data.hourlyRateDeep,
+    },
+    {
+      key: 'hourlyRateSameDay',
+      service: 'same_day',
+      label: 'Same-day hourly rate',
+      value: data.hourlyRateSameDay,
+    },
   ];
 
   for (const field of hourlyFields) {
+    if (serviceTypes && !serviceTypes.includes(field.service)) continue;
     if (field.value !== null && field.value !== undefined && field.value < MIN_HOURLY_RATE) {
       return {
         valid: false,
