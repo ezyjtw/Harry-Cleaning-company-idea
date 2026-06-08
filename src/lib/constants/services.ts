@@ -152,6 +152,19 @@ export const BEDROOMS_TO_AIRBNB_SIZE: Record<number, AirbnbSizeSlug> = {
   4: '4bedPlus',
 };
 
+export function bedroomIndexToPropertySize(
+  bedroomIndex: number,
+  serviceCategory: string
+): EotSizeSlug | AirbnbSizeSlug | null {
+  if (serviceCategory === 'end-of-tenancy' || serviceCategory === 'eot') {
+    return BEDROOMS_TO_EOT_SIZE[bedroomIndex] ?? null;
+  }
+  if (serviceCategory === 'airbnb') {
+    return BEDROOMS_TO_AIRBNB_SIZE[bedroomIndex] ?? null;
+  }
+  return null;
+}
+
 // ─── Booking Service Slug Normalization ──────────────────────────
 // Maps booking-form service values (kebab-case) to pricing-service
 // ServiceSlug values. Used by the booking API.

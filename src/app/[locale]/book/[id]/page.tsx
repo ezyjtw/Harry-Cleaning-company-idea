@@ -13,6 +13,7 @@ import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
+import { bedroomIndexToPropertySize } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -59,6 +60,17 @@ const SERVICE_TYPES = [
     description:
       'Quick turnaround cleans between guests — fresh linen, restocked supplies, spotless spaces.',
   },
+];
+
+const isFixedPriceService = (svc: string) => svc === 'end-of-tenancy' || svc === 'airbnb';
+
+const BEDROOM_OPTIONS = [
+  { value: 0, label: 'Studio' },
+  { value: 1, label: '1 Bedroom' },
+  { value: 2, label: '2 Bedrooms' },
+  { value: 3, label: '3 Bedrooms' },
+  { value: 4, label: '4 Bedrooms' },
+  { value: 5, label: '5+ Bedrooms' },
 ];
 
 export default function BookingPage({ params }: { params: { id: string } }) {
@@ -130,7 +142,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     duration: 2,
     serviceType: isExpress ? 'regular' : 'regular',
     notes: '',
+    bedrooms: 2,
   });
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
   const [submitted] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
@@ -179,7 +193,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch server-side quote when service/duration/cleaner changes
+  // Fetch server-side quote when service/duration/cleaner/bedrooms changes
   useEffect(() => {
     if (!params.id) return;
     const serviceSlugMap: Record<string, string> = {
@@ -190,6 +204,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       airbnb: 'airbnb',
     };
     const serviceSlug = serviceSlugMap[form.serviceType] || 'regular';
+    const propertySize = isFixedPriceService(form.serviceType)
+      ? bedroomIndexToPropertySize(form.bedrooms, form.serviceType)
+      : undefined;
     const controller = new AbortController();
     fetch('/api/pricing/quote', {
       method: 'POST',
@@ -198,6 +215,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         cleanerId: params.id,
         serviceSlug,
         hours: form.duration,
+        propertySize: propertySize || undefined,
       }),
       signal: controller.signal,
     })
@@ -209,11 +227,13 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             customerPlatformFee: data.customerPlatformFee,
             customerTotal: data.customerTotal,
           });
+        } else {
+          setServerQuote(null);
         }
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [params.id, form.serviceType, form.duration]);
+  }, [params.id, form.serviceType, form.duration, form.bedrooms]);
 
   if (!cleaner) {
     return (
@@ -307,7 +327,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPaymentPending(true);
+    setBookingError(null);
     trackStep(9, 'payment_started', { serviceType: form.serviceType });
+
+    const propertySize = isFixedPriceService(form.serviceType)
+      ? bedroomIndexToPropertySize(form.bedrooms, form.serviceType)
+      : undefined;
 
     try {
       const response = await fetch('/api/bookings', {
@@ -316,6 +341,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({
           cleanerId: cleaner.id,
           ...form,
+          propertySize,
           totalPrice: priceBreakdown.total,
           isLastMinute,
           isGuest: bookingMode === 'guest',
@@ -339,9 +365,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           setStripePaymentIntentId(data.booking?.stripePaymentIntentId || null);
           setPaymentStep(true);
         }
+      } else {
+        const data = await response.json().catch(() => null);
+        setBookingError(data?.error || `Something went wrong (${response.status})`);
       }
-    } catch {
-      // Handle error
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Network error — please try again.');
     } finally {
       setPaymentPending(false);
     }
@@ -866,23 +895,45 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Duration (hours)
-                  </label>
-                  <select
-                    value={form.duration}
-                    onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                    className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-                  >
-                    {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
-                      <option key={h} value={h}>
-                        {h} hour{h !== 1 ? 's' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {isFixedPriceService(form.serviceType) ? (
+                  <div>
+                    <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                      Property Size
+                    </label>
+                    <select
+                      value={form.bedrooms}
+                      onChange={(e) => setForm({ ...form, bedrooms: Number(e.target.value) })}
+                      className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {BEDROOM_OPTIONS.filter((o) =>
+                        form.serviceType === 'airbnb' ? o.value <= 4 : true
+                      ).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                      Duration (hours)
+                    </label>
+                    <select
+                      value={form.duration}
+                      onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
+                      className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                      style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    >
+                      {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
+                        <option key={h} value={h}>
+                          {h} hour{h !== 1 ? 's' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <DateTimePicker
                     cleanerId={params.id}
@@ -964,20 +1015,26 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <div className="space-y-2 font-jost text-sm font-light">
                   <div className="flex justify-between">
                     <span className="text-ink-3">
-                      Cleaning ({form.duration}h
-                      {selectedService.multiplier !== 1 && (
+                      {isFixedPriceService(form.serviceType) ? (
+                        selectedService.label
+                      ) : (
                         <>
-                          {' '}
-                          &times; {selectedService.multiplier}x {selectedService.label}
+                          Cleaning ({form.duration}h
+                          {selectedService.multiplier !== 1 && (
+                            <>
+                              {' '}
+                              &times; {selectedService.multiplier}x {selectedService.label}
+                            </>
+                          )}
+                          )
                         </>
                       )}
-                      )
                     </span>
                     <span className="font-normal text-ink">
                       &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                     </span>
                   </div>
-                  {isLastMinute && (
+                  {isLastMinute && !isFixedPriceService(form.serviceType) && (
                     <div className="font-jost text-xs font-light text-gold">
                       Same-day rate applied
                     </div>
@@ -1004,9 +1061,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            {bookingError && (
+              <div className="p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+                {bookingError}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={paymentPending}
+              disabled={paymentPending || (isFixedPriceService(form.serviceType) && !serverQuote)}
               className={`w-full py-3 font-jost text-lg font-normal text-cream disabled:opacity-60 ${
                 isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
               } lg:hidden`}
@@ -1048,20 +1111,26 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               <div className="space-y-2 font-jost text-sm font-light">
                 <div className="flex justify-between">
                   <span className="text-ink-3">
-                    Cleaning ({form.duration}h
-                    {selectedService.multiplier !== 1 && (
+                    {isFixedPriceService(form.serviceType) ? (
+                      selectedService.label
+                    ) : (
                       <>
-                        {' '}
-                        &times; {selectedService.multiplier}x {selectedService.label}
+                        Cleaning ({form.duration}h
+                        {selectedService.multiplier !== 1 && (
+                          <>
+                            {' '}
+                            &times; {selectedService.multiplier}x {selectedService.label}
+                          </>
+                        )}
+                        )
                       </>
                     )}
-                    )
                   </span>
                   <span className="font-normal text-ink">
                     &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                   </span>
                 </div>
-                {isLastMinute && (
+                {isLastMinute && !isFixedPriceService(form.serviceType) && (
                   <div className="font-jost text-xs font-light text-gold">
                     Same-day rate applied
                   </div>
@@ -1110,7 +1179,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 const formEl = document.querySelector('form');
                 if (formEl) formEl.requestSubmit();
               }}
-              disabled={paymentPending || bookingMode === null}
+              disabled={
+                paymentPending ||
+                bookingMode === null ||
+                (isFixedPriceService(form.serviceType) && !serverQuote)
+              }
               className={`w-full py-3 font-jost text-lg font-normal text-cream disabled:opacity-60 ${
                 isLastMinute ? 'bg-gold hover:bg-gold/90' : 'bg-ink hover:bg-ink/90'
               }`}

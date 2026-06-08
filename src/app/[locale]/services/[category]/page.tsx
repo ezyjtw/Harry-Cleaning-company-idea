@@ -14,6 +14,7 @@ import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { isInCatchmentArea } from '@/lib/catchment';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
+import { bedroomIndexToPropertySize } from '@/lib/constants/services';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise from '@/lib/stripe-client';
@@ -290,6 +291,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [specialInstructions, setSpecialInstructions] = useState('');
 
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
@@ -315,6 +317,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const handleBookingSubmit = async () => {
     if (bookingSubmitting) return;
     setBookingSubmitting(true);
+    setBookingError(null);
     try {
       const totalPrice =
         priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
@@ -334,6 +337,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           notes: specialInstructions || undefined,
           totalPrice,
           isGuest: true,
+          propertySize: isFixedPrice(category)
+            ? bedroomIndexToPropertySize(rooms.bedrooms, category)
+            : undefined,
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
           autoAssignBackup,
           rooms: {
@@ -344,6 +350,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           },
         }),
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConfirmedBookingId(data.booking?.id || '');
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
+          setPaymentStep(true);
+        }
+      } else {
+        const data = await response.json().catch(() => null);
+        setBookingError(data?.error || `Something went wrong (${response.status})`);
+      }
 
       if (joinMailingList && email) {
         fetch('/api/leads', {
@@ -359,17 +377,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           }),
         }).catch(() => {});
       }
-
-      if (response.ok) {
-        const data = await response.json();
-        setConfirmedBookingId(data.booking?.id || '');
-        if (data.clientSecret) {
-          setClientSecret(data.clientSecret);
-          setPaymentStep(true);
-        }
-      }
-    } catch {
-      // Handle error silently for now
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Network error — please try again.');
     } finally {
       setBookingSubmitting(false);
     }
@@ -1647,18 +1656,19 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // ─── PHASE 2 (Fixed-Price): Cleaner → Day/Time → Backup → Summary → Submit ──
   if (isFixedPrice(category)) {
     const priceField = category === 'end-of-tenancy' ? 'eotPrices' : 'airbnbPrices';
-    const maxBedKey = category === 'end-of-tenancy' ? 5 : 4;
-    const bedroomKey = Math.min(rooms.bedrooms, maxBedKey);
+    const propertySize = bedroomIndexToPropertySize(rooms.bedrooms, category);
 
     // Only show cleaners that have a price for this service & property size
     const eligibleCleaners = cleaners.filter((c) => {
       const prices = c[priceField];
-      return prices && prices[bedroomKey] !== undefined;
+      return prices && propertySize && prices[propertySize] !== undefined;
     });
 
     // Derive the selected cleaner's actual price
     const fixedSelectedCleaner = selectedCleaner;
-    const cleanerBasePrice = fixedSelectedCleaner?.[priceField]?.[bedroomKey] ?? 0;
+    const cleanerBasePrice = propertySize
+      ? (fixedSelectedCleaner?.[priceField]?.[propertySize] ?? 0)
+      : 0;
     const extrasTotal = fixedPriceQuote?.extrasTotal ?? 0;
     const subtotal = cleanerBasePrice + extrasTotal;
     const serviceFee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
@@ -1802,7 +1812,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 {eligibleCleaners.map((c) => {
                   const tier = TIER_INFO[c.tier];
-                  const price = (c[priceField] ?? {})[bedroomKey] ?? 0;
+                  const price = propertySize ? ((c[priceField] ?? {})[propertySize] ?? 0) : 0;
                   const priceFee = Math.round(price * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
                   const priceTotal = Math.round((price + priceFee) * 100) / 100;
                   return (
@@ -2042,6 +2052,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 included. No hidden charges.
               </p>
             </div>
+
+            {bookingError && (
+              <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+                {bookingError}
+              </div>
+            )}
 
             <button
               type="button"
