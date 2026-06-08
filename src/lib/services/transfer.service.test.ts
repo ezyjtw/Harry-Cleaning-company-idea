@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getTransferAmountPence } from './transfer-amount';
+import {
+  findMatchingTransfer,
+  getTransferAmountPence,
+  needsReconciliation,
+} from './transfer-amount';
 
 describe('getTransferAmountPence', () => {
   it('converts cleanerEarnings to pence for 10% commission (regular £80 base)', () => {
@@ -60,5 +64,94 @@ describe('getTransferAmountPence', () => {
         expect(pence).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('needsReconciliation', () => {
+  it('returns true for UNKNOWN (network error — transfer may exist)', () => {
+    expect(needsReconciliation('UNKNOWN')).toBe(true);
+  });
+
+  it('returns true for RELEASING (crash after Stripe success, before DB write)', () => {
+    expect(needsReconciliation('RELEASING')).toBe(true);
+  });
+
+  it('returns false for PENDING (fresh attempt, no prior transfer possible)', () => {
+    expect(needsReconciliation('PENDING')).toBe(false);
+  });
+
+  it('returns false for FAILED (definitive — Stripe confirmed no transfer)', () => {
+    expect(needsReconciliation('FAILED')).toBe(false);
+  });
+
+  it('returns false for RELEASED (terminal)', () => {
+    expect(needsReconciliation('RELEASED')).toBe(false);
+  });
+});
+
+describe('findMatchingTransfer (crash-after-success reconciliation)', () => {
+  const CHARGE_ID = 'ch_booking123';
+
+  it('adopts existing transfer when source_transaction matches (string)', () => {
+    const transfers = [
+      { id: 'tr_other', source_transaction: 'ch_different' },
+      { id: 'tr_match', source_transaction: CHARGE_ID },
+    ];
+    expect(findMatchingTransfer(transfers, CHARGE_ID)).toBe('tr_match');
+  });
+
+  it('adopts existing transfer when source_transaction is expanded Charge object', () => {
+    const transfers = [{ id: 'tr_match', source_transaction: { id: CHARGE_ID } }];
+    expect(findMatchingTransfer(transfers, CHARGE_ID)).toBe('tr_match');
+  });
+
+  it('returns null when no transfer matches — safe to create', () => {
+    const transfers = [
+      { id: 'tr_other1', source_transaction: 'ch_different1' },
+      { id: 'tr_other2', source_transaction: 'ch_different2' },
+    ];
+    expect(findMatchingTransfer(transfers, CHARGE_ID)).toBeNull();
+  });
+
+  it('returns null for empty list — safe to create', () => {
+    expect(findMatchingTransfer([], CHARGE_ID)).toBeNull();
+  });
+
+  it('handles null source_transaction without matching', () => {
+    const transfers = [{ id: 'tr_null', source_transaction: null }];
+    expect(findMatchingTransfer(transfers, CHARGE_ID)).toBeNull();
+  });
+
+  it('returns first match if multiple exist (defensive)', () => {
+    const transfers = [
+      { id: 'tr_first', source_transaction: CHARGE_ID },
+      { id: 'tr_second', source_transaction: CHARGE_ID },
+    ];
+    expect(findMatchingTransfer(transfers, CHARGE_ID)).toBe('tr_first');
+  });
+
+  it('UNKNOWN prior state with existing transfer → reconcile, not double-pay', () => {
+    // Scenario: network error on attempt 1, transfer actually succeeded on Stripe.
+    // On retry, needsReconciliation('UNKNOWN') = true, findMatchingTransfer finds it.
+    // Service adopts tr_existing and returns RELEASED — no second transfer created.
+    expect(needsReconciliation('UNKNOWN')).toBe(true);
+    const transfers = [{ id: 'tr_existing', source_transaction: CHARGE_ID }];
+    const adoptedId = findMatchingTransfer(transfers, CHARGE_ID);
+    expect(adoptedId).toBe('tr_existing');
+  });
+
+  it('RELEASING prior state with existing transfer → reconcile, not double-pay', () => {
+    // Scenario: crash after stripe.transfers.create returned, before DB write.
+    // On recovery, needsReconciliation('RELEASING') = true, findMatchingTransfer finds it.
+    // Service adopts tr_crashed and returns RELEASED — no second transfer created.
+    expect(needsReconciliation('RELEASING')).toBe(true);
+    const transfers = [{ id: 'tr_crashed', source_transaction: CHARGE_ID }];
+    const adoptedId = findMatchingTransfer(transfers, CHARGE_ID);
+    expect(adoptedId).toBe('tr_crashed');
+  });
+
+  it('PENDING does not reconcile — goes straight to create', () => {
+    // Fresh attempt, no prior Stripe call possible, reconciliation would waste an API call.
+    expect(needsReconciliation('PENDING')).toBe(false);
   });
 });
