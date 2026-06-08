@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
@@ -156,12 +157,16 @@ export async function PUT(request: NextRequest) {
 
   const effectiveServiceTypes = serviceTypes !== undefined ? serviceTypes : profile.serviceTypes;
 
-  const stpCheck = validateServiceTypePricing(effectiveServiceTypes, pricingData);
+  const validatedServiceTypes = SAME_DAY_FEATURE_ENABLED
+    ? effectiveServiceTypes
+    : effectiveServiceTypes.filter((s: string) => s !== 'same_day');
+
+  const stpCheck = validateServiceTypePricing(validatedServiceTypes, pricingData);
   if (!stpCheck.valid) {
     return NextResponse.json({ error: stpCheck.error }, { status: 400 });
   }
 
-  const floorCheck = validatePriceFloors(pricingData);
+  const floorCheck = validatePriceFloors(pricingData, validatedServiceTypes);
   if (!floorCheck.valid) {
     return NextResponse.json({ error: floorCheck.error }, { status: 400 });
   }
@@ -203,7 +208,11 @@ export async function PUT(request: NextRequest) {
   if (airbnbPrices !== undefined) profileUpdate.airbnbPrices = airbnbPrices;
   if (specialties !== undefined) profileUpdate.specialties = specialties;
   if (languages !== undefined) profileUpdate.languages = languages;
-  if (serviceTypes !== undefined) profileUpdate.serviceTypes = serviceTypes;
+  if (serviceTypes !== undefined) {
+    profileUpdate.serviceTypes = SAME_DAY_FEATURE_ENABLED
+      ? serviceTypes
+      : serviceTypes.filter((s: string) => s !== 'same_day');
+  }
   if (hoursPerWeek !== undefined)
     profileUpdate.hoursPerWeek = hoursPerWeek ? Number(hoursPerWeek) : null;
   if (yearsExperience !== undefined)

@@ -233,42 +233,44 @@ export default function CleanerPricingPage() {
             Select the cleaning services you want to offer
           </p>
           <div className="flex flex-wrap gap-2">
-            {SERVICE_TYPE_SLUGS.map((slug) => {
-              const info = SERVICE_RATE_INFO[slug];
-              return (
-                <button
-                  key={slug}
-                  onClick={() => toggleService(slug)}
-                  className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
-                    serviceTypes.includes(slug)
-                      ? 'bg-ink text-cream shadow-sm'
-                      : 'bg-white text-ink-2 hover:bg-cream-2'
-                  }`}
-                  style={
-                    serviceTypes.includes(slug)
-                      ? undefined
-                      : { border: '1px solid rgba(14,14,12,0.1)' }
-                  }
-                >
-                  {serviceTypes.includes(slug) && (
-                    <svg
-                      className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                  {info.label}
-                </button>
-              );
-            })}
+            {SERVICE_TYPE_SLUGS.filter((s) => SAME_DAY_FEATURE_ENABLED || s !== 'same_day').map(
+              (slug) => {
+                const info = SERVICE_RATE_INFO[slug];
+                return (
+                  <button
+                    key={slug}
+                    onClick={() => toggleService(slug)}
+                    className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
+                      serviceTypes.includes(slug)
+                        ? 'bg-ink text-cream shadow-sm'
+                        : 'bg-white text-ink-2 hover:bg-cream-2'
+                    }`}
+                    style={
+                      serviceTypes.includes(slug)
+                        ? undefined
+                        : { border: '1px solid rgba(14,14,12,0.1)' }
+                    }
+                  >
+                    {serviceTypes.includes(slug) && (
+                      <svg
+                        className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                    {info.label}
+                  </button>
+                );
+              }
+            )}
           </div>
         </div>
 
