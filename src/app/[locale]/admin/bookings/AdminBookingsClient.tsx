@@ -1,10 +1,125 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import type { BookingRow } from './page';
 
 const ITEMS_PER_PAGE = 8;
+
+function RefundModal({ booking, onClose }: { booking: BookingRow; onClose: () => void }) {
+  const refundable = +(booking.amount - booking.refundedAmount).toFixed(2);
+  const [amount, setAmount] = useState(refundable.toString());
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleSubmit = useCallback(async () => {
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/admin/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: booking.fullId,
+          amount: parseFloat(amount),
+          reason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const label = data.status === 'SKIPPED' ? 'Skipped' : 'Failed';
+        setResult({ ok: false, message: `${label}: ${data.error}` });
+      } else {
+        const refunded = data.amountRefunded?.toFixed(2) ?? amount;
+        setResult({ ok: true, message: `Refund of £${refunded} succeeded` });
+      }
+    } catch {
+      setResult({ ok: false, message: 'Network error — check console' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [booking.fullId, amount, reason]);
+
+  const parsedAmount = parseFloat(amount);
+  const valid = parsedAmount > 0 && parsedAmount <= refundable + 0.01 && reason.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Refund Booking</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          {booking.customer} — {booking.id} — £{booking.amount.toFixed(2)} paid
+          {booking.refundedAmount > 0 && `, £${booking.refundedAmount.toFixed(2)} already refunded`}
+        </p>
+
+        {result && (
+          <div
+            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          >
+            {result.message}
+          </div>
+        )}
+
+        {!result?.ok ? (
+          <>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Amount (max £{refundable.toFixed(2)})
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={refundable}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              disabled={submitting}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <textarea
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={submitting}
+              placeholder="Why is this refund being issued?"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!valid || submitting}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting
+                  ? 'Processing…'
+                  : `Refund £${parsedAmount > 0 ? parsedAmount.toFixed(2) : '0.00'}`}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminBookingsClient({
   bookings,
@@ -19,6 +134,7 @@ export default function AdminBookingsClient({
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [refundTarget, setRefundTarget] = useState<BookingRow | null>(null);
 
   const filtered = bookings.filter((b) => {
     const matchesSearch =
@@ -135,6 +251,9 @@ export default function AdminBookingsClient({
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -162,6 +281,16 @@ export default function AdminBookingsClient({
                     >
                       {booking.status.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {booking.amount - booking.refundedAmount > 0.01 && (
+                      <button
+                        onClick={() => setRefundTarget(booking)}
+                        className="text-xs font-medium text-red-600 hover:text-red-800"
+                      >
+                        Refund
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -194,6 +323,8 @@ export default function AdminBookingsClient({
           </div>
         )}
       </div>
+
+      {refundTarget && <RefundModal booking={refundTarget} onClose={() => setRefundTarget(null)} />}
     </div>
   );
 }
