@@ -6,12 +6,14 @@ export const dynamic = 'force-dynamic';
 
 export interface BookingRow {
   id: string;
+  fullId: string;
   customer: string;
   cleaner: string;
   serviceType: string;
   date: string;
   time: string;
   amount: number;
+  refundedAmount: number;
   status:
     | 'pending'
     | 'awaiting_cleaner'
@@ -61,17 +63,23 @@ async function getBookings(): Promise<{
     include: {
       client: { select: { name: true } },
       cleaner: { select: { name: true } },
+      refundRecords: {
+        where: { status: 'SUCCEEDED' },
+        select: { amount: true },
+      },
     },
   });
 
   const rows: BookingRow[] = bookings.map((b) => ({
     id: b.id.substring(0, 8).toUpperCase(),
+    fullId: b.id,
     customer: b.client?.name || b.guestName || 'Guest',
     cleaner: b.cleaner.name || 'Unassigned',
     serviceType: b.serviceType,
     date: b.date.toISOString().split('T')[0],
     time: b.startTime,
     amount: Number(b.totalPrice),
+    refundedAmount: b.refundRecords.reduce((sum, r) => sum + Number(r.amount), 0),
     status: mapStatus(b.status),
     paymentStatus: b.paymentStatus,
   }));
