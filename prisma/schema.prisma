@@ -439,6 +439,7 @@ model Booking {
   complaints    Complaint[]
   bookingAddons BookingAddon[]
   cleanerQueue  BookingCleanerQueue[]
+  refundRecords RefundRecord[]
 
   // ─── Pricing snapshot (captured at booking creation) ─────
   propertySize              PropertySize?
@@ -573,6 +574,25 @@ model Payment {
 
   @@index([status])
   @@index([ryftPaymentId])
+}
+
+model RefundRecord {
+  id             String   @id @default(cuid())
+  bookingId      String
+  stripeRefundId String?  @unique
+  amount         Decimal  @db.Decimal(10, 2)
+  reason         String
+  triggeredBy    String?
+  status         String   @default("PENDING")
+  attempt        Int      @default(0)
+  failureReason  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
 }
 
 model PromoCode {

@@ -130,6 +130,25 @@ export async function sendBookingCancellation(
   return sendEmail(user.email, subject, htmlBody);
 }
 
+export async function sendRefundConfirmation(
+  booking: BookingEmailData,
+  user: UserEmailData,
+  refundAmount: number,
+  isFullRefund: boolean
+): Promise<boolean> {
+  const subject = isFullRefund
+    ? `Full refund issued - ${booking.date}`
+    : `Partial refund issued - ${booking.date}`;
+  const htmlBody = `
+    <h1>${isFullRefund ? 'Full Refund' : 'Partial Refund'} Issued</h1>
+    <p>Hi ${user.name},</p>
+    <p>A refund of <strong>&pound;${refundAmount.toFixed(2)}</strong> has been issued for your booking on ${booking.date} at ${booking.time}.</p>
+    <p>The refund will appear in your account within 5-10 business days.</p>
+  `;
+
+  return sendEmail(user.email, subject, htmlBody);
+}
+
 export async function sendCleanerAssignment(
   booking: BookingEmailData,
   cleaner: CleanerEmailData

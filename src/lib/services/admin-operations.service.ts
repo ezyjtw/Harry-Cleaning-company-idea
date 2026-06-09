@@ -83,26 +83,12 @@ export class AdminOperationsService {
    * Issue refund for a booking
    */
   static async issueRefund(bookingId: string, amount: number, reason: string, adminId?: string) {
-    const payment = await prisma.payment.findUnique({ where: { bookingId } });
-    if (!payment) throw new Error('Payment not found');
-
-    const updated = await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: amount >= Number(payment.amount) ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-        refundAmount: amount,
-      },
-    });
-
-    await AuditService.log({
-      userId: adminId,
-      action: 'ADMIN_ISSUE_REFUND',
-      entityType: 'Payment',
-      entityId: payment.id,
-      metadata: { bookingId, amount, reason, originalAmount: Number(payment.amount) },
-    });
-
-    return updated;
+    const { refundBooking } = await import('./refund.service');
+    const result = await refundBooking(bookingId, amount, reason, { triggeredBy: adminId });
+    if (result.status === 'FAILED') {
+      throw new Error(result.reason || 'Refund failed');
+    }
+    return result;
   }
 
   /**
@@ -189,22 +175,15 @@ export class AdminOperationsService {
     });
     if (!dispute) throw new Error('Dispute not found');
 
-    await prisma.$transaction(async (tx) => {
-      await tx.dispute.update({
-        where: { id: disputeId },
-        data: { status: 'RESOLVED', resolution, resolvedAt: new Date() },
-      });
-
-      if (refundAction !== 'none' && dispute.booking.payment && refundAmount) {
-        await tx.payment.update({
-          where: { id: dispute.booking.payment.id },
-          data: {
-            status: refundAction === 'full' ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-            refundAmount,
-          },
-        });
-      }
+    await prisma.dispute.update({
+      where: { id: disputeId },
+      data: { status: 'RESOLVED', resolution, resolvedAt: new Date() },
     });
+
+    if (refundAction !== 'none' && refundAmount) {
+      const { refundBooking } = await import('./refund.service');
+      await refundBooking(dispute.bookingId, refundAmount, `Dispute resolved: ${resolution}`);
+    }
 
     await AuditService.log({
       action: 'ADMIN_RESOLVE_DISPUTE',
