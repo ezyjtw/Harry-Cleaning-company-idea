@@ -2,7 +2,6 @@ import type { Prisma } from '@prisma/client';
 import Decimal from 'decimal.js';
 
 import { prisma } from '@/lib/db/prisma';
-import stripe from '@/lib/stripe';
 
 import { MatchingService } from './matching.service';
 import type { MatchingCriteria } from './matching.service';
@@ -266,14 +265,18 @@ export class CleanerQueueService {
       });
     });
 
-    // 3. If there's a refund due (escrow > actual), initiate partial refund via Stripe
-    if (refundDue > 0 && queueEntry.booking.stripePaymentIntentId) {
-      try {
-        await this.initiatePartialRefund(queueEntry.booking.stripePaymentIntentId, refundDue);
-      } catch (error) {
+    // 3. If there's a refund due (escrow > actual), refund via centralized service
+    if (refundDue > 0) {
+      const { refundBooking } = await import('./refund.service');
+      await refundBooking(
+        bookingId,
+        refundDue,
+        'Queue escrow adjustment — accepted quote below hold amount',
+        { adjustEarnings: false }
+      ).catch((error) => {
         // eslint-disable-next-line no-console
-        console.error('Partial refund initiation failed:', error);
-      }
+        console.error('Queue escrow refund failed:', error);
+      });
     }
 
     // 4. Notify the accepting cleaner
@@ -431,15 +434,5 @@ export class CleanerQueueService {
         expiresAt: e.expiresAt,
       })),
     };
-  }
-
-  private static async initiatePartialRefund(
-    paymentIntentId: string,
-    refundAmount: number
-  ): Promise<void> {
-    await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: Math.round(refundAmount * 100),
-    });
   }
 }

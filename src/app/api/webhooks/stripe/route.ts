@@ -264,6 +264,25 @@ export async function POST(request: NextRequest) {
           paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
         },
       });
+
+      // Best-effort backup: confirm RefundRecords that the synchronous
+      // writeRefundSuccess may not have written yet (webhook can race ahead).
+      // Match on bookingId + amount since stripeRefundId isn't set until
+      // writeRefundSuccess completes — a fast webhook finds no ID match.
+      const stripeRefunds = charge.refunds?.data ?? [];
+      for (const sr of stripeRefunds) {
+        const amountPounds = sr.amount / 100;
+        await prisma.refundRecord
+          .updateMany({
+            where: {
+              bookingId: booking.id,
+              amount: amountPounds,
+              status: { in: ['PENDING', 'UNKNOWN'] },
+            },
+            data: { status: 'SUCCEEDED', stripeRefundId: sr.id },
+          })
+          .catch(() => {});
+      }
     }
   }
 
