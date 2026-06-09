@@ -34,6 +34,14 @@ enum BookingStatus {
   REVIEWED
   CANCELLED
   DISPUTED
+  CASCADE_EXHAUSTED
+}
+
+enum CascadePhase {
+  PRIMARY_OFFER
+  BACKUP_OFFER
+  COMBINED_OFFER
+  CASCADE_EXHAUSTED
 }
 
 enum PricingModel {
@@ -463,6 +471,12 @@ model Booking {
   // Customer delegates backup selection to Rena ("Provide me an appropriate cleaner" toggle)
   autoAssignBackup   Boolean @default(false)
 
+  // ─── Cascade offer tracking (A5.1) ─────
+  cascadePhase            CascadePhase?
+  cascadeExpiresAt        DateTime?
+  cascadeBackupExpiresAt  DateTime?
+  declinedCleanerIds      String[]
+
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)
   acceptedFromQueue  Boolean @default(false)
@@ -475,6 +489,7 @@ model Booking {
   @@index([cleanerId, date])
   @@index([providerId])
   @@index([guestToken])
+  @@index([status, cascadePhase])
 }
 
 model Review {
