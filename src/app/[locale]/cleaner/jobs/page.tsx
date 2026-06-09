@@ -104,6 +104,7 @@ export default function CleanerJobsPage() {
   });
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [showNotesFor, setShowNotesFor] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(
     async (tab: JobStatus) => {
@@ -160,6 +161,7 @@ export default function CleanerJobsPage() {
 
   const transitionJob = useCallback(
     async (id: string, newDisplayStatus: JobStatus) => {
+      setError(null);
       const apiStatus = transitionMap[activeTab];
       if (!apiStatus) return;
 
@@ -182,6 +184,9 @@ export default function CleanerJobsPage() {
           [newDisplayStatus]: prev[newDisplayStatus] + 1,
         }));
         setShowNotesFor(null);
+      } else {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Failed to update job status');
       }
     },
     [activeTab, completionNotes]
@@ -189,6 +194,7 @@ export default function CleanerJobsPage() {
 
   const handleDecline = useCallback(
     async (id: string) => {
+      setError(null);
       const res = await fetch(`/api/cleaner/jobs/${id}/decline`, {
         method: 'POST',
       });
@@ -198,6 +204,30 @@ export default function CleanerJobsPage() {
           ...prev,
           [activeTab]: Math.max(0, prev[activeTab] - 1),
         }));
+      } else {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Failed to decline job');
+      }
+    },
+    [activeTab]
+  );
+
+  const handleAccept = useCallback(
+    async (id: string) => {
+      setError(null);
+      const res = await fetch(`/api/cleaner/jobs/${id}/accept`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        setJobList((prev) => prev.filter((j) => j.id !== id));
+        setCounts((prev) => ({
+          ...prev,
+          [activeTab]: Math.max(0, prev[activeTab] - 1),
+          upcoming: prev.upcoming + 1,
+        }));
+      } else {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Failed to accept job');
       }
     },
     [activeTab]
@@ -248,7 +278,10 @@ export default function CleanerJobsPage() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                setError(null);
+                setActiveTab(tab.key);
+              }}
               className={`whitespace-nowrap pb-3 px-1 font-jost text-[11px] uppercase tracking-[0.1em] border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? 'border-gold text-gold'
@@ -269,6 +302,18 @@ export default function CleanerJobsPage() {
           ))}
         </nav>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-800 font-jost text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-4 text-red-600 hover:text-red-800 font-medium"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -409,7 +454,7 @@ export default function CleanerJobsPage() {
                       {ds === 'pending' && (
                         <>
                           <button
-                            onClick={() => transitionJob(job.id, 'upcoming')}
+                            onClick={() => handleAccept(job.id)}
                             className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
                           >
                             Accept
