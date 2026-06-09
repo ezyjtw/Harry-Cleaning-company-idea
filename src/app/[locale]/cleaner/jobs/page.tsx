@@ -189,10 +189,8 @@ export default function CleanerJobsPage() {
 
   const handleDecline = useCallback(
     async (id: string) => {
-      const res = await fetch(`/api/cleaner/jobs/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED', cancellationReason: 'Declined by cleaner' }),
+      const res = await fetch(`/api/cleaner/jobs/${id}/decline`, {
+        method: 'POST',
       });
       if (res.ok) {
         setJobList((prev) => prev.filter((j) => j.id !== id));
