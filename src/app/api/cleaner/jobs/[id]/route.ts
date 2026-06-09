@@ -41,7 +41,17 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
   const booking = await prisma.booking.findFirst({
-    where: { id, cleanerId: user.id },
+    where: {
+      id,
+      OR: [
+        { cleanerId: user.id },
+        {
+          backupCleanerIds: { has: user.id },
+          cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
+        },
+      ],
+      NOT: { declinedCleanerIds: { has: user.id } },
+    },
     include: {
       client: { select: { name: true, email: true } },
       address: true,
@@ -112,6 +122,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
+  // Superseded by POST /api/cleaner/jobs/[id]/accept — kept as fallback for direct PATCH callers
   // For ACCEPTED, use the atomic cascade-aware accept
   if (status === 'ACCEPTED') {
     const acceptResult = await atomicAccept(id, user.id);
