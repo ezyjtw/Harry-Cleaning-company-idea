@@ -57,6 +57,7 @@ const UPCOMING_STATUSES = new Set([
   'ACCEPTED',
   'EN_ROUTE',
   'IN_PROGRESS',
+  'CASCADE_EXHAUSTED',
 ]);
 
 function formatDate(dateStr: string): string {
@@ -84,6 +85,8 @@ function statusBadge(status: string): { text: string; className: string } {
       return { text: 'On the way', className: 'bg-blue-50 text-blue-600' };
     case 'IN_PROGRESS':
       return { text: 'In progress', className: 'bg-blue-50 text-blue-600' };
+    case 'CASCADE_EXHAUSTED':
+      return { text: 'No cleaner available', className: 'bg-red-50 text-red-600' };
     default:
       return { text: status, className: 'bg-ink/5 text-ink-3' };
   }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-type BookingStatus = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+type BookingStatus = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Needs attention';
 
 interface Booking {
   id: string;
@@ -23,6 +23,7 @@ const statusStyles: Record<BookingStatus, string> = {
   Confirmed: 'bg-blue-50 text-blue-700 border-blue-200',
   Completed: 'bg-green-50 text-green-700 border-green-200',
   Cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
+  'Needs attention': 'bg-red-50 text-red-600 border-red-200',
 };
 
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
@@ -31,6 +32,7 @@ const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'Confirmed', value: 'Confirmed' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Cancelled', value: 'Cancelled' },
+  { label: 'Needs attention', value: 'Needs attention' },
 ];
 
 function mapStatus(apiStatus: string): BookingStatus {
@@ -50,6 +52,8 @@ function mapStatus(apiStatus: string): BookingStatus {
     case 'CANCELLED':
     case 'DISPUTED':
       return 'Cancelled';
+    case 'CASCADE_EXHAUSTED':
+      return 'Needs attention';
     default:
       return 'Pending';
   }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { atomicAccept } from '@/lib/services/cascade.service';
 
 type BookingStatus =
   | 'PENDING'
@@ -111,20 +112,55 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
+  // For ACCEPTED, use the atomic cascade-aware accept
+  if (status === 'ACCEPTED') {
+    const acceptResult = await atomicAccept(id, user.id);
+    if (!acceptResult.success) {
+      return NextResponse.json({ error: acceptResult.reason }, { status: 409 });
+    }
+
+    const accepted = await prisma.booking.findUnique({
+      where: { id },
+      include: { client: { select: { id: true, name: true, email: true } } },
+    });
+
+    if (accepted?.clientId) {
+      await prisma.notification
+        .create({
+          data: {
+            userId: accepted.clientId,
+            type: 'BOOKING_CONFIRMED',
+            title: 'Booking accepted',
+            body: `Your cleaner has accepted your booking for ${accepted.date.toLocaleDateString('en-GB')}.`,
+            data: { bookingId: accepted.id },
+          },
+        })
+        .catch(() => {});
+    }
+
+    return NextResponse.json({
+      message: 'Job status updated to ACCEPTED',
+      job: { id, status: 'ACCEPTED' },
+    });
+  }
+
   const updateData: Record<string, unknown> = {
     status: status as BookingStatus,
   };
 
   if (notes) updateData.cleanerNotes = notes;
 
-  // Set timestamps based on transition
-  if (status === 'ACCEPTED') updateData.acceptedAt = new Date();
   if (status === 'EN_ROUTE') updateData.arrivalConfirmed = true;
   if (status === 'IN_PROGRESS') updateData.checkedInAt = new Date();
   if (status === 'COMPLETED') updateData.completedAt = new Date();
   if (status === 'CANCELLED') {
     updateData.cancelledAt = new Date();
     updateData.cancellationReason = cancellationReason || 'Cancelled by cleaner';
+    // #6: null cascade fields on genuine cancellation (scheduler guards make them
+    // harmless, but clean state is better)
+    updateData.cascadePhase = null;
+    updateData.cascadeExpiresAt = null;
+    updateData.cascadeBackupExpiresAt = null;
   }
 
   const updated = await prisma.booking.update({

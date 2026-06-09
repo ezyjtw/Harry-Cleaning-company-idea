@@ -15,12 +15,32 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20));
 
-  const where: Record<string, unknown> = { cleanerId: user.id };
+  const statusIn = statusFilter
+    ? statusFilter.split(',').map((s) => s.trim().toUpperCase())
+    : undefined;
 
-  if (statusFilter) {
-    const statuses = statusFilter.split(',').map((s) => s.trim().toUpperCase());
-    where.status = { in: statuses };
+  const baseStatusFilter = statusIn ? { in: statusIn } : undefined;
+
+  // Primary path: bookings assigned to this cleaner, excluding those that moved
+  // past their cascade phase (BACKUP_OFFER means primary's turn is over)
+  const primaryWhereWithCascade: Record<string, unknown> = {
+    cleanerId: user.id,
+    OR: [{ cascadePhase: null }, { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } }],
+    NOT: { declinedCleanerIds: { has: user.id } },
+  };
+  if (baseStatusFilter) {
+    primaryWhereWithCascade.status = baseStatusFilter;
   }
+
+  // Backup/combined path: bookings where this cleaner is a backup being offered
+  const backupWhere: Record<string, unknown> = {
+    backupCleanerIds: { has: user.id },
+    cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
+    status: 'AWAITING_CLEANER',
+    NOT: { declinedCleanerIds: { has: user.id } },
+  };
+
+  const where = { OR: [primaryWhereWithCascade, backupWhere] };
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({
@@ -58,6 +78,7 @@ export async function GET(request: NextRequest) {
       cleanerNotes: b.cleanerNotes,
       bedrooms: (b.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
       extras: b.extras,
+      cascadePhase: b.cascadePhase,
     })),
     total,
     page,

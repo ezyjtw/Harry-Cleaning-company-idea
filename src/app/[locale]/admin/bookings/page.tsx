@@ -19,7 +19,8 @@ export interface BookingRow {
     | 'in-progress'
     | 'completed'
     | 'cancelled'
-    | 'disputed';
+    | 'disputed'
+    | 'cascade_exhausted';
   paymentStatus: string;
 }
 
@@ -42,6 +43,8 @@ function mapStatus(prismaStatus: string): BookingRow['status'] {
       return 'cancelled';
     case 'DISPUTED':
       return 'disputed';
+    case 'CASCADE_EXHAUSTED':
+      return 'cascade_exhausted';
     default:
       return 'pending';
   }

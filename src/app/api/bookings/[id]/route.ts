@@ -42,12 +42,13 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
     }
 
-    // Only allow the client, cleaner, or admin to view
+    // Only allow the client, cleaner, backup cleaner, or admin to view
     const isClient = booking.clientId === user.id;
     const isCleaner = booking.cleanerId === user.id;
+    const isBackup = booking.backupCleanerIds.includes(user.id);
     const isAdmin = user.role === 'ADMIN';
 
-    if (!isClient && !isCleaner && !isAdmin) {
+    if (!isClient && !isCleaner && !isBackup && !isAdmin) {
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
     }
 

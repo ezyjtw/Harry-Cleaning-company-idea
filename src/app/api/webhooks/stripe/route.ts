@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 
 import prisma from '@/lib/db/prisma';
+import { computeCascadeWindows } from '@/lib/services/cascade.service';
 import {
   sendBookingConfirmation,
   sendPaymentFailureNotification,
@@ -115,20 +116,35 @@ export async function POST(request: NextRequest) {
           ? pi.latest_charge
           : (pi.latest_charge as Stripe.Charge)?.id;
 
+      // Read booking FIRST for cascade window computation + emails
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          client: { select: { name: true, email: true } },
+          cleaner: { select: { name: true, email: true } },
+        },
+      });
+
+      // Compute cascade windows (safe — falls back to COMBINED_OFFER on parse failure)
+      const now = new Date();
+      const cascadeData = booking
+        ? computeCascadeWindows(booking.date, booking.startTime, now)
+        : null;
+
+      // Single update: payment + status + cascade fields (#2)
       await prisma.booking.update({
         where: { id: bookingId },
         data: {
           paymentStatus: 'SUCCEEDED',
           status: 'AWAITING_CLEANER',
           ...(chargeId ? { stripeChargeId: chargeId } : {}),
-        },
-      });
-
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: {
-          client: { select: { name: true, email: true } },
-          cleaner: { select: { name: true, email: true } },
+          ...(cascadeData
+            ? {
+                cascadePhase: cascadeData.initialPhase,
+                cascadeExpiresAt: cascadeData.cascadeExpiresAt,
+                cascadeBackupExpiresAt: cascadeData.cascadeBackupExpiresAt,
+              }
+            : {}),
         },
       });
 
@@ -148,18 +164,35 @@ export async function POST(request: NextRequest) {
         ).catch(() => {});
       }
 
+      // Notify primary cleaner (and backups in COMBINED_OFFER)
       if (booking?.cleaner) {
         await prisma.notification
           .create({
             data: {
               userId: booking.cleanerId,
-              type: 'BOOKING_CONFIRMED',
-              title: 'Payment received',
-              body: `Payment confirmed for ${booking.serviceType} cleaning on ${booking.date.toISOString().split('T')[0]}`,
+              type: 'BOOKING_REQUEST',
+              title: 'New booking request',
+              body: `New ${booking.serviceType} booking on ${booking.date.toISOString().split('T')[0]} — please accept or decline.`,
               data: { bookingId },
             },
           })
           .catch(() => {});
+      }
+
+      if (cascadeData?.initialPhase === 'COMBINED_OFFER' && booking) {
+        for (const backupId of booking.backupCleanerIds) {
+          await prisma.notification
+            .create({
+              data: {
+                userId: backupId,
+                type: 'BOOKING_REQUEST',
+                title: 'Cleaning job available',
+                body: `A ${booking.serviceType} job is available — first to accept gets it.`,
+                data: { bookingId },
+              },
+            })
+            .catch(() => {});
+        }
       }
     }
   }
