@@ -20,9 +20,10 @@ export interface SchedulerSummary {
   releases: HandlerResult;
 }
 
-// A5.1 will implement — process bookings whose cascade acceptance window has expired
+import { processExpiredCascadeWindows as cascadeHandler } from './cascade.service';
+
 async function processExpiredCascadeWindows(): Promise<HandlerResult> {
-  return { processed: 0 };
+  return cascadeHandler();
 }
 
 // A6 will implement — release funds for bookings whose releaseDueAt has passed

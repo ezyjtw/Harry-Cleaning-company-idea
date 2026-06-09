@@ -283,6 +283,7 @@ function mapJobStatus(status: string): CleanerJob['status'] {
     case 'COMPLETED':
     case 'REVIEWED':
       return 'completed';
+    case 'CASCADE_EXHAUSTED':
     default:
       return 'pending';
   }

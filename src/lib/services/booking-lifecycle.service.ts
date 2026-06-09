@@ -13,6 +13,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   COMPLETED: ['REVIEWED'],
   REVIEWED: [],
   CANCELLED: [],
+  CASCADE_EXHAUSTED: ['CANCELLED'],
 };
 
 export interface BookingTransitionResult {
@@ -109,7 +110,11 @@ export class BookingLifecycleService {
     bookingDate: Date,
     status: string
   ): { canCancel: boolean; refundPercent: number; reason?: string } {
-    if (!['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'].includes(status)) {
+    if (
+      !['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'CASCADE_EXHAUSTED'].includes(
+        status
+      )
+    ) {
       return {
         canCancel: false,
         refundPercent: 0,

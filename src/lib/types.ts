@@ -302,7 +302,8 @@ export type BookingStatusExtended =
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'REVIEWED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'CASCADE_EXHAUSTED';
 
 // ─── Availability Override ─────────────────────────────────
 export interface AvailabilityOverride {

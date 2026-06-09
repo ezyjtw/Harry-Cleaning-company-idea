@@ -100,11 +100,13 @@ export async function GET() {
       },
     }),
 
-    // Bookings where this cleaner is a backup (active bookings only)
+    // Bookings where this cleaner is a backup and being offered the job
     prisma.booking.count({
       where: {
         backupCleanerIds: { has: user.id },
-        status: { in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'] },
+        status: 'AWAITING_CLEANER',
+        cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
+        NOT: { declinedCleanerIds: { has: user.id } },
       },
     }),
   ]);
