@@ -130,7 +130,7 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
   if (result.count === 0) return;
 
   const activeBackups = booking.backupCleanerIds.filter(
-    (id) => !booking.declinedCleanerIds.includes(id)
+    (id) => !(booking.declinedCleanerIds ?? []).includes(id)
   );
   for (const backupId of activeBackups) {
     await prisma.notification
@@ -204,7 +204,7 @@ export async function handleDecline(bookingId: string, cleanerId: string): Promi
   if (!isPrimary && !isBackup) {
     return { success: false, error: 'You are not offered this booking', statusCode: 403 };
   }
-  if (booking.declinedCleanerIds.includes(cleanerId)) {
+  if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
     return { success: false, error: 'Already declined', statusCode: 400 };
   }
 
@@ -247,7 +247,7 @@ async function checkAllDeclined(bookingId: string, phase: CascadePhase): Promise
       ? [booking.cleanerId, ...booking.backupCleanerIds]
       : booking.backupCleanerIds;
 
-  const allDeclined = offeredSet.every((id) => booking.declinedCleanerIds.includes(id));
+  const allDeclined = offeredSet.every((id) => (booking.declinedCleanerIds ?? []).includes(id));
   if (!allDeclined) return;
 
   const result = await prisma.booking.updateMany({
@@ -308,7 +308,7 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   if (booking.cascadePhase === 'COMBINED_OFFER' && !isPrimary && !isBackup) {
     return { success: false, reason: 'You are not offered this booking' };
   }
-  if (booking.declinedCleanerIds.includes(cleanerId)) {
+  if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
     return { success: false, reason: 'You already declined this booking' };
   }
 
@@ -365,7 +365,9 @@ function getLoserSet(
     return [];
   }
 
-  return offeredSet.filter((id) => id !== winnerId && !booking.declinedCleanerIds.includes(id));
+  return offeredSet.filter(
+    (id) => id !== winnerId && !(booking.declinedCleanerIds ?? []).includes(id)
+  );
 }
 
 // ─── Scheduler: process expired windows ────────────────────────

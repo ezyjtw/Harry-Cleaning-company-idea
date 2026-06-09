@@ -475,7 +475,7 @@ model Booking {
   cascadePhase            CascadePhase?
   cascadeExpiresAt        DateTime?
   cascadeBackupExpiresAt  DateTime?
-  declinedCleanerIds      String[]
+  declinedCleanerIds      String[]     @default([])
 
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)
