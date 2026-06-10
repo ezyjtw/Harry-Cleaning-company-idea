@@ -21,6 +21,8 @@ const COMMISSION_RATES: Record<ServiceSlug, number> = {
 
 const PLATFORM_FEE_RATE = 0.06;
 
+export const PRICE_ABSORPTION_THRESHOLD = 3.0;
+
 export const EOT_PRICE_FLOORS: Record<EotPropertySize, number> = {
   studio: 75,
   '1bed': 95,

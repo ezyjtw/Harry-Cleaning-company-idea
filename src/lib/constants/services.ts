@@ -186,6 +186,23 @@ export function propertySizeSlugToEnum(slug: string | undefined | null): Propert
   return SLUG_TO_PROPERTY_SIZE[slug] ?? null;
 }
 
+// ─── PropertySize Enum → Pricing Slug ──────────────────────────
+// Reverse of SLUG_TO_PROPERTY_SIZE. Used by reconciliation to
+// re-quote a booking for a different cleaner.
+
+const PROPERTY_SIZE_TO_SLUG: Record<PropertySize, string> = {
+  STUDIO: 'studio',
+  ONE_BED: '1bed',
+  TWO_BED: '2bed',
+  THREE_BED: '3bed',
+  FOUR_BED: '4bed',
+  FIVE_PLUS: '5bedPlus',
+};
+
+export function propertySizeEnumToSlug(size: PropertySize): string {
+  return PROPERTY_SIZE_TO_SLUG[size];
+}
+
 // ─── Booking Service Slug Normalization ──────────────────────────
 // Maps booking-form service values (kebab-case) to pricing-service
 // ServiceSlug values. Used by the booking API.

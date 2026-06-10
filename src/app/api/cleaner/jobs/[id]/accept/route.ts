@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { atomicAccept } from '@/lib/services/cascade.service';
+import { acceptWithReconciliation } from '@/lib/services/reconciliation.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -14,33 +14,94 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const result = await atomicAccept(id, user.id);
 
-  if (!result.success) {
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    select: {
+      cleanerId: true,
+      clientId: true,
+      serviceType: true,
+      propertySize: true,
+      duration: true,
+      totalPrice: true,
+      cleanerEarnings: true,
+      platformFee: true,
+      extras: true,
+      stripePaymentIntentId: true,
+      date: true,
+      startTime: true,
+      cascadeExpiresAt: true,
+      cascadeBackupExpiresAt: true,
+      client: { select: { email: true, name: true, stripeCustomerId: true } },
+    },
+  });
+
+  if (!booking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
+  const result = await acceptWithReconciliation(id, user.id, {
+    cleanerId: booking.cleanerId,
+    clientId: booking.clientId,
+    serviceType: booking.serviceType,
+    propertySize: booking.propertySize,
+    duration: Number(booking.duration),
+    totalPrice: Number(booking.totalPrice),
+    cleanerEarnings: Number(booking.cleanerEarnings),
+    platformFee: Number(booking.platformFee),
+    extras: booking.extras,
+    stripePaymentIntentId: booking.stripePaymentIntentId,
+    date: booking.date,
+    startTime: booking.startTime,
+    clientEmail: booking.client?.email ?? null,
+    clientName: booking.client?.name ?? null,
+    stripeCustomerId: booking.client?.stripeCustomerId ?? null,
+    cascadeExpiresAt: booking.cascadeExpiresAt,
+    cascadeBackupExpiresAt: booking.cascadeBackupExpiresAt,
+  });
+
+  if (result.outcome === 'FAILED') {
     return NextResponse.json({ error: result.reason }, { status: 409 });
   }
 
-  const accepted = await prisma.booking.findUnique({
-    where: { id },
-    include: { client: { select: { id: true, name: true, email: true } } },
-  });
+  if (result.outcome === 'REJECTED') {
+    return NextResponse.json({ error: result.reason }, { status: 422 });
+  }
 
-  if (accepted?.clientId) {
-    await prisma.notification
-      .create({
-        data: {
-          userId: accepted.clientId,
-          type: 'BOOKING_CONFIRMED',
-          title: 'Booking accepted',
-          body: `Your cleaner has accepted your booking for ${accepted.date.toLocaleDateString('en-GB')}.`,
-          data: { bookingId: accepted.id },
-        },
-      })
-      .catch(() => {});
+  // CONFIRMED or CONFIRMED_WITH_REFUND — notify customer
+  if (result.outcome === 'CONFIRMED' || result.outcome === 'CONFIRMED_WITH_REFUND') {
+    const accepted = await prisma.booking.findUnique({
+      where: { id },
+      include: { client: { select: { id: true, name: true, email: true } } },
+    });
+
+    if (accepted?.clientId) {
+      await prisma.notification
+        .create({
+          data: {
+            userId: accepted.clientId,
+            type: 'BOOKING_CONFIRMED',
+            title: 'Booking accepted',
+            body: `Your cleaner has accepted your booking for ${accepted.date.toLocaleDateString('en-GB')}.`,
+            data: { bookingId: accepted.id },
+          },
+        })
+        .catch(() => {});
+    }
+  }
+
+  // PROVISIONAL — customer will be notified via email to approve
+  if (result.outcome === 'PROVISIONAL') {
+    return NextResponse.json({
+      message: 'Provisional acceptance — customer approval required for price difference',
+      job: { id, status: 'PROVISIONAL' },
+      outcome: result.outcome,
+    });
   }
 
   return NextResponse.json({
     message: 'Job accepted',
     job: { id, status: 'ACCEPTED' },
+    outcome: result.outcome,
   });
 }

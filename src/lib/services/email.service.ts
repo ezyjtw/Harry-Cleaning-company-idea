@@ -373,6 +373,42 @@ export async function sendVerificationDecision(data: {
   return sendEmail(data.cleanerEmail, subject, htmlBody);
 }
 
+// ─── Top-Up Approval Request Email (A5.3) ─────────────────
+
+export async function sendTopupApprovalRequest(data: {
+  bookingId: string;
+  customerEmail: string;
+  customerName: string;
+  originalPrice: number;
+  newPrice: number;
+  topupAmount: number;
+  expiresAt: Date;
+}): Promise<boolean> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const approvalLink = `${appUrl}/en/bookings/${data.bookingId}/approve-topup`;
+  const hoursLeft = Math.max(
+    1,
+    Math.round((data.expiresAt.getTime() - Date.now()) / (60 * 60 * 1000))
+  );
+  const subject = `Action needed: price change for your booking`;
+  const htmlBody = `
+    <h1>Your booking price has changed</h1>
+    <p>Hi ${data.customerName},</p>
+    <p>Your original cleaner was unavailable, and a backup cleaner has been offered your booking at a different rate.</p>
+    <ul>
+      <li><strong>Original price:</strong> &pound;${data.originalPrice.toFixed(2)}</li>
+      <li><strong>New price:</strong> &pound;${data.newPrice.toFixed(2)}</li>
+      <li><strong>Extra to pay:</strong> &pound;${data.topupAmount.toFixed(2)}</li>
+    </ul>
+    <p>You have approximately <strong>${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}</strong> to approve or decline.</p>
+    <p><a href="${approvalLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Approve</a></p>
+    <p>If you don't respond in time, we'll continue looking for another cleaner at your original price.</p>
+    <p>Thank you,<br/>The Rena Team</p>
+  `;
+
+  return sendEmail(data.customerEmail, subject, htmlBody);
+}
+
 // ─── Signup Notification Email ─────────────────────────────
 
 export async function sendSignupNotification(data: {
