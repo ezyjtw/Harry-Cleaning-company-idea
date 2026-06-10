@@ -67,7 +67,9 @@ export type AuditAction =
   | 'COMPLIANCE_JOB_RUN'
   // Pricing security actions
   | 'PRICE_DISCREPANCY_DETECTED'
-  | 'PRICE_TAMPERING_SUSPECTED';
+  | 'PRICE_TAMPERING_SUSPECTED'
+  // Price reconciliation (A5.3)
+  | 'TOPUP_SUCCEEDED';
 
 interface AuditLogParams {
   userId?: string;

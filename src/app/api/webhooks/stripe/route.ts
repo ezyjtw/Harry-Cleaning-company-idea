@@ -8,6 +8,7 @@ import {
   sendBookingConfirmation,
   sendPaymentFailureNotification,
 } from '@/lib/services/email.service';
+import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
 import stripe from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
@@ -60,6 +61,31 @@ export async function POST(request: NextRequest) {
       payload: JSON.parse(rawBody),
     },
   });
+
+  // ── Topup PI guard (A5.3) ──────────────────────────────────────
+  // Topup PIs carry metadata.type = 'price_reconciliation_topup'.
+  // Handle them here and return early so they never fall through to
+  // the existing booking PI handlers below.
+
+  if (
+    (event.type === 'payment_intent.succeeded' ||
+      event.type === 'payment_intent.payment_failed' ||
+      event.type === 'payment_intent.requires_action' ||
+      event.type === 'payment_intent.canceled') &&
+    (event.data.object as Stripe.PaymentIntent).metadata?.type === 'price_reconciliation_topup'
+  ) {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const bookingId = pi.metadata?.bookingId;
+
+    if (event.type === 'payment_intent.succeeded' && bookingId) {
+      await handleTopupPiSucceeded(pi.id, bookingId);
+    } else if (event.type === 'payment_intent.payment_failed') {
+      await handleTopupPiFailed(pi.id);
+    }
+    // requires_action and canceled: no action needed for topup PIs
+
+    return NextResponse.json({ received: true });
+  }
 
   // ── Connect account events (PR 2) ─────────────────────────────
 

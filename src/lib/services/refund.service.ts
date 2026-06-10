@@ -24,9 +24,10 @@ export interface RefundResult {
   reason?: string;
 }
 
-interface RefundOptions {
+export interface RefundOptions {
   triggeredBy?: string;
   adjustEarnings?: boolean;
+  bookingDataOverride?: Record<string, unknown>;
 }
 
 // ─── Error Classification ─────────────────────────────────
@@ -57,7 +58,7 @@ export async function refundBooking(
   reason: string,
   options: RefundOptions = {}
 ): Promise<RefundResult> {
-  const { triggeredBy, adjustEarnings = true } = options;
+  const { triggeredBy, adjustEarnings = true, bookingDataOverride } = options;
 
   // 1. Load booking
   const booking = await prisma.booking.findUnique({
@@ -182,6 +183,7 @@ export async function refundBooking(
       prevTransferStatus,
       attempt,
       adjustEarnings,
+      bookingDataOverride,
     });
 
     await notifyRefundSuccess(booking, amountPounds, reason, isFullRefund).catch(() => {});
@@ -214,7 +216,8 @@ export async function refundBooking(
         attempt,
         idempotencyKey,
         reason,
-        adjustEarnings
+        adjustEarnings,
+        bookingDataOverride
       );
     }
 
@@ -348,7 +351,8 @@ async function handleUnknownRefund(
   attempt: number,
   idempotencyKey: string,
   reason: string,
-  adjustEarnings: boolean
+  adjustEarnings: boolean,
+  bookingDataOverride?: Record<string, unknown>
 ): Promise<RefundResult> {
   try {
     const retryRefund = await stripe.refunds.create(
@@ -371,6 +375,7 @@ async function handleUnknownRefund(
       prevTransferStatus,
       attempt,
       adjustEarnings,
+      bookingDataOverride,
     });
     await notifyRefundSuccess(booking, amountPounds, reason, isFullRefund).catch(() => {});
 
@@ -426,6 +431,7 @@ interface WriteSuccessParams {
   prevTransferStatus: string;
   attempt: number;
   adjustEarnings: boolean;
+  bookingDataOverride?: Record<string, unknown>;
 }
 
 async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
@@ -439,6 +445,7 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
     prevTransferStatus,
     attempt,
     adjustEarnings,
+    bookingDataOverride,
   } = params;
 
   const isFullPreRelease = isFullRefund && !isPostRelease;
@@ -456,7 +463,10 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
     nextTransferStatus = 'PENDING';
   }
 
+  // Spread caller override first; refund-owned fields (paymentStatus,
+  // transferStatus, earnings) always overwrite — override cannot clobber.
   const bookingUpdate: Record<string, unknown> = {
+    ...(bookingDataOverride ?? {}),
     paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
     transferStatus: nextTransferStatus,
   };

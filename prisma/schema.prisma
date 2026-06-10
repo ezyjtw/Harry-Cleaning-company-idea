@@ -42,6 +42,7 @@ enum CascadePhase {
   BACKUP_OFFER
   COMBINED_OFFER
   CASCADE_EXHAUSTED
+  PROVISIONAL_APPROVAL
 }
 
 enum PricingModel {
@@ -478,6 +479,14 @@ model Booking {
   cascadeBackupExpiresAt  DateTime?
   declinedCleanerIds      String[]     @default([])
 
+  // ─── Price reconciliation (A5.3) ─────
+  provisionalCleanerId   String?
+  provisionalPrice       Decimal?  @db.Decimal(10, 2)
+  topupAmount            Decimal?  @db.Decimal(10, 2)
+  approvalExpiresAt      DateTime?
+  topupApproved          Boolean   @default(false)
+  topupRecords           TopupRecord[]
+
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)
   acceptedFromQueue  Boolean @default(false)
@@ -588,6 +597,24 @@ model RefundRecord {
   failureReason  String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model TopupRecord {
+  id                    String   @id @default(cuid())
+  bookingId             String
+  stripePaymentIntentId String?  @unique
+  amount                Decimal  @db.Decimal(10, 2)
+  reason                String
+  status                String   @default("PENDING")
+  attempt               Int      @default(0)
+  failureReason         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 

@@ -351,6 +351,98 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   return { success: true };
 }
 
+// ─── Atomic provisional accept (A5.3) ─────────────────────────
+
+export interface ProvisionalAcceptResult {
+  success: boolean;
+  reason?: string;
+  approvalExpiresAt?: Date;
+}
+
+export async function atomicProvisionalAccept(
+  bookingId: string,
+  cleanerId: string,
+  pricing: {
+    provisionalPrice: number;
+    topupAmount: number;
+    approvalExpiresAt: Date;
+  }
+): Promise<ProvisionalAcceptResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      cleanerId: true,
+      backupCleanerIds: true,
+      cascadePhase: true,
+      status: true,
+      declinedCleanerIds: true,
+    },
+  });
+
+  if (!booking) return { success: false, reason: 'Booking not found' };
+  if (booking.status !== 'AWAITING_CLEANER') {
+    return { success: false, reason: 'Booking is no longer available' };
+  }
+  if (!booking.cascadePhase) {
+    return { success: false, reason: 'No active cascade on this booking' };
+  }
+
+  const isBackup = booking.backupCleanerIds.includes(cleanerId);
+  const isPrimary = booking.cleanerId === cleanerId;
+
+  if (booking.cascadePhase === 'PRIMARY_OFFER' && !isPrimary) {
+    return { success: false, reason: 'Only the primary cleaner can accept in this phase' };
+  }
+  if (booking.cascadePhase === 'BACKUP_OFFER' && !isBackup) {
+    return { success: false, reason: 'Only backup cleaners can accept in this phase' };
+  }
+  if (booking.cascadePhase === 'COMBINED_OFFER' && !isPrimary && !isBackup) {
+    return { success: false, reason: 'You are not offered this booking' };
+  }
+  if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
+    return { success: false, reason: 'You already declined this booking' };
+  }
+
+  const result = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: booking.cascadePhase,
+    },
+    data: {
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      cascadeExpiresAt: pricing.approvalExpiresAt,
+      cascadeBackupExpiresAt: null,
+      provisionalCleanerId: cleanerId,
+      provisionalPrice: pricing.provisionalPrice,
+      topupAmount: pricing.topupAmount,
+      approvalExpiresAt: pricing.approvalExpiresAt,
+    },
+  });
+
+  if (result.count === 0) {
+    return { success: false, reason: 'This booking was just taken by another cleaner.' };
+  }
+
+  // Loser notifications
+  const losers = getLoserSet(booking, cleanerId);
+  for (const loserId of losers) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: loserId,
+          type: 'SYSTEM',
+          title: 'Job no longer available',
+          body: 'This cleaning job was just taken by another cleaner.',
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+
+  return { success: true, approvalExpiresAt: pricing.approvalExpiresAt };
+}
+
 function getLoserSet(
   booking: Pick<Booking, 'cleanerId' | 'backupCleanerIds' | 'cascadePhase' | 'declinedCleanerIds'>,
   winnerId: string
@@ -393,6 +485,7 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
       date: true,
       startTime: true,
       serviceType: true,
+      provisionalCleanerId: true,
     },
     take: SCHEDULER_BATCH_LIMIT,
   });
@@ -422,6 +515,33 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
           },
         });
         if (result.count > 0) {
+          await notifyCustomerExhausted(booking.id);
+          processed++;
+        }
+      } else if (booking.cascadePhase === 'PROVISIONAL_APPROVAL') {
+        const result = await prisma.booking.updateMany({
+          where: {
+            id: booking.id,
+            status: 'AWAITING_CLEANER',
+            cascadePhase: 'PROVISIONAL_APPROVAL',
+          },
+          data: {
+            status: 'CASCADE_EXHAUSTED',
+            cascadePhase: null,
+            cascadeExpiresAt: null,
+            cascadeBackupExpiresAt: null,
+            provisionalCleanerId: null,
+            provisionalPrice: null,
+            topupAmount: null,
+            approvalExpiresAt: null,
+            topupApproved: false,
+          },
+        });
+        if (result.count > 0) {
+          await prisma.topupRecord.updateMany({
+            where: { bookingId: booking.id, status: { in: ['PENDING', 'UNKNOWN'] } },
+            data: { status: 'EXPIRED', failureReason: 'Approval window expired' },
+          });
           await notifyCustomerExhausted(booking.id);
           processed++;
         }
