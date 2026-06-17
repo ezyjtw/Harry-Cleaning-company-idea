@@ -40,6 +40,10 @@ interface Booking {
   client: BookingUser | null;
   review: BookingReview | null;
   createdAt: string;
+  cascadePhase: string | null;
+  topupAmount: number | string | null;
+  provisionalPrice: number | string | null;
+  approvalExpiresAt: string | null;
 }
 
 interface BookingsResponse {
@@ -72,7 +76,16 @@ function formatServiceType(type: string): string {
   return type.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function statusBadge(status: string): { text: string; className: string } {
+function statusBadge(
+  status: string,
+  cascadePhase?: string | null
+): { text: string; className: string } {
+  if (status === 'AWAITING_CLEANER' && cascadePhase === 'PROVISIONAL_APPROVAL') {
+    return { text: 'Price approval needed', className: 'bg-amber-50 text-amber-600' };
+  }
+  if (status === 'AWAITING_CLEANER' && cascadePhase === 'BACKUP_OFFER') {
+    return { text: 'Finding a cleaner', className: 'bg-amber-50 text-amber-600' };
+  }
   switch (status) {
     case 'PENDING':
       return { text: 'Pending', className: 'bg-gold/10 text-gold' };
@@ -87,6 +100,10 @@ function statusBadge(status: string): { text: string; className: string } {
       return { text: 'In progress', className: 'bg-blue-50 text-blue-600' };
     case 'CASCADE_EXHAUSTED':
       return { text: 'No cleaner available', className: 'bg-red-50 text-red-600' };
+    case 'CANCELLED':
+      return { text: 'Cancelled', className: 'bg-ink/5 text-ink-3' };
+    case 'DISPUTED':
+      return { text: 'Disputed', className: 'bg-red-50 text-red-600' };
     default:
       return { text: status, className: 'bg-ink/5 text-ink-3' };
   }
@@ -308,10 +325,16 @@ export default function CustomerDashboard() {
           ) : (
             <div>
               {upcomingBookings.map((booking, i) => {
-                const badge = statusBadge(booking.status);
+                const badge = statusBadge(booking.status, booking.cascadePhase);
+                const isProvisional =
+                  booking.status === 'AWAITING_CLEANER' &&
+                  booking.cascadePhase === 'PROVISIONAL_APPROVAL';
                 return (
-                  <div
+                  <Link
                     key={booking.id}
+                    href={
+                      isProvisional ? `/booking/${booking.id}/approve-topup` : '/account/bookings'
+                    }
                     className="flex flex-col gap-3 px-6 py-4 transition-colors hover:bg-cream/30 sm:flex-row sm:items-center"
                     style={i > 0 ? { borderTop: '1px solid rgba(14,14,12,0.04)' } : undefined}
                   >
@@ -345,11 +368,16 @@ export default function CustomerDashboard() {
                           </>
                         )}
                       </div>
+                      {isProvisional && booking.topupAmount && (
+                        <p className="mt-1 font-jost text-xs font-medium text-amber-600">
+                          Extra £{Number(booking.topupAmount).toFixed(2)} needed — tap to review
+                        </p>
+                      )}
                     </div>
                     <p className="font-cormorant text-lg font-light text-ink">
                       £{Number(booking.totalPrice).toFixed(2)}
                     </p>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
