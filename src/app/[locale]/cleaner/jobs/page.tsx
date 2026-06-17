@@ -22,6 +22,12 @@ interface Job {
   cleanerNotes?: string;
   bedrooms?: number;
   extras?: string[];
+  cascadePhase?: string | null;
+  isPrimary?: boolean;
+  isProvisional?: boolean;
+  viewerEarnings?: number | null;
+  viewerTotal?: number | null;
+  viewerPlatformFee?: number | null;
 }
 
 const statusMap: Record<string, JobStatus> = {
@@ -233,8 +239,32 @@ export default function CleanerJobsPage() {
     [activeTab]
   );
 
-  const getStatusBadge = (status: string) => {
-    const ds = toDisplayStatus(status);
+  const getStatusBadge = (job: Job) => {
+    if (job.isProvisional) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-amber-50 text-amber-600">
+          Awaiting approval
+        </span>
+      );
+    }
+    if (
+      job.cascadePhase === 'BACKUP_OFFER' ||
+      (job.cascadePhase === 'COMBINED_OFFER' && !job.isPrimary)
+    ) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-blue-50 text-blue-600">
+          Backup offer
+        </span>
+      );
+    }
+    if (job.cascadePhase === 'CASCADE_EXHAUSTED') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-red-50 text-red-600">
+          Expired
+        </span>
+      );
+    }
+    const ds = toDisplayStatus(job.status);
     const styles: Record<JobStatus, string> = {
       pending: 'bg-ink/5 text-ink-3',
       upcoming: 'bg-gold/10 text-gold',
@@ -363,7 +393,7 @@ export default function CleanerJobsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
                       <p className="font-jost text-sm font-medium text-ink">{job.clientName}</p>
-                      {getStatusBadge(job.status)}
+                      {getStatusBadge(job)}
                     </div>
                     <p className="font-jost text-sm font-light text-ink-2">
                       {ds === 'pending' ? job.address : job.fullAddress || job.address}
@@ -415,14 +445,39 @@ export default function CleanerJobsPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    <div className="text-right">
-                      <p className="font-cormorant text-2xl font-light text-ink">
-                        &pound;{job.cleanerEarnings.toFixed(2)}
-                      </p>
-                      <p className="font-jost text-[11px] text-ink-3">
-                        of &pound;{job.totalPrice.toFixed(2)} total
-                      </p>
-                    </div>
+                    {job.isProvisional ? (
+                      <div className="text-right">
+                        <p className="font-cormorant text-2xl font-light text-ink">
+                          &pound;{job.cleanerEarnings.toFixed(2)}
+                        </p>
+                        <p className="font-jost text-xs font-medium text-amber-600 mt-1">
+                          Provisionally yours — awaiting customer approval
+                        </p>
+                      </div>
+                    ) : !job.isPrimary &&
+                      job.viewerEarnings !== null &&
+                      job.viewerEarnings !== undefined ? (
+                      <div className="text-right">
+                        <p className="font-cormorant text-2xl font-light text-ink">
+                          &pound;{job.viewerEarnings.toFixed(2)}
+                        </p>
+                        <p className="font-jost text-[11px] text-ink-3">
+                          You&apos;d earn
+                          {job.viewerTotal !== null && job.viewerTotal !== undefined && (
+                            <> of &pound;{job.viewerTotal.toFixed(2)} total</>
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-right">
+                        <p className="font-cormorant text-2xl font-light text-ink">
+                          &pound;{job.cleanerEarnings.toFixed(2)}
+                        </p>
+                        <p className="font-jost text-[11px] text-ink-3">
+                          of &pound;{job.totalPrice.toFixed(2)} total
+                        </p>
+                      </div>
+                    )}
 
                     {(job.serviceType === 'end-of-tenancy' || job.serviceType === 'airbnb') &&
                       job.bedrooms !== undefined && (
@@ -438,20 +493,38 @@ export default function CleanerJobsPage() {
                           </p>
                           <div className="mt-2 space-y-0.5">
                             <p className="font-jost text-sm font-light text-ink-2">
-                              Customer pays: &pound;{job.totalPrice.toFixed(2)}
+                              Customer pays: &pound;
+                              {(!job.isPrimary &&
+                              job.viewerTotal !== null &&
+                              job.viewerTotal !== undefined
+                                ? job.viewerTotal
+                                : job.totalPrice
+                              ).toFixed(2)}
                             </p>
                             <p className="font-jost text-sm font-light text-ink-2">
-                              Platform fee: -&pound;{job.platformFee.toFixed(2)}
+                              Platform fee: -&pound;
+                              {(!job.isPrimary &&
+                              job.viewerPlatformFee !== null &&
+                              job.viewerPlatformFee !== undefined
+                                ? job.viewerPlatformFee
+                                : job.platformFee
+                              ).toFixed(2)}
                             </p>
                             <p className="font-jost text-sm font-medium text-gold mt-1">
-                              You receive: &pound;{job.cleanerEarnings.toFixed(2)}
+                              You receive: &pound;
+                              {(!job.isPrimary &&
+                              job.viewerEarnings !== null &&
+                              job.viewerEarnings !== undefined
+                                ? job.viewerEarnings
+                                : job.cleanerEarnings
+                              ).toFixed(2)}
                             </p>
                           </div>
                         </div>
                       )}
 
                     <div className="flex gap-2 flex-wrap justify-end">
-                      {ds === 'pending' && (
+                      {ds === 'pending' && !job.isProvisional && (
                         <>
                           <button
                             onClick={() => handleAccept(job.id)}
