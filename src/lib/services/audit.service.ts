@@ -71,7 +71,11 @@ export type AuditAction =
   // Price reconciliation (A5.3)
   | 'TOPUP_SUCCEEDED'
   // Stuck-money recovery
-  | 'ADMIN_RETRY_STUCK_REFUND';
+  | 'ADMIN_RETRY_STUCK_REFUND'
+  // Admin testing tools (Stage 2)
+  | 'ADMIN_STATUS_OVERRIDE'
+  | 'ADMIN_FORCE_CASCADE'
+  | 'ADMIN_DELETE_BOOKING';
 
 interface AuditLogParams {
   userId?: string;
