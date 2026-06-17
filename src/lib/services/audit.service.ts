@@ -69,7 +69,9 @@ export type AuditAction =
   | 'PRICE_DISCREPANCY_DETECTED'
   | 'PRICE_TAMPERING_SUSPECTED'
   // Price reconciliation (A5.3)
-  | 'TOPUP_SUCCEEDED';
+  | 'TOPUP_SUCCEEDED'
+  // Stuck-money recovery
+  | 'ADMIN_RETRY_STUCK_REFUND';
 
 interface AuditLogParams {
   userId?: string;

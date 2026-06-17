@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 import type { BookingRow } from './page';
@@ -163,7 +164,15 @@ export default function AdminBookingsClient({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
-          <p className="text-gray-500 mt-1">{total} total bookings</p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-gray-500">{total} total bookings</p>
+            <Link
+              href="/admin/bookings/stuck-money"
+              className="text-sm text-red-600 hover:underline font-medium"
+            >
+              Stuck money &rarr;
+            </Link>
+          </div>
         </div>
         <div className="relative">
           <svg
@@ -258,9 +267,18 @@ export default function AdminBookingsClient({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paginated.map((booking) => (
-                <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={booking.id}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => (window.location.href = `/admin/bookings/${booking.fullId}`)}
+                >
                   <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-900">{booking.customer}</p>
+                    <Link
+                      href={`/admin/bookings/${booking.fullId}`}
+                      className="text-sm font-medium text-gray-900 hover:text-blue-600"
+                    >
+                      {booking.customer}
+                    </Link>
                     <p className="text-xs text-gray-400 font-mono">{booking.id}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">

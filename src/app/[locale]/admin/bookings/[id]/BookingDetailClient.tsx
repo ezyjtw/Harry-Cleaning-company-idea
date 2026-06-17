@@ -1,0 +1,752 @@
+'use client';
+
+import Link from 'next/link';
+import { useCallback, useState } from 'react';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface BookingDetail {
+  id: string;
+  clientId: string | null;
+  cleanerId: string;
+  guestEmail: string | null;
+  guestName: string | null;
+  guestPhone: string | null;
+  serviceType: string;
+  status: string;
+  date: string;
+  startTime: string;
+  duration: string | number;
+  rooms: any;
+  extras: string[];
+  frequency: string | null;
+  totalPrice: string | number;
+  platformFee: string | number;
+  cleanerEarnings: string | number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  acceptedAt: string | null;
+  checkedInAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  cleanerNotes: string | null;
+  adminNotes: string | null;
+  propertySize: string | null;
+  bookingFrequency: string | null;
+  cleanerPayoutAmount: string | number | null;
+  platformCommissionAmount: string | number | null;
+  platformFeeAmount: string | number | null;
+  totalAmountCharged: string | number | null;
+  customerSubtotal: number | null;
+  customerServiceFee: number | null;
+  renaEarns: number | null;
+  stripePaymentIntentId: string | null;
+  stripeChargeId: string | null;
+  paymentStatus: string;
+  stripeTransferId: string | null;
+  transferStatus: string;
+  transferAttempt: number;
+  transferFailureReason: string | null;
+  releaseDueAt: string | null;
+  completionConfirmedAt: string | null;
+  backupCleanerIds: string[];
+  autoAssignBackup: boolean;
+  cascadePhase: string | null;
+  cascadeExpiresAt: string | null;
+  cascadeBackupExpiresAt: string | null;
+  declinedCleanerIds: string[];
+  provisionalCleanerId: string | null;
+  provisionalPrice: string | number | null;
+  topupAmount: string | number | null;
+  approvalExpiresAt: string | null;
+  topupApproved: boolean;
+  client: { id: string; name: string; email: string; stripeCustomerId: string | null } | null;
+  cleaner: {
+    id: string;
+    name: string;
+    email: string;
+    cleanerProfile: {
+      stripeAccountId: string | null;
+      verified: boolean;
+      verificationStatus: string | null;
+    } | null;
+  };
+  address: {
+    id: string;
+    line1: string;
+    line2: string | null;
+    city: string;
+    postcode: string;
+  } | null;
+  payment: {
+    id: string;
+    amount: string | number;
+    status: string;
+    refundAmount: string | number | null;
+    discountPercent: number | null;
+    discountAmount: string | number | null;
+    promoCode: string | null;
+  } | null;
+  refundRecords: {
+    id: string;
+    stripeRefundId: string | null;
+    amount: string | number;
+    reason: string;
+    triggeredBy: string | null;
+    status: string;
+    attempt: number;
+    failureReason: string | null;
+    createdAt: string;
+  }[];
+  topupRecords: {
+    id: string;
+    stripePaymentIntentId: string | null;
+    amount: string | number;
+    reason: string;
+    status: string;
+    paymentMethodType: string | null;
+    attempt: number;
+    failureReason: string | null;
+    createdAt: string;
+  }[];
+  review: {
+    id: string;
+    rating: string | number;
+    text: string | null;
+    reply: string | null;
+    createdAt: string;
+  } | null;
+  dispute: {
+    id: string;
+    reason: string;
+    description: string;
+    status: string;
+    resolution: string | null;
+    createdAt: string;
+    resolvedAt: string | null;
+    evidence: { id: string; type: string; url: string; fileName: string | null }[];
+  } | null;
+  bookingAddons: {
+    id: string;
+    price: number;
+    addon: { name: string; price: number };
+  }[];
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+function n(v: string | number | null | undefined): number {
+  return Number(v ?? 0);
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{title}</h2>
+      </div>
+      <div className="px-6 py-4">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="py-1.5">
+      <dt className="text-xs font-medium text-gray-500">{label}</dt>
+      <dd className="text-sm text-gray-900 mt-0.5 break-all">{value ?? '—'}</dd>
+    </div>
+  );
+}
+
+function StatusBadge({
+  status,
+  variant,
+}: {
+  status: string;
+  variant?: 'green' | 'red' | 'amber' | 'blue' | 'gray';
+}) {
+  const colors = {
+    green: 'bg-green-100 text-green-700',
+    red: 'bg-red-100 text-red-700',
+    amber: 'bg-amber-100 text-amber-700',
+    blue: 'bg-blue-100 text-blue-700',
+    gray: 'bg-gray-100 text-gray-600',
+  };
+  const auto: Record<string, string> = {
+    PENDING: 'amber',
+    AWAITING_CLEANER: 'amber',
+    ACCEPTED: 'blue',
+    CONFIRMED: 'blue',
+    EN_ROUTE: 'blue',
+    IN_PROGRESS: 'blue',
+    COMPLETED: 'green',
+    REVIEWED: 'green',
+    CANCELLED: 'gray',
+    DISPUTED: 'red',
+    CASCADE_EXHAUSTED: 'red',
+    SUCCEEDED: 'green',
+    FAILED: 'red',
+    UNKNOWN: 'red',
+    REVERSAL_ONLY: 'red',
+    RELEASED: 'green',
+    RELEASING: 'amber',
+    REFUNDED: 'amber',
+    REFUNDING: 'amber',
+    PAUSED: 'gray',
+    SKIPPED: 'gray',
+    OPEN: 'red',
+    UNDER_REVIEW: 'amber',
+    RESOLVED: 'green',
+    DISMISSED: 'gray',
+    EXPIRED: 'gray',
+    DECLINED: 'gray',
+  };
+  const c = variant || auto[status] || 'gray';
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[c as keyof typeof colors] || colors.gray}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function RefundModal({
+  bookingId,
+  maxRefundable,
+  onClose,
+}: {
+  bookingId: string;
+  maxRefundable: number;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState(maxRefundable.toFixed(2));
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleSubmit = useCallback(async () => {
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/admin/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, amount: parseFloat(amount), reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ ok: false, message: `${data.status ?? 'Failed'}: ${data.error}` });
+      } else {
+        setResult({
+          ok: true,
+          message: `Refund of £${(data.amountRefunded ?? parseFloat(amount)).toFixed(2)} succeeded`,
+        });
+      }
+    } catch {
+      setResult({ ok: false, message: 'Network error' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [bookingId, amount, reason]);
+
+  const parsedAmount = parseFloat(amount);
+  const valid =
+    parsedAmount > 0 && parsedAmount <= maxRefundable + 0.01 && reason.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Refund Booking</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Booking {bookingId.substring(0, 8).toUpperCase()} — max refundable £
+          {maxRefundable.toFixed(2)}
+        </p>
+        {result && (
+          <div
+            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          >
+            {result.message}
+          </div>
+        )}
+        {!result?.ok ? (
+          <>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Amount (max £{maxRefundable.toFixed(2)})
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={maxRefundable}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              disabled={submitting}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <textarea
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={submitting}
+              placeholder="Why is this refund being issued?"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!valid || submitting}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting
+                  ? 'Processing…'
+                  : `Refund £${parsedAmount > 0 ? parsedAmount.toFixed(2) : '0.00'}`}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function BookingDetailClient({ booking: b }: { booking: BookingDetail }) {
+  const [showRefund, setShowRefund] = useState(false);
+  const [releaseState, setReleaseState] = useState<{
+    loading: boolean;
+    result: { ok: boolean; message: string } | null;
+    confirming: boolean;
+  }>({
+    loading: false,
+    result: null,
+    confirming: false,
+  });
+
+  const totalRefunded = b.refundRecords
+    .filter((r) => r.status === 'SUCCEEDED')
+    .reduce((sum, r) => sum + n(r.amount), 0);
+  const refundable = Math.max(0, +(n(b.totalPrice) - totalRefunded).toFixed(2));
+
+  const handleRelease = useCallback(async () => {
+    setReleaseState((s) => ({ ...s, loading: true, result: null }));
+    try {
+      const res = await fetch('/api/admin/release-funds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id }),
+      });
+      const data = await res.json();
+      const ok = data.status === 'RELEASED' || data.status === 'ALREADY_RELEASED';
+      setReleaseState({
+        loading: false,
+        confirming: false,
+        result: {
+          ok,
+          message: `${data.status}${data.transferId ? ` — ${data.transferId}` : ''}${data.reason ? ` — ${data.reason}` : ''}`,
+        },
+      });
+    } catch {
+      setReleaseState({
+        loading: false,
+        confirming: false,
+        result: { ok: false, message: 'Network error' },
+      });
+    }
+  }, [b.id]);
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <Link href="/admin/bookings" className="text-sm text-blue-600 hover:underline">
+            &larr; All bookings
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1">
+            Booking {b.id.substring(0, 8).toUpperCase()}
+          </h1>
+          <p className="text-xs text-gray-400 font-mono mt-0.5">{b.id}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <StatusBadge status={b.status} />
+          {b.cascadePhase && <StatusBadge status={b.cascadePhase} variant="amber" />}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-3">
+        {refundable > 0.01 && (
+          <button
+            onClick={() => setShowRefund(true)}
+            className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-red-600 hover:bg-red-700"
+          >
+            Refund (up to £{refundable.toFixed(2)})
+          </button>
+        )}
+        {b.transferStatus !== 'RELEASED' &&
+          b.transferStatus !== 'REFUNDED' &&
+          b.transferStatus !== 'PAUSED' && (
+            <>
+              {releaseState.confirming ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    Release £{n(b.cleanerEarnings).toFixed(2)} to cleaner?
+                  </span>
+                  <button
+                    onClick={handleRelease}
+                    disabled={releaseState.loading}
+                    className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {releaseState.loading ? 'Processing…' : 'Confirm Release'}
+                  </button>
+                  <button
+                    onClick={() => setReleaseState((s) => ({ ...s, confirming: false }))}
+                    className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setReleaseState((s) => ({ ...s, confirming: true, result: null }))}
+                  className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-green-600 hover:bg-green-700"
+                >
+                  Release Funds
+                </button>
+              )}
+            </>
+          )}
+      </div>
+
+      {releaseState.result && (
+        <div
+          className={`rounded-lg px-4 py-3 text-sm ${releaseState.result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+        >
+          {releaseState.result.message}
+        </div>
+      )}
+
+      {/* Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Booking Info */}
+        <Section title="Booking">
+          <dl className="grid grid-cols-2 gap-x-4">
+            <Field label="Service" value={b.serviceType} />
+            <Field label="Property Size" value={b.propertySize} />
+            <Field label="Date" value={b.date?.split('T')[0]} />
+            <Field label="Time" value={b.startTime} />
+            <Field label="Duration" value={`${n(b.duration)}h`} />
+            <Field label="Frequency" value={b.frequency} />
+            <Field label="Extras" value={b.extras.length > 0 ? b.extras.join(', ') : '—'} />
+            <Field label="Created" value={fmtDate(b.createdAt)} />
+            {b.acceptedAt && <Field label="Accepted" value={fmtDate(b.acceptedAt)} />}
+            {b.completedAt && <Field label="Completed" value={fmtDate(b.completedAt)} />}
+            {b.cancelledAt && <Field label="Cancelled" value={fmtDate(b.cancelledAt)} />}
+          </dl>
+          {b.notes && (
+            <div className="mt-3 text-sm text-gray-600">
+              <span className="font-medium">Notes:</span> {b.notes}
+            </div>
+          )}
+          {b.cleanerNotes && (
+            <div className="mt-1 text-sm text-gray-600">
+              <span className="font-medium">Cleaner notes:</span> {b.cleanerNotes}
+            </div>
+          )}
+          {b.adminNotes && (
+            <div className="mt-1 text-sm text-gray-600">
+              <span className="font-medium">Admin notes:</span> {b.adminNotes}
+            </div>
+          )}
+          {b.cancellationReason && (
+            <div className="mt-1 text-sm text-red-600">
+              <span className="font-medium">Cancellation reason:</span> {b.cancellationReason}
+            </div>
+          )}
+        </Section>
+
+        {/* Pricing */}
+        <Section title="Pricing &amp; Payment">
+          <dl className="grid grid-cols-2 gap-x-4">
+            <Field label="Total Price" value={`£${n(b.totalPrice).toFixed(2)}`} />
+            <Field label="Cleaner Earnings" value={`£${n(b.cleanerEarnings).toFixed(2)}`} />
+            <Field label="Platform Fee" value={`£${n(b.platformFee).toFixed(2)}`} />
+            <Field label="Payment Status" value={<StatusBadge status={b.paymentStatus} />} />
+            <Field label="Stripe PI" value={b.stripePaymentIntentId || '—'} />
+            <Field label="Stripe Charge" value={b.stripeChargeId || '—'} />
+            <Field
+              label="Total Refunded"
+              value={totalRefunded > 0 ? `£${totalRefunded.toFixed(2)}` : '—'}
+            />
+            <Field label="Refundable" value={refundable > 0 ? `£${refundable.toFixed(2)}` : '—'} />
+          </dl>
+          {b.bookingAddons.length > 0 && (
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <p className="text-xs font-medium text-gray-500 mb-1">Add-ons</p>
+              {b.bookingAddons.map((a) => (
+                <div key={a.id} className="flex justify-between text-sm">
+                  <span>{a.addon.name}</span>
+                  <span className="text-gray-600">£{a.price.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {b.payment?.discountPercent && (
+            <div className="mt-2 text-sm text-gray-600">
+              Discount: {b.payment.discountPercent}% ({b.payment.promoCode})
+              {b.payment.discountAmount && ` = £${n(b.payment.discountAmount).toFixed(2)}`}
+            </div>
+          )}
+        </Section>
+
+        {/* Transfer */}
+        <Section title="Transfer State">
+          <dl className="grid grid-cols-2 gap-x-4">
+            <Field label="Transfer Status" value={<StatusBadge status={b.transferStatus} />} />
+            <Field label="Transfer ID" value={b.stripeTransferId || '—'} />
+            <Field label="Attempt" value={b.transferAttempt} />
+            <Field label="Failure Reason" value={b.transferFailureReason} />
+            <Field label="Release Due" value={fmtDate(b.releaseDueAt)} />
+            <Field label="Completion Confirmed" value={fmtDate(b.completionConfirmedAt)} />
+          </dl>
+        </Section>
+
+        {/* Cascade */}
+        <Section title="Cascade State">
+          <dl className="grid grid-cols-2 gap-x-4">
+            <Field
+              label="Phase"
+              value={b.cascadePhase ? <StatusBadge status={b.cascadePhase} /> : '—'}
+            />
+            <Field label="Primary Expires" value={fmtDate(b.cascadeExpiresAt)} />
+            <Field label="Backup Expires" value={fmtDate(b.cascadeBackupExpiresAt)} />
+            <Field
+              label="Declined By"
+              value={b.declinedCleanerIds.length > 0 ? b.declinedCleanerIds.join(', ') : '—'}
+            />
+            <Field
+              label="Backup Cleaners"
+              value={b.backupCleanerIds.length > 0 ? `${b.backupCleanerIds.length} assigned` : '—'}
+            />
+            <Field label="Auto-Assign Backup" value={b.autoAssignBackup ? 'Yes' : 'No'} />
+          </dl>
+          {b.provisionalCleanerId && (
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <p className="text-xs font-medium text-gray-500 mb-1">Provisional Acceptance</p>
+              <dl className="grid grid-cols-2 gap-x-4">
+                <Field label="Provisional Cleaner" value={b.provisionalCleanerId} />
+                <Field
+                  label="Provisional Price"
+                  value={b.provisionalPrice ? `£${n(b.provisionalPrice).toFixed(2)}` : '—'}
+                />
+                <Field
+                  label="Topup Amount"
+                  value={b.topupAmount ? `£${n(b.topupAmount).toFixed(2)}` : '—'}
+                />
+                <Field label="Approval Expires" value={fmtDate(b.approvalExpiresAt)} />
+                <Field label="Topup Approved" value={b.topupApproved ? 'Yes' : 'No'} />
+              </dl>
+            </div>
+          )}
+        </Section>
+
+        {/* Client */}
+        <Section title="Client">
+          {b.client ? (
+            <dl className="grid grid-cols-2 gap-x-4">
+              <Field label="Name" value={b.client.name} />
+              <Field label="Email" value={b.client.email} />
+              <Field label="Stripe Customer" value={b.client.stripeCustomerId || '—'} />
+            </dl>
+          ) : (
+            <dl className="grid grid-cols-2 gap-x-4">
+              <Field label="Guest Name" value={b.guestName} />
+              <Field label="Guest Email" value={b.guestEmail} />
+              <Field label="Guest Phone" value={b.guestPhone} />
+            </dl>
+          )}
+        </Section>
+
+        {/* Cleaner */}
+        <Section title="Cleaner">
+          <dl className="grid grid-cols-2 gap-x-4">
+            <Field label="Name" value={b.cleaner.name} />
+            <Field label="Email" value={b.cleaner.email} />
+            <Field
+              label="Stripe Account"
+              value={b.cleaner.cleanerProfile?.stripeAccountId || '—'}
+            />
+            <Field label="Verified" value={b.cleaner.cleanerProfile?.verified ? 'Yes' : 'No'} />
+          </dl>
+        </Section>
+
+        {/* Address */}
+        {b.address && (
+          <Section title="Address">
+            <p className="text-sm text-gray-900">{b.address.line1}</p>
+            {b.address.line2 && <p className="text-sm text-gray-900">{b.address.line2}</p>}
+            <p className="text-sm text-gray-900">
+              {b.address.city} {b.address.postcode}
+            </p>
+          </Section>
+        )}
+
+        {/* Review */}
+        {b.review && (
+          <Section title="Review">
+            <dl className="grid grid-cols-2 gap-x-4">
+              <Field label="Rating" value={`${n(b.review.rating)}/5`} />
+              <Field label="Date" value={fmtDate(b.review.createdAt)} />
+            </dl>
+            {b.review.text && <p className="text-sm text-gray-700 mt-2">{b.review.text}</p>}
+            {b.review.reply && (
+              <p className="text-sm text-gray-600 mt-1 italic">Reply: {b.review.reply}</p>
+            )}
+          </Section>
+        )}
+
+        {/* Dispute */}
+        {b.dispute && (
+          <Section title="Dispute">
+            <dl className="grid grid-cols-2 gap-x-4">
+              <Field label="Status" value={<StatusBadge status={b.dispute.status} />} />
+              <Field label="Reason" value={b.dispute.reason} />
+              <Field label="Raised" value={fmtDate(b.dispute.createdAt)} />
+              {b.dispute.resolvedAt && (
+                <Field label="Resolved" value={fmtDate(b.dispute.resolvedAt)} />
+              )}
+            </dl>
+            <p className="text-sm text-gray-700 mt-2">{b.dispute.description}</p>
+            {b.dispute.resolution && (
+              <p className="text-sm text-green-700 mt-1">Resolution: {b.dispute.resolution}</p>
+            )}
+            {b.dispute.evidence.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs font-medium text-gray-500">
+                  Evidence ({b.dispute.evidence.length})
+                </p>
+                {b.dispute.evidence.map((e) => (
+                  <div key={e.id} className="text-sm text-blue-600">
+                    {e.fileName || e.type} —{' '}
+                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="underline">
+                      View
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
+      </div>
+
+      {/* Refund Records */}
+      {b.refundRecords.length > 0 && (
+        <Section title={`Refund Records (${b.refundRecords.length})`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="pb-2">Date</th>
+                  <th className="pb-2">Amount</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2">Reason</th>
+                  <th className="pb-2">Stripe ID</th>
+                  <th className="pb-2">Failure</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {b.refundRecords.map((r) => (
+                  <tr key={r.id}>
+                    <td className="py-2 text-gray-600">{fmtDate(r.createdAt)}</td>
+                    <td className="py-2 font-medium">£{n(r.amount).toFixed(2)}</td>
+                    <td className="py-2">
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td className="py-2 text-gray-600 max-w-xs truncate">{r.reason}</td>
+                    <td className="py-2 text-xs text-gray-400 font-mono">
+                      {r.stripeRefundId || '—'}
+                    </td>
+                    <td className="py-2 text-red-600 text-xs">{r.failureReason || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {/* Topup Records */}
+      {b.topupRecords.length > 0 && (
+        <Section title={`Topup Records (${b.topupRecords.length})`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="pb-2">Date</th>
+                  <th className="pb-2">Amount</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2">Type</th>
+                  <th className="pb-2">Stripe PI</th>
+                  <th className="pb-2">Failure</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {b.topupRecords.map((t) => (
+                  <tr key={t.id}>
+                    <td className="py-2 text-gray-600">{fmtDate(t.createdAt)}</td>
+                    <td className="py-2 font-medium">£{n(t.amount).toFixed(2)}</td>
+                    <td className="py-2">
+                      <StatusBadge status={t.status} />
+                    </td>
+                    <td className="py-2 text-gray-600">{t.paymentMethodType || '—'}</td>
+                    <td className="py-2 text-xs text-gray-400 font-mono">
+                      {t.stripePaymentIntentId || '—'}
+                    </td>
+                    <td className="py-2 text-red-600 text-xs">{t.failureReason || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {showRefund && (
+        <RefundModal
+          bookingId={b.id}
+          maxRefundable={refundable}
+          onClose={() => setShowRefund(false)}
+        />
+      )}
+    </div>
+  );
+}
