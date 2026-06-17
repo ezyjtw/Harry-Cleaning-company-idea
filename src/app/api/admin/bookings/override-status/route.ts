@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { ADMIN_DESTRUCTIVE_ENABLED } from '@/lib/config/features';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 
@@ -28,8 +29,8 @@ const VALID_CASCADE_PHASES = [
 ] as const;
 
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Dev/testing only' }, { status: 403 });
+  if (!ADMIN_DESTRUCTIVE_ENABLED) {
+    return NextResponse.json({ error: 'Destructive admin actions are disabled' }, { status: 403 });
   }
 
   const admin = await getAdminSession();
