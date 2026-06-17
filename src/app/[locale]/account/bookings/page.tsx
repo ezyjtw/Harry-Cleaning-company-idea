@@ -3,10 +3,19 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-type BookingStatus = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Needs attention';
+type BookingStatus =
+  | 'Pending'
+  | 'Finding a cleaner'
+  | 'Price approval needed'
+  | 'Confirmed'
+  | 'Completed'
+  | 'Cancelled'
+  | 'Disputed'
+  | 'No cleaner available';
 
 interface Booking {
-  id: string;
+  fullId: string;
+  displayId: string;
   date: string;
   time: string;
   cleanerName: string;
@@ -16,14 +25,18 @@ interface Booking {
   address: string;
   backupCleanerNames: string[];
   autoAssignBackup: boolean;
+  topupAmount: number | null;
 }
 
 const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  'Finding a cleaner': 'bg-amber-50 text-amber-600 border-amber-200',
+  'Price approval needed': 'bg-amber-50 text-amber-600 border-amber-200',
   Confirmed: 'bg-blue-50 text-blue-700 border-blue-200',
   Completed: 'bg-green-50 text-green-700 border-green-200',
   Cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
-  'Needs attention': 'bg-red-50 text-red-600 border-red-200',
+  Disputed: 'bg-red-50 text-red-600 border-red-200',
+  'No cleaner available': 'bg-red-50 text-red-600 border-red-200',
 };
 
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
@@ -32,13 +45,18 @@ const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'Confirmed', value: 'Confirmed' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Cancelled', value: 'Cancelled' },
-  { label: 'Needs attention', value: 'Needs attention' },
 ];
 
-function mapStatus(apiStatus: string): BookingStatus {
-  switch (apiStatus.toUpperCase()) {
+function mapStatus(apiStatus: string, cascadePhase?: string | null): BookingStatus {
+  const s = apiStatus.toUpperCase();
+  if (s === 'AWAITING_CLEANER' && cascadePhase === 'PROVISIONAL_APPROVAL') {
+    return 'Price approval needed';
+  }
+  if (s === 'AWAITING_CLEANER' && cascadePhase === 'BACKUP_OFFER') {
+    return 'Finding a cleaner';
+  }
+  switch (s) {
     case 'PENDING':
-      return 'Pending';
     case 'AWAITING_CLEANER':
       return 'Pending';
     case 'CONFIRMED':
@@ -50,10 +68,11 @@ function mapStatus(apiStatus: string): BookingStatus {
     case 'REVIEWED':
       return 'Completed';
     case 'CANCELLED':
-    case 'DISPUTED':
       return 'Cancelled';
+    case 'DISPUTED':
+      return 'Disputed';
     case 'CASCADE_EXHAUSTED':
-      return 'Needs attention';
+      return 'No cleaner available';
     default:
       return 'Pending';
   }
@@ -63,23 +82,28 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/bookings')
       .then((res) => (res.ok ? res.json() : { bookings: [] }))
       .then((data) => {
-        const items = (data.bookings || data || []).map((b: Record<string, unknown>) => ({
-          id: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
+        const raw = data.data || data.bookings || data || [];
+        const items = raw.map((b: Record<string, unknown>) => ({
+          fullId: String(b.id || ''),
+          displayId: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
           date: typeof b.date === 'string' ? b.date.split('T')[0] : String(b.date),
           time: b.startTime || b.time || '',
           cleanerName: b.cleanerName || 'Assigned cleaner',
           serviceType: b.serviceType || 'Cleaning',
           price: Number(b.totalPrice || b.price || 0),
-          status: mapStatus(String(b.status || 'PENDING')),
+          status: mapStatus(
+            String(b.status || 'PENDING'),
+            b.cascadePhase as string | null | undefined
+          ),
           address: b.address || b.fullAddress || '',
           backupCleanerNames: (b.backupCleanerNames as string[]) || [],
           autoAssignBackup: (b.autoAssignBackup as boolean) || false,
+          topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
         }));
         setBookings(items);
       })
@@ -88,26 +112,6 @@ export default function BookingsPage() {
   }, []);
 
   const filtered = filter === 'All' ? bookings : bookings.filter((b) => b.status === filter);
-
-  const isUpcoming = (booking: Booking) =>
-    (booking.status === 'Pending' || booking.status === 'Confirmed') &&
-    new Date(booking.date) >= new Date();
-
-  const handleCancel = async (id: string) => {
-    try {
-      await fetch(`/api/bookings/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
-      });
-      setBookings((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, status: 'Cancelled' as const } : b))
-      );
-    } catch {
-      // Silently handle
-    }
-    setCancellingId(null);
-  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -179,7 +183,7 @@ export default function BookingsPage() {
         <div className="space-y-3">
           {filtered.map((booking) => (
             <div
-              key={booking.id}
+              key={booking.fullId}
               className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -270,46 +274,23 @@ export default function BookingsPage() {
                 </div>
 
                 <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
-                  <span className="text-lg font-bold text-gray-900">&pound;{booking.price}</span>
-                  <span className="text-xs text-gray-400">{booking.id}</span>
+                  <span className="text-lg font-bold text-gray-900">
+                    &pound;{booking.price.toFixed(2)}
+                  </span>
+                  <span className="text-xs text-gray-400">{booking.displayId}</span>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                {isUpcoming(booking) && (
-                  <>
-                    {cancellingId === booking.id ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">Cancel this booking?</span>
-                        <button
-                          onClick={() => handleCancel(booking.id)}
-                          className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                        >
-                          Yes, Cancel
-                        </button>
-                        <button
-                          onClick={() => setCancellingId(null)}
-                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setCancellingId(booking.id)}
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Cancel Booking
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {booking.status === 'Completed' && (
-                  <button className="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50">
-                    Rebook
-                  </button>
+                {booking.status === 'Price approval needed' && (
+                  <Link
+                    href={`/booking/${booking.fullId}/approve-topup`}
+                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                  >
+                    Review price change
+                    {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
+                  </Link>
                 )}
               </div>
             </div>
