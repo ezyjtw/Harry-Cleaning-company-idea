@@ -82,7 +82,6 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/bookings')
@@ -113,29 +112,6 @@ export default function BookingsPage() {
   }, []);
 
   const filtered = filter === 'All' ? bookings : bookings.filter((b) => b.status === filter);
-
-  const isUpcoming = (booking: Booking) =>
-    (booking.status === 'Pending' ||
-      booking.status === 'Finding a cleaner' ||
-      booking.status === 'Price approval needed' ||
-      booking.status === 'Confirmed') &&
-    new Date(booking.date) >= new Date();
-
-  const handleCancel = async (fullId: string) => {
-    try {
-      await fetch(`/api/bookings/${fullId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
-      });
-      setBookings((prev) =>
-        prev.map((b) => (b.fullId === fullId ? { ...b, status: 'Cancelled' as const } : b))
-      );
-    } catch {
-      // Silently handle
-    }
-    setCancellingId(null);
-  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -315,35 +291,6 @@ export default function BookingsPage() {
                     Review price change
                     {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
                   </Link>
-                )}
-
-                {isUpcoming(booking) && booking.status !== 'Price approval needed' && (
-                  <>
-                    {cancellingId === booking.fullId ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">Cancel this booking?</span>
-                        <button
-                          onClick={() => handleCancel(booking.fullId)}
-                          className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                        >
-                          Yes, Cancel
-                        </button>
-                        <button
-                          onClick={() => setCancellingId(null)}
-                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setCancellingId(booking.fullId)}
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Cancel Booking
-                      </button>
-                    )}
-                  </>
                 )}
               </div>
             </div>
