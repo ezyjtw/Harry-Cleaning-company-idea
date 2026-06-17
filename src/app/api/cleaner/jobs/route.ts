@@ -2,7 +2,10 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import type { ServiceSlug } from '@/lib/services/pricing.service';
+import { pricingService } from '@/lib/services/pricing.service';
 
 export async function GET(request: NextRequest) {
   const user = await getCleanerSession();
@@ -40,7 +43,14 @@ export async function GET(request: NextRequest) {
     NOT: { declinedCleanerIds: { has: user.id } },
   };
 
-  const where = { OR: [primaryWhereWithCascade, backupWhere] };
+  // Provisional path: cleaner provisionally accepted, awaiting customer approval
+  const provisionalWhere: Record<string, unknown> = {
+    provisionalCleanerId: user.id,
+    cascadePhase: 'PROVISIONAL_APPROVAL',
+    status: 'AWAITING_CLEANER',
+  };
+
+  const where = { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere] };
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({
@@ -56,30 +66,71 @@ export async function GET(request: NextRequest) {
     prisma.booking.count({ where }),
   ]);
 
+  const jobs = await Promise.all(
+    bookings.map(async (b) => {
+      const isPrimary = b.cleanerId === user.id;
+      const isProvisional =
+        b.cascadePhase === 'PROVISIONAL_APPROVAL' &&
+        (b as Record<string, unknown>).provisionalCleanerId === user.id;
+
+      let viewerEarnings: number | null = null;
+      let viewerTotal: number | null = null;
+      let viewerPlatformFee: number | null = null;
+
+      if (!isPrimary && !isProvisional) {
+        try {
+          const pricingSlug = normalizeToPricingSlug(b.serviceType);
+          const propertySize = b.propertySize
+            ? propertySizeEnumToSlug(b.propertySize as Parameters<typeof propertySizeEnumToSlug>[0])
+            : undefined;
+          const quote = await pricingService.calculateQuote({
+            cleanerId: user.id,
+            serviceSlug: pricingSlug as ServiceSlug,
+            hours: Number(b.duration),
+            propertySize,
+            addons: b.extras,
+          });
+          viewerEarnings = quote.cleanerPayout;
+          viewerTotal = quote.customerTotal;
+          viewerPlatformFee = quote.customerPlatformFee;
+        } catch {
+          // If quoting fails, fall back to stored values — better than hiding the job
+        }
+      }
+
+      return {
+        id: b.id,
+        clientName: b.client?.name || b.guestName || 'Guest',
+        address:
+          b.status === 'PENDING' || b.status === 'AWAITING_CLEANER'
+            ? b.address?.postcode || 'TBD'
+            : `${b.address?.line1 || ''}, ${b.address?.postcode || ''}`,
+        fullAddress: `${b.address?.line1 || ''}, ${b.address?.city || ''} ${b.address?.postcode || ''}`,
+        date: b.date.toISOString().split('T')[0],
+        time: b.startTime,
+        serviceType: b.serviceType,
+        totalPrice: Number(b.totalPrice),
+        cleanerEarnings: Number(b.cleanerEarnings),
+        platformFee: Number(b.platformFee),
+        status: b.status.toLowerCase(),
+        paymentStatus: b.paymentStatus,
+        duration: Number(b.duration),
+        notes: b.notes,
+        cleanerNotes: b.cleanerNotes,
+        bedrooms: (b.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
+        extras: b.extras,
+        cascadePhase: b.cascadePhase,
+        isPrimary,
+        isProvisional,
+        viewerEarnings,
+        viewerTotal,
+        viewerPlatformFee,
+      };
+    })
+  );
+
   return NextResponse.json({
-    jobs: bookings.map((b) => ({
-      id: b.id,
-      clientName: b.client?.name || b.guestName || 'Guest',
-      address:
-        b.status === 'PENDING' || b.status === 'AWAITING_CLEANER'
-          ? b.address?.postcode || 'TBD'
-          : `${b.address?.line1 || ''}, ${b.address?.postcode || ''}`,
-      fullAddress: `${b.address?.line1 || ''}, ${b.address?.city || ''} ${b.address?.postcode || ''}`,
-      date: b.date.toISOString().split('T')[0],
-      time: b.startTime,
-      serviceType: b.serviceType,
-      totalPrice: Number(b.totalPrice),
-      cleanerEarnings: Number(b.cleanerEarnings),
-      platformFee: Number(b.platformFee),
-      status: b.status.toLowerCase(),
-      paymentStatus: b.paymentStatus,
-      duration: Number(b.duration),
-      notes: b.notes,
-      cleanerNotes: b.cleanerNotes,
-      bedrooms: (b.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
-      extras: b.extras,
-      cascadePhase: b.cascadePhase,
-    })),
+    jobs,
     total,
     page,
     pageCount: Math.ceil(total / limit),
