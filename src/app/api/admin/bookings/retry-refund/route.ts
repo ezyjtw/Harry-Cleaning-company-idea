@@ -29,8 +29,6 @@ export async function POST(request: NextRequest) {
           transferStatus: true,
           paymentStatus: true,
           totalPrice: true,
-          cleanerEarnings: true,
-          platformFee: true,
           payment: { select: { id: true } },
           refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
         },
@@ -89,18 +87,6 @@ export async function POST(request: NextRequest) {
 
     const nextTransferStatus = isFullRefund ? 'REFUNDED' : 'RELEASED';
 
-    const totalPrice = Number(booking.totalPrice);
-    const currentEarnings = Number(booking.cleanerEarnings);
-    const currentFee = Number(booking.platformFee);
-    const ratio = totalPrice > 0 ? amountPounds / totalPrice : 0;
-
-    const reducedEarnings = isFullRefund
-      ? 0
-      : Math.max(0, Math.round((currentEarnings - currentEarnings * ratio) * 100) / 100);
-    const reducedFee = isFullRefund
-      ? 0
-      : Math.max(0, Math.round((currentFee - currentFee * ratio) * 100) / 100);
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ops: any[] = [
       prisma.refundRecord.update({
@@ -117,8 +103,6 @@ export async function POST(request: NextRequest) {
         data: {
           paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
           transferStatus: nextTransferStatus,
-          cleanerEarnings: reducedEarnings,
-          platformFee: reducedFee,
         },
       }),
     ];
