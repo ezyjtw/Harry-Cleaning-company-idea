@@ -611,6 +611,7 @@ model TopupRecord {
   amount                Decimal  @db.Decimal(10, 2)
   reason                String
   status                String   @default("PENDING")
+  paymentMethodType     String?
   attempt               Int      @default(0)
   failureReason         String?
   createdAt             DateTime @default(now())

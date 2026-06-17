@@ -401,7 +401,6 @@ export async function POST(request: NextRequest) {
         amount: Math.round(totalPrice * 100),
         currency: 'gbp',
         ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
-        ...(stripeCustomerId ? { setup_future_usage: 'off_session' as const } : {}),
         metadata: {
           bookingId: booking.id,
           customerId: sessionUser?.id || '',
