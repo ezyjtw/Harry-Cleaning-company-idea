@@ -462,6 +462,74 @@ function getLoserSet(
   );
 }
 
+// ─── Per-booking expiry functions ──────────────────────────────
+//
+// Each function handles one cascade-phase expiry for a single booking.
+// Used by the scheduler (batch) and by the admin force-advance endpoint
+// (single booking). Same atomic claims, same transitions.
+
+export async function expirePrimaryOffer(
+  bookingId: string,
+  booking: BookingCascadeData
+): Promise<boolean> {
+  await advanceFromPrimary(bookingId, booking);
+  return true;
+}
+
+export async function expireBackupOrCombinedOffer(
+  bookingId: string,
+  currentPhase: 'BACKUP_OFFER' | 'COMBINED_OFFER'
+): Promise<boolean> {
+  const result = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: currentPhase,
+    },
+    data: {
+      status: 'CASCADE_EXHAUSTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+    },
+  });
+  if (result.count > 0) {
+    await notifyCustomerExhausted(bookingId);
+    return true;
+  }
+  return false;
+}
+
+export async function expireProvisionalApproval(bookingId: string): Promise<boolean> {
+  const result = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+    },
+    data: {
+      status: 'CASCADE_EXHAUSTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+      provisionalCleanerId: null,
+      provisionalPrice: null,
+      topupAmount: null,
+      approvalExpiresAt: null,
+      topupApproved: false,
+    },
+  });
+  if (result.count > 0) {
+    await prisma.topupRecord.updateMany({
+      where: { bookingId, status: { in: ['PENDING', 'UNKNOWN'] } },
+      data: { status: 'EXPIRED', failureReason: 'Approval window expired' },
+    });
+    await notifyCustomerExhausted(bookingId);
+    return true;
+  }
+  return false;
+}
+
 // ─── Scheduler: process expired windows ────────────────────────
 
 const SCHEDULER_BATCH_LIMIT = 50;
@@ -495,56 +563,17 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
   for (const booking of expired) {
     try {
       if (booking.cascadePhase === 'PRIMARY_OFFER') {
-        await advanceFromPrimary(booking.id, booking);
+        await expirePrimaryOffer(booking.id, booking);
         processed++;
       } else if (
         booking.cascadePhase === 'BACKUP_OFFER' ||
         booking.cascadePhase === 'COMBINED_OFFER'
       ) {
-        const result = await prisma.booking.updateMany({
-          where: {
-            id: booking.id,
-            status: 'AWAITING_CLEANER',
-            cascadePhase: booking.cascadePhase,
-          },
-          data: {
-            status: 'CASCADE_EXHAUSTED',
-            cascadePhase: null,
-            cascadeExpiresAt: null,
-            cascadeBackupExpiresAt: null,
-          },
-        });
-        if (result.count > 0) {
-          await notifyCustomerExhausted(booking.id);
-          processed++;
-        }
+        const advanced = await expireBackupOrCombinedOffer(booking.id, booking.cascadePhase);
+        if (advanced) processed++;
       } else if (booking.cascadePhase === 'PROVISIONAL_APPROVAL') {
-        const result = await prisma.booking.updateMany({
-          where: {
-            id: booking.id,
-            status: 'AWAITING_CLEANER',
-            cascadePhase: 'PROVISIONAL_APPROVAL',
-          },
-          data: {
-            status: 'CASCADE_EXHAUSTED',
-            cascadePhase: null,
-            cascadeExpiresAt: null,
-            cascadeBackupExpiresAt: null,
-            provisionalCleanerId: null,
-            provisionalPrice: null,
-            topupAmount: null,
-            approvalExpiresAt: null,
-            topupApproved: false,
-          },
-        });
-        if (result.count > 0) {
-          await prisma.topupRecord.updateMany({
-            where: { bookingId: booking.id, status: { in: ['PENDING', 'UNKNOWN'] } },
-            data: { status: 'EXPIRED', failureReason: 'Approval window expired' },
-          });
-          await notifyCustomerExhausted(booking.id);
-          processed++;
-        }
+        const advanced = await expireProvisionalApproval(booking.id);
+        if (advanced) processed++;
       }
     } catch (error) {
       // eslint-disable-next-line no-console

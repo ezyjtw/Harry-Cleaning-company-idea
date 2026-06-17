@@ -223,6 +223,332 @@ function StatusBadge({
   );
 }
 
+const VALID_STATUSES = [
+  'PENDING',
+  'AWAITING_CLEANER',
+  'CONFIRMED',
+  'ACCEPTED',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'REVIEWED',
+  'CANCELLED',
+  'DISPUTED',
+  'CASCADE_EXHAUSTED',
+];
+
+const VALID_CASCADE_PHASES = [
+  'PRIMARY_OFFER',
+  'BACKUP_OFFER',
+  'COMBINED_OFFER',
+  'CASCADE_EXHAUSTED',
+  'PROVISIONAL_APPROVAL',
+];
+
+function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
+  const [status, setStatus] = useState(booking.status);
+  const [cascadePhase, setCascadePhase] = useState(booking.cascadePhase ?? '');
+  const [confirmId, setConfirmId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const expectedPrefix = booking.id.substring(0, 8).toUpperCase();
+  const hasChanges = status !== booking.status || (cascadePhase || null) !== booking.cascadePhase;
+  const confirmed = confirmId.toUpperCase() === expectedPrefix;
+
+  const handleSubmit = useCallback(async () => {
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const payload: Record<string, unknown> = { bookingId: booking.id };
+      if (status !== booking.status) payload.status = status;
+      if ((cascadePhase || null) !== booking.cascadePhase) {
+        payload.cascadePhase = cascadePhase || null;
+      }
+      const res = await fetch('/api/admin/bookings/override-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ ok: false, message: data.error });
+      } else {
+        setResult({ ok: true, message: `Updated: ${JSON.stringify(data.updated)}` });
+      }
+    } catch {
+      setResult({ ok: false, message: 'Network error' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [booking.id, booking.status, booking.cascadePhase, status, cascadePhase]);
+
+  return (
+    <Section title="Status Override (Dev Only)">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              {VALID_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Cascade Phase</label>
+            <select
+              value={cascadePhase}
+              onChange={(e) => setCascadePhase(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">(null)</option>
+              {VALID_CASCADE_PHASES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {hasChanges && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-amber-700 font-medium mb-2">
+              Raw status override — bypasses all service guards. Type booking ID prefix to confirm.
+            </p>
+            <input
+              type="text"
+              placeholder={expectedPrefix}
+              value={confirmId}
+              onChange={(e) => setConfirmId(e.target.value)}
+              className="w-40 rounded border border-gray-300 px-2 py-1 text-sm font-mono mb-2"
+            />
+            <div>
+              <button
+                onClick={handleSubmit}
+                disabled={!confirmed || submitting}
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Applying…' : 'Apply Override'}
+              </button>
+            </div>
+          </div>
+        )}
+        {result && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          >
+            {result.message}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function ForceCascadeButton({ booking }: { booking: BookingDetail }) {
+  const [state, setState] = useState<'idle' | 'confirming' | 'loading'>('idle');
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const phaseLabel: Record<string, string> = {
+    PRIMARY_OFFER: 'Expire primary → advance to backup (or exhaust)',
+    BACKUP_OFFER: 'Expire backup → CASCADE_EXHAUSTED',
+    COMBINED_OFFER: 'Expire combined → CASCADE_EXHAUSTED',
+    PROVISIONAL_APPROVAL: 'Expire provisional → CASCADE_EXHAUSTED + clear topup',
+  };
+
+  const handleAdvance = useCallback(async () => {
+    setState('loading');
+    setResult(null);
+    try {
+      const res = await fetch('/api/admin/bookings/force-cascade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ ok: false, message: data.error });
+      } else {
+        setResult({
+          ok: true,
+          message: `${data.fromPhase} → ${data.toPhase ?? data.toStatus}`,
+        });
+      }
+    } catch {
+      setResult({ ok: false, message: 'Network error' });
+    } finally {
+      setState('idle');
+    }
+  }, [booking.id]);
+
+  if (booking.status !== 'AWAITING_CLEANER' || !booking.cascadePhase) return null;
+
+  return (
+    <div className="inline-flex items-center gap-2">
+      {state === 'confirming' ? (
+        <>
+          <span className="text-xs text-gray-500">
+            {phaseLabel[booking.cascadePhase] ?? `Advance from ${booking.cascadePhase}`}
+          </span>
+          <button
+            onClick={handleAdvance}
+            className="px-2 py-1 text-xs font-medium text-white rounded bg-amber-600 hover:bg-amber-700"
+          >
+            Yes, advance
+          </button>
+          <button
+            onClick={() => {
+              setState('idle');
+              setResult(null);
+            }}
+            className="px-2 py-1 text-xs font-medium text-gray-600 rounded border border-gray-300 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </>
+      ) : state === 'loading' ? (
+        <span className="text-xs text-gray-500">Processing…</span>
+      ) : (
+        <button
+          onClick={() => setState('confirming')}
+          className="px-4 py-2 text-sm font-medium text-amber-700 rounded-lg border border-amber-300 hover:bg-amber-50"
+        >
+          Force Advance Cascade
+        </button>
+      )}
+      {result && (
+        <span className={`text-xs ${result.ok ? 'text-green-700' : 'text-red-700'}`}>
+          {result.message}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function DeleteBookingButton({ booking }: { booking: BookingDetail }) {
+  const [state, setState] = useState<'idle' | 'confirming' | 'loading'>('idle');
+  const [confirmId, setConfirmId] = useState('');
+  const [confirmWord, setConfirmWord] = useState('');
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const expectedPrefix = booking.id.substring(0, 8).toUpperCase();
+  const confirmed =
+    confirmId.toUpperCase() === expectedPrefix && confirmWord.toUpperCase() === 'DELETE';
+
+  const relationCounts = [
+    booking.payment ? '1 payment' : null,
+    booking.refundRecords.length > 0 ? `${booking.refundRecords.length} refund records` : null,
+    booking.topupRecords.length > 0 ? `${booking.topupRecords.length} topup records` : null,
+    booking.review ? '1 review' : null,
+    booking.dispute ? '1 dispute' : null,
+    booking.bookingAddons.length > 0 ? `${booking.bookingAddons.length} addons` : null,
+  ].filter(Boolean);
+
+  const handleDelete = useCallback(async () => {
+    setState('loading');
+    setResult(null);
+    try {
+      const res = await fetch('/api/admin/bookings/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ ok: false, message: data.error });
+      } else {
+        setResult({ ok: true, message: 'Booking permanently deleted' });
+      }
+    } catch {
+      setResult({ ok: false, message: 'Network error' });
+    } finally {
+      setState('idle');
+    }
+  }, [booking.id]);
+
+  return (
+    <div>
+      {state === 'confirming' ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+          <p className="text-sm font-semibold text-red-800">Permanently delete this booking?</p>
+          <p className="text-xs text-red-700">
+            This will destroy: the booking
+            {relationCounts.length > 0 ? `, ${relationCounts.join(', ')}` : ''}. Audit log entries
+            will be orphaned. This cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <div>
+              <label className="block text-xs text-red-700 mb-1">
+                Booking ID prefix ({expectedPrefix})
+              </label>
+              <input
+                type="text"
+                placeholder={expectedPrefix}
+                value={confirmId}
+                onChange={(e) => setConfirmId(e.target.value)}
+                className="w-32 rounded border border-red-300 px-2 py-1 text-sm font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-red-700 mb-1">Type DELETE</label>
+              <input
+                type="text"
+                placeholder="DELETE"
+                value={confirmWord}
+                onChange={(e) => setConfirmWord(e.target.value)}
+                className="w-24 rounded border border-red-300 px-2 py-1 text-sm font-mono"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDelete}
+              disabled={!confirmed}
+              className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete Permanently
+            </button>
+            <button
+              onClick={() => {
+                setState('idle');
+                setConfirmId('');
+                setConfirmWord('');
+                setResult(null);
+              }}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : state === 'loading' ? (
+        <span className="text-sm text-gray-500">Deleting…</span>
+      ) : (
+        <button
+          onClick={() => setState('confirming')}
+          className="px-4 py-2 text-sm font-medium text-red-700 rounded-lg border border-red-300 hover:bg-red-50"
+        >
+          Delete Booking
+        </button>
+      )}
+      {result && (
+        <div
+          className={`mt-2 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+        >
+          {result.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RefundModal({
   bookingId,
   maxRefundable,
@@ -445,6 +771,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
               )}
             </>
           )}
+        <ForceCascadeButton booking={b} />
       </div>
 
       {releaseState.result && (
@@ -739,6 +1066,13 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
           </div>
         </Section>
       )}
+
+      {/* Stage 2: Testing Tools */}
+      <StatusOverridePanel booking={b} />
+
+      <Section title="Danger Zone (Dev Only)">
+        <DeleteBookingButton booking={b} />
+      </Section>
 
       {showRefund && (
         <RefundModal
