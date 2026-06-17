@@ -294,6 +294,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
   const [saveCard, setSaveCard] = useState(false);
 
@@ -356,6 +357,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         setConfirmedBookingId(data.booking?.id || '');
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
+          setStripePaymentIntentId(data.booking?.stripePaymentIntentId || null);
           setPaymentStep(true);
         }
       } else {
@@ -588,6 +590,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <StripeCheckoutForm
             total={totalPrice}
             bookingId={confirmedBookingId}
+            paymentIntentId={stripePaymentIntentId || ''}
             saveCard={saveCard}
             onSaveCardChange={setSaveCard}
             onBack={() => {

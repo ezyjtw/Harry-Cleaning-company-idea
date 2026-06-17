@@ -167,22 +167,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   } | null>(null);
   const { trackStep, trackConversion } = useAnalytics('booking');
 
-  const handleSaveCardToggle = useCallback(
-    async (checked: boolean) => {
-      setSaveCard(checked);
-      if (stripePaymentIntentId) {
-        await fetch('/api/customer/payment-intent/update-save-preference', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentIntentId: stripePaymentIntentId,
-            savePaymentMethod: checked,
-          }),
-        }).catch(() => {});
-      }
-    },
-    [stripePaymentIntentId]
-  );
+  const handleSaveCardToggle = useCallback((checked: boolean) => {
+    setSaveCard(checked);
+  }, []);
 
   // Track initial page view and service selection step
   useEffect(() => {
@@ -436,6 +423,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           <StripeCheckoutForm
             total={priceBreakdown.total}
             bookingId={bookingData?.id || ''}
+            paymentIntentId={stripePaymentIntentId || ''}
             saveCard={saveCard}
             onSaveCardChange={handleSaveCardToggle}
             onBack={() => {

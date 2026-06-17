@@ -6,6 +6,7 @@ import { useState } from 'react';
 interface StripeCheckoutFormProps {
   total: number;
   bookingId: string;
+  paymentIntentId: string;
   saveCard: boolean;
   onSaveCardChange: (checked: boolean) => void;
   onBack: () => void;
@@ -14,6 +15,7 @@ interface StripeCheckoutFormProps {
 export default function StripeCheckoutForm({
   total,
   bookingId,
+  paymentIntentId,
   saveCard,
   onSaveCardChange,
   onBack,
@@ -30,6 +32,25 @@ export default function StripeCheckoutForm({
 
     setProcessing(true);
     setError(null);
+
+    if (saveCard) {
+      try {
+        const res = await fetch('/api/customer/payment-intent/update-save-preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId, savePaymentMethod: true }),
+        });
+        if (!res.ok) {
+          setError('Could not save your card preference. Please try again.');
+          setProcessing(false);
+          return;
+        }
+      } catch {
+        setError('Network error saving card preference. Please try again.');
+        setProcessing(false);
+        return;
+      }
+    }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
