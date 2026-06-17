@@ -175,14 +175,14 @@ async function executeOffSessionTopup(
     );
 
     if (pi.status === 'succeeded') {
-      await writeTopupSuccess(booking, topupRecord, pi.id, amountPounds, attempt);
+      await writeTopupSuccess(booking, topupRecord, pi.id, amountPounds, attempt, 'off_session');
       return { outcome: 'SUCCEEDED', topupRecordId: topupRecord.id };
     }
 
     if (pi.status === 'requires_action') {
       await prisma.topupRecord.update({
         where: { id: topupRecord.id },
-        data: { stripePaymentIntentId: pi.id, attempt },
+        data: { stripePaymentIntentId: pi.id, paymentMethodType: 'off_session', attempt },
       });
       return {
         outcome: 'REQUIRES_ACTION',
@@ -193,7 +193,12 @@ async function executeOffSessionTopup(
 
     await prisma.topupRecord.update({
       where: { id: topupRecord.id },
-      data: { status: 'FAILED', attempt, failureReason: `Unexpected PI status: ${pi.status}` },
+      data: {
+        status: 'FAILED',
+        paymentMethodType: 'off_session',
+        attempt,
+        failureReason: `Unexpected PI status: ${pi.status}`,
+      },
     });
     return {
       outcome: 'FAILED',
@@ -212,7 +217,11 @@ async function executeOffSessionTopup(
       if (stripeErr.payment_intent) {
         await prisma.topupRecord.update({
           where: { id: topupRecord.id },
-          data: { stripePaymentIntentId: stripeErr.payment_intent.id, attempt },
+          data: {
+            stripePaymentIntentId: stripeErr.payment_intent.id,
+            paymentMethodType: 'off_session',
+            attempt,
+          },
         });
         return {
           outcome: 'REQUIRES_ACTION',
@@ -227,6 +236,7 @@ async function executeOffSessionTopup(
         where: { id: topupRecord.id },
         data: {
           status: 'UNKNOWN',
+          paymentMethodType: 'off_session',
           attempt,
           failureReason: 'Outcome unknown — manual check required',
         },
@@ -237,7 +247,12 @@ async function executeOffSessionTopup(
     const failReason = err instanceof Error ? err.message : 'Stripe error';
     await prisma.topupRecord.update({
       where: { id: topupRecord.id },
-      data: { status: 'FAILED', attempt, failureReason: failReason },
+      data: {
+        status: 'FAILED',
+        paymentMethodType: 'off_session',
+        attempt,
+        failureReason: failReason,
+      },
     });
     return { outcome: 'FAILED', topupRecordId: topupRecord.id, reason: failReason };
   }
@@ -271,7 +286,7 @@ async function createOnSessionTopup(
 
     await prisma.topupRecord.update({
       where: { id: topupRecord.id },
-      data: { stripePaymentIntentId: pi.id, attempt },
+      data: { stripePaymentIntentId: pi.id, paymentMethodType: 'on_session', attempt },
     });
 
     return {
@@ -283,7 +298,12 @@ async function createOnSessionTopup(
     if (isUnknownOutcome(err)) {
       await prisma.topupRecord.update({
         where: { id: topupRecord.id },
-        data: { status: 'UNKNOWN', attempt, failureReason: 'PI creation outcome unknown' },
+        data: {
+          status: 'UNKNOWN',
+          paymentMethodType: 'on_session',
+          attempt,
+          failureReason: 'PI creation outcome unknown',
+        },
       });
       return { outcome: 'UNKNOWN', topupRecordId: topupRecord.id };
     }
@@ -291,7 +311,12 @@ async function createOnSessionTopup(
     const failReason = err instanceof Error ? err.message : 'Stripe error';
     await prisma.topupRecord.update({
       where: { id: topupRecord.id },
-      data: { status: 'FAILED', attempt, failureReason: failReason },
+      data: {
+        status: 'FAILED',
+        paymentMethodType: 'on_session',
+        attempt,
+        failureReason: failReason,
+      },
     });
     return { outcome: 'FAILED', topupRecordId: topupRecord.id, reason: failReason };
   }
@@ -304,7 +329,8 @@ async function writeTopupSuccess(
   topupRecord: { id: string },
   stripePaymentIntentId: string,
   amountPounds: number,
-  attempt: number
+  attempt: number,
+  paymentMethodType: 'off_session' | 'on_session' = 'off_session'
 ): Promise<void> {
   await prisma.$transaction([
     prisma.booking.update({
@@ -330,6 +356,7 @@ async function writeTopupSuccess(
       data: {
         stripePaymentIntentId,
         status: 'SUCCEEDED',
+        paymentMethodType,
         attempt,
         failureReason: null,
       },
