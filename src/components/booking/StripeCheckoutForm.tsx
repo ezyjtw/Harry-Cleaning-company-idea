@@ -10,6 +10,7 @@ interface StripeCheckoutFormProps {
   saveCard: boolean;
   onSaveCardChange: (checked: boolean) => void;
   onBack: () => void;
+  isGuest?: boolean;
 }
 
 export default function StripeCheckoutForm({
@@ -19,6 +20,7 @@ export default function StripeCheckoutForm({
   saveCard,
   onSaveCardChange,
   onBack,
+  isGuest = false,
 }: StripeCheckoutFormProps) {
   const stripeHook = useStripe();
   const elements = useElements();
@@ -33,7 +35,7 @@ export default function StripeCheckoutForm({
     setProcessing(true);
     setError(null);
 
-    if (saveCard) {
+    if (saveCard && !isGuest) {
       try {
         const res = await fetch('/api/customer/payment-intent/update-save-preference', {
           method: 'POST',
@@ -73,17 +75,19 @@ export default function StripeCheckoutForm({
         <PaymentElement onReady={() => setReady(true)} />
       </div>
 
-      <label className="mt-4 flex items-center gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={saveCard}
-          onChange={(e) => onSaveCardChange(e.target.checked)}
-          className="h-4 w-4 accent-ink"
-        />
-        <span className="font-jost text-sm font-light text-ink-2">
-          Save this card for future bookings
-        </span>
-      </label>
+      {!isGuest && (
+        <label className="mt-4 flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={saveCard}
+            onChange={(e) => onSaveCardChange(e.target.checked)}
+            className="h-4 w-4 accent-ink"
+          />
+          <span className="font-jost text-sm font-light text-ink-2">
+            Save this card for future bookings
+          </span>
+        </label>
+      )}
 
       {error && (
         <div className="mt-4 bg-red-50 px-4 py-3 font-jost text-sm text-red-700">{error}</div>

@@ -417,6 +417,7 @@ export async function POST(request: NextRequest) {
         where: { id: booking.id },
         data: { stripePaymentIntentId: paymentIntent.id },
       });
+      booking.stripePaymentIntentId = paymentIntent.id;
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('PaymentIntent creation failed:', error);
