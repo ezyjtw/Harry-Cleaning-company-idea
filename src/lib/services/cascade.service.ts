@@ -453,6 +453,64 @@ export async function atomicProvisionalAccept(
   return { success: true, approvalExpiresAt: pricing.approvalExpiresAt };
 }
 
+// ─── Phase 2: hold a pricier cleaner in reserve (A5.3 Stage 2) ───
+//
+// In PHASE2_RESERVE, a backup who would be pricier than the paid price is
+// NOT provisionally accepted — they're held in reserve. They only get
+// promoted (cheapest-first) if no at-or-below cleaner accepts.
+
+export interface ReserveResult {
+  success: boolean;
+  reason?: string;
+  alreadyReserved?: boolean;
+}
+
+export async function addToReserve(bookingId: string, cleanerId: string): Promise<ReserveResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      cascadePhase: true,
+      backupCleanerIds: true,
+      declinedCleanerIds: true,
+      reserveCleanerIds: true,
+    },
+  });
+
+  if (!booking) return { success: false, reason: 'Booking not found' };
+  if (booking.status !== 'AWAITING_CLEANER' || booking.cascadePhase !== 'PHASE2_RESERVE') {
+    return { success: false, reason: 'This booking is no longer accepting reserves' };
+  }
+  if (!booking.backupCleanerIds.includes(cleanerId)) {
+    return { success: false, reason: 'You are not offered this booking' };
+  }
+  if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
+    return { success: false, reason: 'You already declined this booking' };
+  }
+  if (booking.reserveCleanerIds.includes(cleanerId)) {
+    return { success: true, alreadyReserved: true };
+  }
+
+  const result = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'PHASE2_RESERVE',
+      NOT: { reserveCleanerIds: { has: cleanerId } },
+    },
+    data: { reserveCleanerIds: { push: cleanerId } },
+  });
+
+  if (result.count === 0) {
+    return {
+      success: false,
+      reason: 'This booking was just taken or is no longer accepting reserves.',
+    };
+  }
+
+  return { success: true };
+}
+
 function getLoserSet(
   booking: Pick<Booking, 'cleanerId' | 'backupCleanerIds' | 'cascadePhase' | 'declinedCleanerIds'>,
   winnerId: string

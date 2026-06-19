@@ -35,12 +35,14 @@ export async function GET(request: NextRequest) {
     primaryWhereWithCascade.status = baseStatusFilter;
   }
 
-  // Backup/combined path: bookings where this cleaner is a backup being offered
+  // Backup/combined path: bookings where this cleaner is a backup being offered.
+  // PHASE2_RESERVE is included so re-opened jobs are still acceptable (at-or-below),
+  // but cleaners already held in reserve are excluded — they can't re-accept.
   const backupWhere: Record<string, unknown> = {
     backupCleanerIds: { has: user.id },
-    cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
+    cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'PHASE2_RESERVE'] },
     status: 'AWAITING_CLEANER',
-    NOT: { declinedCleanerIds: { has: user.id } },
+    NOT: [{ declinedCleanerIds: { has: user.id } }, { reserveCleanerIds: { has: user.id } }],
   };
 
   // Provisional path: cleaner provisionally accepted, awaiting customer approval
@@ -50,7 +52,15 @@ export async function GET(request: NextRequest) {
     status: 'AWAITING_CLEANER',
   };
 
-  const where = { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere] };
+  // Reserve path: cleaner is held in reserve (pending — promoted only if no
+  // at-or-below cleaner accepts). Visible while the booking is still resolving.
+  const reserveWhere: Record<string, unknown> = {
+    reserveCleanerIds: { has: user.id },
+    cascadePhase: { in: ['PHASE2_RESERVE', 'PROVISIONAL_APPROVAL'] },
+    status: 'AWAITING_CLEANER',
+  };
+
+  const where = { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere, reserveWhere] };
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({
@@ -72,6 +82,7 @@ export async function GET(request: NextRequest) {
       const isProvisional =
         b.cascadePhase === 'PROVISIONAL_APPROVAL' &&
         (b as Record<string, unknown>).provisionalCleanerId === user.id;
+      const isReserve = (b.reserveCleanerIds ?? []).includes(user.id);
 
       let viewerEarnings: number | null = null;
       let viewerTotal: number | null = null;
@@ -122,6 +133,7 @@ export async function GET(request: NextRequest) {
         cascadePhase: b.cascadePhase,
         isPrimary,
         isProvisional,
+        isReserve,
         viewerEarnings,
         viewerTotal,
         viewerPlatformFee,

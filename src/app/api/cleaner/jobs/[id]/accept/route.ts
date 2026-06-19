@@ -32,6 +32,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       startTime: true,
       cascadeExpiresAt: true,
       cascadeBackupExpiresAt: true,
+      cascadePhase: true,
       client: { select: { email: true, name: true, stripeCustomerId: true } },
     },
   });
@@ -58,6 +59,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     stripeCustomerId: booking.client?.stripeCustomerId ?? null,
     cascadeExpiresAt: booking.cascadeExpiresAt,
     cascadeBackupExpiresAt: booking.cascadeBackupExpiresAt,
+    cascadePhase: booking.cascadePhase,
   });
 
   if (result.outcome === 'FAILED') {
@@ -95,6 +97,16 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       message: 'Provisional acceptance — customer approval required for price difference',
       job: { id, status: 'PROVISIONAL' },
+      outcome: result.outcome,
+    });
+  }
+
+  // RESERVED — held as a Phase 2 reserve; promoted only if no cheaper cleaner accepts
+  if (result.outcome === 'RESERVED') {
+    return NextResponse.json({
+      message:
+        "You're held in reserve. If no cleaner accepts at or below the quoted price, we'll be in touch about this job.",
+      job: { id, status: 'RESERVED' },
       outcome: result.outcome,
     });
   }
