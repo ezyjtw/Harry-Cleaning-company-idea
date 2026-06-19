@@ -4,7 +4,7 @@ import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/
 import { prisma } from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
-import { enterAdminReassignProvisional } from './cascade.service';
+import { cascadeTeardownFields, enterAdminReassignProvisional } from './cascade.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
 
@@ -144,7 +144,7 @@ export class AdminOperationsService {
           acceptedAt: new Date(),
           cleanerEarnings: quote.cleanerPayout,
           platformFee: quote.customerPlatformFee,
-          ...AdminOperationsService.cascadeTeardown(),
+          ...cascadeTeardownFields(),
           adminNotes: `Reassigned (equal price): ${reason}. Previous cleaner: ${booking.cleanerId}`,
         },
       });
@@ -183,7 +183,7 @@ export class AdminOperationsService {
         acceptedAt: new Date(),
         cleanerEarnings: quote.cleanerPayout,
         platformFee: quote.customerPlatformFee,
-        ...AdminOperationsService.cascadeTeardown(),
+        ...cascadeTeardownFields(),
         adminNotes: `Reassigned (cheaper): ${reason}. Previous cleaner: ${booking.cleanerId}`,
       },
     });
@@ -365,24 +365,6 @@ export class AdminOperationsService {
       originalTotal,
       diff,
       priceCase,
-    };
-  }
-
-  /** Cascade-state teardown written on a direct (equal/cheaper) reassign. */
-  private static cascadeTeardown() {
-    return {
-      cascadePhase: null,
-      cascadeExpiresAt: null,
-      cascadeBackupExpiresAt: null,
-      provisionalCleanerId: null,
-      provisionalPrice: null,
-      topupAmount: null,
-      approvalExpiresAt: null,
-      topupApproved: false,
-      reserveCleanerIds: [],
-      provisionalSource: null,
-      reassignPreviousStatus: null,
-      reassignPreviousCleanerId: null,
     };
   }
 

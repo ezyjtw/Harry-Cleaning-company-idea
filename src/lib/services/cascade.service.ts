@@ -35,6 +35,24 @@ function parseSlotStart(bookingDate: Date, startTime: string): Date | null {
   }
 }
 
+/** Cascade-state teardown fields — shared by cancel and reassign paths. */
+export function cascadeTeardownFields() {
+  return {
+    cascadePhase: null,
+    cascadeExpiresAt: null,
+    cascadeBackupExpiresAt: null,
+    provisionalCleanerId: null,
+    provisionalPrice: null,
+    topupAmount: null,
+    approvalExpiresAt: null,
+    topupApproved: false,
+    reserveCleanerIds: [],
+    provisionalSource: null,
+    reassignPreviousStatus: null,
+    reassignPreviousCleanerId: null,
+  };
+}
+
 export interface CascadeWindows {
   initialPhase: CascadePhase;
   cascadeExpiresAt: Date;
