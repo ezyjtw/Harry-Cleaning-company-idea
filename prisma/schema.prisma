@@ -492,6 +492,11 @@ model Booking {
   reserveCleanerIds      String[]  @default([])
   phase2Entered          Boolean   @default(false)
 
+  // ─── Admin reassign / provisional source + revert state (A5.3 Stage 3) ─────
+  provisionalSource          String?         // 'CASCADE' | 'ADMIN_REASSIGN' — discriminates decline/expiry routing
+  reassignPreviousStatus     BookingStatus?  // restored by revertAdminReassign on customer decline
+  reassignPreviousCleanerId  String?         // explicit revert anchor (not relying on cleanerId-untouched invariant)
+
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)
   acceptedFromQueue  Boolean @default(false)

@@ -351,6 +351,9 @@ async function writeTopupSuccess(
         approvalExpiresAt: null,
         topupApproved: false,
         reserveCleanerIds: [],
+        provisionalSource: null,
+        reassignPreviousStatus: null,
+        reassignPreviousCleanerId: null,
       },
     }),
     prisma.topupRecord.update({

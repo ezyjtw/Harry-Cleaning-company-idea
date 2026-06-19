@@ -7,7 +7,7 @@
  * double-advance or corrupt state.
  */
 
-import type { Booking, CascadePhase, PropertySize } from '@prisma/client';
+import type { Booking, BookingStatus, CascadePhase, PropertySize } from '@prisma/client';
 
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
@@ -361,6 +361,38 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   return { success: true };
 }
 
+// ─── Canonical PROVISIONAL_APPROVAL entry (A5.3 Stage 3) ──────────
+//
+// Single source of truth for the field set written when a booking enters
+// PROVISIONAL_APPROVAL. All entry points — cascade provisional accept,
+// reserve promotion, and admin reassign — write THIS exact set so they
+// cannot drift. (Previously atomicProvisionalAccept and promoteReserves
+// drifted: the former set cascadeBackupExpiresAt:null + relied on the
+// topupApproved default; the latter omitted cascadeBackupExpiresAt + set
+// topupApproved:false. Unifying is behavior-preserving — see the call
+// sites for the per-caller proof.)
+function provisionalEntryData(args: {
+  provisionalCleanerId: string;
+  provisionalPrice: number;
+  topupAmount: number;
+  approvalExpiresAt: Date;
+  source: 'CASCADE' | 'ADMIN_REASSIGN';
+  reserveCleanerIds?: string[];
+}) {
+  return {
+    cascadePhase: 'PROVISIONAL_APPROVAL' as const,
+    provisionalCleanerId: args.provisionalCleanerId,
+    provisionalPrice: args.provisionalPrice,
+    topupAmount: args.topupAmount,
+    approvalExpiresAt: args.approvalExpiresAt,
+    cascadeExpiresAt: args.approvalExpiresAt,
+    cascadeBackupExpiresAt: null,
+    topupApproved: false,
+    reserveCleanerIds: args.reserveCleanerIds ?? [],
+    provisionalSource: args.source,
+  };
+}
+
 // ─── Atomic provisional accept (A5.3) ─────────────────────────
 
 export interface ProvisionalAcceptResult {
@@ -419,15 +451,16 @@ export async function atomicProvisionalAccept(
       status: 'AWAITING_CLEANER',
       cascadePhase: booking.cascadePhase,
     },
-    data: {
-      cascadePhase: 'PROVISIONAL_APPROVAL',
-      cascadeExpiresAt: pricing.approvalExpiresAt,
-      cascadeBackupExpiresAt: null,
+    // Unified entry. Net change vs before: +topupApproved:false (no-op —
+    // default false, never flipped at first provisional), +reserveCleanerIds:[]
+    // (no-op — empty pre-Phase-2), +provisionalSource:'CASCADE' (new field).
+    data: provisionalEntryData({
       provisionalCleanerId: cleanerId,
       provisionalPrice: pricing.provisionalPrice,
       topupAmount: pricing.topupAmount,
       approvalExpiresAt: pricing.approvalExpiresAt,
-    },
+      source: 'CASCADE',
+    }),
   });
 
   if (result.count === 0) {
@@ -589,6 +622,7 @@ export async function handleProvisionalFailure(
       cascadePhase: true,
       phase2Entered: true,
       provisionalCleanerId: true,
+      provisionalSource: true,
       date: true,
       startTime: true,
       backupCleanerIds: true,
@@ -599,6 +633,12 @@ export async function handleProvisionalFailure(
   });
   if (!b || b.status !== 'AWAITING_CLEANER' || b.cascadePhase !== 'PROVISIONAL_APPROVAL') {
     return false;
+  }
+
+  // Admin-initiated provisional → revert to prior cleaner/state, do NOT
+  // continue the cascade (no Phase 2, no reserve advance).
+  if (b.provisionalSource === 'ADMIN_REASSIGN') {
+    return revertAdminReassign(bookingId, reason);
   }
 
   const failedCleaner = b.provisionalCleanerId;
@@ -793,16 +833,19 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
 
   const claim = await prisma.booking.updateMany({
     where: { id: bookingId, status: 'AWAITING_CLEANER', cascadePhase: 'PHASE2_RESERVE' },
-    data: {
-      cascadePhase: 'PROVISIONAL_APPROVAL',
+    // Unified entry. Net change vs before: +cascadeBackupExpiresAt:null
+    // (PROVEN no-op — cascadeBackupExpiresAt is already null in every path
+    // that reaches promoteReserves; first-failure entry into PHASE2_RESERVE
+    // sets it null and nothing re-sets it non-null), +provisionalSource:'CASCADE'
+    // (new field). All other fields identical.
+    data: provisionalEntryData({
       provisionalCleanerId: winner.cleanerId,
       provisionalPrice: winner.total,
       topupAmount,
       approvalExpiresAt,
-      cascadeExpiresAt: approvalExpiresAt,
-      topupApproved: false,
+      source: 'CASCADE',
       reserveCleanerIds: remaining,
-    },
+    }),
   });
   if (claim.count === 0) return false;
 
@@ -847,6 +890,184 @@ async function exhaustFromPhase2(bookingId: string): Promise<void> {
     }).catch(() => {});
     await notifyCustomerExhausted(bookingId);
   }
+}
+
+// ─── Admin reassign: pricier path (A5.3 Stage 3) ─────────────────
+//
+// Enters PROVISIONAL_APPROVAL via the SAME canonical field set as the
+// cascade (provisionalEntryData), tagged source:'ADMIN_REASSIGN', plus
+// status→AWAITING_CLEANER and the durable revert anchors. cleanerId is
+// NOT changed here — it stays the old cleaner until writeTopupSuccess
+// swaps it on payment success (mirrors the cascade exactly).
+
+export interface AdminReassignProvisionalResult {
+  success: boolean;
+  reason?: string;
+  approvalExpiresAt?: Date;
+}
+
+export async function enterAdminReassignProvisional(args: {
+  bookingId: string;
+  newCleanerId: string;
+  provisionalPrice: number;
+  topupAmount: number;
+  originalPrice: number;
+  previousStatus: BookingStatus;
+  previousCleanerId: string;
+  eligibleStatuses: BookingStatus[];
+  bookingDate: Date;
+  startTime: string;
+  customerEmail: string | null;
+  customerName: string | null;
+}): Promise<AdminReassignProvisionalResult> {
+  // Same 6h-capped-at-slot−24h window as Phase 2 (James decision 3).
+  const approvalExpiresAt = computePhase2Window(new Date(), args.bookingDate, args.startTime);
+
+  // Atomic claim — same TECHNIQUE as cascade (updateMany + count check). The
+  // predicate intentionally does NOT guard cascadePhase: admin override wins
+  // over any phase, including an in-flight cascade PROVISIONAL_APPROVAL. The
+  // money guard (transferStatus) hard-blocks post-release. eligibleStatuses
+  // bounds which source states an admin may reassign from.
+  const claim = await prisma.booking.updateMany({
+    where: {
+      id: args.bookingId,
+      status: { in: args.eligibleStatuses },
+      transferStatus: { in: ['PENDING', 'FAILED'] },
+    },
+    data: {
+      status: 'AWAITING_CLEANER',
+      reassignPreviousStatus: args.previousStatus,
+      reassignPreviousCleanerId: args.previousCleanerId,
+      ...provisionalEntryData({
+        provisionalCleanerId: args.newCleanerId,
+        provisionalPrice: args.provisionalPrice,
+        topupAmount: args.topupAmount,
+        approvalExpiresAt,
+        source: 'ADMIN_REASSIGN',
+      }),
+    },
+  });
+  if (claim.count === 0) {
+    return { success: false, reason: 'Booking changed state — reassign aborted' };
+  }
+
+  await AuditService.log({
+    action: 'ADMIN_REASSIGN_PROVISIONAL',
+    entityType: 'Booking',
+    entityId: args.bookingId,
+    metadata: {
+      newCleanerId: args.newCleanerId,
+      provisionalPrice: args.provisionalPrice,
+      topupAmount: args.topupAmount,
+      previousCleanerId: args.previousCleanerId,
+      previousStatus: args.previousStatus,
+    },
+  }).catch(() => {});
+
+  if (args.customerEmail) {
+    await sendTopupApprovalRequest({
+      bookingId: args.bookingId,
+      customerEmail: args.customerEmail,
+      customerName: args.customerName || 'Customer',
+      originalPrice: args.originalPrice,
+      newPrice: args.provisionalPrice,
+      topupAmount: args.topupAmount,
+      expiresAt: approvalExpiresAt,
+    }).catch(() => {});
+  }
+
+  return { success: true, approvalExpiresAt };
+}
+
+// Revert an admin-reassign provisional on customer decline / expiry / charge
+// fail. Restores the EXACT pre-reassign state (status + cleaner). For a
+// CASCADE_EXHAUSTED booking this returns it to CASCADE_EXHAUSTED (James
+// decision 1). Atomic + idempotent: count===0 ⇒ no-op.
+async function revertAdminReassign(bookingId: string, reason: string): Promise<boolean> {
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      reassignPreviousStatus: true,
+      reassignPreviousCleanerId: true,
+      provisionalCleanerId: true,
+      clientId: true,
+    },
+  });
+  if (!b?.reassignPreviousStatus || !b.reassignPreviousCleanerId) return false;
+
+  const res = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      provisionalSource: 'ADMIN_REASSIGN',
+    },
+    data: {
+      status: b.reassignPreviousStatus,
+      cleanerId: b.reassignPreviousCleanerId,
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+      provisionalCleanerId: null,
+      provisionalPrice: null,
+      topupAmount: null,
+      approvalExpiresAt: null,
+      topupApproved: false,
+      provisionalSource: null,
+      reassignPreviousStatus: null,
+      reassignPreviousCleanerId: null,
+    },
+  });
+  if (res.count === 0) return false;
+
+  await prisma.topupRecord
+    .updateMany({
+      where: { bookingId, status: { in: ['PENDING', 'UNKNOWN'] } },
+      data: { status: reason.includes('declined') ? 'DECLINED' : 'EXPIRED', failureReason: reason },
+    })
+    .catch(() => {});
+
+  await AuditService.log({
+    action: 'ADMIN_REASSIGN_REVERTED',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata: {
+      reason,
+      restoredStatus: b.reassignPreviousStatus,
+      restoredCleanerId: b.reassignPreviousCleanerId,
+      rejectedCleanerId: b.provisionalCleanerId,
+    },
+  }).catch(() => {});
+
+  // Notify the rejected (new) cleaner + customer (best-effort)
+  if (b.provisionalCleanerId) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: b.provisionalCleanerId,
+          type: 'SYSTEM',
+          title: 'Reassignment not proceeding',
+          body: 'The customer did not approve the price change, so this job will not be reassigned to you.',
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+  if (b.clientId) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: b.clientId,
+          type: 'SYSTEM',
+          title: 'Reassignment cancelled',
+          body: 'The price change was declined — your booking is unchanged.',
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+
+  return true;
 }
 
 // ─── Scheduler: process expired windows ────────────────────────

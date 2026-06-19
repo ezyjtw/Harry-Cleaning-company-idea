@@ -78,7 +78,10 @@ export type AuditAction =
   | 'ADMIN_DELETE_BOOKING'
   | 'PHASE2_ENTERED'
   | 'PHASE2_RESERVE_PROMOTED'
-  | 'PHASE2_EXHAUSTED';
+  | 'PHASE2_EXHAUSTED'
+  // Admin reassign cleaner (A5.3 Stage 3)
+  | 'ADMIN_REASSIGN_PROVISIONAL'
+  | 'ADMIN_REASSIGN_REVERTED';
 
 interface AuditLogParams {
   userId?: string;
