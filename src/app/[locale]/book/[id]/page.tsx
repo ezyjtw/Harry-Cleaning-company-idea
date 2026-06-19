@@ -426,6 +426,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             paymentIntentId={stripePaymentIntentId || ''}
             saveCard={saveCard}
             onSaveCardChange={handleSaveCardToggle}
+            isGuest={bookingMode === 'guest'}
             onBack={() => {
               setPaymentStep(false);
               setPaymentPending(false);

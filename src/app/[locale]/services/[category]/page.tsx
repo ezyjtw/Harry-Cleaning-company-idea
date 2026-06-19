@@ -12,6 +12,7 @@ import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
+import { useAuth } from '@/hooks/useAuth';
 import { isInCatchmentArea } from '@/lib/catchment';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { bedroomIndexToPropertySize } from '@/lib/constants/services';
@@ -230,6 +231,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const isRegular = category === 'regular';
 
   const { cleaners, getCleanerById } = useCleanersApi();
+  const { user, isAuthenticated } = useAuth();
+  const isGuest = !isAuthenticated;
 
   // Check if a cleaner was pre-selected (coming from /book/[id] service selection)
   const searchParams = useSearchParams();
@@ -298,6 +301,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [paymentStep, setPaymentStep] = useState(false);
   const [saveCard, setSaveCard] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) setSaveCard(true);
+  }, [isAuthenticated]);
+
   const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
   const selectedCleaner = selectedCleaners[0] ?? null;
 
@@ -328,8 +335,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cleanerId: selectedCleaner?.id || 'auto-assign',
-          name: email.split('@')[0],
-          email,
+          name: isGuest ? email.split('@')[0] : user?.name,
+          email: isGuest ? email : user?.email,
           address: postcode,
           date: selectedDate,
           time: selectedTime24 || 'Flexible',
@@ -337,7 +344,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           serviceType: category,
           notes: specialInstructions || undefined,
           totalPrice,
-          isGuest: true,
+          isGuest,
           propertySize: isFixedPrice(category)
             ? bedroomIndexToPropertySize(rooms.bedrooms, category)
             : undefined,
@@ -593,6 +600,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             paymentIntentId={stripePaymentIntentId || ''}
             saveCard={saveCard}
             onSaveCardChange={setSaveCard}
+            isGuest={isGuest}
             onBack={() => {
               setPaymentStep(false);
               setClientSecret(null);
@@ -938,27 +946,36 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Email */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-jost font-medium text-base text-ink">Your Email</h2>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-              <label className="mt-4 flex cursor-pointer items-center gap-3">
+            {isGuest ? (
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-jost font-medium text-base text-ink">Your Email</h2>
                 <input
-                  type="checkbox"
-                  checked={joinMailingList}
-                  onChange={(e) => setJoinMailingList(e.target.checked)}
-                  className="h-4 w-4 rounded border-ink-3 text-gold focus:ring-gold/30"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
                 />
-                <span className="font-jost text-sm font-light text-ink-2">
-                  Tick here to receive promotional offers
-                </span>
-              </label>
-            </div>
+                <label className="mt-4 flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={joinMailingList}
+                    onChange={(e) => setJoinMailingList(e.target.checked)}
+                    className="h-4 w-4 rounded border-ink-3 text-gold focus:ring-gold/30"
+                  />
+                  <span className="font-jost text-sm font-light text-ink-2">
+                    Tick here to receive promotional offers
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-jost font-medium text-base text-ink">Your Account</h2>
+                <p className="mt-2 font-jost text-sm font-light text-ink-2">
+                  Booking as <span className="font-normal text-ink">{user?.email}</span>
+                </p>
+              </div>
+            )}
 
             {/* Price display */}
             <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
@@ -1080,7 +1097,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 }
                 setPhase('cleaner');
               }}
-              disabled={!postcode || !email || outsideCatchment || !!postcodeError}
+              disabled={!postcode || (isGuest && !email) || outsideCatchment || !!postcodeError}
               className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
