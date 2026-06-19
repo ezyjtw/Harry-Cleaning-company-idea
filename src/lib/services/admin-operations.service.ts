@@ -4,6 +4,8 @@ import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/
 import { prisma } from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
+import type { CancellationResult, RefundDirective } from './cancellation.service';
+import { executeCancellation } from './cancellation.service';
 import { cascadeTeardownFields, enterAdminReassignProvisional } from './cascade.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
@@ -411,28 +413,30 @@ export class AdminOperationsService {
   }
 
   /**
-   * Cancel booking with admin override
+   * Cancel a booking as an admin. Routes through the shared cancellation path
+   * (status + money-state guards, atomic claim, cascade teardown, refund, email,
+   * notifications, audit). Refund defaults to 100% of the remainder; pass
+   * refundAmount to override with an explicit amount (capped at the remainder).
    */
-  static async adminCancelBooking(bookingId: string, reason: string, adminId?: string) {
-    const booking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancellationReason: reason,
-        adminNotes: `Cancelled by admin: ${reason}`,
-      },
+  static async adminCancelBooking(
+    bookingId: string,
+    reason: string,
+    adminId?: string,
+    refundAmount?: number
+  ): Promise<CancellationResult> {
+    const refund: RefundDirective =
+      refundAmount !== undefined ? { kind: 'amount', amount: refundAmount } : { kind: 'full' };
+
+    const result = await executeCancellation({
+      bookingId,
+      cancelledBy: 'admin',
+      reason,
+      adminId,
+      refund,
     });
 
-    await AuditService.log({
-      userId: adminId,
-      action: 'ADMIN_CANCEL_BOOKING',
-      entityType: 'Booking',
-      entityId: bookingId,
-      metadata: { reason },
-    });
-
-    return booking;
+    if (!result.ok) throw new Error(result.error || 'Cancel failed');
+    return result;
   }
 
   /**
