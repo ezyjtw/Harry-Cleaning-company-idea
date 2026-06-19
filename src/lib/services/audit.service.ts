@@ -75,7 +75,10 @@ export type AuditAction =
   // Admin testing tools (Stage 2)
   | 'ADMIN_STATUS_OVERRIDE'
   | 'ADMIN_FORCE_CASCADE'
-  | 'ADMIN_DELETE_BOOKING';
+  | 'ADMIN_DELETE_BOOKING'
+  | 'PHASE2_ENTERED'
+  | 'PHASE2_RESERVE_PROMOTED'
+  | 'PHASE2_EXHAUSTED';
 
 interface AuditLogParams {
   userId?: string;

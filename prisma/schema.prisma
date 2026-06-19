@@ -43,6 +43,7 @@ enum CascadePhase {
   COMBINED_OFFER
   CASCADE_EXHAUSTED
   PROVISIONAL_APPROVAL
+  PHASE2_RESERVE
 }
 
 enum PricingModel {
@@ -486,6 +487,10 @@ model Booking {
   approvalExpiresAt      DateTime?
   topupApproved          Boolean   @default(false)
   topupRecords           TopupRecord[]
+
+  // ─── Phase 2 reserves (A5.3 Stage 2) ─────
+  reserveCleanerIds      String[]  @default([])
+  phase2Entered          Boolean   @default(false)
 
   // ─── Top 3 Queue & Escrow ─────
   isQueuedBooking    Boolean @default(false)

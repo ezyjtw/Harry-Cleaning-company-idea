@@ -7,9 +7,15 @@
  * double-advance or corrupt state.
  */
 
-import type { Booking, CascadePhase } from '@prisma/client';
+import type { Booking, CascadePhase, PropertySize } from '@prisma/client';
 
+import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+
+import { AuditService } from './audit.service';
+import { sendTopupApprovalRequest } from './email.service';
+import { pricingService } from './pricing.service';
+import type { ServiceSlug } from './pricing.service';
 
 // ─── Window computation ────────────────────────────────────────
 
@@ -308,6 +314,9 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   if (booking.cascadePhase === 'COMBINED_OFFER' && !isPrimary && !isBackup) {
     return { success: false, reason: 'You are not offered this booking' };
   }
+  if (booking.cascadePhase === 'PHASE2_RESERVE' && !isBackup) {
+    return { success: false, reason: 'Only backup cleaners can accept in this phase' };
+  }
   if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
     return { success: false, reason: 'You already declined this booking' };
   }
@@ -325,6 +334,7 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
       cascadePhase: null,
       cascadeExpiresAt: null,
       cascadeBackupExpiresAt: null,
+      reserveCleanerIds: [],
     },
   });
 
@@ -451,7 +461,7 @@ function getLoserSet(
 
   if (booking.cascadePhase === 'COMBINED_OFFER') {
     offeredSet = [booking.cleanerId, ...booking.backupCleanerIds];
-  } else if (booking.cascadePhase === 'BACKUP_OFFER') {
+  } else if (booking.cascadePhase === 'BACKUP_OFFER' || booking.cascadePhase === 'PHASE2_RESERVE') {
     offeredSet = [...booking.backupCleanerIds];
   } else {
     return [];
@@ -501,33 +511,284 @@ export async function expireBackupOrCombinedOffer(
 }
 
 export async function expireProvisionalApproval(bookingId: string): Promise<boolean> {
-  const result = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: 'AWAITING_CLEANER',
-      cascadePhase: 'PROVISIONAL_APPROVAL',
+  return handleProvisionalFailure(bookingId, 'Approval window expired');
+}
+
+// ─── Phase 2: Reserve promotion (A5.3 Stage 2) ───────────────
+//
+// Unified failure handler for provisional approvals. Decides:
+//   phase2Entered == false → enter Phase 2 (at-or-below sub-window)
+//   phase2Entered == true  → advance to next-cheapest reserve
+
+export async function handleProvisionalFailure(
+  bookingId: string,
+  reason: string
+): Promise<boolean> {
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      cascadePhase: true,
+      phase2Entered: true,
+      provisionalCleanerId: true,
+      date: true,
+      startTime: true,
+      backupCleanerIds: true,
+      declinedCleanerIds: true,
+      serviceType: true,
+      clientId: true,
     },
+  });
+  if (!b || b.status !== 'AWAITING_CLEANER' || b.cascadePhase !== 'PROVISIONAL_APPROVAL') {
+    return false;
+  }
+
+  const failedCleaner = b.provisionalCleanerId;
+  const topupRecordStatus = reason.includes('declined') ? 'DECLINED' : 'EXPIRED';
+
+  if (!b.phase2Entered) {
+    // FIRST failure → enter Phase 2
+    const phase2Window = computePhase2Window(new Date(), b.date, b.startTime);
+
+    const res = await prisma.booking.updateMany({
+      where: { id: bookingId, status: 'AWAITING_CLEANER', cascadePhase: 'PROVISIONAL_APPROVAL' },
+      data: {
+        cascadePhase: 'PHASE2_RESERVE',
+        phase2Entered: true,
+        cascadeExpiresAt: phase2Window,
+        cascadeBackupExpiresAt: null,
+        provisionalCleanerId: null,
+        provisionalPrice: null,
+        topupAmount: null,
+        approvalExpiresAt: null,
+        topupApproved: false,
+        ...(failedCleaner ? { declinedCleanerIds: { push: failedCleaner } } : {}),
+      },
+    });
+    if (res.count > 0) {
+      await prisma.topupRecord.updateMany({
+        where: { bookingId, status: { in: ['PENDING', 'UNKNOWN'] } },
+        data: { status: topupRecordStatus, failureReason: reason },
+      });
+      await AuditService.log({
+        action: 'PHASE2_ENTERED',
+        entityType: 'Booking',
+        entityId: bookingId,
+        metadata: { reason, failedCleaner },
+      }).catch(() => {});
+      await reopenToBackups(bookingId, b);
+      return true;
+    }
+    return false;
+  }
+
+  // SUBSEQUENT failure (already in Phase 2) → advance to next-cheapest reserve
+  const res = await prisma.booking.updateMany({
+    where: { id: bookingId, status: 'AWAITING_CLEANER', cascadePhase: 'PROVISIONAL_APPROVAL' },
     data: {
-      status: 'CASCADE_EXHAUSTED',
-      cascadePhase: null,
-      cascadeExpiresAt: null,
-      cascadeBackupExpiresAt: null,
+      cascadePhase: 'PHASE2_RESERVE',
+      cascadeExpiresAt: new Date(),
       provisionalCleanerId: null,
       provisionalPrice: null,
       topupAmount: null,
       approvalExpiresAt: null,
       topupApproved: false,
+      ...(failedCleaner ? { declinedCleanerIds: { push: failedCleaner } } : {}),
     },
   });
-  if (result.count > 0) {
+  if (res.count > 0) {
     await prisma.topupRecord.updateMany({
       where: { bookingId, status: { in: ['PENDING', 'UNKNOWN'] } },
-      data: { status: 'EXPIRED', failureReason: 'Approval window expired' },
+      data: { status: topupRecordStatus, failureReason: reason },
     });
-    await notifyCustomerExhausted(bookingId);
+    await promoteReserves(bookingId);
     return true;
   }
   return false;
+}
+
+function computePhase2Window(now: Date, bookingDate: Date, startTime: string): Date {
+  const slotStart = parseSlotStart(bookingDate, startTime);
+  const slotMinus24h = slotStart
+    ? new Date(slotStart.getTime() - 24 * HOUR_MS)
+    : new Date(now.getTime() + 6 * HOUR_MS);
+  const sixHours = new Date(now.getTime() + 6 * HOUR_MS);
+  return new Date(Math.min(sixHours.getTime(), slotMinus24h.getTime()));
+}
+
+function computePhase2ApprovalWindow(now: Date, bookingDate: Date, startTime: string): Date {
+  return computePhase2Window(now, bookingDate, startTime);
+}
+
+async function reopenToBackups(
+  bookingId: string,
+  booking: Pick<Booking, 'backupCleanerIds' | 'declinedCleanerIds' | 'serviceType' | 'clientId'> & {
+    provisionalCleanerId: string | null;
+  }
+): Promise<void> {
+  const declined = new Set([
+    ...(booking.declinedCleanerIds ?? []),
+    ...(booking.provisionalCleanerId ? [booking.provisionalCleanerId] : []),
+  ]);
+  const activeBackups = booking.backupCleanerIds.filter((id) => !declined.has(id));
+
+  for (const backupId of activeBackups) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: backupId,
+          type: 'BOOKING_REQUEST',
+          title: 'Cleaning job available',
+          body: `A ${booking.serviceType} job is available — accept if you can take it at or below the quoted price.`,
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+
+  if (booking.clientId) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: booking.clientId,
+          type: 'SYSTEM',
+          title: 'Still searching for a cleaner',
+          body: "The price approval didn't go through — we've reopened this to backup cleaners at or below the original price.",
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+}
+
+export async function promoteReserves(bookingId: string): Promise<boolean> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      status: true,
+      cascadePhase: true,
+      reserveCleanerIds: true,
+      declinedCleanerIds: true,
+      serviceType: true,
+      propertySize: true,
+      duration: true,
+      extras: true,
+      totalPrice: true,
+      clientId: true,
+      date: true,
+      startTime: true,
+      client: { select: { email: true, name: true } },
+    },
+  });
+  if (!booking) return false;
+  if (booking.status !== 'AWAITING_CLEANER' || booking.cascadePhase !== 'PHASE2_RESERVE') {
+    return false;
+  }
+
+  const eligible = booking.reserveCleanerIds.filter(
+    (id) => !(booking.declinedCleanerIds ?? []).includes(id)
+  );
+
+  let pricingSlug: ReturnType<typeof normalizeToPricingSlug>;
+  try {
+    pricingSlug = normalizeToPricingSlug(booking.serviceType);
+  } catch {
+    await exhaustFromPhase2(bookingId);
+    return true;
+  }
+
+  const propertySize = booking.propertySize
+    ? propertySizeEnumToSlug(booking.propertySize as PropertySize)
+    : undefined;
+
+  const priced: { cleanerId: string; total: number }[] = [];
+  for (const cid of eligible) {
+    try {
+      const q = await pricingService.calculateQuote({
+        cleanerId: cid,
+        serviceSlug: pricingSlug as ServiceSlug,
+        hours: Number(booking.duration),
+        propertySize,
+        addons: booking.extras,
+      });
+      priced.push({ cleanerId: cid, total: q.customerTotal });
+    } catch {
+      // Un-quotable reserve — skip
+    }
+  }
+
+  if (priced.length === 0) {
+    await exhaustFromPhase2(bookingId);
+    return true;
+  }
+
+  priced.sort((a, b) => a.total - b.total);
+  const winner = priced[0];
+  const topupAmount = Math.round((winner.total - Number(booking.totalPrice)) * 100) / 100;
+  const remaining = booking.reserveCleanerIds.filter((id) => id !== winner.cleanerId);
+  const approvalExpiresAt = computePhase2ApprovalWindow(
+    new Date(),
+    booking.date,
+    booking.startTime
+  );
+
+  const claim = await prisma.booking.updateMany({
+    where: { id: bookingId, status: 'AWAITING_CLEANER', cascadePhase: 'PHASE2_RESERVE' },
+    data: {
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      provisionalCleanerId: winner.cleanerId,
+      provisionalPrice: winner.total,
+      topupAmount,
+      approvalExpiresAt,
+      cascadeExpiresAt: approvalExpiresAt,
+      topupApproved: false,
+      reserveCleanerIds: remaining,
+    },
+  });
+  if (claim.count === 0) return false;
+
+  await AuditService.log({
+    action: 'PHASE2_RESERVE_PROMOTED',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata: { cleanerId: winner.cleanerId, price: winner.total, topupAmount, remaining },
+  }).catch(() => {});
+
+  if (booking.client?.email) {
+    await sendTopupApprovalRequest({
+      bookingId,
+      customerEmail: booking.client.email,
+      customerName: booking.client.name || 'Customer',
+      originalPrice: Number(booking.totalPrice),
+      newPrice: winner.total,
+      topupAmount,
+      expiresAt: approvalExpiresAt,
+    }).catch(() => {});
+  }
+  return true;
+}
+
+async function exhaustFromPhase2(bookingId: string): Promise<void> {
+  const res = await prisma.booking.updateMany({
+    where: { id: bookingId, status: 'AWAITING_CLEANER', cascadePhase: 'PHASE2_RESERVE' },
+    data: {
+      status: 'CASCADE_EXHAUSTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+      reserveCleanerIds: [],
+    },
+  });
+  if (res.count > 0) {
+    await AuditService.log({
+      action: 'PHASE2_EXHAUSTED',
+      entityType: 'Booking',
+      entityId: bookingId,
+      metadata: {},
+    }).catch(() => {});
+    await notifyCustomerExhausted(bookingId);
+  }
 }
 
 // ─── Scheduler: process expired windows ────────────────────────
@@ -573,6 +834,9 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
         if (advanced) processed++;
       } else if (booking.cascadePhase === 'PROVISIONAL_APPROVAL') {
         const advanced = await expireProvisionalApproval(booking.id);
+        if (advanced) processed++;
+      } else if (booking.cascadePhase === 'PHASE2_RESERVE') {
+        const advanced = await promoteReserves(booking.id);
         if (advanced) processed++;
       }
     } catch (error) {

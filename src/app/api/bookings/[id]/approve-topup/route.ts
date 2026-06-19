@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { handleProvisionalFailure } from '@/lib/services/cascade.service';
 import { executeTopup } from '@/lib/services/topup.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -99,27 +100,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (action === 'decline') {
-    await prisma.$transaction([
-      prisma.booking.update({
-        where: { id },
-        data: {
-          status: 'CASCADE_EXHAUSTED',
-          cascadePhase: null,
-          cascadeExpiresAt: null,
-          cascadeBackupExpiresAt: null,
-          provisionalCleanerId: null,
-          provisionalPrice: null,
-          topupAmount: null,
-          approvalExpiresAt: null,
-          topupApproved: false,
-        },
-      }),
-      prisma.topupRecord.updateMany({
-        where: { bookingId: id, status: { in: ['PENDING', 'UNKNOWN'] } },
-        data: { status: 'DECLINED', failureReason: 'Customer declined' },
-      }),
-    ]);
-
+    await handleProvisionalFailure(id, 'Customer declined');
     return NextResponse.json({ result: 'declined' });
   }
 
@@ -148,6 +129,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
+    await handleProvisionalFailure(
+      id,
+      `Top-up charge failed: ${topupResult.reason || 'Payment failed'}`
+    );
     return NextResponse.json(
       { error: topupResult.reason || 'Payment failed', outcome: topupResult.outcome },
       { status: 400 }
