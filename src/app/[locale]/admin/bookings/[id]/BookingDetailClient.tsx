@@ -904,7 +904,15 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
   const totalRefunded = b.refundRecords
     .filter((r) => r.status === 'SUCCEEDED')
     .reduce((sum, r) => sum + n(r.amount), 0);
-  const refundable = Math.max(0, +(n(b.totalPrice) - totalRefunded).toFixed(2));
+  // Refundable is anchored to the ORIGINAL charge — the only PI the refund action
+  // touches. Top-ups are charged on separate PIs and refunded via a separate
+  // (deferred) action, so they're shown as accounting context, not refundable here.
+  const baseCharged = n(b.totalAmountCharged ?? b.totalPrice);
+  const topupsCharged = (b.topupRecords ?? [])
+    .filter((t) => t.status === 'SUCCEEDED')
+    .reduce((sum, t) => sum + n(t.amount), 0);
+  const totalCharged = +(baseCharged + topupsCharged).toFixed(2);
+  const refundable = Math.max(0, +(baseCharged - totalRefunded).toFixed(2));
 
   const handleRelease = useCallback(async () => {
     setReleaseState((s) => ({ ...s, loading: true, result: null }));
@@ -1051,6 +1059,12 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             <Field label="Total Price" value={`£${n(b.totalPrice).toFixed(2)}`} />
             <Field label="Cleaner Earnings" value={`£${n(b.cleanerEarnings).toFixed(2)}`} />
             <Field label="Platform Fee" value={`£${n(b.platformFee).toFixed(2)}`} />
+            {topupsCharged > 0 && (
+              <Field
+                label="Total Charged"
+                value={`£${totalCharged.toFixed(2)} (£${baseCharged.toFixed(2)} + £${topupsCharged.toFixed(2)} topup)`}
+              />
+            )}
             <Field label="Payment Status" value={<StatusBadge status={b.paymentStatus} />} />
             <Field label="Stripe PI" value={b.stripePaymentIntentId || '—'} />
             <Field label="Stripe Charge" value={b.stripeChargeId || '—'} />
@@ -1058,7 +1072,16 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
               label="Total Refunded"
               value={totalRefunded > 0 ? `£${totalRefunded.toFixed(2)}` : '—'}
             />
-            <Field label="Refundable" value={refundable > 0 ? `£${refundable.toFixed(2)}` : '—'} />
+            <Field
+              label="Refundable"
+              value={
+                refundable > 0
+                  ? topupsCharged > 0
+                    ? `£${refundable.toFixed(2)} (original PI only — topup refund via separate action)`
+                    : `£${refundable.toFixed(2)}`
+                  : '—'
+              }
+            />
           </dl>
           {b.bookingAddons.length > 0 && (
             <div className="mt-3 border-t border-gray-100 pt-3">

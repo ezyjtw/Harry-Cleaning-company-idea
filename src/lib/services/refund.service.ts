@@ -83,8 +83,13 @@ export async function refundBooking(
     };
   }
 
-  // 3. Amount guards
-  const totalPaid = Number(booking.totalPrice);
+  // 3. Amount guards — anchor the refund ceiling to the ORIGINAL charge, the only
+  //    payment intent refundBooking refunds against (see stripe.refunds.create
+  //    below, which uses booking.stripePaymentIntentId). totalPrice can drift above
+  //    the original charge after a top-up (writeTopupSuccess raises it) or below it
+  //    after a cheaper reassign — neither reflects what this PI can actually refund.
+  //    Top-up PIs are a separate (deferred) refund action and must NOT inflate this.
+  const totalPaid = Number(booking.totalAmountCharged ?? booking.totalPrice);
   const alreadyRefunded = booking.refundRecords.reduce((sum, r) => sum + Number(r.amount), 0);
   const refundable = totalPaid - alreadyRefunded;
 
