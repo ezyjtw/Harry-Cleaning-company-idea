@@ -134,7 +134,10 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
     );
   }
 
-  const chargePence = Math.round(Number(booking.totalPrice) * 100);
+  // source_transaction (below) is the original charge — the transfer cannot exceed
+  // it. Anchor the sanity check to the original charged amount, not totalPrice
+  // (which drifts after top-up / cheaper reassign).
+  const chargePence = Math.round(Number(booking.totalAmountCharged ?? booking.totalPrice) * 100);
   if (transferPence > chargePence) {
     return setFailed(
       bookingId,
