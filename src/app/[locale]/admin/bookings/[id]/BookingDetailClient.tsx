@@ -667,6 +667,228 @@ function RefundModal({
   );
 }
 
+interface ReassignPreview {
+  priceCase: 'EQUAL' | 'CHEAPER' | 'PRICIER';
+  originalTotal: number;
+  newTotal: number;
+  diff: number;
+  topupAmount?: number;
+  refundAmount?: number;
+  newCleanerName: string;
+  isGuest: boolean;
+}
+
+const REASSIGN_ELIGIBLE_STATUSES = [
+  'AWAITING_CLEANER',
+  'ACCEPTED',
+  'CONFIRMED',
+  'CASCADE_EXHAUSTED',
+];
+
+function ReassignPanel({ booking }: { booking: BookingDetail }) {
+  const [newCleanerId, setNewCleanerId] = useState('');
+  const [reason, setReason] = useState('');
+  const [preview, setPreview] = useState<ReassignPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const eligibleStatus = REASSIGN_ELIGIBLE_STATUSES.includes(booking.status);
+  const moneyOk = booking.transferStatus === 'PENDING' || booking.transferStatus === 'FAILED';
+
+  const reset = useCallback(() => {
+    setPreview(null);
+    setResult(null);
+    setError(null);
+  }, []);
+
+  const runPreview = useCallback(async () => {
+    setPreviewing(true);
+    setError(null);
+    setPreview(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/reassign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newCleanerId: newCleanerId.trim(), dryRun: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error);
+      } else {
+        setPreview(data.preview);
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setPreviewing(false);
+    }
+  }, [booking.id, newCleanerId]);
+
+  const runReassign = useCallback(async () => {
+    setSubmitting(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/reassign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newCleanerId: newCleanerId.trim(), reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error);
+        return;
+      }
+      const r = data.result as {
+        outcome: string;
+        priceCase: string;
+        topupAmount?: number;
+        refundAmount?: number;
+        warning?: string;
+      };
+      let message: string;
+      if (r.outcome === 'PROVISIONAL') {
+        message = `Top-up approval sent to customer (£${(r.topupAmount ?? 0).toFixed(2)}). Reassign completes when they approve; on decline it reverts to the current cleaner.`;
+      } else if (r.priceCase === 'CHEAPER') {
+        message = `Reassigned — refunded £${(r.refundAmount ?? 0).toFixed(2)}.${r.warning ? ` ⚠ ${r.warning}` : ''}`;
+      } else {
+        message = 'Reassigned (equal price).';
+      }
+      setResult({ ok: true, message });
+      setPreview(null);
+    } catch {
+      setError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [booking.id, newCleanerId, reason]);
+
+  if (!eligibleStatus) {
+    return (
+      <Section title="Reassign Cleaner">
+        <p className="text-sm text-gray-500">
+          Not available for {booking.status} bookings. Eligible:{' '}
+          {REASSIGN_ELIGIBLE_STATUSES.join(', ')}.
+        </p>
+      </Section>
+    );
+  }
+
+  const caseVariant = (c: string): 'amber' | 'blue' | 'gray' =>
+    c === 'PRICIER' ? 'amber' : c === 'CHEAPER' ? 'blue' : 'gray';
+
+  return (
+    <Section title="Reassign Cleaner">
+      {!moneyOk && (
+        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+          Transfer status is <span className="font-medium">{booking.transferStatus}</span> —
+          reassign is blocked unless PENDING or FAILED.
+          {(booking.transferStatus === 'RELEASED' || booking.transferStatus === 'RELEASING') &&
+            " Funds already released; handle the old cleaner's payout first."}
+        </div>
+      )}
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            New cleaner (User ID)
+          </label>
+          <input
+            type="text"
+            value={newCleanerId}
+            onChange={(e) => {
+              setNewCleanerId(e.target.value);
+              reset();
+            }}
+            placeholder="cleaner user id"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why is this booking being reassigned?"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
+          />
+        </div>
+        <button
+          onClick={runPreview}
+          disabled={!newCleanerId.trim() || !moneyOk || previewing}
+          className="px-3 py-1.5 text-sm font-medium text-blue-700 rounded-lg border border-blue-300 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {previewing ? 'Checking…' : 'Preview price'}
+        </button>
+
+        {error && (
+          <div className="rounded-lg px-4 py-3 text-sm bg-red-50 text-red-800">{error}</div>
+        )}
+
+        {preview && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">New cleaner</span>
+              <span className="font-medium">{preview.newCleanerName}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Price case</span>
+              <StatusBadge status={preview.priceCase} variant={caseVariant(preview.priceCase)} />
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Original → New</span>
+              <span>
+                £{preview.originalTotal.toFixed(2)} → £{preview.newTotal.toFixed(2)}
+              </span>
+            </div>
+            {preview.priceCase === 'PRICIER' && (
+              <p className="text-xs text-amber-700">
+                Customer will be asked to approve a £{(preview.topupAmount ?? 0).toFixed(2)} top-up.
+                Reassign only completes on approval; on decline it reverts to the current
+                cleaner/state. The customer is never force-charged.
+              </p>
+            )}
+            {preview.priceCase === 'CHEAPER' && (
+              <p className="text-xs text-blue-700">
+                Customer will be refunded £{(preview.refundAmount ?? 0).toFixed(2)} and the swap
+                applies immediately.
+              </p>
+            )}
+            {preview.priceCase === 'EQUAL' && (
+              <p className="text-xs text-gray-600">
+                No customer charge or refund — the swap applies immediately.
+              </p>
+            )}
+            <div className="pt-1">
+              <button
+                onClick={runReassign}
+                disabled={!reason.trim() || submitting}
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Reassigning…' : 'Confirm Reassign'}
+              </button>
+              {!reason.trim() && (
+                <span className="ml-2 text-xs text-gray-400">Enter a reason to confirm.</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          >
+            {result.message}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 export default function BookingDetailClient({ booking: b }: { booking: BookingDetail }) {
   const [showRefund, setShowRefund] = useState(false);
   const [releaseState, setReleaseState] = useState<{
@@ -1068,6 +1290,9 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
           </div>
         </Section>
       )}
+
+      {/* Stage 3: Reassign cleaner */}
+      <ReassignPanel booking={b} />
 
       {/* Stage 2: Testing Tools */}
       <StatusOverridePanel booking={b} />
