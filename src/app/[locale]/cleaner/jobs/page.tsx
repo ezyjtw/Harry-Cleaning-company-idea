@@ -25,6 +25,7 @@ interface Job {
   cascadePhase?: string | null;
   isPrimary?: boolean;
   isProvisional?: boolean;
+  isReserve?: boolean;
   viewerEarnings?: number | null;
   viewerTotal?: number | null;
   viewerPlatformFee?: number | null;
@@ -225,6 +226,13 @@ export default function CleanerJobsPage() {
         method: 'POST',
       });
       if (res.ok) {
+        const data = await res.json().catch(() => null);
+        // PROVISIONAL (awaiting approval) and RESERVED (held) stay in the
+        // pending tab with their new status — refetch so flags re-render.
+        if (data?.outcome === 'PROVISIONAL' || data?.outcome === 'RESERVED') {
+          await fetchJobs(activeTab);
+          return;
+        }
         setJobList((prev) => prev.filter((j) => j.id !== id));
         setCounts((prev) => ({
           ...prev,
@@ -236,7 +244,7 @@ export default function CleanerJobsPage() {
         setError(data?.error || 'Failed to accept job');
       }
     },
-    [activeTab]
+    [activeTab, fetchJobs]
   );
 
   const getStatusBadge = (job: Job) => {
@@ -244,6 +252,13 @@ export default function CleanerJobsPage() {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-amber-50 text-amber-600">
           Awaiting approval
+        </span>
+      );
+    }
+    if (job.isReserve) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-slate-100 text-slate-600">
+          In reserve
         </span>
       );
     }
@@ -524,7 +539,13 @@ export default function CleanerJobsPage() {
                       )}
 
                     <div className="flex gap-2 flex-wrap justify-end">
-                      {ds === 'pending' && !job.isProvisional && (
+                      {job.isReserve && (
+                        <p className="font-jost text-xs font-light text-slate-600 text-right max-w-xs">
+                          You&apos;re held in reserve. If no cleaner accepts at or below the quoted
+                          price, we&apos;ll offer this to you.
+                        </p>
+                      )}
+                      {ds === 'pending' && !job.isProvisional && !job.isReserve && (
                         <>
                           <button
                             onClick={() => handleAccept(job.id)}

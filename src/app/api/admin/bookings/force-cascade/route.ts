@@ -8,6 +8,7 @@ import {
   expireBackupOrCombinedOffer,
   expirePrimaryOffer,
   expireProvisionalApproval,
+  promoteReserves,
 } from '@/lib/services/cascade.service';
 
 export async function POST(request: NextRequest) {
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
     advanced = await expireBackupOrCombinedOffer(bookingId, booking.cascadePhase);
   } else if (booking.cascadePhase === 'PROVISIONAL_APPROVAL') {
     advanced = await expireProvisionalApproval(bookingId);
+  } else if (booking.cascadePhase === 'PHASE2_RESERVE') {
+    advanced = await promoteReserves(bookingId);
   }
 
   if (!advanced) {

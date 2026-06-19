@@ -243,6 +243,7 @@ const VALID_CASCADE_PHASES = [
   'COMBINED_OFFER',
   'CASCADE_EXHAUSTED',
   'PROVISIONAL_APPROVAL',
+  'PHASE2_RESERVE',
 ];
 
 function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
@@ -360,7 +361,8 @@ function ForceCascadeButton({ booking }: { booking: BookingDetail }) {
     PRIMARY_OFFER: 'Expire primary → advance to backup (or exhaust)',
     BACKUP_OFFER: 'Expire backup → CASCADE_EXHAUSTED',
     COMBINED_OFFER: 'Expire combined → CASCADE_EXHAUSTED',
-    PROVISIONAL_APPROVAL: 'Expire provisional → CASCADE_EXHAUSTED + clear topup',
+    PROVISIONAL_APPROVAL: 'Expire provisional → Phase 2 or advance reserve',
+    PHASE2_RESERVE: 'Promote cheapest reserve → provisional approval',
   };
 
   const handleAdvance = useCallback(async () => {

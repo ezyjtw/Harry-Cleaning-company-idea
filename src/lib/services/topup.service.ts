@@ -13,6 +13,7 @@ import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
+import { handleProvisionalFailure } from './cascade.service';
 
 // ─── Error Classification (mirrors refund.service.ts) ─────────
 
@@ -349,6 +350,7 @@ async function writeTopupSuccess(
         topupAmount: null,
         approvalExpiresAt: null,
         topupApproved: false,
+        reserveCleanerIds: [],
       },
     }),
     prisma.topupRecord.update({
@@ -396,8 +398,16 @@ export async function handleTopupPiSucceeded(piId: string, bookingId: string): P
 }
 
 export async function handleTopupPiFailed(piId: string): Promise<void> {
+  const record = await prisma.topupRecord.findFirst({
+    where: { stripePaymentIntentId: piId, status: { not: 'SUCCEEDED' } },
+    select: { id: true, bookingId: true },
+  });
+  if (!record) return;
+
   await prisma.topupRecord.updateMany({
     where: { stripePaymentIntentId: piId, status: { not: 'SUCCEEDED' } },
     data: { status: 'FAILED', failureReason: 'Payment failed (webhook)' },
   });
+
+  await handleProvisionalFailure(record.bookingId, 'Top-up payment failed (webhook)');
 }

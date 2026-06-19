@@ -14,7 +14,7 @@
 import type { PricingServiceSlug } from '@/lib/constants/services';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 
-import { atomicAccept, atomicProvisionalAccept } from './cascade.service';
+import { addToReserve, atomicAccept, atomicProvisionalAccept } from './cascade.service';
 import { sendTopupApprovalRequest } from './email.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
@@ -24,6 +24,7 @@ export type ReconciliationOutcome =
   | 'CONFIRMED'
   | 'CONFIRMED_WITH_REFUND'
   | 'PROVISIONAL'
+  | 'RESERVED'
   | 'REJECTED'
   | 'FAILED';
 
@@ -53,6 +54,7 @@ export async function acceptWithReconciliation(
     stripeCustomerId: string | null;
     cascadeExpiresAt: Date | null;
     cascadeBackupExpiresAt: Date | null;
+    cascadePhase: string | null;
   }
 ): Promise<ReconciliationResult> {
   // Primary cleaner — no price difference possible
@@ -146,6 +148,17 @@ export async function acceptWithReconciliation(
   // Guest → never offer pricier
   if (!booking.clientId) {
     return { outcome: 'REJECTED', reason: 'Guest bookings cannot accept pricier cleaners' };
+  }
+
+  // Phase 2 (price-filtered): a pricier cleaner is HELD in reserve, not
+  // provisionally accepted. Promotion happens cheapest-first only if no
+  // at-or-below cleaner accepts.
+  if (booking.cascadePhase === 'PHASE2_RESERVE') {
+    const reserveResult = await addToReserve(bookingId, cleanerId);
+    if (!reserveResult.success) {
+      return { outcome: 'FAILED', reason: reserveResult.reason };
+    }
+    return { outcome: 'RESERVED' };
   }
 
   // Auth user → provisional accept
