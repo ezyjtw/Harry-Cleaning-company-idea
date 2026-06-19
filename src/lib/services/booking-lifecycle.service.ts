@@ -103,18 +103,18 @@ export class BookingLifecycleService {
     return VALID_TRANSITIONS[currentStatus] ?? [];
   }
 
-  /**
-   * Check if a booking can be cancelled (based on timing)
-   */
   static canCancel(
     bookingDate: Date,
     status: string
   ): { canCancel: boolean; refundPercent: number; reason?: string } {
-    if (
-      !['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'CASCADE_EXHAUSTED'].includes(
-        status
-      )
-    ) {
+    const CANCELLABLE = [
+      'PENDING',
+      'AWAITING_CLEANER',
+      'CONFIRMED',
+      'ACCEPTED',
+      'CASCADE_EXHAUSTED',
+    ];
+    if (!CANCELLABLE.includes(status)) {
       return {
         canCancel: false,
         refundPercent: 0,
@@ -122,16 +122,20 @@ export class BookingLifecycleService {
       };
     }
 
+    // Unaccepted bookings (no cleaner committed) → always 100%
+    const UNACCEPTED = ['PENDING', 'AWAITING_CLEANER', 'CASCADE_EXHAUSTED'];
+    if (UNACCEPTED.includes(status)) {
+      return { canCancel: true, refundPercent: 100 };
+    }
+
     const hoursUntilBooking = (bookingDate.getTime() - Date.now()) / (1000 * 60 * 60);
 
     if (hoursUntilBooking > 48) {
       return { canCancel: true, refundPercent: 100 };
     } else if (hoursUntilBooking > 24) {
-      return { canCancel: true, refundPercent: 75 };
-    } else if (hoursUntilBooking > 6) {
       return { canCancel: true, refundPercent: 50 };
     } else {
-      return { canCancel: true, refundPercent: 0, reason: 'Less than 6 hours notice — no refund' };
+      return { canCancel: true, refundPercent: 0, reason: 'Less than 24 hours notice — no refund' };
     }
   }
 

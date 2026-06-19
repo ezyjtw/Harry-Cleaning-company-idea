@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
+import { executeCancellation } from '@/lib/services/cancellation.service';
 
 // UUID-like format validation (accepts standard UUID v4 format)
 function isValidToken(token: string): boolean {
@@ -62,37 +63,28 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid token format' }, { status: 400 });
   }
 
+  // Token is the authorization; resolve it to a booking id then run the shared
+  // cancellation path (policy + refund + teardown + email + notifications).
   const booking = await prisma.booking.findUnique({
     where: { guestToken: token },
+    select: { id: true },
   });
 
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  // Only allow cancellation if status is PENDING or CONFIRMED
-  if (
-    booking.status !== 'PENDING' &&
-    booking.status !== 'AWAITING_CLEANER' &&
-    booking.status !== 'CONFIRMED'
-  ) {
-    return NextResponse.json(
-      { error: 'Booking can only be cancelled when in PENDING or CONFIRMED status' },
-      { status: 422 }
-    );
-  }
+  const result = await executeCancellation({ bookingId: booking.id, cancelledBy: 'guest' });
 
-  const updated = await prisma.booking.update({
-    where: { guestToken: token },
-    data: {
-      status: 'CANCELLED',
-      cancelledAt: new Date(),
-      cancellationReason: 'Cancelled by guest',
-    },
-  });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
 
   return NextResponse.json({
     message: 'Booking cancelled successfully',
-    booking: { id: updated.id, status: updated.status },
+    booking: { id: booking.id, status: 'CANCELLED' },
+    refundPercent: result.refundPercent,
+    refundAmount: result.refundAmount,
+    refundStatus: result.refundStatus,
   });
 }

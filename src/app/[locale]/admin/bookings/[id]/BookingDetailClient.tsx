@@ -685,6 +685,198 @@ const REASSIGN_ELIGIBLE_STATUSES = [
   'CASCADE_EXHAUSTED',
 ];
 
+const CANCELLABLE_STATUSES = [
+  'PENDING',
+  'AWAITING_CLEANER',
+  'CONFIRMED',
+  'ACCEPTED',
+  'CASCADE_EXHAUSTED',
+];
+const CANCEL_BLOCKED_TRANSFER = ['RELEASING', 'UNKNOWN', 'REFUNDING', 'RELEASED'];
+
+function CancelPanel({
+  booking,
+  maxRefundable,
+}: {
+  booking: BookingDetail;
+  maxRefundable: number;
+}) {
+  const [reason, setReason] = useState('');
+  const [override, setOverride] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const eligibleStatus = CANCELLABLE_STATUSES.includes(booking.status);
+  const moneyOk = !CANCEL_BLOCKED_TRANSFER.includes(booking.transferStatus);
+
+  const overrideAmount = override ? Number(refundAmount) : NaN;
+  const overrideValid =
+    !override ||
+    (refundAmount.trim() !== '' &&
+      !Number.isNaN(overrideAmount) &&
+      overrideAmount >= 0 &&
+      overrideAmount <= maxRefundable + 0.01);
+
+  const runCancel = useCallback(async () => {
+    setSubmitting(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: reason.trim(),
+          ...(override ? { refundAmount: Number(refundAmount) } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error);
+        return;
+      }
+      const amt =
+        typeof data.refundAmount === 'number' ? `£${data.refundAmount.toFixed(2)}` : '£0.00';
+      setResult({
+        ok: true,
+        message: `Booking cancelled. Refund: ${amt}${data.refundStatus ? ` (${data.refundStatus})` : ''}.`,
+      });
+      setConfirming(false);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      setError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [booking.id, reason, override, refundAmount]);
+
+  if (!eligibleStatus) {
+    return (
+      <Section title="Cancel Booking">
+        <p className="text-sm text-gray-500">
+          Not available for {booking.status} bookings. Cancellable:{' '}
+          {CANCELLABLE_STATUSES.join(', ')}.
+        </p>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="Cancel Booking">
+      {!moneyOk && (
+        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+          Transfer status is <span className="font-medium">{booking.transferStatus}</span> — cancel
+          is blocked while money is in flight or already released. Post-release cancellation
+          (clawing back the cleaner&apos;s payout) is not supported in this version.
+        </div>
+      )}
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              setConfirming(false);
+            }}
+            placeholder="Why is this booking being cancelled?"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
+          />
+        </div>
+
+        <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={override}
+              onChange={(e) => {
+                setOverride(e.target.checked);
+                setConfirming(false);
+              }}
+            />
+            Override refund amount
+          </label>
+          {override ? (
+            <div>
+              <input
+                type="number"
+                min={0}
+                max={maxRefundable}
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => {
+                  setRefundAmount(e.target.value);
+                  setConfirming(false);
+                }}
+                placeholder={maxRefundable.toFixed(2)}
+                className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Capped at the refundable remainder (£{maxRefundable.toFixed(2)}).
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">
+              Default: full refund of the remainder (£{maxRefundable.toFixed(2)}).
+            </p>
+          )}
+        </div>
+
+        {error && (
+          <div className="rounded-lg px-4 py-3 text-sm bg-red-50 text-red-800">{error}</div>
+        )}
+
+        {!confirming ? (
+          <button
+            onClick={() => setConfirming(true)}
+            disabled={!reason.trim() || !moneyOk || !overrideValid}
+            className="px-4 py-2 text-sm font-medium text-red-700 rounded-lg border border-red-300 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel booking
+          </button>
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+            <p className="text-sm font-semibold text-red-800">
+              Confirm cancellation
+              {override
+                ? ` with a £${(Number(refundAmount) || 0).toFixed(2)} refund?`
+                : ` with a full refund (£${maxRefundable.toFixed(2)})?`}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={runCancel}
+                disabled={submitting}
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Cancelling…' : 'Confirm cancel'}
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                disabled={submitting}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          >
+            {result.message}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function ReassignPanel({ booking }: { booking: BookingDetail }) {
   const [newCleanerId, setNewCleanerId] = useState('');
   const [reason, setReason] = useState('');
@@ -1313,6 +1505,9 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
           </div>
         </Section>
       )}
+
+      {/* Stage 4: Cancel booking */}
+      <CancelPanel booking={b} maxRefundable={refundable} />
 
       {/* Stage 3: Reassign cleaner */}
       <ReassignPanel booking={b} />

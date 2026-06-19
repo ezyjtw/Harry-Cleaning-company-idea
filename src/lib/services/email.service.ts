@@ -116,14 +116,28 @@ export async function sendBookingReminder(
 
 export async function sendBookingCancellation(
   booking: BookingEmailData,
-  user: UserEmailData
+  user: UserEmailData,
+  refundInfo?: { refundAmount: number; refundPercent: number }
 ): Promise<boolean> {
   const subject = `Booking cancelled - ${booking.date}`;
+
+  let refundText: string;
+  if (!refundInfo) {
+    refundText = 'If you were charged, any refund due will be processed within 5-10 business days.';
+  } else if (refundInfo.refundPercent >= 100) {
+    refundText = `A full refund of &pound;${refundInfo.refundAmount.toFixed(2)} will be processed within 5-10 business days.`;
+  } else if (refundInfo.refundPercent > 0) {
+    refundText = `In line with our cancellation policy, a ${refundInfo.refundPercent}% refund of &pound;${refundInfo.refundAmount.toFixed(2)} will be processed within 5-10 business days.`;
+  } else {
+    refundText =
+      'As this cancellation falls within 24 hours of the booking, no refund is due under our cancellation policy.';
+  }
+
   const htmlBody = `
     <h1>Booking cancelled</h1>
     <p>Hi ${user.name},</p>
     <p>Your booking on ${booking.date} at ${booking.time} has been cancelled.</p>
-    <p>If you were charged, a full refund will be processed within 3-5 business days.</p>
+    <p>${refundText}</p>
     <p>We hope to see you again soon!</p>
   `;
 

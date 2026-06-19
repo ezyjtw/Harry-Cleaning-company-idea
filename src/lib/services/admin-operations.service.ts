@@ -4,7 +4,9 @@ import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/
 import { prisma } from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
-import { enterAdminReassignProvisional } from './cascade.service';
+import type { CancellationResult, RefundDirective } from './cancellation.service';
+import { executeCancellation } from './cancellation.service';
+import { cascadeTeardownFields, enterAdminReassignProvisional } from './cascade.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
 
@@ -144,7 +146,7 @@ export class AdminOperationsService {
           acceptedAt: new Date(),
           cleanerEarnings: quote.cleanerPayout,
           platformFee: quote.customerPlatformFee,
-          ...AdminOperationsService.cascadeTeardown(),
+          ...cascadeTeardownFields(),
           adminNotes: `Reassigned (equal price): ${reason}. Previous cleaner: ${booking.cleanerId}`,
         },
       });
@@ -183,7 +185,7 @@ export class AdminOperationsService {
         acceptedAt: new Date(),
         cleanerEarnings: quote.cleanerPayout,
         platformFee: quote.customerPlatformFee,
-        ...AdminOperationsService.cascadeTeardown(),
+        ...cascadeTeardownFields(),
         adminNotes: `Reassigned (cheaper): ${reason}. Previous cleaner: ${booking.cleanerId}`,
       },
     });
@@ -368,24 +370,6 @@ export class AdminOperationsService {
     };
   }
 
-  /** Cascade-state teardown written on a direct (equal/cheaper) reassign. */
-  private static cascadeTeardown() {
-    return {
-      cascadePhase: null,
-      cascadeExpiresAt: null,
-      cascadeBackupExpiresAt: null,
-      provisionalCleanerId: null,
-      provisionalPrice: null,
-      topupAmount: null,
-      approvalExpiresAt: null,
-      topupApproved: false,
-      reserveCleanerIds: [],
-      provisionalSource: null,
-      reassignPreviousStatus: null,
-      reassignPreviousCleanerId: null,
-    };
-  }
-
   /** Best-effort notifications for an immediate (equal/cheaper) reassign. */
   private static async notifyReassign(
     booking: { id: string; cleanerId: string; clientId: string | null },
@@ -429,28 +413,30 @@ export class AdminOperationsService {
   }
 
   /**
-   * Cancel booking with admin override
+   * Cancel a booking as an admin. Routes through the shared cancellation path
+   * (status + money-state guards, atomic claim, cascade teardown, refund, email,
+   * notifications, audit). Refund defaults to 100% of the remainder; pass
+   * refundAmount to override with an explicit amount (capped at the remainder).
    */
-  static async adminCancelBooking(bookingId: string, reason: string, adminId?: string) {
-    const booking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancellationReason: reason,
-        adminNotes: `Cancelled by admin: ${reason}`,
-      },
+  static async adminCancelBooking(
+    bookingId: string,
+    reason: string,
+    adminId?: string,
+    refundAmount?: number
+  ): Promise<CancellationResult> {
+    const refund: RefundDirective =
+      refundAmount !== undefined ? { kind: 'amount', amount: refundAmount } : { kind: 'full' };
+
+    const result = await executeCancellation({
+      bookingId,
+      cancelledBy: 'admin',
+      reason,
+      adminId,
+      refund,
     });
 
-    await AuditService.log({
-      userId: adminId,
-      action: 'ADMIN_CANCEL_BOOKING',
-      entityType: 'Booking',
-      entityId: bookingId,
-      metadata: { reason },
-    });
-
-    return booking;
+    if (!result.ok) throw new Error(result.error || 'Cancel failed');
+    return result;
   }
 
   /**
