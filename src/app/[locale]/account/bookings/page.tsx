@@ -22,11 +22,24 @@ interface Booking {
   serviceType: string;
   price: number;
   status: BookingStatus;
+  rawStatus: string;
+  cascadePhase: string | null;
   address: string;
   backupCleanerNames: string[];
   autoAssignBackup: boolean;
   topupAmount: number | null;
 }
+
+// Raw booking statuses the cancel endpoint accepts (mirrors the server's
+// CANCELLABLE_STATUS). Gating on the raw status — not the collapsed UI label —
+// keeps EN_ROUTE / IN_PROGRESS (both shown as "Confirmed") out of scope.
+const CANCELLABLE_RAW_STATUSES = [
+  'PENDING',
+  'AWAITING_CLEANER',
+  'CONFIRMED',
+  'ACCEPTED',
+  'CASCADE_EXHAUSTED',
+];
 
 const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -78,10 +91,104 @@ function mapStatus(apiStatus: string, cascadePhase?: string | null): BookingStat
   }
 }
 
+interface CancelPreview {
+  canCancel: boolean;
+  refundPercent: number;
+  refundAmount: number;
+  reason?: string;
+}
+
+function refundMessage(p: CancelPreview): string {
+  if (p.refundAmount <= 0) {
+    return p.refundPercent <= 0
+      ? 'No refund — this booking is within 24 hours of the start time. Cancelling now forfeits payment.'
+      : 'No payment was captured, so there is nothing to refund.';
+  }
+  if (p.refundPercent >= 100) {
+    return `You'll receive a full refund of £${p.refundAmount.toFixed(2)}.`;
+  }
+  return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;
+}
+
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
+
+  // Cancel flow (one booking at a time): preview → confirm.
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CancelPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const canShowCancel = (b: Booking): boolean => {
+    if (!CANCELLABLE_RAW_STATUSES.includes(b.rawStatus)) return false;
+    // Price-approval bookings have their own dedicated action.
+    if (b.rawStatus === 'AWAITING_CLEANER' && b.cascadePhase === 'PROVISIONAL_APPROVAL') {
+      return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(b.date) >= today;
+  };
+
+  const dismissCancel = () => {
+    setCancelId(null);
+    setPreview(null);
+    setCancelError(null);
+  };
+
+  const startCancel = async (fullId: string) => {
+    setCancelId(fullId);
+    setPreview(null);
+    setCancelError(null);
+    setPreviewing(true);
+    try {
+      const res = await fetch(`/api/bookings/${fullId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCancelError(data.error || 'Could not load cancellation details.');
+      } else {
+        setPreview(data.preview as CancelPreview);
+      }
+    } catch {
+      setCancelError('Network error. Please try again.');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const confirmCancel = async (fullId: string) => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/bookings/${fullId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCancelError(data.error || 'Failed to cancel booking.');
+        return;
+      }
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.fullId === fullId ? { ...b, status: 'Cancelled' as const, rawStatus: 'CANCELLED' } : b
+        )
+      );
+      dismissCancel();
+    } catch {
+      setCancelError('Failed to cancel booking. Please try again later.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/bookings')
@@ -100,6 +207,8 @@ export default function BookingsPage() {
             String(b.status || 'PENDING'),
             b.cascadePhase as string | null | undefined
           ),
+          rawStatus: String(b.status || 'PENDING').toUpperCase(),
+          cascadePhase: (b.cascadePhase as string | null) ?? null,
           address: b.address || b.fullAddress || '',
           backupCleanerNames: (b.backupCleanerNames as string[]) || [],
           autoAssignBackup: (b.autoAssignBackup as boolean) || false,
@@ -282,7 +391,7 @@ export default function BookingsPage() {
               </div>
 
               {/* Actions */}
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
                 {booking.status === 'Price approval needed' && (
                   <Link
                     href={`/booking/${booking.fullId}/approve-topup`}
@@ -292,6 +401,51 @@ export default function BookingsPage() {
                     {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
                   </Link>
                 )}
+
+                {canShowCancel(booking) &&
+                  (cancelId === booking.fullId ? (
+                    <div className="flex w-full flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                      {previewing ? (
+                        <span className="text-xs text-gray-600">Checking your refund…</span>
+                      ) : cancelError ? (
+                        <span className="text-xs text-red-700">{cancelError}</span>
+                      ) : preview && !preview.canCancel ? (
+                        <span className="text-xs text-red-700">
+                          {preview.reason || 'This booking can no longer be cancelled.'}
+                        </span>
+                      ) : preview ? (
+                        <span className="text-xs text-gray-700">
+                          Cancel this booking? {refundMessage(preview)}
+                        </span>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-2">
+                        {preview?.canCancel && !cancelError && (
+                          <button
+                            onClick={() => confirmCancel(booking.fullId)}
+                            disabled={cancelling}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                          </button>
+                        )}
+                        <button
+                          onClick={dismissCancel}
+                          disabled={cancelling}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => startCancel(booking.fullId)}
+                      className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                    >
+                      Cancel booking
+                    </button>
+                  ))}
               </div>
             </div>
           ))}
