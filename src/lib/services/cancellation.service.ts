@@ -53,6 +53,87 @@ export interface CancellationResult {
   refundStatus?: string;
 }
 
+export interface CancellationPreview {
+  canCancel: boolean;
+  refundPercent: number;
+  refundAmount: number;
+  reason?: string;
+}
+
+// Refundable remainder = what's left of the captured charge after any prior
+// partial refund. Anchored to the original charge (Part-3), never totalPrice
+// drift. Shared by execute and preview so the two cannot diverge.
+function refundableRemainder(booking: {
+  totalAmountCharged: unknown;
+  totalPrice: unknown;
+  refundRecords: { amount: unknown }[];
+}): number {
+  const totalPaid = Number(booking.totalAmountCharged ?? booking.totalPrice);
+  const alreadyRefunded = booking.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
+  return Math.max(0, totalPaid - alreadyRefunded);
+}
+
+/**
+ * Read-only cancellation preview for the customer's timing policy. Runs the SAME
+ * guards and the SAME canCancel() policy as executeCancellation but mutates
+ * nothing — no CANCELLED write, no refund, no teardown. Authorization is the
+ * caller's responsibility (ownership is checked in the route before this runs).
+ */
+export async function previewCancellation(bookingId: string): Promise<CancellationPreview> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      transferStatus: true,
+      paymentStatus: true,
+      date: true,
+      totalAmountCharged: true,
+      totalPrice: true,
+      refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
+    },
+  });
+  if (!booking) {
+    return { canCancel: false, refundPercent: 0, refundAmount: 0, reason: 'Booking not found' };
+  }
+
+  if (!CANCELLABLE_STATUS.includes(booking.status)) {
+    return {
+      canCancel: false,
+      refundPercent: 0,
+      refundAmount: 0,
+      reason: `Cannot cancel a ${booking.status} booking`,
+    };
+  }
+  if (CANCEL_BLOCKED_TRANSFER.includes(booking.transferStatus)) {
+    return {
+      canCancel: false,
+      refundPercent: 0,
+      refundAmount: 0,
+      reason: `Cannot cancel — payment is currently ${booking.transferStatus.toLowerCase()}`,
+    };
+  }
+
+  const policy = BookingLifecycleService.canCancel(booking.date, booking.status);
+  if (!policy.canCancel) {
+    return { canCancel: false, refundPercent: 0, refundAmount: 0, reason: policy.reason };
+  }
+
+  // Mirror execute: only paid bookings yield an actual refund amount.
+  const isPaid =
+    booking.paymentStatus === 'SUCCEEDED' || booking.paymentStatus === 'PARTIALLY_REFUNDED';
+  const remainder = refundableRemainder(booking);
+  const refundAmount = isPaid
+    ? Math.round(remainder * (policy.refundPercent / 100) * 100) / 100
+    : 0;
+
+  return {
+    canCancel: true,
+    refundPercent: policy.refundPercent,
+    refundAmount,
+    reason: policy.reason,
+  };
+}
+
 /**
  * Cancel a booking on behalf of the customer, a guest, or an admin.
  * Authorization (session ownership / guest token / admin role) is the caller's
@@ -98,9 +179,7 @@ export async function executeCancellation(params: {
   // 4. Decide the refund — directive defaults to timing policy for the customer/
   //    guest, full for admin. Percent is always applied to the REMAINDER (what's
   //    left after any prior partial refund), not the original total.
-  const totalPaid = Number(booking.totalAmountCharged ?? booking.totalPrice);
-  const alreadyRefunded = booking.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
-  const remainder = Math.max(0, totalPaid - alreadyRefunded);
+  const remainder = refundableRemainder(booking);
 
   const directive: RefundDirective =
     params.refund ?? (cancelledBy === 'admin' ? { kind: 'full' } : { kind: 'policy' });

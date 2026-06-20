@@ -3,10 +3,13 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { executeCancellation } from '@/lib/services/cancellation.service';
+import { executeCancellation, previewCancellation } from '@/lib/services/cancellation.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+// POST /api/bookings/[id]/cancel
+//   { dryRun: true }   → read-only preview { canCancel, refundPercent, refundAmount, reason? }
+//   { reason? }        → perform the cancellation
 export async function POST(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
   if (!user) {
@@ -15,7 +18,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
 
-  // Authorization: only the booking's owner may cancel via this endpoint.
+  // Authorization: only the booking's owner may cancel (or preview) via this endpoint.
   const booking = await prisma.booking.findUnique({
     where: { id },
     select: { clientId: true },
@@ -27,14 +30,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
   }
 
-  let reason: string | undefined;
+  let body: { reason?: unknown; dryRun?: unknown } = {};
   try {
-    const body = await request.json();
-    if (typeof body?.reason === 'string') reason = body.reason;
+    body = await request.json();
   } catch {
-    // No / invalid body — reason is optional.
+    // No / invalid body — both reason and dryRun are optional.
   }
 
+  // Read-only preview — no mutation, no refund.
+  if (body?.dryRun === true) {
+    const preview = await previewCancellation(id);
+    return NextResponse.json({ preview });
+  }
+
+  const reason = typeof body?.reason === 'string' ? body.reason : undefined;
   const result = await executeCancellation({ bookingId: id, cancelledBy: 'client', reason });
 
   if (!result.ok) {
