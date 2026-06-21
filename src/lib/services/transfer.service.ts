@@ -265,4 +265,20 @@ async function setUnknown(bookingId: string, reason: string): Promise<ReleaseRes
   return { status: 'UNKNOWN', reason };
 }
 
+/**
+ * Resume a paused release: atomically move PAUSED → PENDING, then call
+ * releaseBookingFunds which handles PENDING → RELEASING → RELEASED.
+ * Used by dispute resolution (release-to-cleaner / split outcomes).
+ */
+export async function resumePausedRelease(bookingId: string): Promise<ReleaseResult> {
+  const claimed = await prisma.booking.updateMany({
+    where: { id: bookingId, transferStatus: 'PAUSED' },
+    data: { transferStatus: 'PENDING' },
+  });
+  if (claimed.count === 0) {
+    return { status: 'SKIPPED', reason: 'Transfer is not PAUSED — cannot resume' };
+  }
+  return releaseBookingFunds(bookingId);
+}
+
 export { getTransferAmountPence } from './transfer-amount';
