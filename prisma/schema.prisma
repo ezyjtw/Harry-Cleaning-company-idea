@@ -44,6 +44,7 @@ enum CascadePhase {
   CASCADE_EXHAUSTED
   PROVISIONAL_APPROVAL
   PHASE2_RESERVE
+  RENA_FIND
 }
 
 enum PricingModel {
