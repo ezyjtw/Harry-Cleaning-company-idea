@@ -287,6 +287,10 @@ async function main() {
         platformFee: 3.54,
         cleanerEarnings: 54.0,
         completedAt: new Date('2026-03-15T13:00:00Z'),
+        paymentStatus: 'SUCCEEDED',
+        stripePaymentIntentId: 'pi_seed_booking_1',
+        stripeChargeId: 'ch_seed_booking_1',
+        totalAmountCharged: 63.54,
       },
     });
 
