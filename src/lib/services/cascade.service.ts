@@ -17,6 +17,7 @@ import { sendTopupApprovalRequest } from './email.service';
 import { MatchingService } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
+import { refundBooking } from './refund.service';
 
 // ─── Window computation ────────────────────────────────────────
 
@@ -1147,6 +1148,54 @@ async function handleCascadeExhaustion(
   return cascadeExhaust(bookingId, expectedPhase);
 }
 
+// ─── Auto-refund on cascade exhaustion (A5.5 chunk 3) ───────────
+//
+// Called inline from every path that sets CASCADE_EXHAUSTED. Full refund
+// of the original charge, status → CANCELLED. Never throws — inline
+// failure is caught by the scheduler safety sweep.
+
+async function autoRefundExhausted(bookingId: string): Promise<boolean> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        totalAmountCharged: true,
+        totalPrice: true,
+        paymentStatus: true,
+        status: true,
+      },
+    });
+    if (!booking) return false;
+    if (booking.status !== 'CASCADE_EXHAUSTED') return false;
+    if (booking.paymentStatus !== 'SUCCEEDED' && booking.paymentStatus !== 'PARTIALLY_REFUNDED') {
+      return false;
+    }
+
+    const refundAmount = Number(booking.totalAmountCharged ?? booking.totalPrice);
+    if (refundAmount <= 0) return false;
+
+    const result = await refundBooking(
+      bookingId,
+      refundAmount,
+      'No cleaner available — fully refunded',
+      {
+        adjustEarnings: true,
+        bookingDataOverride: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancellationReason: 'No cleaner available — fully refunded',
+        },
+      }
+    );
+
+    return result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED';
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[Cascade] Auto-refund failed for booking', bookingId, error);
+    return false;
+  }
+}
+
 async function cascadeExhaust(bookingId: string, expectedPhase: CascadePhase): Promise<boolean> {
   const result = await prisma.booking.updateMany({
     where: {
@@ -1163,7 +1212,10 @@ async function cascadeExhaust(bookingId: string, expectedPhase: CascadePhase): P
     },
   });
   if (result.count > 0) {
-    await notifyCustomerExhausted(bookingId);
+    const refunded = await autoRefundExhausted(bookingId);
+    if (!refunded) {
+      await notifyCustomerExhausted(bookingId);
+    }
     return true;
   }
   return false;
@@ -1306,7 +1358,10 @@ export async function expireRenaFind(bookingId: string): Promise<boolean> {
     },
   });
   if (result.count > 0) {
-    await notifyCustomerExhausted(bookingId);
+    const refunded = await autoRefundExhausted(bookingId);
+    if (!refunded) {
+      await notifyCustomerExhausted(bookingId);
+    }
     return true;
   }
   return false;
@@ -1457,7 +1512,10 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
         },
       });
       if (res.count > 0) {
-        await notifyCustomerExhausted(booking.id);
+        const refunded = await autoRefundExhausted(booking.id);
+        if (!refunded) {
+          await notifyCustomerExhausted(booking.id);
+        }
         processed++;
       }
     } catch (error) {
@@ -1466,6 +1524,36 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
     }
   }
 
+  return { processed };
+}
+
+// ─── Safety sweep: refund stranded CASCADE_EXHAUSTED bookings ────
+//
+// Catches any CASCADE_EXHAUSTED booking where the inline refund failed
+// (Stripe error, crash, etc.) or was skipped (payment not yet SUCCEEDED
+// at inline time but completed since). Runs every scheduler tick.
+
+export async function processExhaustedRefunds(): Promise<{ processed: number }> {
+  const unrefunded = await prisma.booking.findMany({
+    where: {
+      status: 'CASCADE_EXHAUSTED',
+      paymentStatus: { in: ['SUCCEEDED', 'PARTIALLY_REFUNDED'] },
+      transferStatus: { in: ['PENDING', 'FAILED'] },
+    },
+    select: { id: true },
+    take: SCHEDULER_BATCH_LIMIT,
+  });
+
+  let processed = 0;
+  for (const booking of unrefunded) {
+    try {
+      const refunded = await autoRefundExhausted(booking.id);
+      if (refunded) processed++;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`[Cascade] Safety-sweep refund failed for ${booking.id}:`, error);
+    }
+  }
   return { processed };
 }
 
@@ -1484,7 +1572,7 @@ async function notifyCustomerExhausted(bookingId: string): Promise<void> {
         userId: booking.clientId,
         type: 'SYSTEM',
         title: 'No cleaner available',
-        body: "None of your chosen cleaners could take this booking. We're working on finding you a cleaner.",
+        body: "Unfortunately none of our cleaners could take this booking. We're processing your refund — you'll receive confirmation shortly.",
         data: { bookingId },
       },
     })
