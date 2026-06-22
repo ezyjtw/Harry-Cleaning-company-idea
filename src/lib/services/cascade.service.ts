@@ -1572,7 +1572,7 @@ async function notifyCustomerExhausted(bookingId: string): Promise<void> {
         userId: booking.clientId,
         type: 'SYSTEM',
         title: 'No cleaner available',
-        body: "None of your chosen cleaners could take this booking. We're working on finding you a cleaner.",
+        body: "Unfortunately none of our cleaners could take this booking. We're processing your refund — you'll receive confirmation shortly.",
         data: { bookingId },
       },
     })
