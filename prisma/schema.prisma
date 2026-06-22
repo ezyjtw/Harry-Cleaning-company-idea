@@ -45,6 +45,7 @@ enum CascadePhase {
   PROVISIONAL_APPROVAL
   PHASE2_RESERVE
   RENA_FIND
+  RENA_FIND_ADMIN_REVIEW
 }
 
 enum PricingModel {

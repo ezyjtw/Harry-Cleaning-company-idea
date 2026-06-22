@@ -1119,6 +1119,14 @@ async function enterRenaFind(
     return cascadeExhaust(bookingId, expectedPhase);
   }
 
+  // Rating floor: only broadcast to cleaners within 0.3 of primary's rating
+  const primaryProfile = await prisma.cleanerProfile.findUnique({
+    where: { userId: booking.cleanerId },
+    select: { rating: true },
+  });
+  const primaryRating = primaryProfile ? Number(primaryProfile.rating) : 0;
+  const ratingFloor = primaryRating - 0.3;
+
   const slotStart = parseSlotStart(booking.date, booking.startTime);
   const resolveBy = slotStart
     ? new Date(slotStart.getTime() - 24 * HOUR_MS)
@@ -1141,12 +1149,17 @@ async function enterRenaFind(
     clientId: booking.clientId ?? undefined,
   });
 
-  const qualifiedIds = matchResult.matches
-    .filter((m) => m.isAvailable && !excludeSet.has(m.userId))
-    .map((m) => m.userId);
+  const eligible = matchResult.matches.filter((m) => m.isAvailable && !excludeSet.has(m.userId));
+  const qualifiedIds = eligible.filter((m) => m.rating >= ratingFloor).map((m) => m.userId);
 
   if (qualifiedIds.length === 0) {
-    return cascadeExhaust(bookingId, expectedPhase);
+    const belowFloorCount = eligible.filter((m) => m.rating < ratingFloor).length;
+    return enterRenaFindAdminReview(bookingId, expectedPhase, booking.clientId, {
+      primaryRating,
+      ratingFloor,
+      belowFloorCount,
+      totalCandidates: matchResult.totalCandidates,
+    });
   }
 
   const result = await prisma.booking.updateMany({
@@ -1225,6 +1238,57 @@ export async function expireRenaFind(bookingId: string): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+async function enterRenaFindAdminReview(
+  bookingId: string,
+  expectedPhase: CascadePhase,
+  clientId: string | null,
+  metadata: {
+    primaryRating: number;
+    ratingFloor: number;
+    belowFloorCount: number;
+    totalCandidates: number;
+  }
+): Promise<boolean> {
+  const result = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: expectedPhase,
+    },
+    data: {
+      cascadePhase: 'RENA_FIND_ADMIN_REVIEW',
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+      reserveCleanerIds: [],
+    },
+  });
+
+  if (result.count === 0) return false;
+
+  if (clientId) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: clientId,
+          type: 'SYSTEM',
+          title: 'Finding you a cleaner',
+          body: "We're reviewing options to find you a suitable cleaner — our team will be in touch shortly.",
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+
+  await AuditService.log({
+    action: 'RENA_FIND_ADMIN_REVIEW_ENTERED',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata,
+  }).catch(() => {});
+
+  return true;
 }
 
 // ─── Scheduler: process expired windows ────────────────────────

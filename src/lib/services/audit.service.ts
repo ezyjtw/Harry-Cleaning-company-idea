@@ -82,7 +82,8 @@ export type AuditAction =
   // Admin reassign cleaner (A5.3 Stage 3)
   | 'ADMIN_REASSIGN_PROVISIONAL'
   | 'ADMIN_REASSIGN_REVERTED'
-  | 'RENA_FIND_ENTERED';
+  | 'RENA_FIND_ENTERED'
+  | 'RENA_FIND_ADMIN_REVIEW_ENTERED';
 
 interface AuditLogParams {
   userId?: string;
