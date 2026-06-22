@@ -130,18 +130,43 @@ export default function BookingsPage() {
 
   // Confirm-complete flow
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [confirmResult, setConfirmResult] = useState<
+    Record<string, { ok: boolean; message: string }>
+  >({});
 
   const confirmComplete = async (fullId: string) => {
     setConfirmingId(fullId);
+    setConfirmResult((prev) => {
+      const next = { ...prev };
+      delete next[fullId];
+      return next;
+    });
     try {
       const res = await fetch(`/api/bookings/${fullId}/confirm-complete`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setBookings((prev) =>
           prev.map((b) => (b.fullId === fullId ? { ...b, completionConfirmed: true } : b))
         );
+        setConfirmResult((prev) => ({
+          ...prev,
+          [fullId]: {
+            ok: true,
+            message:
+              data.message || 'Confirmed — payment will be released to your cleaner shortly.',
+          },
+        }));
+      } else {
+        setConfirmResult((prev) => ({
+          ...prev,
+          [fullId]: { ok: false, message: data.error || 'Could not confirm completion.' },
+        }));
       }
     } catch {
-      /* best-effort */
+      setConfirmResult((prev) => ({
+        ...prev,
+        [fullId]: { ok: false, message: 'Something went wrong. Please try again.' },
+      }));
     } finally {
       setConfirmingId(null);
     }
@@ -474,17 +499,25 @@ export default function BookingsPage() {
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-                {booking.rawStatus === 'COMPLETED' && !booking.completionConfirmed && (
-                  <button
-                    onClick={() => confirmComplete(booking.fullId)}
-                    disabled={confirmingId === booking.fullId}
-                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {confirmingId === booking.fullId
-                      ? 'Confirming…'
-                      : "I'm satisfied — release payment"}
-                  </button>
-                )}
+                {booking.rawStatus === 'COMPLETED' &&
+                  (confirmResult[booking.fullId] ? (
+                    <span
+                      className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-green-700' : 'text-red-700'}`}
+                    >
+                      {confirmResult[booking.fullId].ok ? '✓ ' : ''}
+                      {confirmResult[booking.fullId].message}
+                    </span>
+                  ) : !booking.completionConfirmed ? (
+                    <button
+                      onClick={() => confirmComplete(booking.fullId)}
+                      disabled={confirmingId === booking.fullId}
+                      className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {confirmingId === booking.fullId
+                        ? 'Confirming…'
+                        : "I'm satisfied — release payment"}
+                    </button>
+                  ) : null)}
 
                 {booking.status === 'Price approval needed' && (
                   <Link
