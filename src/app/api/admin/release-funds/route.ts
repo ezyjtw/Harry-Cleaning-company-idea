@@ -1,5 +1,6 @@
-// TEMPORARY — manual trigger for releaseBookingFunds.
-// Replace with A6 scheduler. Remove this route when A6 ships.
+// Admin override for releaseBookingFunds — manual trigger for stuck,
+// FAILED, or UNKNOWN releases. The scheduler handles normal auto-release;
+// this endpoint is the permanent retry/override path.
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
