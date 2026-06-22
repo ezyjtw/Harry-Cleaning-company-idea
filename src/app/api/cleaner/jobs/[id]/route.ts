@@ -47,7 +47,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         { cleanerId: user.id },
         {
           backupCleanerIds: { has: user.id },
-          cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
+          cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'RENA_FIND'] },
         },
       ],
       NOT: { declinedCleanerIds: { has: user.id } },
@@ -72,7 +72,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         booking.status === 'PENDING' || booking.status === 'AWAITING_CLEANER'
           ? booking.address?.postcode || 'TBD'
           : `${booking.address?.line1 || ''}, ${booking.address?.postcode || ''}`,
-      fullAddress: `${booking.address?.line1 || ''}, ${booking.address?.city || ''} ${booking.address?.postcode || ''}`,
+      fullAddress:
+        booking.cleanerId === user.id &&
+        booking.status !== 'PENDING' &&
+        booking.status !== 'AWAITING_CLEANER' &&
+        booking.status !== 'CASCADE_EXHAUSTED'
+          ? `${booking.address?.line1 || ''}, ${booking.address?.city || ''} ${booking.address?.postcode || ''}`
+          : undefined,
       postcode: booking.address?.postcode || '',
       date: booking.date.toISOString().split('T')[0],
       time: booking.startTime,

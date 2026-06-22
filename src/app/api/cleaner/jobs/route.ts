@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   // but cleaners already held in reserve are excluded — they can't re-accept.
   const backupWhere: Record<string, unknown> = {
     backupCleanerIds: { has: user.id },
-    cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'PHASE2_RESERVE'] },
+    cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'PHASE2_RESERVE', 'RENA_FIND'] },
     status: 'AWAITING_CLEANER',
     NOT: [{ declinedCleanerIds: { has: user.id } }, { reserveCleanerIds: { has: user.id } }],
   };
@@ -88,7 +88,9 @@ export async function GET(request: NextRequest) {
       let viewerTotal: number | null = null;
       let viewerPlatformFee: number | null = null;
 
-      if (!isPrimary && !isProvisional) {
+      const isRenaFind = b.cascadePhase === 'RENA_FIND' && b.backupCleanerIds.includes(user.id);
+
+      if (!isPrimary && !isProvisional && !isRenaFind) {
         try {
           const pricingSlug = normalizeToPricingSlug(b.serviceType);
           const propertySize = b.propertySize
@@ -116,7 +118,13 @@ export async function GET(request: NextRequest) {
           b.status === 'PENDING' || b.status === 'AWAITING_CLEANER'
             ? b.address?.postcode || 'TBD'
             : `${b.address?.line1 || ''}, ${b.address?.postcode || ''}`,
-        fullAddress: `${b.address?.line1 || ''}, ${b.address?.city || ''} ${b.address?.postcode || ''}`,
+        fullAddress:
+          b.cleanerId === user.id &&
+          b.status !== 'PENDING' &&
+          b.status !== 'AWAITING_CLEANER' &&
+          b.status !== 'CASCADE_EXHAUSTED'
+            ? `${b.address?.line1 || ''}, ${b.address?.city || ''} ${b.address?.postcode || ''}`
+            : undefined,
         date: b.date.toISOString().split('T')[0],
         time: b.startTime,
         serviceType: b.serviceType,
