@@ -21,14 +21,50 @@ export interface SchedulerSummary {
 }
 
 import { processExpiredCascadeWindows as cascadeHandler } from './cascade.service';
+import { releaseBookingFunds } from './transfer.service';
 
 async function processExpiredCascadeWindows(): Promise<HandlerResult> {
   return cascadeHandler();
 }
 
-// A6 will implement — release funds for bookings whose releaseDueAt has passed
+const RELEASE_BATCH_LIMIT = 50;
+
 async function processDueReleases(): Promise<HandlerResult> {
-  return { processed: 0 };
+  const { prisma } = await import('@/lib/db/prisma');
+  const now = new Date();
+
+  const due = await prisma.booking.findMany({
+    where: {
+      releaseDueAt: { lte: now },
+      transferStatus: 'PENDING',
+    },
+    select: { id: true },
+    take: RELEASE_BATCH_LIMIT,
+  });
+
+  let processed = 0;
+
+  for (const booking of due) {
+    try {
+      const result = await releaseBookingFunds(booking.id);
+      if (result.status === 'RELEASED' || result.status === 'ALREADY_RELEASED') {
+        processed++;
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(`[Release] Booking ${booking.id}: ${result.status} — ${result.reason}`);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`[Release] Error processing booking ${booking.id}:`, error);
+    }
+  }
+
+  if (due.length === RELEASE_BATCH_LIMIT) {
+    // eslint-disable-next-line no-console
+    console.warn(`[Release] Hit batch limit (${RELEASE_BATCH_LIMIT}) — more bookings next tick`);
+  }
+
+  return { processed };
 }
 
 export async function runScheduledJobs(): Promise<SchedulerSummary> {

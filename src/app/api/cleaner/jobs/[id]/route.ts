@@ -163,7 +163,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (status === 'EN_ROUTE') updateData.arrivalConfirmed = true;
   if (status === 'IN_PROGRESS') updateData.checkedInAt = new Date();
-  if (status === 'COMPLETED') updateData.completedAt = new Date();
+  if (status === 'COMPLETED') {
+    updateData.completedAt = new Date();
+
+    const priorCompleted = await prisma.booking.count({
+      where: {
+        clientId: booking.clientId,
+        cleanerId: booking.cleanerId,
+        status: 'COMPLETED',
+        id: { not: id },
+      },
+    });
+    const holdHours = priorCompleted > 0 ? 2 : 24;
+    updateData.releaseDueAt = new Date(Date.now() + holdHours * 3600_000);
+  }
   if (status === 'CANCELLED') {
     updateData.cancelledAt = new Date();
     updateData.cancellationReason = cancellationReason || 'Cancelled by cleaner';
