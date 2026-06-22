@@ -685,6 +685,216 @@ const REASSIGN_ELIGIBLE_STATUSES = [
   'CASCADE_EXHAUSTED',
 ];
 
+// ─── Dispute Resolution Panel ─────────────────────────────────
+
+const OUTCOME_OPTIONS = [
+  {
+    value: 'release-to-cleaner' as const,
+    label: 'Release to cleaner',
+    description: 'The cleaner did their job. Full payment is released.',
+  },
+  {
+    value: 'refund-customer' as const,
+    label: 'Refund customer',
+    description: 'Full refund to the customer. Cleaner receives nothing.',
+  },
+  {
+    value: 'split' as const,
+    label: 'Split',
+    description: 'Partial refund to customer, remainder released to cleaner.',
+  },
+];
+
+function DisputeResolvePanel({
+  booking,
+  maxRefundable,
+}: {
+  booking: BookingDetail;
+  maxRefundable: number;
+}) {
+  const [outcome, setOutcome] = useState<'release-to-cleaner' | 'refund-customer' | 'split' | ''>(
+    ''
+  );
+  const [resolution, setResolution] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const refundNum = Number(refundAmount);
+  const splitValid =
+    outcome !== 'split' ||
+    (refundAmount.trim() !== '' &&
+      !Number.isNaN(refundNum) &&
+      refundNum > 0 &&
+      refundNum <= maxRefundable + 0.01);
+
+  const canSubmit = outcome !== '' && resolution.trim() !== '' && splitValid;
+
+  const runResolve = useCallback(async () => {
+    setSubmitting(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/dispute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outcome,
+          resolution: resolution.trim(),
+          ...(outcome === 'split' ? { refundAmount: Number(refundAmount) } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error);
+        return;
+      }
+      const parts = [`Dispute resolved (${data.outcome})`];
+      if (data.refundedAmount > 0) parts.push(`Refund: £${data.refundedAmount.toFixed(2)}`);
+      if (data.refundStatus) parts.push(`Refund status: ${data.refundStatus}`);
+      if (data.releaseStatus) parts.push(`Release status: ${data.releaseStatus}`);
+      setResult({ ok: true, message: `${parts.join('. ')}.` });
+      setConfirming(false);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      setError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [booking.id, outcome, resolution, refundAmount]);
+
+  return (
+    <Section title="Resolve Dispute">
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Outcome</label>
+          <div className="space-y-2">
+            {OUTCOME_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer transition-colors ${
+                  outcome === opt.value
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="dispute-outcome"
+                  value={opt.value}
+                  checked={outcome === opt.value}
+                  onChange={() => {
+                    setOutcome(opt.value);
+                    setConfirming(false);
+                  }}
+                  className="mt-0.5"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">{opt.label}</span>
+                  <p className="text-xs text-gray-500">{opt.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {outcome === 'split' && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Refund amount to customer
+            </label>
+            <input
+              type="number"
+              min={0.01}
+              max={maxRefundable}
+              step="0.01"
+              value={refundAmount}
+              onChange={(e) => {
+                setRefundAmount(e.target.value);
+                setConfirming(false);
+              }}
+              placeholder={maxRefundable.toFixed(2)}
+              className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Max refundable: £{maxRefundable.toFixed(2)}. Remainder released to cleaner with
+              reduced earnings.
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Resolution notes</label>
+          <textarea
+            rows={2}
+            value={resolution}
+            onChange={(e) => {
+              setResolution(e.target.value);
+              setConfirming(false);
+            }}
+            placeholder="Explain the resolution decision…"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
+          />
+        </div>
+
+        {error && (
+          <div className="rounded-lg px-4 py-3 text-sm bg-red-50 text-red-800">{error}</div>
+        )}
+
+        {!confirming ? (
+          <button
+            onClick={() => setConfirming(true)}
+            disabled={!canSubmit}
+            className="px-4 py-2 text-sm font-medium text-blue-700 rounded-lg border border-blue-300 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Resolve dispute
+          </button>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+            <p className="text-sm font-semibold text-blue-800">
+              Confirm: {OUTCOME_OPTIONS.find((o) => o.value === outcome)?.label}
+              {outcome === 'split'
+                ? ` — refund £${(Number(refundAmount) || 0).toFixed(2)}, release remainder`
+                : outcome === 'refund-customer'
+                  ? ` — refund £${maxRefundable.toFixed(2)}`
+                  : ' — release full payment to cleaner'}
+              ?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={runResolve}
+                disabled={submitting}
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Resolving…' : 'Confirm resolve'}
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                disabled={submitting}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          >
+            {result.message}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+// ─── Cancel Panel ─────────────────────────────────────────────
+
 const CANCELLABLE_STATUSES = [
   'PENDING',
   'AWAITING_CLEANER',
@@ -1432,6 +1642,13 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             )}
           </Section>
         )}
+
+        {/* Dispute Resolution */}
+        {b.dispute &&
+          b.status === 'DISPUTED' &&
+          (b.dispute.status === 'OPEN' || b.dispute.status === 'UNDER_REVIEW') && (
+            <DisputeResolvePanel booking={b} maxRefundable={refundable} />
+          )}
       </div>
 
       {/* Refund Records */}
