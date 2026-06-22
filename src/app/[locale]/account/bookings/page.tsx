@@ -29,6 +29,7 @@ interface Booking {
   autoAssignBackup: boolean;
   topupAmount: number | null;
   hasDispute: boolean;
+  completionConfirmed: boolean;
 }
 
 // Raw booking statuses the cancel endpoint accepts (mirrors the server's
@@ -126,6 +127,25 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
+
+  // Confirm-complete flow
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const confirmComplete = async (fullId: string) => {
+    setConfirmingId(fullId);
+    try {
+      const res = await fetch(`/api/bookings/${fullId}/confirm-complete`, { method: 'POST' });
+      if (res.ok) {
+        setBookings((prev) =>
+          prev.map((b) => (b.fullId === fullId ? { ...b, completionConfirmed: true } : b))
+        );
+      }
+    } catch {
+      /* best-effort */
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   // Cancel flow (one booking at a time): preview → confirm.
   const [cancelId, setCancelId] = useState<string | null>(null);
@@ -274,6 +294,7 @@ export default function BookingsPage() {
           autoAssignBackup: (b.autoAssignBackup as boolean) || false,
           topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
           hasDispute: !!(b.dispute || (b as Record<string, unknown>).hasDispute),
+          completionConfirmed: !!b.completionConfirmedAt,
         }));
         setBookings(items);
       })
@@ -453,6 +474,18 @@ export default function BookingsPage() {
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                {booking.rawStatus === 'COMPLETED' && !booking.completionConfirmed && (
+                  <button
+                    onClick={() => confirmComplete(booking.fullId)}
+                    disabled={confirmingId === booking.fullId}
+                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {confirmingId === booking.fullId
+                      ? 'Confirming…'
+                      : "I'm satisfied — release payment"}
+                  </button>
+                )}
+
                 {booking.status === 'Price approval needed' && (
                   <Link
                     href={`/booking/${booking.fullId}/approve-topup`}
