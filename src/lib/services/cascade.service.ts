@@ -353,6 +353,78 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   return { success: true };
 }
 
+// ─── Rena-find atomic accept (A5.5) ──────────────────────────────
+//
+// Separate from atomicAccept: qualification = membership in
+// backupCleanerIds (the Rena-find broadcast set). No reconciliation —
+// Rena-find is accepted at the paid price.
+
+export async function renaFindAccept(bookingId: string, cleanerId: string): Promise<AcceptResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      backupCleanerIds: true,
+      cascadePhase: true,
+      status: true,
+      declinedCleanerIds: true,
+    },
+  });
+
+  if (!booking) return { success: false, reason: 'Booking not found' };
+  if (booking.status !== 'AWAITING_CLEANER') {
+    return { success: false, reason: 'Booking is no longer available' };
+  }
+  if (booking.cascadePhase !== 'RENA_FIND') {
+    return { success: false, reason: 'This booking is not in the Rena-find phase' };
+  }
+  if (!booking.backupCleanerIds.includes(cleanerId)) {
+    return { success: false, reason: 'You are not offered this booking' };
+  }
+  if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
+    return { success: false, reason: 'You already declined this booking' };
+  }
+
+  const result = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'RENA_FIND',
+    },
+    data: {
+      status: 'ACCEPTED',
+      cleanerId,
+      acceptedAt: new Date(),
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+      reserveCleanerIds: [],
+    },
+  });
+
+  if (result.count === 0) {
+    return { success: false, reason: 'This booking was just taken by another cleaner.' };
+  }
+
+  const losers = booking.backupCleanerIds.filter(
+    (id) => id !== cleanerId && !(booking.declinedCleanerIds ?? []).includes(id)
+  );
+  for (const loserId of losers) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: loserId,
+          type: 'SYSTEM',
+          title: 'Job no longer available',
+          body: 'This cleaning job was just taken by another cleaner.',
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+  }
+
+  return { success: true };
+}
+
 // ─── Canonical PROVISIONAL_APPROVAL entry (A5.3 Stage 3) ──────────
 //
 // Single source of truth for the field set written when a booking enters
