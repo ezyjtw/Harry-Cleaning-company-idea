@@ -77,7 +77,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
   });
 
   const eligible = matchResult.matches.filter((m) => m.isAvailable && !excludeSet.has(m.userId));
-  const qualifiedIds = eligible.filter((m) => m.rating >= adminFloor).map((m) => m.userId);
+  const qualified = eligible.filter((m) => m.rating >= adminFloor);
+
+  // Preview mode: return candidate info without broadcasting
+  if (body.preview === true) {
+    return NextResponse.json({
+      candidateCount: qualified.length,
+      candidates: qualified.map((m) => ({
+        name: m.name,
+        rating: m.rating,
+        distanceKm: m.distanceKm,
+      })),
+      belowFloorCount: eligible.length - qualified.length,
+    });
+  }
+
+  const qualifiedIds = qualified.map((m) => m.userId);
 
   if (qualifiedIds.length === 0) {
     return NextResponse.json(

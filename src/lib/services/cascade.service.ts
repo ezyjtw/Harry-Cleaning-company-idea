@@ -1353,6 +1353,47 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
     console.warn(`[Cascade] Hit batch limit (${SCHEDULER_BATCH_LIMIT}) — more bookings next tick`);
   }
 
+  // ── Backstop: RENA_FIND_ADMIN_REVIEW bookings whose slot has passed ──
+  // cascadeExpiresAt is null for admin-review, so the query above won't catch them.
+  // Key off booking date instead — if the date is today or earlier, check the slot.
+  const staleAdminReview = await prisma.booking.findMany({
+    where: {
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'RENA_FIND_ADMIN_REVIEW',
+      date: { lte: now },
+    },
+    select: { id: true, date: true, startTime: true },
+    take: SCHEDULER_BATCH_LIMIT,
+  });
+
+  for (const booking of staleAdminReview) {
+    try {
+      const slotStart = parseSlotStart(booking.date, booking.startTime);
+      if (!slotStart || slotStart.getTime() > now.getTime()) continue;
+
+      const res = await prisma.booking.updateMany({
+        where: {
+          id: booking.id,
+          status: 'AWAITING_CLEANER',
+          cascadePhase: 'RENA_FIND_ADMIN_REVIEW',
+        },
+        data: {
+          status: 'CASCADE_EXHAUSTED',
+          cascadePhase: null,
+          cascadeExpiresAt: null,
+          cascadeBackupExpiresAt: null,
+        },
+      });
+      if (res.count > 0) {
+        await notifyCustomerExhausted(booking.id);
+        processed++;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`[Cascade] Error processing admin-review backstop ${booking.id}:`, error);
+    }
+  }
+
   return { processed };
 }
 

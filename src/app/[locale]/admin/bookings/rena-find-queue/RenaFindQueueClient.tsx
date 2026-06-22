@@ -17,13 +17,20 @@ export interface QueueBooking {
   earnings: number;
 }
 
+interface PreviewData {
+  candidateCount: number;
+  candidates: { name: string; rating: number; distanceKm: number }[];
+  belowFloorCount: number;
+}
+
 export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooking[] }) {
-  const [rebroadcasting, setRebroadcasting] = useState<string | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({});
+  const [previews, setPreviews] = useState<Record<string, PreviewData>>({});
   const [items, setItems] = useState(bookings);
 
-  async function handleRebroadcast(bookingId: string, noFloor: boolean) {
-    setRebroadcasting(bookingId);
+  async function handlePreview(bookingId: string) {
+    setLoading(bookingId);
     setResults((prev) => {
       const next = { ...prev };
       delete next[bookingId];
@@ -34,10 +41,43 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
       const res = await fetch(`/api/admin/bookings/${bookingId}/rena-find-rebroadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(noFloor ? {} : undefined),
+        body: JSON.stringify({ preview: true }),
       });
       const data = await res.json();
       if (res.ok) {
+        setPreviews((prev) => ({ ...prev, [bookingId]: data }));
+      } else {
+        setResults((prev) => ({
+          ...prev,
+          [bookingId]: { ok: false, message: data.error || `HTTP ${res.status}` },
+        }));
+      }
+    } catch {
+      setResults((prev) => ({
+        ...prev,
+        [bookingId]: { ok: false, message: 'Network error' },
+      }));
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleConfirmRebroadcast(bookingId: string) {
+    setLoading(bookingId);
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/rena-find-rebroadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPreviews((prev) => {
+          const next = { ...prev };
+          delete next[bookingId];
+          return next;
+        });
         setResults((prev) => ({
           ...prev,
           [bookingId]: {
@@ -58,7 +98,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
         [bookingId]: { ok: false, message: 'Network error' },
       }));
     } finally {
-      setRebroadcasting(null);
+      setLoading(null);
     }
   }
 
@@ -107,15 +147,59 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
               >
                 View / Reassign / Refund
               </Link>
-              <button
-                onClick={() => handleRebroadcast(b.id, true)}
-                disabled={rebroadcasting === b.id}
-                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {rebroadcasting === b.id ? 'Broadcasting...' : 'Rebroadcast (no floor)'}
-              </button>
+              {!previews[b.id] && (
+                <button
+                  onClick={() => handlePreview(b.id)}
+                  disabled={loading === b.id}
+                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading === b.id ? 'Loading...' : 'Preview rebroadcast'}
+                </button>
+              )}
             </div>
           </div>
+          {previews[b.id] && (
+            <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
+              <div className="font-medium text-blue-900">
+                Will offer to {previews[b.id].candidateCount} cleaner
+                {previews[b.id].candidateCount !== 1 ? 's' : ''}:
+              </div>
+              <ul className="mt-1 space-y-0.5 text-blue-800">
+                {previews[b.id].candidates.map((c, i) => (
+                  <li key={i}>
+                    {c.name} — rating {c.rating.toFixed(2)}
+                    {c.distanceKm > 0 ? `, ${c.distanceKm.toFixed(1)}km away` : ''}
+                  </li>
+                ))}
+              </ul>
+              {previews[b.id].belowFloorCount > 0 && (
+                <div className="mt-1 text-blue-600">
+                  ({previews[b.id].belowFloorCount} below original floor excluded by rating filter)
+                </div>
+              )}
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => handleConfirmRebroadcast(b.id)}
+                  disabled={loading === b.id}
+                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading === b.id ? 'Broadcasting...' : 'Confirm & broadcast'}
+                </button>
+                <button
+                  onClick={() =>
+                    setPreviews((prev) => {
+                      const next = { ...prev };
+                      delete next[b.id];
+                      return next;
+                    })
+                  }
+                  className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           {results[b.id] && (
             <div
               className={`mt-2 p-2 rounded text-sm ${results[b.id].ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
