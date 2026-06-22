@@ -220,7 +220,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       COMPLETED: {
         type: 'BOOKING_COMPLETED',
         title: 'Cleaning completed',
-        body: 'Your cleaning session is complete. Please leave a review!',
+        body: "Your cleaning is complete — confirm if you're satisfied to release payment, or report a problem within 24 hours.",
       },
       CANCELLED: {
         type: 'BOOKING_CANCELLED',

@@ -1,7 +1,8 @@
 'use client';
 
-// TEMPORARY — manual trigger for releaseBookingFunds.
-// Replace with A6 scheduler. Remove this page when A6 ships.
+// Admin override — manual release for stuck, FAILED, or UNKNOWN transfers.
+// The scheduler handles normal auto-release; this page is the permanent
+// admin retry/override dashboard.
 
 import { useState } from 'react';
 
@@ -55,8 +56,8 @@ export default function AdminReleaseFundsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold">Release Booking Funds</h1>
         <p className="text-sm text-gray-500 mt-1">
-          TEMPORARY — triggers releaseBookingFunds for a single booking. Will be replaced by A6
-          scheduler.
+          Manual override — retry stuck, FAILED, or UNKNOWN releases. Normal releases are handled
+          automatically by the scheduler.
         </p>
       </div>
 

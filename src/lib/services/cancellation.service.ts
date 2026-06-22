@@ -250,6 +250,21 @@ export async function executeCancellation(params: {
     refundStatus = result.status;
   }
 
+  // 7b. If the cleaner is owed money after the cancel (partial or 0% refund on a
+  //     paid booking), schedule immediate release. A cancelled booking has no
+  //     dispute window — the scheduler releases on the next tick.
+  //     Full refund → cleanerEarnings zeroed, transferStatus REFUNDED → nothing to release.
+  //     Unpaid booking → no charge to release → skip.
+  const isPartialOrNoRefund = isPaid && plannedRefund < remainder;
+  if (isPartialOrNoRefund) {
+    await prisma.booking
+      .update({
+        where: { id: bookingId },
+        data: { releaseDueAt: new Date() },
+      })
+      .catch(() => {});
+  }
+
   // 8. Email + notifications (best-effort, never block the cancel result).
   await sendCancellationEmail(booking, refundPercent, refundAmount).catch(() => {});
   await notifyCancellation(booking, cancelledBy).catch(() => {});
