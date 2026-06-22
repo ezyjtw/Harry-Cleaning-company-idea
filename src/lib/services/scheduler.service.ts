@@ -18,9 +18,13 @@ export interface SchedulerSummary {
   timestamp: string;
   cascadeWindows: HandlerResult;
   releases: HandlerResult;
+  exhaustedRefunds: HandlerResult;
 }
 
-import { processExpiredCascadeWindows as cascadeHandler } from './cascade.service';
+import {
+  processExpiredCascadeWindows as cascadeHandler,
+  processExhaustedRefunds as exhaustedRefundHandler,
+} from './cascade.service';
 import { releaseBookingFunds } from './transfer.service';
 
 async function processExpiredCascadeWindows(): Promise<HandlerResult> {
@@ -67,13 +71,19 @@ async function processDueReleases(): Promise<HandlerResult> {
   return { processed };
 }
 
+async function processExhaustedRefunds(): Promise<HandlerResult> {
+  return exhaustedRefundHandler();
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const releases = await processDueReleases();
+  const exhaustedRefunds = await processExhaustedRefunds();
 
   return {
     timestamp: new Date().toISOString(),
     cascadeWindows,
     releases,
+    exhaustedRefunds,
   };
 }
