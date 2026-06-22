@@ -72,6 +72,16 @@ export async function refundBooking(
 
   if (!booking) return { status: 'FAILED', reason: 'Booking not found' };
 
+  // 1b. DISPUTED-booking guard — a disputed booking's refund must go through
+  //     resolveDispute() (which transitions out of DISPUTED first) to avoid a
+  //     half-resolved state (refunded but dispute still OPEN, cleaner side unhandled).
+  if (booking.status === 'DISPUTED') {
+    return {
+      status: 'FAILED',
+      reason: 'Cannot refund a disputed booking — resolve the dispute instead',
+    };
+  }
+
   // 2. Payment guards
   if (!booking.stripePaymentIntentId) {
     return { status: 'FAILED', reason: 'No payment intent on booking' };
@@ -124,7 +134,7 @@ export async function refundBooking(
 
   // 6. Atomic claim — mutual exclusion with releaseBookingFunds.
   //    REFUNDING is not in release's claim set {PENDING, UNKNOWN, FAILED, RELEASING}.
-  const claimableStates = isPostRelease ? ['RELEASED'] : ['PENDING', 'FAILED'];
+  const claimableStates = isPostRelease ? ['RELEASED'] : ['PENDING', 'FAILED', 'PAUSED'];
   const claimed = await prisma.booking.updateMany({
     where: { id: bookingId, transferStatus: { in: claimableStates } },
     data: { transferStatus: 'REFUNDING' },

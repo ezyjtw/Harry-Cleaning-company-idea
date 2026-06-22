@@ -28,6 +28,7 @@ interface Booking {
   backupCleanerNames: string[];
   autoAssignBackup: boolean;
   topupAmount: number | null;
+  hasDispute: boolean;
 }
 
 // Raw booking statuses the cancel endpoint accepts (mirrors the server's
@@ -40,6 +41,17 @@ const CANCELLABLE_RAW_STATUSES = [
   'ACCEPTED',
   'CASCADE_EXHAUSTED',
 ];
+
+const DISPUTABLE_RAW_STATUSES = ['COMPLETED', 'IN_PROGRESS'];
+
+const DISPUTE_REASONS = [
+  { value: 'no-show-cleaner', label: 'Cleaner did not show up' },
+  { value: 'poor-quality', label: 'Poor quality of cleaning' },
+  { value: 'property-damage', label: 'Property damage' },
+  { value: 'incorrect-duration', label: 'Incorrect duration' },
+  { value: 'safety-concern', label: 'Safety concern' },
+  { value: 'other', label: 'Other' },
+] as const;
 
 const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -190,6 +202,54 @@ export default function BookingsPage() {
     }
   };
 
+  // Dispute flow (one booking at a time): form → confirm.
+  const [disputeId, setDisputeId] = useState<string | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeDescription, setDisputeDescription] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
+
+  const canShowDispute = (b: Booking): boolean => {
+    if (b.hasDispute) return false;
+    return DISPUTABLE_RAW_STATUSES.includes(b.rawStatus);
+  };
+
+  const dismissDispute = () => {
+    setDisputeId(null);
+    setDisputeReason('');
+    setDisputeDescription('');
+    setDisputeError(null);
+  };
+
+  const submitDispute = async (fullId: string) => {
+    setSubmittingDispute(true);
+    setDisputeError(null);
+    try {
+      const res = await fetch(`/api/bookings/${fullId}/dispute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: disputeReason, description: disputeDescription }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDisputeError(data.error || 'Failed to submit report.');
+        return;
+      }
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.fullId === fullId
+            ? { ...b, status: 'Disputed' as const, rawStatus: 'DISPUTED', hasDispute: true }
+            : b
+        )
+      );
+      dismissDispute();
+    } catch {
+      setDisputeError('Network error. Please try again.');
+    } finally {
+      setSubmittingDispute(false);
+    }
+  };
+
   useEffect(() => {
     fetch('/api/bookings')
       .then((res) => (res.ok ? res.json() : { bookings: [] }))
@@ -213,6 +273,7 @@ export default function BookingsPage() {
           backupCleanerNames: (b.backupCleanerNames as string[]) || [],
           autoAssignBackup: (b.autoAssignBackup as boolean) || false,
           topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
+          hasDispute: !!(b.dispute || (b as Record<string, unknown>).hasDispute),
         }));
         setBookings(items);
       })
@@ -444,6 +505,64 @@ export default function BookingsPage() {
                       className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
                     >
                       Cancel booking
+                    </button>
+                  ))}
+
+                {canShowDispute(booking) &&
+                  (disputeId === booking.fullId ? (
+                    <div className="flex w-full flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                      <span className="text-xs font-medium text-gray-800">
+                        Report a problem with this booking
+                      </span>
+                      <select
+                        value={disputeReason}
+                        onChange={(e) => setDisputeReason(e.target.value)}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs bg-white"
+                      >
+                        <option value="">Select a reason…</option>
+                        {DISPUTE_REASONS.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                      <textarea
+                        rows={3}
+                        value={disputeDescription}
+                        onChange={(e) => setDisputeDescription(e.target.value)}
+                        placeholder="Please describe the problem…"
+                        maxLength={2000}
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-xs resize-none"
+                      />
+                      {disputeError && <span className="text-xs text-red-700">{disputeError}</span>}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => submitDispute(booking.fullId)}
+                          disabled={
+                            submittingDispute || !disputeReason || !disputeDescription.trim()
+                          }
+                          className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          {submittingDispute ? 'Submitting…' : 'Submit report'}
+                        </button>
+                        <button
+                          onClick={dismissDispute}
+                          disabled={submittingDispute}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setDisputeId(booking.fullId);
+                        dismissCancel();
+                      }}
+                      className="rounded-lg border border-orange-300 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50"
+                    >
+                      Report a problem
                     </button>
                   ))}
               </div>

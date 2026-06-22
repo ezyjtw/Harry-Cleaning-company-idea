@@ -9,6 +9,7 @@ import { executeCancellation } from './cancellation.service';
 import { cascadeTeardownFields, enterAdminReassignProvisional } from './cascade.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
+import { releaseBookingFunds, resumePausedRelease } from './transfer.service';
 
 export type ReassignPriceCase = 'EQUAL' | 'CHEAPER' | 'PRICIER';
 
@@ -27,6 +28,13 @@ const REASSIGN_ELIGIBLE: BookingStatus[] = [
   'CONFIRMED',
   'CASCADE_EXHAUSTED',
 ];
+
+export interface DisputeResolveResult {
+  outcome: 'release-to-cleaner' | 'refund-customer' | 'split';
+  refundedAmount: number;
+  refundStatus?: string;
+  releaseStatus?: string;
+}
 
 export class AdminOperationsService {
   /**
@@ -521,35 +529,218 @@ export class AdminOperationsService {
   }
 
   /**
-   * Resolve a dispute
+   * Resolve a dispute — three outcomes:
+   *
+   * release-to-cleaner: cleaner did their job → dispute RESOLVED, booking back
+   *   to COMPLETED, PAUSED → PENDING → release (full earnings to cleaner).
+   *
+   * refund-customer: cleaner failed → dispute RESOLVED, refundBooking(full),
+   *   booking → CANCELLED, transferStatus → REFUNDED (terminal).
+   *
+   * split: partial fault → dispute RESOLVED, refundBooking(partial),
+   *   transferStatus → PENDING (release reduced earnings), booking → COMPLETED.
+   *
+   * STATUS-FIRST ORDERING (mirrors cancellation): the atomic $transaction
+   * transitions the dispute + booking OUT of DISPUTED *before* any money
+   * movement. This ensures refundBooking sees a non-DISPUTED booking (passing
+   * the DISPUTED guard), and releaseBookingFunds can claim PENDING.
    */
-  static async resolveDispute(
-    disputeId: string,
-    resolution: string,
-    refundAction?: 'full' | 'partial' | 'none',
-    refundAmount?: number
-  ) {
+  static async resolveDispute(params: {
+    disputeId: string;
+    outcome: 'release-to-cleaner' | 'refund-customer' | 'split';
+    resolution: string;
+    refundAmount?: number;
+    adminId: string;
+  }): Promise<DisputeResolveResult> {
+    const { disputeId, outcome, resolution, adminId } = params;
+
     const dispute = await prisma.dispute.findUnique({
       where: { id: disputeId },
-      include: { booking: { include: { payment: true } } },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            transferStatus: true,
+            totalAmountCharged: true,
+            totalPrice: true,
+            cleanerId: true,
+            clientId: true,
+            date: true,
+            refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
+          },
+        },
+      },
     });
     if (!dispute) throw new Error('Dispute not found');
-
-    await prisma.dispute.update({
-      where: { id: disputeId },
-      data: { status: 'RESOLVED', resolution, resolvedAt: new Date() },
-    });
-
-    if (refundAction !== 'none' && refundAmount) {
-      const { refundBooking } = await import('./refund.service');
-      await refundBooking(dispute.bookingId, refundAmount, `Dispute resolved: ${resolution}`);
+    if (dispute.status !== 'OPEN' && dispute.status !== 'UNDER_REVIEW') {
+      throw new Error(`Dispute is already ${dispute.status.toLowerCase()}`);
+    }
+    if (dispute.booking.status !== 'DISPUTED') {
+      throw new Error(`Booking is ${dispute.booking.status}, not DISPUTED`);
     }
 
+    const bookingId = dispute.bookingId;
+    const totalPaid = Number(dispute.booking.totalAmountCharged ?? dispute.booking.totalPrice);
+    const alreadyRefunded = dispute.booking.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
+    const remainder = Math.max(0, totalPaid - alreadyRefunded);
+
+    if (outcome === 'split' || outcome === 'refund-customer') {
+      const refundAmount = outcome === 'refund-customer' ? remainder : params.refundAmount;
+      if (refundAmount === undefined || refundAmount <= 0) {
+        throw new Error('A refund amount is required for this outcome');
+      }
+      if (refundAmount > remainder + 0.01) {
+        throw new Error(
+          `Refund £${refundAmount.toFixed(2)} exceeds refundable remainder £${remainder.toFixed(2)}`
+        );
+      }
+    }
+
+    // Atomic status-first: resolve the dispute + transition booking out of
+    // DISPUTED *before* any money movement. The guarded updateMany prevents a
+    // concurrent resolve from double-acting.
+    const nextBookingStatus: BookingStatus =
+      outcome === 'refund-customer' ? 'CANCELLED' : 'COMPLETED';
+
+    const claim = await prisma.$transaction([
+      prisma.dispute.update({
+        where: { id: disputeId },
+        data: { status: 'RESOLVED', resolution, resolvedAt: new Date() },
+      }),
+      prisma.booking.updateMany({
+        where: { id: bookingId, status: 'DISPUTED' },
+        data: {
+          status: nextBookingStatus,
+          ...(outcome === 'refund-customer'
+            ? { cancelledAt: new Date(), cancellationReason: `Dispute resolved: ${resolution}` }
+            : {}),
+        },
+      }),
+    ]);
+
+    if (claim[1].count === 0) {
+      throw new Error('Booking changed state — resolve aborted');
+    }
+
+    // Money movement (best-effort — booking already transitioned).
+    let refundStatus: string | undefined;
+    let refundedAmount = 0;
+    let releaseStatus: string | undefined;
+
+    if (outcome === 'refund-customer') {
+      const { refundBooking } = await import('./refund.service');
+      const result = await refundBooking(bookingId, remainder, `Dispute resolved: ${resolution}`, {
+        triggeredBy: adminId,
+        bookingDataOverride: {
+          cancelledAt: new Date(),
+          cancellationReason: `Dispute resolved: ${resolution}`,
+        },
+      });
+      refundStatus = result.status;
+      refundedAmount = result.amountRefunded ?? 0;
+    } else if (outcome === 'split') {
+      // Safe: the guard above already rejected split without a positive refundAmount.
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const refundAmount = params.refundAmount!;
+      const { refundBooking } = await import('./refund.service');
+      const result = await refundBooking(
+        bookingId,
+        refundAmount,
+        `Dispute resolved (split): ${resolution}`,
+        { triggeredBy: adminId }
+      );
+      refundStatus = result.status;
+      refundedAmount = result.amountRefunded ?? 0;
+
+      // After a successful partial refund, transferStatus is already PENDING
+      // (writeRefundSuccess: partial pre-release → PENDING). Call release
+      // directly — resumePausedRelease would find PENDING, not PAUSED.
+      if (result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED') {
+        const release = await releaseBookingFunds(bookingId).catch(() => ({
+          status: 'FAILED' as const,
+          reason: 'Release after split refund failed — admin retry needed',
+        }));
+        releaseStatus = release.status;
+      }
+    } else {
+      // release-to-cleaner: un-pause and release full earnings.
+      const release = await resumePausedRelease(bookingId);
+      releaseStatus = release.status;
+    }
+
+    // Notify both parties (best-effort).
+    await notifyDisputeResolved(dispute.booking, outcome, resolution).catch(() => {});
+
+    // Audit.
     await AuditService.log({
+      userId: adminId,
       action: 'ADMIN_RESOLVE_DISPUTE',
       entityType: 'Dispute',
       entityId: disputeId,
-      metadata: { resolution, refundAction, refundAmount },
-    });
+      metadata: {
+        bookingId,
+        outcome,
+        resolution,
+        refundedAmount,
+        refundStatus,
+        releaseStatus,
+      },
+    }).catch(() => {});
+
+    return { outcome, refundedAmount, refundStatus, releaseStatus };
+  }
+}
+
+// ─── Dispute notification helper (best-effort) ──────────────
+
+async function notifyDisputeResolved(
+  booking: { cleanerId: string; clientId: string | null; date: Date },
+  outcome: 'release-to-cleaner' | 'refund-customer' | 'split',
+  resolution: string
+): Promise<void> {
+  const dateStr = booking.date.toLocaleDateString('en-GB');
+
+  const outcomeMessages: Record<typeof outcome, { cleaner: string; customer: string }> = {
+    'release-to-cleaner': {
+      cleaner: `The dispute on your booking (${dateStr}) has been resolved in your favour. Your payment will be released.`,
+      customer: `The dispute on your booking (${dateStr}) has been reviewed and resolved. The cleaner will be paid as normal.`,
+    },
+    'refund-customer': {
+      cleaner: `The dispute on your booking (${dateStr}) has been resolved. The customer has been refunded.`,
+      customer: `The dispute on your booking (${dateStr}) has been resolved in your favour. A full refund is being processed.`,
+    },
+    split: {
+      cleaner: `The dispute on your booking (${dateStr}) has been resolved with a partial adjustment. Your reduced payment will be released.`,
+      customer: `The dispute on your booking (${dateStr}) has been resolved. A partial refund is being processed.`,
+    },
+  };
+
+  const msgs = outcomeMessages[outcome];
+
+  await prisma.notification
+    .create({
+      data: {
+        userId: booking.cleanerId,
+        type: 'DISPUTE_RESOLVED',
+        title: 'Dispute resolved',
+        body: msgs.cleaner,
+        data: { resolution },
+      },
+    })
+    .catch(() => {});
+
+  if (booking.clientId) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: booking.clientId,
+          type: 'DISPUTE_RESOLVED',
+          title: 'Dispute resolved',
+          body: msgs.customer,
+          data: { resolution },
+        },
+      })
+      .catch(() => {});
   }
 }

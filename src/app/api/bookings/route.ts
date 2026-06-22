@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
           cleaner: { select: { id: true, name: true, image: true } },
           client: { select: { id: true, name: true, image: true } },
           review: true,
+          dispute: { select: { id: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
