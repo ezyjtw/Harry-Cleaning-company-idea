@@ -6,6 +6,11 @@ import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { sanitizeInput } from '@/lib/utils/validation';
 
+// Thrown inside the review transaction when a concurrent change (most importantly
+// a dispute filed in the race window) makes the booking no longer reviewable.
+// Caught below and surfaced as 409 so the whole transaction rolls back cleanly.
+class ReviewConflict extends Error {}
+
 export async function POST(request: Request) {
   try {
     const user = await getSessionUser();
@@ -73,18 +78,41 @@ export async function POST(request: Request) {
 
     const sanitizedText = text ? sanitizeInput(String(text)).substring(0, 2000) : null;
 
-    // Money-adjacent: the review-create, the satisfaction confirm/release-trigger
-    // (completionConfirmedAt + releaseDueAt) and booking→REVIEWED must be ALL-OR-
-    // NOTHING. A crash mid-sequence must never release funds without a review row,
-    // nor leave a review without flipping the booking. One $transaction guarantees
-    // that boundary. The `completionConfirmedAt: null` guard makes the release block
-    // a no-op when "I'm satisfied" already confirmed (no double-set of releaseDueAt).
+    // Money-adjacent: the satisfaction confirm/release-trigger (completionConfirmedAt
+    // + releaseDueAt), the review.create, the booking→REVIEWED flip AND the cleaner
+    // rating recalc all commit or all roll back in ONE interactive transaction. No
+    // crash-between-writes can leave releaseDueAt set without a review row, a review
+    // without REVIEWED, or a review uncounted in the stored rating.
+    //
+    // Race-safety vs. a concurrently-filed dispute: dispute-filing flips the booking
+    // COMPLETED→DISPUTED via its own guarded updateMany on the same booking row. Our
+    // flip below (status: 'COMPLETED' → 'REVIEWED', count-checked) is a compare-and-
+    // swap on that same row, so the two transactions serialize on the row lock:
+    //   • dispute commits first → our flip matches 0 rows → throw → the whole review
+    //     tx (including the release-trigger) rolls back — no review slips through.
+    //   • review commits first  → dispute's `status IN (COMPLETED,IN_PROGRESS)` guard
+    //     matches 0 → the dispute filing aborts.
+    // The in-tx dispute re-read is a belt-and-braces early abort for an already-
+    // committed dispute; the count-checked flip is the actual race guard.
     let review;
     try {
       review = await prisma.$transaction(async (tx) => {
+        // Re-assert no open dispute from inside the tx (catches a dispute committed
+        // between the pre-tx check and here).
+        const liveDispute = await tx.dispute.findFirst({
+          where: { bookingId, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+          select: { id: true },
+        });
+        if (liveDispute) {
+          throw new ReviewConflict('Cannot review a booking with an open dispute.');
+        }
+
+        // Confirm/release-trigger — only if not already confirmed (no double-set of
+        // releaseDueAt when "I'm satisfied" already did it). Status-guarded so a
+        // booking that has slipped to DISPUTED can never have funds released here.
         if (!booking.completionConfirmedAt) {
           await tx.booking.updateMany({
-            where: { id: bookingId, completionConfirmedAt: null },
+            where: { id: bookingId, completionConfirmedAt: null, status: 'COMPLETED' },
             data: {
               completionConfirmedAt: new Date(),
               releaseDueAt: new Date(),
@@ -105,14 +133,37 @@ export async function POST(request: Request) {
           },
         });
 
-        await tx.booking.update({
-          where: { id: bookingId },
+        // Compare-and-swap on the booking row — THE serialization point against a
+        // concurrent dispute. If the booking is no longer COMPLETED (e.g. disputed),
+        // count is 0 and we abort the whole transaction.
+        const flip = await tx.booking.updateMany({
+          where: { id: bookingId, status: 'COMPLETED' },
           data: { status: 'REVIEWED' },
         });
+        if (flip.count === 0) {
+          throw new ReviewConflict('Booking is no longer reviewable — it may have been disputed.');
+        }
+
+        // Rating recalc INSIDE the tx, AFTER the create: the aggregate sees this tx's
+        // own just-created review (VISIBLE by default), so the stored rating reflects
+        // the new review and can never be left stale by a partial commit.
+        const avgRating = await tx.review.aggregate({
+          where: { cleanerId: booking.cleanerId, visibility: 'VISIBLE' },
+          _avg: { rating: true },
+        });
+        if (avgRating._avg.rating) {
+          await tx.cleanerProfile.updateMany({
+            where: { userId: booking.cleanerId },
+            data: { rating: avgRating._avg.rating },
+          });
+        }
 
         return created;
       });
     } catch (error) {
+      if (error instanceof ReviewConflict) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return NextResponse.json(
           { error: 'This booking has already been reviewed.' },
@@ -120,21 +171,6 @@ export async function POST(request: Request) {
         );
       }
       throw error;
-    }
-
-    // Derived display value — recomputed from VISIBLE reviews. Intentionally OUTSIDE
-    // the transaction: if it lags, the next review (or recalc) self-heals it; it
-    // touches no money and must not be able to roll back a committed review.
-    const avgRating = await prisma.review.aggregate({
-      where: { cleanerId: booking.cleanerId, visibility: 'VISIBLE' },
-      _avg: { rating: true },
-    });
-
-    if (avgRating._avg.rating) {
-      await prisma.cleanerProfile.updateMany({
-        where: { userId: booking.cleanerId },
-        data: { rating: avgRating._avg.rating },
-      });
     }
 
     await AuditService.log({
