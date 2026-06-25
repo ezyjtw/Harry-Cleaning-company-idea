@@ -30,6 +30,7 @@ interface Booking {
   topupAmount: number | null;
   hasDispute: boolean;
   completionConfirmed: boolean;
+  hasReview: boolean;
 }
 
 // Raw booking statuses the cancel endpoint accepts (mirrors the server's
@@ -156,6 +157,7 @@ export default function BookingsPage() {
               data.message || 'Confirmed — payment will be released to your cleaner shortly.',
           },
         }));
+        setReviewingId(fullId);
       } else {
         setConfirmResult((prev) => ({
           ...prev,
@@ -295,6 +297,71 @@ export default function BookingsPage() {
     }
   };
 
+  // Review flow
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewThoroughness, setReviewThoroughness] = useState(0);
+  const [reviewPunctuality, setReviewPunctuality] = useState(0);
+  const [reviewCommunication, setReviewCommunication] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewResult, setReviewResult] = useState<
+    Record<string, { ok: boolean; message: string }>
+  >({});
+
+  const dismissReview = () => {
+    setReviewingId(null);
+    setReviewRating(0);
+    setReviewHover(0);
+    setReviewThoroughness(0);
+    setReviewPunctuality(0);
+    setReviewCommunication(0);
+    setReviewText('');
+  };
+
+  const submitReview = async (fullId: string) => {
+    if (reviewRating < 1) return;
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: fullId,
+          rating: reviewRating,
+          thoroughness: reviewThoroughness || undefined,
+          punctuality: reviewPunctuality || undefined,
+          communication: reviewCommunication || undefined,
+          text: reviewText.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setBookings((prev) =>
+          prev.map((b) => (b.fullId === fullId ? { ...b, hasReview: true } : b))
+        );
+        setReviewResult((prev) => ({
+          ...prev,
+          [fullId]: { ok: true, message: 'Thank you for your review!' },
+        }));
+        dismissReview();
+      } else {
+        setReviewResult((prev) => ({
+          ...prev,
+          [fullId]: { ok: false, message: data.error || 'Could not submit review.' },
+        }));
+      }
+    } catch {
+      setReviewResult((prev) => ({
+        ...prev,
+        [fullId]: { ok: false, message: 'Something went wrong. Please try again.' },
+      }));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     fetch('/api/bookings')
       .then((res) => (res.ok ? res.json() : { bookings: [] }))
@@ -320,6 +387,7 @@ export default function BookingsPage() {
           topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
           hasDispute: !!(b.dispute || (b as Record<string, unknown>).hasDispute),
           completionConfirmed: !!b.completionConfirmedAt,
+          hasReview: !!b.review,
         }));
         setBookings(items);
       })
@@ -499,25 +567,144 @@ export default function BookingsPage() {
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-                {booking.rawStatus === 'COMPLETED' &&
-                  (confirmResult[booking.fullId] ? (
-                    <span
-                      className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-green-700' : 'text-red-700'}`}
-                    >
-                      {confirmResult[booking.fullId].ok ? '✓ ' : ''}
-                      {confirmResult[booking.fullId].message}
-                    </span>
-                  ) : !booking.completionConfirmed ? (
-                    <button
-                      onClick={() => confirmComplete(booking.fullId)}
-                      disabled={confirmingId === booking.fullId}
-                      className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {confirmingId === booking.fullId
-                        ? 'Confirming…'
-                        : "I'm satisfied — release payment"}
-                    </button>
-                  ) : null)}
+                {booking.rawStatus === 'COMPLETED' && (
+                  <>
+                    {confirmResult[booking.fullId] && (
+                      <span
+                        className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-green-700' : 'text-red-700'}`}
+                      >
+                        {confirmResult[booking.fullId].ok ? '✓ ' : ''}
+                        {confirmResult[booking.fullId].message}
+                      </span>
+                    )}
+
+                    {!booking.completionConfirmed && !confirmResult[booking.fullId] && (
+                      <button
+                        onClick={() => confirmComplete(booking.fullId)}
+                        disabled={confirmingId === booking.fullId}
+                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {confirmingId === booking.fullId
+                          ? 'Confirming…'
+                          : "I'm satisfied — release payment"}
+                      </button>
+                    )}
+
+                    {reviewResult[booking.fullId] && (
+                      <span
+                        className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-green-700' : 'text-red-700'}`}
+                      >
+                        {reviewResult[booking.fullId].ok ? '✓ ' : ''}
+                        {reviewResult[booking.fullId].message}
+                      </span>
+                    )}
+
+                    {booking.completionConfirmed &&
+                      !booking.hasReview &&
+                      !reviewResult[booking.fullId]?.ok &&
+                      reviewingId !== booking.fullId &&
+                      !confirmResult[booking.fullId]?.ok && (
+                        <button
+                          onClick={() => setReviewingId(booking.fullId)}
+                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                        >
+                          Leave a review
+                        </button>
+                      )}
+
+                    {reviewingId === booking.fullId && !booking.hasReview && (
+                      <div className="flex w-full flex-col gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4">
+                        <span className="text-sm font-medium text-gray-900">
+                          How was your clean?
+                        </span>
+
+                        <div>
+                          <span className="mb-1 block text-xs text-gray-600">Overall rating</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setReviewRating(star)}
+                                onMouseEnter={() => setReviewHover(star)}
+                                onMouseLeave={() => setReviewHover(0)}
+                                className="text-2xl focus:outline-none"
+                              >
+                                <span
+                                  className={
+                                    star <= (reviewHover || reviewRating)
+                                      ? 'text-yellow-400'
+                                      : 'text-gray-300'
+                                  }
+                                >
+                                  &#9733;
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {(
+                            [
+                              ['Thoroughness', reviewThoroughness, setReviewThoroughness],
+                              ['Punctuality', reviewPunctuality, setReviewPunctuality],
+                              ['Communication', reviewCommunication, setReviewCommunication],
+                            ] as const
+                          ).map(([label, value, setter]) => (
+                            <div key={label}>
+                              <span className="mb-1 block text-xs text-gray-500">{label}</span>
+                              <div className="flex gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => (setter as (v: number) => void)(star)}
+                                    className="text-sm focus:outline-none"
+                                  >
+                                    <span
+                                      className={
+                                        star <= value ? 'text-yellow-400' : 'text-gray-300'
+                                      }
+                                    >
+                                      &#9733;
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <textarea
+                          rows={3}
+                          value={reviewText}
+                          onChange={(e) => setReviewText(e.target.value)}
+                          placeholder="Tell us about your experience (optional)"
+                          maxLength={2000}
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-xs resize-none"
+                        />
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => submitReview(booking.fullId)}
+                            disabled={reviewSubmitting || reviewRating < 1}
+                            className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                          >
+                            {reviewSubmitting ? 'Submitting…' : 'Submit review'}
+                          </button>
+                          <button
+                            onClick={dismissReview}
+                            disabled={reviewSubmitting}
+                            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {booking.status === 'Price approval needed' && (
                   <Link

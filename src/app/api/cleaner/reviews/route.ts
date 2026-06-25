@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { sanitizeInput } from '@/lib/utils/validation';
 
 export async function GET(request: NextRequest) {
   const user = await getCleanerSession();
@@ -116,9 +117,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Review not found' }, { status: 404 });
   }
 
+  const sanitizedReply = sanitizeInput(reply).substring(0, 2000);
+
   await prisma.review.update({
     where: { id: reviewId },
-    data: { reply: reply.trim() },
+    data: { reply: sanitizedReply },
   });
 
   return NextResponse.json({ success: true });

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { atomicAccept } from '@/lib/services/cascade.service';
+import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 
 type BookingStatus =
   | 'PENDING'
@@ -275,6 +276,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         },
       })
       .catch(() => {});
+
+    await EnhancedNotificationService.sendReviewRequest(updated.id).catch(() => {});
   }
 
   return NextResponse.json({

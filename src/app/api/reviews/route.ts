@@ -1,7 +1,10 @@
+import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
-import prisma from '@/lib/db/prisma';
 import { getSessionUser } from '@/lib/auth/session';
+import prisma from '@/lib/db/prisma';
+import { AuditService } from '@/lib/services/audit.service';
+import { sanitizeInput } from '@/lib/utils/validation';
 
 export async function POST(request: Request) {
   try {
@@ -14,23 +17,26 @@ export async function POST(request: Request) {
     const { bookingId, rating, thoroughness, punctuality, communication, text } = body;
 
     if (!bookingId || !rating) {
+      return NextResponse.json({ error: 'Booking ID and rating are required.' }, { status: 400 });
+    }
+
+    if (typeof rating !== 'number' || rating < 1 || rating > 5) {
       return NextResponse.json(
-        { error: 'Booking ID and rating are required.' },
+        { error: 'Rating must be a number between 1 and 5.' },
         { status: 400 }
       );
     }
 
-    if (rating < 1 || rating > 5) {
-      return NextResponse.json(
-        { error: 'Rating must be between 1 and 5.' },
-        { status: 400 }
-      );
-    }
-
-    // Verify booking exists and belongs to this user
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { id: true, clientId: true, cleanerId: true, status: true },
+      select: {
+        id: true,
+        clientId: true,
+        cleanerId: true,
+        status: true,
+        completionConfirmedAt: true,
+        transferStatus: true,
+      },
     });
 
     if (!booking) {
@@ -38,7 +44,14 @@ export async function POST(request: Request) {
     }
 
     if (booking.clientId !== user.id) {
-      return NextResponse.json({ error: 'You can only review your own bookings.' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'You can only review your own bookings.' },
+        { status: 403 }
+      );
+    }
+
+    if (booking.status === 'DISPUTED') {
+      return NextResponse.json({ error: 'Cannot review a disputed booking.' }, { status: 400 });
     }
 
     if (booking.status !== 'COMPLETED' && booking.status !== 'REVIEWED') {
@@ -48,37 +61,60 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if already reviewed
-    const existingReview = await prisma.review.findUnique({
-      where: { bookingId },
+    const openDispute = await prisma.dispute.findFirst({
+      where: { bookingId, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
     });
-
-    if (existingReview) {
-      return NextResponse.json({ error: 'This booking has already been reviewed.' }, { status: 400 });
+    if (openDispute) {
+      return NextResponse.json(
+        { error: 'Cannot review a booking with an open dispute.' },
+        { status: 400 }
+      );
     }
 
-    const review = await prisma.review.create({
-      data: {
-        bookingId,
-        clientId: user.id,
-        cleanerId: booking.cleanerId,
-        rating,
-        thoroughness: thoroughness || null,
-        punctuality: punctuality || null,
-        communication: communication || null,
-        text: text || null,
-      },
-    });
+    const sanitizedText = text ? sanitizeInput(String(text)).substring(0, 2000) : null;
 
-    // Update booking status to REVIEWED
+    // Review implies satisfaction — auto-confirm + release if not already done
+    if (!booking.completionConfirmedAt) {
+      await prisma.booking.updateMany({
+        where: { id: bookingId, completionConfirmedAt: null },
+        data: {
+          completionConfirmedAt: new Date(),
+          releaseDueAt: new Date(),
+        },
+      });
+    }
+
+    let review;
+    try {
+      review = await prisma.review.create({
+        data: {
+          bookingId,
+          clientId: user.id,
+          cleanerId: booking.cleanerId,
+          rating,
+          thoroughness: thoroughness || null,
+          punctuality: punctuality || null,
+          communication: communication || null,
+          text: sanitizedText,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return NextResponse.json(
+          { error: 'This booking has already been reviewed.' },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
+
     await prisma.booking.update({
       where: { id: bookingId },
       data: { status: 'REVIEWED' },
     });
 
-    // Update cleaner's average rating
     const avgRating = await prisma.review.aggregate({
-      where: { cleanerId: booking.cleanerId },
+      where: { cleanerId: booking.cleanerId, visibility: 'VISIBLE' },
       _avg: { rating: true },
     });
 
@@ -88,6 +124,14 @@ export async function POST(request: Request) {
         data: { rating: avgRating._avg.rating },
       });
     }
+
+    await AuditService.log({
+      action: 'REVIEW_CREATED',
+      userId: user.id,
+      entityType: 'Review',
+      entityId: review.id,
+      metadata: { bookingId, rating, cleanerId: booking.cleanerId },
+    }).catch(() => {});
 
     return NextResponse.json(review, { status: 201 });
   } catch {
