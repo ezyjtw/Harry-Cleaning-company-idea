@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -62,6 +63,8 @@ export async function POST(_request: Request, context: RouteContext) {
   if (claimed.count === 0) {
     return NextResponse.json({ error: 'Booking state changed — please refresh' }, { status: 409 });
   }
+
+  await EnhancedNotificationService.sendReviewRequest(bookingId).catch(() => {});
 
   return NextResponse.json({ message: 'Completion confirmed — funds will be released shortly' });
 }
