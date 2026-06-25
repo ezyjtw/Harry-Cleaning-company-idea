@@ -9,6 +9,7 @@ import { executeCancellation } from './cancellation.service';
 import { cascadeTeardownFields, enterAdminReassignProvisional } from './cascade.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
+import { updateStoredRating } from './rating.service';
 import { releaseBookingFunds, resumePausedRelease } from './transfer.service';
 
 export type ReassignPriceCase = 'EQUAL' | 'CHEAPER' | 'PRICIER';
@@ -516,6 +517,10 @@ export class AdminOperationsService {
       where: { id: reviewId },
       data: { visibility: action, isModerated: true },
     });
+
+    // Recompute stored rating — visibility change affects the blended average.
+    // Without this, hiding a review would leave the stored rating inflated.
+    await updateStoredRating(review.cleanerId);
 
     await AuditService.log({
       userId: adminId,

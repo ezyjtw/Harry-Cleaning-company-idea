@@ -39,7 +39,7 @@ export class CleanerAnalyticsService {
         where: { cleanerId: userId, status: 'CANCELLED', date: { gte: startDate } },
       }),
       prisma.review.aggregate({
-        where: { cleanerId: userId },
+        where: { cleanerId: userId, visibility: 'VISIBLE' },
         _avg: { rating: true },
         _count: true,
       }),

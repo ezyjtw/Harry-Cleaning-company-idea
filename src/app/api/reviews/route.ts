@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { updateStoredRating } from '@/lib/services/rating.service';
 import { sanitizeInput } from '@/lib/utils/validation';
 
 // Thrown inside the review transaction when a concurrent change (most importantly
@@ -144,19 +145,11 @@ export async function POST(request: Request) {
           throw new ReviewConflict('Booking is no longer reviewable — it may have been disputed.');
         }
 
-        // Rating recalc INSIDE the tx, AFTER the create: the aggregate sees this tx's
-        // own just-created review (VISIBLE by default), so the stored rating reflects
-        // the new review and can never be left stale by a partial commit.
-        const avgRating = await tx.review.aggregate({
-          where: { cleanerId: booking.cleanerId, visibility: 'VISIBLE' },
-          _avg: { rating: true },
-        });
-        if (avgRating._avg.rating) {
-          await tx.cleanerProfile.updateMany({
-            where: { userId: booking.cleanerId },
-            data: { rating: avgRating._avg.rating },
-          });
-        }
+        // Rating recalc INSIDE the tx, AFTER the create: the helper's aggregate
+        // sees this tx's own just-created review (VISIBLE by default) because we
+        // pass `tx` as the client. Stored rating reflects the new review and can
+        // never be left stale by a partial commit.
+        await updateStoredRating(booking.cleanerId, tx);
 
         return created;
       });

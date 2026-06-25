@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import { updateStoredRating } from '@/lib/services/rating.service';
 
 export class ReviewRepository {
   static async findByCleanerId(cleanerId: string, options?: { page?: number; pageSize?: number }) {
@@ -42,9 +43,11 @@ export class ReviewRepository {
   }
 
   static async moderate(reviewId: string, visibility: 'VISIBLE' | 'HIDDEN' | 'FLAGGED') {
-    return prisma.review.update({
+    const review = await prisma.review.update({
       where: { id: reviewId },
       data: { visibility, isModerated: true },
     });
+    await updateStoredRating(review.cleanerId);
+    return review;
   }
 }
