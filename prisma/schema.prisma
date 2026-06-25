@@ -127,6 +127,12 @@ enum ReviewVisibility {
   FLAGGED
 }
 
+enum ImportedReviewStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum ProviderType {
   INDIVIDUAL
   COMPANY
@@ -253,6 +259,7 @@ model User {
   complaints          Complaint[]           @relation("ComplaintsFiled")
   cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
   pushSubscriptions   PushSubscription[]
+  importedReviews     ImportedReview[]      @relation("ImportedReviews")
 
   @@index([email])
   @@index([role])
@@ -1196,6 +1203,30 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Imported Reviews ───────────────────────────────────────────────────────
+
+model ImportedReview {
+  id                 String               @id @default(cuid())
+  cleanerId          String
+  rating             Decimal              @db.Decimal(2, 1) // 1.0 - 5.0, overall only
+  text               String?              @db.Text
+  source             String               // e.g. "Google", "Checkatrade", "Personal Reference"
+  reviewerName       String?
+  evidenceUrl        String?              // R2 object key for encrypted screenshot/evidence
+  referenceContacts  String?              @db.Text // contact info for admin to verify personal references
+  verificationStatus ImportedReviewStatus @default(PENDING)
+  adminNotes         String?              @db.Text
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  cleaner User @relation("ImportedReviews", fields: [cleanerId], references: [id], onDelete: Cascade)
+
+  @@index([cleanerId])
+  @@index([verificationStatus])
 }
 
 // ─── Stripe Webhook Idempotency ──────────────────────────────────────────────
