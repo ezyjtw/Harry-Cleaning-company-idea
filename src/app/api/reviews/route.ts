@@ -73,30 +73,44 @@ export async function POST(request: Request) {
 
     const sanitizedText = text ? sanitizeInput(String(text)).substring(0, 2000) : null;
 
-    // Review implies satisfaction — auto-confirm + release if not already done
-    if (!booking.completionConfirmedAt) {
-      await prisma.booking.updateMany({
-        where: { id: bookingId, completionConfirmedAt: null },
-        data: {
-          completionConfirmedAt: new Date(),
-          releaseDueAt: new Date(),
-        },
-      });
-    }
-
+    // Money-adjacent: the review-create, the satisfaction confirm/release-trigger
+    // (completionConfirmedAt + releaseDueAt) and booking→REVIEWED must be ALL-OR-
+    // NOTHING. A crash mid-sequence must never release funds without a review row,
+    // nor leave a review without flipping the booking. One $transaction guarantees
+    // that boundary. The `completionConfirmedAt: null` guard makes the release block
+    // a no-op when "I'm satisfied" already confirmed (no double-set of releaseDueAt).
     let review;
     try {
-      review = await prisma.review.create({
-        data: {
-          bookingId,
-          clientId: user.id,
-          cleanerId: booking.cleanerId,
-          rating,
-          thoroughness: thoroughness || null,
-          punctuality: punctuality || null,
-          communication: communication || null,
-          text: sanitizedText,
-        },
+      review = await prisma.$transaction(async (tx) => {
+        if (!booking.completionConfirmedAt) {
+          await tx.booking.updateMany({
+            where: { id: bookingId, completionConfirmedAt: null },
+            data: {
+              completionConfirmedAt: new Date(),
+              releaseDueAt: new Date(),
+            },
+          });
+        }
+
+        const created = await tx.review.create({
+          data: {
+            bookingId,
+            clientId: user.id,
+            cleanerId: booking.cleanerId,
+            rating,
+            thoroughness: thoroughness || null,
+            punctuality: punctuality || null,
+            communication: communication || null,
+            text: sanitizedText,
+          },
+        });
+
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: { status: 'REVIEWED' },
+        });
+
+        return created;
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -108,11 +122,9 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: 'REVIEWED' },
-    });
-
+    // Derived display value — recomputed from VISIBLE reviews. Intentionally OUTSIDE
+    // the transaction: if it lags, the next review (or recalc) self-heals it; it
+    // touches no money and must not be able to roll back a committed review.
     const avgRating = await prisma.review.aggregate({
       where: { cleanerId: booking.cleanerId, visibility: 'VISIBLE' },
       _avg: { rating: true },
