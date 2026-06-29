@@ -11,14 +11,17 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>();
 
 // Clean up expired entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  store.forEach((entry, key) => {
-    if (entry.resetAt < now) {
-      store.delete(key);
-    }
-  });
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    store.forEach((entry, key) => {
+      if (entry.resetAt < now) {
+        store.delete(key);
+      }
+    });
+  },
+  5 * 60 * 1000
+);
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -55,12 +58,28 @@ export function checkRateLimit(
 }
 
 /**
- * Get IP address from request headers (works behind proxies).
+ * Get the client IP from request headers.
+ *
+ * SECURITY: X-Forwarded-For is a comma-separated chain "client, proxy1, proxy2…"
+ * where each proxy APPENDS the address it received the connection from. The
+ * LEFTMOST entry is fully attacker-controlled (a client can send any value), so
+ * keying rate limits on it lets an attacker mint unlimited buckets by rotating
+ * the header. We take the RIGHTMOST entry instead — the address our trusted edge
+ * proxy (Railway) actually observed, which the client cannot forge.
+ *
+ * NOTE: assumes exactly one trusted proxy hop. If the deployment topology gains
+ * additional trusted proxies, index `TRUSTED_PROXY_HOPS` from the right.
  */
 export function getClientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    const parts = forwarded
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts[parts.length - 1];
+    }
   }
   return request.headers.get('x-real-ip') || 'unknown';
 }

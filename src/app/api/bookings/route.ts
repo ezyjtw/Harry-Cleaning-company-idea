@@ -520,17 +520,11 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-    // TEMPORARY DEBUG — REVERT AFTER DIAGNOSIS
   } catch (error) {
+    // Log full detail server-side only; never leak error messages/stack traces to
+    // the client (the previous TEMPORARY DEBUG block returned the stack in prod).
     // eslint-disable-next-line no-console
     console.error('[POST /api/bookings] Unhandled error:', error);
-
-    if (process.env.NODE_ENV === 'production') {
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-      return NextResponse.json({ error: message, stack }, { status: 500 });
-    }
-
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

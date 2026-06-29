@@ -4,6 +4,27 @@ import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
 
+// ─── Client IP resolution ───────────────────────────────────────────────────
+
+/**
+ * SECURITY: take the RIGHTMOST X-Forwarded-For entry — the address our trusted
+ * edge proxy observed — not the leftmost client-controlled value, which is
+ * trivially spoofable to defeat IP-keyed rate limiting. Assumes one trusted hop.
+ */
+function getClientIpFromHeaders(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const parts = forwarded
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts[parts.length - 1];
+    }
+  }
+  return request.headers.get('x-real-ip') || 'unknown';
+}
+
 // ─── In-Memory Rate Limiter ─────────────────────────────────────────────────
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -63,10 +84,7 @@ export function middleware(request: NextRequest) {
 
   // Skip locale processing for API routes and static assets
   if (pathname.startsWith('/api')) {
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
+    const ip = getClientIpFromHeaders(request);
 
     if (isRateLimited(ip)) {
       return NextResponse.json(
@@ -143,10 +161,7 @@ export function middleware(request: NextRequest) {
   );
 
   // Rate limiting for non-API page routes
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown';
+  const ip = getClientIpFromHeaders(request);
 
   if (isRateLimited(ip)) {
     return NextResponse.json(

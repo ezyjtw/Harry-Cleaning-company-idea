@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getCompanyMemberSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { CompanyService } from '@/lib/services/company.service';
 
@@ -9,6 +10,13 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // SECURITY: only a member of this company may reassign its bookings.
+    const member = await getCompanyMemberSession(id);
+    if (!member) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+
     const body = await request.json();
 
     if (!body.bookingId || !body.cleanerId) {
@@ -32,6 +40,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // SECURITY: company bookings include client/cleaner PII — restrict to members.
+    const member = await getCompanyMemberSession(id);
+    if (!member) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
 
     const company = await prisma.company.findUnique({
       where: { id },

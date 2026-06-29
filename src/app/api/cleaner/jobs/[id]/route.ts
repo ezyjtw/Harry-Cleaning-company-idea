@@ -129,6 +129,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
+  // ANTI-FRAUD: a job may not be marked COMPLETED before its scheduled start.
+  // Self-completion sets releaseDueAt and triggers auto-release of funds; without
+  // this guard a cleaner could complete a future-dated booking the instant the
+  // customer pays and be paid for work never performed. (Date+startTime compare;
+  // approximate to server timezone, which is sufficient to block future-dating.)
+  if (status === 'COMPLETED') {
+    const [h, m] = (booking.startTime || '00:00').split(':').map((n) => parseInt(n, 10));
+    const scheduledStart = new Date(booking.date);
+    scheduledStart.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0);
+    if (Date.now() < scheduledStart.getTime()) {
+      return NextResponse.json(
+        { error: 'Cannot mark a job complete before its scheduled start time.' },
+        { status: 400 }
+      );
+    }
+  }
+
   // Superseded by POST /api/cleaner/jobs/[id]/accept — kept as fallback for direct PATCH callers
   // For ACCEPTED, use the atomic cascade-aware accept
   if (status === 'ACCEPTED') {

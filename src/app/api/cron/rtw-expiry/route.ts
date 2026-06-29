@@ -14,11 +14,17 @@ import { RightToWorkService } from '@/lib/services/right-to-work.service';
  * 2. Suspend cleaners with expired RTW documents
  */
 export async function GET(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized access
+  // Verify cron secret to prevent unauthorized access.
+  // SECURITY: fail CLOSED — in production a missing CRON_SECRET must deny all
+  // callers, never skip the check (an unset secret previously left this open).
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  } else if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -71,9 +77,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[RTW Cron] Fatal error:', error);
-    return NextResponse.json(
-      { error: 'RTW expiry check failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'RTW expiry check failed' }, { status: 500 });
   }
 }
