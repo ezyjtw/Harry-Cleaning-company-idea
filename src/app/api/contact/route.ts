@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting by IP
     const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const ip = forwarded?.split(',').pop()?.trim() || request.headers.get('x-real-ip') || 'unknown';
     const rateCheck = contactRateLimiter.check(ip);
 
     if (!rateCheck.allowed) {

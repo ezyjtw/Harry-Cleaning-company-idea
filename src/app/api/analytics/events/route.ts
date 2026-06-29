@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Get IP from headers
     const forwarded = request.headers.get('x-forwarded-for');
     const ipAddress =
-      forwarded?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? undefined;
+      forwarded?.split(',').pop()?.trim() ?? request.headers.get('x-real-ip') ?? undefined;
 
     await AnalyticsTrackingService.track({
       sessionId: sanitize(sessionId),

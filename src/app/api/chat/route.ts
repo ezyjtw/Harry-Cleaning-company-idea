@@ -59,7 +59,9 @@ If you cannot resolve something, advise the customer to email support@renacleani
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    // rightmost = trusted-proxy-observed IP; leftmost is client-spoofable
+    const parts = forwarded.split(',');
+    return parts[parts.length - 1].trim();
   }
   const realIP = request.headers.get('x-real-ip');
   if (realIP) {

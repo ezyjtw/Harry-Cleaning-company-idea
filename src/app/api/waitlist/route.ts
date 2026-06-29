@@ -12,7 +12,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
+  if (forwarded) {
+    const parts = forwarded.split(',');
+    return parts[parts.length - 1].trim();
+  }
   return request.headers.get('x-real-ip') || '127.0.0.1';
 }
 
