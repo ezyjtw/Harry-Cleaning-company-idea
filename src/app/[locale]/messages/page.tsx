@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { detectContactInfo } from '@/lib/utils/pii';
@@ -72,6 +73,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<'customer' | 'cleaner'>('customer');
 
   // A10 B2b: per-message report UI state
   const [reportingId, setReportingId] = useState<string | null>(null);
@@ -89,8 +91,9 @@ export default function MessagesPage() {
     fetch('/api/auth/profile')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.id) setCurrentUserId(data.id);
-        else if (data?.user?.id) setCurrentUserId(data.user.id);
+        const u = data?.id ? data : data?.user;
+        if (u?.id) setCurrentUserId(u.id);
+        if (u?.role) setCurrentUserRole(u.role === 'CLEANER' ? 'cleaner' : 'customer');
       })
       .catch(() => {});
   }, []);
@@ -340,6 +343,21 @@ export default function MessagesPage() {
       >
         {/* Header */}
         <div className="border-b border-gray-200 px-4 py-4">
+          <Link
+            href={currentUserRole === 'cleaner' ? '/cleaner' : '/dashboard'}
+            className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-gray-700"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+            Back to dashboard
+          </Link>
           <h1 className="text-xl font-bold text-gray-900">Messages</h1>
         </div>
 
@@ -527,8 +545,21 @@ export default function MessagesPage() {
                               setReportReason('SPAM');
                               setReportDetails('');
                             }}
-                            className="mt-1 text-[11px] text-gray-400 hover:text-gray-600"
+                            className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600"
                           >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.8}
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"
+                              />
+                            </svg>
                             Report
                           </button>
                         ))}
