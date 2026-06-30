@@ -1,6 +1,8 @@
 // ─── Types ──────────────────────────────────────────────────
 
 import { prisma } from '@/lib/db/prisma';
+import { sendNewMessageEmail } from '@/lib/services/email.service';
+import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/lib/utils/errors';
 import { sanitizeMessageContent } from '@/lib/utils/sanitize';
 
@@ -33,6 +35,9 @@ export interface Conversation {
   // activeBookingId is that booking — the one a new message is tagged with.
   canSend: boolean;
   activeBookingId?: string;
+  // A10 B2: true when the current user has blocked this partner (drives the
+  // block/unblock toggle). canSend is already false when EITHER party blocks.
+  blockedByMe: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,7 +76,7 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
       ],
     };
 
-    const [partner, lastMessage, unreadCount, activeBooking] = await Promise.all([
+    const [partner, lastMessage, unreadCount, activeBooking, blocks] = await Promise.all([
       prisma.user.findUnique({
         where: { id: partnerId },
         select: { id: true, name: true, image: true, role: true },
@@ -93,9 +98,22 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
         orderBy: { date: 'desc' },
         select: { id: true },
       }),
+      // A10 B2: blocks in EITHER direction (close the conversation regardless of booking).
+      prisma.userBlock.findMany({
+        where: {
+          OR: [
+            { blockerId: userId, blockedId: partnerId },
+            { blockerId: partnerId, blockedId: userId },
+          ],
+        },
+        select: { blockerId: true },
+      }),
     ]);
 
     if (!partner || !lastMessage) continue;
+
+    const eitherBlocked = blocks.length > 0;
+    const blockedByMe = blocks.some((b) => b.blockerId === userId);
 
     conversations.push({
       id: partnerId,
@@ -120,8 +138,9 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
       },
       unreadCount,
       bookingId: lastMessage.bookingId || undefined,
-      canSend: !!activeBooking,
+      canSend: !!activeBooking && !eitherBlocked,
       activeBookingId: activeBooking?.id ?? undefined,
+      blockedByMe,
       createdAt: lastMessage.createdAt.toISOString(),
       updatedAt: lastMessage.createdAt.toISOString(),
     });
@@ -202,6 +221,22 @@ export async function sendMessage(
     );
   }
 
+  // Block-gate (A10 B2): a block in EITHER direction closes the conversation, even
+  // with an active booking. Enforced here so a blocked send is rejected at the API,
+  // not merely hidden in the UI.
+  const block = await prisma.userBlock.findFirst({
+    where: {
+      OR: [
+        { blockerId: senderId, blockedId: receiverId },
+        { blockerId: receiverId, blockedId: senderId },
+      ],
+    },
+    select: { id: true },
+  });
+  if (block) {
+    throw new ForbiddenError('You can no longer message this person.');
+  }
+
   const content = sanitizeMessageContent(rawContent);
   if (!content) {
     throw new ValidationError('Message content cannot be empty.');
@@ -214,6 +249,17 @@ export async function sendMessage(
     data: { senderId, receiverId, content, bookingId },
   });
 
+  // Notify the recipient — fire-and-forget so a notification failure can NEVER
+  // 500 a successfully-sent message. This is the single gated path, so every send
+  // (any caller) notifies the recipient exactly once.
+  dispatchNewMessageNotifications({
+    messageId: created.id,
+    senderId,
+    receiverId,
+    bookingId,
+    content: created.content,
+  }).catch(() => {});
+
   return {
     id: created.id,
     conversationId: receiverId,
@@ -224,6 +270,48 @@ export async function sendMessage(
     read: created.read,
     createdAt: created.createdAt.toISOString(),
   };
+}
+
+/**
+ * Best-effort fan-out of NEW_MESSAGE notifications, called fire-and-forget from
+ * the gated sendMessage. In-app + push every time (via the canonical
+ * EnhancedNotificationService.send, same path as review requests). Email only on
+ * the FIRST unread from this sender (a burst -> one email, no re-nag), and the
+ * email links to the thread rather than exposing the message body (PII).
+ */
+async function dispatchNewMessageNotifications(params: {
+  messageId: string;
+  senderId: string;
+  receiverId: string;
+  bookingId: string;
+  content: string;
+}): Promise<void> {
+  const { messageId, senderId, receiverId, bookingId, content } = params;
+
+  const [sender, receiver, priorUnread] = await Promise.all([
+    prisma.user.findUnique({ where: { id: senderId }, select: { name: true } }),
+    prisma.user.findUnique({ where: { id: receiverId }, select: { name: true, email: true } }),
+    // "First unread" = no OTHER unread message from this sender to this recipient.
+    prisma.message.count({
+      where: { senderId, receiverId, read: false, id: { not: messageId } },
+    }),
+  ]);
+
+  const senderName = sender?.name ?? 'Someone';
+
+  // In-app + push.
+  await EnhancedNotificationService.send({
+    userId: receiverId,
+    type: 'NEW_MESSAGE',
+    title: `New message from ${senderName}`,
+    body: content.substring(0, 100),
+    data: { senderId, messageId, bookingId },
+  });
+
+  // Email — first-unread-only.
+  if (priorUnread === 0 && receiver?.email) {
+    await sendNewMessageEmail(receiver.email, receiver.name ?? '', senderName);
+  }
 }
 
 export async function markAsRead(partnerId: string, userId: string): Promise<void> {

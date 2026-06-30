@@ -29,6 +29,8 @@ interface Conversation {
   // booking; activeBookingId is the booking a new message is tagged with.
   canSend: boolean;
   activeBookingId?: string;
+  // A10 B2: true if the current user has blocked this partner (drives the toggle).
+  blockedByMe: boolean;
   updatedAt: string;
 }
 
@@ -168,6 +170,28 @@ export default function MessagesPage() {
   function handleBackToList() {
     setActiveConversationId(null);
     setMessages([]);
+  }
+
+  async function handleToggleBlock() {
+    const conv = conversations.find((c) => c.id === activeConversationId);
+    if (!conv) return;
+    try {
+      const res = await fetch('/api/messages/block', {
+        method: conv.blockedByMe ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerId: conv.id }),
+      });
+      if (res.ok) {
+        // Refresh so canSend / blockedByMe update.
+        const convRes = await fetch('/api/messages');
+        if (convRes.ok) {
+          const convData = await convRes.json();
+          setConversations(convData.conversations || []);
+        }
+      }
+    } catch {
+      // ignore — user can retry
+    }
   }
 
   // ─── Loading State ──────────────────────────────────────
@@ -320,6 +344,13 @@ export default function MessagesPage() {
                     : 'Customer'}
                 </p>
               </div>
+
+              <button
+                onClick={handleToggleBlock}
+                className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+              >
+                {activeConversation.blockedByMe ? 'Unblock' : 'Block'}
+              </button>
             </div>
 
             {/* Messages */}
@@ -392,7 +423,9 @@ export default function MessagesPage() {
             ) : (
               <div className="border-t border-gray-200 px-4 py-4 text-center">
                 <p className="text-sm text-gray-500">
-                  This conversation is read-only — start a new booking to message again.
+                  {activeConversation.blockedByMe
+                    ? "You've blocked this person. Unblock to message them again."
+                    : 'This conversation is read-only — start a new booking to message again.'}
                 </p>
               </div>
             )}

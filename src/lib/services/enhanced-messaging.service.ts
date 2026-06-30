@@ -37,28 +37,10 @@ export class EnhancedMessagingService {
       throw new ValidationError('A booking is required to send a message.');
     }
 
-    const message = await sendGatedMessage(params.senderId, params.bookingId, params.content);
-
-    // Notify the (server-derived) receiver.
-    const sender = await prisma.user.findUnique({
-      where: { id: params.senderId },
-      select: { name: true },
-    });
-    await prisma.notification.create({
-      data: {
-        userId: message.receiverId,
-        type: 'NEW_MESSAGE',
-        title: `New message from ${sender?.name ?? 'User'}`,
-        body: message.content.substring(0, 100),
-        data: {
-          senderId: params.senderId,
-          messageId: message.id,
-          bookingId: params.bookingId,
-        },
-      },
-    });
-
-    return message;
+    // The NEW_MESSAGE notification now fires INSIDE the gated sendMessage (the
+    // single send path), so every caller notifies the recipient exactly once.
+    // Do NOT notify here — it would double-notify.
+    return sendGatedMessage(params.senderId, params.bookingId, params.content);
   }
 
   /**
