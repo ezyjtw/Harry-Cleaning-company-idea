@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
+import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
@@ -20,6 +21,7 @@ import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise from '@/lib/stripe-client';
 import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner, Review } from '@/lib/types';
+import { isValidPostcode } from '@/lib/utils/postcode';
 
 const SERVICE_LABELS: Record<ServiceCategory, string> = {
   regular: 'Regular Cleaning',
@@ -245,6 +247,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // ─── Quote phase state ─────────────────────────
   const [postcode, setPostcode] = useState('');
+  // A12: structured booking address (captured at the cleaner phase, seeded from postcode).
+  const [address, setAddress] = useState({ line1: '', line2: '', city: '', postcode: '' });
   const [rooms, setRooms] = useState<RoomConfig>({
     bedrooms: 2,
     bathrooms: 1,
@@ -324,6 +328,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const handleBookingSubmit = async () => {
     if (bookingSubmitting) return;
+    // A12: require a real street address (line1 + a valid postcode) before booking.
+    const effectivePostcode = address.postcode || postcode;
+    if (!address.line1.trim() || !isValidPostcode(effectivePostcode)) {
+      setBookingError('Please enter the full cleaning address (street and a valid postcode).');
+      return;
+    }
     setBookingSubmitting(true);
     setBookingError(null);
     try {
@@ -337,7 +347,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           cleanerId: selectedCleaner?.id || 'auto-assign',
           name: isGuest ? email.split('@')[0] : user?.name,
           email: isGuest ? email : user?.email,
-          address: postcode,
+          // A12: structured address (was previously just the postcode string).
+          addressLine1: address.line1,
+          addressLine2: address.line2 || undefined,
+          addressCity: address.city,
+          addressPostcode: address.postcode || postcode,
           date: selectedDate,
           time: selectedTime24 || 'Flexible',
           duration: effectiveHours,
@@ -942,6 +956,21 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     Additional &pound;5 charge
                   </p>
                 </button>
+              </div>
+            </div>
+
+            {/* Address (A12) */}
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-jost font-medium text-base text-ink">Cleaning Address</h2>
+              <p className="mt-2 font-jost text-sm font-light text-ink-2">
+                Where should your cleaner go?
+              </p>
+              <div className="mt-4">
+                <AddressAutocomplete
+                  value={address}
+                  onChange={setAddress}
+                  initialPostcode={postcode}
+                />
               </div>
             </div>
 

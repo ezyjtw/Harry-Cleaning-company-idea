@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AddToCalendar from '@/components/AddToCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
+import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
@@ -82,7 +83,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   // Fetch saved addresses and past bookings from API
   const [savedAddresses, setSavedAddresses] = useState<
-    Array<{ id: string; label?: string; address: string; isDefault: boolean }>
+    Array<{
+      id: string;
+      label?: string;
+      address: string;
+      line1: string;
+      line2: string;
+      city: string;
+      postcode: string;
+      isDefault: boolean;
+    }>
   >([]);
   const [pastBookings, setPastBookings] = useState<
     Array<{
@@ -105,6 +115,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             id: a.id as string,
             label: a.label as string | undefined,
             address: `${a.line1}${a.line2 ? `, ${a.line2}` : ''}, ${a.city}, ${a.postcode}`,
+            line1: (a.line1 as string) || '',
+            line2: (a.line2 as string) || '',
+            city: (a.city as string) || '',
+            postcode: (a.postcode as string) || '',
             isDefault: (a.isDefault as boolean) || false,
           }))
         );
@@ -118,7 +132,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           (result.data || []).slice(0, 5).map((b) => ({
             id: b.id as string,
             date: new Date(b.date as string).toLocaleDateString(),
-            address: ((b.address as Record<string, unknown>)?.line1 as string) || '',
+            address:
+              (b.addressLine1 as string) ||
+              ((b.address as Record<string, unknown>)?.line1 as string) ||
+              '',
             serviceType: b.serviceType as string,
             cleanerName: ((b.cleaner as Record<string, unknown>)?.name as string) || '',
             duration: Number(b.duration) || 2,
@@ -135,8 +152,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     name: '',
     email: '',
     phone: '',
-    address: '',
-    selectedSavedAddress: '',
+    // A12: structured address (replaces the old single free-text `address`).
+    addressLine1: '',
+    addressLine2: '',
+    addressCity: '',
+    addressPostcode: '',
+    addressId: '', // set when a saved address is selected (else copied from columns)
     date: isExpress ? today : '',
     time: '',
     duration: 2,
@@ -265,7 +286,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const handleSavedAddress = (addressId: string) => {
     const saved = savedAddresses.find((a) => a.id === addressId);
     if (saved) {
-      setForm({ ...form, address: saved.address, selectedSavedAddress: addressId });
+      setForm({
+        ...form,
+        addressLine1: saved.line1,
+        addressLine2: saved.line2,
+        addressCity: saved.city,
+        addressPostcode: saved.postcode,
+        addressId,
+      });
     }
   };
 
@@ -281,7 +309,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       };
       setForm({
         ...form,
-        address: booking.address,
+        // pastBookings only carries line1; the user confirms the rest in the address field.
+        addressLine1: booking.address,
+        addressId: '',
         duration: booking.duration,
         serviceType: serviceMap[booking.serviceType] || 'regular',
       });
@@ -304,7 +334,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({
           email: form.email,
           cleanerId: cleaner.id,
-          postcode: form.address,
+          postcode: form.addressPostcode,
           step: 1,
         }),
       }).catch(() => {}); // silent
@@ -499,7 +529,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <AddToCalendar
           title={`${selectedService.label} - ${cleaner.name}`}
           description={`Cleaning with ${cleaner.name} via Rena. Booking ref: ${bookingData?.id || 'TBC'}`}
-          location={form.address}
+          location={[form.addressLine1, form.addressCity, form.addressPostcode]
+            .filter(Boolean)
+            .join(', ')}
           date={form.date}
           time={form.time}
           durationHours={form.duration}
@@ -838,7 +870,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                           type="button"
                           onClick={() => handleSavedAddress(addr.id)}
                           className={`px-3 py-1 font-jost text-xs font-light transition ${
-                            form.selectedSavedAddress === addr.id
+                            form.addressId === addr.id
                               ? 'bg-ink text-cream'
                               : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
                           }`}
@@ -848,15 +880,24 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       ))}
                     </div>
                   )}
-                  <input
-                    type="text"
-                    required
-                    value={form.address}
-                    onChange={(e) =>
-                      setForm({ ...form, address: e.target.value, selectedSavedAddress: '' })
+                  <AddressAutocomplete
+                    value={{
+                      line1: form.addressLine1,
+                      line2: form.addressLine2,
+                      city: form.addressCity,
+                      postcode: form.addressPostcode,
+                    }}
+                    onChange={(v) =>
+                      setForm({
+                        ...form,
+                        addressLine1: v.line1,
+                        addressLine2: v.line2,
+                        addressCity: v.city,
+                        addressPostcode: v.postcode,
+                        // any manual/autocomplete edit clears the saved-address link
+                        addressId: '',
+                      })
                     }
-                    className="w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   />
                 </div>
               </div>
