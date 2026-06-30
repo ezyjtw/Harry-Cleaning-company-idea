@@ -1,5 +1,10 @@
 import { Resend } from 'resend';
 
+import {
+  shouldSend,
+  type NotificationCategory,
+} from '@/lib/services/notification-preferences.service';
+
 // ─── Types ──────────────────────────────────────────────────
 
 interface BookingEmailData {
@@ -39,7 +44,28 @@ const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@rena.com';
 
 // ─── Helper ─────────────────────────────────────────────────
 
-async function sendEmail(to: string, subject: string, htmlBody: string): Promise<boolean> {
+// A11: THE email chokepoint. Every email send routes through here, so the
+// preference gate lives here. `category` defaults to ESSENTIAL — transactional &
+// security emails (booking/payment confirms, receipts, password reset, email
+// verification, admin/support alerts) always send and never read a preference
+// row. Toggleable (REMINDER/NEW_MESSAGE) and MARKETING senders pass an explicit
+// category + the recipient's `userId` so the gate can honour their choice /
+// consent. A null userId on a marketing send means no consent on record ⇒ suppressed.
+async function sendEmail(
+  to: string,
+  subject: string,
+  htmlBody: string,
+  opts?: { userId?: string | null; category?: NotificationCategory }
+): Promise<boolean> {
+  const category = opts?.category ?? 'ESSENTIAL';
+  const userId = opts?.userId ?? null;
+
+  if (!(await shouldSend(userId, category, 'EMAIL'))) {
+    // eslint-disable-next-line no-console
+    console.log(`[Email] Suppressed by preference (category=${category}) to: ${to}`);
+    return false;
+  }
+
   if (process.env.NODE_ENV !== 'production' || !resend) {
     // eslint-disable-next-line no-console
     console.log('─────────────────────────────────────────');
@@ -311,7 +337,8 @@ export async function sendReviewRequest(
 export async function sendNewMessageEmail(
   recipientEmail: string,
   recipientName: string,
-  senderName: string
+  senderName: string,
+  recipientUserId: string
 ): Promise<boolean> {
   const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/messages`;
   const subject = `New message from ${senderName}`;
@@ -324,7 +351,11 @@ export async function sendNewMessageEmail(
     <p>Thank you for using Rena!</p>
   `;
 
-  return sendEmail(recipientEmail, subject, htmlBody);
+  // Toggleable: honour the recipient's new-message-alert preference.
+  return sendEmail(recipientEmail, subject, htmlBody, {
+    userId: recipientUserId,
+    category: 'NEW_MESSAGE',
+  });
 }
 
 // ─── Guest Booking Email ────────────────────────────────────
@@ -360,7 +391,7 @@ export async function sendGuestBookingConfirmation(
 
 export async function sendAbandonmentEmail(
   email: string,
-  data: { cleanerName?: string; postcode?: string; personalizedMessage: string }
+  data: { cleanerName?: string; postcode?: string; personalizedMessage: string; userId?: string }
 ): Promise<boolean> {
   const subject = data.cleanerName
     ? `Still looking for a cleaner? ${data.cleanerName} is available`
@@ -372,7 +403,13 @@ export async function sendAbandonmentEmail(
     <p style="font-size:12px;color:#999;">If you no longer wish to receive these emails, simply ignore this message.</p>
   `;
 
-  return sendEmail(email, subject, htmlBody);
+  // MARKETING (PECR): opt-in only. Suppressed unless the recipient has an explicit,
+  // un-revoked marketing consent on record. Guest leads (no userId) have no consent
+  // ⇒ suppressed by default. A11c adds the consent capture + real unsubscribe.
+  return sendEmail(email, subject, htmlBody, {
+    userId: data.userId ?? null,
+    category: 'MARKETING',
+  });
 }
 
 // ─── Verification Decision Email ───────────────────────────
