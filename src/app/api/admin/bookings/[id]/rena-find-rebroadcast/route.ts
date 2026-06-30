@@ -34,7 +34,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       backupCleanerIds: true,
       declinedCleanerIds: true,
       cleanerEarnings: true,
-      address: { select: { postcode: true } },
+      addressPostcode: true, // A12: postcode now on the booking
+      address: { select: { postcode: true } }, // legacy fallback
     },
   });
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const postcode = booking.address?.postcode;
+  const postcode = booking.addressPostcode || booking.address?.postcode;
   if (!postcode) {
     return NextResponse.json({ error: 'No postcode on booking' }, { status: 400 });
   }

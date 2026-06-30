@@ -6,6 +6,7 @@ import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/
 import prisma from '@/lib/db/prisma';
 import type { ServiceSlug } from '@/lib/services/pricing.service';
 import { pricingService } from '@/lib/services/pricing.service';
+import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export async function GET(request: NextRequest) {
   const user = await getCleanerSession();
@@ -114,16 +115,17 @@ export async function GET(request: NextRequest) {
       return {
         id: b.id,
         clientName: b.client?.name || b.guestName || 'Guest',
+        // A12: read address from the booking columns (legacy relation fallback in helper).
         address:
           b.status === 'PENDING' || b.status === 'AWAITING_CLEANER'
-            ? b.address?.postcode || 'TBD'
-            : `${b.address?.line1 || ''}, ${b.address?.postcode || ''}`,
+            ? bookingPostcode(b) || 'TBD'
+            : `${bookingLine1(b)}, ${bookingPostcode(b)}`,
         fullAddress:
           b.cleanerId === user.id &&
           b.status !== 'PENDING' &&
           b.status !== 'AWAITING_CLEANER' &&
           b.status !== 'CASCADE_EXHAUSTED'
-            ? `${b.address?.line1 || ''}, ${b.address?.city || ''} ${b.address?.postcode || ''}`
+            ? bookingFullAddress(b)
             : undefined,
         date: b.date.toISOString().split('T')[0],
         time: b.startTime,

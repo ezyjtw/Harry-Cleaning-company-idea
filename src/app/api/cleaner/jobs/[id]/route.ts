@@ -5,6 +5,7 @@ import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { atomicAccept } from '@/lib/services/cascade.service';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
+import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 type BookingStatus =
   | 'PENDING'
@@ -69,18 +70,19 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       status: booking.status,
       clientName: booking.client?.name || booking.guestName || 'Guest',
       clientEmail: booking.client?.email || booking.guestEmail || '',
+      // A12: read from booking columns (legacy relation fallback in helper).
       address:
         booking.status === 'PENDING' || booking.status === 'AWAITING_CLEANER'
-          ? booking.address?.postcode || 'TBD'
-          : `${booking.address?.line1 || ''}, ${booking.address?.postcode || ''}`,
+          ? bookingPostcode(booking) || 'TBD'
+          : `${bookingLine1(booking)}, ${bookingPostcode(booking)}`,
       fullAddress:
         booking.cleanerId === user.id &&
         booking.status !== 'PENDING' &&
         booking.status !== 'AWAITING_CLEANER' &&
         booking.status !== 'CASCADE_EXHAUSTED'
-          ? `${booking.address?.line1 || ''}, ${booking.address?.city || ''} ${booking.address?.postcode || ''}`
+          ? bookingFullAddress(booking)
           : undefined,
-      postcode: booking.address?.postcode || '',
+      postcode: bookingPostcode(booking),
       date: booking.date.toISOString().split('T')[0],
       time: booking.startTime,
       duration: Number(booking.duration),

@@ -414,6 +414,16 @@ model Booking {
   clientId           String?
   cleanerId          String
   addressId          String?
+  // A12: structured address captured at booking time, stored directly on the
+  // booking (Option A). This is the SINGLE SOURCE OF TRUTH for "where the clean
+  // happens" — works uniformly for guests AND registered users (no Address-model
+  // ownership question). The legacy `addressId`/`address` relation is kept for
+  // back-compat but reads should use these columns. Populated from the
+  // getAddress.io autocomplete selection (or a copied saved address).
+  addressLine1       String?
+  addressLine2       String?
+  addressCity        String?
+  addressPostcode    String?
   guestEmail         String?
   guestName          String?
   guestPhone         String?
