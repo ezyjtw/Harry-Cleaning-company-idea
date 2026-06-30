@@ -71,6 +71,13 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // A10 B2b: per-message report UI state
+  const [reportingId, setReportingId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('SPAM');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+
   // Fetch current user session
   useEffect(() => {
     fetch('/api/auth/profile')
@@ -191,6 +198,30 @@ export default function MessagesPage() {
       }
     } catch {
       // ignore — user can retry
+    }
+  }
+
+  async function submitReport(messageId: string) {
+    setReportBusy(true);
+    try {
+      const res = await fetch('/api/messages/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          reason: reportReason,
+          details: reportDetails.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setReportedIds((prev) => new Set(prev).add(messageId));
+        setReportingId(null);
+        setReportDetails('');
+      }
+    } catch {
+      // ignore — user can retry
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -362,7 +393,7 @@ export default function MessagesPage() {
                   return (
                     <div
                       key={message.id}
-                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                      className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}
                     >
                       <div
                         className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
@@ -380,6 +411,60 @@ export default function MessagesPage() {
                           {formatTime(message.createdAt)}
                         </p>
                       </div>
+
+                      {/* Report — only on messages you received */}
+                      {!isOwn &&
+                        (reportedIds.has(message.id) ? (
+                          <span className="mt-1 text-[11px] text-gray-400">Reported</span>
+                        ) : reportingId === message.id ? (
+                          <div className="mt-1 w-full max-w-[75%] rounded-lg border border-gray-200 bg-white p-2">
+                            <select
+                              value={reportReason}
+                              onChange={(e) => setReportReason(e.target.value)}
+                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:outline-none"
+                            >
+                              <option value="SPAM">Spam</option>
+                              <option value="HARASSMENT">Harassment</option>
+                              <option value="OFF_PLATFORM">Off-platform / circumvention</option>
+                              <option value="INAPPROPRIATE">Inappropriate</option>
+                              <option value="OTHER">Other</option>
+                            </select>
+                            <textarea
+                              value={reportDetails}
+                              onChange={(e) => setReportDetails(e.target.value)}
+                              rows={2}
+                              maxLength={1000}
+                              placeholder="Add details (optional)"
+                              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:outline-none"
+                            />
+                            <div className="mt-1 flex gap-2">
+                              <button
+                                onClick={() => submitReport(message.id)}
+                                disabled={reportBusy}
+                                className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {reportBusy ? 'Reporting…' : 'Submit report'}
+                              </button>
+                              <button
+                                onClick={() => setReportingId(null)}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setReportingId(message.id);
+                              setReportReason('SPAM');
+                              setReportDetails('');
+                            }}
+                            className="mt-1 text-[11px] text-gray-400 hover:text-gray-600"
+                          >
+                            Report
+                          </button>
+                        ))}
                     </div>
                   );
                 })}
