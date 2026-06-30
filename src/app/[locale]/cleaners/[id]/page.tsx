@@ -16,6 +16,8 @@ import {
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { computeCleanerRating } from '@/lib/services/rating.service';
+
 export default async function CleanerProfilePage({ params }: { params: { id: string } }) {
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
@@ -44,6 +46,12 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
 
   const reviewCount = await prisma.review.count({
     where: { cleanerId: params.id, visibility: 'VISIBLE' },
+  });
+
+  // VERIFIED imported reviews ONLY — PENDING/REJECTED never surface publicly.
+  const importedReviews = await prisma.importedReview.findMany({
+    where: { cleanerId: params.id, verificationStatus: 'VERIFIED' },
+    orderBy: { createdAt: 'desc' },
   });
 
   const testimonials = (Array.isArray(profile.testimonials) ? profile.testimonials : []) as {
@@ -89,29 +97,23 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
     yearsExperience: 0,
   };
 
-  // Compute category averages from reviews
-  const catRatings = {
-    thoroughness: 0,
-    punctuality: 0,
-    communication: 0,
-    value: 0,
-  };
-  let catCount = 0;
-  for (const r of reviews) {
-    if (r.thoroughness) {
-      catRatings.thoroughness += Number(r.thoroughness);
-      catRatings.punctuality += Number(r.punctuality || 0);
-      catRatings.communication += Number(r.communication || 0);
-      catRatings.value += Number(r.rating);
-      catCount++;
-    }
-  }
-  if (catCount > 0) {
-    catRatings.thoroughness /= catCount;
-    catRatings.punctuality /= catCount;
-    catRatings.communication /= catCount;
-    catRatings.value /= catCount;
-  }
+  // Sub-category bars come from the single canonical helper — native VISIBLE
+  // reviews only (imports never carry sub-ratings). This replaces a duplicate
+  // inline aggregation, removing drift risk between the two paths. Note the helper
+  // aggregates ALL native reviews, not just the latest 20 rendered below, so the
+  // bars are now full-population (more accurate; differs from the old last-20 only
+  // for cleaners with >20 sub-rated reviews).
+  const { subRatings: sub } = await computeCleanerRating(params.id);
+  const hasNativeSubRatings = sub.thoroughness !== null;
+
+  // "Value for money" = native overall-star average among reviews that carry
+  // sub-ratings (same population as the bars). The canonical helper exposes only
+  // the three sub-categories, so this single derived metric stays local.
+  const valueAgg = await prisma.review.aggregate({
+    where: { cleanerId: params.id, visibility: 'VISIBLE', thoroughness: { not: null } },
+    _avg: { rating: true },
+  });
+  const valueForMoney = valueAgg._avg.rating ? Number(valueAgg._avg.rating) : 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -309,18 +311,25 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
           ))}
         </section>
 
-        {/* Detailed ratings */}
-        {catCount > 0 && (
+        {/* Detailed ratings — native Rena reviews only (imports carry no sub-ratings) */}
+        {hasNativeSubRatings ? (
           <section className="mt-10">
             <h2 className="font-cormorant text-[22px] font-semibold text-ink">Detailed ratings</h2>
             <div className="mt-4 max-w-md space-y-3">
-              <CategoryRatingBar label="Thoroughness" value={catRatings.thoroughness} />
-              <CategoryRatingBar label="Punctuality" value={catRatings.punctuality} />
-              <CategoryRatingBar label="Communication" value={catRatings.communication} />
-              <CategoryRatingBar label="Value for money" value={catRatings.value} />
+              <CategoryRatingBar label="Thoroughness" value={sub.thoroughness ?? 0} />
+              <CategoryRatingBar label="Punctuality" value={sub.punctuality ?? 0} />
+              <CategoryRatingBar label="Communication" value={sub.communication ?? 0} />
+              <CategoryRatingBar label="Value for money" value={valueForMoney} />
             </div>
           </section>
-        )}
+        ) : importedReviews.length > 0 ? (
+          <section className="mt-10">
+            <h2 className="font-cormorant text-[22px] font-semibold text-ink">Detailed ratings</h2>
+            <p className="mt-3 font-jost text-[13px] font-light text-ink-3">
+              No Rena jobs yet — the category breakdown reflects completed Rena bookings only.
+            </p>
+          </section>
+        ) : null}
 
         {/* Availability */}
         <section className="mt-10">
@@ -447,12 +456,53 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
                 )}
               </div>
             ))}
-            {reviews.length === 0 && testimonials.length === 0 && (
+            {reviews.length === 0 && testimonials.length === 0 && importedReviews.length === 0 && (
               <p className="py-8 text-center font-jost text-[14px] font-light text-ink-3">
                 No reviews yet.
               </p>
             )}
           </div>
+
+          {/* Imported reviews — VERIFIED only, clearly distinct from native Rena
+              reviews (DMCCA transparency: labelled "Imported from", separate block,
+              tinted card, and an explicit explainer that they are not Rena bookings). */}
+          {importedReviews.length > 0 && (
+            <div className="mt-8">
+              <h3 className="font-cormorant text-[18px] font-semibold text-ink">
+                Imported from other platforms
+              </h3>
+              <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                These reviews were imported by the cleaner from external platforms and independently
+                verified by our team. They are not Rena booking reviews.
+              </p>
+              <div className="mt-4 space-y-3">
+                {importedReviews.map((imp) => (
+                  <div
+                    key={imp.id}
+                    className="rounded-lg bg-cream/50 p-4"
+                    style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-jost text-[14px] font-medium text-ink">
+                        {imp.reviewerName || 'Reviewer'}
+                      </span>
+                      <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] font-medium text-ink-2">
+                        Imported from {imp.source}
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <StarRating rating={Number(imp.rating)} />
+                    </div>
+                    {imp.text && (
+                      <p className="mt-2 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+                        {imp.text}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>
