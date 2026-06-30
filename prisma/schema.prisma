@@ -610,12 +610,21 @@ enum MessageReportStatus {
   DISMISSED
 }
 
+// A10 B3: USER = a person reported the message; SYSTEM = auto-flagged (e.g.
+// suspected off-platform contact info). SYSTEM flags have no human reporter.
+enum MessageReportOrigin {
+  USER
+  SYSTEM
+}
+
 model MessageReport {
   id             String              @id @default(cuid())
   messageId      String
-  reporterId     String
+  // Nullable: SYSTEM-origin (auto-flagged) reports have no human reporter.
+  reporterId     String?
   reportedUserId String
   bookingId      String
+  origin         MessageReportOrigin @default(USER)
   reason         MessageReportReason
   details        String?             @db.Text
   status         MessageReportStatus @default(OPEN)
@@ -625,7 +634,7 @@ model MessageReport {
   createdAt      DateTime            @default(now())
 
   message      Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  reporter     User    @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporter     User?   @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
   reportedUser User    @relation("ReportsAgainst", fields: [reportedUserId], references: [id], onDelete: Cascade)
 
   @@index([status])

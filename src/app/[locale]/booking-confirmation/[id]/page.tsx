@@ -152,12 +152,20 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
           </div>
         )}
 
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="mt-8 bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
-        >
-          Go to Dashboard
-        </button>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
+          >
+            Go to Dashboard
+          </button>
+          <button
+            onClick={() => router.push(`/messages?bookingId=${params.id}`)}
+            className="border border-ink/20 px-6 py-3 font-jost font-normal text-ink hover:bg-ink/5"
+          >
+            Message your cleaner
+          </button>
+        </div>
       </div>
     );
   }

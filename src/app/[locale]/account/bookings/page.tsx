@@ -567,6 +567,13 @@ export default function BookingsPage() {
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                <Link
+                  href={`/messages?bookingId=${booking.fullId}`}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Message cleaner
+                </Link>
+
                 {booking.rawStatus === 'COMPLETED' && (
                   <>
                     {confirmResult[booking.fullId] && (

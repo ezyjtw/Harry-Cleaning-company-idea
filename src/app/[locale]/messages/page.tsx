@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+
+import { detectContactInfo } from '@/lib/utils/pii';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -78,6 +80,10 @@ export default function MessagesPage() {
   const [reportBusy, setReportBusy] = useState(false);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
 
+  // A10 B3: compose-from-booking (?bookingId=) + before-send PII warning
+  const composeHandled = useRef(false);
+  const [showPiiWarning, setShowPiiWarning] = useState(false);
+
   // Fetch current user session
   useEffect(() => {
     fetch('/api/auth/profile')
@@ -103,6 +109,55 @@ export default function MessagesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // A10 B3: compose-from-booking. If arrived via /messages?bookingId=<id>, derive
+  // the partner + send-eligibility server-side and open (or synthesize) the pane so
+  // a conversation can START from a booking that has no messages yet.
+  useEffect(() => {
+    if (composeHandled.current || loading || !currentUserId) return;
+    const composeBookingId = new URLSearchParams(window.location.search).get('bookingId');
+    if (!composeBookingId) return;
+    composeHandled.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/messages/compose?bookingId=${composeBookingId}`);
+        if (!res.ok) return;
+        const c = await res.json();
+        setConversations((prev) => {
+          if (prev.some((x) => x.id === c.partnerId)) return prev; // already exists
+          const synthetic: Conversation = {
+            id: c.partnerId,
+            participants: [
+              {
+                id: currentUserId,
+                name: 'You',
+                avatar: '',
+                role: c.partnerRole === 'cleaner' ? 'customer' : 'cleaner',
+              },
+              { id: c.partnerId, name: c.partnerName, avatar: '', role: c.partnerRole },
+            ],
+            lastMessage: {
+              id: 'pending',
+              conversationId: c.partnerId,
+              senderId: currentUserId,
+              content: '',
+              read: true,
+              createdAt: new Date().toISOString(),
+            },
+            unreadCount: 0,
+            canSend: c.canSend,
+            activeBookingId: c.bookingId,
+            blockedByMe: c.blockedByMe,
+            updatedAt: new Date().toISOString(),
+          };
+          return [synthetic, ...prev];
+        });
+        setActiveConversationId(c.partnerId);
+      } catch {
+        // ignore — user can still pick a conversation manually
+      }
+    })();
+  }, [loading, currentUserId]);
+
   // Fetch messages for active conversation
   const loadMessages = useCallback(async (partnerId: string) => {
     try {
@@ -117,6 +172,7 @@ export default function MessagesPage() {
   }, []);
 
   useEffect(() => {
+    setShowPiiWarning(false);
     if (activeConversationId) {
       loadMessages(activeConversationId);
     }
@@ -132,10 +188,21 @@ export default function MessagesPage() {
     );
   }
 
-  async function handleSendMessage() {
+  function handleSendMessage() {
     const conv = conversations.find((c) => c.id === activeConversationId);
     if (!messageInput.trim() || !conv || !conv.canSend || !conv.activeBookingId || sending) return;
 
+    // A10 B3: before-send PII warning (non-blocking). If the message looks like it
+    // contains contact info, show an interstitial; the user can still "Send anyway".
+    if (detectContactInfo(messageInput).any) {
+      setShowPiiWarning(true);
+      return;
+    }
+    doSend(conv.activeBookingId);
+  }
+
+  async function doSend(bookingId: string) {
+    setShowPiiWarning(false);
     setSending(true);
     try {
       // Booking-scoped: send is tagged with the pair's active booking; the server
@@ -144,7 +211,7 @@ export default function MessagesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookingId: conv.activeBookingId,
+          bookingId,
           content: messageInput.trim(),
         }),
       });
@@ -474,6 +541,33 @@ export default function MessagesPage() {
             {/* Message input — read-only once the pair has no active/settling booking */}
             {activeConversation.canSend ? (
               <div className="border-t border-gray-200 px-4 py-3">
+                {showPiiWarning && (
+                  <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-xs text-amber-800">
+                      This looks like contact info. Keep conversations and payments on Rena —
+                      sharing contact details or paying off-platform isn&rsquo;t allowed and may
+                      affect your account.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => {
+                          const conv = conversations.find((c) => c.id === activeConversationId);
+                          if (conv?.activeBookingId) doSend(conv.activeBookingId);
+                        }}
+                        disabled={sending}
+                        className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        Send anyway
+                      </button>
+                      <button
+                        onClick={() => setShowPiiWarning(false)}
+                        className="text-xs font-medium text-gray-600 hover:text-gray-800"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <textarea
                     value={messageInput}
