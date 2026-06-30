@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
@@ -36,11 +37,10 @@ export async function GET() {
     return NextResponse.json({ error: 'Cleaner profile not found' }, { status: 404 });
   }
 
-  const onboardingComplete =
-    !!profile.bio &&
-    !!profile.postcode &&
-    profile.specialties.length > 0 &&
-    !!profile.user.passwordHash;
+  // Onboarding gate = the canonical profile-complete definition + a set password.
+  // The profile-details half is the single source of truth (isProfileComplete);
+  // the password requirement is composed on top (a distinct onboarding concern).
+  const onboardingComplete = isProfileComplete(profile) && !!profile.user.passwordHash;
 
   const imageUrl = await resolveProfileImageUrl(profile.user.image);
 

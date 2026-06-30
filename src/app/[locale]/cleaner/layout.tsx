@@ -53,47 +53,8 @@ const navItems = [
   },
 ];
 
-interface ProfileData {
-  name?: string;
-  tier?: string;
-  image?: string;
-  bio?: string;
-  postcode?: string;
-  location?: string;
-  specialties?: string[];
-  languages?: string[];
-  serviceTypes?: string[];
-  hourlyRateRegular?: number | null;
-  hourlyRateDeep?: number | null;
-  hourlyRateSameDay?: number | null;
-  eotPrices?: Record<string, number> | null;
-  airbnbPrices?: Record<string, number> | null;
-  hoursPerWeek?: number;
-  yearsExperience?: number | null;
-  rating?: number;
-  completedJobs?: number;
-  reviewCount?: number;
-  availableNow?: boolean;
-  verificationStatus?: string;
-  backgroundCheckPassed?: boolean;
-  onboardingComplete?: boolean;
-}
-
-function getCompletionSections(data: ProfileData | null) {
-  if (!data) return { sections: [], percent: 0 };
-  const sections = [
-    { label: 'Photo', done: !!data.image },
-    { label: 'Bio', done: !!(data.bio && data.bio.trim()) },
-    { label: 'Postcode', done: !!(data.postcode && data.postcode.trim()) },
-    { label: 'Specialties', done: !!(data.specialties && data.specialties.length > 0) },
-    { label: 'Languages', done: !!(data.languages && data.languages.length > 0) },
-    { label: 'Services', done: !!(data.serviceTypes && data.serviceTypes.length > 0) },
-    { label: 'Pricing', done: !!(data.hourlyRateRegular && data.hourlyRateRegular > 0) },
-  ];
-  const doneCount = sections.filter((s) => s.done).length;
-  return { sections, percent: Math.round((doneCount / sections.length) * 100) };
-}
-
+// The former sidebar completion-% widget was retired in favour of the dashboard
+// CleanerSetupChecklist (single source of truth for "profile complete").
 export default function CleanerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -102,7 +63,6 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const [cleanerTier, setCleanerTier] = useState('');
   const [cleanerImage, setCleanerImage] = useState('');
   const [initials, setInitials] = useState('');
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -122,7 +82,6 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         setCleanerName(data.name || 'Cleaner');
         setCleanerTier(data.tier || 'STARTER');
         setCleanerImage(data.image || '');
-        setProfileData(data);
         const parts = (data.name || '').split(' ');
         setInitials(
           parts
@@ -134,9 +93,6 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
       })
       .catch(() => {});
   }, [router, pathname]);
-
-  const { sections, percent } = getCompletionSections(profileData);
-  const allComplete = percent === 100;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -224,54 +180,6 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                 </span>
               </div>
             </div>
-
-            {/* Profile completion */}
-            {profileData && !allComplete && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-cream/40">
-                    Profile
-                  </span>
-                  <span className="font-jost text-[10px] font-medium text-gold">{percent}%</span>
-                </div>
-                <div className="h-1 bg-cream/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gold rounded-full transition-all duration-500"
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {sections
-                    .filter((s) => !s.done)
-                    .map((s) => (
-                      <span
-                        key={s.label}
-                        className="font-jost text-[9px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5"
-                      >
-                        {s.label}
-                      </span>
-                    ))}
-                </div>
-              </div>
-            )}
-            {profileData && allComplete && (
-              <div className="mt-3 flex items-center gap-1.5">
-                <svg
-                  className="w-3.5 h-3.5 text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span className="font-jost text-[10px] text-green-400/80">Profile complete</span>
-              </div>
-            )}
           </div>
 
           {/* Navigation */}
