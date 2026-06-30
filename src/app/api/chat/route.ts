@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
 
 // Rate limiter: 30 messages per 60-minute window per IP
@@ -56,18 +57,10 @@ GENERAL
 
 If you cannot resolve something, advise the customer to email support@renacleaning.co.uk with their booking reference.`;
 
+// Delegates to the shared, topology-aware resolver (cf-connecting-ip → rightmost
+// XFF → x-real-ip, with TRUSTED_PROXY override). See src/lib/rate-limit.ts.
 function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    // rightmost = trusted-proxy-observed IP; leftmost is client-spoofable
-    const parts = forwarded.split(',');
-    return parts[parts.length - 1].trim();
-  }
-  const realIP = request.headers.get('x-real-ip');
-  if (realIP) {
-    return realIP;
-  }
-  return '127.0.0.1';
+  return getClientIp(request);
 }
 
 export async function POST(request: NextRequest) {

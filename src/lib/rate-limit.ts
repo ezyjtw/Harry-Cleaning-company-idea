@@ -60,26 +60,42 @@ export function checkRateLimit(
 /**
  * Get the client IP from request headers.
  *
- * SECURITY: X-Forwarded-For is a comma-separated chain "client, proxy1, proxy2…"
- * where each proxy APPENDS the address it received the connection from. The
- * LEFTMOST entry is fully attacker-controlled (a client can send any value), so
- * keying rate limits on it lets an attacker mint unlimited buckets by rotating
- * the header. We take the RIGHTMOST entry instead — the address our trusted edge
- * proxy (Railway) actually observed, which the client cannot forge.
+ * SECURITY / proxy topology — read before changing:
+ *  - `cf-connecting-ip` is set by Cloudflare to the true client IP and stripped
+ *    from inbound requests, so it is unspoofable *iff* traffic actually flows
+ *    through Cloudflare's proxy.
+ *  - `X-Forwarded-For` is a chain "client, proxy1, proxy2…" where each hop
+ *    APPENDS. The LEFTMOST entry is fully client-controlled (spoofable); the
+ *    RIGHTMOST is what our nearest trusted proxy observed — correct for a single
+ *    trusted hop (e.g. Railway with no Cloudflare proxy in front).
  *
- * NOTE: assumes exactly one trusted proxy hop. If the deployment topology gains
- * additional trusted proxies, index `TRUSTED_PROXY_HOPS` from the right.
+ * Set `TRUSTED_PROXY` once the topology is known to remove all ambiguity:
+ *   'cloudflare' → trust `cf-connecting-ip` only (use when behind CF proxy)
+ *   'railway'    → trust rightmost `X-Forwarded-For` only (use when CF is NOT
+ *                  proxying — this prevents a spoofed cf-connecting-ip header)
+ *
+ * If `TRUSTED_PROXY` is unset we best-effort prefer cf-connecting-ip, then
+ * rightmost XFF, then x-real-ip. CAVEAT: when NOT behind Cloudflare, an attacker
+ * can spoof `cf-connecting-ip`; set TRUSTED_PROXY=railway to close that.
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
+  const mode = process.env.TRUSTED_PROXY;
+  const cf = request.headers.get('cf-connecting-ip')?.trim() || undefined;
+  const realIp = request.headers.get('x-real-ip')?.trim() || undefined;
+
+  const rightmostXff = (): string | undefined => {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (!forwarded) return undefined;
     const parts = forwarded
       .split(',')
       .map((p) => p.trim())
       .filter(Boolean);
-    if (parts.length > 0) {
-      return parts[parts.length - 1];
-    }
-  }
-  return request.headers.get('x-real-ip') || 'unknown';
+    return parts.length > 0 ? parts[parts.length - 1] : undefined;
+  };
+
+  if (mode === 'cloudflare') return cf || realIp || 'unknown';
+  if (mode === 'railway') return rightmostXff() || realIp || 'unknown';
+
+  // Topology unknown — best effort (see CAVEAT above).
+  return cf || rightmostXff() || realIp || 'unknown';
 }

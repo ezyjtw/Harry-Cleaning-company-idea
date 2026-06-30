@@ -7,22 +7,31 @@ import { routing } from '@/i18n/routing';
 // ─── Client IP resolution ───────────────────────────────────────────────────
 
 /**
- * SECURITY: take the RIGHTMOST X-Forwarded-For entry — the address our trusted
- * edge proxy observed — not the leftmost client-controlled value, which is
- * trivially spoofable to defeat IP-keyed rate limiting. Assumes one trusted hop.
+ * SECURITY / proxy topology — mirrors getClientIp() in src/lib/rate-limit.ts
+ * (duplicated, not imported, to keep the Edge-runtime middleware free of that
+ * module's Node timers). Prefer Cloudflare's unspoofable cf-connecting-ip, else
+ * the rightmost (trusted-proxy-observed) X-Forwarded-For entry — never the
+ * leftmost client-controlled value. Set TRUSTED_PROXY=cloudflare|railway to pin
+ * the single correct source once the topology is confirmed.
  */
 function getClientIpFromHeaders(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
+  const mode = process.env.TRUSTED_PROXY;
+  const cf = request.headers.get('cf-connecting-ip')?.trim() || undefined;
+  const realIp = request.headers.get('x-real-ip')?.trim() || undefined;
+
+  const rightmostXff = (): string | undefined => {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (!forwarded) return undefined;
     const parts = forwarded
       .split(',')
       .map((p) => p.trim())
       .filter(Boolean);
-    if (parts.length > 0) {
-      return parts[parts.length - 1];
-    }
-  }
-  return request.headers.get('x-real-ip') || 'unknown';
+    return parts.length > 0 ? parts[parts.length - 1] : undefined;
+  };
+
+  if (mode === 'cloudflare') return cf || realIp || 'unknown';
+  if (mode === 'railway') return rightmostXff() || realIp || 'unknown';
+  return cf || rightmostXff() || realIp || 'unknown';
 }
 
 // ─── In-Memory Rate Limiter ─────────────────────────────────────────────────
