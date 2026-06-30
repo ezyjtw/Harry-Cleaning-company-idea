@@ -254,6 +254,8 @@ model User {
   receivedMessages    Message[]             @relation("ReceivedMessages")
   blocksMade          UserBlock[]           @relation("BlocksMade")
   blocksReceived      UserBlock[]           @relation("BlocksReceived")
+  reportsFiled        MessageReport[]       @relation("ReportsFiled")
+  reportsAgainst      MessageReport[]       @relation("ReportsAgainst")
   notifications       Notification[]
   disputesRaised      Dispute[]             @relation("DisputesRaised")
   ownedCompany        Company?              @relation("CompanyOwner")
@@ -564,9 +566,10 @@ model Message {
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  sender   User    @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User    @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender   User            @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User            @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  booking  Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reports  MessageReport[]
 
   @@index([senderId])
   @@index([receiverId])
@@ -588,6 +591,46 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
+}
+
+// A10 B2b: user-filed report of a message for moderation. Distinct from Complaint
+// (which is booking/financial) — captures the offending message, who reported it,
+// who is reported, and a reason, for an admin queue. Additive; non-destructive.
+enum MessageReportReason {
+  SPAM
+  HARASSMENT
+  OFF_PLATFORM
+  INAPPROPRIATE
+  OTHER
+}
+
+enum MessageReportStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+model MessageReport {
+  id             String              @id @default(cuid())
+  messageId      String
+  reporterId     String
+  reportedUserId String
+  bookingId      String
+  reason         MessageReportReason
+  details        String?             @db.Text
+  status         MessageReportStatus @default(OPEN)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  adminNotes     String?             @db.Text
+  createdAt      DateTime            @default(now())
+
+  message      Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter     User    @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User    @relation("ReportsAgainst", fields: [reportedUserId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([reportedUserId])
+  @@index([messageId])
 }
 
 model Notification {
