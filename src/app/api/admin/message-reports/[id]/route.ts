@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { AuditService } from '@/lib/services/audit.service';
 
 // PATCH /api/admin/message-reports/[id] { action: 'ACTION' | 'DISMISS', adminNotes? }
 // Resolve a message report (admin only).
@@ -27,7 +28,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     const report = await prisma.messageReport.findUnique({
       where: { id: params.id },
-      select: { status: true },
+      select: { status: true, reportedUserId: true, messageId: true },
     });
     if (!report) {
       return NextResponse.json({ error: 'Report not found.' }, { status: 404 });
@@ -51,6 +52,23 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             : null,
       },
     });
+
+    // Audit the moderation decision (which admin, when, action, notes) — best-effort
+    // so an audit failure can't 500 an already-committed resolution.
+    const ipAddress =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+    AuditService.log({
+      userId: admin.id,
+      action: action === 'ACTION' ? 'MESSAGE_REPORT_ACTIONED' : 'MESSAGE_REPORT_DISMISSED',
+      entityType: 'MessageReport',
+      entityId: params.id,
+      metadata: {
+        reportedUserId: report.reportedUserId,
+        messageId: report.messageId,
+        ...(updated.adminNotes ? { adminNotes: updated.adminNotes } : {}),
+      },
+      ipAddress,
+    }).catch(() => {});
 
     return NextResponse.json({
       id: updated.id,
