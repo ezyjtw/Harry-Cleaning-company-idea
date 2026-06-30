@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getClientIp } from '@/lib/rate-limit';
 import { AnalyticsTrackingService } from '@/lib/services/analytics-tracking.service';
 
 const VALID_EVENT_TYPES = [
@@ -57,10 +58,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get IP from headers
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ipAddress =
-      forwarded?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? undefined;
+    // Topology-aware client IP (see src/lib/rate-limit.ts)
+    const ipAddress = getClientIp(request);
 
     await AnalyticsTrackingService.track({
       sessionId: sanitize(sessionId),

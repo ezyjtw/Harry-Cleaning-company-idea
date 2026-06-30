@@ -1,4 +1,8 @@
+import type { PrismaClient } from '@prisma/client';
+
 import { prisma } from '@/lib/db/prisma';
+
+type PrismaLike = Pick<PrismaClient, 'review' | 'importedReview' | 'cleanerProfile'>;
 
 export interface CleanerRating {
   overall: number | null;
@@ -16,31 +20,37 @@ export interface CleanerRating {
  * Single source of truth for cleaner rating computation.
  *
  * overall = blended average of native VISIBLE reviews + imported VERIFIED reviews.
- *           PENDING/REJECTED imports are excluded. All count equally.
+ *           PENDING/REJECTED imports are excluded. All count equally (pooled average).
  *
  * subRatings = native VISIBLE reviews ONLY. Imported reviews never carry
  *              sub-categories — they can't be verified against external platforms.
  *
  * Edge case: cleaner with only imported reviews → overall is set, subRatings are null.
+ *
+ * @param db  Optional Prisma tx client. When called inside a $transaction, pass
+ *            the tx so the aggregate sees the transaction's own writes (e.g. a
+ *            just-created native review). Falls back to the singleton prisma client.
  */
-export async function computeCleanerRating(cleanerId: string): Promise<CleanerRating> {
+export async function computeCleanerRating(
+  cleanerId: string,
+  db?: PrismaLike
+): Promise<CleanerRating> {
+  const client = db ?? prisma;
+
   const [nativeAgg, importedAgg, nativeSubs] = await Promise.all([
-    // Native VISIBLE reviews — overall rating
-    prisma.review.aggregate({
+    client.review.aggregate({
       where: { cleanerId, visibility: 'VISIBLE' },
       _avg: { rating: true },
       _count: true,
     }),
 
-    // Imported VERIFIED reviews — overall rating
-    prisma.importedReview.aggregate({
+    client.importedReview.aggregate({
       where: { cleanerId, verificationStatus: 'VERIFIED' },
       _avg: { rating: true },
       _count: true,
     }),
 
-    // Native VISIBLE reviews — sub-ratings (separate query to handle nulls correctly)
-    prisma.review.aggregate({
+    client.review.aggregate({
       where: {
         cleanerId,
         visibility: 'VISIBLE',
@@ -90,13 +100,19 @@ export async function computeCleanerRating(cleanerId: string): Promise<CleanerRa
 
 /**
  * Recompute and persist the overall rating to CleanerProfile.rating.
- * Call after any event that changes the blended average (native review created,
- * imported review verified/rejected, native review moderated).
+ * Call after any event that changes the blended average.
+ *
+ * @param db  Optional Prisma tx client — pass the tx when calling from inside
+ *            a $transaction so the write participates in the same atomic unit.
  */
-export async function updateStoredRating(cleanerId: string): Promise<number | null> {
-  const { overall } = await computeCleanerRating(cleanerId);
+export async function updateStoredRating(
+  cleanerId: string,
+  db?: PrismaLike
+): Promise<number | null> {
+  const client = db ?? prisma;
+  const { overall } = await computeCleanerRating(cleanerId, client);
   if (overall !== null) {
-    await prisma.cleanerProfile.updateMany({
+    await client.cleanerProfile.updateMany({
       where: { userId: cleanerId },
       data: { rating: overall },
     });

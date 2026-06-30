@@ -1,12 +1,19 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getAdminSession, getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    // SECURITY: a complaint is visible only to the user who filed it, or an admin.
+    const requester = await getSessionUser();
+    if (!requester) {
+      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+    }
+
     const { id } = await context.params;
 
     const complaint = await prisma.complaint.findUnique({
@@ -24,6 +31,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
     }
 
+    if (complaint.filedById !== requester.id && requester.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+
     return NextResponse.json({ complaint });
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -34,6 +45,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PUT(request: NextRequest, context: RouteContext) {
   try {
+    // SECURITY: resolving/dismissing a complaint and setting refundAmount/isRedoClean
+    // is an administrative action — admin only.
+    const admin = await getAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+    }
+
     const { id } = await context.params;
     const body = await request.json();
 

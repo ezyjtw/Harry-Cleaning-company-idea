@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getClientIp } from '@/lib/rate-limit';
 import { sendContactConfirmation, sendSupportAlert } from '@/lib/services/email.service';
 import { sanitizeHtml, RateLimiter } from '@/lib/utils/security';
 
@@ -15,9 +16,8 @@ const VALID_SUBJECTS = ['General Enquiry', 'Booking Issue', 'Cleaner Issue', 'Bi
 // POST /api/contact - Submit a contact form
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting by IP
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    // Rate limiting by IP (topology-aware — see src/lib/rate-limit.ts)
+    const ip = getClientIp(request);
     const rateCheck = contactRateLimiter.check(ip);
 
     if (!rateCheck.allowed) {

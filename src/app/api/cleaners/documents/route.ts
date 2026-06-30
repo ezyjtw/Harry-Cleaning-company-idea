@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
@@ -17,12 +18,21 @@ function base64ToBuffer(dataUrl: string): { buffer: Buffer; mimeType: string } {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { cleanerId, documentType, fileData } = body;
+    // SECURITY: auth required, and the cleaner is taken from the SESSION — never
+    // from the request body. A caller can only upload documents against their own
+    // profile (prevents planting forged compliance docs on another cleaner).
+    const user = await getCleanerSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+    }
+    const cleanerId = user.id;
 
-    if (!cleanerId || !documentType || !fileData) {
+    const body = await request.json();
+    const { documentType, fileData } = body;
+
+    if (!documentType || !fileData) {
       return NextResponse.json(
-        { error: 'cleanerId, documentType, and fileData are required' },
+        { error: 'documentType and fileData are required' },
         { status: 400 }
       );
     }

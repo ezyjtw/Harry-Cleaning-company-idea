@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
 
 const waitlistRateLimiter = new RateLimiter({
@@ -10,10 +11,9 @@ const waitlistRateLimiter = new RateLimiter({
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Delegates to the shared, topology-aware resolver. See src/lib/rate-limit.ts.
 function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip') || '127.0.0.1';
+  return getClientIp(request);
 }
 
 export async function POST(request: NextRequest) {

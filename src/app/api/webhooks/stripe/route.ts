@@ -151,6 +151,44 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // SECURITY (defence-in-depth): confirm this PaymentIntent actually belongs to
+      // the booking before marking it paid. A validly-signed succeeded event whose
+      // metadata.bookingId points at a booking it didn't pay for must NOT flip that
+      // booking to paid. Gated on stripePaymentIntentId being present to avoid
+      // stranding a legitimate payment if the id wasn't persisted yet.
+      if (booking) {
+        if (booking.stripePaymentIntentId && pi.id !== booking.stripePaymentIntentId) {
+          // eslint-disable-next-line no-console
+          console.error('[stripe webhook] payment_intent.succeeded PI/booking mismatch', {
+            bookingId,
+            piId: pi.id,
+            expectedPiId: booking.stripePaymentIntentId,
+          });
+          return NextResponse.json({ received: true, ignored: 'pi_mismatch' });
+        }
+        if (pi.currency && pi.currency.toLowerCase() !== 'gbp') {
+          // eslint-disable-next-line no-console
+          console.error('[stripe webhook] payment_intent.succeeded unexpected currency', {
+            bookingId,
+            currency: pi.currency,
+          });
+          return NextResponse.json({ received: true, ignored: 'currency' });
+        }
+        // Amount check is alert-only (not blocking) so top-up/rounding edge cases
+        // can't strand a real payment; a shortfall here signals a bug or tampering.
+        const expectedPence = Math.round(
+          Number(booking.totalAmountCharged ?? booking.totalPrice) * 100
+        );
+        if (typeof pi.amount_received === 'number' && pi.amount_received < expectedPence) {
+          // eslint-disable-next-line no-console
+          console.error('[stripe webhook] payment_intent.succeeded amount below booking total', {
+            bookingId,
+            amountReceived: pi.amount_received,
+            expectedPence,
+          });
+        }
+      }
+
       // Compute cascade windows (safe — falls back to COMBINED_OFFER on parse failure)
       const now = new Date();
       const cascadeData = booking

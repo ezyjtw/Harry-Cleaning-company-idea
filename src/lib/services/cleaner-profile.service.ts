@@ -39,7 +39,7 @@ export class CleanerProfileService {
       prisma.booking.count({ where: { cleanerId: userId, status: 'COMPLETED' } }),
       prisma.booking.count({ where: { cleanerId: userId, status: 'CANCELLED' } }),
       prisma.review.aggregate({
-        where: { cleanerId: userId },
+        where: { cleanerId: userId, visibility: 'VISIBLE' },
         _avg: { rating: true },
         _count: true,
       }),

@@ -4,6 +4,36 @@ import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
 
+// ─── Client IP resolution ───────────────────────────────────────────────────
+
+/**
+ * SECURITY / proxy topology — mirrors getClientIp() in src/lib/rate-limit.ts
+ * (duplicated, not imported, to keep the Edge-runtime middleware free of that
+ * module's Node timers). Prefer Cloudflare's unspoofable cf-connecting-ip, else
+ * the rightmost (trusted-proxy-observed) X-Forwarded-For entry — never the
+ * leftmost client-controlled value. Set TRUSTED_PROXY=cloudflare|railway to pin
+ * the single correct source once the topology is confirmed.
+ */
+function getClientIpFromHeaders(request: NextRequest): string {
+  const mode = process.env.TRUSTED_PROXY;
+  const cf = request.headers.get('cf-connecting-ip')?.trim() || undefined;
+  const realIp = request.headers.get('x-real-ip')?.trim() || undefined;
+
+  const rightmostXff = (): string | undefined => {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (!forwarded) return undefined;
+    const parts = forwarded
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : undefined;
+  };
+
+  if (mode === 'cloudflare') return cf || realIp || 'unknown';
+  if (mode === 'railway') return rightmostXff() || realIp || 'unknown';
+  return cf || rightmostXff() || realIp || 'unknown';
+}
+
 // ─── In-Memory Rate Limiter ─────────────────────────────────────────────────
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -63,10 +93,7 @@ export function middleware(request: NextRequest) {
 
   // Skip locale processing for API routes and static assets
   if (pathname.startsWith('/api')) {
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
+    const ip = getClientIpFromHeaders(request);
 
     if (isRateLimited(ip)) {
       return NextResponse.json(
@@ -143,10 +170,7 @@ export function middleware(request: NextRequest) {
   );
 
   // Rate limiting for non-API page routes
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown';
+  const ip = getClientIpFromHeaders(request);
 
   if (isRateLimited(ip)) {
     return NextResponse.json(

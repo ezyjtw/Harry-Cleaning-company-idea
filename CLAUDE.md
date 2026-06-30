@@ -1,5 +1,13 @@
 The default branch is main. Always target main for branches and pull requests.
 
+## UAT after deployment
+
+After every change that gets committed/pushed for deployment, provide a UAT
+testing list. It must cover: (1) what changed / what is impacted, (2) which
+user flows are affected and the exact steps to test them, and (3) what to look
+out for error-wise (specific failure modes, status codes, log lines). Keep it
+concrete and tied to the actual diff, not generic.
+
 ## Railway
 
 Railway start command is configured via `railway.json`. The `--accept-data-loss` flag is required
