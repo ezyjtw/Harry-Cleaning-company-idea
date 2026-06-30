@@ -339,7 +339,7 @@ async function dispatchNewMessageNotifications(params: {
 
   // Email — first-unread-only.
   if (priorUnread === 0 && receiver?.email) {
-    await sendNewMessageEmail(receiver.email, receiver.name ?? '', senderName);
+    await sendNewMessageEmail(receiver.email, receiver.name ?? '', senderName, receiverId);
   }
 }
 

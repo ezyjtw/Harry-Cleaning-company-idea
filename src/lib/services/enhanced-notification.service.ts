@@ -1,6 +1,11 @@
 import type { NotificationType, Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import {
+  categoryForType,
+  shouldSend,
+  type NotificationCategory,
+} from '@/lib/services/notification-preferences.service';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -13,6 +18,9 @@ export interface NotificationPayload {
   body: string;
   data?: Record<string, string>;
   channels?: NotificationChannel[];
+  // A11: preference category. Defaults from the type map; pass explicitly when a
+  // shared type is used for a toggleable message (e.g. a reminder on BOOKING_REQUEST).
+  category?: NotificationCategory;
 }
 
 export interface SMSConfig {
@@ -35,7 +43,9 @@ export class EnhancedNotificationService {
    */
   static async send(payload: NotificationPayload) {
     const channels = payload.channels ?? ['IN_APP', 'PUSH'];
+    const category = payload.category ?? categoryForType(payload.type);
 
+    // In-app notification (the bell) is intrinsic and always written.
     const notification = await prisma.notification.create({
       data: {
         userId: payload.userId,
@@ -46,16 +56,25 @@ export class EnhancedNotificationService {
       },
     });
 
-    // Deliver to each requested channel
+    // A11: every outbound channel consults the preference gate. Essential
+    // transactional messages pass through unconditionally; toggleable/marketing
+    // respect the user's choice (and channel master switches).
+    const [allowPush, allowEmail, allowSms] = await Promise.all([
+      channels.includes('PUSH') ? shouldSend(payload.userId, category, 'PUSH') : false,
+      channels.includes('EMAIL') ? shouldSend(payload.userId, category, 'EMAIL') : false,
+      channels.includes('SMS') ? shouldSend(payload.userId, category, 'SMS') : false,
+    ]);
+
+    // Deliver to each permitted channel
     const deliveryPromises: Promise<void>[] = [];
 
-    if (channels.includes('PUSH')) {
+    if (allowPush) {
       deliveryPromises.push(this.queuePushNotification(payload));
     }
-    if (channels.includes('EMAIL')) {
+    if (allowEmail) {
       deliveryPromises.push(this.queueEmailNotification(payload));
     }
-    if (channels.includes('SMS')) {
+    if (allowSms) {
       deliveryPromises.push(this.queueSMSNotification(payload));
     }
 
@@ -106,6 +125,8 @@ export class EnhancedNotificationService {
       title: 'Upcoming Booking Reminder',
       body: `Reminder: You have a ${booking.serviceType} cleaning tomorrow at ${booking.startTime}.`,
       data: { bookingId },
+      // Toggleable: BOOKING_REQUEST would otherwise default to ESSENTIAL.
+      category: 'REMINDER',
     });
   }
 
@@ -160,6 +181,8 @@ export class EnhancedNotificationService {
       title: 'How was your cleaning?',
       body: `Please leave a review for ${booking.cleaner.name ?? 'your cleaner'}. Your feedback helps other customers!`,
       data: { bookingId },
+      // Toggleable review nudge (NEW_REVIEW already maps to REMINDER; explicit for clarity).
+      category: 'REMINDER',
     });
   }
 

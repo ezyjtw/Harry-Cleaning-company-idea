@@ -264,6 +264,7 @@ model User {
   cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
   pushSubscriptions   PushSubscription[]
   importedReviews     ImportedReview[]      @relation("ImportedReviews")
+  notificationPreference NotificationPreference?
 
   @@index([email])
   @@index([role])
@@ -657,6 +658,48 @@ model Notification {
   @@index([userId])
   @@index([read])
   @@index([createdAt])
+}
+
+// A11: per-user notification preferences (the LIVE source of truth for what a
+// user wants delivered). Category-based, not per-NotificationType, to keep the
+// matrix small. Essential transactional messages (booking/payment confirms,
+// receipts, account/security) are NOT represented here — they can never be
+// disabled, so shouldSend() bypasses this row for them entirely.
+//
+// Defaults encode the A11 policy: toggleable categories default ON; marketing is
+// strictly OPT-IN (default OFF). Existing users have no row → getPreferences()
+// falls back to these same defaults, so the additive migration is safe with no
+// backfill.
+//
+// GdprConsent remains the append-only AUDIT log of consent events; this row is
+// the current state. marketingConsentAt / unsubscribedAt / version carry the
+// PECR/GDPR evidence on the live record.
+model NotificationPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Toggleable categories (default ON).
+  reminders  Boolean @default(true) // booking reminders + review requests
+  newMessage Boolean @default(true) // new-message alerts
+
+  // Channel master switches (default ON). Gate PUSH / SMS across all
+  // non-essential categories. Email has no master — it is gated per-category.
+  push Boolean @default(true)
+  sms  Boolean @default(true)
+
+  // Marketing: strictly opt-in (default OFF). marketingConsentAt records when
+  // consent was granted; unsubscribedAt records a withdrawal (PECR evidence).
+  marketing          Boolean   @default(false)
+  marketingConsentAt DateTime?
+  unsubscribedAt     DateTime?
+
+  version   String   @default("1.0")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Payment {
