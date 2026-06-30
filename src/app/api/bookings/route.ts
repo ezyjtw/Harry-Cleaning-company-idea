@@ -15,6 +15,7 @@ import {
 import { pricingService } from '@/lib/services/pricing.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import stripe from '@/lib/stripe';
+import { isValidPostcode } from '@/lib/utils/postcode';
 
 export async function GET(request: NextRequest) {
   try {
@@ -316,13 +317,67 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const sessionUser = await getSessionUser();
+
+    // A12: resolve + validate the structured booking address. It is stored
+    // DIRECTLY on the booking (Option A) so it works uniformly for guests and
+    // registered users — the booking columns are the source of truth, never null.
     let addressId: string | null = null;
-    if (body.addressId) {
-      addressId = body.addressId;
+    let addressLine1 = typeof body.addressLine1 === 'string' ? body.addressLine1.trim() : '';
+    let addressLine2 = typeof body.addressLine2 === 'string' ? body.addressLine2.trim() : '';
+    let addressCity = typeof body.addressCity === 'string' ? body.addressCity.trim() : '';
+    let addressPostcode =
+      typeof body.addressPostcode === 'string' ? body.addressPostcode.trim().toUpperCase() : '';
+
+    // Saved address selected: copy its fields onto the booking (ownership-checked).
+    if (body.addressId && sessionUser) {
+      const saved = await prisma.address.findUnique({ where: { id: body.addressId } });
+      if (saved && saved.userId === sessionUser.id) {
+        addressId = saved.id;
+        addressLine1 = saved.line1;
+        addressLine2 = saved.line2 ?? '';
+        addressCity = saved.city;
+        addressPostcode = saved.postcode;
+      }
+    }
+
+    // A cleaner can't be dispatched without a real address — hard requirement.
+    if (!addressLine1 || !isValidPostcode(addressPostcode)) {
+      return NextResponse.json(
+        { error: 'A valid cleaning address (street and postcode) is required.' },
+        { status: 400 }
+      );
+    }
+
+    // For a logged-in user entering a NEW address, save it to their address book
+    // (best-effort) so it's reusable. Never blocks the booking; the columns above
+    // remain the source of truth regardless.
+    if (sessionUser && !addressId) {
+      try {
+        const existing = await prisma.address.findFirst({
+          where: { userId: sessionUser.id, line1: addressLine1, postcode: addressPostcode },
+          select: { id: true },
+        });
+        addressId =
+          existing?.id ??
+          (
+            await prisma.address.create({
+              data: {
+                userId: sessionUser.id,
+                line1: addressLine1,
+                line2: addressLine2 || null,
+                city: addressCity,
+                postcode: addressPostcode,
+                isDefault: false,
+              },
+            })
+          ).id;
+      } catch {
+        // address-book save is best-effort; booking columns are the source of truth
+      }
     }
 
     // 6. Ensure customer has Stripe Customer ID (authenticated users only)
-    const sessionUser = await getSessionUser();
     let stripeCustomerId: string | null = null;
 
     if (sessionUser) {
@@ -366,6 +421,11 @@ export async function POST(request: NextRequest) {
         clientId: sessionUser?.id || null,
         cleanerId: body.cleanerId,
         addressId,
+        // A12: structured address columns — the source of truth (guest-safe).
+        addressLine1,
+        addressLine2: addressLine2 || null,
+        addressCity,
+        addressPostcode,
         guestEmail: !sessionUser ? body.email : null,
         guestName: !sessionUser ? body.name : null,
         guestPhone: !sessionUser ? body.phone : null,
@@ -462,7 +522,9 @@ export async function POST(request: NextRequest) {
       cleanerName: cleaner.name || 'Your cleaner',
       date: body.date,
       time: body.time,
-      address: body.address || '',
+      address: [addressLine1, addressLine2, addressCity, addressPostcode]
+        .filter(Boolean)
+        .join(', '),
       serviceType: body.serviceType,
       totalPrice,
     };
