@@ -24,14 +24,16 @@ export async function GET() {
     return NextResponse.json({
       reports: reports.map((r) => ({
         id: r.id,
+        origin: r.origin,
         reason: r.reason,
         details: r.details,
         createdAt: r.createdAt,
         bookingId: r.bookingId,
         messageContent: r.message.content,
         messageAt: r.message.createdAt,
-        reporterName: r.reporter.name,
-        reporterEmail: r.reporter.email,
+        // reporter is null for SYSTEM (auto-flagged) reports.
+        reporterName: r.reporter?.name ?? null,
+        reporterEmail: r.reporter?.email ?? null,
         reportedName: r.reportedUser.name,
         reportedEmail: r.reportedUser.email,
       })),

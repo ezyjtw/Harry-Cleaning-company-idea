@@ -539,6 +539,14 @@ export default function CleanerJobsPage() {
                       )}
 
                     <div className="flex gap-2 flex-wrap justify-end">
+                      {!job.isReserve && !job.isProvisional && (
+                        <button
+                          onClick={() => router.push(`/messages?bookingId=${job.id}`)}
+                          className="px-4 py-2 border border-ink/20 text-ink font-jost text-sm font-light hover:bg-ink/5 transition-colors"
+                        >
+                          Message customer
+                        </button>
+                      )}
                       {job.isReserve && (
                         <p className="font-jost text-xs font-light text-slate-600 text-right max-w-xs">
                           You&apos;re held in reserve. If no cleaner accepts at or below the quoted

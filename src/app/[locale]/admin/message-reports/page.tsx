@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 interface MessageReport {
   id: string;
+  origin: 'USER' | 'SYSTEM';
   reason: string;
   details: string | null;
   createdAt: string;
@@ -116,11 +117,22 @@ export default function AdminMessageReportsPage() {
           {reports.map((r) => (
             <div key={r.id} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                  {REASON_LABEL[r.reason] ?? r.reason}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                    {REASON_LABEL[r.reason] ?? r.reason}
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      r.origin === 'SYSTEM'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}
+                  >
+                    {r.origin === 'SYSTEM' ? 'Auto-flagged' : 'User report'}
+                  </span>
+                </div>
                 <span className="text-xs text-gray-400">
-                  Reported {new Date(r.createdAt).toLocaleDateString('en-GB')}
+                  {new Date(r.createdAt).toLocaleDateString('en-GB')}
                 </span>
               </div>
 
@@ -143,8 +155,16 @@ export default function AdminMessageReportsPage() {
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                     Reported by
                   </p>
-                  <p className="text-sm text-gray-900">{r.reporterName || 'User'}</p>
-                  {r.reporterEmail && <p className="text-xs text-gray-500">{r.reporterEmail}</p>}
+                  {r.origin === 'SYSTEM' ? (
+                    <p className="text-sm text-gray-900">Auto-flagged: possible contact info</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-900">{r.reporterName || 'User'}</p>
+                      {r.reporterEmail && (
+                        <p className="text-xs text-gray-500">{r.reporterEmail}</p>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 

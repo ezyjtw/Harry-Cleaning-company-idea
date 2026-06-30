@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import { sendNewMessageEmail } from '@/lib/services/email.service';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/lib/utils/errors';
+import { detectContactInfo } from '@/lib/utils/pii';
 import { sanitizeMessageContent } from '@/lib/utils/sanitize';
 
 export interface Message {
@@ -45,75 +46,84 @@ export interface Conversation {
 // ─── Service Functions ──────────────────────────────────────
 
 export async function getConversations(userId: string): Promise<Conversation[]> {
-  // Self role — fixes the bug where the self-participant was hardcoded 'customer'
-  // (so a cleaner saw themselves mislabeled).
-  const me = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  // A10 B3: replaces the former per-partner N+1 (≈5 queries × partners) with a
+  // small constant set of batched queries. One ordered fetch of all messages
+  // involving the user yields the partner list + last message + unread counts;
+  // blocks and active bookings are each a single query; partner users are one
+  // `in` query.
+  const [me, allMessages, blocks, activeBookings] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+    prisma.message.findMany({
+      where: { OR: [{ senderId: userId }, { receiverId: userId }] },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.userBlock.findMany({
+      where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+      select: { blockerId: true, blockedId: true },
+    }),
+    // Active/settling bookings of this user — funds not released/refunded AND not
+    // cancelled. Ordered newest-first so the first per partner is the active one.
+    prisma.booking.findMany({
+      where: {
+        OR: [{ clientId: userId }, { cleanerId: userId }],
+        transferStatus: { notIn: ['RELEASED', 'REFUNDED'] },
+        status: { notIn: ['CANCELLED', 'CASCADE_EXHAUSTED'] },
+      },
+      orderBy: { date: 'desc' },
+      select: { id: true, clientId: true, cleanerId: true },
+    }),
+  ]);
+
   const myRole: 'customer' | 'cleaner' = me?.role === 'CLEANER' ? 'cleaner' : 'customer';
 
-  // Get all distinct conversation partners (pair-level grouping).
-  const sentTo = await prisma.message.findMany({
-    where: { senderId: userId },
-    select: { receiverId: true },
-    distinct: ['receiverId'],
-  });
-  const receivedFrom = await prisma.message.findMany({
-    where: { receiverId: userId },
-    select: { senderId: true },
-    distinct: ['senderId'],
-  });
+  // Derive last message (newest, since allMessages is desc) + unread per partner.
+  const lastByPartner = new Map<string, (typeof allMessages)[number]>();
+  const unreadByPartner = new Map<string, number>();
+  for (const m of allMessages) {
+    const partnerId = m.senderId === userId ? m.receiverId : m.senderId;
+    if (!lastByPartner.has(partnerId)) lastByPartner.set(partnerId, m);
+    if (m.receiverId === userId && !m.read) {
+      unreadByPartner.set(partnerId, (unreadByPartner.get(partnerId) ?? 0) + 1);
+    }
+  }
+  const partnerIds = Array.from(lastByPartner.keys());
 
-  const partnerIds = Array.from(
-    new Set([...sentTo.map((m) => m.receiverId), ...receivedFrom.map((m) => m.senderId)])
-  );
+  // Blocks: blockedByMe (I blocked them) and eitherBlocked (either direction).
+  const blockedByMeSet = new Set<string>();
+  const eitherBlockedSet = new Set<string>();
+  for (const b of blocks) {
+    if (b.blockerId === userId) {
+      blockedByMeSet.add(b.blockedId);
+      eitherBlockedSet.add(b.blockedId);
+    }
+    if (b.blockedId === userId) {
+      eitherBlockedSet.add(b.blockerId);
+    }
+  }
+
+  // Active booking per partner (most recent qualifying).
+  const activeBookingByPartner = new Map<string, string>();
+  for (const bk of activeBookings) {
+    const partnerId = bk.clientId === userId ? bk.cleanerId : bk.clientId;
+    if (partnerId && !activeBookingByPartner.has(partnerId)) {
+      activeBookingByPartner.set(partnerId, bk.id);
+    }
+  }
+
+  // Partner users in one query.
+  const partners = await prisma.user.findMany({
+    where: { id: { in: partnerIds } },
+    select: { id: true, name: true, image: true, role: true },
+  });
+  const partnerById = new Map(partners.map((p) => [p.id, p]));
 
   const conversations: Conversation[] = [];
-
   for (const partnerId of partnerIds) {
-    const pairWhere = {
-      OR: [
-        { senderId: userId, receiverId: partnerId },
-        { senderId: partnerId, receiverId: userId },
-      ],
-    };
-
-    const [partner, lastMessage, unreadCount, activeBooking, blocks] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: partnerId },
-        select: { id: true, name: true, image: true, role: true },
-      }),
-      prisma.message.findFirst({ where: pairWhere, orderBy: { createdAt: 'desc' } }),
-      prisma.message.count({ where: { senderId: partnerId, receiverId: userId, read: false } }),
-      // Send is allowed only while the pair shares an ACTIVE/SETTLING booking:
-      // funds not yet released/refunded AND the booking isn't cancelled. After that
-      // the conversation is read-only until a new booking.
-      prisma.booking.findFirst({
-        where: {
-          OR: [
-            { clientId: userId, cleanerId: partnerId },
-            { clientId: partnerId, cleanerId: userId },
-          ],
-          transferStatus: { notIn: ['RELEASED', 'REFUNDED'] },
-          status: { notIn: ['CANCELLED', 'CASCADE_EXHAUSTED'] },
-        },
-        orderBy: { date: 'desc' },
-        select: { id: true },
-      }),
-      // A10 B2: blocks in EITHER direction (close the conversation regardless of booking).
-      prisma.userBlock.findMany({
-        where: {
-          OR: [
-            { blockerId: userId, blockedId: partnerId },
-            { blockerId: partnerId, blockedId: userId },
-          ],
-        },
-        select: { blockerId: true },
-      }),
-    ]);
-
+    const partner = partnerById.get(partnerId);
+    const lastMessage = lastByPartner.get(partnerId);
     if (!partner || !lastMessage) continue;
 
-    const eitherBlocked = blocks.length > 0;
-    const blockedByMe = blocks.some((b) => b.blockerId === userId);
+    const activeBookingId = activeBookingByPartner.get(partnerId);
 
     conversations.push({
       id: partnerId,
@@ -136,11 +146,11 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
         read: lastMessage.read,
         createdAt: lastMessage.createdAt.toISOString(),
       },
-      unreadCount,
+      unreadCount: unreadByPartner.get(partnerId) ?? 0,
       bookingId: lastMessage.bookingId || undefined,
-      canSend: !!activeBooking && !eitherBlocked,
-      activeBookingId: activeBooking?.id ?? undefined,
-      blockedByMe,
+      canSend: !!activeBookingId && !eitherBlockedSet.has(partnerId),
+      activeBookingId,
+      blockedByMe: blockedByMeSet.has(partnerId),
       createdAt: lastMessage.createdAt.toISOString(),
       updatedAt: lastMessage.createdAt.toISOString(),
     });
@@ -248,6 +258,25 @@ export async function sendMessage(
   const created = await prisma.message.create({
     data: { senderId, receiverId, content, bookingId },
   });
+
+  // PII auto-flag (A10 B3): if the content looks like contact info, raise a
+  // SYSTEM-origin moderation flag (off-platform circumvention) for the admin queue.
+  // The message is NOT blocked or redacted — it still sends. Fire-and-forget so a
+  // flag failure can never 500 the send.
+  if (detectContactInfo(content).any) {
+    prisma.messageReport
+      .create({
+        data: {
+          messageId: created.id,
+          origin: 'SYSTEM',
+          reportedUserId: senderId,
+          bookingId,
+          reason: 'OFF_PLATFORM',
+          details: 'Auto-flagged: message appears to contain contact info (phone/email).',
+        },
+      })
+      .catch(() => {});
+  }
 
   // Notify the recipient — fire-and-forget so a notification failure can NEVER
   // 500 a successfully-sent message. This is the single gated path, so every send
