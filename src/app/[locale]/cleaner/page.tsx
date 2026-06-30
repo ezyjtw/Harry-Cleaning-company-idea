@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 
 interface UpcomingJob {
@@ -39,12 +40,15 @@ interface DashboardData {
     insuranceVerified: boolean;
     profileComplete: boolean;
     serviceTypes: string[];
+    hourlyRateRegular: number | null;
     eotPrices: Record<string, unknown> | null;
     airbnbPrices: Record<string, unknown> | null;
     stripeChargesEnabled: boolean;
     stripePayoutsEnabled: boolean;
     homePostcode: string | null;
     maxTravelMinutes: number | null;
+    availabilitySlotsCount: number;
+    importedReviewCount: number;
   };
   stats: {
     todaysJobs: number;
@@ -311,6 +315,12 @@ export default function CleanerDashboard() {
           ))}
         </div>
 
+        {/* Productive setup during the verification wait — same checklist as the
+            verified dashboard, driven by real state. */}
+        <div className="mt-8">
+          <CleanerSetupChecklist profile={data.profile} />
+        </div>
+
         <p className="mt-8 text-center font-jost text-xs font-light text-ink-3">
           Need help?{' '}
           <Link href="/contact" className="text-gold hover:text-gold/80 transition">
@@ -403,136 +413,9 @@ export default function CleanerDashboard() {
         )}
       </div>
 
-      {/* Service area banner — non-dismissible */}
-      {(!data.profile.homePostcode || data.profile.maxTravelMinutes === null) && (
-        <div
-          className="mb-6 rounded-xl bg-amber-50 px-5 py-4 flex items-start gap-3"
-          style={{ border: '1px solid rgba(217,119,6,0.15)' }}
-        >
-          <svg
-            className="w-5 h-5 text-amber-600 mt-0.5 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-          <div>
-            <p className="font-jost text-sm font-normal text-amber-800">
-              Set your service area to appear in customer searches
-            </p>
-            <p className="font-jost text-[13px] font-light text-amber-700 mt-0.5">
-              Add your home postcode and maximum travel time so we can match you with nearby
-              customers.
-            </p>
-            <Link
-              href="/cleaner/profile"
-              className="inline-block mt-2 rounded-full bg-amber-600 px-5 py-2 font-jost text-[12px] uppercase tracking-[0.08em] text-white hover:bg-amber-700 transition"
-            >
-              Set up now
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Stripe onboarding banner */}
-      {(!data.profile.stripeChargesEnabled || !data.profile.stripePayoutsEnabled) && (
-        <div
-          className="mb-6 rounded-xl bg-amber-50 px-5 py-4 flex items-start gap-3"
-          style={{ border: '1px solid rgba(217,119,6,0.15)' }}
-        >
-          <svg
-            className="w-5 h-5 text-amber-600 mt-0.5 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-            />
-          </svg>
-          <div>
-            <p className="font-jost text-sm font-normal text-amber-800">
-              Connect your payment account to start receiving bookings
-            </p>
-            <p className="font-jost text-[13px] font-light text-amber-700 mt-0.5">
-              Without this, customers can&apos;t book you. It takes about 5 minutes.
-            </p>
-            <Link
-              href="/cleaner/stripe/connect"
-              className="inline-block mt-2 rounded-full bg-amber-600 px-5 py-2 font-jost text-[12px] uppercase tracking-[0.08em] text-white hover:bg-amber-700 transition"
-            >
-              Connect now
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* EoT / Airbnb pricing banner */}
-      {(() => {
-        const st = data.profile.serviceTypes;
-        const hasEot = st.includes('end_of_tenancy');
-        const hasAirbnb = st.includes('airbnb');
-        const eotEmpty =
-          hasEot && (!data.profile.eotPrices || Object.keys(data.profile.eotPrices).length === 0);
-        const airbnbEmpty =
-          hasAirbnb &&
-          (!data.profile.airbnbPrices || Object.keys(data.profile.airbnbPrices).length === 0);
-        if (!eotEmpty && !airbnbEmpty) return null;
-        const missing = [eotEmpty && 'End of Tenancy', airbnbEmpty && 'Airbnb']
-          .filter(Boolean)
-          .join(' and ');
-        return (
-          <div
-            className="mb-6 rounded-xl bg-amber-50 px-5 py-4 flex items-start gap-3"
-            style={{ border: '1px solid rgba(217,119,6,0.15)' }}
-          >
-            <svg
-              className="w-5 h-5 text-amber-600 mt-0.5 shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-            <div>
-              <p className="font-jost text-sm font-normal text-amber-800">
-                {missing} pricing not set
-              </p>
-              <p className="font-jost text-[13px] font-light text-amber-700 mt-0.5">
-                You&apos;ve added {missing.toLowerCase()} to your services but haven&apos;t set
-                prices yet. You won&apos;t appear in search results for these services until pricing
-                is configured.
-              </p>
-              <Link
-                href="/cleaner/pricing"
-                className="inline-block mt-2 font-jost text-[13px] font-normal text-amber-900 underline underline-offset-2 hover:text-amber-700 transition"
-              >
-                Set up pricing &rarr;
-              </Link>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Consolidated setup checklist — replaces the former service-area, payouts,
+          and EoT/Airbnb pricing banners. Auto-completes from real state. */}
+      <CleanerSetupChecklist profile={data.profile} />
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

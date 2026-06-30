@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
 
 export async function GET() {
@@ -24,6 +25,7 @@ export async function GET() {
     recentReviews,
     thirtyDayBookings,
     backupBookingCount,
+    importedReviewCount,
   ] = await Promise.all([
     // Cleaner profile
     prisma.cleanerProfile.findUnique({
@@ -40,12 +42,16 @@ export async function GET() {
         postcode: true,
         specialties: true,
         serviceTypes: true,
+        hourlyRateRegular: true,
         eotPrices: true,
         airbnbPrices: true,
         stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
         homePostcode: true,
         maxTravelMinutes: true,
+        // Setup-checklist: count of availability slots (no "availability set" flag
+        // existed before; this derives one for the checklist item).
+        _count: { select: { availabilitySlots: true } },
       },
     }),
 
@@ -109,6 +115,9 @@ export async function GET() {
         NOT: { declinedCleanerIds: { has: user.id } },
       },
     }),
+
+    // Setup-checklist: how many reviews the cleaner has imported (any status).
+    prisma.importedReview.count({ where: { cleanerId: user.id } }),
   ]);
 
   if (!profile) {
@@ -150,14 +159,18 @@ export async function GET() {
       verified: profile.verified,
       verificationStatus: profile.verificationStatus,
       insuranceVerified: profile.insuranceVerified,
-      profileComplete: !!profile.bio && !!profile.postcode && profile.specialties.length > 0,
+      profileComplete: isProfileComplete(profile),
       serviceTypes: profile.serviceTypes,
+      hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
       eotPrices: profile.eotPrices,
       airbnbPrices: profile.airbnbPrices,
       stripeChargesEnabled: profile.stripeChargesEnabled,
       stripePayoutsEnabled: profile.stripePayoutsEnabled,
       homePostcode: profile.homePostcode,
       maxTravelMinutes: profile.maxTravelMinutes,
+      // Setup-checklist derived state
+      availabilitySlotsCount: profile._count.availabilitySlots,
+      importedReviewCount,
     },
     stats: {
       todaysJobs,
