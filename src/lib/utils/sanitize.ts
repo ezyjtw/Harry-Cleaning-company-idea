@@ -51,6 +51,29 @@ export function containsDangerousContent(input: string): boolean {
   return DANGEROUS_PATTERNS.some((pattern) => pattern.test(input));
 }
 
+/**
+ * Sanitize free-text chat message content for storage.
+ *
+ * STRIP-based, NOT entity-encoding: we remove HTML tags and dangerous URI schemes
+ * but leave ordinary text untouched, so legitimate messages keep their literal
+ * characters and are NOT double-encoded on render (React JSX already escapes at
+ * display time). Examples preserved verbatim: "a & b", "<3", "count+=1", "x < y".
+ * Only genuine markup is removed: "<script>…", "<img onerror=…>", "javascript:".
+ *
+ * (Whole-tag stripping deliberately avoids the `on\w+=` event-handler regex used
+ * by the stopgap, which false-positives on text like "personx=1".)
+ */
+export function sanitizeMessageContent(input: string): string {
+  if (typeof input !== 'string') return '';
+  return input
+    .replace(/\0/g, '') // null bytes
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '') // strip HTML tags (script/img/etc.)
+    .replace(/javascript:/gi, '')
+    .replace(/vbscript:/gi, '')
+    .replace(/data:text\/html/gi, '')
+    .trim();
+}
+
 export function sanitizeForSql(input: string): string {
   // Basic SQL injection prevention (Prisma handles this, but defense in depth)
   return input.replace(/['";\\]/g, '');

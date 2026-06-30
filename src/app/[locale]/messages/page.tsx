@@ -25,6 +25,10 @@ interface Conversation {
   participants: Participant[];
   lastMessage: Message;
   unreadCount: number;
+  // A10 B1: send-eligibility. canSend is false once the pair has no active/settling
+  // booking; activeBookingId is the booking a new message is tagged with.
+  canSend: boolean;
+  activeBookingId?: string;
   updatedAt: string;
 }
 
@@ -120,15 +124,18 @@ export default function MessagesPage() {
   }
 
   async function handleSendMessage() {
-    if (!messageInput.trim() || !activeConversationId || sending) return;
+    const conv = conversations.find((c) => c.id === activeConversationId);
+    if (!messageInput.trim() || !conv || !conv.canSend || !conv.activeBookingId || sending) return;
 
     setSending(true);
     try {
+      // Booking-scoped: send is tagged with the pair's active booking; the server
+      // derives the receiver from it (we never send receiverId from the client).
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          receiverId: activeConversationId,
+          bookingId: conv.activeBookingId,
           content: messageInput.trim(),
         }),
       });
@@ -348,39 +355,47 @@ export default function MessagesPage() {
               </div>
             </div>
 
-            {/* Message input */}
-            <div className="border-t border-gray-200 px-4 py-3">
-              <div className="flex items-end gap-2">
-                <textarea
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a message..."
-                  rows={1}
-                  className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!messageInput.trim() || sending}
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Send message"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
+            {/* Message input — read-only once the pair has no active/settling booking */}
+            {activeConversation.canSend ? (
+              <div className="border-t border-gray-200 px-4 py-3">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type a message..."
+                    rows={1}
+                    className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!messageInput.trim() || sending}
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Send message"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="border-t border-gray-200 px-4 py-4 text-center">
+                <p className="text-sm text-gray-500">
+                  This conversation is read-only — start a new booking to message again.
+                </p>
+              </div>
+            )}
           </>
         ) : (
           /* No conversation selected */

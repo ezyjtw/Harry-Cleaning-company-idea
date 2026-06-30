@@ -1,4 +1,7 @@
 import { prisma } from '@/lib/db/prisma';
+import { ValidationError } from '@/lib/utils/errors';
+
+import { sendMessage as sendGatedMessage } from './message.service';
 
 export interface SendMessageParams {
   senderId: string;
@@ -21,30 +24,36 @@ export interface ConversationSummary {
 
 export class EnhancedMessagingService {
   /**
-   * Send a message between customer and cleaner
+   * Send a message between customer and cleaner.
+   *
+   * Delegates to the single gated send path (message.service.sendMessage), which
+   * performs booking-scoped authorization, server-side receiver derivation, the
+   * release-gate and sanitization. This class must NOT write messages directly —
+   * doing so would reintroduce the unguarded-writer hole we just closed.
+   * (Attachments are not yet supported by the gated path; B2/B3.)
    */
   static async sendMessage(params: SendMessageParams) {
-    const message = await prisma.message.create({
-      data: {
-        senderId: params.senderId,
-        receiverId: params.receiverId,
-        content: params.content,
-        bookingId: params.bookingId,
-      },
-      include: { sender: { select: { name: true } } },
-    });
+    if (!params.bookingId) {
+      throw new ValidationError('A booking is required to send a message.');
+    }
 
-    // Create notification for receiver
+    const message = await sendGatedMessage(params.senderId, params.bookingId, params.content);
+
+    // Notify the (server-derived) receiver.
+    const sender = await prisma.user.findUnique({
+      where: { id: params.senderId },
+      select: { name: true },
+    });
     await prisma.notification.create({
       data: {
-        userId: params.receiverId,
+        userId: message.receiverId,
         type: 'NEW_MESSAGE',
-        title: `New message from ${message.sender.name ?? 'User'}`,
-        body: params.content.substring(0, 100),
+        title: `New message from ${sender?.name ?? 'User'}`,
+        body: message.content.substring(0, 100),
         data: {
           senderId: params.senderId,
           messageId: message.id,
-          bookingId: params.bookingId ?? '',
+          bookingId: params.bookingId,
         },
       },
     });
