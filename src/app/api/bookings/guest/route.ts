@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
 import { executeCancellation } from '@/lib/services/cancellation.service';
+import { bookingFullAddress } from '@/lib/utils/booking-address';
 
 // UUID-like format validation (accepts standard UUID v4 format)
 function isValidToken(token: string): boolean {
@@ -41,6 +42,8 @@ export async function GET(request: NextRequest) {
       time: booking.startTime,
       duration: Number(booking.duration),
       totalPrice: Number(booking.totalPrice),
+      // A12: guests see their own address (read from booking columns, guest-safe).
+      address: bookingFullAddress(booking),
       status: booking.status,
       paymentStatus: booking.paymentStatus,
       guestEmail: booking.guestEmail || '',

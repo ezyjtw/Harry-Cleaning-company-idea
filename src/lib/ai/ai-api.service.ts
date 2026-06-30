@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma';
+import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export interface AIActionResult {
   success: boolean;
@@ -144,7 +145,7 @@ export class AIApiService {
           duration: Number(b.duration),
           serviceType: b.serviceType,
           status: b.status,
-          address: `${b.address?.line1 ?? ''}, ${b.address?.postcode ?? ''}`,
+          address: `${bookingLine1(b)}, ${bookingPostcode(b)}`,
         })),
       },
     };

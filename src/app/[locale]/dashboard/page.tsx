@@ -36,6 +36,11 @@ interface Booking {
   duration: number | string;
   totalPrice: number | string;
   address: BookingAddress | null;
+  // A12: structured address columns (source of truth; relation kept for back-compat).
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  addressCity?: string | null;
+  addressPostcode?: string | null;
   cleaner: BookingUser;
   client: BookingUser | null;
   review: BookingReview | null;
@@ -361,10 +366,10 @@ export default function CustomerDashboard() {
                         <span>{formatDate(booking.date)}</span>
                         <span className="h-1 w-1 rounded-full bg-ink-3/30" />
                         <span>{booking.startTime}</span>
-                        {booking.address?.postcode && (
+                        {(booking.addressPostcode || booking.address?.postcode) && (
                           <>
                             <span className="h-1 w-1 rounded-full bg-ink-3/30" />
-                            <span>{booking.address.postcode}</span>
+                            <span>{booking.addressPostcode || booking.address?.postcode}</span>
                           </>
                         )}
                       </div>

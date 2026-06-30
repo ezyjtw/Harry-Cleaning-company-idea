@@ -46,12 +46,15 @@ export default function BookingsPage() {
         setBookings(
           (bookingsData.bookings || []).map((b: Record<string, unknown>) => {
             const addr = b.address as Record<string, unknown> | null;
+            // A12: prefer booking columns, fall back to legacy relation.
+            const line1 = (b.addressLine1 as string) || (addr?.line1 as string) || '';
+            const postcode = (b.addressPostcode as string) || (addr?.postcode as string) || '';
             return {
               id: (b.id as string)?.substring(0, 8).toUpperCase(),
               fullId: b.id,
               customer:
                 (b.client as Record<string, unknown>)?.name || (b.guestName as string) || 'Guest',
-              address: addr ? `${addr.line1}, ${addr.postcode}` : '',
+              address: line1 || postcode ? `${line1}, ${postcode}` : '',
               service: b.serviceType || 'Cleaning',
               date: typeof b.date === 'string' ? b.date.split('T')[0] : '',
               time: b.startTime || '',

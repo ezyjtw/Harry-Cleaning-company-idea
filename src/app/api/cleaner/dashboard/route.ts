@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
+import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export async function GET() {
   const user = await getCleanerSession();
@@ -184,10 +185,11 @@ export async function GET() {
     upcomingJobs: upcomingJobs.map((j) => ({
       id: j.id,
       clientName: j.client?.name || j.guestName || 'Guest',
+      // A12: read from booking columns (legacy relation fallback in helper).
       address:
         j.status === 'PENDING'
-          ? `${j.address?.postcode || 'TBD'}`
-          : `${j.address?.line1 || ''}, ${j.address?.postcode || ''}`,
+          ? bookingPostcode(j) || 'TBD'
+          : `${bookingLine1(j)}, ${bookingPostcode(j)}`,
       date: j.date.toISOString().split('T')[0],
       time: j.startTime,
       serviceType: j.serviceType,

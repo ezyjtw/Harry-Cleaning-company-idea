@@ -79,6 +79,11 @@ interface BookingDetail {
     city: string;
     postcode: string;
   } | null;
+  // A12: structured address columns (source of truth; relation kept for back-compat).
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  addressCity?: string | null;
+  addressPostcode?: string | null;
   payment: {
     id: string;
     amount: string | number;
@@ -1585,13 +1590,15 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
           </dl>
         </Section>
 
-        {/* Address */}
-        {b.address && (
+        {/* Address — A12: prefer booking columns, fall back to legacy relation. */}
+        {(b.addressLine1 || b.address) && (
           <Section title="Address">
-            <p className="text-sm text-gray-900">{b.address.line1}</p>
-            {b.address.line2 && <p className="text-sm text-gray-900">{b.address.line2}</p>}
+            <p className="text-sm text-gray-900">{b.addressLine1 || b.address?.line1}</p>
+            {(b.addressLine2 || b.address?.line2) && (
+              <p className="text-sm text-gray-900">{b.addressLine2 || b.address?.line2}</p>
+            )}
             <p className="text-sm text-gray-900">
-              {b.address.city} {b.address.postcode}
+              {b.addressCity || b.address?.city} {b.addressPostcode || b.address?.postcode}
             </p>
           </Section>
         )}

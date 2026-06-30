@@ -48,7 +48,7 @@ export default async function RenaFindQueuePage() {
       serviceType: b.serviceType,
       date: b.date.toISOString().split('T')[0],
       time: b.startTime,
-      postcode: b.address?.postcode || '—',
+      postcode: b.addressPostcode || b.address?.postcode || '—',
       earnings: Number(b.cleanerEarnings),
     };
   });

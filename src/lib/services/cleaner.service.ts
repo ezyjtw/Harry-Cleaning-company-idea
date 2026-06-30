@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -318,7 +319,8 @@ export async function getCleanerJobs(
   return bookings.map((b) => ({
     id: b.id,
     clientName: b.client?.name || b.guestName || 'Guest',
-    address: `${b.address?.line1 || ''}, ${b.address?.postcode || ''}`,
+    // A12: read from booking columns (legacy relation fallback in helper).
+    address: `${bookingLine1(b)}, ${bookingPostcode(b)}`,
     date: b.date.toISOString().split('T')[0],
     time: b.startTime,
     serviceType: b.serviceType,

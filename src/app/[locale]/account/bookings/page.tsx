@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
+import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
+
 type BookingStatus =
   | 'Pending'
   | 'Finding a cleaner'
@@ -381,7 +383,8 @@ export default function BookingsPage() {
           ),
           rawStatus: String(b.status || 'PENDING').toUpperCase(),
           cascadePhase: (b.cascadePhase as string | null) ?? null,
-          address: b.address || b.fullAddress || '',
+          // A12: build from booking columns (helper falls back to legacy relation).
+          address: bookingFullAddress(b as BookingAddressSource) || (b.fullAddress as string) || '',
           backupCleanerNames: (b.backupCleanerNames as string[]) || [],
           autoAssignBackup: (b.autoAssignBackup as boolean) || false,
           topupAmount: b.topupAmount ? Number(b.topupAmount) : null,

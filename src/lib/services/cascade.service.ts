@@ -1132,7 +1132,8 @@ async function handleCascadeExhaustion(
       backupCleanerIds: true,
       declinedCleanerIds: true,
       cleanerEarnings: true,
-      address: { select: { postcode: true } },
+      addressPostcode: true, // A12: postcode now lives on the booking
+      address: { select: { postcode: true } }, // legacy fallback for pre-A12 rows
     },
   });
   if (!booking) return false;
@@ -1235,10 +1236,12 @@ async function enterRenaFind(
     | 'backupCleanerIds'
     | 'declinedCleanerIds'
     | 'cleanerEarnings'
+    | 'addressPostcode'
   > & { address: { postcode: string } | null },
   now: Date
 ): Promise<boolean> {
-  const postcode = booking.address?.postcode;
+  // A12: read the postcode from the booking column (legacy relation as fallback).
+  const postcode = booking.addressPostcode || booking.address?.postcode;
   if (!postcode) {
     return cascadeExhaust(bookingId, expectedPhase);
   }
