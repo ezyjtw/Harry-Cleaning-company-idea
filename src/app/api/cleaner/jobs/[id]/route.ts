@@ -129,18 +129,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // ANTI-FRAUD: a job may not be marked COMPLETED before its scheduled start.
+  // ANTI-FRAUD: a job may not be marked COMPLETED before the day it is scheduled.
   // Self-completion sets releaseDueAt and triggers auto-release of funds; without
-  // this guard a cleaner could complete a future-dated booking the instant the
-  // customer pays and be paid for work never performed. (Date+startTime compare;
-  // approximate to server timezone, which is sufficient to block future-dating.)
+  // this guard a cleaner could complete a FUTURE-DATED booking the instant the
+  // customer pays and be paid for work never performed.
+  //
+  // We deliberately compare against the START OF THE BOOKING DAY, not date+startTime:
+  // an exact start-time comparison would wrongly block legitimate same-day cases
+  // (early arrival, a short job finished a little early, or timezone skew between
+  // the stored UTC date and the local startTime — e.g. BST shifts it by an hour).
+  // Same-day-but-early completion remains allowed here; the stronger control —
+  // gating release on explicit customer confirmation — is the separately-flagged
+  // follow-up (H1). This guard's job is purely to stop future-dating.
   if (status === 'COMPLETED') {
-    const [h, m] = (booking.startTime || '00:00').split(':').map((n) => parseInt(n, 10));
-    const scheduledStart = new Date(booking.date);
-    scheduledStart.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0);
-    if (Date.now() < scheduledStart.getTime()) {
+    const bookingDayStart = new Date(booking.date);
+    bookingDayStart.setHours(0, 0, 0, 0);
+    if (Date.now() < bookingDayStart.getTime()) {
       return NextResponse.json(
-        { error: 'Cannot mark a job complete before its scheduled start time.' },
+        { error: 'Cannot mark a job complete before its scheduled date.' },
         { status: 400 }
       );
     }
