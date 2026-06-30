@@ -465,7 +465,8 @@ export default function HeroQuoteWidget() {
           </p>
           <p className="mt-1 font-jost text-[12px] text-ink-3">
             Leave your email and we&apos;ll notify you when we launch near{' '}
-            <span className="font-medium">{confirmedPostcode}</span>.
+            <span className="font-medium">{confirmedPostcode}</span>. Just one email when we go live
+            — no marketing without your consent.
           </p>
           <div className="mt-3 flex gap-2">
             <input
