@@ -865,7 +865,7 @@ export default function HeroQuoteWidget() {
       </button>
 
       <p className="mb-6 font-jost text-[10px] text-ink-3/60">
-        We&apos;ll never spam you. Unsubscribe anytime.
+        We&apos;ll only use your email to help with your booking. No marketing without your consent.
       </p>
 
       <PanelFooter />
