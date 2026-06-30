@@ -553,14 +553,18 @@ model Message {
   id         String   @id @default(cuid())
   senderId   String
   receiverId String
-  bookingId  String?
+  // A10 B1: every message is tagged with the booking it relates to (REQUIRED).
+  // Conversations are still grouped by the client<->cleaner PAIR (full history
+  // across all their bookings); bookingId gives per-message booking context and
+  // drives the release-gated send window. (Migration truncates Message — see PR.)
+  bookingId  String
   content    String   @db.Text
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  sender   User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  sender   User    @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User    @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([senderId])
   @@index([receiverId])
