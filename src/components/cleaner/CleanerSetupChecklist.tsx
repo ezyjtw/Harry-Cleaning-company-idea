@@ -150,12 +150,47 @@ export default function CleanerSetupChecklist({ profile }: { profile: SetupCheck
   const doneCount = required.filter((i) => i.done).length;
   const total = required.length;
   const allRequiredDone = doneCount === total;
-
-  // Banner-like behaviour: once all REQUIRED setup is done, the panel disappears.
-  // (The optional "Import your reviews" item stays reachable via the sidebar.)
-  if (allRequiredDone) return null;
-
   const percent = Math.round((doneCount / total) * 100);
+
+  // Once all REQUIRED setup is done, collapse the required list to a single
+  // "all set" line but KEEP the panel so the OPTIONAL import-reviews nudge stays
+  // visible (the optional row still reflects its own done/not-done state).
+  if (allRequiredDone) {
+    return (
+      <section
+        className="mb-6 rounded-xl bg-white p-5 lg:p-6"
+        style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <div>
+            <h2 className="font-cormorant text-[18px] font-semibold text-ink">
+              You&rsquo;re all set
+            </h2>
+            <p className="font-jost text-[12px] font-light text-ink-3">
+              Your essentials are complete. Optionally, strengthen your profile:
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2.5">
+          {optional.map((item) => (
+            <ItemRow key={item.key} item={item} />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
