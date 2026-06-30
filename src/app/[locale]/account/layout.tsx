@@ -21,10 +21,13 @@ const navItems = [
     href: '/messages',
     icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
   },
-  // NOTE: the "Preferences" tab was removed because /account/preferences has no
-  // page yet (it 404'd — a dead link is worse than a missing tab). A11
-  // (notification preferences) builds that page and should RE-ADD this nav item
-  // pointing at the real route.
+  {
+    // A11b: re-added (the messaging sweep removed the old dead /account/preferences
+    // link). Now points at the real notification-preferences page.
+    label: 'Notifications',
+    href: '/account/notifications',
+    icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
+  },
 ];
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {

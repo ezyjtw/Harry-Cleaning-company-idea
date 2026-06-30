@@ -74,6 +74,64 @@ export async function getEffectivePreferences(userId: string) {
   };
 }
 
+// Fields a user may change from the preferences UI. Essential is deliberately
+// absent — it has no toggle and can never be disabled.
+export interface PreferencePatch {
+  reminders?: boolean;
+  newMessage?: boolean;
+  push?: boolean;
+  sms?: boolean;
+  marketing?: boolean;
+}
+
+/**
+ * Upsert a user's preferences. Marketing transitions also stamp the PECR evidence
+ * on the live record: granting sets marketingConsentAt and clears unsubscribedAt;
+ * withdrawing stamps unsubscribedAt. Returns the new effective preferences plus
+ * whether the marketing decision changed (so the caller can write a GdprConsent
+ * audit row).
+ */
+export async function updatePreferences(userId: string, patch: PreferencePatch) {
+  const existing = await getPreferences(userId);
+
+  const fields: {
+    reminders?: boolean;
+    newMessage?: boolean;
+    push?: boolean;
+    sms?: boolean;
+    marketing?: boolean;
+    marketingConsentAt?: Date | null;
+    unsubscribedAt?: Date | null;
+  } = {};
+
+  if (patch.reminders !== undefined) fields.reminders = patch.reminders;
+  if (patch.newMessage !== undefined) fields.newMessage = patch.newMessage;
+  if (patch.push !== undefined) fields.push = patch.push;
+  if (patch.sms !== undefined) fields.sms = patch.sms;
+
+  if (patch.marketing !== undefined) {
+    fields.marketing = patch.marketing;
+    if (patch.marketing) {
+      fields.marketingConsentAt = new Date();
+      fields.unsubscribedAt = null;
+    } else {
+      fields.unsubscribedAt = new Date();
+    }
+  }
+
+  await prisma.notificationPreference.upsert({
+    where: { userId },
+    create: { userId, ...fields },
+    update: fields,
+  });
+
+  const marketingChanged =
+    patch.marketing !== undefined &&
+    (existing?.marketing ?? DEFAULT_PREFERENCES.marketing) !== patch.marketing;
+
+  return { preferences: await getEffectivePreferences(userId), marketingChanged };
+}
+
 /**
  * THE gate. Returns true if a message of `category` may be delivered to `userId`
  * over `channel`. Fail-safe by design:

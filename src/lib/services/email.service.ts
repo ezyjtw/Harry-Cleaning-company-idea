@@ -4,6 +4,27 @@ import {
   shouldSend,
   type NotificationCategory,
 } from '@/lib/services/notification-preferences.service';
+import { generateUnsubscribeToken } from '@/lib/utils/unsubscribe-token';
+
+// A11c: build the PECR unsubscribe footer + List-Unsubscribe headers for a
+// marketing email to a known user. The header URL is the one-click POST endpoint
+// (RFC 8058); the footer link is the friendly confirmation page.
+function marketingUnsubscribe(
+  userId: string,
+  appUrl: string
+): { footer: string; headers: Record<string, string> } {
+  const token = generateUnsubscribeToken(userId);
+  const pageUrl = `${appUrl}/unsubscribe?token=${encodeURIComponent(token)}`;
+  const oneClickUrl = `${appUrl}/api/unsubscribe?token=${encodeURIComponent(token)}`;
+  const footer = `<p style="font-size:12px;color:#999;">You're receiving this because you opted in to offers from Rena. <a href="${pageUrl}" style="color:#999;">Unsubscribe</a> at any time.</p>`;
+  return {
+    footer,
+    headers: {
+      'List-Unsubscribe': `<${oneClickUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  };
+}
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -55,7 +76,11 @@ async function sendEmail(
   to: string,
   subject: string,
   htmlBody: string,
-  opts?: { userId?: string | null; category?: NotificationCategory }
+  opts?: {
+    userId?: string | null;
+    category?: NotificationCategory;
+    headers?: Record<string, string>;
+  }
 ): Promise<boolean> {
   const category = opts?.category ?? 'ESSENTIAL';
   const userId = opts?.userId ?? null;
@@ -86,6 +111,7 @@ async function sendEmail(
       to,
       subject,
       html: htmlBody,
+      ...(opts?.headers ? { headers: opts.headers } : {}),
     });
     return true;
   } catch (error) {
@@ -393,22 +419,32 @@ export async function sendAbandonmentEmail(
   email: string,
   data: { cleanerName?: string; postcode?: string; personalizedMessage: string; userId?: string }
 ): Promise<boolean> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const subject = data.cleanerName
     ? `Still looking for a cleaner? ${data.cleanerName} is available`
     : 'Complete your booking with Rena';
-  const bookLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cleaners${data.postcode ? `?postcode=${data.postcode}` : ''}`;
+  const bookLink = `${appUrl}/cleaners${data.postcode ? `?postcode=${data.postcode}` : ''}`;
+
+  // A11c (PECR): a real, working unsubscribe. Marketing only ever sends with a
+  // userId (the gate suppresses consent-less sends), so we can always mint a
+  // signed token. Footer link → friendly page; List-Unsubscribe header → one-click.
+  const { footer, headers } = data.userId
+    ? marketingUnsubscribe(data.userId, appUrl)
+    : { footer: '', headers: undefined };
+
   const htmlBody = `
     <p>${data.personalizedMessage}</p>
     <p><a href="${bookLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Complete Your Booking</a></p>
-    <p style="font-size:12px;color:#999;">If you no longer wish to receive these emails, simply ignore this message.</p>
+    ${footer}
   `;
 
   // MARKETING (PECR): opt-in only. Suppressed unless the recipient has an explicit,
   // un-revoked marketing consent on record. Guest leads (no userId) have no consent
-  // ⇒ suppressed by default. A11c adds the consent capture + real unsubscribe.
+  // ⇒ suppressed by default.
   return sendEmail(email, subject, htmlBody, {
     userId: data.userId ?? null,
     category: 'MARKETING',
+    headers,
   });
 }
 
