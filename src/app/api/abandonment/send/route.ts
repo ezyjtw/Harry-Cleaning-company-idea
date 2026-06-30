@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import prisma from '@/lib/db/prisma';
 import { sendAbandonmentEmail } from '@/lib/services/email.service';
 
 // ─── Types ──────────────────────────────────────────────
@@ -98,10 +99,21 @@ export async function POST(request: NextRequest) {
 
       const personalizedMessage = generatePersonalizedMessage(lead);
 
+      // A11c: respect REAL marketing consent. Resolve the lead to a registered
+      // user so the shouldSend gate can check their opt-in; a registered user who
+      // opted in receives it (with a working unsubscribe), a non-consenting user
+      // or a pure guest (no account) is suppressed. We never blast marketing to a
+      // bare email with no consent on record.
+      const user = await prisma.user.findUnique({
+        where: { email: lead.email },
+        select: { id: true },
+      });
+
       const sent = await sendAbandonmentEmail(lead.email, {
         cleanerName: lead.cleanerId, // In production, resolve to cleaner name
         postcode: lead.postcode,
         personalizedMessage,
+        userId: user?.id,
       });
 
       if (sent) {
