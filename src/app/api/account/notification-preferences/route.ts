@@ -70,8 +70,15 @@ export async function PUT(request: NextRequest) {
       granted: patch.marketing,
       ipAddress: getClientIp(request),
       userAgent: request.headers.get('user-agent') ?? undefined,
-    }).catch(() => {
-      // Audit logging must never break the preference save (best-effort).
+    }).catch((err) => {
+      // Audit logging must never break the preference save (best-effort) — but a
+      // failed MARKETING-consent write is the one audit we must not lose silently
+      // (PECR evidence). Log loudly so it's recoverable from logs.
+      // eslint-disable-next-line no-console
+      console.error(
+        `[NotificationPreferences] FAILED to record marketing consent audit for user=${user.id} granted=${patch.marketing}:`,
+        err
+      );
     });
   }
 
