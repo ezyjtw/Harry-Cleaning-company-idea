@@ -252,6 +252,8 @@ model User {
   reviewsReceived     Review[]              @relation("ReviewsReceived")
   sentMessages        Message[]             @relation("SentMessages")
   receivedMessages    Message[]             @relation("ReceivedMessages")
+  blocksMade          UserBlock[]           @relation("BlocksMade")
+  blocksReceived      UserBlock[]           @relation("BlocksReceived")
   notifications       Notification[]
   disputesRaised      Dispute[]             @relation("DisputesRaised")
   ownedCompany        Company?              @relation("CompanyOwner")
@@ -570,6 +572,22 @@ model Message {
   @@index([receiverId])
   @@index([bookingId])
   @@index([createdAt])
+}
+
+// A10 B2: directional user block. If a block exists in EITHER direction between
+// two users, neither can message the other — enforced in the gated sendMessage,
+// overriding an active booking. Additive table; non-destructive migration.
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
 }
 
 model Notification {

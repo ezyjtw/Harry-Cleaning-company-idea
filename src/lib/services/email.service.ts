@@ -300,6 +300,33 @@ export async function sendReviewRequest(
   return sendEmail(user.email, subject, htmlBody);
 }
 
+// ─── New Message Email ──────────────────────────────────────
+
+/**
+ * Notifies a recipient that they have a new message. Deliberately does NOT include
+ * the message body (it can contain PII / off-platform contact details) — it links
+ * back to the on-platform thread, which keeps the conversation (and payments) on
+ * Rena. Sent first-unread-only (gated by the caller) to avoid re-nagging.
+ */
+export async function sendNewMessageEmail(
+  recipientEmail: string,
+  recipientName: string,
+  senderName: string
+): Promise<boolean> {
+  const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/messages`;
+  const subject = `New message from ${senderName}`;
+  const htmlBody = `
+    <h1>You have a new message</h1>
+    <p>Hi ${recipientName || 'there'},</p>
+    <p>${senderName} sent you a new message on Rena. Open the app to read it and reply.</p>
+    <p>For your safety, please keep all conversation and payments on Rena — never share contact details or pay off-platform.</p>
+    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Read your message</a></p>
+    <p>Thank you for using Rena!</p>
+  `;
+
+  return sendEmail(recipientEmail, subject, htmlBody);
+}
+
 // ─── Guest Booking Email ────────────────────────────────────
 
 export async function sendGuestBookingConfirmation(
