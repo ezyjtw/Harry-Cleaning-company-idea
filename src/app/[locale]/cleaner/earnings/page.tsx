@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import CleanerStatements from '@/components/cleaner/CleanerStatements';
+
 type Period = 'week' | 'month' | 'year';
 
 interface Payout {
@@ -254,6 +256,9 @@ export default function EarningsPage() {
           </div>
         </>
       )}
+
+      {/* A13: self-serve earnings statements (always available, independent of the period toggle) */}
+      <CleanerStatements />
     </div>
   );
 }
