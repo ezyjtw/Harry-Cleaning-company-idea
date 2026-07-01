@@ -326,6 +326,38 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     );
   };
 
+  // A12: "Change postcode" from the address step re-validates catchment + the
+  // chosen cleaner's coverage, so we never silently keep an out-of-catchment cleaner.
+  const handleAddressPostcodeChange = (pc: string): { accepted: boolean; message?: string } => {
+    const p = pc.trim().toUpperCase();
+    const active = preSelectedCleaner ?? selectedCleaner;
+    const area = getPostcodeArea(p);
+    const inCatchment = isInCatchmentArea(p);
+    const covers = active ? !!area && active.postcodeAreas.includes(area) : true;
+    if (inCatchment && covers) {
+      setPostcode(p);
+      setOutsideCatchment(false);
+      return { accepted: true };
+    }
+    const name = active?.name ?? 'This cleaner';
+    return {
+      accepted: false,
+      message: inCatchment
+        ? `${name} doesn't cover ${p}. Choose another cleaner for that area.`
+        : `We're not in ${p} yet. Choose another address or area.`,
+    };
+  };
+
+  // Bounce back to cleaner selection for the new postcode (clears the chosen
+  // cleaner + time; the cleaner list re-filters to the new area).
+  const handleReselectForPostcode = (pc: string) => {
+    const p = pc.trim().toUpperCase();
+    setPostcode(p);
+    setOutsideCatchment(!isInCatchmentArea(p));
+    setSelectedCleanerIds([]);
+    setDateTimeSelection(null);
+  };
+
   const handleBookingSubmit = async () => {
     if (bookingSubmitting) return;
     // A12: require a real street address (line1 + a valid postcode) before booking.
@@ -969,7 +1001,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <AddressAutocomplete
                   value={address}
                   onChange={setAddress}
-                  initialPostcode={postcode}
+                  autoLookupPostcode={postcode}
+                  onPostcodeChange={handleAddressPostcodeChange}
+                  onReselectCleaner={handleReselectForPostcode}
                 />
               </div>
             </div>
