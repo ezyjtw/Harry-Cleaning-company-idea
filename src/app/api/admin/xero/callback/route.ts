@@ -27,8 +27,18 @@ export async function GET(request: NextRequest) {
   const cookieState = request.cookies.get(STATE_COOKIE)?.value;
   const oauthError = url.searchParams.get('error');
 
+  // Onward redirect uses a RELATIVE Location + 303. Behind Railway's proxy,
+  // `request.url` (and thus `url.origin`) can resolve to the internal
+  // http://localhost:PORT, making the final hop a "localhost refused to connect".
+  // A relative Location sidesteps this: the browser resolves it against the
+  // PUBLIC callback URL it actually navigated to, yielding the correct origin —
+  // proxy-agnostic, no url.origin dependence. NextResponse.redirect() insists on
+  // an absolute URL, so we build the response by hand.
   const redirectTo = (params: string) =>
-    NextResponse.redirect(new URL(`/admin/xero?${params}`, url.origin));
+    new NextResponse(null, {
+      status: 303,
+      headers: { Location: `/admin/xero?${params}` },
+    });
 
   if (oauthError) {
     return redirectTo(`error=${encodeURIComponent(oauthError)}`);

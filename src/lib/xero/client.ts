@@ -8,6 +8,11 @@ import { XeroClient } from 'xero-node';
 //   accounting.banktransactions — create BANK TRANSACTIONS (chunk c, gross+clearing:
 //                                 gross→clearing, fee→income, payout-from-clearing,
 //                                 and refunds as reversing bank transactions).
+//   accounting.contacts         — find-or-create the single "Rena Marketplace"
+//                                 platform contact every bank transaction attaches
+//                                 to (Xero requires a Contact; chunk c). Confirmed
+//                                 grantable on James's app (consent reached, not
+//                                 invalid_scope). Adding it means one re-consent.
 //   offline_access              — refresh tokens (long-lived connection).
 // NOTE: Xero's transaction scopes are granular (accounting.banktransactions,
 // accounting.invoices, accounting.payments, …) — there is NO `accounting.transactions`
@@ -20,6 +25,7 @@ export const SCOPES = [
   'email',
   'accounting.settings',
   'accounting.banktransactions',
+  'accounting.contacts',
   'offline_access',
 ];
 
