@@ -8,7 +8,8 @@ export type JobType =
   | 'PROCESS_PAYMENT'
   | 'SEND_REMINDER'
   | 'REQUEST_REVIEW'
-  | 'SYNC_ANALYTICS';
+  | 'SYNC_ANALYTICS'
+  | 'XERO_PUSH';
 
 interface EnqueueOptions {
   scheduledAt?: Date;

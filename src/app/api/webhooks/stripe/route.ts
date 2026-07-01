@@ -9,6 +9,7 @@ import {
   sendPaymentFailureNotification,
 } from '@/lib/services/email.service';
 import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
+import { enqueueXeroPush } from '@/lib/services/xero-push.service';
 import stripe from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
@@ -211,6 +212,14 @@ export async function POST(request: NextRequest) {
             : {}),
         },
       });
+
+      // A13-Xero-c: mirror the gross customer payment into Xero as Receive Money
+      // (gated — no-op unless connected + mapped + flag on). Never blocks the webhook.
+      await enqueueXeroPush({
+        bookingId,
+        event: 'PAYMENT_RECEIVED',
+        occurredAt: new Date(pi.created * 1000).toISOString(),
+      }).catch(() => {});
 
       if (booking?.client) {
         await sendBookingConfirmation(

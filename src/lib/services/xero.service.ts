@@ -103,6 +103,14 @@ export async function disconnect() {
   await prisma.xeroConnection.deleteMany({ where: { key: KEY } });
 }
 
+/** A13-Xero-c: cache the resolved "Rena Marketplace" contact id (find-or-create once). */
+export async function cachePlatformContactId(contactID: string) {
+  await prisma.xeroConnection.update({
+    where: { key: KEY },
+    data: { platformContactId: contactID },
+  });
+}
+
 // ─── A13-Xero-b: account mapping + feature flag ─────────────────────────────
 
 export async function getMapping(): Promise<XeroMapping | null> {

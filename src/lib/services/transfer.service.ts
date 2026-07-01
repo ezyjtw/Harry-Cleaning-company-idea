@@ -6,6 +6,7 @@ import {
   getTransferAmountPence,
   needsReconciliation,
 } from './transfer-amount';
+import { enqueueXeroPush } from './xero-push.service';
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -161,6 +162,12 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
           transferFailureReason: null,
         },
       });
+      // A13-Xero-c: record the cleaner payout as Spend Money (gated + idempotent).
+      await enqueueXeroPush({
+        bookingId,
+        event: 'PAYOUT',
+        occurredAt: new Date().toISOString(),
+      }).catch(() => {});
       return { status: 'RELEASED', transferId: existingId };
     }
   }
@@ -192,6 +199,11 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
       },
     });
 
+    await enqueueXeroPush({
+      bookingId,
+      event: 'PAYOUT',
+      occurredAt: new Date(transfer.created * 1000).toISOString(),
+    }).catch(() => {});
     return { status: 'RELEASED', transferId: transfer.id };
   } catch (err: unknown) {
     if (isUnknownOutcome(err)) {
@@ -220,6 +232,11 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
           },
         });
 
+        await enqueueXeroPush({
+          bookingId,
+          event: 'PAYOUT',
+          occurredAt: new Date(retryTransfer.created * 1000).toISOString(),
+        }).catch(() => {});
         return { status: 'RELEASED', transferId: retryTransfer.id };
       } catch (retryErr: unknown) {
         // Still unknown — set UNKNOWN, do NOT bump transferAttempt.
