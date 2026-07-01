@@ -27,6 +27,28 @@ export interface XeroAccount {
   status: string;
 }
 
+// A13-Xero-b: account mappings + feature flag. All four accounts are required
+// before pushes can be enabled (gross+clearing model needs bank, both income
+// accounts, and the clearing/liability account).
+export interface XeroMapping {
+  bankAccountCode: string | null;
+  commissionAccountCode: string | null;
+  feeAccountCode: string | null;
+  clearingAccountCode: string | null;
+  pushEnabled: boolean;
+}
+
+export const REQUIRED_MAPPING_KEYS = [
+  'bankAccountCode',
+  'commissionAccountCode',
+  'feeAccountCode',
+  'clearingAccountCode',
+] as const;
+
+export function isMappingComplete(m: Partial<XeroMapping>): boolean {
+  return REQUIRED_MAPPING_KEYS.every((k) => !!m[k]);
+}
+
 function tokenExpiryDate(tokenSet: TokenSet): Date {
   if (tokenSet.expires_at) return new Date(tokenSet.expires_at * 1000);
   return new Date(Date.now() + (tokenSet.expires_in ?? 1800) * 1000);
@@ -74,6 +96,62 @@ export async function saveConnection(
 
 export async function disconnect() {
   await prisma.xeroConnection.deleteMany({ where: { key: KEY } });
+}
+
+// ─── A13-Xero-b: account mapping + feature flag ─────────────────────────────
+
+export async function getMapping(): Promise<XeroMapping | null> {
+  const conn = await getConnection();
+  if (!conn) return null;
+  return {
+    bankAccountCode: conn.bankAccountCode,
+    commissionAccountCode: conn.commissionAccountCode,
+    feeAccountCode: conn.feeAccountCode,
+    clearingAccountCode: conn.clearingAccountCode,
+    pushEnabled: conn.pushEnabled,
+  };
+}
+
+/**
+ * Save the account mappings and/or feature flag. Enabling pushes is REJECTED
+ * unless all four accounts are mapped (the flag can never be on with an
+ * incomplete mapping). Returns the persisted mapping.
+ */
+export async function saveMapping(input: Partial<XeroMapping>): Promise<XeroMapping> {
+  const conn = await getConnection();
+  if (!conn) throw new Error('Xero is not connected.');
+
+  // Merge requested changes over the current values to evaluate completeness.
+  const merged: XeroMapping = {
+    bankAccountCode: input.bankAccountCode ?? conn.bankAccountCode,
+    commissionAccountCode: input.commissionAccountCode ?? conn.commissionAccountCode,
+    feeAccountCode: input.feeAccountCode ?? conn.feeAccountCode,
+    clearingAccountCode: input.clearingAccountCode ?? conn.clearingAccountCode,
+    pushEnabled: input.pushEnabled ?? conn.pushEnabled,
+  };
+
+  // Guard: pushes can only be ON with a complete mapping.
+  if (merged.pushEnabled && !isMappingComplete(merged)) {
+    throw new Error('All account mappings are required before enabling Xero pushes.');
+  }
+
+  await prisma.xeroConnection.update({
+    where: { key: KEY },
+    data: {
+      bankAccountCode: merged.bankAccountCode,
+      commissionAccountCode: merged.commissionAccountCode,
+      feeAccountCode: merged.feeAccountCode,
+      clearingAccountCode: merged.clearingAccountCode,
+      pushEnabled: merged.pushEnabled,
+    },
+  });
+  return merged;
+}
+
+/** True only when connected, fully mapped, and the flag is on (gate for chunk c). */
+export async function isPushEnabled(): Promise<boolean> {
+  const m = await getMapping();
+  return !!m && m.pushEnabled && isMappingComplete(m);
 }
 
 /**

@@ -17,10 +17,38 @@ interface XeroAccount {
   status: string;
 }
 
+interface XeroMapping {
+  bankAccountCode: string | null;
+  commissionAccountCode: string | null;
+  feeAccountCode: string | null;
+  clearingAccountCode: string | null;
+  pushEnabled: boolean;
+}
+
+const ROLES: { key: keyof XeroMapping; label: string; hint: string }[] = [
+  { key: 'bankAccountCode', label: 'Bank account', hint: 'Where the gross customer payment lands' },
+  { key: 'commissionAccountCode', label: 'Commission income', hint: "Rena's commission → income" },
+  { key: 'feeAccountCode', label: 'Platform fee income', hint: 'The 6% service fee → income' },
+  {
+    key: 'clearingAccountCode',
+    label: 'Cleaner clearing (liability)',
+    hint: "Cleaner's net held on their behalf",
+  },
+];
+
+const emptyMapping: XeroMapping = {
+  bankAccountCode: null,
+  commissionAccountCode: null,
+  feeAccountCode: null,
+  clearingAccountCode: null,
+  pushEnabled: false,
+};
+
 export default function AdminXeroPage() {
   const [status, setStatus] = useState<XeroStatus | null>(null);
-  const [accounts, setAccounts] = useState<XeroAccount[] | null>(null);
-  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [accounts, setAccounts] = useState<XeroAccount[]>([]);
+  const [mapping, setMapping] = useState<XeroMapping>(emptyMapping);
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
@@ -28,44 +56,68 @@ export default function AdminXeroPage() {
     if (res.ok) setStatus(await res.json());
   }, []);
 
-  useEffect(() => {
-    loadStatus();
-    // Surface the OAuth callback result (?connected=1 / ?error=...).
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('connected')) setMsg('Connected to Xero successfully.');
-    else if (params.get('error')) setMsg(`Xero connect failed: ${params.get('error')}`);
-  }, [loadStatus]);
+  const loadConnectedData = useCallback(async () => {
+    const [aRes, mRes] = await Promise.all([
+      fetch('/api/admin/xero/accounts'),
+      fetch('/api/admin/xero/mapping'),
+    ]);
+    if (aRes.ok) setAccounts((await aRes.json()).accounts || []);
+    if (mRes.ok) setMapping((await mRes.json()).mapping || emptyMapping);
+  }, []);
 
-  async function readAccounts() {
-    setLoadingAccounts(true);
-    setAccounts(null);
-    try {
-      const res = await fetch('/api/admin/xero/accounts');
+  useEffect(() => {
+    (async () => {
+      const res = await fetch('/api/admin/xero/status');
       if (res.ok) {
-        const data = await res.json();
-        setAccounts(data.accounts || []);
+        const s: XeroStatus = await res.json();
+        setStatus(s);
+        if (s.connected) await loadConnectedData();
+      }
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('connected')) setMsg('Connected to Xero successfully.');
+      else if (params.get('error')) setMsg(`Xero connect failed: ${params.get('error')}`);
+    })();
+  }, [loadConnectedData]);
+
+  const complete = ROLES.every((r) => !!mapping[r.key]);
+
+  async function saveMapping(patch: Partial<XeroMapping>) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/admin/xero/mapping', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMapping(data.mapping);
+        setMsg('Saved.');
       } else {
-        const data = await res.json().catch(() => ({}));
-        setMsg(data.error || 'Could not read the chart of accounts.');
+        setMsg(data.error || 'Could not save.');
       }
     } finally {
-      setLoadingAccounts(false);
+      setBusy(false);
     }
   }
 
   async function disconnect() {
     await fetch('/api/admin/xero/disconnect', { method: 'POST' });
-    setAccounts(null);
+    setAccounts([]);
+    setMapping(emptyMapping);
     await loadStatus();
     setMsg('Disconnected from Xero.');
   }
+
+  const accountLabel = (a: XeroAccount) => `${a.code} — ${a.name}${a.type ? ` (${a.type})` : ''}`;
 
   return (
     <div className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Xero (Accounting)</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Connect Rena to your Xero organisation. This chunk only connects and reads your chart of
-        accounts — no transactions are pushed to Xero yet.
+        Connect Rena to your Xero organisation and map each money flow to your own accounts. Nothing
+        is pushed to Xero until the mapping is complete and pushing is switched on.
       </p>
 
       {msg && (
@@ -82,77 +134,112 @@ export default function AdminXeroPage() {
           XERO_REDIRECT_URI). The integration is dormant until these are set.
         </div>
       ) : (
-        <div className="mt-6 rounded border border-gray-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {status.connected
-                  ? `Connected: ${status.tenantName || 'Xero org'}`
-                  : 'Not connected'}
-              </p>
-              {status.connected && status.expiresAt && (
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Access token valid until {new Date(status.expiresAt).toLocaleString('en-GB')}{' '}
-                  (auto-refreshes).
+        <div className="mt-6 space-y-6">
+          {/* Connection */}
+          <div className="rounded border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {status.connected
+                    ? `Connected: ${status.tenantName || 'Xero org'}`
+                    : 'Not connected'}
                 </p>
+                {status.connected && status.expiresAt && (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Access token valid until {new Date(status.expiresAt).toLocaleString('en-GB')}{' '}
+                    (auto-refreshes).
+                  </p>
+                )}
+              </div>
+              {status.connected ? (
+                <button
+                  onClick={disconnect}
+                  className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Disconnect
+                </button>
+              ) : (
+                <a
+                  href="/api/admin/xero/connect"
+                  className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Connect Xero
+                </a>
               )}
             </div>
-            {status.connected ? (
-              <button
-                onClick={disconnect}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Disconnect
-              </button>
-            ) : (
-              <a
-                href="/api/admin/xero/connect"
-                className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Connect Xero
-              </a>
-            )}
           </div>
 
+          {/* Account mapping */}
           {status.connected && (
-            <div className="mt-5 border-t border-gray-100 pt-4">
+            <div className="rounded border border-gray-200 bg-white p-5">
+              <h2 className="text-sm font-semibold text-gray-900">Account mapping</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Map each flow to one of your existing Xero accounts. We never create accounts.
+              </p>
+
+              <div className="mt-4 space-y-4">
+                {ROLES.map((role) => (
+                  <div key={role.key}>
+                    <label className="block text-xs font-medium text-gray-700">
+                      {role.label} <span className="font-normal text-gray-400">— {role.hint}</span>
+                    </label>
+                    <select
+                      value={(mapping[role.key] as string) || ''}
+                      onChange={(e) =>
+                        setMapping((m) => ({ ...m, [role.key]: e.target.value || null }))
+                      }
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                    >
+                      <option value="">— Select an account —</option>
+                      {accounts.map((a) => (
+                        <option key={a.code} value={a.code}>
+                          {accountLabel(a)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
               <button
-                onClick={readAccounts}
-                disabled={loadingAccounts}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                onClick={() =>
+                  saveMapping({
+                    bankAccountCode: mapping.bankAccountCode,
+                    commissionAccountCode: mapping.commissionAccountCode,
+                    feeAccountCode: mapping.feeAccountCode,
+                    clearingAccountCode: mapping.clearingAccountCode,
+                  })
+                }
+                disabled={busy}
+                className="mt-4 rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                {loadingAccounts ? 'Reading…' : 'Read chart of accounts'}
+                {busy ? 'Saving…' : 'Save mapping'}
               </button>
 
-              {accounts && (
-                <div className="mt-4 max-h-96 overflow-auto rounded border border-gray-200">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-3 py-2">Code</th>
-                        <th className="px-3 py-2">Name</th>
-                        <th className="px-3 py-2">Type</th>
-                        <th className="px-3 py-2">Tax</th>
-                        <th className="px-3 py-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accounts.map((a, i) => (
-                        <tr key={`${a.code}-${i}`} className="border-t border-gray-100">
-                          <td className="px-3 py-1.5 font-mono text-xs">{a.code}</td>
-                          <td className="px-3 py-1.5">{a.name}</td>
-                          <td className="px-3 py-1.5 text-gray-600">{a.type}</td>
-                          <td className="px-3 py-1.5 text-gray-600">{a.taxType}</td>
-                          <td className="px-3 py-1.5 text-gray-600">{a.status}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {accounts && accounts.length === 0 && (
-                <p className="mt-3 text-sm text-gray-500">No accounts returned.</p>
-              )}
+              {/* Feature flag */}
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={mapping.pushEnabled}
+                    disabled={busy || (!mapping.pushEnabled && !complete)}
+                    onChange={(e) => saveMapping({ pushEnabled: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm text-gray-900">
+                    Push transactions to Xero
+                    {!complete && (
+                      <span className="ml-2 text-xs text-amber-700">
+                        (complete the mapping above first)
+                      </span>
+                    )}
+                  </span>
+                </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  When off, Rena records nothing to Xero. Pushing itself is added in the next chunk;
+                  this flag gates it.
+                </p>
+              </div>
             </div>
           )}
         </div>

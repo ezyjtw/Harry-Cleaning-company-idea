@@ -1379,6 +1379,21 @@ model XeroConnection {
   expiresAt       DateTime // access-token expiry (drives refresh)
   keyId           String // document-encryption key id used for these tokens
   connectedByUserId String?
+
+  // A13-Xero-b: account mappings (Xero account CODES from James's own chart of
+  // accounts — never invented). Gross+clearing model:
+  //   bankAccountCode      — where the gross customer payment lands (receive money)
+  //   commissionAccountCode— Rena's commission → INCOME
+  //   feeAccountCode       — the 6% platform fee → INCOME
+  //   clearingAccountCode  — cleaner's net held on their behalf → LIABILITY/clearing
+  bankAccountCode       String?
+  commissionAccountCode String?
+  feeAccountCode        String?
+  clearingAccountCode   String?
+
+  // A13-Xero-b: feature flag. Pushes stay OFF until connected + mapped + enabled.
+  pushEnabled Boolean @default(false)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
