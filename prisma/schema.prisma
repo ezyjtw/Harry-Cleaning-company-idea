@@ -1364,3 +1364,21 @@ model StripeWebhookEvent {
   payload     Json
   processedAt DateTime @default(now())
 }
+
+// A13-Xero: the single connection to James's Xero organisation. OAuth tokens are
+// ENCRYPTED at rest (AES-256-GCM via document-encryption, keyed by `keyId`) — the
+// plaintext access/refresh tokens never touch the DB or the client. Singleton:
+// enforced by the unique `key` (always "primary"); a reconnect upserts the row.
+model XeroConnection {
+  id              String   @id @default(cuid())
+  key             String   @unique @default("primary") // singleton guard
+  tenantId        String // Xero organisation (tenant) id
+  tenantName      String? // org name, for display in admin
+  accessTokenEnc  String   @db.Text // encrypted access token (base64)
+  refreshTokenEnc String   @db.Text // encrypted refresh token (base64)
+  expiresAt       DateTime // access-token expiry (drives refresh)
+  keyId           String // document-encryption key id used for these tokens
+  connectedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

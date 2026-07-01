@@ -73,6 +73,22 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     description:
       'getAddress.io API key for postcode→address autocomplete (server-side only). When unset, the address lookup endpoint returns 503 and the booking UI falls back to manual structured entry.',
   },
+  {
+    name: 'XERO_CLIENT_ID',
+    required: false,
+    description: 'Xero OAuth2 app client id (A13-Xero). Unset ⇒ Xero integration dormant.',
+  },
+  {
+    name: 'XERO_CLIENT_SECRET',
+    required: false,
+    description: 'Xero OAuth2 app client secret (server-side only).',
+  },
+  {
+    name: 'XERO_REDIRECT_URI',
+    required: false,
+    description:
+      'Xero OAuth2 redirect URI, e.g. https://www.renacleaning.co.uk/api/admin/xero/callback (must match the Xero app config).',
+  },
   { name: 'R2_ACCOUNT_ID', required: true, description: 'Cloudflare R2 account ID' },
   { name: 'R2_ACCESS_KEY_ID', required: true, description: 'Cloudflare R2 access key ID' },
   { name: 'R2_SECRET_ACCESS_KEY', required: true, description: 'Cloudflare R2 secret access key' },
