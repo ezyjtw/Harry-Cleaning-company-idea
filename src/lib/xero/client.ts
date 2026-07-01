@@ -8,7 +8,7 @@ import { XeroClient } from 'xero-node';
 //   accounting.transactions — create bank transactions / invoices (chunk c, later)
 //   offline_access          — refresh tokens (long-lived connection)
 // Passed to Xero space-separated (xero-node does scopes.join(' ')).
-const SCOPES = [
+export const SCOPES = [
   'openid',
   'profile',
   'email',
@@ -25,12 +25,14 @@ export function xeroConfigured(): boolean {
   );
 }
 
-export function makeXeroClient(state?: string): XeroClient {
+// `scopesOverride` is a DIAGNOSTIC hook (admin-only connect route) to isolate
+// which scope Xero rejects with invalid_scope. Normal calls use the default SCOPES.
+export function makeXeroClient(state?: string, scopesOverride?: string[]): XeroClient {
   return new XeroClient({
     clientId: process.env.XERO_CLIENT_ID as string,
     clientSecret: process.env.XERO_CLIENT_SECRET as string,
     redirectUris: [process.env.XERO_REDIRECT_URI as string],
-    scopes: SCOPES,
+    scopes: scopesOverride && scopesOverride.length > 0 ? scopesOverride : SCOPES,
     ...(state ? { state } : {}),
   });
 }

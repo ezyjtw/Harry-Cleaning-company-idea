@@ -31,8 +31,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // DIAGNOSTIC: ?scopes=... lets an admin request a SUBSET to isolate which
+  // scope Xero rejects with invalid_scope (space- or comma-separated), e.g.
+  //   ?scopes=openid                          → is even openid rejected?
+  //   ?scopes=openid profile email            → OIDC only
+  //   ?scopes=openid accounting.settings      → add one accounting scope
+  // Omit to use the full default scope set.
+  const scopesParam = request.nextUrl.searchParams.get('scopes');
+  const scopesOverride = scopesParam ? scopesParam.split(/[\s,+]+/).filter(Boolean) : undefined;
+
   const state = randomBytes(16).toString('hex');
-  const client = makeXeroClient(state);
+  const client = makeXeroClient(state, scopesOverride);
   const consentUrl = await client.buildConsentUrl();
 
   // Parse what we actually emit and log it (Railway logs).
