@@ -1398,6 +1398,34 @@ model XeroConnection {
   // A13-Xero-b: feature flag. Pushes stay OFF until connected + mapped + enabled.
   pushEnabled Boolean @default(false)
 
+  // A13-Xero-c: cached Xero ContactID of the single "Rena Marketplace" platform
+  // contact every bank transaction is attached to (Xero requires a Contact).
+  // Found-or-created on first push, then reused. Cleared on disconnect with the row.
+  platformContactId String?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// A13-Xero-c: idempotency ledger for bank-transaction pushes. One row per
+// (booking, event, externalRef) — a COMPLETED row means "already pushed, skip".
+// externalRef discriminates multiple pushes of the same event: it holds the
+// Stripe refund id for REFUND (each RefundRecord is its own reversal) and is ""
+// (empty, NOT null) for PAYMENT_RECEIVED / PAYOUT so the unique constraint
+// actually catches duplicates — Postgres treats NULLs as distinct, which would
+// otherwise let two identical payment pushes both insert.
+model XeroPushLog {
+  id          String   @id @default(cuid())
+  bookingId   String
+  event       String // PAYMENT_RECEIVED | PAYOUT | REFUND
+  externalRef String   @default("") // stripeRefundId for REFUND; "" otherwise
+  xeroId      String? // returned Xero BankTransactionID(s), comma-joined
+  status      String   @default("PENDING") // PENDING | COMPLETED | FAILED
+  lastError   String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bookingId, event, externalRef])
+  @@index([bookingId])
+  @@index([status])
 }

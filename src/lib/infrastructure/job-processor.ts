@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma';
+import { processXeroPush, type XeroPushPayload } from '@/lib/services/xero-push.service';
 
 type JobHandler = (payload: Record<string, unknown>) => Promise<void>;
 
@@ -197,6 +198,11 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
 registerJobHandler('PROCESS_PAYMENT', async (payload) => {
   // eslint-disable-next-line no-console
   console.log('[JobProcessor] Processing payment:', payload);
+});
+
+// A13-Xero-c: post bank transactions to Xero (gated + idempotent inside the handler).
+registerJobHandler('XERO_PUSH', async (payload) => {
+  await processXeroPush(payload as unknown as XeroPushPayload);
 });
 
 registerJobHandler('REQUEST_REVIEW', async (payload) => {

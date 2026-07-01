@@ -13,6 +13,7 @@ import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
+import { enqueueXeroPush } from './xero-push.service';
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -533,6 +534,22 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
   }
 
   await prisma.$transaction(ops);
+
+  // A13-Xero-c: mirror this refund into Xero as a reversing bank transaction
+  // (gated + idempotent per stripeRefundId). Capture the cleaner's proportional
+  // share NOW — `booking` still holds the PRE-mutation cleanerEarnings, so a
+  // later worker run is correct even after this refund reduces it (pre-release)
+  // or across multiple partial refunds. Never blocks the refund flow.
+  const cleanerRefundPortion = calculateCleanerSharePence(amountPounds, booking) / 100;
+  await enqueueXeroPush({
+    bookingId: booking.id,
+    event: 'REFUND',
+    externalRef: stripeRefundId,
+    isPostRelease,
+    refundAmount: amountPounds,
+    cleanerRefundPortion,
+    occurredAt: new Date().toISOString(),
+  }).catch(() => {});
 }
 
 // ─── Notifications (best-effort, fire-and-forget) ──────────
