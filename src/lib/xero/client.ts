@@ -2,10 +2,20 @@ import { XeroClient } from 'xero-node';
 
 // A13-Xero: OAuth2 client factory. The integration is DORMANT until these env
 // vars are set (xeroConfigured() === false ⇒ routes 503). Scopes:
-//   accounting.settings    — read the chart of accounts (chunk a) + org settings
+//   openid profile email    — REQUIRED base OpenID scopes; Xero rejects the
+//                             consent request with `invalid_scope` without them.
+//   accounting.settings     — read the chart of accounts (chunk a) + org settings
 //   accounting.transactions — create bank transactions / invoices (chunk c, later)
 //   offline_access          — refresh tokens (long-lived connection)
-const SCOPES = ['accounting.settings', 'accounting.transactions', 'offline_access'];
+// Passed to Xero space-separated (xero-node does scopes.join(' ')).
+const SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  'accounting.settings',
+  'accounting.transactions',
+  'offline_access',
+];
 
 export function xeroConfigured(): boolean {
   return !!(
