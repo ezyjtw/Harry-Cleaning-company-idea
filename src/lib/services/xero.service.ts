@@ -20,26 +20,31 @@ export interface XeroStatus {
 }
 
 export interface XeroAccount {
-  code: string;
+  accountID: string; // stable id; BANK accounts have no `code`, so this is their identifier
+  code: string; // line-item accounts (income/clearing) are referenced by code
   name: string;
   type: string;
   taxType: string;
   status: string;
 }
 
-// A13-Xero-b: account mappings + feature flag. All four accounts are required
-// before pushes can be enabled (gross+clearing model needs bank, both income
-// accounts, and the clearing/liability account).
+// A13-Xero-b: account mappings + feature flag.
+//   commission/fee/clearing — store the account CODE (used as line-item accountCode
+//                             in chunk-c bank transactions). REQUIRED.
+//   bankAccountCode         — stores the bank's Xero AccountID (BANK accounts have
+//                             NO code). OPTIONAL to save; chunk-c bank-transaction
+//                             pushes will need it (the transaction posts to it).
 export interface XeroMapping {
-  bankAccountCode: string | null;
+  bankAccountCode: string | null; // holds the bank AccountID (see note above)
   commissionAccountCode: string | null;
   feeAccountCode: string | null;
   clearingAccountCode: string | null;
   pushEnabled: boolean;
 }
 
+// Bank is intentionally NOT required — the three coded accounts are the minimum
+// to save + enable a mapping; the bank account is optional here.
 export const REQUIRED_MAPPING_KEYS = [
-  'bankAccountCode',
   'commissionAccountCode',
   'feeAccountCode',
   'clearingAccountCode',
@@ -114,8 +119,9 @@ export async function getMapping(): Promise<XeroMapping | null> {
 
 /**
  * Save the account mappings and/or feature flag. Enabling pushes is REJECTED
- * unless all four accounts are mapped (the flag can never be on with an
- * incomplete mapping). Returns the persisted mapping.
+ * unless the three REQUIRED accounts (commission/fee/clearing) are mapped —
+ * the bank account is optional here. The flag can never be on with an
+ * incomplete mapping. Returns the persisted mapping.
  */
 export async function saveMapping(input: Partial<XeroMapping>): Promise<XeroMapping> {
   const conn = await getConnection();
@@ -205,6 +211,7 @@ export async function getChartOfAccounts(): Promise<XeroAccount[] | null> {
   if (!authed) return null;
   const res = await authed.client.accountingApi.getAccounts(authed.tenantId);
   return (res.body.accounts ?? []).map((a) => ({
+    accountID: a.accountID ?? '',
     code: a.code ?? '',
     name: a.name ?? '',
     type: a.type ? String(a.type) : '',

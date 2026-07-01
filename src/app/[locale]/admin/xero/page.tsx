@@ -10,6 +10,7 @@ interface XeroStatus {
 }
 
 interface XeroAccount {
+  accountID: string;
   code: string;
   name: string;
   type: string;
@@ -25,14 +26,51 @@ interface XeroMapping {
   pushEnabled: boolean;
 }
 
-const ROLES: { key: keyof XeroMapping; label: string; hint: string }[] = [
-  { key: 'bankAccountCode', label: 'Bank account', hint: 'Where the gross customer payment lands' },
-  { key: 'commissionAccountCode', label: 'Commission income', hint: "Rena's commission → income" },
-  { key: 'feeAccountCode', label: 'Platform fee income', hint: 'The 6% service fee → income' },
+// `idKey` = which identifier the dropdown option carries (and gets stored):
+//   BANK accounts have no `code`, so the bank slot uses `accountID`;
+//   income/clearing (line-item) accounts use `code`.
+// `only` filters the account list for that slot.
+interface Role {
+  key: keyof XeroMapping;
+  label: string;
+  hint: string;
+  required: boolean;
+  idKey: 'accountID' | 'code';
+  only: (a: XeroAccount) => boolean;
+}
+
+const ROLES: Role[] = [
+  {
+    key: 'commissionAccountCode',
+    label: 'Commission income',
+    hint: "Rena's commission → income",
+    required: true,
+    idKey: 'code',
+    only: (a) => !!a.code,
+  },
+  {
+    key: 'feeAccountCode',
+    label: 'Platform fee income',
+    hint: 'The 6% service fee → income',
+    required: true,
+    idKey: 'code',
+    only: (a) => !!a.code,
+  },
   {
     key: 'clearingAccountCode',
-    label: 'Cleaner clearing (liability)',
+    label: 'Cleaner clearing',
     hint: "Cleaner's net held on their behalf",
+    required: true,
+    idKey: 'code',
+    only: (a) => !!a.code,
+  },
+  {
+    key: 'bankAccountCode',
+    label: 'Bank account (optional)',
+    hint: 'The account mirroring your Stripe balance — needed for pushing',
+    required: false,
+    idKey: 'accountID',
+    only: (a) => a.type === 'BANK',
   },
 ];
 
@@ -79,7 +117,8 @@ export default function AdminXeroPage() {
     })();
   }, [loadConnectedData]);
 
-  const complete = ROLES.every((r) => !!mapping[r.key]);
+  // Only the REQUIRED roles gate saving/enabling; the bank account is optional here.
+  const complete = ROLES.filter((r) => r.required).every((r) => !!mapping[r.key]);
 
   async function saveMapping(patch: Partial<XeroMapping>) {
     setBusy(true);
@@ -110,7 +149,20 @@ export default function AdminXeroPage() {
     setMsg('Disconnected from Xero.');
   }
 
-  const accountLabel = (a: XeroAccount) => `${a.code} — ${a.name}${a.type ? ` (${a.type})` : ''}`;
+  // BANK accounts have no code, so lead with the name and only prefix a code when present.
+  const accountLabel = (a: XeroAccount) =>
+    `${a.code ? `${a.code} — ` : ''}${a.name}${a.type ? ` (${a.type})` : ''}`;
+
+  async function reloadAccounts() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await loadConnectedData();
+      setMsg('Accounts reloaded from Xero.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -172,33 +224,54 @@ export default function AdminXeroPage() {
           {/* Account mapping */}
           {status.connected && (
             <div className="rounded border border-gray-200 bg-white p-5">
-              <h2 className="text-sm font-semibold text-gray-900">Account mapping</h2>
-              <p className="mt-1 text-xs text-gray-500">
-                Map each flow to one of your existing Xero accounts. We never create accounts.
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Account mapping</h2>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Map each flow to one of your existing Xero accounts. We never create accounts.
+                  </p>
+                </div>
+                <button
+                  onClick={reloadAccounts}
+                  disabled={busy}
+                  className="shrink-0 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Reload accounts
+                </button>
+              </div>
 
               <div className="mt-4 space-y-4">
-                {ROLES.map((role) => (
-                  <div key={role.key}>
-                    <label className="block text-xs font-medium text-gray-700">
-                      {role.label} <span className="font-normal text-gray-400">— {role.hint}</span>
-                    </label>
-                    <select
-                      value={(mapping[role.key] as string) || ''}
-                      onChange={(e) =>
-                        setMapping((m) => ({ ...m, [role.key]: e.target.value || null }))
-                      }
-                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900"
-                    >
-                      <option value="">— Select an account —</option>
-                      {accounts.map((a) => (
-                        <option key={a.code} value={a.code}>
-                          {accountLabel(a)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+                {ROLES.map((role) => {
+                  const options = accounts.filter(role.only);
+                  return (
+                    <div key={role.key}>
+                      <label className="block text-xs font-medium text-gray-700">
+                        {role.label}{' '}
+                        <span className="font-normal text-gray-400">— {role.hint}</span>
+                      </label>
+                      <select
+                        value={(mapping[role.key] as string) || ''}
+                        onChange={(e) =>
+                          setMapping((m) => ({ ...m, [role.key]: e.target.value || null }))
+                        }
+                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                      >
+                        <option value="">— Select an account —</option>
+                        {options.map((a) => (
+                          <option key={a.accountID || a.code} value={a[role.idKey]}>
+                            {accountLabel(a)}
+                          </option>
+                        ))}
+                      </select>
+                      {options.length === 0 && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          No matching accounts found in Xero. Create one there, then Reload
+                          accounts.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <button
