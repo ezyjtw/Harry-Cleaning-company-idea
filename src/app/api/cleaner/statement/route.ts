@@ -86,7 +86,10 @@ export async function GET(request: NextRequest) {
       data,
       generatedOn: now,
     });
-  } catch {
+  } catch (err) {
+    // Log the real exception — a silent catch hid the pdfkit .afm ENOENT in prod.
+    // eslint-disable-next-line no-console
+    console.error('[statement] PDF generation failed:', err);
     return NextResponse.json({ error: 'Could not generate the statement.' }, { status: 500 });
   }
 

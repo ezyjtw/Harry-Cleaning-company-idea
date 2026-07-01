@@ -17,6 +17,11 @@ if (!process.env.NEXTAUTH_URL) {
 const nextConfig = {
   experimental: {
     instrumentationHook: true,
+    // A13: keep pdfkit un-bundled so its runtime file reads resolve against the
+    // real node_modules path (Next 14 key). Belt-and-suspenders — the statement
+    // renderer also embeds its own fonts (base64) so it never reads pdfkit's
+    // built-in .afm files.
+    serverComponentsExternalPackages: ['pdfkit'],
   },
 
   env: {
