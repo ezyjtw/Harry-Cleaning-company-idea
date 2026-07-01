@@ -2,7 +2,7 @@
 
 import { Elements } from '@stripe/react-stripe-js';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
@@ -237,6 +237,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const isGuest = !isAuthenticated;
 
   // Check if a cleaner was pre-selected (coming from /book/[id] service selection)
+  const router = useRouter();
   const searchParams = useSearchParams();
   const preSelectedCleanerId = searchParams.get('cleaner') ?? '';
   const preSelectedCleaner = preSelectedCleanerId ? getCleanerById(preSelectedCleanerId) : null;
@@ -348,15 +349,41 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     };
   };
 
-  // Bounce back to cleaner selection for the new postcode (clears the chosen
-  // cleaner + time; the cleaner list re-filters to the new area).
+  // Bounce back to cleaner selection for the new postcode. For an in-page
+  // selection flow, clearing the chosen cleaner + time re-filters the cleaner
+  // list to the new area. When the cleaner is locked via the URL (?cleaner=),
+  // we can't swap them in place — restart the wizard for this service so the
+  // user can pick a cleaner who covers the new address.
   const handleReselectForPostcode = (pc: string) => {
     const p = pc.trim().toUpperCase();
+    if (preSelectedCleaner) {
+      router.push(`/services/${category}`);
+      return;
+    }
     setPostcode(p);
     setOutsideCatchment(!isInCatchmentArea(p));
     setSelectedCleanerIds([]);
     setDateTimeSelection(null);
   };
+
+  // A12: single definition of the "Cleaning Address" card, rendered in each
+  // phase-2 summary (before pay). By the summary the start-postcode is set, so
+  // the autocomplete engages auto-mode (dropdown, no second postcode box).
+  const addressCard = (
+    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+      <h2 className="font-jost font-medium text-base text-ink">Cleaning Address</h2>
+      <p className="mt-2 font-jost text-sm font-light text-ink-2">Where should your cleaner go?</p>
+      <div className="mt-4">
+        <AddressAutocomplete
+          value={address}
+          onChange={setAddress}
+          autoLookupPostcode={postcode}
+          onPostcodeChange={handleAddressPostcodeChange}
+          onReselectCleaner={handleReselectForPostcode}
+        />
+      </div>
+    </div>
+  );
 
   const handleBookingSubmit = async () => {
     if (bookingSubmitting) return;
@@ -991,23 +1018,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             </div>
 
-            {/* Address (A12) */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-jost font-medium text-base text-ink">Cleaning Address</h2>
-              <p className="mt-2 font-jost text-sm font-light text-ink-2">
-                Where should your cleaner go?
-              </p>
-              <div className="mt-4">
-                <AddressAutocomplete
-                  value={address}
-                  onChange={setAddress}
-                  autoLookupPostcode={postcode}
-                  onPostcodeChange={handleAddressPostcodeChange}
-                  onReselectCleaner={handleReselectForPostcode}
-                />
-              </div>
-            </div>
-
             {/* Email */}
             {isGuest ? (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
@@ -1488,6 +1498,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             />
           </div>
 
+          {/* Cleaning address (A12) */}
+          {addressCard}
+
+          {bookingError && (
+            <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+              {bookingError}
+            </div>
+          )}
+
           {/* Submit */}
           <button
             type="button"
@@ -1721,6 +1740,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] placeholder:text-ink-3/50 transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
+
+            {/* Cleaning address (A12) */}
+            {addressCard}
+
+            {bookingError && (
+              <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+                {bookingError}
+              </div>
+            )}
 
             {/* Submit */}
             <button
@@ -2135,6 +2163,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 included. No hidden charges.
               </p>
             </div>
+
+            {/* Cleaning address (A12) */}
+            {addressCard}
 
             {bookingError && (
               <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
@@ -2805,6 +2836,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 )}
               </div>
             </div>
+
+            {/* Cleaning address (A12) */}
+            {addressCard}
+
+            {bookingError && (
+              <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+                {bookingError}
+              </div>
+            )}
 
             <button
               type="button"
