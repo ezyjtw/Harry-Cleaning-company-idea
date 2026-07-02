@@ -7,13 +7,13 @@ function ShieldIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M10 2L4 5V9.5C4 13.5 6.5 17 10 18.5C13.5 17 16 13.5 16 9.5V5L10 2Z"
-        stroke="#2F80ED"
+        stroke="#16296b"
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
       <path
         d="M7.5 10L9.5 12L13 8"
-        stroke="#00BFA6"
+        stroke="#16a34a"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -25,10 +25,10 @@ function ShieldIcon() {
 function ProcessIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 6H16M4 10H16M4 14H11" stroke="#2F80ED" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M4 6H16M4 10H16M4 14H11" stroke="#16296b" strokeWidth="1.5" strokeLinecap="round" />
       <path
         d="M14 13L16 15L14 17"
-        stroke="#00BFA6"
+        stroke="#3D5170"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -40,14 +40,14 @@ function ProcessIcon() {
 function LockIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="9" width="12" height="8" rx="2" stroke="#2F80ED" strokeWidth="1.5" />
+      <rect x="4" y="9" width="12" height="8" rx="2" stroke="#16296b" strokeWidth="1.5" />
       <path
         d="M7 9V6C7 4.34 8.34 3 10 3C11.66 3 13 4.34 13 6V9"
-        stroke="#2F80ED"
+        stroke="#16296b"
         strokeWidth="1.5"
         strokeLinecap="round"
       />
-      <circle cx="10" cy="13" r="1" fill="#00BFA6" />
+      <circle cx="10" cy="13" r="1" fill="#3D5170" />
     </svg>
   );
 }

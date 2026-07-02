@@ -152,7 +152,7 @@ function PostcodeBar({
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path
             d="M3 7L6 10L11 4"
-            stroke="#2F80ED"
+            stroke="#16296b"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
