@@ -9,32 +9,63 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Colours map onto the CSS vars in globals.css :root (single source).
+      // rgb(var(--x) / <alpha-value>) keeps Tailwind opacity modifiers working.
       colors: {
-        brand: {
-          50: '#EDF2FB',
-          100: '#E2EAFC',
-          200: '#D7E3FC',
-          300: '#BFD7FF',
-          400: '#9BB1FF',
-          500: '#2F80ED',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+        // Semantic tokens
+        primary: {
+          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
+          hover: 'rgb(var(--color-primary-hover) / <alpha-value>)',
+          active: 'rgb(var(--color-primary-active) / <alpha-value>)',
+          soft: 'rgb(var(--color-primary-soft) / <alpha-value>)',
         },
-        ink: '#1B2A4A',
-        'ink-2': '#3D5170',
-        'ink-3': '#7A8A9E',
-        cream: '#F7F9FC',
-        'cream-2': '#EDF2FB',
-        gold: '#2F80ED',
-        'gold-2': '#00BFA6',
-        navy: '#1B2A4A',
-        teal: '#00BFA6',
+        trust: {
+          DEFAULT: 'rgb(var(--color-trust) / <alpha-value>)',
+          'on-dark': 'rgb(var(--color-trust-on-dark) / <alpha-value>)',
+        },
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        page: 'rgb(var(--color-page) / <alpha-value>)',
+        line: 'rgb(var(--color-border) / <alpha-value>)',
+        'wash-to': 'rgb(var(--color-wash-to) / <alpha-value>)',
+
+        // Ink scale
+        ink: 'rgb(var(--color-ink) / <alpha-value>)',
+        'ink-2': 'rgb(var(--color-ink-2) / <alpha-value>)',
+        'ink-3': 'rgb(var(--color-ink-3) / <alpha-value>)',
+        navy: 'rgb(var(--color-ink) / <alpha-value>)',
+
+        // Neutral surfaces (legacy names kept; repointed to page/soft)
+        cream: 'rgb(var(--color-page) / <alpha-value>)',
+        'cream-2': 'rgb(var(--color-primary-soft) / <alpha-value>)',
+
+        // RETIRED palette — names kept so existing usages need no page edits:
+        //   gold (#2F80ED)          -> primary (navy)
+        //   gold-2 / teal (#00BFA6) -> trust   (green; verified/success ticks)
+        gold: 'rgb(var(--color-primary) / <alpha-value>)',
+        'gold-2': 'rgb(var(--color-trust) / <alpha-value>)',
+        teal: 'rgb(var(--color-trust) / <alpha-value>)',
+
+        // Brand ramp rebuilt around navy #1e3a8a (was a #2F80ED/#2563eb blue ramp):
+        // light steps -> primary-soft, mid -> primary-hover, dark -> primary/active.
+        brand: {
+          50: 'rgb(var(--color-primary-soft) / <alpha-value>)',
+          100: 'rgb(var(--color-primary-soft) / <alpha-value>)',
+          200: 'rgb(var(--color-primary-soft) / <alpha-value>)',
+          300: 'rgb(var(--color-primary-hover) / <alpha-value>)',
+          400: 'rgb(var(--color-primary-hover) / <alpha-value>)',
+          500: 'rgb(var(--color-primary-hover) / <alpha-value>)',
+          600: 'rgb(var(--color-primary) / <alpha-value>)',
+          700: 'rgb(var(--color-primary-active) / <alpha-value>)',
+          800: 'rgb(var(--color-primary-active) / <alpha-value>)',
+          900: 'rgb(var(--color-primary-active) / <alpha-value>)',
+        },
       },
       fontFamily: {
+        // Jost via next/font (--font-jost); Inter deleted (was never loaded).
         sans: [
-          'Inter',
+          'var(--font-jost)',
           'system-ui',
           '-apple-system',
           'Segoe UI',
@@ -43,9 +74,12 @@ const config: Config = {
           'Arial',
           'sans-serif',
         ],
-        cormorant: ['"Cormorant Garamond"', 'serif'],
+        serif: ['var(--font-newsreader)', 'Georgia', 'Cambria', 'serif'],
+        newsreader: ['var(--font-newsreader)', 'serif'],
+        jost: ['var(--font-jost)', 'sans-serif'],
+        // Cormorant RETIRED -> remapped to Newsreader (font-cormorant usages inherit it).
+        cormorant: ['var(--font-newsreader)', 'serif'],
         etna: ['"Etna Sans Serif"', 'sans-serif'],
-        jost: ['Jost', 'sans-serif'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],

@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+   Design-system token layer — the single source of truth.
+   Tailwind's color config (tailwind.config.ts) maps ONTO these,
+   so a colour can never diverge between CSS and Tailwind.
+
+   Values are stored as space-separated RGB channels (not hex) so
+   Tailwind's alpha modifiers keep working (e.g. bg-ink/90, ring-gold/30
+   — ~557 such usages). The canonical hex is in the trailing comment,
+   and is what you paste into emails / the Stripe appearance object.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --color-primary: 30 58 138; /* #1e3a8a */
+  --color-primary-hover: 42 74 159; /* #2a4a9f */
+  --color-primary-active: 26 50 119; /* #1a3277 */
+  --color-primary-soft: 233 237 248; /* #e9edf8 */
+  --color-ink: 27 42 74; /* #1B2A4A */
+  --color-ink-2: 61 81 112; /* #3D5170 */
+  --color-ink-3: 122 138 158; /* #7A8A9E */
+  --color-page: 250 251 252; /* #FAFBFC */
+  --color-surface: 255 255 255; /* #ffffff */
+  --color-border: 228 233 240; /* #E4E9F0 */
+  --color-trust: 22 163 74; /* #16a34a */
+  --color-trust-on-dark: 74 222 128; /* #4ade80 */
+  --color-warning: 217 119 6; /* #d97706 */
+  --color-danger: 220 38 38; /* #dc2626 */
+  --color-wash-to: 238 243 251; /* #eef3fb */
+}
+
 @font-face {
   font-family: 'Etna Sans Serif';
   src: url('/fonts/etna-free-font.otf') format('opentype');
@@ -39,14 +67,22 @@
     outline: none;
   }
 
-  /* Improved typography defaults */
+  /* Improved typography defaults. Weight is font-semibold (600), the heaviest
+     weight loaded for Newsreader/Jost — font-bold (700) would faux-bold. */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    @apply font-bold tracking-tight text-gray-900;
+    @apply font-semibold tracking-tight text-gray-900;
+  }
+
+  /* Serif display for top-level headings — the rule now, not opt-in. */
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
   }
 
   h1 {
@@ -87,25 +123,26 @@
 
   /* Card base */
   .card {
-    @apply rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md;
+    @apply rounded-xl border border-line bg-surface shadow-sm transition-shadow hover:shadow-md;
   }
 
   /* Form input base */
   .input-base {
-    @apply w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
+    @apply w-full rounded-[10px] border border-line px-4 py-2.5 text-sm text-ink placeholder-ink-3 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20;
   }
 
   .input-error {
     @apply border-red-500 focus:border-red-500 focus:ring-red-500/20;
   }
 
-  /* Button base styles */
+  /* Button base styles. Rule-3 shape system: actions use a 10px rect radius
+     (pills are reserved for tabs/chips — applied in later component work). */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600 active:bg-brand-800;
+    @apply btn bg-primary text-white hover:bg-primary-hover focus-visible:outline-primary active:bg-primary-active;
   }
 
   .btn-secondary {
