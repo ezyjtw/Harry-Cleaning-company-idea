@@ -3,7 +3,9 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { currentAgreementHash } from '@/lib/services/agreement.service';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
@@ -239,6 +241,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // A14 gate: the self-employment acknowledgment must be confirmed to apply.
+    if (body.acknowledgeSelfEmployment !== true) {
+      return NextResponse.json(
+        { error: 'You must acknowledge the self-employment terms to apply.' },
+        { status: 400 }
+      );
+    }
+
     if (body.yearsExperience !== undefined && Number(body.yearsExperience) > 50) {
       return NextResponse.json({ error: 'Years of experience cannot exceed 50' }, { status: 400 });
     }
@@ -332,6 +342,7 @@ export async function POST(request: NextRequest) {
             radius: 10,
             travelMode: body.travelMode || 'public_transport',
             verificationStatus: 'PENDING',
+            acknowledgmentVersion: CURRENT_AGREEMENT_VERSION,
             rightToWorkDocType: body.rightToWorkDocType || null,
             rightToWorkShareCode: body.rightToWorkShareCode || null,
             rightToWorkExpiresAt: body.rightToWorkExpiryDate
@@ -345,6 +356,17 @@ export async function POST(request: NextRequest) {
               : body.dbsOption
                 ? { dbsOption: body.dbsOption }
                 : undefined,
+          },
+        });
+
+        // A14: append-only acknowledgment evidence (version + hash + IP + time).
+        await tx.agreementAcceptance.create({
+          data: {
+            cleanerId: user.id,
+            agreementVersion: CURRENT_AGREEMENT_VERSION,
+            textHash: currentAgreementHash(),
+            ipAddress: ip,
+            userAgent: request.headers.get('user-agent') || undefined,
           },
         });
 
@@ -455,6 +477,7 @@ export async function POST(request: NextRequest) {
           radius: 10,
           travelMode: body.travelMode || 'public_transport',
           verificationStatus: 'PENDING',
+          acknowledgmentVersion: CURRENT_AGREEMENT_VERSION,
           rightToWorkDocType: body.rightToWorkDocType || null,
           rightToWorkShareCode: body.rightToWorkShareCode || null,
           rightToWorkExpiresAt: body.rightToWorkExpiryDate
@@ -468,6 +491,17 @@ export async function POST(request: NextRequest) {
             : body.dbsOption
               ? { dbsOption: body.dbsOption }
               : undefined,
+        },
+      });
+
+      // A14: append-only acknowledgment evidence (version + hash + IP + time).
+      await tx.agreementAcceptance.create({
+        data: {
+          cleanerId: user.id,
+          agreementVersion: CURRENT_AGREEMENT_VERSION,
+          textHash: currentAgreementHash(),
+          ipAddress: ip,
+          userAgent: request.headers.get('user-agent') || undefined,
         },
       });
 

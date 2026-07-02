@@ -348,6 +348,13 @@ model CleanerProfile {
 
   testimonials Json?
 
+  // A14: self-employment acknowledgment — denormalized CURRENT acknowledged
+  // version, used by the onboarding + job-eligibility gates. Set when the cleaner
+  // accepts; when the current version bumps (v1→v2) this no longer matches the
+  // current version → re-acknowledge required. The append-only AgreementAcceptance
+  // rows are the full audit trail (who/when/IP/text hash).
+  acknowledgmentVersion String?
+
   // Booking buffer & travel-time matching
   bookingBufferMinutes Int       @default(30)
   homePostcode         String?
@@ -1192,6 +1199,25 @@ model GdprConsent {
   @@index([email])
   @@index([consentType])
   @@index([createdAt])
+}
+
+// A14: append-only record of a cleaner acknowledging the self-employment terms.
+// One row per acceptance event — never updated. `textHash` is the SHA-256 of the
+// exact document body the cleaner saw, so we can prove WHICH wording they agreed
+// to even if a version's text were ever edited. Current-state lookups use the
+// denormalized CleanerProfile.acknowledgmentVersion; this table is the evidence.
+model AgreementAcceptance {
+  id               String   @id @default(cuid())
+  cleanerId        String // User id of the cleaner (matches Booking.cleanerId)
+  agreementType    String   @default("self_employment")
+  agreementVersion String
+  textHash         String // SHA-256 of the acknowledged document body
+  ipAddress        String?
+  userAgent        String?
+  agreedAt         DateTime @default(now())
+
+  @@index([cleanerId])
+  @@index([agreementVersion])
 }
 
 model DataRetentionLog {

@@ -14,6 +14,7 @@ import Link from 'next/link';
  * are done (the optional import-reviews item remains reachable via the sidebar).
  */
 export interface SetupChecklistProfile {
+  acknowledgmentComplete: boolean;
   profileComplete: boolean;
   stripeChargesEnabled: boolean;
   stripePayoutsEnabled: boolean;
@@ -52,6 +53,13 @@ function buildItems(p: SetupChecklistProfile): {
     (!p.serviceTypes.includes('airbnb') || isMapFilled(p.airbnbPrices));
 
   const required: ChecklistItem[] = [
+    {
+      key: 'acknowledgment',
+      label: 'Acknowledge self-employment',
+      description: 'Confirm you understand you work with Rena as a self-employed cleaner',
+      done: p.acknowledgmentComplete,
+      href: '/cleaner/agreement',
+    },
     {
       key: 'profile',
       label: 'Complete your profile details',

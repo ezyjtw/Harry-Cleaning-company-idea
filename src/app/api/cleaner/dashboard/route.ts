@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
+import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export async function GET() {
@@ -50,6 +51,7 @@ export async function GET() {
         stripePayoutsEnabled: true,
         homePostcode: true,
         maxTravelMinutes: true,
+        acknowledgmentVersion: true,
         // Setup-checklist: count of availability slots (no "availability set" flag
         // existed before; this derives one for the checklist item).
         _count: { select: { availabilitySlots: true } },
@@ -189,6 +191,7 @@ export async function GET() {
       verificationStatus: profile.verificationStatus,
       insuranceVerified: profile.insuranceVerified,
       profileComplete: isProfileComplete(profile),
+      acknowledgmentComplete: profile.acknowledgmentVersion === CURRENT_AGREEMENT_VERSION,
       serviceTypes: profile.serviceTypes,
       hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
       eotPrices: profile.eotPrices,

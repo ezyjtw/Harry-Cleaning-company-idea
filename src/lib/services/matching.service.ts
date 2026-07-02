@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 
 import { TravelTimeService } from './travel-time.service';
 import type { LocationCoords } from './travel-time.service';
@@ -66,10 +67,13 @@ export class MatchingService {
    * Find and rank cleaners for a booking
    */
   static async findMatches(criteria: MatchingCriteria): Promise<MatchingResult> {
-    // 1. Get all active, verified cleaners
+    // 1. Get all active, verified cleaners who have acknowledged the CURRENT
+    //    self-employment version (A14 gate — un-acknowledged or out-of-date
+    //    cleaners aren't offered jobs until they (re-)acknowledge).
     const allCleaners = await prisma.cleanerProfile.findMany({
       where: {
         verified: true,
+        acknowledgmentVersion: CURRENT_AGREEMENT_VERSION,
         user: { isDeleted: false, accountStatus: 'ACTIVE' },
       },
       include: {
