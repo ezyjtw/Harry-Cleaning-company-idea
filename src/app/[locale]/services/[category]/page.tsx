@@ -337,7 +337,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const serviceLabel = SERVICE_LABELS[category] || 'Cleaning Service';
   const isRegular = category === 'regular';
 
-  const { cleaners, getCleanerById } = useCleanersApi();
   const { user, isAuthenticated } = useAuth();
   const isGuest = !isAuthenticated;
 
@@ -349,7 +348,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // straight into the flow so the "Your Postcode" field is pre-filled and the
   // address step auto-looks-up on mount — no re-entry. Empty when absent (direct nav).
   const seededPostcode = (searchParams.get('postcode') ?? '').trim().toUpperCase();
-  const preSelectedCleaner = preSelectedCleanerId ? getCleanerById(preSelectedCleanerId) : null;
 
   // Phase: "quote" = first page (postcode, rooms, hours, products, email)
   // Phase: "cleaner" = second page (flexible/set time, cleaner selection, key, notes)
@@ -357,6 +355,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // ─── Quote phase state ─────────────────────────
   const [postcode, setPostcode] = useState(seededPostcode);
+  // #2: area-filter the cleaner list to those whose base is within travel-time of the
+  // customer postcode — the REAL cleaner-set coverage (homePostcode → lat/lng +
+  // maxTravelMinutes, filtered server-side by /api/cleaners). Skip the filter when a
+  // cleaner is deep-linked via ?cleaner= so getCleanerById can still resolve them.
+  const { cleaners, getCleanerById } = useCleanersApi(preSelectedCleanerId ? undefined : postcode);
+  const preSelectedCleaner = preSelectedCleanerId ? getCleanerById(preSelectedCleanerId) : null;
   // A12: structured booking address (captured at the cleaner phase, seeded from postcode).
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', postcode: '' });
   const [rooms, setRooms] = useState<RoomConfig>({
