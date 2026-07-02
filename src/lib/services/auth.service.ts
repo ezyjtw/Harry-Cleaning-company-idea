@@ -129,6 +129,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
       failedLoginCount: true,
       lockedUntil: true,
       createdAt: true,
+      emailVerified: true,
     },
   });
 
@@ -160,6 +161,13 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
     where: { id: user.id },
     data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null },
   });
+
+  // A16b-2b: claim-on-login for VERIFIED accounts — catches guest bookings made
+  // with this address after the account was verified. Uses the authenticated
+  // user's own (verified) email, never a client-asserted one.
+  if (user.emailVerified) {
+    await claimGuestBookings(user.id, user.email).catch(() => {});
+  }
 
   return {
     success: true,
@@ -243,8 +251,25 @@ export async function resetPassword(
 }
 
 /**
- * Verify a user's email address.
+ * A16b-2b: attach a newly-verified user's guest bookings to their account.
+ *
+ * SECURITY: `verifiedEmail` MUST be the account's own verified email (server-known
+ * — from the token identifier at verification, or the authenticated user's row at
+ * login). Never pass a client-asserted email. Only unclaimed bookings
+ * (clientId IS NULL) whose guestEmail matches (case-insensitive) are linked, so a
+ * user can only ever claim bookings sent to the address they proved they own.
+ * Returns the number of bookings claimed.
  */
+export async function claimGuestBookings(userId: string, verifiedEmail: string): Promise<number> {
+  const email = verifiedEmail.toLowerCase().trim();
+  if (!email) return 0;
+  const result = await prisma.booking.updateMany({
+    where: { clientId: null, guestEmail: { equals: email, mode: 'insensitive' } },
+    data: { clientId: userId },
+  });
+  return result.count;
+}
+
 export type VerifyEmailStatus = 'verified' | 'already_verified' | 'expired' | 'invalid';
 
 /**
@@ -281,6 +306,10 @@ export async function verifyEmail(token: string): Promise<VerifyEmailStatus> {
     where: { id: user.id },
     data: { emailVerified: new Date(), emailVerifiedAt: new Date() },
   });
+
+  // A16b-2b: email ownership is now proven → attach any guest bookings made with
+  // this address. Uses the server-known token identifier, never a client email.
+  await claimGuestBookings(user.id, record.identifier).catch(() => {});
 
   return 'verified';
 }

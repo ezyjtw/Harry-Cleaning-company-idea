@@ -3,6 +3,7 @@ import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 import prisma from '@/lib/db/prisma';
+import { claimGuestBookings } from '@/lib/services/auth.service';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
@@ -30,6 +31,7 @@ export const authOptions: NextAuthOptions = {
             isSuspended: true,
             failedLoginCount: true,
             lockedUntil: true,
+            emailVerified: true,
           },
         });
 
@@ -69,6 +71,13 @@ export const authOptions: NextAuthOptions = {
             lockedUntil: null,
           },
         });
+
+        // A16b-2b: claim-on-login for VERIFIED accounts — attaches guest bookings
+        // made with this (verified) address. Uses the authenticated user's own
+        // email, never a client-asserted one. Best-effort; never blocks login.
+        if (user.emailVerified) {
+          await claimGuestBookings(user.id, user.email).catch(() => {});
+        }
 
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
