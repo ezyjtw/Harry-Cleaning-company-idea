@@ -61,7 +61,21 @@ export async function GET() {
       where: {
         cleanerId: user.id,
         date: { gte: startOfDay, lt: new Date(startOfDay.getTime() + 86400000) },
-        status: { in: ['AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
+        // #4: exclude jobs this cleaner declined, and only count AWAITING_CLEANER
+        // while this cleaner is still the current offer-holder (cleanerId stays
+        // pinned to the primary through the whole cascade, so gate on cascadePhase).
+        // Confirmed/accepted/in-progress work is theirs regardless of phase.
+        NOT: { declinedCleanerIds: { has: user.id } },
+        OR: [
+          { status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] } },
+          {
+            status: 'AWAITING_CLEANER',
+            OR: [
+              { cascadePhase: null },
+              { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+            ],
+          },
+        ],
       },
     }),
 
@@ -80,7 +94,21 @@ export async function GET() {
       where: {
         cleanerId: user.id,
         date: { gte: startOfDay },
-        status: { in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED'] },
+        // #4: same gating as today's count — drop offers this cleaner declined,
+        // and only show AWAITING_CLEANER while they're the current offer-holder,
+        // so a declined/passed-on offer no longer appears as an actionable
+        // "Pending" row (which then 409s on Accept).
+        NOT: { declinedCleanerIds: { has: user.id } },
+        OR: [
+          { status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] } },
+          {
+            status: 'AWAITING_CLEANER',
+            OR: [
+              { cascadePhase: null },
+              { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+            ],
+          },
+        ],
       },
       include: {
         client: { select: { name: true } },
