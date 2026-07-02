@@ -535,6 +535,7 @@ model Booking {
   @@index([status])
   @@index([date])
   @@index([createdAt])
+  @@index([guestEmail]) // A16b-2b: guest→account claim lookup
   @@index([cleanerId, date])
   @@index([providerId])
   @@index([guestToken])
