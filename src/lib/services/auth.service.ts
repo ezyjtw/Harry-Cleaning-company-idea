@@ -245,26 +245,68 @@ export async function resetPassword(
 /**
  * Verify a user's email address.
  */
-export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
+export type VerifyEmailStatus = 'verified' | 'already_verified' | 'expired' | 'invalid';
+
+/**
+ * A16b-2a: consume an email-verification token (one-click GET link).
+ *
+ * Idempotent + prefetch-safe: the token is NOT deleted on success, because email
+ * clients pre-fetch links and users re-click. A re-hit therefore returns
+ * `already_verified` (friendly) instead of a confusing `invalid`. The token only
+ * flips the email-verified flag (harmless to re-run) and expires naturally after
+ * VERIFICATION_TOKEN_EXPIRY_HOURS. The matched user is always resolved from the
+ * server-stored token identifier — never from a client-asserted email.
+ */
+export async function verifyEmail(token: string): Promise<VerifyEmailStatus> {
   const record = await prisma.verificationToken.findUnique({ where: { token } });
 
-  if (!record || record.expires < new Date()) {
-    return { success: false, message: 'Invalid or expired verification token.' };
+  // Not found: bad token, or one already cleaned up. Can't identify a user → invalid.
+  if (!record || record.identifier.startsWith('reset:')) return 'invalid';
+
+  if (record.expires < new Date()) {
+    await prisma.verificationToken.delete({ where: { token } }).catch(() => {});
+    return 'expired';
   }
 
-  // identifier is the email for verification tokens (not prefixed with "reset:")
-  if (record.identifier.startsWith('reset:')) {
-    return { success: false, message: 'Invalid verification token.' };
-  }
+  // Identity comes from the token record (server-known), not the request.
+  const user = await prisma.user.findUnique({
+    where: { email: record.identifier },
+    select: { id: true, emailVerified: true },
+  });
+  if (!user) return 'invalid';
+
+  if (user.emailVerified) return 'already_verified';
 
   await prisma.user.update({
-    where: { email: record.identifier },
+    where: { id: user.id },
     data: { emailVerified: new Date(), emailVerifiedAt: new Date() },
   });
 
-  await prisma.verificationToken.delete({ where: { token } });
+  return 'verified';
+}
 
-  return { success: true, message: 'Your email has been verified successfully.' };
+/**
+ * A16b-2a: re-issue a verification email. Enumeration-safe — callers always get a
+ * generic success; a fresh token is only created/sent when an unverified account
+ * matches. Rate-limiting is applied at the route.
+ */
+export async function resendEmailVerification(email: string): Promise<void> {
+  const normalized = email.toLowerCase().trim();
+  const user = await prisma.user.findUnique({
+    where: { email: normalized },
+    select: { emailVerified: true },
+  });
+  if (!user || user.emailVerified) return; // no account, or already verified → no-op
+
+  const token = crypto.randomBytes(32).toString('hex');
+  await prisma.verificationToken.create({
+    data: {
+      identifier: normalized,
+      token,
+      expires: new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
+    },
+  });
+  sendEmailVerification(normalized, token).catch(() => {});
 }
 
 /**
