@@ -62,6 +62,12 @@ export async function GET(request: NextRequest) {
     stripePayoutsEnabled: true,
     user: { accountStatus: 'ACTIVE', isDeleted: false },
     OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
+    // Coverage gate: a cleaner with no geocoded location or no travel radius can't be
+    // matched to any customer, so exclude them everywhere (national grid included), not
+    // just from area search — no "shown in the grid but findable nowhere" cleaners.
+    latitude: { not: null },
+    longitude: { not: null },
+    maxTravelMinutes: { not: null },
   };
 
   if (availableNow === 'true') {
@@ -241,6 +247,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Coverage is mandatory: without a travel radius a cleaner can't be matched to
+    // any customer, so a valid maxTravelMinutes (5-120, matching the join wizard) is
+    // required to create the profile — no coverage-less cleaners.
+    const maxTravelMinutes = Number(body.maxTravelMinutes);
+    if (
+      !body.maxTravelMinutes ||
+      Number.isNaN(maxTravelMinutes) ||
+      maxTravelMinutes < 5 ||
+      maxTravelMinutes > 120
+    ) {
+      return NextResponse.json(
+        { error: 'maxTravelMinutes is required and must be between 5 and 120' },
+        { status: 400 }
+      );
+    }
+
     // A14 gate: the self-employment acknowledgment must be confirmed to apply.
     if (body.acknowledgeSelfEmployment !== true) {
       return NextResponse.json(
@@ -277,6 +299,16 @@ export async function POST(request: NextRequest) {
     }
 
     const geo = await lookupPostcode(body.postcode.trim());
+
+    // Geocode hard gate: a cleaner with no resolvable coordinates can't be matched
+    // to any customer by area (they'd be invisible to every postcode search). Refuse
+    // to persist a coverage-less profile rather than storing null lat/lng silently.
+    if (!geo) {
+      return NextResponse.json(
+        { error: "We couldn't locate that postcode — please check and re-enter." },
+        { status: 400 }
+      );
+    }
 
     // Check if email already exists
     const existing = await prisma.user.findUnique({
@@ -332,13 +364,13 @@ export async function POST(request: NextRequest) {
             yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
             location: body.postcode?.trim() || null,
             postcode: body.postcode?.trim() || null,
-            latitude: geo?.latitude ?? null,
-            longitude: geo?.longitude ?? null,
-            homePostcode: body.postcode?.trim()?.toUpperCase() || null,
-            homeLatitude: geo?.latitude ?? null,
-            homeLongitude: geo?.longitude ?? null,
-            homeGeocodedAt: geo ? new Date() : null,
-            maxTravelMinutes: body.maxTravelMinutes ? Number(body.maxTravelMinutes) : null,
+            latitude: geo.latitude,
+            longitude: geo.longitude,
+            homePostcode: body.postcode.trim().toUpperCase(),
+            homeLatitude: geo.latitude,
+            homeLongitude: geo.longitude,
+            homeGeocodedAt: new Date(),
+            maxTravelMinutes,
             radius: 10,
             travelMode: body.travelMode || 'public_transport',
             verificationStatus: 'PENDING',
@@ -467,13 +499,13 @@ export async function POST(request: NextRequest) {
           yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
           location: body.postcode?.trim() || null,
           postcode: body.postcode?.trim() || null,
-          latitude: geo?.latitude ?? null,
-          longitude: geo?.longitude ?? null,
-          homePostcode: body.postcode?.trim()?.toUpperCase() || null,
-          homeLatitude: geo?.latitude ?? null,
-          homeLongitude: geo?.longitude ?? null,
-          homeGeocodedAt: geo ? new Date() : null,
-          maxTravelMinutes: body.maxTravelMinutes ? Number(body.maxTravelMinutes) : null,
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          homePostcode: body.postcode.trim().toUpperCase(),
+          homeLatitude: geo.latitude,
+          homeLongitude: geo.longitude,
+          homeGeocodedAt: new Date(),
+          maxTravelMinutes,
           radius: 10,
           travelMode: body.travelMode || 'public_transport',
           verificationStatus: 'PENDING',

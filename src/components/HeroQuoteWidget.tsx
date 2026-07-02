@@ -99,14 +99,6 @@ function getSuggestedHours(bedrooms: number, bathrooms: number, isDeep: boolean)
   return hours + extraBath;
 }
 
-function getCleanerCount(postcode: string): number {
-  let hash = 0;
-  for (let i = 0; i < postcode.length; i++) {
-    hash = (hash * 31 + postcode.charCodeAt(i)) | 0;
-  }
-  return 4 + (Math.abs(hash) % 5);
-}
-
 // ─── Sub-components ─────────────────────────────────────────────
 
 function StepDots({ current, total }: { current: number; total: number }) {
@@ -169,7 +161,11 @@ function PostcodeBar({
       </div>
       <span className="flex-1 font-jost text-[13px] text-ink">{postcode}</span>
       {cleanerCount !== null && (
-        <span className="font-jost text-[11px] text-gold-2">{cleanerCount} cleaners nearby</span>
+        <span className="font-jost text-[11px] text-gold-2">
+          {cleanerCount > 0
+            ? `${cleanerCount} cleaner${cleanerCount !== 1 ? 's' : ''} nearby`
+            : 'No cleaners nearby yet'}
+        </span>
       )}
       <button
         onClick={onChangeClick}
@@ -332,8 +328,16 @@ export default function HeroQuoteWidget() {
 
     setShowWaitlist(false);
     setConfirmedPostcode(trimmed.toUpperCase());
-    setCleanerCount(getCleanerCount(trimmed));
+    setCleanerCount(null); // loading — real count fetched below
     setStep(2);
+
+    // #3: real "N cleaners nearby" — the count of cleaners actually serving this
+    // postcode (same distance/travel-time filter the cleaner grid uses). Fire-and-
+    // forget; graceful on error/0. `total` is the full count, independent of limit.
+    fetch(`/api/cleaners?postcode=${encodeURIComponent(trimmed)}&limit=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCleanerCount(typeof d?.total === 'number' ? d.total : null))
+      .catch(() => setCleanerCount(null));
   };
 
   const handleWaitlistSubmit = async () => {
@@ -820,7 +824,9 @@ export default function HeroQuoteWidget() {
             Ready to find your cleaner
           </p>
           <p className="mt-1 font-jost text-[13px] font-light text-ink-3">
-            Browse {cleanerCount} cleaners near{' '}
+            {cleanerCount && cleanerCount > 0
+              ? `Browse ${cleanerCount} cleaner${cleanerCount !== 1 ? 's' : ''} near `
+              : 'Find a cleaner near '}
             <span className="font-medium text-ink">{confirmedPostcode}</span>
           </p>
         </div>
