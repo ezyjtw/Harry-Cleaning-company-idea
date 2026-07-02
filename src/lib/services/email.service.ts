@@ -63,6 +63,16 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || '';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@renacleaning.co.uk';
 
+// Force the "RENA" sender display name so every email lands as
+// `RENA <noreply@renacleaning.co.uk>`, whether RESEND_FROM_EMAIL is a bare address
+// or already "Name <addr>". The address is preserved; only the display name is set.
+const FROM_WITH_NAME = (() => {
+  if (!FROM_EMAIL) return FROM_EMAIL;
+  const match = FROM_EMAIL.match(/<([^>]+)>/);
+  const address = (match ? match[1] : FROM_EMAIL).trim();
+  return `RENA <${address}>`;
+})();
+
 // ─── Helper ─────────────────────────────────────────────────
 
 // A11: THE email chokepoint. Every email send routes through here, so the
@@ -107,7 +117,7 @@ async function sendEmail(
 
   try {
     await resend?.emails.send({
-      from: FROM_EMAIL,
+      from: FROM_WITH_NAME,
       to,
       subject,
       html: htmlBody,
