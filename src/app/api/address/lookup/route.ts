@@ -80,31 +80,36 @@ export async function GET(request: NextRequest) {
   const bodyText = await upstream.text();
   // eslint-disable-next-line no-console
   console.log(
-    '[address-lookup][TEMP] getAddress status=%o ok=%o body=%o',
+    '[address-lookup][TEMP] getAddress status=%o ok=%o body=%o headers=%o',
     upstream.status,
     upstream.ok,
-    bodyText.slice(0, 1200)
+    bodyText.slice(0, 1200),
+    // Headers reveal whether this is an EDGE/routing 404 (server: cloudflare, cf-ray,
+    // no getAddress app headers) vs an APP/account 404 (getAddress + rate-limit headers).
+    Object.fromEntries(upstream.headers.entries())
   );
 
   if (upstream.status === 404) {
-    // TEMP: settle the format question — does getAddress want the SPACE preserved?
-    // Retry ONCE with the raw (spaced) postcode, URL-encoded (e.g. "E4%207AP").
+    // TEMP: isolate KEY/ACCOUNT vs THIS postcode. Probe a KNOWN-populated postcode
+    // (SW1A1AA / Buckingham Palace) with the SAME key. If this ALSO 404s empty, the
+    // problem is the key/account/endpoint — not "E4 7AP". Log its headers + body too.
     try {
-      const spacedUrl = `https://api.getAddress.io/find/${encodeURIComponent(
-        raw.toUpperCase()
-      )}?api-key=${encodeURIComponent(apiKey)}&expand=true`;
-      const alt = await fetch(spacedUrl, { headers: { Accept: 'application/json' } });
-      const altBody = await alt.text();
+      const probeUrl = `https://api.getAddress.io/find/SW1A1AA?api-key=${encodeURIComponent(
+        apiKey
+      )}&expand=true`;
+      const probe = await fetch(probeUrl, { headers: { Accept: 'application/json' } });
+      const probeBody = await probe.text();
       // eslint-disable-next-line no-console
       console.log(
-        '[address-lookup][TEMP] with-space retry: path=%o status=%o body=%o',
-        `/find/${encodeURIComponent(raw.toUpperCase())}`,
-        alt.status,
-        altBody.slice(0, 1200)
+        '[address-lookup][TEMP] known-good SW1A1AA probe: status=%o ok=%o body=%o headers=%o',
+        probe.status,
+        probe.ok,
+        probeBody.slice(0, 800),
+        Object.fromEntries(probe.headers.entries())
       );
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.log('[address-lookup][TEMP] with-space retry threw:', e);
+      console.log('[address-lookup][TEMP] known-good probe threw:', e);
     }
     return NextResponse.json(
       { error: 'No addresses found for that postcode. Please check it or enter manually.' },
