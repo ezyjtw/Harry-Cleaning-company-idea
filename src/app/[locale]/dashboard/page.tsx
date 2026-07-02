@@ -81,6 +81,36 @@ function formatServiceType(type: string): string {
   return type.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// #5: cleaner avatar — shows the resolved profile image, falling back to the
+// initial-letter chip (the same pattern used in the "Your Cleaners" section).
+function CleanerAvatar({
+  name,
+  image,
+  className = 'h-10 w-10',
+}: {
+  name: string | null;
+  image: string | null;
+  className?: string;
+}) {
+  if (image) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image}
+        alt={name || 'Cleaner'}
+        className={`${className} shrink-0 rounded-full object-cover`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`${className} flex shrink-0 items-center justify-center rounded-full bg-ink/5 font-jost text-sm font-medium text-ink-2`}
+    >
+      {(name || 'C').charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 function statusBadge(
   status: string,
   cascadePhase?: string | null
@@ -338,11 +368,14 @@ export default function CustomerDashboard() {
                   <Link
                     key={booking.id}
                     href={
-                      isProvisional ? `/booking/${booking.id}/approve-topup` : '/account/bookings'
+                      isProvisional
+                        ? `/booking/${booking.id}/approve-topup`
+                        : `/booking/${booking.id}`
                     }
                     className="flex flex-col gap-3 px-6 py-4 transition-colors hover:bg-cream/30 sm:flex-row sm:items-center"
                     style={i > 0 ? { borderTop: '1px solid rgba(14,14,12,0.04)' } : undefined}
                   >
+                    <CleanerAvatar name={booking.cleaner.name} image={booking.cleaner.image} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-jost text-sm font-normal text-ink">
@@ -403,9 +436,7 @@ export default function CustomerDashboard() {
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/5 font-jost text-sm font-medium text-ink-2">
-                    {cleaner.name.charAt(0).toUpperCase()}
-                  </div>
+                  <CleanerAvatar name={cleaner.name} image={cleaner.image} />
                   <div className="min-w-0">
                     <p className="truncate font-jost text-sm font-normal text-ink">
                       {cleaner.name}
