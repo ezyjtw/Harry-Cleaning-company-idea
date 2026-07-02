@@ -483,6 +483,11 @@ model Booking {
   stripeChargeId         String?        @unique
   paymentStatus          PaymentStatus  @default(PENDING)
 
+  // A16b-1: client-supplied idempotency key for booking+payment creation. A
+  // double-click / retry replays the same booking + PaymentIntent instead of
+  // creating duplicates. Unique so concurrent submits collide at the DB layer.
+  idempotencyKey         String?        @unique
+
   // ─── Transfer / fund release ─────
   stripeTransferId       String?        @unique
   transferStatus         String         @default("PENDING")
