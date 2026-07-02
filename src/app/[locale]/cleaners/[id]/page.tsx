@@ -18,7 +18,17 @@ import {
 import prisma from '@/lib/db/prisma';
 import { computeCleanerRating } from '@/lib/services/rating.service';
 
-export default async function CleanerProfilePage({ params }: { params: { id: string } }) {
+export default async function CleanerProfilePage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { postcode?: string };
+}) {
+  // Carry the customer's search postcode through to /book so the address step
+  // auto-looks-up without re-entry. Absent → the manual path is preserved.
+  const bookPostcode = (searchParams?.postcode ?? '').trim().toUpperCase();
+  const bookQuery = bookPostcode ? `?postcode=${encodeURIComponent(bookPostcode)}` : '';
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
     include: {
@@ -175,14 +185,14 @@ export default async function CleanerProfilePage({ params }: { params: { id: str
               )}
               <div className="mt-4 flex flex-col gap-2">
                 <Link
-                  href={`/book/${cleaner.id}`}
+                  href={`/book/${cleaner.id}${bookQuery}`}
                   className="inline-block rounded-md bg-ink px-6 py-3 text-center font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
                 >
                   Book now
                 </Link>
                 {cleaner.availableNow && (
                   <Link
-                    href={`/book/${cleaner.id}?express=true`}
+                    href={`/book/${cleaner.id}?express=true${bookPostcode ? `&postcode=${encodeURIComponent(bookPostcode)}` : ''}`}
                     className="inline-block rounded-md bg-teal px-6 py-3 text-center font-jost text-[13px] font-medium text-white transition-opacity hover:opacity-90"
                   >
                     Book for today

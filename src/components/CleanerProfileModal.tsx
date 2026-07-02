@@ -27,9 +27,16 @@ interface ReviewData {
 interface CleanerProfileModalProps {
   cleaner: Cleaner;
   onClose: () => void;
+  /** Customer's search postcode — forwarded to /book and the full profile page
+   *  so the address step auto-looks-up without re-entry. */
+  postcode?: string;
 }
 
-export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfileModalProps) {
+export default function CleanerProfileModal({
+  cleaner,
+  onClose,
+  postcode,
+}: CleanerProfileModalProps) {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
 
   useEffect(() => {
@@ -174,7 +181,11 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
                 </div>
               </div>
               <Link
-                href={`/book/${cleaner.id}`}
+                href={
+                  postcode
+                    ? `/book/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
+                    : `/book/${cleaner.id}`
+                }
                 className="rounded-xl bg-ink px-7 py-3 font-jost text-[13px] font-medium tracking-wide text-cream shadow-sm transition-all hover:bg-ink-2 hover:shadow-md active:scale-[0.98]"
               >
                 Book now
@@ -449,7 +460,11 @@ export default function CleanerProfileModal({ cleaner, onClose }: CleanerProfile
             {/* Footer actions */}
             <div className="mt-9 flex flex-col items-center gap-4 border-t border-ink/5 pt-7">
               <Link
-                href={`/cleaners/${cleaner.id}`}
+                href={
+                  postcode
+                    ? `/cleaners/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
+                    : `/cleaners/${cleaner.id}`
+                }
                 className="group flex items-center gap-2 font-jost text-[13px] font-medium text-ink transition-colors hover:text-ink-2"
               >
                 View full profile page

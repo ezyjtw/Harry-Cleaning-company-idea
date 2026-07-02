@@ -473,6 +473,7 @@ function CleanersContent() {
                       fixedServicePrice={fixedPrice}
                       fixedServiceLabel={fixedLabel}
                       distance={cleaner.distance}
+                      postcode={postcode || undefined}
                     />
                   );
                 })}
@@ -500,7 +501,11 @@ function CleanersContent() {
 
       {/* Profile Modal */}
       {selectedCleaner && (
-        <CleanerProfileModal cleaner={selectedCleaner} onClose={() => setSelectedCleaner(null)} />
+        <CleanerProfileModal
+          cleaner={selectedCleaner}
+          onClose={() => setSelectedCleaner(null)}
+          postcode={postcode || undefined}
+        />
       )}
     </div>
   );
