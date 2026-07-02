@@ -49,20 +49,63 @@ export async function GET(request: NextRequest) {
 
   const normalized = raw.toUpperCase().replace(/\s+/g, '');
 
+  const getAddressUrl = `https://api.getAddress.io/find/${encodeURIComponent(normalized)}?api-key=${encodeURIComponent(apiKey)}&expand=true`;
+
+  // ─── TEMP DIAGNOSTIC — remove after debugging the getAddress 404 ─────────────
+  const redactedUrl = `https://api.getAddress.io/find/${encodeURIComponent(normalized)}?api-key=***REDACTED***&expand=true`;
+  // eslint-disable-next-line no-console
+  console.log(
+    '[address-lookup][TEMP] raw=%o normalized=%o keyPresent=%o keyLen=%o url=%o',
+    raw,
+    normalized,
+    !!apiKey,
+    apiKey.length,
+    redactedUrl
+  );
+  // ────────────────────────────────────────────────────────────────────────────
+
   let upstream: Response;
   try {
-    upstream = await fetch(
-      `https://api.getAddress.io/find/${encodeURIComponent(normalized)}?api-key=${encodeURIComponent(apiKey)}&expand=true`,
-      { headers: { Accept: 'application/json' } }
-    );
-  } catch {
+    upstream = await fetch(getAddressUrl, { headers: { Accept: 'application/json' } });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.log('[address-lookup][TEMP] fetch threw:', err);
     return NextResponse.json(
       { error: 'Address lookup is temporarily unavailable. Please enter your address manually.' },
       { status: 503 }
     );
   }
 
+  // TEMP: read the body ONCE as text so we can log it verbatim AND parse it below.
+  const bodyText = await upstream.text();
+  // eslint-disable-next-line no-console
+  console.log(
+    '[address-lookup][TEMP] getAddress status=%o ok=%o body=%o',
+    upstream.status,
+    upstream.ok,
+    bodyText.slice(0, 1200)
+  );
+
   if (upstream.status === 404) {
+    // TEMP: settle the format question — does getAddress want the SPACE preserved?
+    // Retry ONCE with the raw (spaced) postcode, URL-encoded (e.g. "E4%207AP").
+    try {
+      const spacedUrl = `https://api.getAddress.io/find/${encodeURIComponent(
+        raw.toUpperCase()
+      )}?api-key=${encodeURIComponent(apiKey)}&expand=true`;
+      const alt = await fetch(spacedUrl, { headers: { Accept: 'application/json' } });
+      const altBody = await alt.text();
+      // eslint-disable-next-line no-console
+      console.log(
+        '[address-lookup][TEMP] with-space retry: path=%o status=%o body=%o',
+        `/find/${encodeURIComponent(raw.toUpperCase())}`,
+        alt.status,
+        altBody.slice(0, 1200)
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('[address-lookup][TEMP] with-space retry threw:', e);
+    }
     return NextResponse.json(
       { error: 'No addresses found for that postcode. Please check it or enter manually.' },
       { status: 404 }
@@ -78,7 +121,7 @@ export async function GET(request: NextRequest) {
 
   let data: { postcode?: string; addresses?: GetAddressExpanded[] };
   try {
-    data = await upstream.json();
+    data = JSON.parse(bodyText);
   } catch {
     return NextResponse.json(
       { error: 'Address lookup is temporarily unavailable. Please enter your address manually.' },
