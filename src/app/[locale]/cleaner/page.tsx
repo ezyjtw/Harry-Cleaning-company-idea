@@ -40,6 +40,7 @@ interface DashboardData {
     verificationStatus: string;
     insuranceVerified: boolean;
     profileComplete: boolean;
+    acknowledgmentComplete: boolean;
     serviceTypes: string[];
     hourlyRateRegular: number | null;
     eotPrices: Record<string, unknown> | null;
@@ -261,7 +262,7 @@ export default function CleanerDashboard() {
             },
             {
               label: 'Upload identity documents',
-              description: 'Photo ID and right to work verification',
+              description: 'Photo ID and proof you can legally work in the UK',
               done: isPending || data.profile.verified,
               href: '/verify',
             },

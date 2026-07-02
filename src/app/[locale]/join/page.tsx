@@ -16,6 +16,7 @@ import {
 } from '@/lib/constants/services';
 import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
 /* ------------------------------------------------------------------ */
@@ -60,7 +61,8 @@ interface FormData {
   selfiePhoto: string; // base64 for liveness check
   livenessComplete: boolean;
 
-  // Step 5 – Payout (no persistent data, just UI)
+  // Step 5 – Self-employment acknowledgment
+  acknowledgeSelfEmployment: boolean;
 
   // Step 6 – Review & Submit
   agreedToTerms: boolean;
@@ -99,6 +101,7 @@ const INITIAL_FORM: FormData = {
   selfiePhoto: '',
   livenessComplete: false,
 
+  acknowledgeSelfEmployment: false,
   agreedToTerms: false,
 };
 
@@ -169,7 +172,7 @@ const STEPS = [
   { label: 'Pricing', icon: '3' },
   { label: 'Identity', icon: '4' },
   { label: 'DBS Check', icon: '5' },
-  { label: 'Payout', icon: '6' },
+  { label: 'Terms', icon: '6' },
   { label: 'Review', icon: '7' },
 ];
 
@@ -711,7 +714,10 @@ export default function JoinAsCleanerPage() {
           }
           setForm((prev) => ({ ...prev, ...restored }));
         }
-        if (typeof parsed.currentStep === 'number') setCurrentStep(parsed.currentStep);
+        if (typeof parsed.currentStep === 'number') {
+          // Clamp to the valid range — the step count can change across deploys.
+          setCurrentStep(Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1)));
+        }
       }
     } catch {
       /* ignore corrupt data */
@@ -856,7 +862,15 @@ export default function JoinAsCleanerPage() {
       if (!form.selfiePhoto) e.selfiePhoto = 'Selfie is required for identity verification';
     }
 
-    // Step 5 has no required fields (payout)
+    // Step 5 – self-employment acknowledgment (gates progression to Review).
+    // NB: real payout (Stripe Connect) is verification-gated and happens after
+    // the cleaner is admin-verified — it is NOT an inline join step.
+    if (step === 5) {
+      if (!form.acknowledgeSelfEmployment) {
+        e.acknowledgeSelfEmployment =
+          'Please confirm you understand you work with Rena as self-employed';
+      }
+    }
 
     if (step === 6) {
       if (!form.agreedToTerms) e.agreedToTerms = 'You must agree to continue';
@@ -880,7 +894,7 @@ export default function JoinAsCleanerPage() {
   function goNext() {
     if (!validate(currentStep)) return;
     const nextStep = Math.min(currentStep + 1, 6);
-    // Map wizard step (0-6) to funnel step (2-8: personal, experience, pricing, identity, dbs, payout, review)
+    // Map wizard step (0-6) to funnel step: personal, experience, pricing, identity, dbs, terms, review
     trackStep(nextStep + 2, STEPS[nextStep]?.label?.toLowerCase() ?? `step_${nextStep}`);
     setCurrentStep(nextStep);
     setErrors({});
@@ -2203,7 +2217,39 @@ export default function JoinAsCleanerPage() {
           </div>
         )}
 
-        {/* ===== Step 5 – Payout ===== */}
+        {/* ===== Step 5 – Self-employment acknowledgment ===== */}
+        {currentStep === 5 && (
+          <div className="space-y-6">
+            <h2
+              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
+              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
+            >
+              {CURRENT_AGREEMENT.title}
+            </h2>
+
+            <div
+              className="max-h-[45vh] overflow-auto whitespace-pre-wrap rounded-xl bg-cream-2/50 px-5 py-4 font-jost text-[14px] leading-relaxed text-ink"
+              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+            >
+              {CURRENT_AGREEMENT.body}
+            </div>
+
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={form.acknowledgeSelfEmployment}
+                onChange={(e) => set('acknowledgeSelfEmployment', e.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <span className="font-jost text-[14px] text-ink">
+                I confirm I have read and understand this acknowledgment, and that I work with Rena as
+                a self-employed cleaner.
+              </span>
+            </label>
+            <FieldError message={errors.acknowledgeSelfEmployment} />
+          </div>
+        )}
+
         {/* ===== Step 6 – Review & Submit ===== */}
         {currentStep === 6 && (
           <div className="space-y-6">
