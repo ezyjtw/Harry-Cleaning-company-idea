@@ -2,7 +2,7 @@
 
 import { Elements } from '@stripe/react-stripe-js';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
@@ -169,6 +169,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
   const [submitted] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
+  // A16b-1: synchronous double-submit guard — fires before React re-renders the
+  // disabled button. The idempotency key that dedups the booking + PaymentIntent
+  // is derived SERVER-SIDE from the validated request, so the client sends none.
+  const submittingRef = useRef(false);
   const [paymentStep, setPaymentStep] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null);
@@ -343,6 +347,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A16b-1: block a rapid second submit synchronously (button-disable is async).
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setPaymentPending(true);
     setBookingError(null);
     trackStep(9, 'payment_started', { serviceType: form.serviceType });
@@ -390,6 +397,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       setBookingError(err instanceof Error ? err.message : 'Network error — please try again.');
     } finally {
       setPaymentPending(false);
+      submittingRef.current = false;
     }
   };
 

@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -92,6 +94,32 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // A16b-1: buildReplay returns an already-created booking + its live
+    // clientSecret (re-fetched from Stripe) so a double-submit / retry keeps
+    // paying the SAME PaymentIntent. The idempotency key is derived SERVER-SIDE
+    // below from the validated request + a time bucket — never trusted from the
+    // client (a client-supplied key could wrongly collapse or be replayed).
+    const buildReplay = async (bk: { id: string; stripePaymentIntentId: string | null }) => {
+      let clientSecret: string | null = null;
+      if (bk.stripePaymentIntentId) {
+        try {
+          const pi = await stripe.paymentIntents.retrieve(bk.stripePaymentIntentId);
+          clientSecret = pi.client_secret;
+        } catch {
+          /* PI not retrievable — return the booking; client can re-initiate payment */
+        }
+      }
+      return NextResponse.json(
+        {
+          message: 'Booking already created',
+          booking: { id: bk.id, stripePaymentIntentId: bk.stripePaymentIntentId },
+          clientSecret,
+          idempotentReplay: true,
+        },
+        { status: 200 }
+      );
+    };
 
     // 1. Validate required fields
     const required = ['cleanerId', 'name', 'email', 'date', 'time', 'duration', 'serviceType'];
@@ -415,61 +443,116 @@ export async function POST(request: NextRequest) {
     // quote.cleanerPayout = base - commission
     // Full amount captured to platform balance; cleaner paid via transfer at release (A6).
 
-    // 8. Create Booking record FIRST with paymentStatus: PENDING
-    const booking = await prisma.booking.create({
-      data: {
-        clientId: sessionUser?.id || null,
-        cleanerId: body.cleanerId,
-        addressId,
-        // A12: structured address columns — the source of truth (guest-safe).
-        addressLine1,
-        addressLine2: addressLine2 || null,
-        addressCity,
-        addressPostcode,
-        guestEmail: !sessionUser ? body.email : null,
-        guestName: !sessionUser ? body.name : null,
-        guestPhone: !sessionUser ? body.phone : null,
-        guestToken: !sessionUser ? crypto.randomUUID() : null,
-        serviceType: body.serviceType,
-        date: new Date(body.date),
-        startTime: body.time,
-        duration: body.duration,
-        rooms: body.rooms || null,
-        extras: body.extras || [],
-        frequency: 'one_off',
-        totalPrice,
-        platformFee,
-        cleanerEarnings,
-        cleanerPayoutAmount: quote.cleanerPayout,
-        platformCommissionAmount: quote.cleanerCommission,
-        platformFeeAmount: quote.customerPlatformFee,
-        totalAmountCharged: totalPrice,
-        customerSubtotal: quote.cleanerListedPrice,
-        customerServiceFee: quote.customerPlatformFee,
-        renaEarns: quote.cleanerCommission + quote.customerPlatformFee,
-        propertySize: propertySizeSlugToEnum(body.propertySize),
-        notes: body.notes || null,
-        paymentStatus: 'PENDING',
-        backupCleanerIds,
-        autoAssignBackup,
-      },
+    // A16b-1: derive a SERVER-SIDE idempotency key from the validated request +
+    // a time bucket. The same intended booking (same guest/user, cleaner, slot,
+    // service, amount) within the bucket → same key → the booking + its Stripe
+    // PaymentIntent are reused instead of duplicated. This survives page reloads
+    // and fresh clients (unlike a client-supplied key). A different slot/cleaner/
+    // service/amount → different key → a distinct booking + PI.
+    const identity = sessionUser?.id ?? String(body.email).toLowerCase().trim();
+    const amountPence = Math.round(totalPrice * 100);
+    const fingerprint = [
+      identity,
+      body.cleanerId,
+      body.date,
+      body.time,
+      body.serviceType,
+      amountPence,
+    ].join('|');
+    // Bucket = 5 minutes: long enough to catch frustrated re-clicks and a retry
+    // after a 10–15s timeout; short enough that a genuine later re-booking isn't
+    // collapsed (and the slot is taken after the first booking anyway). The
+    // current+previous-bucket replay check gives an effective ~5–10 min window.
+    const BUCKET_MS = 5 * 60 * 1000;
+    const bucket = Math.floor(Date.now() / BUCKET_MS);
+    const keyForBucket = (b: number) =>
+      createHash('sha256').update(`${fingerprint}|${b}`).digest('hex');
+    const idempotencyKey = keyForBucket(bucket);
+
+    // Replay: check the current AND previous bucket so a retry that straddles the
+    // bucket boundary still matches the original booking.
+    const replayExisting = await prisma.booking.findFirst({
+      where: { idempotencyKey: { in: [idempotencyKey, keyForBucket(bucket - 1)] } },
+      select: { id: true, stripePaymentIntentId: true },
     });
+    if (replayExisting) return buildReplay(replayExisting);
+
+    // 8. Create Booking record FIRST with paymentStatus: PENDING.
+    // A16b-1: if a concurrent submit with the same idempotencyKey wins the race,
+    // the unique constraint throws P2002 here — return the winner's booking.
+    let booking: Awaited<ReturnType<typeof prisma.booking.create>>;
+    try {
+      booking = await prisma.booking.create({
+        data: {
+          clientId: sessionUser?.id || null,
+          cleanerId: body.cleanerId,
+          addressId,
+          // A12: structured address columns — the source of truth (guest-safe).
+          addressLine1,
+          addressLine2: addressLine2 || null,
+          addressCity,
+          addressPostcode,
+          guestEmail: !sessionUser ? body.email : null,
+          guestName: !sessionUser ? body.name : null,
+          guestPhone: !sessionUser ? body.phone : null,
+          guestToken: !sessionUser ? crypto.randomUUID() : null,
+          idempotencyKey,
+          serviceType: body.serviceType,
+          date: new Date(body.date),
+          startTime: body.time,
+          duration: body.duration,
+          rooms: body.rooms || null,
+          extras: body.extras || [],
+          frequency: 'one_off',
+          totalPrice,
+          platformFee,
+          cleanerEarnings,
+          cleanerPayoutAmount: quote.cleanerPayout,
+          platformCommissionAmount: quote.cleanerCommission,
+          platformFeeAmount: quote.customerPlatformFee,
+          totalAmountCharged: totalPrice,
+          customerSubtotal: quote.cleanerListedPrice,
+          customerServiceFee: quote.customerPlatformFee,
+          renaEarns: quote.cleanerCommission + quote.customerPlatformFee,
+          propertySize: propertySizeSlugToEnum(body.propertySize),
+          notes: body.notes || null,
+          paymentStatus: 'PENDING',
+          backupCleanerIds,
+          autoAssignBackup,
+        },
+      });
+    } catch (err) {
+      if (idempotencyKey && (err as { code?: string }).code === 'P2002') {
+        const existing = await prisma.booking.findUnique({
+          where: { idempotencyKey },
+          select: { id: true, stripePaymentIntentId: true },
+        });
+        if (existing) return buildReplay(existing);
+      }
+      throw err;
+    }
 
     // 9. Create Stripe PaymentIntent
     let clientSecret: string | null = null;
     try {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(totalPrice * 100),
-        currency: 'gbp',
-        ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
-        metadata: {
-          bookingId: booking.id,
-          customerId: sessionUser?.id || '',
-          cleanerId: cleaner.id,
-          serviceType: body.serviceType,
+      const paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount: Math.round(totalPrice * 100),
+          currency: 'gbp',
+          ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
+          metadata: {
+            bookingId: booking.id,
+            customerId: sessionUser?.id || '',
+            cleanerId: cleaner.id,
+            serviceType: body.serviceType,
+          },
+          automatic_payment_methods: { enabled: true },
         },
-        automatic_payment_methods: { enabled: true },
-      });
+        // A16b-1: Stripe-level idempotency keyed on the SAME request-derived key
+        // (not the booking id) — so two concurrent submits that both reach PI
+        // creation before either booking is visible still yield ONE PaymentIntent.
+        { idempotencyKey: `booking_pi_${idempotencyKey}` }
+      );
 
       clientSecret = paymentIntent.client_secret;
 
