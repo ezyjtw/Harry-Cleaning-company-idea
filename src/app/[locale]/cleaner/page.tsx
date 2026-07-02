@@ -68,28 +68,30 @@ export default function CleanerDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Inline, non-fatal error for accept/decline actions — the top-level `error`
+  // takes over the whole page, which must NOT happen for a failed job action.
+  const [actionError, setActionError] = useState<string | null>(null);
   const [availableNow, setAvailableNow] = useState(false);
   const [jobs, setJobs] = useState<UpcomingJob[]>([]);
 
-  useEffect(() => {
-    fetch('/api/cleaner/dashboard')
-      .then((res) => {
-        if (res.status === 401) {
-          router.push('/login');
-          return null;
-        }
-        if (!res.ok) throw new Error('Failed to load dashboard');
-        return res.json();
-      })
-      .then((d) => {
-        if (!d) return;
-        setData(d);
-        setAvailableNow(d.profile.availableNow);
-        setJobs(d.upcomingJobs);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+  const loadDashboard = useCallback(async () => {
+    const res = await fetch('/api/cleaner/dashboard');
+    if (res.status === 401) {
+      router.push('/login');
+      return;
+    }
+    if (!res.ok) throw new Error('Failed to load dashboard');
+    const d = await res.json();
+    setData(d);
+    setAvailableNow(d.profile.availableNow);
+    setJobs(d.upcomingJobs);
   }, [router]);
+
+  useEffect(() => {
+    loadDashboard()
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
+      .finally(() => setLoading(false));
+  }, [loadDashboard]);
 
   const toggleAvailable = useCallback(async () => {
     const next = !availableNow;
@@ -101,25 +103,39 @@ export default function CleanerDashboard() {
     });
   }, [availableNow]);
 
-  const handleAccept = useCallback(async (jobId: string) => {
-    const res = await fetch(`/api/cleaner/jobs/${jobId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'ACCEPTED' }),
-    });
-    if (res.ok) {
-      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed' } : j)));
-    }
-  }, []);
+  // Accept via the cascade/price-aware POST endpoint (same path the jobs page uses).
+  // The legacy PATCH {status:'ACCEPTED'} route rejects PENDING→ACCEPTED (400), which
+  // is why the dashboard could never accept.
+  const handleAccept = useCallback(
+    async (jobId: string) => {
+      setActionError(null);
+      const res = await fetch(`/api/cleaner/jobs/${jobId}/accept`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        // PROVISIONAL (awaiting customer approval) / RESERVED (held) keep the job in
+        // a pending-ish state with new flags — refetch so the dashboard reflects it.
+        if (data?.outcome === 'PROVISIONAL' || data?.outcome === 'RESERVED') {
+          await loadDashboard().catch(() => {});
+          return;
+        }
+        setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed' } : j)));
+      } else {
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error || 'Failed to accept job. Please try again.');
+      }
+    },
+    [loadDashboard]
+  );
 
+  // Decline via the POST endpoint (runs cascade cleanup + re-offer), not the legacy PATCH.
   const handleDecline = useCallback(async (jobId: string) => {
-    const res = await fetch(`/api/cleaner/jobs/${jobId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'CANCELLED', cancellationReason: 'Declined by cleaner' }),
-    });
+    setActionError(null);
+    const res = await fetch(`/api/cleaner/jobs/${jobId}/decline`, { method: 'POST' });
     if (res.ok) {
       setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    } else {
+      const data = await res.json().catch(() => null);
+      setActionError(data?.error || 'Failed to decline job. Please try again.');
     }
   }, []);
 
@@ -472,6 +488,11 @@ export default function CleanerDashboard() {
               View All
             </Link>
           </div>
+          {actionError && (
+            <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 font-jost text-[12px] text-red-700">
+              {actionError}
+            </div>
+          )}
           <div>
             {jobs.length === 0 && (
               <div className="px-6 py-12 text-center">
