@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
+import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 import { TravelTimeService } from './travel-time.service';
 import type { LocationCoords } from './travel-time.service';
@@ -105,13 +106,40 @@ export class MatchingService {
           })
         );
 
-    // 3. Filter by service area (postcode prefix match)
-    const bookingPrefix = criteria.postcode.split(' ')[0].toUpperCase();
-    const inServiceArea = availableCleaners.filter((cleaner) => {
-      if (!cleaner.location) return true; // If no location set, show to all
-      const areas = cleaner.location.split(',').map((a) => a.trim().toUpperCase());
-      return areas.some((area) => bookingPrefix.startsWith(area) || area.startsWith(bookingPrefix));
-    });
+    // 3. Filter by service area — REAL coverage: a cleaner serves the booking when
+    //    their home point is within their own max travel time (fallback: radius) of the
+    //    customer's postcode. This is the SAME mechanism /api/cleaners and the cleaner
+    //    grid use (geocode → haversine miles → travel-time), so every discovery path
+    //    agrees on who serves an area. Previously this matched the DEPRECATED `location`
+    //    outward-code prefix, which dropped every cleaner serving the area from a
+    //    different outward code — the time-first "no cleaners" bug. Cleaners with no
+    //    geocoded home serve no one → excluded (mirrors the /api/cleaners gate).
+    const customerGeo = criteria.location ?? (await lookupPostcode(criteria.postcode));
+    const inServiceArea = customerGeo
+      ? availableCleaners.filter((cleaner) => {
+          if (cleaner.latitude === null || cleaner.longitude === null) return false;
+          const distanceMiles = haversineDistance(
+            customerGeo.latitude,
+            customerGeo.longitude,
+            cleaner.latitude,
+            cleaner.longitude
+          );
+          if (cleaner.maxTravelMinutes) {
+            const travelMinutes = (distanceMiles / 25) * 60;
+            return travelMinutes <= cleaner.maxTravelMinutes;
+          }
+          return distanceMiles <= (cleaner.radius || 10);
+        })
+      : // Geocode unavailable (unresolvable postcode / lookup outage) — fall back to the
+        // legacy outward-code match so discovery degrades gracefully instead of empty.
+        availableCleaners.filter((cleaner) => {
+          if (!cleaner.location) return true;
+          const bookingPrefix = criteria.postcode.split(' ')[0].toUpperCase();
+          const areas = cleaner.location.split(',').map((a) => a.trim().toUpperCase());
+          return areas.some(
+            (area) => bookingPrefix.startsWith(area) || area.startsWith(bookingPrefix)
+          );
+        });
 
     // 4. Filter by service type qualification
     const qualified = inServiceArea.filter((cleaner) => {
