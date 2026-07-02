@@ -4,7 +4,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
-import stripePromise from '@/lib/stripe-client';
+import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
 
 interface TopupData {
   bookingId: string;
@@ -147,7 +147,7 @@ export default function ApproveTopupPage() {
             Please complete the payment of &pound;{data?.topupAmount?.toFixed(2)} to confirm your
             booking.
           </p>
-          <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
             <TopupPaymentForm
               bookingId={bookingId}
               onSuccess={() => setState('success')}

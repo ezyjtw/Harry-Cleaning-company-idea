@@ -18,7 +18,7 @@ import { bedroomIndexToPropertySize } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
-import stripePromise from '@/lib/stripe-client';
+import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
 import type { ServiceCategory } from '@/lib/types';
 
 const URL_SLUG_TO_DB_SLUG: Record<string, string> = {
@@ -461,7 +461,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Stripe Payment Element */}
-        <Elements stripe={stripePromise} options={{ clientSecret }}>
+        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
           <StripeCheckoutForm
             total={priceBreakdown.total}
             bookingId={bookingData?.id || ''}
