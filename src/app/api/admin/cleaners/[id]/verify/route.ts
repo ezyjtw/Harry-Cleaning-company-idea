@@ -45,6 +45,23 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const isVerify = action === 'VERIFY';
 
     if (isVerify) {
+      // Coverage precondition: verification is what makes a cleaner live/bookable, so
+      // refuse to activate a cleaner with no usable service area — they'd be verified
+      // and payment-ready yet matchable to no customer. Require geocoded coordinates
+      // (legacy latitude/longitude OR homeLatitude/homeLongitude) AND a travel radius.
+      const hasGeo =
+        (profile.latitude !== null && profile.longitude !== null) ||
+        (profile.homeLatitude !== null && profile.homeLongitude !== null);
+      if (!hasGeo || profile.maxTravelMinutes === null) {
+        return NextResponse.json(
+          {
+            error:
+              'Cannot verify: this cleaner has no usable service area. They must set a valid home postcode (that geocodes) and a maximum travel time before they can go live.',
+          },
+          { status: 400 }
+        );
+      }
+
       await prisma.cleanerProfile.update({
         where: { id: profile.id },
         data: {
