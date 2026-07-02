@@ -1,3 +1,11 @@
+import {
+  computeCleanerOpenRanges,
+  expandToSlots,
+  timeToMinutes,
+  toDateString,
+} from '@/lib/availability/timesheet';
+import { prisma } from '@/lib/db/prisma';
+
 import { MatchingService } from './matching.service';
 import type { CleanerMatch } from './matching.service';
 
@@ -6,37 +14,33 @@ import type { CleanerMatch } from './matching.service';
 // "Which cleaners are available somewhere within a time-of-day BAND on a date,
 // for a service in a postcode?" — the query behind the time-first front door.
 //
-// This is a THIN WRAPPER over MatchingService.findMatches — the SAME cross-cleaner
-// availability query the booking cascade uses to assign jobs. It does NOT compute
-// availability itself: it calls findMatches once per 30-min candidate start across
-// the band and unions the cleaners findMatches reports available, recording each
-// cleaner's free start-times. findMatches stays the single source of truth for
-// "who's free at [date, start]".
+// Two responsibilities, from two reused sources (no divergence, no new logic):
+//   • CANDIDATES + RANKING → MatchingService.findMatches (skipAvailabilityFilter:
+//     true, so it returns ALL area + service-qualified cleaners, ranked by the same
+//     totalScore the cascade uses — its recurring-only availability gate is skipped).
+//   • AVAILABILITY GATE → computeCleanerOpenRanges (lib/availability/timesheet), the
+//     SAME helper the per-cleaner calendar uses: real timesheet = recurring weekly
+//     + date-specific slots + time-off overrides + existing bookings (± buffer).
+//     So a cleaner who blocked the date does NOT appear; a cleaner who added a
+//     date-specific slot DOES.
 //
-// Discovery only — it never books anything. Picking a cleaner from these results
-// pre-fills the NORMAL cleaner-first booking (that cleaner as primary + the slot)
-// and runs the identical PENDING→AWAITING_CLEANER→accept→cascade with the normal
-// backups. A time-first booking of Cleaner X is identical to a cleaner-first one.
+// Discovery only — it books nothing. Picking a cleaner here pre-fills the NORMAL
+// cleaner-first booking (that cleaner as primary + the slot) and runs the identical
+// PENDING→AWAITING_CLEANER→accept→cascade with the normal backups. A time-first
+// booking of Cleaner X is identical to a cleaner-first booking of Cleaner X.
 //
-// ⚠️ Availability fidelity: because this reuses findMatches, it reflects the
-// cleaner's RECURRING weekly AvailabilitySlot pattern + existing bookings only —
-// it does NOT consult date-specific slots (AvailabilityDateSlot) or overrides
-// (AvailabilityOverride), which the per-cleaner calendar DOES. See design Q2.
-//
-// Cost: N candidate-starts × one findMatches each (each a cross-cleaner pass).
-// Acceptable at current scale; flagged for later batching, NOT optimized now.
+// Cost: findMatches once (candidates) + one batched timesheet load for the date +
+// O(cleaners) range math. Acceptable at current scale; not optimised.
 
 export type TimeBand = 'morning' | 'afternoon' | 'evening';
 
 /** Bands are START windows — the job starts within [startMin, endMin); its end may
- *  extend past the band (findMatches checks the cleaner can cover the full duration). */
+ *  extend past the band (the cleaner's own open range must still cover the duration). */
 export const TIME_BANDS: Record<TimeBand, { label: string; startMin: number; endMin: number }> = {
   morning: { label: 'Morning', startMin: 8 * 60, endMin: 12 * 60 }, // 08:00–12:00
   afternoon: { label: 'Afternoon', startMin: 12 * 60, endMin: 17 * 60 }, // 12:00–17:00
   evening: { label: 'Evening', startMin: 17 * 60, endMin: 21 * 60 }, // 17:00–21:00
 };
-
-const STEP_MIN = 30;
 
 export interface BandAvailabilityCriteria {
   date: Date;
@@ -58,58 +62,117 @@ export interface BandAvailabilityResult {
   cleaners: AvailableCleaner[];
 }
 
-function minutesToTime(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function toDateString(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 export async function getAvailableCleanersForBand(
   criteria: BandAvailabilityCriteria
 ): Promise<BandAvailabilityResult> {
   const band = TIME_BANDS[criteria.band];
-  const durationMin = criteria.duration * 60;
+  const durationMins = criteria.duration * 60;
+  const dateStr = toDateString(criteria.date);
 
-  // Candidate 30-min starts within the band. Skip starts whose job would run past
-  // midnight (defensive); findMatches enforces the cleaner's own slot coverage.
-  const starts: number[] = [];
-  for (let m = band.startMin; m < band.endMin; m += STEP_MIN) {
-    if (m + durationMin <= 24 * 60) starts.push(m);
+  // 1. CANDIDATES + RANKING — findMatches with the availability gate OFF.
+  const nominalStart = `${String(Math.floor(band.startMin / 60)).padStart(2, '0')}:${String(
+    band.startMin % 60
+  ).padStart(2, '0')}`;
+  const matchResult = await MatchingService.findMatches({
+    date: criteria.date,
+    startTime: nominalStart,
+    duration: criteria.duration,
+    serviceType: criteria.serviceType,
+    postcode: criteria.postcode,
+    clientId: criteria.clientId,
+    skipAvailabilityFilter: true,
+  });
+  const candidates = matchResult.matches;
+  if (candidates.length === 0) {
+    return { date: dateStr, band: criteria.band, cleaners: [] };
   }
 
-  // Union across candidate starts: userId -> cleaner (+ collected free starts).
-  const byUser = new Map<string, AvailableCleaner>();
+  const profileIds = candidates.map((c) => c.cleanerId);
+  const userIds = candidates.map((c) => c.userId);
 
-  for (const startMin of starts) {
-    const startTime = minutesToTime(startMin);
-    const result = await MatchingService.findMatches({
-      date: criteria.date,
-      startTime,
-      duration: criteria.duration,
-      serviceType: criteria.serviceType,
-      postcode: criteria.postcode,
-      clientId: criteria.clientId,
+  const startOfDay = new Date(`${dateStr}T00:00:00`);
+  const endOfDay = new Date(`${dateStr}T23:59:59.999`);
+
+  // 2. AVAILABILITY GATE inputs — one batched timesheet load for this date.
+  const [profiles, dateSlots, overrides, bookings] = await Promise.all([
+    prisma.cleanerProfile.findMany({
+      where: { id: { in: profileIds } },
+      select: {
+        id: true,
+        bookingBufferMinutes: true,
+        availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
+      },
+    }),
+    prisma.availabilityDateSlot.findMany({
+      where: { cleanerProfileId: { in: profileIds }, date: { gte: startOfDay, lte: endOfDay } },
+      select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
+    }),
+    prisma.availabilityOverride.findMany({
+      where: {
+        cleanerProfileId: { in: profileIds },
+        date: { gte: startOfDay, lte: endOfDay },
+        isBlocked: true,
+      },
+      select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
+    }),
+    prisma.booking.findMany({
+      where: {
+        cleanerId: { in: userIds },
+        date: { gte: startOfDay, lte: endOfDay },
+        status: { notIn: ['CANCELLED'] },
+      },
+      select: { cleanerId: true, date: true, startTime: true, duration: true },
+    }),
+  ]);
+
+  // Group timesheet rows by cleaner (profileId for slots/overrides, userId for bookings).
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const dateSlotsByProfile = groupBy(dateSlots, (d) => d.cleanerProfileId);
+  const overridesByProfile = groupBy(overrides, (o) => o.cleanerProfileId);
+  const bookingsByUser = groupBy(bookings, (b) => b.cleanerId);
+
+  const isPast = dateStr <= toDateString(new Date());
+
+  // 3. Gate each candidate on the accurate timesheet; keep those open in the band.
+  const available: AvailableCleaner[] = [];
+  for (const c of candidates) {
+    const profile = profileById.get(c.cleanerId);
+    if (!profile) continue;
+
+    const { openRanges } = computeCleanerOpenRanges({
+      targetDate: criteria.date,
+      bufferMins: profile.bookingBufferMinutes,
+      recurringSlots: profile.availabilitySlots,
+      dateSlots: dateSlotsByProfile.get(c.cleanerId) ?? [],
+      overrides: overridesByProfile.get(c.cleanerId) ?? [],
+      bookings: bookingsByUser.get(c.userId) ?? [],
+      isPast,
     });
-    for (const match of result.matches) {
-      if (!match.isAvailable) continue;
-      const existing = byUser.get(match.userId);
-      if (existing) {
-        existing.openStartTimes.push(startTime);
-      } else {
-        byUser.set(match.userId, { ...match, openStartTimes: [startTime] });
-      }
+
+    // Bookable starts that fit the duration AND begin within the band window.
+    const openStartTimes = expandToSlots(openRanges, durationMins).filter((t) => {
+      const m = timeToMinutes(t);
+      return m >= band.startMin && m < band.endMin;
+    });
+
+    if (openStartTimes.length > 0) {
+      available.push({ ...c, openStartTimes });
     }
   }
 
-  // Rank by the existing matching score (already computed per CleanerMatch), desc.
-  const cleaners = Array.from(byUser.values()).sort((a, b) => b.totalScore - a.totalScore);
+  // Rank by the existing matching score (desc).
+  available.sort((a, b) => b.totalScore - a.totalScore);
 
-  return { date: toDateString(criteria.date), band: criteria.band, cleaners };
+  return { date: dateStr, band: criteria.band, cleaners: available };
+}
+
+function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    const list = map.get(k);
+    if (list) list.push(item);
+    else map.set(k, [item]);
+  }
+  return map;
 }

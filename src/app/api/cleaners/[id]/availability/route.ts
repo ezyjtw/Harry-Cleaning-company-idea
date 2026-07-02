@@ -1,65 +1,16 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  computeOpenRangesForDate,
+  expandToSlots,
+  timeToMinutes,
+  toDateString,
+  type TimeRange,
+} from '@/lib/availability/timesheet';
 import prisma from '@/lib/db/prisma';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-function toDateString(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-}
-
-interface TimeRange {
-  start: number;
-  end: number;
-}
-
-function subtractRanges(available: TimeRange[], blocked: TimeRange[]): TimeRange[] {
-  let result = [...available];
-  for (const block of blocked) {
-    const next: TimeRange[] = [];
-    for (const range of result) {
-      if (block.end <= range.start || block.start >= range.end) {
-        next.push(range);
-      } else {
-        if (block.start > range.start) {
-          next.push({ start: range.start, end: block.start });
-        }
-        if (block.end < range.end) {
-          next.push({ start: block.end, end: range.end });
-        }
-      }
-    }
-    result = next;
-  }
-  return result;
-}
-
-function expandToSlots(ranges: TimeRange[], durationMins: number): string[] {
-  const slots: string[] = [];
-  for (const range of ranges) {
-    let mins = range.start;
-    while (mins + durationMins <= range.end) {
-      slots.push(minutesToTime(mins));
-      mins += 30;
-    }
-  }
-  return slots;
-}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: cleanerUserId } = await params;
@@ -194,51 +145,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const dayOfWeek = current.getDay();
     const isPast = dateStr <= todayStr;
 
-    const dateSpecific = dateSpecificSlots.get(dateStr);
-    const baseRanges = dateSpecific ?? slotsByDow.get(dayOfWeek) ?? [];
-    const hasSlots = baseRanges.length > 0;
+    const dateSpecific = dateSpecificSlots.get(dateStr) ?? null;
+    const recurring = slotsByDow.get(dayOfWeek) ?? [];
+    const fullDayBlocked = blockedDateSet.has(dateStr);
+    const hasSlots = (dateSpecific ?? recurring).length > 0;
 
-    if (isPast || blockedDateSet.has(dateStr)) {
-      dates.push({
-        date: dateStr,
-        dayOfWeek,
-        availableSlotCount: 0,
-        slots: [],
-        isFullyBooked: isPast && hasSlots,
-        isPast,
-      });
-      current.setDate(current.getDate() + 1);
-      continue;
-    }
-
-    if (!hasSlots) {
-      dates.push({
-        date: dateStr,
-        dayOfWeek,
-        availableSlotCount: 0,
-        slots: [],
-        isFullyBooked: false,
-        isPast: false,
-      });
-      current.setDate(current.getDate() + 1);
-      continue;
-    }
-
-    const blockers: TimeRange[] = [
-      ...(partialBlocks.get(dateStr) || []),
-      ...(bookingBlocks.get(dateStr) || []),
-    ];
-
-    const openRanges = subtractRanges(baseRanges, blockers);
+    const openRanges = computeOpenRangesForDate({
+      dateSpecificRanges: dateSpecific,
+      recurringRanges: recurring,
+      fullDayBlocked,
+      partialBlocks: partialBlocks.get(dateStr) ?? [],
+      bookingBlocks: bookingBlocks.get(dateStr) ?? [],
+      isPast,
+    });
     const slots = expandToSlots(openRanges, durationMins);
+
+    // Preserve the original isFullyBooked semantics exactly.
+    let isFullyBooked: boolean;
+    if (isPast || fullDayBlocked) isFullyBooked = isPast && hasSlots;
+    else if (!hasSlots) isFullyBooked = false;
+    else isFullyBooked = slots.length === 0;
 
     dates.push({
       date: dateStr,
       dayOfWeek,
       availableSlotCount: slots.length,
       slots,
-      isFullyBooked: slots.length === 0,
-      isPast: false,
+      isFullyBooked,
+      isPast,
     });
 
     current.setDate(current.getDate() + 1);
