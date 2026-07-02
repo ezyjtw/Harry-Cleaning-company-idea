@@ -7,7 +7,6 @@ import {
 import { prisma } from '@/lib/db/prisma';
 
 import { MatchingService } from './matching.service';
-import type { CleanerMatch } from './matching.service';
 
 // ─── Time-first DISCOVERY layer ─────────────────────────────────────────────
 //
@@ -51,15 +50,33 @@ export interface BandAvailabilityCriteria {
   clientId?: string; // optional — repeat-cleaner prioritisation, forwarded to findMatches
 }
 
-/** A ranked available cleaner + the in-band start-times they can take (for the pin step). */
-export interface AvailableCleaner extends CleanerMatch {
+/**
+ * A ranked available cleaner + the in-band start-times they can take. Carries the
+ * display fields the results list AND the booking step need, so the client never
+ * has to cross-reference its (capped) local cleaners list — an available cleaner
+ * can't silently vanish. `id` is the User id (= Booking.cleanerId = Cleaner.id).
+ */
+export interface AvailableCleanerCard {
+  id: string;
+  name: string;
+  tier: string; // lowercased, e.g. "gold"
+  rating: number;
+  reviewCount: number;
+  bio: string;
+  hourlyRateRegular: number | null;
+  hourlyRateDeep: number | null;
+  hourlyRateSameDay: number | null;
+  eotPrices: Record<string, number> | null;
+  airbnbPrices: Record<string, number> | null;
+  identityVerified: boolean;
+  backgroundChecked: boolean;
   openStartTimes: string[]; // "HH:MM" starts within the band this cleaner is free for
 }
 
 export interface BandAvailabilityResult {
   date: string; // YYYY-MM-DD
   band: TimeBand;
-  cleaners: AvailableCleaner[];
+  cleaners: AvailableCleanerCard[];
 }
 
 export async function getAvailableCleanersForBand(
@@ -100,7 +117,19 @@ export async function getAvailableCleanersForBand(
       select: {
         id: true,
         bookingBufferMinutes: true,
+        // Display fields — returned so the client renders directly (no cross-ref).
+        rating: true,
+        tier: true,
+        bio: true,
+        hourlyRateRegular: true,
+        hourlyRateDeep: true,
+        hourlyRateSameDay: true,
+        eotPrices: true,
+        airbnbPrices: true,
+        verificationStatus: true,
+        backgroundCheckPassed: true,
         availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
+        user: { select: { name: true, reviewsReceived: { select: { id: true } } } },
       },
     }),
     prisma.availabilityDateSlot.findMany({
@@ -134,7 +163,8 @@ export async function getAvailableCleanersForBand(
   const isPast = dateStr <= toDateString(new Date());
 
   // 3. Gate each candidate on the accurate timesheet; keep those open in the band.
-  const available: AvailableCleaner[] = [];
+  //    Keep the matching score alongside for ranking, then strip it from the output.
+  const available: { card: AvailableCleanerCard; score: number }[] = [];
   for (const c of candidates) {
     const profile = profileById.get(c.cleanerId);
     if (!profile) continue;
@@ -155,15 +185,35 @@ export async function getAvailableCleanersForBand(
       return m >= band.startMin && m < band.endMin;
     });
 
-    if (openStartTimes.length > 0) {
-      available.push({ ...c, openStartTimes });
-    }
+    if (openStartTimes.length === 0) continue;
+
+    available.push({
+      score: c.totalScore,
+      card: {
+        id: c.userId, // Booking.cleanerId / Cleaner.id
+        name: profile.user.name ?? c.name,
+        tier: profile.tier.toLowerCase(),
+        rating: Number(profile.rating),
+        reviewCount: profile.user.reviewsReceived.length,
+        bio: profile.bio ?? '',
+        hourlyRateRegular:
+          profile.hourlyRateRegular !== null ? Number(profile.hourlyRateRegular) : null,
+        hourlyRateDeep: profile.hourlyRateDeep !== null ? Number(profile.hourlyRateDeep) : null,
+        hourlyRateSameDay:
+          profile.hourlyRateSameDay !== null ? Number(profile.hourlyRateSameDay) : null,
+        eotPrices: (profile.eotPrices as Record<string, number> | null) ?? null,
+        airbnbPrices: (profile.airbnbPrices as Record<string, number> | null) ?? null,
+        identityVerified: profile.verificationStatus === 'VERIFIED',
+        backgroundChecked: profile.backgroundCheckPassed,
+        openStartTimes,
+      },
+    });
   }
 
-  // Rank by the existing matching score (desc).
-  available.sort((a, b) => b.totalScore - a.totalScore);
+  // Rank by the existing matching score (desc), then strip the score.
+  available.sort((a, b) => b.score - a.score);
 
-  return { date: dateStr, band: criteria.band, cleaners: available };
+  return { date: dateStr, band: criteria.band, cleaners: available.map((x) => x.card) };
 }
 
 function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {

@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/timesheet';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
@@ -177,6 +178,67 @@ export async function POST(request: NextRequest) {
 
     if (!cleaner) {
       return NextResponse.json({ error: 'Cleaner not found' }, { status: 404 });
+    }
+
+    // 3. TOCTOU slot re-validation — never trust the client's pre-filled slot.
+    // Between discovery (time-first list OR the per-cleaner calendar) and this
+    // request, the slot could have been taken. Re-check against the SAME timesheet
+    // engine both of those use (single source of truth). Skipped for 'Flexible'.
+    if (body.time !== 'Flexible') {
+      const slotProfile = await prisma.cleanerProfile.findUnique({
+        where: { userId: body.cleanerId },
+        select: {
+          id: true,
+          bookingBufferMinutes: true,
+          availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
+        },
+      });
+      if (slotProfile) {
+        const dayStart = new Date(`${body.date}T00:00:00`);
+        const dayEnd = new Date(`${body.date}T23:59:59.999`);
+        const [dateSlots, overrides, dayBookings] = await Promise.all([
+          prisma.availabilityDateSlot.findMany({
+            where: { cleanerProfileId: slotProfile.id, date: { gte: dayStart, lte: dayEnd } },
+            select: { date: true, startTime: true, endTime: true },
+          }),
+          prisma.availabilityOverride.findMany({
+            where: {
+              cleanerProfileId: slotProfile.id,
+              date: { gte: dayStart, lte: dayEnd },
+              isBlocked: true,
+            },
+            select: { date: true, startTime: true, endTime: true },
+          }),
+          prisma.booking.findMany({
+            where: {
+              cleanerId: body.cleanerId,
+              date: { gte: dayStart, lte: dayEnd },
+              status: { notIn: ['CANCELLED'] },
+            },
+            select: { date: true, startTime: true, duration: true },
+          }),
+        ]);
+        const { openRanges } = computeCleanerOpenRanges({
+          targetDate: bookingDate,
+          bufferMins: slotProfile.bookingBufferMinutes,
+          recurringSlots: slotProfile.availabilitySlots,
+          dateSlots,
+          overrides,
+          bookings: dayBookings,
+        });
+        const startMin = timeToMinutes(body.time);
+        const endMin = startMin + Number(body.duration) * 60;
+        const fits = openRanges.some((r) => startMin >= r.start && endMin <= r.end);
+        if (!fits) {
+          return NextResponse.json(
+            {
+              error:
+                'That time slot is no longer available for this cleaner. Please pick another slot.',
+            },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     // 4. Stripe eligibility check

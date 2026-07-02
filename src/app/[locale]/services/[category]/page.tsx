@@ -247,6 +247,71 @@ function bandDateLabel(iso: string, band: TimeFirstBand): string {
   return `${day} ${band}`;
 }
 
+/** Shape returned by GET /api/cleaners/available (mirrors AvailableCleanerCard —
+ *  duplicated client-side because the service module is server-only/prisma-backed). */
+type TfCleaner = {
+  id: string;
+  name: string;
+  tier: string;
+  rating: number;
+  reviewCount: number;
+  bio: string;
+  hourlyRateRegular: number | null;
+  hourlyRateDeep: number | null;
+  hourlyRateSameDay: number | null;
+  eotPrices: Record<string, number> | null;
+  airbnbPrices: Record<string, number> | null;
+  identityVerified: boolean;
+  backgroundChecked: boolean;
+  openStartTimes: string[];
+};
+
+/** 24h "HH:MM" → "H:MM AM/PM" for the DateTimeSelection display field. */
+function to12h(t24: string): string {
+  const [h, m] = t24.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+/** Build a full Cleaner from a time-first card so the booking step (which resolves
+ *  the selected cleaner) doesn't depend on the page's capped local cleaners list. */
+function tfCleanerToCleaner(card: TfCleaner): Cleaner {
+  return {
+    id: card.id,
+    name: card.name,
+    photo: '',
+    rating: card.rating,
+    reviewCount: card.reviewCount,
+    hourlyRateRegular: card.hourlyRateRegular,
+    hourlyRateDeep: card.hourlyRateDeep,
+    hourlyRateSameDay: card.hourlyRateSameDay,
+    serviceTypes: [],
+    bio: card.bio,
+    specialties: [],
+    languages: [],
+    tier: card.tier as Cleaner['tier'],
+    location: '',
+    postcodeAreas: [],
+    verified: true,
+    identityVerified: card.identityVerified,
+    backgroundChecked: card.backgroundChecked,
+    yearsExperience: 0,
+    completedJobs: 0,
+    availability: [],
+    timeSlots: {},
+    availableNow: false,
+    responseTime: '~15 min',
+    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+    insured: false,
+    bringsProducts: false,
+    productFee: 0,
+    eotPrices: card.eotPrices ?? undefined,
+    airbnbPrices: card.airbnbPrices ?? undefined,
+    distance: null,
+  };
+}
+
 function calculateSuggestedHours(rooms: RoomConfig, category: ServiceCategory): number {
   let base = 0;
   base += rooms.bedrooms * 0.5;
@@ -329,9 +394,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [tfBand, setTfBand] = useState<TimeFirstBand | ''>('');
   const [tfLoading, setTfLoading] = useState(false);
   const [tfError, setTfError] = useState<string | null>(null);
-  const [tfResults, setTfResults] = useState<{ userId: string; openStartTimes: string[] }[] | null>(
-    null
-  );
+  const [tfResults, setTfResults] = useState<TfCleaner[] | null>(null);
+  // The cleaner picked from time-first results — used to resolve the selected
+  // cleaner when they aren't in the page's capped local `cleaners` list.
+  const [timeFirstPicked, setTimeFirstPicked] = useState<Cleaner | null>(null);
   const [dateTimeSelection, setDateTimeSelection] = useState<DateTimeSelection | null>(null);
   const selectedDate = dateTimeSelection?.date || '';
   const selectedTime24 = dateTimeSelection?.time24 || '';
@@ -359,7 +425,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     if (isAuthenticated) setSaveCard(true);
   }, [isAuthenticated]);
 
-  const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+  // Resolve the selected cleaner from the local list; fall back to the time-first
+  // pick when it isn't there (the local list is capped at 50). This keeps the
+  // booking path IDENTICAL to cleaner-first: same primary id → same POST params.
+  const localSelectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+  const selectedCleaners =
+    localSelectedCleaners.length > 0
+      ? localSelectedCleaners
+      : timeFirstPicked && selectedCleanerIds[0] === timeFirstPicked.id
+        ? [timeFirstPicked]
+        : [];
   const selectedCleaner = selectedCleaners[0] ?? null;
 
   // Backup cleaners: exclude selected/pre-selected cleaner
@@ -438,18 +513,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         setTfResults([]);
         return;
       }
-      const data = (await res.json()) as {
-        cleaners: { userId: string; openStartTimes: string[] }[];
-      };
-      setTfResults(
-        data.cleaners.map((c) => ({ userId: c.userId, openStartTimes: c.openStartTimes }))
-      );
+      const data = (await res.json()) as { cleaners: TfCleaner[] };
+      setTfResults(data.cleaners);
     } catch {
       setTfError('Could not load availability. Please try again.');
       setTfResults([]);
     } finally {
       setTfLoading(false);
     }
+  };
+
+  // HANDOFF: a time-first pick is DISCOVERY → the normal booking. It only pre-sets
+  // the same state cleaner-first sets — primary cleaner id + the chosen slot — then
+  // the identical booking page + handleBookingSubmit run (same POST, same cascade,
+  // normal backups). No parallel booking path.
+  const handleTimeFirstPick = (cleaner: Cleaner, startTime24: string) => {
+    setTimeFirstPicked(cleaner);
+    setSelectedCleanerIds([cleaner.id]);
+    setDateTimeSelection({ date: tfDate, time24: startTime24, time: to12h(startTime24) });
   };
 
   // A12: single definition of the "Cleaning Address" card, rendered in each
@@ -2683,25 +2764,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     your backup is offered next.
                   </p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    {tfResults.map((r) => {
-                      const c = cleaners.find((cl) => cl.id === r.userId);
-                      if (!c) return null;
-                      const tier = TIER_INFO[c.tier];
+                    {tfResults.map((card) => {
+                      const cleaner = tfCleanerToCleaner(card);
+                      const tier = TIER_INFO[cleaner.tier];
                       return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setProfileCleaner(c)}
-                          className="group rounded-xl bg-white p-5 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all hover:bg-cream hover:shadow-md"
+                        <div
+                          key={card.id}
+                          className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]"
                         >
                           <div className="flex items-start gap-3.5">
                             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06]">
-                              {c.name.charAt(0)}
+                              {card.name.charAt(0)}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-jost font-normal text-sm text-ink">
-                                  {c.name}
+                                  {card.name}
                                 </span>
                                 <span
                                   className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
@@ -2710,29 +2788,45 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                                 </span>
                               </div>
                               <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
-                                <StarRating rating={c.rating} />
+                                <StarRating rating={card.rating} />
                                 <span>
-                                  {c.rating} ({c.reviewCount})
+                                  {card.rating} ({card.reviewCount})
                                 </span>
                               </div>
-                              <p className="mt-1.5 font-jost text-[11px] text-gold-2">
-                                {r.openStartTimes.length} slot
-                                {r.openStartTimes.length !== 1 ? 's' : ''} in the {tfBand}
-                              </p>
                             </div>
-                            <div className="shrink-0 text-right">
-                              <span className="font-cormorant font-light text-lg text-ink">
-                                &pound;{getServiceListedRate(c, category).toFixed(2)}
-                              </span>
-                              <span className="font-jost font-light text-[11px] text-ink-3">
-                                /hr
-                              </span>
-                            </div>
+                            {!isFixedPrice(category) && (
+                              <div className="shrink-0 text-right">
+                                <span className="font-cormorant font-light text-lg text-ink">
+                                  &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
+                                </span>
+                                <span className="font-jost font-light text-[11px] text-ink-3">
+                                  /hr
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
-                            {c.bio}
+                            {card.bio}
                           </p>
-                        </button>
+
+                          {/* Pick an exact 30-min start within the band → pins the cleaner + slot
+                              and opens the NORMAL booking (they can still change it there). */}
+                          <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.08em] text-ink-3">
+                            Pick a start time
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {card.openStartTimes.map((start) => (
+                              <button
+                                key={start}
+                                type="button"
+                                onClick={() => handleTimeFirstPick(cleaner, start)}
+                                className="rounded-md bg-cream-2/60 px-2.5 py-1.5 font-jost text-[12px] text-ink-2 transition hover:bg-ink hover:text-cream"
+                              >
+                                {to12h(start)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
