@@ -106,7 +106,10 @@ export interface CleanerDayInput {
   recurringSlots: { dayOfWeek: number; startTime: string; endTime: string }[];
   dateSlots: { date: Date; startTime: string; endTime: string }[]; // any dates; filtered to targetDate
   overrides: { date: Date; startTime: string | null; endTime: string | null }[]; // blocked; filtered
-  bookings: { date: Date; startTime: string; duration: number }[]; // any dates; filtered to targetDate
+  // duration is hours; accepts a plain number OR a Prisma Decimal (Booking.duration
+  // is Decimal). Converted via Number() below — kept structural so this module stays
+  // client-safe (no Prisma import).
+  bookings: { date: Date; startTime: string; duration: number | { toString(): string } }[];
   isPast?: boolean; // defaults to (targetDate <= today)
 }
 
