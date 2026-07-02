@@ -161,7 +161,7 @@ function PostcodeBar({
       </div>
       <span className="flex-1 font-jost text-[13px] text-ink">{postcode}</span>
       {cleanerCount !== null && (
-        <span className="font-jost text-[11px] text-gold-2">
+        <span className="font-jost text-[11px] text-ink">
           {cleanerCount > 0
             ? `${cleanerCount} cleaner${cleanerCount !== 1 ? 's' : ''} nearby`
             : 'No cleaners nearby yet'}

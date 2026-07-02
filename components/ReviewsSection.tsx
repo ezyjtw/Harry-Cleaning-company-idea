@@ -51,7 +51,7 @@ export default function ReviewsSection() {
   return (
     <section className="bg-ink">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
-        <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold-2">
+        <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-white/70">
           {t('sectionTitle')}
         </p>
         <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-white md:mb-14 md:text-[42px]">
@@ -72,10 +72,10 @@ export default function ReviewsSection() {
                     style={{ border: '1px solid rgba(255,255,255,0.08)' }}
                   >
                     <div className="mb-4 flex items-center justify-between">
-                      <span className="rounded-full bg-white/5 px-3 py-1 font-jost text-[11px] uppercase tracking-wider text-gold-2">
+                      <span className="rounded-full bg-white/5 px-3 py-1 font-jost text-[11px] uppercase tracking-wider text-white/80">
                         {review.highlight}
                       </span>
-                      <span className="font-jost text-[13px] tracking-[3px] text-gold-2">
+                      <span className="font-jost text-[13px] tracking-[3px] text-white">
                         {'★'.repeat(review.stars)}
                         {'☆'.repeat(5 - review.stars)}
                       </span>

@@ -152,7 +152,7 @@ function MiniCleanerCard({ cleaner }: { cleaner: (typeof SAMPLE_CLEANERS)[number
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
             </span>
-            <span className="font-jost text-[9px] font-medium text-teal">Available</span>
+            <span className="font-jost text-[9px] font-medium text-ink">Available</span>
           </span>
         )}
       </div>
