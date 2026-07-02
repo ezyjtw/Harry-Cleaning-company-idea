@@ -106,17 +106,92 @@ export function MaestroIcon() {
   );
 }
 
+// Apple Pay — dark mark: white Apple glyph + "Pay". Wallet is live at checkout
+// (Stripe domain verified; surfaces via automatic_payment_methods on Safari/iOS).
+export function ApplePayIcon() {
+  return (
+    <svg
+      viewBox="0 0 48 32"
+      className="h-6 w-9 md:h-8 md:w-12"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="48" height="32" rx="4" fill="#000" />
+      <path
+        transform="translate(7 8.5) scale(0.6)"
+        d="M17.05 12.536c-.024-2.442 1.994-3.62 2.085-3.676-1.137-1.662-2.906-1.89-3.535-1.916-1.505-.152-2.936.887-3.698.887-.762 0-1.937-.865-3.187-.842-1.64.024-3.152.953-3.995 2.42-1.703 2.954-.436 7.323 1.22 9.72.81 1.174 1.775 2.49 3.04 2.443 1.22-.048 1.68-.789 3.155-.789 1.474 0 1.89.789 3.18.765 1.312-.024 2.144-1.196 2.947-2.375.93-1.362 1.312-2.68 1.335-2.748-.029-.014-2.56-.983-2.586-3.9zM14.612 5.62c.674-.817 1.128-1.953.999-3.086-.966.039-2.137.644-2.834 1.46-.626.724-1.174 1.88-1.027 2.99 1.078.084 2.18-.548 2.862-1.364z"
+        fill="#fff"
+      />
+      <text
+        x="22"
+        y="21"
+        fontFamily="-apple-system, Helvetica, Arial, sans-serif"
+        fontSize="11"
+        fontWeight="600"
+        fill="#fff"
+      >
+        Pay
+      </text>
+    </svg>
+  );
+}
+
+// Google Pay — light mark: four-colour Google "G" + "Pay". Wallet is live at
+// checkout (surfaces via automatic_payment_methods on Chrome/Android).
+export function GooglePayIcon() {
+  return (
+    <svg
+      viewBox="0 0 48 32"
+      className="h-6 w-9 md:h-8 md:w-12"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="48" height="32" rx="4" fill="#fff" />
+      <g transform="translate(6 8) scale(0.333)">
+        <path
+          fill="#4285F4"
+          d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"
+        />
+        <path
+          fill="#34A853"
+          d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"
+        />
+        <path
+          fill="#EA4335"
+          d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"
+        />
+      </g>
+      <text
+        x="23"
+        y="21"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontSize="11"
+        fontWeight="600"
+        fill="#5F6368"
+      >
+        Pay
+      </text>
+    </svg>
+  );
+}
+
 // ─── Composite blocks ───────────────────────────────────────────
 
 export function FooterPaymentMethods() {
   return (
     <div className="mt-6 flex flex-col items-center gap-2 border-t border-white/10 pt-6">
       <p className="font-jost text-[11px] tracking-wide text-white/40">Accepted payment methods</p>
-      <div className="flex gap-2 md:gap-3">
+      <div className="flex flex-wrap justify-center gap-2 md:gap-3">
         <VisaIcon />
         <MastercardIcon />
         <AmexIcon />
         <MaestroIcon />
+        <ApplePayIcon />
+        <GooglePayIcon />
       </div>
     </div>
   );
