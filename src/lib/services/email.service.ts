@@ -253,7 +253,8 @@ export async function sendPasswordReset(email: string, token: string): Promise<b
 }
 
 export async function sendEmailVerification(email: string, token: string): Promise<boolean> {
-  const verifyLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify?token=${token}`;
+  // A16b-2a: points at the real email-verification route (/verify is the DBS page).
+  const verifyLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
   const subject = 'Verify your email - Rena Cleaning Network';
   const htmlBody = `
     <h1>Verify your email address</h1>
