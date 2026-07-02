@@ -18,7 +18,7 @@ export function registerJobHandler(type: string, handler: JobHandler): void {
 export async function processNextBatch(batchSize: number = 10): Promise<number> {
   const now = new Date();
 
-  const jobs = await prisma.backgroundJob.findMany({
+  const candidates = await prisma.backgroundJob.findMany({
     where: {
       status: 'PENDING',
       scheduledAt: { lte: now },
@@ -29,25 +29,33 @@ export async function processNextBatch(batchSize: number = 10): Promise<number> 
 
   let processedCount = 0;
 
-  for (const job of jobs) {
+  for (const job of candidates) {
+    // ATOMIC CLAIM: flip PENDING→PROCESSING with a status guard. Only ONE cron
+    // tick can win this updateMany; overlapping/retried ticks that lose the race
+    // get count 0 and skip, so a job is never processed twice concurrently.
+    // (Same atomic-claim pattern the scheduler's release/refund handlers use.)
+    const claim = await prisma.backgroundJob.updateMany({
+      where: { id: job.id, status: 'PENDING' },
+      data: { status: 'PROCESSING', startedAt: new Date(), attempts: { increment: 1 } },
+    });
+    if (claim.count === 0) continue; // another tick already claimed it
+
     const handler = jobHandlers.get(job.type);
     if (!handler) {
+      // Unknown type: fail it rather than leave it PENDING to be re-claimed
+      // every tick forever.
+      await prisma.backgroundJob.update({
+        where: { id: job.id },
+        data: { status: 'FAILED', lastError: `No handler for job type: ${job.type}` },
+      });
       // eslint-disable-next-line no-console
       console.warn(`[JobProcessor] No handler for job type: ${job.type}`);
       continue;
     }
 
     try {
-      // Mark as processing
-      await prisma.backgroundJob.update({
-        where: { id: job.id },
-        data: { status: 'PROCESSING', startedAt: new Date(), attempts: { increment: 1 } },
-      });
-
-      // Execute handler
       await handler(job.payload as Record<string, unknown>);
 
-      // Mark as completed
       await prisma.backgroundJob.update({
         where: { id: job.id },
         data: { status: 'COMPLETED', completedAt: new Date() },
@@ -57,7 +65,8 @@ export async function processNextBatch(batchSize: number = 10): Promise<number> 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-      // Check if max attempts reached
+      // attempts was already incremented at claim time. Requeue to PENDING until
+      // maxAttempts is hit, then mark FAILED (terminal).
       const updatedJob = await prisma.backgroundJob.findUnique({ where: { id: job.id } });
       const newStatus =
         updatedJob && updatedJob.attempts >= updatedJob.maxAttempts ? 'FAILED' : 'PENDING';

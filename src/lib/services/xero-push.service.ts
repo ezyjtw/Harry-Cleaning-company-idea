@@ -121,13 +121,40 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
       data: { status: 'COMPLETED', xeroId: ids || null, lastError: null },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    // Capture the ACTIONABLE detail: a Xero rejection puts the validation
+    // reason (bad account code, scope/auth, archived account, tax type) in the
+    // response BODY, not err.message. Persist it and log a [xero-push] line so
+    // the exact cause shows in Railway logs + XeroPushLog.lastError.
+    const detail = describeXeroError(err);
     await prisma.xeroPushLog.update({
       where: { id: log.id },
-      data: { status: 'FAILED', lastError: msg },
+      data: { status: 'FAILED', lastError: detail },
     });
+    // eslint-disable-next-line no-console
+    console.error(`[xero-push] ${event} failed for booking ${bookingId}: ${detail}`);
     throw err; // surface to the job processor for retry/backoff
   }
+}
+
+/** Pull message + HTTP status + response body out of a Xero SDK / HTTP error. */
+function describeXeroError(err: unknown): string {
+  const e = err as {
+    message?: string;
+    statusCode?: number;
+    response?: { statusCode?: number; body?: unknown };
+    body?: unknown;
+  };
+  const status = e?.statusCode ?? e?.response?.statusCode;
+  const rawBody = e?.response?.body ?? e?.body;
+  let body = '';
+  if (rawBody !== undefined && rawBody !== null) {
+    try {
+      body = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
+    } catch {
+      body = String(rawBody);
+    }
+  }
+  return [e?.message, status ? `status=${status}` : '', body].filter(Boolean).join(' | ').slice(0, 4000);
 }
 
 /** Find-or-create the single "Rena Marketplace" contact and cache its id. */
