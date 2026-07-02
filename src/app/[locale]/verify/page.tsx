@@ -509,7 +509,7 @@ export default function VerifyPage() {
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-green-500">&#10003;</span>
-                Eligible for Sparkle Guarantee jobs
+                Eligible for Rena Guarantee jobs
               </li>
             </ul>
           </div>

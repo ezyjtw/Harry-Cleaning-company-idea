@@ -9,7 +9,7 @@
  * Re-run any time the templates change to refresh the preview.
  */
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -155,7 +155,7 @@ const sections: Array<[string, EmailContent, string?]> = [
       reason: 'Your card was declined (insufficient funds).',
     }),
   ],
-  ['19/19 — teamInvite', buildTeamInvite('Sparkle Cleaning Co', 'invite-token')],
+  ['19/19 — teamInvite', buildTeamInvite('Bright Homes Cleaning', 'invite-token')],
 ];
 
 const blocks = sections
@@ -174,6 +174,15 @@ const blocks = sections
   })
   .join('\n<div style="height:36px;"></div>\n');
 
+// Preview-only: the wordmark PNG isn't live at renacleaning.co.uk until this branch
+// merges + deploys, so embed it as a data-URI HERE so James sees the real rendering
+// now. The actual email templates keep the live URL (which resolves after deploy).
+const liveLogoUrl = 'https://www.renacleaning.co.uk/icons/rena-wordmark-email.png';
+const logoDataUri =
+  'data:image/png;base64,' +
+  readFileSync(join(process.cwd(), 'public/icons/rena-wordmark-email.png')).toString('base64');
+const blocksWithLogo = blocks.split(liveLogoUrl).join(logoDataUri);
+
 const page = `<!doctype html>
 <html lang="en">
 <head>
@@ -184,10 +193,11 @@ const page = `<!doctype html>
 <body style="margin:0;background:#e9ebef;padding:24px 0;">
 <div style="max-width:640px;margin:0 auto 8px;font-family:Arial,sans-serif;color:#1B2A4A;padding:0 8px;">
   <h1 style="font-family:Georgia,serif;font-weight:normal;font-size:22px;margin:0 0 4px;">Rena email templates — E1 wrapper preview</h1>
-  <p style="font-size:13px;color:#6b7280;margin:0;">All 19 templates with sample data. Logo loads from renacleaning.co.uk (verify it renders). Review each, then merge.</p>
+  <p style="font-size:13px;color:#6b7280;margin:0 0 6px;">All 19 templates with sample data. Review each, then merge.</p>
+  <p style="font-size:12px;color:#b45309;margin:0;">Note: the header wordmark is embedded as a data-URI in THIS preview only, so it renders now. The real emails reference https://www.renacleaning.co.uk/icons/rena-wordmark-email.png, which goes live after this branch deploys.</p>
 </div>
 <div style="height:20px;"></div>
-${blocks}
+${blocksWithLogo}
 </body>
 </html>`;
 
