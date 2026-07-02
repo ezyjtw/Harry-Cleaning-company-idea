@@ -2,6 +2,8 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+import { CURRENT_AGREEMENT_VERSION } from '../src/lib/legal/self-employment-acknowledgment';
+
 const prisma = new PrismaClient();
 
 const SALT_ROUNDS = 12;
@@ -67,6 +69,9 @@ async function main() {
       specialties: ['Deep Cleaning', 'Regular Cleaning', 'Pet-Friendly'],
       location: 'Clapham, London',
       postcode: 'SW4',
+      latitude: 51.462,
+      longitude: -0.138,
+      maxTravelMinutes: 45,
       completedJobs: 520,
       rating: 4.9,
       verified: true,
@@ -82,6 +87,9 @@ async function main() {
       specialties: ['Regular Cleaning', 'Deep Cleaning'],
       location: 'Brixton, London',
       postcode: 'SW9',
+      latitude: 51.4626,
+      longitude: -0.1132,
+      maxTravelMinutes: 45,
       completedJobs: 312,
       rating: 4.8,
       verified: true,
@@ -97,6 +105,9 @@ async function main() {
       specialties: ['End of Tenancy', 'Airbnb Cleaning', 'Deep Cleaning'],
       location: 'Battersea, London',
       postcode: 'SW11',
+      latitude: 51.464,
+      longitude: -0.166,
+      maxTravelMinutes: 45,
       completedJobs: 189,
       rating: 4.7,
       verified: true,
@@ -112,6 +123,9 @@ async function main() {
       specialties: ['Regular Cleaning', 'Pet-Friendly'],
       location: 'Tooting, London',
       postcode: 'SW17',
+      latitude: 51.427,
+      longitude: -0.168,
+      maxTravelMinutes: 45,
       completedJobs: 245,
       rating: 4.85,
       verified: true,
@@ -127,6 +141,9 @@ async function main() {
       specialties: ['Deep Cleaning', 'Regular Cleaning', 'End of Tenancy'],
       location: 'Wandsworth, London',
       postcode: 'SW18',
+      latitude: 51.457,
+      longitude: -0.191,
+      maxTravelMinutes: 45,
       completedJobs: 178,
       rating: 4.75,
       verified: true,
@@ -142,6 +159,9 @@ async function main() {
       specialties: ['Regular Cleaning', 'Deep Cleaning', 'Airbnb Cleaning'],
       location: 'Balham, London',
       postcode: 'SW12',
+      latitude: 51.443,
+      longitude: -0.15,
+      maxTravelMinutes: 45,
       completedJobs: 402,
       rating: 4.92,
       verified: true,
@@ -175,12 +195,24 @@ async function main() {
         specialties: data.specialties,
         location: data.location,
         postcode: data.postcode,
+        // Real coverage geo so seed cleaners pass the findMatches area filter
+        // (home point + maxTravelMinutes), same mechanism /api/cleaners uses.
+        latitude: data.latitude,
+        longitude: data.longitude,
+        homePostcode: data.postcode.toUpperCase(),
+        homeLatitude: data.latitude,
+        homeLongitude: data.longitude,
+        homeGeocodedAt: new Date(),
+        maxTravelMinutes: data.maxTravelMinutes,
         completedJobs: data.completedJobs,
         rating: data.rating,
         verified: data.verified,
         backgroundCheckPassed: data.backgroundCheckPassed,
         dbsCertVerified: true,
         verificationStatus: 'VERIFIED',
+        // A14 ack gate: findMatches only offers jobs to cleaners on the CURRENT
+        // agreement version, so seed cleaners must carry it to be matchable/testable.
+        acknowledgmentVersion: CURRENT_AGREEMENT_VERSION,
         availableNow: data.availableNow,
         responseTime: Math.floor(Math.random() * 10) + 5,
         radius: 10,
