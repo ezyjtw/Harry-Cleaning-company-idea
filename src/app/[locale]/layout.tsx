@@ -62,7 +62,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#1e3a8a" />
+        <meta name="msapplication-TileColor" content="#16296b" />
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
         {/* Fonts are self-hosted via next/font (see src/app/layout.tsx) — no Google Fonts link. */}
         <link rel="preload" as="image" href="/images/hero-banner.jpg" fetchPriority="high" />

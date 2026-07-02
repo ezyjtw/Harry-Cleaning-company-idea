@@ -346,7 +346,7 @@ export async function sendReviewRequest(
     <p>Hi ${user.name},</p>
     <p>Your ${booking.serviceType} clean with ${booking.cleanerName} on ${booking.date} has been completed.</p>
     <p>We'd love to hear how it went! Your review helps other customers find great cleaners.</p>
-    <p><a href="${reviewLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Leave a Review</a></p>
+    <p><a href="${reviewLink}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Leave a Review</a></p>
     <p>Thank you for using Rena!</p>
   `;
 
@@ -374,7 +374,7 @@ export async function sendNewMessageEmail(
     <p>Hi ${recipientName || 'there'},</p>
     <p>${senderName} sent you a new message on Rena. Open the app to read it and reply.</p>
     <p>For your safety, please keep all conversation and payments on Rena — never share contact details or pay off-platform.</p>
-    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Read your message</a></p>
+    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Read your message</a></p>
     <p>Thank you for using Rena!</p>
   `;
 
@@ -409,7 +409,7 @@ export async function sendGuestBookingConfirmation(
       <li><strong>Total:</strong> &pound;${booking.totalPrice.toFixed(2)}</li>
     </ul>
     <p>You can manage your booking using this link:</p>
-    <p><a href="${manageLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Manage Booking</a></p>
+    <p><a href="${manageLink}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Manage Booking</a></p>
     <p>This link is personal to you — please don't share it.</p>
     <p>Want to message your cleaner or leave a review afterwards? <a href="${signupLink}">Create a free account</a> with this email — your booking will be linked to it automatically.</p>
     <p>Thank you for choosing Rena Cleaning Network!</p>
@@ -439,7 +439,7 @@ export async function sendAbandonmentEmail(
 
   const htmlBody = `
     <p>${data.personalizedMessage}</p>
-    <p><a href="${bookLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Complete Your Booking</a></p>
+    <p><a href="${bookLink}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Complete Your Booking</a></p>
     ${footer}
   `;
 
@@ -469,11 +469,11 @@ export async function sendVerificationDecision(data: {
       <h1>You&rsquo;re verified!</h1>
       <p>Hi ${data.cleanerName},</p>
       <p>Great news — your Rena application has been approved. You can now start receiving bookings from customers in your area.</p>
-      <p><a href="${appUrl}/cleaner" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Go to your dashboard</a></p>
+      <p><a href="${appUrl}/cleaner" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Go to your dashboard</a></p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
       <h2 style="font-size:18px;margin:0 0 8px;">Connect your payment account</h2>
       <p>To start receiving bookings and payments, you need to connect your bank account securely via Stripe. This takes about 5 minutes.</p>
-      <p><a href="${appUrl}/en/cleaner/stripe/connect" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Connect your payment account</a></p>
+      <p><a href="${appUrl}/en/cleaner/stripe/connect" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Connect your payment account</a></p>
       <p style="font-size:13px;color:#6b7280;">This is required to receive payments. Note: your first payout will be held for 7&ndash;14 days as part of Stripe&rsquo;s verification process. After that, you&rsquo;ll be paid every Wednesday.</p>
       <p>Thank you for joining Rena Cleaning Network!</p>
     `;
@@ -520,7 +520,7 @@ export async function sendTopupApprovalRequest(data: {
       <li><strong>Extra to pay:</strong> &pound;${data.topupAmount.toFixed(2)}</li>
     </ul>
     <p>You have approximately <strong>${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}</strong> to approve or decline.</p>
-    <p><a href="${approvalLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Approve</a></p>
+    <p><a href="${approvalLink}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Approve</a></p>
     <p>If you don't respond in time, we'll continue looking for another cleaner at your original price.</p>
     <p>Thank you,<br/>The Rena Team</p>
   `;
@@ -572,7 +572,7 @@ export async function sendPaymentFailureNotification(
     <p>Unfortunately, the payment for your booking <strong>#${data.bookingId}</strong> could not be processed.</p>
     <p><strong>Reason:</strong> ${data.reason}</p>
     <p>You can try again with a different payment method:</p>
-    <p><a href="${retryLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Retry Payment</a></p>
+    <p><a href="${retryLink}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Retry Payment</a></p>
     <p>If you continue to experience issues, please contact our support team.</p>
     <p>Best regards,<br/>The Rena Team</p>
   `;
@@ -592,7 +592,7 @@ export async function sendTeamInvite(
   const htmlBody = `
     <h1>You've been invited!</h1>
     <p>${companyName} has invited you to join their team on Rena Cleaning Network.</p>
-    <p><a href="${inviteLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Accept Invitation</a></p>
+    <p><a href="${inviteLink}" style="display:inline-block;padding:12px 24px;background:#16296b;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Accept Invitation</a></p>
     <p>This invitation will expire in 7 days.</p>
   `;
 

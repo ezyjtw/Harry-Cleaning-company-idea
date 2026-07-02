@@ -19,7 +19,7 @@ export default function StatsBar() {
           key={stat.label}
           className={`px-4 text-center md:px-12 ${i % 2 === 0 ? 'border-r border-white/10 md:border-r-0' : ''} ${i < stats.length - 1 ? 'md:border-r md:border-white/10' : ''}`}
         >
-          <div className="font-cormorant text-[26px] font-light text-gold-2 md:text-[30px]">
+          <div className="font-cormorant text-[26px] font-light text-white md:text-[30px]">
             {stat.value}
           </div>
           <div className="mt-1 font-jost text-[10px] tracking-[0.09em] text-white/60 md:text-[11px]">

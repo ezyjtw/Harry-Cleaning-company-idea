@@ -47,7 +47,7 @@ const config: Config = {
         'gold-2': 'rgb(var(--color-trust) / <alpha-value>)',
         teal: 'rgb(var(--color-trust) / <alpha-value>)',
 
-        // Brand ramp rebuilt around navy #1e3a8a (was a #2F80ED/#2563eb blue ramp):
+        // Brand ramp rebuilt around navy #16296b (was a #2F80ED/#2563eb blue ramp):
         // light steps -> primary-soft, mid -> primary-hover, dark -> primary/active.
         brand: {
           50: 'rgb(var(--color-primary-soft) / <alpha-value>)',

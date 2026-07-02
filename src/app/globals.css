@@ -13,10 +13,10 @@
    and is what you paste into emails / the Stripe appearance object.
    ───────────────────────────────────────────────────────────── */
 :root {
-  --color-primary: 30 58 138; /* #1e3a8a */
-  --color-primary-hover: 42 74 159; /* #2a4a9f */
-  --color-primary-active: 26 50 119; /* #1a3277 */
-  --color-primary-soft: 233 237 248; /* #e9edf8 */
+  --color-primary: 22 41 107; /* #16296b */
+  --color-primary-hover: 32 58 133; /* #203a85 */
+  --color-primary-active: 17 31 82; /* #111f52 */
+  --color-primary-soft: 231 236 246; /* #e7ecf6 */
   --color-ink: 27 42 74; /* #1B2A4A */
   --color-ink-2: 61 81 112; /* #3D5170 */
   --color-ink-3: 122 138 158; /* #7A8A9E */

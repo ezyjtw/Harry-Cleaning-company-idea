@@ -65,11 +65,17 @@ export default function HeroSection() {
             <div className="flex flex-wrap gap-4 md:gap-5">
               {trustItems.map((item) => (
                 <div key={item.label} className="flex items-center gap-2">
-                  <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-gold-2/20">
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-trust-on-dark/20">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                      className="text-trust-on-dark"
+                    >
                       <path
                         d="M2 5L4 7L8 3"
-                        stroke="#00BFA6"
+                        stroke="currentColor"
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"

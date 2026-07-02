@@ -112,7 +112,7 @@ export default function CleanerCard({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
             </span>
-            <span className="font-jost text-[11px] font-medium text-teal">Available today</span>
+            <span className="font-jost text-[11px] font-medium text-ink">Available today</span>
           </span>
         )}
       </div>

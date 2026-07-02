@@ -152,7 +152,7 @@ function PostcodeBar({
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path
             d="M3 7L6 10L11 4"
-            stroke="#2F80ED"
+            stroke="#16296b"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -161,7 +161,7 @@ function PostcodeBar({
       </div>
       <span className="flex-1 font-jost text-[13px] text-ink">{postcode}</span>
       {cleanerCount !== null && (
-        <span className="font-jost text-[11px] text-gold-2">
+        <span className="font-jost text-[11px] text-ink">
           {cleanerCount > 0
             ? `${cleanerCount} cleaner${cleanerCount !== 1 ? 's' : ''} nearby`
             : 'No cleaners nearby yet'}
