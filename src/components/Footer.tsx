@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { FooterPaymentMethods, FooterSocialLinks } from './FooterShared';
+
 export default function Footer() {
   const t = useTranslations('Footer');
 
@@ -121,13 +123,20 @@ export default function Footer() {
 
       {/* Bottom bar */}
       <div className="border-t border-white/5">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-6 sm:flex-row md:px-14">
-          <Link href="/" className="font-etna text-[22px] font-semibold tracking-widest text-white">
-            RENA
-          </Link>
-          <span className="font-jost text-[12px] tracking-wide text-white/25">
-            &copy; {new Date().getFullYear()} Rena
-          </span>
+        <div className="mx-auto max-w-7xl px-5 py-6 md:px-14">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <Link
+              href="/"
+              className="font-etna text-[22px] font-semibold tracking-widest text-white"
+            >
+              RENA
+            </Link>
+            <FooterSocialLinks />
+            <span className="font-jost text-[12px] tracking-wide text-white/25">
+              &copy; {new Date().getFullYear()} Rena
+            </span>
+          </div>
+          <FooterPaymentMethods />
         </div>
       </div>
     </footer>
