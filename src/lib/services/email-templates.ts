@@ -14,7 +14,7 @@
 // Absolute, production URLs (emails can't rely on relative paths or next/font).
 const SITE_URL = 'https://www.renacleaning.co.uk';
 // RENA wordmark rendered from the site's Etna brand font (scripts/generate-wordmark).
-// Displayed at 156x49 (asset is 688x216 → ~4.4x retina). Goes live after deploy.
+// Displayed at 120x38 (asset is 688x216 → ~5.7x retina). Goes live after deploy.
 const LOGO_URL = `${SITE_URL}/icons/rena-wordmark-email.png`;
 const SUPPORT_EMAIL = 'support@renacleaning.co.uk';
 
@@ -122,7 +122,7 @@ export function renderEmail(opts: { contentHtml: string; footerNote?: string }):
           <tr>
             <td align="center" style="padding:28px 32px 0;">
               <a href="${SITE_URL}" style="text-decoration:none;">
-                <img src="${LOGO_URL}" width="156" height="49" alt="RENA" style="display:block;border:0;outline:none;width:156px;height:49px;" />
+                <img src="${LOGO_URL}" width="120" height="38" alt="RENA" style="display:block;border:0;outline:none;width:120px;height:38px;" />
               </a>
             </td>
           </tr>
