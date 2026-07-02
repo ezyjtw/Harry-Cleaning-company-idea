@@ -207,6 +207,111 @@ const TIER_INFO: Record<string, { label: string; color: string; desc: string }> 
   },
 };
 
+// Time-first band picker (client-safe; the server validates against TIME_BANDS).
+const TIME_FIRST_BANDS = [
+  { key: 'morning', label: 'Morning', hint: '8am – 12pm' },
+  { key: 'afternoon', label: 'Afternoon', hint: '12 – 5pm' },
+  { key: 'evening', label: 'Evening', hint: '5 – 9pm' },
+] as const;
+
+type TimeFirstBand = (typeof TIME_FIRST_BANDS)[number]['key'];
+
+/** Next `count` calendar days for the time-first date chips. */
+function nextDays(count: number): { iso: string; weekday: string; day: string }[] {
+  const out: { iso: string; weekday: string; day: string }[] = [];
+  const base = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+    out.push({
+      iso,
+      weekday: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+      day: String(d.getDate()),
+    });
+  }
+  return out;
+}
+
+/** "Tue 17 Jun · afternoon" style label for the honest results header. */
+function bandDateLabel(iso: string, band: TimeFirstBand): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const day = date.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${day} ${band}`;
+}
+
+/** Shape returned by GET /api/cleaners/available (mirrors AvailableCleanerCard —
+ *  duplicated client-side because the service module is server-only/prisma-backed). */
+type TfCleaner = {
+  id: string;
+  name: string;
+  tier: string;
+  rating: number;
+  reviewCount: number;
+  bio: string;
+  hourlyRateRegular: number | null;
+  hourlyRateDeep: number | null;
+  hourlyRateSameDay: number | null;
+  eotPrices: Record<string, number> | null;
+  airbnbPrices: Record<string, number> | null;
+  identityVerified: boolean;
+  backgroundChecked: boolean;
+  openStartTimes: string[];
+};
+
+/** 24h "HH:MM" → "H:MM AM/PM" for the DateTimeSelection display field. */
+function to12h(t24: string): string {
+  const [h, m] = t24.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+/** Build a full Cleaner from a time-first card so the booking step (which resolves
+ *  the selected cleaner) doesn't depend on the page's capped local cleaners list. */
+function tfCleanerToCleaner(card: TfCleaner): Cleaner {
+  return {
+    id: card.id,
+    name: card.name,
+    photo: '',
+    rating: card.rating,
+    reviewCount: card.reviewCount,
+    hourlyRateRegular: card.hourlyRateRegular,
+    hourlyRateDeep: card.hourlyRateDeep,
+    hourlyRateSameDay: card.hourlyRateSameDay,
+    serviceTypes: [],
+    bio: card.bio,
+    specialties: [],
+    languages: [],
+    tier: card.tier as Cleaner['tier'],
+    location: '',
+    postcodeAreas: [],
+    verified: true,
+    identityVerified: card.identityVerified,
+    backgroundChecked: card.backgroundChecked,
+    yearsExperience: 0,
+    completedJobs: 0,
+    availability: [],
+    timeSlots: {},
+    availableNow: false,
+    responseTime: '~15 min',
+    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+    insured: false,
+    bringsProducts: false,
+    productFee: 0,
+    eotPrices: card.eotPrices ?? undefined,
+    airbnbPrices: card.airbnbPrices ?? undefined,
+    distance: null,
+  };
+}
+
 function calculateSuggestedHours(rooms: RoomConfig, category: ServiceCategory): number {
   let base = 0;
   base += rooms.bedrooms * 0.5;
@@ -289,6 +394,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // ─── Cleaner phase state ───────────────────────
   const [scheduling, setScheduling] = useState<'flexible' | 'set-time' | null>(null);
+  // Time-first (band) picker + results — chunk 2. Discovery only: results feed the
+  // NORMAL booking (picked cleaner as primary + slot), never a parallel path.
+  const [tfDate, setTfDate] = useState('');
+  const [tfBand, setTfBand] = useState<TimeFirstBand | ''>('');
+  const [tfLoading, setTfLoading] = useState(false);
+  const [tfError, setTfError] = useState<string | null>(null);
+  const [tfResults, setTfResults] = useState<TfCleaner[] | null>(null);
+  // The cleaner picked from time-first results — used to resolve the selected
+  // cleaner when they aren't in the page's capped local `cleaners` list.
+  const [timeFirstPicked, setTimeFirstPicked] = useState<Cleaner | null>(null);
   const [dateTimeSelection, setDateTimeSelection] = useState<DateTimeSelection | null>(null);
   const selectedDate = dateTimeSelection?.date || '';
   const selectedTime24 = dateTimeSelection?.time24 || '';
@@ -316,7 +431,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     if (isAuthenticated) setSaveCard(true);
   }, [isAuthenticated]);
 
-  const selectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+  // Resolve the selected cleaner from the local list; fall back to the time-first
+  // pick when it isn't there (the local list is capped at 50). This keeps the
+  // booking path IDENTICAL to cleaner-first: same primary id → same POST params.
+  const localSelectedCleaners = cleaners.filter((c) => selectedCleanerIds.includes(c.id));
+  const selectedCleaners =
+    localSelectedCleaners.length > 0
+      ? localSelectedCleaners
+      : timeFirstPicked && selectedCleanerIds[0] === timeFirstPicked.id
+        ? [timeFirstPicked]
+        : [];
   const selectedCleaner = selectedCleaners[0] ?? null;
 
   // Backup cleaners: exclude selected/pre-selected cleaner
@@ -370,6 +494,49 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     setOutsideCatchment(!isInCatchmentArea(p));
     setSelectedCleanerIds([]);
     setDateTimeSelection(null);
+  };
+
+  // Time-first discovery: the accurate cross-cleaner availability query (chunk 1.5).
+  const timeFirstDays = useMemo(() => nextDays(14), []);
+
+  const runTimeFirstSearch = async () => {
+    if (!tfDate || !tfBand || !postcode) return;
+    setTfLoading(true);
+    setTfError(null);
+    setTfResults(null);
+    try {
+      const qs = new URLSearchParams({
+        date: tfDate,
+        band: tfBand,
+        duration: String(effectiveHours),
+        service: category,
+        postcode,
+      });
+      const res = await fetch(`/api/cleaners/available?${qs.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setTfError(data.error || 'Could not load availability. Please try again.');
+        setTfResults([]);
+        return;
+      }
+      const data = (await res.json()) as { cleaners: TfCleaner[] };
+      setTfResults(data.cleaners);
+    } catch {
+      setTfError('Could not load availability. Please try again.');
+      setTfResults([]);
+    } finally {
+      setTfLoading(false);
+    }
+  };
+
+  // HANDOFF: a time-first pick is DISCOVERY → the normal booking. It only pre-sets
+  // the same state cleaner-first sets — primary cleaner id + the chosen slot — then
+  // the identical booking page + handleBookingSubmit run (same POST, same cascade,
+  // normal backups). No parallel booking path.
+  const handleTimeFirstPick = (cleaner: Cleaner, startTime24: string) => {
+    setTimeFirstPicked(cleaner);
+    setSelectedCleanerIds([cleaner.id]);
+    setDateTimeSelection({ date: tfDate, time24: startTime24, time: to12h(startTime24) });
   };
 
   // A12: single definition of the "Cleaning Address" card, rendered in each
@@ -2308,16 +2475,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink sm:text-4xl">
           {currentStep === 'choose-method' && 'How would you like to book?'}
           {currentStep === 'browse' && 'Browse Available Cleaners'}
-          {currentStep === 'set-time' && 'Choose a Cleaner'}
+          {currentStep === 'set-time' && 'Choose your time'}
           {currentStep === 'booking' && 'Complete Your Booking'}
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
           {currentStep === 'choose-method' &&
-            'Start with what matters most \u2014 the cleaner or the time slot.'}
+            'Start with what matters most \u2014 browse by who, or by when.'}
           {currentStep === 'browse' &&
             `${cleaners.length} cleaners available \u00b7 click to view profile`}
           {currentStep === 'set-time' &&
-            `${cleaners.length} cleaners available \u00b7 pick one to see their calendar`}
+            "Pick when you want your clean \u2014 we'll show who's available then."}
           {currentStep === 'booking' && 'Review your details and confirm.'}
         </p>
       </div>
@@ -2338,8 +2505,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <div className="relative">
                   <h3 className="font-cormorant text-xl text-ink">Choose your cleaner</h3>
                   <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    Browse available cleaners, view profiles and reviews, then pick the right fit.
-                    You&apos;ll arrange a time that suits you both.
+                    Browse by <span className="text-ink-2">who</span>: view cleaner profiles and
+                    reviews, pick the one you want, then choose a time from their calendar.
                   </p>
 
                   <div className="mt-5 flex items-center gap-3">
@@ -2380,8 +2547,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <div className="relative">
                   <h3 className="font-cormorant text-xl text-ink">Choose your time</h3>
                   <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    Lock in the date and time that works for you. We&apos;ll show cleaners who are
-                    available for that slot.
+                    Browse by <span className="text-ink-2">when</span>: pick a day and time of day,
+                    and we&apos;ll show the cleaners free then. Choose one — they&apos;ll confirm
+                    your booking.
                   </p>
 
                   <div className="mt-5 flex items-center gap-3">
@@ -2516,66 +2684,160 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             FLOW B: Pick a date and time (set-time)
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'set-time' && selectedCleanerIds.length === 0 && (
-          <div>
-            <p className="font-jost font-light text-sm text-ink-3 mb-6">
-              Choose a cleaner, then pick a date and time from their availability.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {cleaners.map((c) => {
-                const tier = TIER_INFO[c.tier];
-                const isAlreadySelected = selectedCleanerIds.includes(c.id);
-                return (
+          <div className="space-y-6">
+            {/* Step: pick a day + a time-of-day band */}
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-jost font-medium text-base text-ink">Pick a day</h2>
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                {timeFirstDays.map((d) => (
                   <button
-                    key={c.id}
+                    key={d.iso}
                     type="button"
-                    onClick={() =>
-                      isAlreadySelected
-                        ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
-                        : setProfileCleaner(c)
-                    }
-                    className={`group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md ${
-                      isAlreadySelected
-                        ? 'bg-gold/5 ring-2 ring-gold'
-                        : 'bg-white ring-ink/[0.06] hover:bg-cream'
+                    onClick={() => {
+                      setTfDate(d.iso);
+                      setTfResults(null);
+                    }}
+                    className={`shrink-0 rounded-lg px-3.5 py-2 text-center font-jost transition ${
+                      tfDate === d.iso
+                        ? 'bg-ink text-cream'
+                        : 'bg-cream-2/60 text-ink-2 hover:bg-cream-2'
                     }`}
                   >
-                    <div className="flex items-start gap-3.5">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06] transition">
-                        {c.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
-                          <span
-                            className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
-                          >
-                            {tier.label}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
-                          <StarRating rating={c.rating} />
-                          <span>
-                            {c.rating} ({c.reviewCount})
-                          </span>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="font-cormorant font-light text-lg text-ink">
-                          &pound;{getServiceListedRate(c, category).toFixed(2)}
-                        </span>
-                        <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
-                        <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
-                          {SERVICE_RATE_LABELS[category]}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
-                      {c.bio}
-                    </p>
+                    <span className="block text-[11px] uppercase tracking-[0.08em]">
+                      {d.weekday}
+                    </span>
+                    <span className="block text-sm font-medium">{d.day}</span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
+
+              <h2 className="mt-6 font-jost font-medium text-base text-ink">Pick a time of day</h2>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {TIME_FIRST_BANDS.map((b) => (
+                  <button
+                    key={b.key}
+                    type="button"
+                    onClick={() => {
+                      setTfBand(b.key);
+                      setTfResults(null);
+                    }}
+                    className={`rounded-lg px-3 py-3 text-center font-jost transition ${
+                      tfBand === b.key
+                        ? 'bg-ink text-cream'
+                        : 'bg-cream-2/60 text-ink-2 hover:bg-cream-2'
+                    }`}
+                  >
+                    <span className="block text-sm font-medium">{b.label}</span>
+                    <span
+                      className={`block text-[11px] ${tfBand === b.key ? 'text-cream/70' : 'text-ink-3'}`}
+                    >
+                      {b.hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                disabled={!tfDate || !tfBand || tfLoading}
+                onClick={runTimeFirstSearch}
+                className="mt-6 w-full rounded-lg bg-gold py-3 font-jost text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tfLoading ? 'Finding cleaners…' : 'Find cleaners'}
+              </button>
+              {tfError && <p className="mt-2 font-jost text-xs text-amber-700">{tfError}</p>}
             </div>
+
+            {/* Results — honest framing: available ≠ confirmed */}
+            {tfResults !== null &&
+              !tfLoading &&
+              (tfResults.length === 0 ? (
+                <div className="rounded-xl bg-white p-6 text-center ring-1 ring-ink/[0.06]">
+                  <p className="font-jost text-sm text-ink-2">
+                    No cleaners have{' '}
+                    {tfDate && tfBand ? bandDateLabel(tfDate, tfBand) : 'that slot'} open. Try
+                    another day or time of day.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="font-jost font-medium text-base text-ink">
+                    {tfResults.length} cleaner{tfResults.length !== 1 ? 's' : ''} available for{' '}
+                    {bandDateLabel(tfDate, tfBand as TimeFirstBand)}
+                  </p>
+                  <p className="mt-1 font-jost font-light text-sm text-ink-3">
+                    Pick your slot — they&apos;ll confirm your booking. If they can&apos;t make it,
+                    your backup is offered next.
+                  </p>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    {tfResults.map((card) => {
+                      const cleaner = tfCleanerToCleaner(card);
+                      const tier = TIER_INFO[cleaner.tier];
+                      return (
+                        <div
+                          key={card.id}
+                          className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]"
+                        >
+                          <div className="flex items-start gap-3.5">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06]">
+                              {card.name.charAt(0)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-jost font-normal text-sm text-ink">
+                                  {card.name}
+                                </span>
+                                <span
+                                  className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
+                                >
+                                  {tier.label}
+                                </span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
+                                <StarRating rating={card.rating} />
+                                <span>
+                                  {card.rating} ({card.reviewCount})
+                                </span>
+                              </div>
+                            </div>
+                            {!isFixedPrice(category) && (
+                              <div className="shrink-0 text-right">
+                                <span className="font-cormorant font-light text-lg text-ink">
+                                  &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
+                                </span>
+                                <span className="font-jost font-light text-[11px] text-ink-3">
+                                  /hr
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                            {card.bio}
+                          </p>
+
+                          {/* Pick an exact 30-min start within the band → pins the cleaner + slot
+                              and opens the NORMAL booking (they can still change it there). */}
+                          <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.08em] text-ink-3">
+                            Pick a start time
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {card.openStartTimes.map((start) => (
+                              <button
+                                key={start}
+                                type="button"
+                                onClick={() => handleTimeFirstPick(cleaner, start)}
+                                className="rounded-md bg-cream-2/60 px-2.5 py-1.5 font-jost text-[12px] text-ink-2 transition hover:bg-ink hover:text-cream"
+                              >
+                                {to12h(start)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
           </div>
         )}
 

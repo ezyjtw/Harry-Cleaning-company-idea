@@ -15,6 +15,11 @@ export interface MatchingCriteria {
   location?: LocationCoords;
   clientId?: string; // For repeat cleaner prioritization
   preferredCleanerId?: string;
+  // Time-first discovery: skip the recurring-slot availability gate so this returns
+  // ALL area+service-qualified candidates (ranked), and the caller applies the
+  // accurate timesheet availability gate itself. Default false → unchanged behaviour
+  // for the cascade / auto-assign / rebroadcast callers.
+  skipAvailabilityFilter?: boolean;
 }
 
 export interface CleanerMatch {
@@ -84,18 +89,21 @@ export class MatchingService {
 
     const totalCandidates = allCleaners.length;
 
-    // 2. Filter by availability (day of week)
+    // 2. Filter by availability (day of week). Time-first discovery skips this so
+    //    the caller can apply the accurate timesheet gate (date-slots + overrides).
     const dayOfWeek = criteria.date.getDay();
-    const availableCleaners = allCleaners.filter((cleaner) =>
-      cleaner.availabilitySlots.some((slot) => {
-        if (slot.dayOfWeek !== dayOfWeek) return false;
-        const slotStart = this.timeToMinutes(slot.startTime);
-        const slotEnd = this.timeToMinutes(slot.endTime);
-        const bookingStart = this.timeToMinutes(criteria.startTime);
-        const bookingEnd = bookingStart + criteria.duration * 60;
-        return bookingStart >= slotStart && bookingEnd <= slotEnd;
-      })
-    );
+    const availableCleaners = criteria.skipAvailabilityFilter
+      ? allCleaners
+      : allCleaners.filter((cleaner) =>
+          cleaner.availabilitySlots.some((slot) => {
+            if (slot.dayOfWeek !== dayOfWeek) return false;
+            const slotStart = this.timeToMinutes(slot.startTime);
+            const slotEnd = this.timeToMinutes(slot.endTime);
+            const bookingStart = this.timeToMinutes(criteria.startTime);
+            const bookingEnd = bookingStart + criteria.duration * 60;
+            return bookingStart >= slotStart && bookingEnd <= slotEnd;
+          })
+        );
 
     // 3. Filter by service area (postcode prefix match)
     const bookingPrefix = criteria.postcode.split(' ')[0].toUpperCase();
