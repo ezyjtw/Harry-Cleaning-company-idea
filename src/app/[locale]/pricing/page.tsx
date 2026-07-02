@@ -50,8 +50,9 @@ const comparisonFeatures = [
   { feature: 'Service fee', rena: '6%', competitor1: 'Hidden', competitor2: '10\u201316%' },
   { feature: 'Choose your cleaner', rena: 'Yes', competitor1: 'Limited', competitor2: 'No' },
   { feature: 'Transparent pricing', rena: 'Yes', competitor1: 'Partial', competitor2: 'No' },
-  { feature: 'Escrow protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
+  { feature: 'Payment protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
   { feature: 'Satisfaction guarantee', rena: 'Yes', competitor1: 'Limited', competitor2: 'Yes' },
+  // TODO: read SAME_DAY_FEATURE_ENABLED here when enabling same-day booking
   { feature: 'Same-day booking', rena: 'Coming Soon', competitor1: 'Yes', competitor2: 'No' },
   { feature: 'No subscription required', rena: 'Yes', competitor1: 'No', competitor2: 'Yes' },
 ];
@@ -105,9 +106,9 @@ export default function PricingPage() {
               <div>
                 <p className="font-cormorant text-xl font-light text-ink">6% Service Fee</p>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
-                  This covers customer support, our satisfaction guarantee, escrow payment
-                  protection, and platform maintenance. It&apos;s always shown before you confirm
-                  your booking — no surprises.
+                  This covers customer support, our satisfaction guarantee, held-payment protection,
+                  and platform maintenance. It&apos;s always shown before you confirm your booking —
+                  no surprises.
                 </p>
               </div>
             </div>
@@ -202,6 +203,7 @@ export default function PricingPage() {
                         <span className="text-sm font-normal text-ink font-jost">
                           {service.type}
                         </span>
+                        {/* TODO: read SAME_DAY_FEATURE_ENABLED here when enabling same-day booking */}
                         {'comingSoon' in service && service.comingSoon && (
                           <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
                             Coming Soon

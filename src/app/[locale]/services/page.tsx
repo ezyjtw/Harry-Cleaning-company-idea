@@ -378,7 +378,7 @@ export default function ServicesPage() {
               },
               {
                 title: 'Satisfaction Guarantee',
-                desc: "Not happy? We'll send another cleaner or refund you. Your payment is held in escrow until you're satisfied.",
+                desc: "Not happy? We'll send another cleaner or refund you. Your payment is held securely until you're satisfied.",
                 icon: (
                   <svg
                     className="h-6 w-6"

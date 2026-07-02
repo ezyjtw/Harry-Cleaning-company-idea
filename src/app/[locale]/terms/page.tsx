@@ -130,8 +130,8 @@ export default function TermsPage() {
             </li>
             <li>Payments are processed securely through our payment provider (Stripe).</li>
             <li>
-              For first bookings with a new cleaner, payments may be held in escrow until the
-              service is completed.
+              For first bookings with a new cleaner, payments may be held securely until the service
+              is completed.
             </li>
             <li>Rena reserves the right to modify the service fee with 30 days prior notice.</li>
           </ul>
@@ -294,8 +294,11 @@ export default function TermsPage() {
             </p>
             <p className="mt-2">
               Email:{' '}
-              <a href="mailto:legal@rena.com" className="text-gold hover:text-gold/80 underline">
-                legal@rena.com
+              <a
+                href="mailto:legal@renacleaning.co.uk"
+                className="text-gold hover:text-gold/80 underline"
+              >
+                legal@renacleaning.co.uk
               </a>
             </p>
             <p className="mt-1">Address: London, United Kingdom</p>

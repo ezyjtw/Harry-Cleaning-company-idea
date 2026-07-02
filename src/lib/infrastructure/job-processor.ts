@@ -97,7 +97,7 @@ registerJobHandler('SEND_EMAIL', async (payload) => {
 
       if (vapidPublicKey && vapidPrivateKey) {
         webpush.setVapidDetails(
-          `mailto:${process.env.SUPPORT_EMAIL || 'support@rena.com'}`,
+          `mailto:${process.env.SUPPORT_EMAIL || 'support@renacleaning.co.uk'}`,
           vapidPublicKey,
           vapidPrivateKey
         );
@@ -118,10 +118,7 @@ registerJobHandler('SEND_EMAIL', async (payload) => {
 
         for (const sub of subscriptions) {
           try {
-            await webpush.sendNotification(
-              JSON.parse(sub.subscription),
-              pushPayload
-            );
+            await webpush.sendNotification(JSON.parse(sub.subscription), pushPayload);
           } catch (err: unknown) {
             const error = err as { statusCode?: number };
             if (error.statusCode === 410) {

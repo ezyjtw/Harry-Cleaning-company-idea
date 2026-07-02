@@ -37,7 +37,7 @@ const ENV_SCHEMA: EnvVarConfig[] = [
   {
     name: 'EMAIL_FROM',
     required: false,
-    default: 'noreply@rena.com',
+    default: 'noreply@renacleaning.co.uk',
     description: 'Default sender email',
   },
   {

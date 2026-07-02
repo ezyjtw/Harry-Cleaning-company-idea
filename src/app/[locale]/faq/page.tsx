@@ -88,7 +88,7 @@ const faqCategories = [
     questions: [
       {
         q: 'How do payments work?',
-        a: 'Payments are processed securely through our platform. For first-time bookings with a new cleaner, your payment is held in escrow and only released after the job is completed to your satisfaction.',
+        a: 'Payments are processed securely through our platform. For first-time bookings with a new cleaner, your payment is held securely and only released after the job is completed to your satisfaction.',
       },
       {
         q: 'What payment methods do you accept?',
@@ -96,7 +96,7 @@ const faqCategories = [
       },
       {
         q: 'When am I charged?',
-        a: 'You are charged when your booking is confirmed. For escrow-protected bookings, the funds are held securely and released to the cleaner once the job is marked as complete.',
+        a: 'You are charged when your booking is confirmed. For first-time bookings with a new cleaner, the funds are held securely and released to the cleaner once the job is marked as complete.',
       },
     ],
   },
@@ -105,7 +105,7 @@ const faqCategories = [
     questions: [
       {
         q: 'Is it safe to let a cleaner into my home?',
-        a: 'Safety is our top priority. All cleaners are ID-verified and personally vetted. Our review system provides transparency, and our escrow payment system protects you on first bookings with new cleaners.',
+        a: 'Safety is our top priority. All cleaners are ID-verified and personally vetted. Our review system provides transparency, and we hold your payment securely to protect you on first bookings with new cleaners.',
       },
       {
         q: 'Are cleaners insured?',
@@ -135,7 +135,7 @@ export default function FAQPage() {
           </h1>
           <p className="mt-4 font-jost text-lg font-light text-ink-2">
             Everything you need to know about using Rena. Can&apos;t find your answer?{' '}
-            <a href="mailto:support@rena.com" className="text-gold hover:underline">
+            <a href="mailto:support@renacleaning.co.uk" className="text-gold hover:underline">
               Contact our support team
             </a>
             .
@@ -221,7 +221,7 @@ export default function FAQPage() {
             hours.
           </p>
           <a
-            href="mailto:support@rena.com"
+            href="mailto:support@renacleaning.co.uk"
             className="mt-4 inline-block bg-ink px-6 py-3 font-jost font-normal text-cream transition-colors hover:opacity-90"
           >
             Contact Support

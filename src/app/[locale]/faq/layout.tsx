@@ -32,7 +32,7 @@ const faqs = [
   {
     question: 'How do payments work?',
     answer:
-      'Payments are processed securely. First-time bookings use escrow — funds are released after job completion.',
+      'Payments are processed securely. For first-time bookings, funds are held securely and released after job completion.',
   },
 ];
 

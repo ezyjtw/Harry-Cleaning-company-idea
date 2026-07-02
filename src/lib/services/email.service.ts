@@ -61,7 +61,7 @@ interface PaymentEmailData {
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || '';
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@rena.com';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@renacleaning.co.uk';
 
 // ─── Helper ─────────────────────────────────────────────────
 
@@ -138,7 +138,7 @@ export async function sendBookingConfirmation(
       <li><strong>Address:</strong> ${booking.address}</li>
       <li><strong>Total:</strong> &pound;${booking.totalPrice.toFixed(2)}</li>
     </ul>
-    <p>Your payment is held securely in escrow until the job is completed.</p>
+    <p>Your payment is held securely until the job is completed.</p>
     <p>Thank you for choosing Rena Cleaning Network!</p>
   `;
 
@@ -284,7 +284,7 @@ export async function sendPaymentReceipt(
       <li><strong>Method:</strong> ${payment.method}</li>
       <li><strong>Transaction ID:</strong> ${payment.id}</li>
     </ul>
-    <p>Your payment is held securely in escrow and will be released to the cleaner once the job is completed.</p>
+    <p>Your payment is held securely and will be released to the cleaner once the job is completed.</p>
     <p>Thank you for using Rena Cleaning Network!</p>
   `;
 

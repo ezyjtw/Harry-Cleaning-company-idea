@@ -59,7 +59,7 @@ const values = [
   {
     title: 'Trust & Safety',
     description:
-      'Every cleaner is ID-verified and personally vetted. Escrow payments protect first bookings, and our review system keeps standards high.',
+      'Every cleaner is ID-verified and personally vetted. Held payments protect first bookings, and our review system keeps standards high.',
     icon: (
       <svg
         className="h-8 w-8"
@@ -143,7 +143,7 @@ export default function AboutPage() {
               At Rena, we have changed that. You get to choose a cleaner that fits your needs, talk
               to them before they arrive, and have the trust that they have been correctly vetted —
               all with the ease of ordering with a few touches of an app or clicks on a website.
-              Payment is held in escrow on your first clean so you have that peace of mind that our
+              Payment is held securely on your first clean so you have that peace of mind that our
               mum never had.
             </p>
           </div>

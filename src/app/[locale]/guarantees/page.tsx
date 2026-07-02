@@ -4,11 +4,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Service Guarantees — Your Protection with Rena',
   description:
-    'Rena protects every booking with a satisfaction guarantee, escrow payments, insurance coverage, and a fair cancellation policy. Book with confidence.',
+    'Rena protects every booking with a satisfaction guarantee, secure held payments, insurance coverage, and a fair cancellation policy. Book with confidence.',
   openGraph: {
     title: 'Service Guarantees — Your Protection with Rena',
     description:
-      'Rena protects every booking with a satisfaction guarantee, escrow payments, and insurance coverage.',
+      'Rena protects every booking with a satisfaction guarantee, secure held payments, and insurance coverage.',
   },
 };
 
@@ -90,7 +90,7 @@ export default function GuaranteesPage() {
         style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}
       />
 
-      {/* Escrow Protection */}
+      {/* Payment Protection */}
       <section className="py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-start gap-6">
@@ -112,13 +112,12 @@ export default function GuaranteesPage() {
             </div>
             <div>
               <h2 className="font-cormorant text-3xl font-light text-ink">
-                Escrow Payment Protection
+                Secure Payment Protection
               </h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
-                  For your first booking with any new cleaner, your payment is held in secure
-                  escrow. The cleaner only receives payment after the job is completed and you are
-                  satisfied.
+                  For your first booking with any new cleaner, your payment is held securely. The
+                  cleaner only receives payment after the job is completed and you are satisfied.
                 </p>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div

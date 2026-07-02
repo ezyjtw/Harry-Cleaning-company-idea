@@ -158,17 +158,6 @@ export class RateLimiter {
   }
 }
 
-// Pre-configured rate limiters for common use cases
-export const apiRateLimiter = new RateLimiter({
-  windowMs: 60 * 1000,
-  maxRequests: 60,
-});
-
-export const authRateLimiter = new RateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 5, // 5 login attempts
-});
-
 // ─── Session Management ──────────────────────────────────────────────────────
 
 export const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours

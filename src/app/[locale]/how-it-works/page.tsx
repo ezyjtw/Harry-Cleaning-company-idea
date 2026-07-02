@@ -37,8 +37,8 @@ export default function HowItWorksPage() {
               },
               {
                 step: '2',
-                title: 'Book Instantly',
-                desc: 'Select your service type, date, time, and duration. Submit your booking request and receive instant confirmation. No phone calls needed.',
+                title: 'Choose Your Cleaner',
+                desc: 'Select your service type, date, time, and duration, then send your booking request to the cleaner you chose. They respond as soon as they can — and if they cannot take the job, your preferred backup cleaner is notified automatically.',
               },
               {
                 step: '3',

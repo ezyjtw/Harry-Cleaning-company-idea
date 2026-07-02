@@ -76,7 +76,7 @@ export function createEscrowTransaction(
 export function getEscrowStatusLabel(status: EscrowStatus) {
   switch (status) {
     case 'held':
-      return { label: 'Payment Held in Escrow', color: 'text-amber-600 bg-amber-50' };
+      return { label: 'Payment Held Securely', color: 'text-amber-600 bg-amber-50' };
     case 'released':
       return { label: 'Payment Released to Cleaner', color: 'text-green-600 bg-green-50' };
     case 'refunded':
@@ -174,4 +174,3 @@ export function getDisputeStatusLabel(status: DisputeStatus) {
       return { label: status, color: 'bg-gray-50 text-gray-700' };
   }
 }
-

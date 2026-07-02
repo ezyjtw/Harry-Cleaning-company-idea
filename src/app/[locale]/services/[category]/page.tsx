@@ -719,7 +719,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="flex flex-wrap items-center gap-3">
             {[
               { icon: '\u2713', text: 'Verified Cleaners' },
-              { icon: '\u2713', text: 'Escrow Protected' },
+              { icon: '\u2713', text: 'Payment Protected' },
               { icon: '\u2713', text: 'Satisfaction Guarantee' },
             ].map((chip) => (
               <span
@@ -1394,7 +1394,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Escrow payment notice */}
+          {/* Payment held notice */}
           {selectedDate && selectedTime24 && (
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
@@ -1412,11 +1412,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </svg>
                 <div>
                   <h4 className="font-cormorant text-lg font-light text-ink">
-                    Payment Held in Escrow
+                    Payment Held Securely
                   </h4>
                   <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
                     You will see a charge to your bank account for the booking summary shown above,
-                    but the payment will be held securely in escrow.
+                    but the payment will be held securely until your job is complete.
                   </p>
                   {backupCleanerIds.length > 0 && (
                     <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -2647,7 +2647,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               />
             </div>
 
-            {/* Escrow payment notice */}
+            {/* Payment held notice */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
               <div className="flex items-start gap-3">
@@ -2664,11 +2664,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </svg>
                 <div>
                   <h4 className="font-cormorant text-lg font-light text-ink">
-                    Payment Held in Escrow
+                    Payment Held Securely
                   </h4>
                   <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
                     You will see a charge to your bank account for the booking summary shown above,
-                    but the payment will be held securely in escrow.
+                    but the payment will be held securely until your job is complete.
                   </p>
                   {backupCleanerIds.length > 0 && (
                     <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">

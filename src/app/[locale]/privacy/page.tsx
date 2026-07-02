@@ -240,8 +240,11 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             To exercise any of these rights, please contact us at{' '}
-            <a href="mailto:privacy@rena.com" className="text-gold hover:text-gold/80 underline">
-              privacy@rena.com
+            <a
+              href="mailto:legal@renacleaning.co.uk"
+              className="text-gold hover:text-gold/80 underline"
+            >
+              legal@renacleaning.co.uk
             </a>
             . We will respond within 30 days.
           </p>
@@ -384,8 +387,11 @@ export default function PrivacyPage() {
             </p>
             <p className="mt-2">
               Email:{' '}
-              <a href="mailto:privacy@rena.com" className="text-gold hover:text-gold/80 underline">
-                privacy@rena.com
+              <a
+                href="mailto:legal@renacleaning.co.uk"
+                className="text-gold hover:text-gold/80 underline"
+              >
+                legal@renacleaning.co.uk
               </a>
             </p>
             <p className="mt-1">Address: London, United Kingdom</p>

@@ -618,7 +618,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
               },
               {
                 title: 'You\u2019re Covered',
-                desc: 'Every booking is covered. Escrow payment protection means you always get paid for work completed. We verify all customers too.',
+                desc: 'Every booking is covered. Held-payment protection means you always get paid for work completed. We verify all customers too.',
               },
             ].map((item) => (
               <div

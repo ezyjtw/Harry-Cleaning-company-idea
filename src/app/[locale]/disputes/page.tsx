@@ -83,7 +83,7 @@ export default function DisputesPage() {
               />
             </svg>
             <span className="text-sm font-medium text-green-700">
-              Dispute submitted. Our team will review within 24–48 hours. The escrow payment is now
+              Dispute submitted. Our team will review within 24–48 hours. Your held payment is now
               frozen until resolution.
             </span>
           </div>
@@ -210,7 +210,7 @@ export default function DisputesPage() {
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
             <h4 className="text-sm font-medium text-amber-800">How disputes work</h4>
             <ul className="mt-2 space-y-1 text-xs text-amber-700">
-              <li>&bull; Escrow payment is frozen immediately when a dispute is filed.</li>
+              <li>&bull; Your held payment is frozen immediately when a dispute is filed.</li>
               <li>&bull; The other party has 24 hours to respond with their side and evidence.</li>
               <li>&bull; Our team reviews all evidence and resolves within 24–48 hours.</li>
               <li>&bull; Outcomes: full refund, full payment to cleaner, or a fair split.</li>
