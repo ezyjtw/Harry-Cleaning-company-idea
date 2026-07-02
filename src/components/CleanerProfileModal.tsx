@@ -109,7 +109,7 @@ export default function CleanerProfileModal({
           {/* Header */}
           <div className="relative bg-gradient-to-br from-cream via-cream to-cream-2 px-7 pt-8 pb-7 sm:px-9 sm:pt-10 sm:pb-8">
             {/* Decorative accent line */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-ink via-ink-2 to-teal" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-ink via-ink-2 to-primary" />
 
             <div className="flex items-start gap-5">
               <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl bg-white font-cormorant text-[28px] font-semibold text-ink shadow-sm ring-1 ring-ink/5 sm:h-20 sm:w-20 sm:text-[32px]">

@@ -1229,7 +1229,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Price display */}
             <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-teal" />
+              <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
               {priceBreakdown.isFixed && fixedPriceQuote ? (
                 <>
                   <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -1359,7 +1359,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="hidden lg:block">
             <div className="sticky top-8 animate-fade-in space-y-4">
               <div className="relative overflow-hidden rounded-xl bg-white p-8 shadow-sm ring-1 ring-ink/[0.06]">
-                <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-teal" />
+                <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
                 <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                   Booking Summary
                 </span>
@@ -1574,7 +1574,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           {/* Payment held notice */}
           {selectedDate && selectedTime24 && (
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <div className="flex items-start gap-3">
                 <svg
                   className="mt-0.5 h-5 w-5 shrink-0 text-gold"
@@ -1851,7 +1851,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* Selected summary & continue */}
         {selectedCleanerIds.length > 0 && selectedTime24 && (
           <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+            <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -2281,7 +2281,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Booking summary */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <span className="font-cormorant text-xl font-light text-ink sm:text-2xl">
                 Booking summary
               </span>
@@ -2921,7 +2921,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Payment held notice */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <div className="flex items-start gap-3">
                 <svg
                   className="mt-0.5 h-5 w-5 shrink-0 text-gold"
@@ -3023,7 +3023,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Summary & submit */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4">
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-teal" />
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <h3 className="font-cormorant text-xl font-light text-ink sm:text-2xl">
                 Booking Summary
               </h3>
