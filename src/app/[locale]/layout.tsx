@@ -15,6 +15,8 @@ import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import { routing } from '@/i18n/routing';
 import { generateOrganizationSchema } from '@/lib/seo/structured-data';
 
+import { fontVariables } from '../layout';
+
 type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
@@ -50,7 +52,7 @@ export default async function LocaleLayout({ children, params }: Props) {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className="scroll-smooth">
+    <html lang={locale} className={`scroll-smooth ${fontVariables}`}>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
@@ -61,15 +63,9 @@ export default async function LocaleLayout({ children, params }: Props) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#2563EB" />
+        <meta name="msapplication-TileColor" content="#1e3a8a" />
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400;500&display=swap"
-          rel="stylesheet"
-        />
+        {/* Fonts are self-hosted via next/font (see src/app/layout.tsx) — no Google Fonts link. */}
         <link rel="preload" as="image" href="/images/hero-banner.jpg" fetchPriority="high" />
         <JsonLd data={generateOrganizationSchema()} />
       </head>
