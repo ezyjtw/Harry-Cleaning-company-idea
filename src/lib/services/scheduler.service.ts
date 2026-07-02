@@ -19,7 +19,10 @@ export interface SchedulerSummary {
   cascadeWindows: HandlerResult;
   releases: HandlerResult;
   exhaustedRefunds: HandlerResult;
+  backgroundJobs: HandlerResult;
 }
+
+import { processNextBatch } from '@/lib/infrastructure/job-processor';
 
 import {
   processExpiredCascadeWindows as cascadeHandler,
@@ -75,15 +78,29 @@ async function processExhaustedRefunds(): Promise<HandlerResult> {
   return exhaustedRefundHandler();
 }
 
+const JOB_BATCH_LIMIT = 50;
+
+// Drain the generic BackgroundJob queue (XERO_PUSH and every other enqueued
+// job type) via the registered handlers. Previously nothing called
+// processNextBatch, so the whole queue dead-lettered; wiring it here is the
+// single drain point. Atomic-claim inside processNextBatch keeps overlapping
+// cron ticks from double-processing.
+async function processBackgroundJobs(): Promise<HandlerResult> {
+  const processed = await processNextBatch(JOB_BATCH_LIMIT);
+  return { processed };
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const releases = await processDueReleases();
   const exhaustedRefunds = await processExhaustedRefunds();
+  const backgroundJobs = await processBackgroundJobs();
 
   return {
     timestamp: new Date().toISOString(),
     cascadeWindows,
     releases,
     exhaustedRefunds,
+    backgroundJobs,
   };
 }
