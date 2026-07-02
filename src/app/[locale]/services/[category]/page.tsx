@@ -2388,16 +2388,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         <h1 className="mt-8 font-cormorant font-light text-3xl text-ink sm:text-4xl">
           {currentStep === 'choose-method' && 'How would you like to book?'}
           {currentStep === 'browse' && 'Browse Available Cleaners'}
-          {currentStep === 'set-time' && 'Choose a Cleaner'}
+          {currentStep === 'set-time' && 'Choose your time'}
           {currentStep === 'booking' && 'Complete Your Booking'}
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
           {currentStep === 'choose-method' &&
-            'Start with what matters most \u2014 the cleaner or the time slot.'}
+            'Start with what matters most \u2014 browse by who, or by when.'}
           {currentStep === 'browse' &&
             `${cleaners.length} cleaners available \u00b7 click to view profile`}
           {currentStep === 'set-time' &&
-            `${cleaners.length} cleaners available \u00b7 pick one to see their calendar`}
+            "Pick when you want your clean \u2014 we'll show who's available then."}
           {currentStep === 'booking' && 'Review your details and confirm.'}
         </p>
       </div>
@@ -2418,8 +2418,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <div className="relative">
                   <h3 className="font-cormorant text-xl text-ink">Choose your cleaner</h3>
                   <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    Browse available cleaners, view profiles and reviews, then pick the right fit.
-                    You&apos;ll arrange a time that suits you both.
+                    Browse by <span className="text-ink-2">who</span>: view cleaner profiles and
+                    reviews, pick the one you want, then choose a time from their calendar.
                   </p>
 
                   <div className="mt-5 flex items-center gap-3">
@@ -2460,8 +2460,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 <div className="relative">
                   <h3 className="font-cormorant text-xl text-ink">Choose your time</h3>
                   <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    Lock in the date and time that works for you. We&apos;ll show cleaners who are
-                    available for that slot.
+                    Browse by <span className="text-ink-2">when</span>: pick a day and time of day,
+                    and we&apos;ll show the cleaners free then. Choose one — they&apos;ll confirm
+                    your booking.
                   </p>
 
                   <div className="mt-5 flex items-center gap-3">
