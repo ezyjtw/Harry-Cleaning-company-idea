@@ -68,12 +68,6 @@ const ENV_SCHEMA: EnvVarConfig[] = [
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error tracking DSN' },
   { name: 'REDIS_URL', required: false, description: 'Redis connection string for caching' },
   {
-    name: 'GETADDRESS_API_KEY',
-    required: false,
-    description:
-      'getAddress.io API key for postcode→address autocomplete (server-side only). When unset, the address lookup endpoint returns 503 and the booking UI falls back to manual structured entry.',
-  },
-  {
     name: 'XERO_CLIENT_ID',
     required: false,
     description: 'Xero OAuth2 app client id (A13-Xero). Unset ⇒ Xero integration dormant.',
