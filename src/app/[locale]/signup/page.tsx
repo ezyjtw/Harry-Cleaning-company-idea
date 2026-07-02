@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
@@ -20,6 +20,14 @@ export default function SignupPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // A16b-3: prefill email when arriving from a guest "create an account" CTA
+  // (e.g. /signup?email=...), so guest→account conversion is one step lighter and
+  // the verified email matches the guest booking for auto-claim (A16b-2b).
+  useEffect(() => {
+    const emailParam = new URLSearchParams(window.location.search).get('email');
+    if (emailParam) setForm((f) => ({ ...f, email: emailParam }));
+  }, []);
 
   const validate = () => {
     const errs: Record<string, string> = {};

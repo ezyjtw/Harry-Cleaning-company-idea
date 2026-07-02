@@ -393,7 +393,10 @@ export async function sendGuestBookingConfirmation(
   guestName: string,
   guestToken: string
 ): Promise<boolean> {
-  const manageLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/guest?token=${guestToken}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const manageLink = `${appUrl}/booking/guest?token=${guestToken}`;
+  // A16b-3: guest→account conversion — messaging + reviews are account-only.
+  const signupLink = `${appUrl}/signup?email=${encodeURIComponent(email)}`;
   const subject = `Booking confirmed - ${booking.date} at ${booking.time}`;
   const htmlBody = `
     <h1>Your booking is confirmed!</h1>
@@ -408,6 +411,7 @@ export async function sendGuestBookingConfirmation(
     <p>You can manage your booking using this link:</p>
     <p><a href="${manageLink}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:600;">Manage Booking</a></p>
     <p>This link is personal to you — please don't share it.</p>
+    <p>Want to message your cleaner or leave a review afterwards? <a href="${signupLink}">Create a free account</a> with this email — your booking will be linked to it automatically.</p>
     <p>Thank you for choosing Rena Cleaning Network!</p>
   `;
 
