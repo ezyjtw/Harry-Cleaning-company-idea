@@ -206,7 +206,7 @@ function OptionButton({
 // ─── Main Widget ────────────────────────────────────────────────
 
 export default function HeroQuoteWidget() {
-  // Steps: 1=postcode, 2=property, 3=estimate+addons, 4=email, 5=done
+  // Steps: 1=postcode, 2=property, 3=estimate+addons, 4=done
   const [step, setStep] = useState(1);
 
   // Step 1
@@ -233,10 +233,6 @@ export default function HeroQuoteWidget() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [availableAddons, setAvailableAddons] = useState<ServiceAddon[]>([]);
   const [services, setServices] = useState<ServiceTypeData[]>([]);
-
-  // Step 4 — email
-  const [email, setEmail] = useState('');
-  const [emailSubmitting, setEmailSubmitting] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -363,33 +359,6 @@ export default function HeroQuoteWidget() {
     await fetchQuote();
   };
 
-  const handleEmailSubmit = async () => {
-    if (!email.trim()) {
-      setStep(5);
-      return;
-    }
-    setEmailSubmitting(true);
-    try {
-      await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          postcode: confirmedPostcode,
-          bedrooms,
-          bathrooms,
-          serviceType: serviceSlug,
-          estimatedTotal: quote?.maxTotal,
-        }),
-      });
-    } catch {
-      // silently fail — still proceed
-    } finally {
-      setEmailSubmitting(false);
-      setStep(5);
-    }
-  };
-
   const handleReset = () => {
     setStep(1);
     setPostcode('');
@@ -400,7 +369,6 @@ export default function HeroQuoteWidget() {
     setServiceSlug('regular');
     setQuote(null);
     setSelectedAddons([]);
-    setEmail('');
   };
 
   const canProceedStep2 = bedrooms !== null && bathrooms !== null;
@@ -733,12 +701,12 @@ export default function HeroQuoteWidget() {
           style={{ border: '1px solid rgba(27,42,74,0.06)' }}
         >
           <p className="font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
-            Estimated price range
+            Estimated price
           </p>
           {quote.cleanerCount > 0 ? (
             <>
               <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
-                &pound;{quote.minTotal.toFixed(2)} &ndash; &pound;{quote.maxTotal.toFixed(2)}
+                from &pound;{quote.minTotal.toFixed(2)}
               </p>
               <p className="mt-2 font-jost text-[12px] text-ink-3">
                 Based on {quote.cleanerCount} cleaner{quote.cleanerCount !== 1 ? 's' : ''} near you.
@@ -753,15 +721,14 @@ export default function HeroQuoteWidget() {
                 const key = Math.min(bedrooms ?? 1, serviceSlug === 'eot' ? 5 : 4);
                 const range = ranges[key];
                 const low = range ? Math.ceil(range[0] * 1.06) : 0;
-                const high = range ? Math.ceil(range[1] * 1.06) : 0;
                 return (
                   <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
-                    &pound;{low} &ndash; &pound;{high}
+                    from &pound;{low}
                   </p>
                 );
               })()}
               <p className="mt-2 font-jost text-[12px] text-ink-3">
-                Typical range for your area. Includes {SERVICE_FEE_PERCENT}% service fee.
+                Typical starting price for your area. Includes {SERVICE_FEE_PERCENT}% service fee.
               </p>
             </>
           )}
@@ -819,61 +786,7 @@ export default function HeroQuoteWidget() {
     );
   };
 
-  const renderStep4 = () => (
-    <>
-      <PostcodeBar
-        postcode={confirmedPostcode}
-        cleanerCount={cleanerCount}
-        onChangeClick={() => setStep(1)}
-      />
-
-      <p className="mb-2 font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
-        Almost there
-      </p>
-      <p className="mb-1 font-cormorant text-[24px] font-light text-ink">
-        Where should we send your quote?
-      </p>
-      <p className="mb-6 font-jost text-[13px] font-light text-ink-3">
-        Get your estimate emailed to you, plus early access to promotions and new cleaner
-        availability in your area.
-      </p>
-
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleEmailSubmit();
-        }}
-        placeholder="your@email.com"
-        className="mb-4 w-full rounded-md px-4 py-3 font-jost text-[14px] text-ink outline-none placeholder:text-ink-3/60"
-        style={{ border: '1px solid rgba(27,42,74,0.12)' }}
-      />
-
-      <button
-        onClick={handleEmailSubmit}
-        disabled={emailSubmitting}
-        className="mb-3 w-full rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-      >
-        {emailSubmitting ? 'Saving...' : 'Continue to cleaners'}
-      </button>
-
-      <button
-        onClick={() => setStep(5)}
-        className="mb-6 w-full py-2 font-jost text-[12px] text-ink-3 transition hover:text-ink"
-      >
-        Skip for now
-      </button>
-
-      <p className="mb-6 font-jost text-[10px] text-ink-3/60">
-        We&apos;ll only use your email to help with your booking. No marketing without your consent.
-      </p>
-
-      <PanelFooter />
-    </>
-  );
-
-  const renderStep5 = () => {
+  const renderStep4 = () => {
     if (!quote) {
       return (
         <div className="py-10 text-center">
@@ -917,16 +830,17 @@ export default function HeroQuoteWidget() {
           style={{ border: '1px solid rgba(27,42,74,0.06)' }}
         >
           <span className="font-cormorant text-[20px] font-light text-ink">
-            &pound;{quote.minTotal.toFixed(2)} &ndash; &pound;{quote.maxTotal.toFixed(2)}
+            from &pound;{quote.minTotal.toFixed(2)}
           </span>
           <span className="ml-2 font-jost text-[12px] text-ink-3">estimated</span>
         </div>
 
+        {/* Two genuinely different paths: direct booking (high-intent) vs browse-first. */}
         <a
           href={buildBookingUrl()}
           className="mb-3 flex w-full items-center justify-center rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
         >
-          Choose a cleaner
+          Book a clean
         </a>
 
         <a
@@ -956,12 +870,11 @@ export default function HeroQuoteWidget() {
       className="rounded-lg bg-white p-6 shadow-soft md:p-10"
       style={{ border: '1px solid rgba(27,42,74,0.06)' }}
     >
-      <StepDots current={step} total={5} />
+      <StepDots current={step} total={4} />
       {step === 1 && renderStep1()}
       {step === 2 && renderStep2()}
       {step === 3 && renderStep3()}
       {step === 4 && renderStep4()}
-      {step === 5 && renderStep5()}
     </div>
   );
 }
