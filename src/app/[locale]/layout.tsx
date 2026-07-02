@@ -13,9 +13,8 @@ import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import { routing } from '@/i18n/routing';
+import { fontVariables } from '@/lib/fonts';
 import { generateOrganizationSchema } from '@/lib/seo/structured-data';
-
-import { fontVariables } from '../layout';
 
 type Props = {
   children: React.ReactNode;
