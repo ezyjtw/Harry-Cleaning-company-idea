@@ -3,9 +3,16 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 
+import { useAuth } from '../src/hooks/useAuth';
+
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
+  // #1: the homepage nav must reflect real auth state — a logged-in user
+  // returning to the homepage previously always saw "Log in / Sign up", which
+  // read as "I got logged out" even though the session was intact.
+  const { isLoading, isAuthenticated, isCleaner, isAdmin, signOut } = useAuth();
+  const dashboardHref = isAdmin ? '/admin' : isCleaner ? '/cleaner' : '/dashboard';
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -119,23 +126,49 @@ export default function NavBar() {
             </Link>
           </div>
 
-          {/* Auth links */}
-          <div className="mt-8 flex items-center gap-4">
-            <Link
-              href="/login"
-              onClick={() => setOpen(false)}
-              className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              onClick={() => setOpen(false)}
-              className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
-            >
-              Sign up
-            </Link>
-          </div>
+          {/* Auth links — reflect real session state (hidden until resolved to
+              avoid flashing the wrong state). */}
+          {!isLoading && (
+            <div className="mt-8 flex items-center gap-4">
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href={dashboardHref}
+                    onClick={() => setOpen(false)}
+                    className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
+                  >
+                    {isCleaner ? 'Dashboard' : isAdmin ? 'Admin' : 'My account'}
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      signOut({ callbackUrl: '/' });
+                    }}
+                    className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={() => setOpen(false)}
+                    className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
+                  >
+                    Sign up
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </nav>

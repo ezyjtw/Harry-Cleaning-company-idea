@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
@@ -82,7 +83,7 @@ const intlMiddleware = createIntlMiddleware(routing);
 
 // ─── Middleware ─────────────────────────────────────────────────────────────
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Let the health-check endpoint bypass all middleware logic so Railway
@@ -117,12 +118,13 @@ export function middleware(request: NextRequest) {
   // Strip locale prefix from pathname for auth checks
   const pathnameWithoutLocale = pathname.replace(/^\/en/, '') || '/';
 
-  // Auth protection - check for session token
-  const sessionToken =
-    request.cookies.get('next-auth.session-token')?.value ||
-    request.cookies.get('__Secure-next-auth.session-token')?.value;
-
-  const isAuthenticated = !!sessionToken;
+  // Auth protection — validate the session via NextAuth's getToken, which
+  // verifies the JWT and is aware of the `__Secure-`/`__Host-` cookie prefixes
+  // and chunked (…session-token.0/.1) cookies. The previous raw check for two
+  // literal cookie names misfired behind the proxy (wrong prefix / chunked
+  // cookie → "no session" → spurious redirect to /login on valid sessions).
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const isAuthenticated = !!token;
 
   // Redirect unauthenticated users from protected routes
   const isProtectedRoute = protectedRoutes.some((route) => pathnameWithoutLocale.startsWith(route));

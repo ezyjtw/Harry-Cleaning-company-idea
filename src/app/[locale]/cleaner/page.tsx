@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
+import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 
 interface UpcomingJob {
@@ -65,6 +66,7 @@ interface DashboardData {
 
 export default function CleanerDashboard() {
   const router = useRouter();
+  const { isLoading: authLoading, isAuthenticated, isCleaner } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,24 +76,37 @@ export default function CleanerDashboard() {
   const [availableNow, setAvailableNow] = useState(false);
   const [jobs, setJobs] = useState<UpcomingJob[]>([]);
 
+  // #1: no 401→/login here. A transient 401 while the session is still valid must
+  // NOT log the user out. Genuine unauthentication is handled by the guard effect
+  // below (via useAuth status); a 401 here just surfaces as a retryable load error.
   const loadDashboard = useCallback(async () => {
     const res = await fetch('/api/cleaner/dashboard');
-    if (res.status === 401) {
-      router.push('/login');
-      return;
-    }
     if (!res.ok) throw new Error('Failed to load dashboard');
     const d = await res.json();
     setData(d);
     setAvailableNow(d.profile.availableNow);
     setJobs(d.upcomingJobs);
-  }, [router]);
+  }, []);
+
+  // #1: redirect ONLY on a definitive auth verdict — never while the session is
+  // still loading. Prevents the spurious "log back in" bounce on navigation.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push('/login?callbackUrl=/cleaner');
+    } else if (!isCleaner) {
+      router.push('/dashboard');
+    }
+  }, [authLoading, isAuthenticated, isCleaner, router]);
 
   useEffect(() => {
+    // Wait for a definitive, correct-role session before fetching; the guard
+    // effect above handles the redirect for the other cases.
+    if (authLoading || !isAuthenticated || !isCleaner) return;
     loadDashboard()
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
       .finally(() => setLoading(false));
-  }, [loadDashboard]);
+  }, [authLoading, isAuthenticated, isCleaner, loadDashboard]);
 
   const toggleAvailable = useCallback(async () => {
     const next = !availableNow;
