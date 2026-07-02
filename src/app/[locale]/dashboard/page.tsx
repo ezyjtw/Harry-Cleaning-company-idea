@@ -160,10 +160,10 @@ export default function CustomerDashboard() {
           fetch('/api/bookings?status=COMPLETED'),
         ]);
 
-        if (allRes.status === 401 || completedRes.status === 401) {
-          router.push('/login');
-          return;
-        }
+        // #1: do NOT bounce to /login on a transient 401 here. If the session is
+        // genuinely gone, useAuth flips to unauthenticated and the guard effect
+        // above redirects. A 401 while still authenticated is a hiccup — surface
+        // it as a load error (retryable), not a spurious logout.
         if (!allRes.ok || !completedRes.ok) {
           throw new Error('Failed to load dashboard data');
         }
