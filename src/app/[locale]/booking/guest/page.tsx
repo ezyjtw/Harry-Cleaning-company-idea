@@ -337,6 +337,30 @@ function GuestBookingContent() {
         </div>
       </div>
 
+      {/* A16b-3: guest→account conversion. Messaging your cleaner and leaving a
+          review are account-only features — rather than a dead-end, offer a clear
+          path to create an account (email prefilled → verify → this booking
+          auto-attaches via A16b-2b). */}
+      {!cancelled && booking.status !== 'CANCELLED' && booking.guestEmail && (
+        <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-6">
+          <h2 className="text-base font-semibold text-gray-900">
+            Want to message your cleaner or leave a review?
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Create a free account with{' '}
+            <span className="font-medium text-gray-900">{booking.guestEmail}</span> to message your
+            cleaner, leave a review after your clean, and see all your bookings in one place — this
+            booking attaches to your account automatically.
+          </p>
+          <Link
+            href={`/signup?email=${encodeURIComponent(booking.guestEmail)}`}
+            className="mt-4 inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            Create an account
+          </Link>
+        </div>
+      )}
+
       {/* Cancel Button */}
       {canCancel && (
         <div className="mb-6">
