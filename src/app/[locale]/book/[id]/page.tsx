@@ -78,6 +78,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isExpress = searchParams.get('express') === 'true';
+  // Carry the up-front postcode (cleaner card / profile pass ?postcode=) into the
+  // address step so it auto-looks-up on mount instead of a manual "Find address".
+  // Captured once; empty when absent (direct nav) → the manual path is preserved.
+  const seededPostcode = (searchParams.get('postcode') ?? '').trim().toUpperCase();
   const { cleaners: allCleaners, getCleanerById } = useCleanersApi();
   const cleaner = getCleanerById(params.id);
 
@@ -156,7 +160,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     addressLine1: '',
     addressLine2: '',
     addressCity: '',
-    addressPostcode: '',
+    addressPostcode: seededPostcode,
     addressId: '', // set when a saved address is selected (else copied from columns)
     date: isExpress ? today : '',
     time: '',
@@ -889,6 +893,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   )}
                   <AddressAutocomplete
+                    // Auto-look-up the carried-through postcode on mount (dropdown,
+                    // no manual "Find address"). Absent → free mode (manual) as before.
+                    autoLookupPostcode={seededPostcode || undefined}
                     value={{
                       line1: form.addressLine1,
                       line2: form.addressLine2,

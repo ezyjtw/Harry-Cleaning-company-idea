@@ -13,6 +13,9 @@ interface CleanerCardProps {
   fixedServiceLabel?: string;
   /** Distance in miles from customer's search postcode */
   distance?: number | null;
+  /** Customer's search postcode — forwarded to /book so the address step
+   *  auto-looks-up without re-entry. */
+  postcode?: string;
 }
 
 export default function CleanerCard({
@@ -21,6 +24,7 @@ export default function CleanerCard({
   fixedServicePrice,
   fixedServiceLabel,
   distance,
+  postcode,
 }: CleanerCardProps) {
   return (
     <div
@@ -150,7 +154,11 @@ export default function CleanerCard({
           {cleaner.yearsExperience} yrs experience &middot; {cleaner.completedJobs} jobs
         </span>
         <Link
-          href={`/book/${cleaner.id}`}
+          href={
+            postcode
+              ? `/book/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
+              : `/book/${cleaner.id}`
+          }
           onClick={(e) => e.stopPropagation()}
           className="font-jost text-[11px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4 transition-colors hover:text-ink-2"
         >
