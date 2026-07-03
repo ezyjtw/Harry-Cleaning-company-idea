@@ -95,6 +95,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         'Content-Length': String(decrypted.length),
         'Content-Disposition': 'inline',
         'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch {

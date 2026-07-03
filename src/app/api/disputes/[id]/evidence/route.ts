@@ -24,6 +24,18 @@ function mapMimeToEvidenceType(detectedMime: string): EvidenceType {
   return detectedMime === 'application/pdf' ? 'DOCUMENT' : 'PHOTO';
 }
 
+// The object-key extension is derived from the *validated* content type, never
+// from the user-supplied filename — the viewer infers its Content-Type from this
+// key, so a filename/MIME mismatch or an injected extension must not reach it.
+const EXT_BY_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+};
+
+const MAX_DESCRIPTION_LENGTH = 1000;
+
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const user = await getSessionUser();
@@ -68,6 +80,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     }
 
+    const description = formData.get('description');
+    if (typeof description === 'string' && description.length > MAX_DESCRIPTION_LENGTH) {
+      return NextResponse.json(
+        { error: 'Description too long. Maximum is 1000 characters.' },
+        { status: 400 }
+      );
+    }
+
     if (file.size > MAX_EVIDENCE_SIZE) {
       return NextResponse.json({ error: 'File too large. Maximum size is 10MB.' }, { status: 400 });
     }
@@ -92,12 +112,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const checksum = computeChecksum(buffer);
     const encrypted = encryptDocument(buffer, keyId);
 
-    const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
+    const ext = EXT_BY_MIME[validation.detectedMime] ?? '';
     const objectKey = `evidence/${disputeId}/${keyId}${ext}.enc`;
 
     await putObject(objectKey, encrypted, 'application/octet-stream');
 
-    const description = formData.get('description');
     const evidence = await DisputeEvidenceService.addDisputeEvidence(disputeId, user.id, {
       type: mapMimeToEvidenceType(validation.detectedMime),
       url: objectKey,
