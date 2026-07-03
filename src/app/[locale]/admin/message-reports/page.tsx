@@ -81,8 +81,8 @@ export default function AdminMessageReportsPage() {
   if (accessDenied) {
     return (
       <div className="p-6 lg:p-10">
-        <div className="rounded-lg border border-red-200 bg-red-50 px-5 py-4">
-          <p className="text-sm font-medium text-red-700">Admin access required.</p>
+        <div className="rounded-lg border border-danger/20 bg-danger/10 px-5 py-4">
+          <p className="text-sm font-medium text-danger">Admin access required.</p>
         </div>
       </div>
     );
@@ -91,78 +91,76 @@ export default function AdminMessageReportsPage() {
   return (
     <div className="p-6 lg:p-10">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Message reports</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <h1 className="text-2xl font-semibold text-ink">Message reports</h1>
+        <p className="mt-1 text-sm text-ink-2">
           Reports filed by users against messages they received. Action (take moderation steps) or
           dismiss each report.
         </p>
       </header>
 
       {statusMessage && (
-        <div className="mb-5 rounded-lg border border-gray-200 bg-white px-4 py-3">
-          <p className="text-sm text-gray-700">{statusMessage}</p>
+        <div className="mb-5 rounded-lg border border-line bg-surface px-4 py-3">
+          <p className="text-sm text-ink-2">{statusMessage}</p>
         </div>
       )}
 
       {loading ? (
         <div className="space-y-4">
           {[0, 1].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-lg bg-gray-200" />
+            <div key={i} className="h-40 animate-pulse rounded-lg bg-line" />
           ))}
         </div>
       ) : reports.length === 0 ? (
-        <p className="text-sm text-gray-500">No open message reports.</p>
+        <p className="text-sm text-ink-3">No open message reports.</p>
       ) : (
         <div className="space-y-4">
           {reports.map((r) => (
-            <div key={r.id} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <div key={r.id} className="rounded-lg border border-line bg-surface p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                  <span className="inline-flex items-center rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">
                     {REASON_LABEL[r.reason] ?? r.reason}
                   </span>
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       r.origin === 'SYSTEM'
                         ? 'bg-purple-100 text-purple-800'
-                        : 'bg-blue-100 text-blue-800'
+                        : 'bg-primary-soft text-primary'
                     }`}
                   >
                     {r.origin === 'SYSTEM' ? 'Auto-flagged' : 'User report'}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-ink-3">
                   {new Date(r.createdAt).toLocaleDateString('en-GB')}
                 </span>
               </div>
 
-              <div className="mt-4 rounded-lg bg-gray-50 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              <div className="mt-4 rounded-lg bg-page p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-3">
                   Reported message
                 </p>
-                <p className="mt-1 whitespace-pre-line text-sm text-gray-900">{r.messageContent}</p>
+                <p className="mt-1 whitespace-pre-line text-sm text-ink">{r.messageContent}</p>
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-ink-3">
                     Reported user
                   </p>
-                  <p className="text-sm text-gray-900">{r.reportedName || 'User'}</p>
-                  {r.reportedEmail && <p className="text-xs text-gray-500">{r.reportedEmail}</p>}
+                  <p className="text-sm text-ink">{r.reportedName || 'User'}</p>
+                  {r.reportedEmail && <p className="text-xs text-ink-3">{r.reportedEmail}</p>}
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-ink-3">
                     Reported by
                   </p>
                   {r.origin === 'SYSTEM' ? (
-                    <p className="text-sm text-gray-900">Auto-flagged: possible contact info</p>
+                    <p className="text-sm text-ink">Auto-flagged: possible contact info</p>
                   ) : (
                     <>
-                      <p className="text-sm text-gray-900">{r.reporterName || 'User'}</p>
-                      {r.reporterEmail && (
-                        <p className="text-xs text-gray-500">{r.reporterEmail}</p>
-                      )}
+                      <p className="text-sm text-ink">{r.reporterName || 'User'}</p>
+                      {r.reporterEmail && <p className="text-xs text-ink-3">{r.reporterEmail}</p>}
                     </>
                   )}
                 </div>
@@ -170,10 +168,10 @@ export default function AdminMessageReportsPage() {
 
               {r.details && (
                 <div className="mt-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-ink-3">
                     Reporter&rsquo;s note
                   </p>
-                  <p className="mt-1 text-sm text-gray-700">{r.details}</p>
+                  <p className="mt-1 text-sm text-ink-2">{r.details}</p>
                 </div>
               )}
 
@@ -183,21 +181,21 @@ export default function AdminMessageReportsPage() {
                 rows={2}
                 maxLength={1000}
                 placeholder="Internal notes (optional)"
-                className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                className="mt-4 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-line"
               />
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => resolve(r.id, 'ACTION')}
                   disabled={processingId === r.id}
-                  className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  className="rounded-lg bg-danger px-4 py-1.5 text-sm font-medium text-white hover:bg-danger disabled:opacity-50"
                 >
                   {processingId === r.id ? 'Working…' : 'Action'}
                 </button>
                 <button
                   onClick={() => resolve(r.id, 'DISMISS')}
                   disabled={processingId === r.id}
-                  className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-page disabled:opacity-50"
                 >
                   Dismiss
                 </button>

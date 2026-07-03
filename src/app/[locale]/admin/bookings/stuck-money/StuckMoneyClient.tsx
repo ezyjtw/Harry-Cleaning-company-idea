@@ -17,12 +17,12 @@ function fmtDate(iso: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    REVERSAL_ONLY: 'bg-red-100 text-red-700',
-    UNKNOWN: 'bg-amber-100 text-amber-700',
+    REVERSAL_ONLY: 'bg-danger/10 text-danger',
+    UNKNOWN: 'bg-warning/10 text-warning',
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-600'}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status] || 'bg-page text-ink-2'}`}
     >
       {status}
     </span>
@@ -62,10 +62,10 @@ function RetryButton({ refundRecordId, amount }: { refundRecordId: string; amoun
     <div className="inline-flex items-center gap-2">
       {state === 'confirming' ? (
         <>
-          <span className="text-xs text-gray-500">Retry £{amount.toFixed(2)} refund?</span>
+          <span className="text-xs text-ink-3">Retry £{amount.toFixed(2)} refund?</span>
           <button
             onClick={handleRetry}
-            className="px-2 py-1 text-xs font-medium text-white rounded bg-red-600 hover:bg-red-700"
+            className="px-2 py-1 text-xs font-medium text-white rounded bg-danger hover:bg-danger"
           >
             Yes, retry
           </button>
@@ -74,23 +74,23 @@ function RetryButton({ refundRecordId, amount }: { refundRecordId: string; amoun
               setState('idle');
               setResult(null);
             }}
-            className="px-2 py-1 text-xs font-medium text-gray-600 rounded border border-gray-300 hover:bg-gray-50"
+            className="px-2 py-1 text-xs font-medium text-ink-2 rounded border border-line hover:bg-page"
           >
             No
           </button>
         </>
       ) : state === 'loading' ? (
-        <span className="text-xs text-gray-500">Processing…</span>
+        <span className="text-xs text-ink-3">Processing…</span>
       ) : (
         <button
           onClick={() => setState('confirming')}
-          className="px-2 py-1 text-xs font-medium text-red-600 rounded border border-red-200 hover:bg-red-50"
+          className="px-2 py-1 text-xs font-medium text-danger rounded border border-danger/20 hover:bg-danger/10"
         >
           Retry refund
         </button>
       )}
       {result && (
-        <span className={`text-xs ${result.ok ? 'text-green-700' : 'text-red-700'}`}>
+        <span className={`text-xs ${result.ok ? 'text-trust' : 'text-danger'}`}>
           {result.message}
         </span>
       )}
@@ -110,11 +110,11 @@ export default function StuckMoneyClient({
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
-        <Link href="/admin/bookings" className="text-sm text-blue-600 hover:underline">
+        <Link href="/admin/bookings" className="text-sm text-primary hover:underline">
           &larr; All bookings
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-1">Stuck Money</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-ink mt-1">Stuck Money</h1>
+        <p className="text-ink-3 mt-1">
           {total === 0
             ? 'No stuck records — all clear.'
             : `${total} record${total !== 1 ? 's' : ''} requiring investigation`}
@@ -122,12 +122,12 @@ export default function StuckMoneyClient({
       </div>
 
       {refunds.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-          <div className="px-6 py-3 bg-red-50 border-b border-gray-200">
-            <h2 className="text-sm font-semibold text-red-700 uppercase tracking-wider">
+        <div className="bg-surface rounded-xl border border-line overflow-hidden mb-6">
+          <div className="px-6 py-3 bg-danger/10 border-b border-line">
+            <h2 className="text-sm font-semibold text-danger uppercase tracking-wider">
               Stuck Refunds ({refunds.length})
             </h2>
-            <p className="text-xs text-red-600 mt-0.5">
+            <p className="text-xs text-danger mt-0.5">
               REVERSAL_ONLY = cleaner&apos;s share clawed back but customer refund failed. UNKNOWN =
               outcome uncertain.
             </p>
@@ -135,7 +135,7 @@ export default function StuckMoneyClient({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs font-medium text-gray-500 uppercase border-b border-gray-100">
+                <tr className="text-left text-xs font-medium text-ink-3 uppercase border-b border-line">
                   <th className="px-6 py-2">Booking</th>
                   <th className="px-6 py-2">Amount</th>
                   <th className="px-6 py-2">Status</th>
@@ -146,13 +146,13 @@ export default function StuckMoneyClient({
                   <th className="px-6 py-2">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {refunds.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
+                  <tr key={r.id} className="hover:bg-page">
                     <td className="px-6 py-3">
                       <Link
                         href={`/admin/bookings/${r.bookingId}`}
-                        className="text-blue-600 hover:underline font-mono text-xs"
+                        className="text-primary hover:underline font-mono text-xs"
                       >
                         {r.bookingId.substring(0, 8).toUpperCase()}
                       </Link>
@@ -161,12 +161,12 @@ export default function StuckMoneyClient({
                     <td className="px-6 py-3">
                       <StatusBadge status={r.status} />
                     </td>
-                    <td className="px-6 py-3 text-gray-600 max-w-xs truncate">{r.reason}</td>
-                    <td className="px-6 py-3 text-xs text-gray-400 font-mono">
+                    <td className="px-6 py-3 text-ink-2 max-w-xs truncate">{r.reason}</td>
+                    <td className="px-6 py-3 text-xs text-ink-3 font-mono">
                       {r.stripeRefundId || '—'}
                     </td>
-                    <td className="px-6 py-3 text-red-600 text-xs">{r.failureReason || '—'}</td>
-                    <td className="px-6 py-3 text-gray-600 text-xs">{fmtDate(r.createdAt)}</td>
+                    <td className="px-6 py-3 text-danger text-xs">{r.failureReason || '—'}</td>
+                    <td className="px-6 py-3 text-ink-2 text-xs">{fmtDate(r.createdAt)}</td>
                     <td className="px-6 py-3">
                       {r.status === 'REVERSAL_ONLY' && (
                         <RetryButton refundRecordId={r.id} amount={r.amount} />
@@ -181,19 +181,19 @@ export default function StuckMoneyClient({
       )}
 
       {topups.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-3 bg-amber-50 border-b border-gray-200">
-            <h2 className="text-sm font-semibold text-amber-700 uppercase tracking-wider">
+        <div className="bg-surface rounded-xl border border-line overflow-hidden">
+          <div className="px-6 py-3 bg-warning/10 border-b border-line">
+            <h2 className="text-sm font-semibold text-warning uppercase tracking-wider">
               Stuck Topups ({topups.length})
             </h2>
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-xs text-warning mt-0.5">
               UNKNOWN = topup payment outcome uncertain. Check Stripe dashboard for the PI status.
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs font-medium text-gray-500 uppercase border-b border-gray-100">
+                <tr className="text-left text-xs font-medium text-ink-3 uppercase border-b border-line">
                   <th className="px-6 py-2">Booking</th>
                   <th className="px-6 py-2">Amount</th>
                   <th className="px-6 py-2">Status</th>
@@ -203,13 +203,13 @@ export default function StuckMoneyClient({
                   <th className="px-6 py-2">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {topups.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
+                  <tr key={t.id} className="hover:bg-page">
                     <td className="px-6 py-3">
                       <Link
                         href={`/admin/bookings/${t.bookingId}`}
-                        className="text-blue-600 hover:underline font-mono text-xs"
+                        className="text-primary hover:underline font-mono text-xs"
                       >
                         {t.bookingId.substring(0, 8).toUpperCase()}
                       </Link>
@@ -218,12 +218,12 @@ export default function StuckMoneyClient({
                     <td className="px-6 py-3">
                       <StatusBadge status={t.status} />
                     </td>
-                    <td className="px-6 py-3 text-gray-600 max-w-xs truncate">{t.reason}</td>
-                    <td className="px-6 py-3 text-xs text-gray-400 font-mono">
+                    <td className="px-6 py-3 text-ink-2 max-w-xs truncate">{t.reason}</td>
+                    <td className="px-6 py-3 text-xs text-ink-3 font-mono">
                       {t.stripePaymentIntentId || '—'}
                     </td>
-                    <td className="px-6 py-3 text-red-600 text-xs">{t.failureReason || '—'}</td>
-                    <td className="px-6 py-3 text-gray-600 text-xs">{fmtDate(t.createdAt)}</td>
+                    <td className="px-6 py-3 text-danger text-xs">{t.failureReason || '—'}</td>
+                    <td className="px-6 py-3 text-ink-2 text-xs">{fmtDate(t.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

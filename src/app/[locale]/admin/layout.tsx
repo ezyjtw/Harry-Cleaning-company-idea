@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
+import ChromeHider from '@/components/ChromeHider';
+
 const navItems = [
   {
     href: '/admin',
@@ -57,12 +59,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-page">
+      {/* Suppress the global Navbar/Footer — admin brings its own shell (was
+          double-chrome: the marketing nav/footer rendered on top of this). */}
+      <ChromeHider bodyClass="admin-active" />
       {/* Mobile header */}
-      <div className="lg:hidden flex items-center justify-between bg-gray-900 px-4 py-3">
+      <div className="lg:hidden flex items-center justify-between bg-ink px-4 py-3">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-gray-300 hover:text-white"
+          className="text-white/70 hover:text-white"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -75,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </button>
         <div className="flex items-center gap-2">
           <span className="font-semibold text-white">Admin Panel</span>
-          <span className="inline-flex items-center rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-medium text-red-300">
+          <span className="inline-flex items-center rounded-full bg-danger/25 px-2.5 py-0.5 text-xs font-medium text-white">
             Admin
           </span>
         </div>
@@ -86,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Sidebar overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            className="fixed inset-0 bg-ink/50 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -95,20 +100,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <aside
           className={`
             fixed lg:sticky top-0 left-0 z-50 lg:z-0
-            w-64 h-screen bg-gray-900
+            w-64 h-screen bg-ink
             transform transition-transform duration-200 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
           `}
         >
           {/* Admin header */}
-          <div className="p-6 border-b border-gray-700">
+          <div className="p-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm">
+              <div className="w-10 h-10 rounded-full bg-danger flex items-center justify-center text-white font-bold text-sm">
                 A
               </div>
               <div>
                 <p className="font-semibold text-white">Admin Panel</p>
-                <span className="inline-flex items-center rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-300">
+                <span className="inline-flex items-center rounded-full bg-danger/25 px-2 py-0.5 text-xs font-medium text-white">
                   Super Admin
                 </span>
               </div>
@@ -128,8 +133,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                     ${
                       isActive
-                        ? 'bg-gray-800 text-white'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        ? 'bg-white/10 text-white'
+                        : 'text-white/60 hover:bg-white/10 hover:text-white'
                     }
                   `}
                 >
@@ -153,10 +158,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
 
           {/* Bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/10 hover:text-white/70 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path

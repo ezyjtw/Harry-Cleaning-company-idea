@@ -104,12 +104,12 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
 
   if (items.length === 0) {
     return (
-      <div className="text-sm text-gray-500 mt-6">
+      <div className="text-sm text-ink-3 mt-6">
         No bookings awaiting Rena-find decisions.
         {Object.entries(results).map(([id, r]) => (
           <div
             key={id}
-            className={`mt-2 p-2 rounded text-sm ${r.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+            className={`mt-2 p-2 rounded text-sm ${r.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {r.message}
           </div>
@@ -121,21 +121,21 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
   return (
     <div className="mt-4 space-y-3">
       {items.map((b) => (
-        <div key={b.id} className="border rounded-lg p-4 bg-white">
+        <div key={b.id} className="border rounded-lg p-4 bg-surface">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-mono font-medium">{b.shortId}</span>
-                <span className="text-gray-400">·</span>
+                <span className="text-ink-3">·</span>
                 <span>{b.serviceType}</span>
-                <span className="text-gray-400">·</span>
+                <span className="text-ink-3">·</span>
                 <span>
                   {b.date} {b.time}
                 </span>
-                <span className="text-gray-400">·</span>
+                <span className="text-ink-3">·</span>
                 <span>{b.postcode}</span>
               </div>
-              <div className="text-sm text-gray-600 mt-1">
+              <div className="text-sm text-ink-2 mt-1">
                 Customer: {b.customer} · Primary: {b.primaryCleaner} ({b.primaryRating.toFixed(2)})
                 · Floor: {b.ratingFloor.toFixed(2)} · Earnings: £{b.earnings.toFixed(2)}
               </div>
@@ -143,7 +143,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
             <div className="flex gap-2 shrink-0">
               <Link
                 href={`/admin/bookings/${b.id}`}
-                className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
+                className="px-3 py-1.5 text-xs border rounded hover:bg-page"
               >
                 View / Reassign / Refund
               </Link>
@@ -151,7 +151,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
                 <button
                   onClick={() => handlePreview(b.id)}
                   disabled={loading === b.id}
-                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
                 >
                   {loading === b.id ? 'Loading...' : 'Preview rebroadcast'}
                 </button>
@@ -159,12 +159,12 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
             </div>
           </div>
           {previews[b.id] && (
-            <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
-              <div className="font-medium text-blue-900">
+            <div className="mt-2 p-3 bg-primary-soft rounded text-sm">
+              <div className="font-medium text-primary">
                 Will offer to {previews[b.id].candidateCount} cleaner
                 {previews[b.id].candidateCount !== 1 ? 's' : ''}:
               </div>
-              <ul className="mt-1 space-y-0.5 text-blue-800">
+              <ul className="mt-1 space-y-0.5 text-primary">
                 {previews[b.id].candidates.map((c, i) => (
                   <li key={i}>
                     {c.name} — rating {c.rating.toFixed(2)}
@@ -173,7 +173,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
                 ))}
               </ul>
               {previews[b.id].belowFloorCount > 0 && (
-                <div className="mt-1 text-blue-600">
+                <div className="mt-1 text-primary">
                   ({previews[b.id].belowFloorCount} below original floor excluded by rating filter)
                 </div>
               )}
@@ -181,7 +181,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
                 <button
                   onClick={() => handleConfirmRebroadcast(b.id)}
                   disabled={loading === b.id}
-                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
                 >
                   {loading === b.id ? 'Broadcasting...' : 'Confirm & broadcast'}
                 </button>
@@ -193,7 +193,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
                       return next;
                     })
                   }
-                  className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
+                  className="px-3 py-1.5 text-xs border rounded hover:bg-page"
                 >
                   Cancel
                 </button>
@@ -202,7 +202,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
           )}
           {results[b.id] && (
             <div
-              className={`mt-2 p-2 rounded text-sm ${results[b.id].ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+              className={`mt-2 p-2 rounded text-sm ${results[b.id].ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
             >
               {results[b.id].message}
             </div>

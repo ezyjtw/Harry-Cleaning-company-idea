@@ -15,8 +15,8 @@ const docTypeLabel: Record<string, string> = {
 
 const docTypeBadge: Record<string, string> = {
   dbs_certificate: 'bg-purple-100 text-purple-700',
-  right_to_work: 'bg-blue-100 text-blue-700',
-  photo_id: 'bg-green-100 text-green-700',
+  right_to_work: 'bg-primary-soft text-primary',
+  photo_id: 'bg-trust/10 text-trust',
   insurance: 'bg-orange-100 text-orange-700',
   selfie: 'bg-pink-100 text-pink-700',
 };
@@ -107,9 +107,9 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
 
   const verificationBadge = () => {
     const styles: Record<string, string> = {
-      VERIFIED: 'bg-green-100 text-green-800 border-green-200',
-      PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      REJECTED: 'bg-red-100 text-red-800 border-red-200',
+      VERIFIED: 'bg-trust/10 text-trust border-trust/20',
+      PENDING: 'bg-warning/10 text-warning border-warning/20',
+      REJECTED: 'bg-danger/10 text-danger border-danger/20',
     };
     return (
       <span
@@ -121,24 +121,24 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
   };
 
   const renderDocRow = (doc: CleanerDocument) => (
-    <tr key={doc.id} className="hover:bg-gray-50">
+    <tr key={doc.id} className="hover:bg-page">
       <td className="px-4 py-3">
         <span
-          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${docTypeBadge[doc.documentType] || 'bg-gray-100 text-gray-700'}`}
+          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${docTypeBadge[doc.documentType] || 'bg-page text-ink-2'}`}
         >
           {docTypeLabel[doc.documentType] || doc.documentType}
         </span>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-900">{doc.originalName}</td>
-      <td className="px-4 py-3 text-sm text-gray-500">{formatBytes(doc.fileSize)}</td>
-      <td className="px-4 py-3 text-sm text-gray-500">{formatDate(doc.createdAt)}</td>
+      <td className="px-4 py-3 text-sm text-ink">{doc.originalName}</td>
+      <td className="px-4 py-3 text-sm text-ink-3">{formatBytes(doc.fileSize)}</td>
+      <td className="px-4 py-3 text-sm text-ink-3">{formatDate(doc.createdAt)}</td>
       <td className="px-4 py-3">
         {doc.isVerified ? (
-          <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+          <span className="inline-flex rounded-full bg-trust/10 px-2 py-0.5 text-xs font-medium text-trust">
             Verified
           </span>
         ) : (
-          <span className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+          <span className="inline-flex rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
             Pending
           </span>
         )}
@@ -146,7 +146,7 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
       <td className="px-4 py-3">
         <button
           onClick={() => openDocument(doc.id)}
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
+          className="text-sm font-medium text-primary hover:text-primary"
         >
           View
         </button>
@@ -158,7 +158,7 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <Link
         href="/admin/cleaners"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
+        className="inline-flex items-center gap-1 text-sm text-ink-3 hover:text-ink-2 mb-6"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -170,8 +170,8 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
         <div
           className={`mb-6 rounded-lg border px-4 py-3 flex items-center justify-between ${
             statusMessage.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800'
-              : 'bg-red-50 border-red-200 text-red-800'
+              ? 'bg-trust/10 border-trust/20 text-trust'
+              : 'bg-danger/10 border-danger/20 text-danger'
           }`}
         >
           <span>{statusMessage.text}</span>
@@ -184,15 +184,15 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{cleaner.name}</h1>
-          <p className="text-gray-500">{cleaner.email}</p>
-          {cleaner.phone && <p className="text-gray-400 text-sm">{cleaner.phone}</p>}
+          <h1 className="text-2xl font-bold text-ink">{cleaner.name}</h1>
+          <p className="text-ink-3">{cleaner.email}</p>
+          {cleaner.phone && <p className="text-ink-3 text-sm">{cleaner.phone}</p>}
         </div>
         <div className="flex items-center gap-3">
           {verificationBadge()}
           {verified && (
             <svg
-              className="w-6 h-6 text-green-500"
+              className="w-6 h-6 text-trust"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -209,48 +209,48 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
       </div>
 
       {/* Basic Info */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
+      <section className="bg-surface rounded-xl border border-line p-6 mb-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Basic Information</h2>
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
           <div>
-            <dt className="text-gray-500">Postcode</dt>
-            <dd className="font-medium text-gray-900">{cleaner.postcode || '—'}</dd>
+            <dt className="text-ink-3">Postcode</dt>
+            <dd className="font-medium text-ink">{cleaner.postcode || '—'}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Area</dt>
-            <dd className="font-medium text-gray-900">{cleaner.location || '—'}</dd>
+            <dt className="text-ink-3">Area</dt>
+            <dd className="font-medium text-ink">{cleaner.location || '—'}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Signed up</dt>
-            <dd className="font-medium text-gray-900">{formatDate(cleaner.createdAt)}</dd>
+            <dt className="text-ink-3">Signed up</dt>
+            <dd className="font-medium text-ink">{formatDate(cleaner.createdAt)}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Tier</dt>
-            <dd className="font-medium text-gray-900 capitalize">{cleaner.tier.toLowerCase()}</dd>
+            <dt className="text-ink-3">Tier</dt>
+            <dd className="font-medium text-ink capitalize">{cleaner.tier.toLowerCase()}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Completed jobs</dt>
-            <dd className="font-medium text-gray-900">{cleaner.completedJobs}</dd>
+            <dt className="text-ink-3">Completed jobs</dt>
+            <dd className="font-medium text-ink">{cleaner.completedJobs}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Rating</dt>
-            <dd className="font-medium text-gray-900">
+            <dt className="text-ink-3">Rating</dt>
+            <dd className="font-medium text-ink">
               {cleaner.rating > 0 ? cleaner.rating.toFixed(1) : 'N/A'}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">Travel radius</dt>
-            <dd className="font-medium text-gray-900">{cleaner.radius} miles</dd>
+            <dt className="text-ink-3">Travel radius</dt>
+            <dd className="font-medium text-ink">{cleaner.radius} miles</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Travel mode</dt>
-            <dd className="font-medium text-gray-900 capitalize">
+            <dt className="text-ink-3">Travel mode</dt>
+            <dd className="font-medium text-ink capitalize">
               {cleaner.travelMode?.replace(/_/g, ' ') || '—'}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">Experience</dt>
-            <dd className="font-medium text-gray-900">
+            <dt className="text-ink-3">Experience</dt>
+            <dd className="font-medium text-ink">
               {cleaner.yearsExperience !== null ? `${cleaner.yearsExperience} years` : '—'}
             </dd>
           </div>
@@ -258,33 +258,33 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
       </section>
 
       {/* Bio & Services */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile</h2>
+      <section className="bg-surface rounded-xl border border-line p-6 mb-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Profile</h2>
         {cleaner.bio && (
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Bio</h3>
-            <p className="text-sm text-gray-900">{cleaner.bio}</p>
+            <h3 className="text-sm font-medium text-ink-3 mb-1">Bio</h3>
+            <p className="text-sm text-ink">{cleaner.bio}</p>
           </div>
         )}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <h3 className="text-gray-500 mb-1">Hourly rate</h3>
-            <p className="font-medium text-gray-900">
+            <h3 className="text-ink-3 mb-1">Hourly rate</h3>
+            <p className="font-medium text-ink">
               &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}
             </p>
           </div>
           <div>
-            <h3 className="text-gray-500 mb-1">Hours/week</h3>
-            <p className="font-medium text-gray-900">{cleaner.hoursPerWeek ?? '—'}</p>
+            <h3 className="text-ink-3 mb-1">Hours/week</h3>
+            <p className="font-medium text-ink">{cleaner.hoursPerWeek ?? '—'}</p>
           </div>
           {cleaner.specialties.length > 0 && (
             <div className="col-span-2">
-              <h3 className="text-gray-500 mb-1">Specialties</h3>
+              <h3 className="text-ink-3 mb-1">Specialties</h3>
               <div className="flex flex-wrap gap-1">
                 {cleaner.specialties.map((s) => (
                   <span
                     key={s}
-                    className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700"
+                    className="inline-flex rounded-full bg-page px-2.5 py-0.5 text-xs font-medium text-ink-2"
                   >
                     {s}
                   </span>
@@ -294,12 +294,12 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
           )}
           {cleaner.serviceTypes.length > 0 && (
             <div className="col-span-2">
-              <h3 className="text-gray-500 mb-1">Service types</h3>
+              <h3 className="text-ink-3 mb-1">Service types</h3>
               <div className="flex flex-wrap gap-1">
                 {cleaner.serviceTypes.map((s) => (
                   <span
                     key={s}
-                    className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700"
+                    className="inline-flex rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-medium text-primary"
                   >
                     {s}
                   </span>
@@ -309,64 +309,60 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
           )}
           {cleaner.languages.length > 0 && (
             <div className="col-span-2">
-              <h3 className="text-gray-500 mb-1">Languages</h3>
-              <p className="font-medium text-gray-900">{cleaner.languages.join(', ')}</p>
+              <h3 className="text-ink-3 mb-1">Languages</h3>
+              <p className="font-medium text-ink">{cleaner.languages.join(', ')}</p>
             </div>
           )}
         </div>
       </section>
 
       {/* Compliance */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Compliance</h2>
+      <section className="bg-surface rounded-xl border border-line p-6 mb-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Compliance</h2>
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
           <div>
-            <dt className="text-gray-500">Background check</dt>
+            <dt className="text-ink-3">Background check</dt>
             <dd
-              className={`font-medium ${cleaner.backgroundCheckPassed ? 'text-green-700' : 'text-gray-400'}`}
+              className={`font-medium ${cleaner.backgroundCheckPassed ? 'text-trust' : 'text-ink-3'}`}
             >
               {cleaner.backgroundCheckPassed ? 'Passed' : 'Not completed'}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">DBS cert</dt>
-            <dd
-              className={`font-medium ${cleaner.dbsCertVerified ? 'text-green-700' : 'text-gray-400'}`}
-            >
+            <dt className="text-ink-3">DBS cert</dt>
+            <dd className={`font-medium ${cleaner.dbsCertVerified ? 'text-trust' : 'text-ink-3'}`}>
               {cleaner.dbsCertNumber || '—'}
               {cleaner.dbsCertVerified && ' (verified)'}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">Identity verified</dt>
+            <dt className="text-ink-3">Identity verified</dt>
             <dd
-              className={`font-medium ${cleaner.identityVerifiedAt ? 'text-green-700' : 'text-gray-400'}`}
+              className={`font-medium ${cleaner.identityVerifiedAt ? 'text-trust' : 'text-ink-3'}`}
             >
               {cleaner.identityVerifiedAt ? formatDate(cleaner.identityVerifiedAt) : 'No'}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">Insurance</dt>
+            <dt className="text-ink-3">Insurance</dt>
             <dd
-              className={`font-medium ${cleaner.insuranceVerified ? 'text-green-700' : 'text-gray-400'}`}
+              className={`font-medium ${cleaner.insuranceVerified ? 'text-trust' : 'text-ink-3'}`}
             >
               {cleaner.insuranceVerified ? 'Verified' : 'Not verified'}
               {cleaner.insuranceExpiresAt && ` (exp. ${formatDate(cleaner.insuranceExpiresAt)})`}
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">Right to work</dt>
-            <dd className="font-medium text-gray-900">
+            <dt className="text-ink-3">Right to work</dt>
+            <dd className="font-medium text-ink">
               {cleaner.rightToWorkStatus || '—'}
               {cleaner.rightToWorkDocType && ` (${cleaner.rightToWorkDocType})`}
             </dd>
           </div>
           {cleaner.rightToWorkExpiresAt && (
             <div>
-              <dt className="text-gray-500">RTW expires</dt>
-              <dd className="font-medium text-gray-900">
-                {formatDate(cleaner.rightToWorkExpiresAt)}
-              </dd>
+              <dt className="text-ink-3">RTW expires</dt>
+              <dd className="font-medium text-ink">{formatDate(cleaner.rightToWorkExpiresAt)}</dd>
             </div>
           )}
         </dl>
@@ -374,42 +370,42 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
 
       {/* Selfie + Photo ID side-by-side */}
       {(selfieDoc || photoIdDoc) && (
-        <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Identity Review</h2>
+        <section className="bg-surface rounded-xl border border-line p-6 mb-6">
+          <h2 className="text-lg font-semibold text-ink mb-4">Identity Review</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-gray-500 mb-2">Selfie</p>
+            <div className="border border-line rounded-lg p-4 text-center">
+              <p className="text-sm font-medium text-ink-3 mb-2">Selfie</p>
               {selfieDoc ? (
                 <button
                   onClick={() => openDocument(selfieDoc.id)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
                 >
                   View Selfie
                 </button>
               ) : (
-                <p className="text-sm text-gray-400">Not uploaded</p>
+                <p className="text-sm text-ink-3">Not uploaded</p>
               )}
               {selfieDoc && (
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-ink-3 mt-2">
                   Uploaded {formatDate(selfieDoc.createdAt)} &middot;{' '}
                   {formatBytes(selfieDoc.fileSize)}
                 </p>
               )}
             </div>
-            <div className="border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-gray-500 mb-2">Photo ID</p>
+            <div className="border border-line rounded-lg p-4 text-center">
+              <p className="text-sm font-medium text-ink-3 mb-2">Photo ID</p>
               {photoIdDoc ? (
                 <button
                   onClick={() => openDocument(photoIdDoc.id)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
                 >
                   View Photo ID
                 </button>
               ) : (
-                <p className="text-sm text-gray-400">Not uploaded</p>
+                <p className="text-sm text-ink-3">Not uploaded</p>
               )}
               {photoIdDoc && (
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-ink-3 mt-2">
                   Uploaded {formatDate(photoIdDoc.createdAt)} &middot;{' '}
                   {formatBytes(photoIdDoc.fileSize)}
                 </p>
@@ -420,42 +416,40 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
       )}
 
       {/* Documents */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <section className="bg-surface rounded-xl border border-line p-6 mb-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">
           Documents ({cleaner.documents.length})
         </h2>
         {otherDocs.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Size</th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
-                    Uploaded
-                  </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase"></th>
+                <tr className="border-b border-line">
+                  <th className="px-4 py-2 text-xs font-medium text-ink-3 uppercase">Type</th>
+                  <th className="px-4 py-2 text-xs font-medium text-ink-3 uppercase">Name</th>
+                  <th className="px-4 py-2 text-xs font-medium text-ink-3 uppercase">Size</th>
+                  <th className="px-4 py-2 text-xs font-medium text-ink-3 uppercase">Uploaded</th>
+                  <th className="px-4 py-2 text-xs font-medium text-ink-3 uppercase">Status</th>
+                  <th className="px-4 py-2 text-xs font-medium text-ink-3 uppercase"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">{otherDocs.map(renderDocRow)}</tbody>
+              <tbody className="divide-y divide-line">{otherDocs.map(renderDocRow)}</tbody>
             </table>
           </div>
         ) : (
-          <p className="text-sm text-gray-400">No documents uploaded.</p>
+          <p className="text-sm text-ink-3">No documents uploaded.</p>
         )}
       </section>
 
       {/* Verification Actions */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Verification Actions</h2>
+      <section className="bg-surface rounded-xl border border-line p-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Verification Actions</h2>
 
         {verificationStatus === 'REJECTED' &&
           typeof cleaner.verificationMeta?.rejectionReason === 'string' && (
-            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4">
-              <p className="text-sm font-medium text-red-800">Previous rejection reason:</p>
-              <p className="text-sm text-red-700 mt-1">
+            <div className="mb-4 rounded-lg bg-danger/10 border border-danger/20 p-4">
+              <p className="text-sm font-medium text-danger">Previous rejection reason:</p>
+              <p className="text-sm text-danger mt-1">
                 &ldquo;{String(cleaner.verificationMeta.rejectionReason)}&rdquo;
               </p>
             </div>
@@ -466,22 +460,22 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
             <button
               onClick={handleVerify}
               disabled={processing || verified}
-              className="inline-flex items-center rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center rounded-lg bg-trust px-6 py-2.5 text-sm font-medium text-white hover:bg-trust disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {processing ? 'Processing...' : 'Verify Cleaner'}
             </button>
             <button
               onClick={() => setShowRejectForm(!showRejectForm)}
               disabled={processing}
-              className="inline-flex items-center rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center rounded-lg bg-danger px-6 py-2.5 text-sm font-medium text-white hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Reject Cleaner
             </button>
           </div>
 
           {showRejectForm && (
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            <div className="border border-line rounded-lg p-4">
+              <p className="text-sm text-warning bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 mb-3">
                 This reason will be shown to the cleaner in their rejection email. Be professional
                 and factual.
               </p>
@@ -491,24 +485,24 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
                 maxLength={500}
                 rows={3}
                 placeholder="Rejection reason (required, max 500 characters)"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-danger focus:border-danger"
               />
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-gray-400">{rejectReason.length}/500</span>
+                <span className="text-xs text-ink-3">{rejectReason.length}/500</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
                       setShowRejectForm(false);
                       setRejectReason('');
                     }}
-                    className="px-4 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg border border-line text-ink-2 hover:bg-page"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleReject}
                     disabled={processing || !rejectReason.trim()}
-                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-danger text-white hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {processing ? 'Processing...' : 'Confirm Rejection'}
                   </button>

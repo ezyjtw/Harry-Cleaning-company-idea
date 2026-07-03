@@ -171,18 +171,18 @@ export default async function AdminDashboard() {
   ]);
 
   const colorMap: Record<string, { bg: string; text: string; icon: string }> = {
-    blue: { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'text-blue-600' },
-    green: { bg: 'bg-green-50', text: 'text-green-700', icon: 'text-green-600' },
+    blue: { bg: 'bg-primary-soft', text: 'text-primary', icon: 'text-primary' },
+    green: { bg: 'bg-trust/10', text: 'text-trust', icon: 'text-trust' },
     purple: { bg: 'bg-purple-50', text: 'text-purple-700', icon: 'text-purple-600' },
-    red: { bg: 'bg-red-50', text: 'text-red-700', icon: 'text-red-600' },
+    red: { bg: 'bg-danger/10', text: 'text-danger', icon: 'text-danger' },
   };
 
   const statusStyles: Record<string, string> = {
-    confirmed: 'bg-blue-100 text-blue-700',
+    confirmed: 'bg-primary-soft text-primary',
     'in-progress': 'bg-orange-100 text-orange-700',
-    completed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-700',
-    pending: 'bg-yellow-100 text-yellow-700',
+    completed: 'bg-trust/10 text-trust',
+    cancelled: 'bg-danger/10 text-danger',
+    pending: 'bg-warning/10 text-warning',
   };
 
   // Compute revenue MTD from the metrics (it's in the Revenue card value)
@@ -196,18 +196,18 @@ export default async function AdminDashboard() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-500 mt-1">Platform overview and key metrics</p>
+        <h1 className="text-2xl font-bold text-ink">Admin Dashboard</h1>
+        <p className="text-ink-3 mt-1">Platform overview and key metrics</p>
         <div className="mt-2 flex gap-3">
           <a
             href="/admin/analytics"
-            className="inline-block rounded bg-ink px-4 py-2 font-jost text-sm text-cream hover:bg-ink/90"
+            className="inline-block rounded bg-ink px-4 py-2 font-jost text-sm text-white hover:bg-ink/90"
           >
             Funnel Analytics
           </a>
           <a
             href="/admin/dpia"
-            className="inline-block rounded border border-ink/20 px-4 py-2 font-jost text-sm text-ink hover:bg-gray-50"
+            className="inline-block rounded border border-ink/20 px-4 py-2 font-jost text-sm text-ink hover:bg-page"
           >
             DPIA
           </a>
@@ -250,12 +250,12 @@ export default async function AdminDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent bookings table */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Bookings</h2>
+        <div className="lg:col-span-2 bg-surface rounded-xl border border-line overflow-hidden">
+          <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-ink">Recent Bookings</h2>
             <a
               href="/admin/bookings"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="text-sm text-primary hover:text-primary font-medium"
             >
               View All
             </a>
@@ -263,36 +263,34 @@ export default async function AdminDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <tr className="border-b border-line">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                     Booking
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden sm:table-cell">
                     Service
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-line">
                 {recentBookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={booking.id} className="hover:bg-page transition-colors">
                     <td className="px-6 py-3">
-                      <p className="text-sm font-medium text-gray-900">{booking.customer}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm font-medium text-ink">{booking.customer}</p>
+                      <p className="text-xs text-ink-3">
                         {booking.id} &middot; {booking.date}
                       </p>
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-600 hidden sm:table-cell">
+                    <td className="px-6 py-3 text-sm text-ink-2 hidden sm:table-cell">
                       {booking.service}
                     </td>
-                    <td className="px-6 py-3 text-sm font-medium text-gray-900">
-                      £{booking.amount}
-                    </td>
+                    <td className="px-6 py-3 text-sm font-medium text-ink">£{booking.amount}</td>
                     <td className="px-6 py-3">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[booking.status] || ''}`}
@@ -310,8 +308,8 @@ export default async function AdminDashboard() {
         {/* Right column */}
         <div className="space-y-6">
           {/* Revenue chart */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue (Last 7 Days)</h2>
+          <div className="bg-surface rounded-xl border border-line p-6">
+            <h2 className="text-lg font-semibold text-ink mb-4">Revenue (Last 7 Days)</h2>
             <div className="h-40 flex items-end gap-2">
               {revenueBarHeights.map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -319,41 +317,41 @@ export default async function AdminDashboard() {
                     className="w-full bg-purple-500 rounded-t-md"
                     style={{ height: `${h}%`, minHeight: '8px' }}
                   />
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-ink-3">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-              <p className="text-2xl font-bold text-gray-900">{revenueMTDDisplay}</p>
-              <p className="text-sm text-gray-500">Month to date</p>
+            <div className="mt-4 pt-4 border-t border-line text-center">
+              <p className="text-2xl font-bold text-ink">{revenueMTDDisplay}</p>
+              <p className="text-sm text-ink-3">Month to date</p>
             </div>
           </div>
 
           {/* Recent signups */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Signups</h2>
+          <div className="bg-surface rounded-xl border border-line overflow-hidden">
+            <div className="px-6 py-4 border-b border-line">
+              <h2 className="text-lg font-semibold text-ink">Recent Signups</h2>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-line">
               {recentSignups.map((signup) => (
                 <div key={signup.id} className="px-6 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{signup.name}</p>
-                    <p className="text-xs text-gray-400">{signup.email}</p>
+                    <p className="text-sm font-medium text-ink">{signup.name}</p>
+                    <p className="text-xs text-ink-3">{signup.email}</p>
                   </div>
                   <div className="text-right">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         signup.type === 'cleaner'
                           ? 'bg-purple-100 text-purple-700'
-                          : 'bg-blue-100 text-blue-700'
+                          : 'bg-primary-soft text-primary'
                       }`}
                     >
                       {signup.type === 'cleaner' ? 'Cleaner' : 'Customer'}
                     </span>
-                    <p className="text-xs text-gray-400 mt-0.5">{signup.date}</p>
+                    <p className="text-xs text-ink-3 mt-0.5">{signup.date}</p>
                   </div>
                 </div>
               ))}

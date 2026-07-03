@@ -236,33 +236,33 @@ export default function VerificationPage() {
 
   const docTypeBadge: Record<string, string> = {
     dbs_certificate: 'bg-purple-100 text-purple-700',
-    right_to_work: 'bg-blue-100 text-blue-700',
-    photo_id: 'bg-green-100 text-green-700',
+    right_to_work: 'bg-primary-soft text-primary',
+    photo_id: 'bg-trust/10 text-trust',
     insurance: 'bg-orange-100 text-orange-700',
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {statusMessage && (
-        <div className="mb-4 rounded bg-green-50 border border-green-200 px-4 py-3 text-green-800 flex items-center justify-between">
+        <div className="mb-4 rounded bg-trust/10 border border-trust/20 px-4 py-3 text-trust flex items-center justify-between">
           <span>{statusMessage}</span>
           <button
             onClick={() => setStatusMessage(null)}
-            className="text-green-600 hover:text-green-800 font-bold"
+            className="text-trust hover:text-trust font-bold"
           >
             ×
           </button>
         </div>
       )}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Document Verification</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-ink">Document Verification</h1>
+        <p className="text-ink-3 mt-1">
           Review, verify, and manage DBS certificates and Right to Work documents
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-line mb-6">
         <nav className="flex gap-4 -mb-px">
           {tabs.map((tab) => (
             <button
@@ -270,15 +270,15 @@ export default function VerificationPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-ink-3 hover:text-ink-2'
               }`}
             >
               {tab.label}
               {tab.count !== undefined && (
                 <span
                   className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    activeTab === tab.id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                    activeTab === tab.id ? 'bg-primary-soft text-primary' : 'bg-page text-ink-2'
                   }`}
                 >
                   {tab.count}
@@ -290,7 +290,7 @@ export default function VerificationPage() {
       </div>
 
       {loading && (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-ink-3">
           <p>Loading verification data...</p>
         </div>
       )}
@@ -300,11 +300,11 @@ export default function VerificationPage() {
         <div>
           {/* Filter */}
           <div className="mb-4 flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700">Filter:</label>
+            <label className="text-sm font-medium text-ink-2">Filter:</label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as DocumentType)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="rounded-lg border border-line px-3 py-2 text-sm"
             >
               <option value="all">All Documents</option>
               <option value="dbs_certificate">DBS Certificates</option>
@@ -313,42 +313,42 @@ export default function VerificationPage() {
             </select>
             <button
               onClick={() => fetchPendingDocs()}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-line px-3 py-2 text-sm text-ink-2 hover:bg-page"
             >
               Refresh
             </button>
           </div>
 
           {/* Documents table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-surface rounded-xl border border-line overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">
+                <tr className="border-b border-line bg-page">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase">
                     Document
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase hidden md:table-cell">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase hidden md:table-cell">
                     Type
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase hidden lg:table-cell">
                     Details
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase hidden sm:table-cell">
                     Uploaded
                   </th>
-                  <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">
+                  <th className="text-right px-6 py-3 text-xs font-medium text-ink-3 uppercase">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-line">
                 {pendingDocs.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={doc.id} className="hover:bg-page transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-page flex items-center justify-center">
                           <svg
-                            className="w-5 h-5 text-gray-400"
+                            className="w-5 h-5 text-ink-3"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -362,8 +362,8 @@ export default function VerificationPage() {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{doc.originalName}</p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-sm font-medium text-ink">{doc.originalName}</p>
+                          <p className="text-xs text-ink-3">
                             {(doc.fileSize / 1024).toFixed(0)} KB &middot; {doc.mimeType}
                           </p>
                         </div>
@@ -376,11 +376,11 @@ export default function VerificationPage() {
                         {docTypeLabel[doc.documentType] || doc.documentType}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">
+                    <td className="px-6 py-4 text-sm text-ink-2 hidden lg:table-cell">
                       {doc.metadata &&
                         Object.entries(doc.metadata).map(([key, value]) => (
                           <span key={key} className="block text-xs">
-                            <span className="text-gray-400">{key}:</span> {String(value)}
+                            <span className="text-ink-3">{key}:</span> {String(value)}
                           </span>
                         ))}
                       {doc.expiresAt && (
@@ -389,7 +389,7 @@ export default function VerificationPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 hidden sm:table-cell">
+                    <td className="px-6 py-4 text-sm text-ink-3 hidden sm:table-cell">
                       {new Date(doc.createdAt).toLocaleDateString('en-GB')}
                     </td>
                     <td className="px-6 py-4">
@@ -397,14 +397,14 @@ export default function VerificationPage() {
                         <button
                           disabled={verifyingDoc === doc.id}
                           onClick={() => handleVerify(doc.id, true)}
-                          className="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                          className="inline-flex items-center rounded-lg bg-trust px-3 py-1.5 text-xs font-medium text-white hover:bg-trust disabled:opacity-50"
                         >
                           {verifyingDoc === doc.id ? 'Processing...' : 'Approve'}
                         </button>
                         <button
                           disabled={verifyingDoc === doc.id}
                           onClick={() => handleVerify(doc.id, false)}
-                          className="inline-flex items-center rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          className="inline-flex items-center rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white hover:bg-danger disabled:opacity-50"
                         >
                           Reject
                         </button>
@@ -415,17 +415,17 @@ export default function VerificationPage() {
               </tbody>
             </table>
             {pendingDocs.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
+              <div className="text-center py-12 text-ink-3">
                 <p>No documents pending verification</p>
               </div>
             )}
           </div>
 
           {/* Encryption notice */}
-          <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 p-4">
+          <div className="mt-4 rounded-lg bg-primary-soft border border-primary/20 p-4">
             <div className="flex items-start gap-3">
               <svg
-                className="w-5 h-5 text-blue-600 mt-0.5"
+                className="w-5 h-5 text-primary mt-0.5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -438,8 +438,8 @@ export default function VerificationPage() {
                 />
               </svg>
               <div>
-                <p className="text-sm font-medium text-blue-800">Documents are encrypted at rest</p>
-                <p className="text-xs text-blue-600 mt-1">
+                <p className="text-sm font-medium text-primary">Documents are encrypted at rest</p>
+                <p className="text-xs text-primary mt-1">
                   All documents are encrypted using AES-256-GCM with unique per-document keys.
                   Access is logged in the audit trail. DBS certificates are automatically destroyed
                   6 months after verification. RTW documents are retained per Home Office guidance
@@ -455,12 +455,12 @@ export default function VerificationPage() {
       {!loading && activeTab === 'expiring_rtw' && (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-2">
               Cleaners with right to work documents expiring within 90 days
             </p>
             <button
               onClick={handleSendAlerts}
-              className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
             >
               Send All Expiry Alerts
             </button>
@@ -470,12 +470,12 @@ export default function VerificationPage() {
             {expiringRtw.map((alert) => (
               <div
                 key={alert.profileId}
-                className="bg-white rounded-xl border border-yellow-200 p-4 flex items-center justify-between"
+                className="bg-surface rounded-xl border border-warning/20 p-4 flex items-center justify-between"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
                     <svg
-                      className="w-5 h-5 text-yellow-600"
+                      className="w-5 h-5 text-warning"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -489,15 +489,15 @@ export default function VerificationPage() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{alert.cleanerName}</p>
-                    <p className="text-xs text-gray-400">{alert.email}</p>
+                    <p className="text-sm font-medium text-ink">{alert.cleanerName}</p>
+                    <p className="text-xs text-ink-3">{alert.email}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="inline-flex rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700">
+                  <span className="inline-flex rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">
                     {alert.daysUntilExpiry} days remaining
                   </span>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-ink-3 mt-1">
                     {alert.docType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} —
                     Expires {new Date(alert.expiresAt).toLocaleDateString('en-GB')}
                   </p>
@@ -505,7 +505,7 @@ export default function VerificationPage() {
               </div>
             ))}
             {expiringRtw.length === 0 && (
-              <div className="text-center py-12 text-gray-400 bg-white rounded-xl border">
+              <div className="text-center py-12 text-ink-3 bg-surface rounded-xl border">
                 <p>No RTW documents expiring within 90 days</p>
               </div>
             )}
@@ -517,8 +517,8 @@ export default function VerificationPage() {
       {!loading && activeTab === 'expired_rtw' && (
         <div>
           <div className="mb-4">
-            <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-              <p className="text-sm font-medium text-red-800">
+            <div className="rounded-lg bg-danger/10 border border-danger/20 p-4">
+              <p className="text-sm font-medium text-danger">
                 These cleaners have expired right to work documents and should be suspended from
                 accepting new bookings until updated documentation is provided.
               </p>
@@ -529,12 +529,12 @@ export default function VerificationPage() {
             {expiredRtw.map((alert) => (
               <div
                 key={alert.profileId}
-                className="bg-white rounded-xl border border-red-200 p-4 flex items-center justify-between"
+                className="bg-surface rounded-xl border border-danger/20 p-4 flex items-center justify-between"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
                     <svg
-                      className="w-5 h-5 text-red-600"
+                      className="w-5 h-5 text-danger"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -548,22 +548,22 @@ export default function VerificationPage() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{alert.cleanerName}</p>
-                    <p className="text-xs text-gray-400">{alert.email}</p>
+                    <p className="text-sm font-medium text-ink">{alert.cleanerName}</p>
+                    <p className="text-xs text-ink-3">{alert.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                    <span className="inline-flex rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-medium text-danger">
                       Expired {Math.abs(alert.daysUntilExpiry)} days ago
                     </span>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-ink-3 mt-1">
                       {alert.docType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                     </p>
                   </div>
                   <button
                     onClick={() => handleSuspend(alert.profileId)}
-                    className="inline-flex items-center rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                    className="inline-flex items-center rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white hover:bg-danger"
                   >
                     Suspend Cleaner
                   </button>
@@ -571,7 +571,7 @@ export default function VerificationPage() {
               </div>
             ))}
             {expiredRtw.length === 0 && (
-              <div className="text-center py-12 text-gray-400 bg-white rounded-xl border">
+              <div className="text-center py-12 text-ink-3 bg-surface rounded-xl border">
                 <p>No cleaners with expired RTW documents</p>
               </div>
             )}
@@ -582,32 +582,32 @@ export default function VerificationPage() {
       {/* Share Code Check Tab */}
       {!loading && activeTab === 'share_code' && (
         <div className="max-w-xl">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+          <div className="bg-surface rounded-xl border border-line p-6">
+            <h2 className="text-lg font-semibold text-ink mb-1">
               Home Office Share Code Verification
             </h2>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-ink-3 mb-6">
               Verify a cleaner&apos;s right to work via the Home Office Employer Checking Service
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Share Code</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Share Code</label>
                 <input
                   type="text"
                   value={shareCode}
                   onChange={(e) => setShareCode(e.target.value.toUpperCase())}
                   placeholder="e.g. A1B2C3D4E"
                   maxLength={9}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-mono tracking-wider"
+                  className="w-full rounded-lg border border-line px-4 py-2.5 text-sm font-mono tracking-wider"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-ink-3 mt-1">
                   9-character alphanumeric code from{' '}
                   <a
                     href="https://www.gov.uk/prove-right-to-work"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="text-primary hover:underline"
                   >
                     gov.uk/prove-right-to-work
                   </a>
@@ -615,21 +615,19 @@ export default function VerificationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
-                </label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Date of Birth</label>
                 <input
                   type="date"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm"
+                  className="w-full rounded-lg border border-line px-4 py-2.5 text-sm"
                 />
               </div>
 
               <button
                 onClick={handleShareCodeCheck}
                 disabled={shareCodeLoading || !shareCode || !dateOfBirth}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {shareCodeLoading ? 'Verifying...' : 'Verify Share Code'}
               </button>
@@ -640,19 +638,19 @@ export default function VerificationPage() {
               <div
                 className={`mt-6 rounded-lg p-4 ${
                   shareCodeResult.valid
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-red-50 border border-red-200'
+                    ? 'bg-trust/10 border border-trust/20'
+                    : 'bg-danger/10 border border-danger/20'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      shareCodeResult.valid ? 'bg-green-100' : 'bg-red-100'
+                      shareCodeResult.valid ? 'bg-trust/10' : 'bg-danger/10'
                     }`}
                   >
                     {shareCodeResult.valid ? (
                       <svg
-                        className="w-5 h-5 text-green-600"
+                        className="w-5 h-5 text-trust"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -666,7 +664,7 @@ export default function VerificationPage() {
                       </svg>
                     ) : (
                       <svg
-                        className="w-5 h-5 text-red-600"
+                        className="w-5 h-5 text-danger"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -683,7 +681,7 @@ export default function VerificationPage() {
                   <div>
                     <p
                       className={`text-sm font-medium ${
-                        shareCodeResult.valid ? 'text-green-800' : 'text-red-800'
+                        shareCodeResult.valid ? 'text-trust' : 'text-danger'
                       }`}
                     >
                       {shareCodeResult.valid
@@ -691,20 +689,18 @@ export default function VerificationPage() {
                         : `Verification Failed: ${shareCodeResult.status}`}
                     </p>
                     {shareCodeResult.errorMessage && (
-                      <p className="text-xs text-red-600 mt-1">{shareCodeResult.errorMessage}</p>
+                      <p className="text-xs text-danger mt-1">{shareCodeResult.errorMessage}</p>
                     )}
                     {shareCodeResult.fullName && (
-                      <p className="text-xs text-green-600 mt-1">
-                        Name: {shareCodeResult.fullName}
-                      </p>
+                      <p className="text-xs text-trust mt-1">Name: {shareCodeResult.fullName}</p>
                     )}
                     {shareCodeResult.immigrationStatus && (
-                      <p className="text-xs text-green-600">
+                      <p className="text-xs text-trust">
                         Status: {shareCodeResult.immigrationStatus}
                       </p>
                     )}
                     {shareCodeResult.expiresAt && (
-                      <p className="text-xs text-green-600">
+                      <p className="text-xs text-trust">
                         Expires: {new Date(shareCodeResult.expiresAt).toLocaleDateString('en-GB')}
                       </p>
                     )}
@@ -714,8 +710,8 @@ export default function VerificationPage() {
             )}
           </div>
 
-          <div className="mt-4 rounded-lg bg-gray-50 border border-gray-200 p-4">
-            <p className="text-xs text-gray-500">
+          <div className="mt-4 rounded-lg bg-page border border-line p-4">
+            <p className="text-xs text-ink-3">
               <strong>Audit Trail:</strong> All share code verifications are logged in the audit
               system, including the requesting admin, timestamp, and result. Share codes are
               partially redacted in logs for data protection compliance.

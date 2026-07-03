@@ -91,15 +91,17 @@ export default function FunnelAnalyticsPage() {
   const maxSessions = funnelData.length > 0 ? funnelData[0].uniqueSessions : 1;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-page">
       {/* Header */}
-      <header className="border-b border-ink/5 bg-white/50 px-6 py-4">
+      <header className="border-b border-ink/5 bg-surface/50 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div>
             <Link href="/admin" className="font-jost text-sm text-ink-3 hover:text-ink">
               &larr; Admin Dashboard
             </Link>
-            <h1 className="mt-1 font-newsreader text-2xl font-semibold text-ink">Funnel Analytics</h1>
+            <h1 className="mt-1 font-newsreader text-2xl font-semibold text-ink">
+              Funnel Analytics
+            </h1>
             <p className="font-jost text-sm font-light text-ink-3">
               Track where customers drop off and identify friction points
             </p>
@@ -117,7 +119,7 @@ export default function FunnelAnalyticsPage() {
             <select
               value={funnel}
               onChange={(e) => setFunnel(e.target.value as FunnelType)}
-              className="border border-ink/10 bg-white px-4 py-2 font-jost text-sm text-ink"
+              className="border border-ink/10 bg-surface px-4 py-2 font-jost text-sm text-ink"
             >
               <option value="booking">Booking Flow</option>
               <option value="cleaner_signup">Cleaner Signup</option>
@@ -132,7 +134,7 @@ export default function FunnelAnalyticsPage() {
               type="date"
               value={dateRange.from}
               onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
-              className="border border-ink/10 bg-white px-4 py-2 font-jost text-sm text-ink"
+              className="border border-ink/10 bg-surface px-4 py-2 font-jost text-sm text-ink"
             />
           </div>
           <div>
@@ -143,12 +145,12 @@ export default function FunnelAnalyticsPage() {
               type="date"
               value={dateRange.to}
               onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
-              className="border border-ink/10 bg-white px-4 py-2 font-jost text-sm text-ink"
+              className="border border-ink/10 bg-surface px-4 py-2 font-jost text-sm text-ink"
             />
           </div>
           <button
             onClick={fetchData}
-            className="bg-ink px-6 py-2 font-jost text-sm text-cream hover:bg-ink/90"
+            className="bg-ink px-6 py-2 font-jost text-sm text-white hover:bg-ink/90"
           >
             Refresh
           </button>
@@ -160,7 +162,9 @@ export default function FunnelAnalyticsPage() {
           <div className="space-y-8">
             {/* ─── Funnel Visualisation ─── */}
             <section>
-              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Conversion Funnel</h2>
+              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">
+                Conversion Funnel
+              </h2>
               {funnelData.length === 0 ? (
                 <p className="py-8 text-center font-jost text-sm text-ink-3">
                   No funnel data yet. Events will appear here as users interact with the{' '}
@@ -174,9 +178,9 @@ export default function FunnelAnalyticsPage() {
                         <span className="font-normal text-ink">{step.stepName}</span>
                       </div>
                       <div className="flex-1">
-                        <div className="relative h-10 bg-cream-2">
+                        <div className="relative h-10 bg-page-2">
                           <div
-                            className="absolute inset-y-0 left-0 bg-gold/30"
+                            className="absolute inset-y-0 left-0 bg-primary/30"
                             style={{
                               width: `${maxSessions > 0 ? (step.uniqueSessions / maxSessions) * 100 : 0}%`,
                             }}
@@ -193,7 +197,7 @@ export default function FunnelAnalyticsPage() {
                       </div>
                       <div className="w-24 text-right font-jost text-sm">
                         {i > 0 && step.dropOffRate > 0 ? (
-                          <span className={step.dropOffRate > 30 ? 'text-red-600' : 'text-ink-3'}>
+                          <span className={step.dropOffRate > 30 ? 'text-danger' : 'text-ink-3'}>
                             -{step.dropOffRate}%
                           </span>
                         ) : (
@@ -208,7 +212,9 @@ export default function FunnelAnalyticsPage() {
 
             {/* ─── Drop-Off Analysis ─── */}
             <section>
-              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Drop-Off Hotspots</h2>
+              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">
+                Drop-Off Hotspots
+              </h2>
               {dropOffData.length === 0 ? (
                 <p className="py-8 text-center font-jost text-sm text-ink-3">
                   No drop-off events recorded yet.
@@ -217,7 +223,7 @@ export default function FunnelAnalyticsPage() {
                 <div className="overflow-hidden border border-ink/5">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-ink/5 bg-cream-2">
+                      <tr className="border-b border-ink/5 bg-page-2">
                         <th className="px-4 py-3 text-left font-jost text-xs uppercase tracking-wider text-ink-3">
                           Step
                         </th>
@@ -248,10 +254,10 @@ export default function FunnelAnalyticsPage() {
                             <span
                               className={`inline-block px-2 py-0.5 font-jost text-xs ${
                                 d.dropOffCount > 50
-                                  ? 'bg-red-100 text-red-700'
+                                  ? 'bg-danger/10 text-danger'
                                   : d.dropOffCount > 20
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-green-100 text-green-700'
+                                    ? 'bg-warning/10 text-warning'
+                                    : 'bg-trust/10 text-trust'
                               }`}
                             >
                               {d.dropOffCount > 50
@@ -284,10 +290,10 @@ export default function FunnelAnalyticsPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {errorData.map((err) => (
-                    <div key={err.field} className="border border-ink/5 bg-white p-4">
+                    <div key={err.field} className="border border-ink/5 bg-surface p-4">
                       <div className="flex items-center justify-between">
                         <h3 className="font-jost text-sm font-normal text-ink">{err.field}</h3>
-                        <span className="font-jost text-lg font-light text-red-600">
+                        <span className="font-jost text-lg font-light text-danger">
                           {err.errorCount}
                         </span>
                       </div>
@@ -322,7 +328,7 @@ export default function FunnelAnalyticsPage() {
                 <div className="overflow-hidden border border-ink/5">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-ink/5 bg-cream-2">
+                      <tr className="border-b border-ink/5 bg-page-2">
                         <th className="px-4 py-3 text-left font-jost text-xs uppercase tracking-wider text-ink-3">
                           Step
                         </th>

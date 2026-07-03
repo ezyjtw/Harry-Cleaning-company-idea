@@ -35,7 +35,7 @@ export default async function StuckMoneyPage() {
   const admin = await getAdminSession();
   if (!admin) {
     return (
-      <div className="p-8 text-center text-red-600">
+      <div className="p-8 text-center text-danger">
         Admin access required.{' '}
         <Link href="/login" className="underline">
           Login

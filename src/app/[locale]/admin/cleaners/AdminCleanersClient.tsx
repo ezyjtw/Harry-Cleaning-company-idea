@@ -33,29 +33,29 @@ export default function AdminCleanersClient({
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const tierStyles: Record<string, string> = {
-    starter: 'bg-gray-100 text-gray-700',
+    starter: 'bg-page text-ink-2',
     bronze: 'bg-orange-100 text-orange-700',
-    silver: 'bg-gray-200 text-gray-700',
-    gold: 'bg-yellow-100 text-yellow-700',
+    silver: 'bg-line text-ink-2',
+    gold: 'bg-warning/10 text-warning',
     elite: 'bg-purple-100 text-purple-700',
   };
 
   const statusStyles: Record<string, string> = {
-    active: 'bg-green-100 text-green-700',
-    suspended: 'bg-red-100 text-red-700',
-    'pending-approval': 'bg-yellow-100 text-yellow-700',
+    active: 'bg-trust/10 text-trust',
+    suspended: 'bg-danger/10 text-danger',
+    'pending-approval': 'bg-warning/10 text-warning',
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cleaners</h1>
-          <p className="text-gray-500 mt-1">{total} total cleaners</p>
+          <h1 className="text-2xl font-bold text-ink">Cleaners</h1>
+          <p className="text-ink-3 mt-1">{total} total cleaners</p>
         </div>
         <div className="relative">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -75,7 +75,7 @@ export default function AdminCleanersClient({
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2.5 rounded-lg border border-line text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
           />
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function AdminCleanersClient({
             setTierFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="all">All Tiers</option>
           <option value="starter">Starter</option>
@@ -103,7 +103,7 @@ export default function AdminCleanersClient({
             setVerifiedFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="all">All Verification</option>
           <option value="verified">Verified</option>
@@ -111,43 +111,43 @@ export default function AdminCleanersClient({
         </select>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <tr className="border-b border-line bg-page">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Cleaner
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden md:table-cell">
                   Tier
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Rating
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden lg:table-cell">
                   Verified
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden md:table-cell">
                   Docs
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden sm:table-cell">
                   Active
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Status
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-line">
               {paginated.map((cleaner) => (
-                <tr key={cleaner.fullId} className="hover:bg-gray-50 transition-colors">
+                <tr key={cleaner.fullId} className="hover:bg-page transition-colors">
                   <td className="px-6 py-4">
                     <Link href={`/admin/cleaners/${cleaner.fullId}`} className="block">
-                      <p className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                      <p className="text-sm font-medium text-primary hover:text-primary">
                         {cleaner.name}
                       </p>
-                      <p className="text-xs text-gray-400">{cleaner.email}</p>
+                      <p className="text-xs text-ink-3">{cleaner.email}</p>
                     </Link>
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
@@ -161,24 +161,24 @@ export default function AdminCleanersClient({
                     {cleaner.rating > 0 ? (
                       <div className="flex items-center gap-1">
                         <svg
-                          className="w-4 h-4 text-yellow-400"
+                          className="w-4 h-4 text-warning"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
                           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                         </svg>
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-ink">
                           {cleaner.rating.toFixed(1)}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-400">N/A</span>
+                      <span className="text-sm text-ink-3">N/A</span>
                     )}
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
                     {cleaner.verified ? (
                       <svg
-                        className="w-5 h-5 text-green-500"
+                        className="w-5 h-5 text-trust"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -192,7 +192,7 @@ export default function AdminCleanersClient({
                       </svg>
                     ) : (
                       <svg
-                        className="w-5 h-5 text-gray-300"
+                        className="w-5 h-5 text-ink-3"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -208,15 +208,15 @@ export default function AdminCleanersClient({
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">{cleaner.docCount}</span>
+                      <span className="text-sm text-ink-2">{cleaner.docCount}</span>
                       {cleaner.hasSelfie && (
-                        <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        <span className="inline-flex rounded-full bg-primary-soft px-1.5 py-0.5 text-[10px] font-medium text-primary">
                           Selfie
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 hidden sm:table-cell">
+                  <td className="px-6 py-4 text-sm text-ink hidden sm:table-cell">
                     {cleaner.activeBookings}
                   </td>
                   <td className="px-6 py-4">
@@ -235,8 +235,8 @@ export default function AdminCleanersClient({
         </div>
 
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <p className="text-sm text-gray-500">
+          <div className="px-6 py-4 border-t border-line flex items-center justify-between">
+            <p className="text-sm text-ink-3">
               Showing {(page - 1) * ITEMS_PER_PAGE + 1} to{' '}
               {Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
             </p>
@@ -244,14 +244,14 @@ export default function AdminCleanersClient({
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-line text-ink-2 hover:bg-page disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-line text-ink-2 hover:bg-page disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>

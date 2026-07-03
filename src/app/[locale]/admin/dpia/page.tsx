@@ -110,8 +110,8 @@ const dpiaItems = [
 
 export default function DpiaPage() {
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="border-b border-ink/5 bg-white/50 px-6 py-4">
+    <div className="min-h-screen bg-page">
+      <header className="border-b border-ink/5 bg-surface/50 px-6 py-4">
         <div className="mx-auto max-w-5xl">
           <Link href="/admin" className="font-jost text-sm text-ink-3 hover:text-ink">
             &larr; Admin Dashboard
@@ -128,7 +128,7 @@ export default function DpiaPage() {
 
       <main className="mx-auto max-w-5xl px-6 py-8">
         {/* Overview */}
-        <div className="mb-8 bg-white p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div className="mb-8 bg-surface p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
           <h2 className="font-newsreader text-xl font-semibold text-ink">Assessment Overview</h2>
           <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 font-jost text-sm">
             <div>
@@ -153,12 +153,14 @@ export default function DpiaPage() {
         </div>
 
         {/* Processing Activities */}
-        <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Processing Activities</h2>
+        <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">
+          Processing Activities
+        </h2>
         <div className="space-y-4">
           {dpiaItems.map((item) => (
             <div
               key={item.title}
-              className="bg-white p-5"
+              className="bg-surface p-5"
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
               <div className="flex items-start justify-between gap-4">
@@ -166,10 +168,10 @@ export default function DpiaPage() {
                 <span
                   className={`shrink-0 px-2 py-0.5 font-jost text-xs ${
                     item.risk === 'High'
-                      ? 'bg-red-100 text-red-700'
+                      ? 'bg-danger/10 text-danger'
                       : item.risk === 'Medium'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-green-100 text-green-700'
+                        ? 'bg-warning/10 text-warning'
+                        : 'bg-trust/10 text-trust'
                   }`}
                 >
                   {item.risk} Risk
@@ -196,8 +198,10 @@ export default function DpiaPage() {
         </div>
 
         {/* Action Items */}
-        <div className="mt-8 bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-newsreader text-xl font-semibold text-ink">Pre-Launch Action Items</h2>
+        <div className="mt-8 bg-page-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <h2 className="font-newsreader text-xl font-semibold text-ink">
+            Pre-Launch Action Items
+          </h2>
           <ul className="mt-4 space-y-2 font-jost text-sm font-light text-ink-2">
             <li className="flex items-start gap-2">
               <span className="mt-0.5 shrink-0 text-ink-3">&#9744;</span>

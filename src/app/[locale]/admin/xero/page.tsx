@@ -166,38 +166,38 @@ export default function AdminXeroPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Xero (Accounting)</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-2xl font-bold text-ink">Xero (Accounting)</h1>
+      <p className="mt-1 text-sm text-ink-3">
         Connect Rena to your Xero organisation and map each money flow to your own accounts. Nothing
         is pushed to Xero until the mapping is complete and pushing is switched on.
       </p>
 
       {msg && (
-        <div className="mt-4 rounded border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-700">
+        <div className="mt-4 rounded border border-line bg-page px-4 py-2 text-sm text-ink-2">
           {msg}
         </div>
       )}
 
       {!status ? (
-        <p className="mt-6 text-sm text-gray-500">Loading…</p>
+        <p className="mt-6 text-sm text-ink-3">Loading…</p>
       ) : !status.configured ? (
-        <div className="mt-6 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="mt-6 rounded border border-warning/20 bg-warning/10 px-4 py-3 text-sm text-warning">
           Xero is not configured on the server (missing XERO_CLIENT_ID / XERO_CLIENT_SECRET /
           XERO_REDIRECT_URI). The integration is dormant until these are set.
         </div>
       ) : (
         <div className="mt-6 space-y-6">
           {/* Connection */}
-          <div className="rounded border border-gray-200 bg-white p-5">
+          <div className="rounded border border-line bg-surface p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-ink">
                   {status.connected
                     ? `Connected: ${status.tenantName || 'Xero org'}`
                     : 'Not connected'}
                 </p>
                 {status.connected && status.expiresAt && (
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-ink-3">
                     Access token valid until {new Date(status.expiresAt).toLocaleString('en-GB')}{' '}
                     (auto-refreshes).
                   </p>
@@ -206,14 +206,14 @@ export default function AdminXeroPage() {
               {status.connected ? (
                 <button
                   onClick={disconnect}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                  className="rounded border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-page"
                 >
                   Disconnect
                 </button>
               ) : (
                 <a
                   href="/api/admin/xero/connect"
-                  className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  className="rounded bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-hover"
                 >
                   Connect Xero
                 </a>
@@ -223,18 +223,18 @@ export default function AdminXeroPage() {
 
           {/* Account mapping */}
           {status.connected && (
-            <div className="rounded border border-gray-200 bg-white p-5">
+            <div className="rounded border border-line bg-surface p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Account mapping</h2>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <h2 className="text-sm font-semibold text-ink">Account mapping</h2>
+                  <p className="mt-1 text-xs text-ink-3">
                     Map each flow to one of your existing Xero accounts. We never create accounts.
                   </p>
                 </div>
                 <button
                   onClick={reloadAccounts}
                   disabled={busy}
-                  className="shrink-0 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="shrink-0 rounded border border-line px-3 py-1.5 text-xs text-ink-2 hover:bg-page disabled:opacity-50"
                 >
                   Reload accounts
                 </button>
@@ -245,16 +245,15 @@ export default function AdminXeroPage() {
                   const options = accounts.filter(role.only);
                   return (
                     <div key={role.key}>
-                      <label className="block text-xs font-medium text-gray-700">
-                        {role.label}{' '}
-                        <span className="font-normal text-gray-400">— {role.hint}</span>
+                      <label className="block text-xs font-medium text-ink-2">
+                        {role.label} <span className="font-normal text-ink-3">— {role.hint}</span>
                       </label>
                       <select
                         value={(mapping[role.key] as string) || ''}
                         onChange={(e) =>
                           setMapping((m) => ({ ...m, [role.key]: e.target.value || null }))
                         }
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                        className="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-ink"
                       >
                         <option value="">— Select an account —</option>
                         {options.map((a) => (
@@ -264,7 +263,7 @@ export default function AdminXeroPage() {
                         ))}
                       </select>
                       {options.length === 0 && (
-                        <p className="mt-1 text-xs text-amber-700">
+                        <p className="mt-1 text-xs text-warning">
                           No matching accounts found in Xero. Create one there, then Reload
                           accounts.
                         </p>
@@ -284,13 +283,13 @@ export default function AdminXeroPage() {
                   })
                 }
                 disabled={busy}
-                className="mt-4 rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="mt-4 rounded bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
               >
                 {busy ? 'Saving…' : 'Save mapping'}
               </button>
 
               {/* Feature flag */}
-              <div className="mt-6 border-t border-gray-100 pt-4">
+              <div className="mt-6 border-t border-line pt-4">
                 <label className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -299,16 +298,16 @@ export default function AdminXeroPage() {
                     onChange={(e) => saveMapping({ pushEnabled: e.target.checked })}
                     className="h-4 w-4"
                   />
-                  <span className="text-sm text-gray-900">
+                  <span className="text-sm text-ink">
                     Push transactions to Xero
                     {!complete && (
-                      <span className="ml-2 text-xs text-amber-700">
+                      <span className="ml-2 text-xs text-warning">
                         (complete the mapping above first)
                       </span>
                     )}
                   </span>
                 </label>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-ink-3">
                   When off, Rena records nothing to Xero. Pushing itself is added in the next chunk;
                   this flag gates it.
                 </p>

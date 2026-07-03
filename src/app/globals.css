@@ -245,7 +245,9 @@
   /* Hide the global nav/footer for surfaces that bring their own chrome — the
      cleaner portal (its own sidebar), via ChromeHider's portal-active body class. */
   body.portal-active #layout-nav,
-  body.portal-active #layout-footer {
+  body.portal-active #layout-footer,
+  body.admin-active #layout-nav,
+  body.admin-active #layout-footer {
     display: none;
   }
 }

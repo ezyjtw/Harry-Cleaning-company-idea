@@ -157,9 +157,9 @@ function fmtDate(iso: string | null): string {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{title}</h2>
+    <div className="bg-surface rounded-xl border border-line overflow-hidden">
+      <div className="px-6 py-3 bg-page border-b border-line">
+        <h2 className="text-sm font-semibold text-ink-2 uppercase tracking-wider">{title}</h2>
       </div>
       <div className="px-6 py-4">{children}</div>
     </div>
@@ -169,8 +169,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="py-1.5">
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="text-sm text-gray-900 mt-0.5 break-all">{value ?? '—'}</dd>
+      <dt className="text-xs font-medium text-ink-3">{label}</dt>
+      <dd className="text-sm text-ink mt-0.5 break-all">{value ?? '—'}</dd>
     </div>
   );
 }
@@ -183,11 +183,11 @@ function StatusBadge({
   variant?: 'green' | 'red' | 'amber' | 'blue' | 'gray';
 }) {
   const colors = {
-    green: 'bg-green-100 text-green-700',
-    red: 'bg-red-100 text-red-700',
-    amber: 'bg-amber-100 text-amber-700',
-    blue: 'bg-blue-100 text-blue-700',
-    gray: 'bg-gray-100 text-gray-600',
+    green: 'bg-trust/10 text-trust',
+    red: 'bg-danger/10 text-danger',
+    amber: 'bg-warning/10 text-warning',
+    blue: 'bg-primary-soft text-primary',
+    gray: 'bg-page text-ink-2',
   };
   const auto: Record<string, string> = {
     PENDING: 'amber',
@@ -294,11 +294,11 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+            <label className="block text-xs font-medium text-ink-3 mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm"
             >
               {VALID_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -308,11 +308,11 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Cascade Phase</label>
+            <label className="block text-xs font-medium text-ink-3 mb-1">Cascade Phase</label>
             <select
               value={cascadePhase}
               onChange={(e) => setCascadePhase(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm"
             >
               <option value="">(null)</option>
               {VALID_CASCADE_PHASES.map((p) => (
@@ -324,8 +324,8 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
           </div>
         </div>
         {hasChanges && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-xs text-amber-700 font-medium mb-2">
+          <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+            <p className="text-xs text-warning font-medium mb-2">
               Raw status override — bypasses all service guards. Type booking ID prefix to confirm.
             </p>
             <input
@@ -333,13 +333,13 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
               placeholder={expectedPrefix}
               value={confirmId}
               onChange={(e) => setConfirmId(e.target.value)}
-              className="w-40 rounded border border-gray-300 px-2 py-1 text-sm font-mono mb-2"
+              className="w-40 rounded border border-line px-2 py-1 text-sm font-mono mb-2"
             />
             <div>
               <button
                 onClick={handleSubmit}
                 disabled={!confirmed || submitting}
-                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-warning hover:bg-warning disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Applying…' : 'Apply Override'}
               </button>
@@ -348,7 +348,7 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
         )}
         {result && (
           <div
-            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {result.message}
           </div>
@@ -401,12 +401,12 @@ function ForceCascadeButton({ booking }: { booking: BookingDetail }) {
     <div className="inline-flex items-center gap-2">
       {state === 'confirming' ? (
         <>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-ink-3">
             {phaseLabel[booking.cascadePhase] ?? `Advance from ${booking.cascadePhase}`}
           </span>
           <button
             onClick={handleAdvance}
-            className="px-2 py-1 text-xs font-medium text-white rounded bg-amber-600 hover:bg-amber-700"
+            className="px-2 py-1 text-xs font-medium text-white rounded bg-warning hover:bg-warning"
           >
             Yes, advance
           </button>
@@ -415,23 +415,23 @@ function ForceCascadeButton({ booking }: { booking: BookingDetail }) {
               setState('idle');
               setResult(null);
             }}
-            className="px-2 py-1 text-xs font-medium text-gray-600 rounded border border-gray-300 hover:bg-gray-50"
+            className="px-2 py-1 text-xs font-medium text-ink-2 rounded border border-line hover:bg-page"
           >
             Cancel
           </button>
         </>
       ) : state === 'loading' ? (
-        <span className="text-xs text-gray-500">Processing…</span>
+        <span className="text-xs text-ink-3">Processing…</span>
       ) : (
         <button
           onClick={() => setState('confirming')}
-          className="px-4 py-2 text-sm font-medium text-amber-700 rounded-lg border border-amber-300 hover:bg-amber-50"
+          className="px-4 py-2 text-sm font-medium text-warning rounded-lg border border-warning/30 hover:bg-warning/10"
         >
           Force Advance Cascade
         </button>
       )}
       {result && (
-        <span className={`text-xs ${result.ok ? 'text-green-700' : 'text-red-700'}`}>
+        <span className={`text-xs ${result.ok ? 'text-trust' : 'text-danger'}`}>
           {result.message}
         </span>
       )}
@@ -483,16 +483,16 @@ function DeleteBookingButton({ booking }: { booking: BookingDetail }) {
   return (
     <div>
       {state === 'confirming' ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
-          <p className="text-sm font-semibold text-red-800">Permanently delete this booking?</p>
-          <p className="text-xs text-red-700">
+        <div className="bg-danger/10 border border-danger/20 rounded-lg p-4 space-y-3">
+          <p className="text-sm font-semibold text-danger">Permanently delete this booking?</p>
+          <p className="text-xs text-danger">
             This will destroy: the booking
             {relationCounts.length > 0 ? `, ${relationCounts.join(', ')}` : ''}. Audit log entries
             will be orphaned. This cannot be undone.
           </p>
           <div className="flex gap-3">
             <div>
-              <label className="block text-xs text-red-700 mb-1">
+              <label className="block text-xs text-danger mb-1">
                 Booking ID prefix ({expectedPrefix})
               </label>
               <input
@@ -500,17 +500,17 @@ function DeleteBookingButton({ booking }: { booking: BookingDetail }) {
                 placeholder={expectedPrefix}
                 value={confirmId}
                 onChange={(e) => setConfirmId(e.target.value)}
-                className="w-32 rounded border border-red-300 px-2 py-1 text-sm font-mono"
+                className="w-32 rounded border border-danger/30 px-2 py-1 text-sm font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs text-red-700 mb-1">Type DELETE</label>
+              <label className="block text-xs text-danger mb-1">Type DELETE</label>
               <input
                 type="text"
                 placeholder="DELETE"
                 value={confirmWord}
                 onChange={(e) => setConfirmWord(e.target.value)}
-                className="w-24 rounded border border-red-300 px-2 py-1 text-sm font-mono"
+                className="w-24 rounded border border-danger/30 px-2 py-1 text-sm font-mono"
               />
             </div>
           </div>
@@ -518,7 +518,7 @@ function DeleteBookingButton({ booking }: { booking: BookingDetail }) {
             <button
               onClick={handleDelete}
               disabled={!confirmed}
-              className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Delete Permanently
             </button>
@@ -529,25 +529,25 @@ function DeleteBookingButton({ booking }: { booking: BookingDetail }) {
                 setConfirmWord('');
                 setResult(null);
               }}
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : state === 'loading' ? (
-        <span className="text-sm text-gray-500">Deleting…</span>
+        <span className="text-sm text-ink-3">Deleting…</span>
       ) : (
         <button
           onClick={() => setState('confirming')}
-          className="px-4 py-2 text-sm font-medium text-red-700 rounded-lg border border-red-300 hover:bg-red-50"
+          className="px-4 py-2 text-sm font-medium text-danger rounded-lg border border-danger/30 hover:bg-danger/10"
         >
           Delete Booking
         </button>
       )}
       {result && (
         <div
-          className={`mt-2 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          className={`mt-2 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
         >
           {result.message}
         </div>
@@ -601,22 +601,22 @@ function RefundModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">Refund Booking</h3>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold text-ink mb-1">Refund Booking</h3>
+        <p className="text-sm text-ink-3 mb-4">
           Booking {bookingId.substring(0, 8).toUpperCase()} — max refundable £
           {maxRefundable.toFixed(2)}
         </p>
         {result && (
           <div
-            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {result.message}
           </div>
         )}
         {!result?.ok ? (
           <>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-ink-2 mb-1">
               Amount (max £{maxRefundable.toFixed(2)})
             </label>
             <input
@@ -627,29 +627,29 @@ function RefundModal({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               disabled={submitting}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Reason</label>
             <textarea
               rows={2}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               disabled={submitting}
               placeholder="Why is this refund being issued?"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
             <div className="flex justify-end gap-3">
               <button
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={!valid || submitting}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting
                   ? 'Processing…'
@@ -661,7 +661,7 @@ function RefundModal({
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
             >
               Close
             </button>
@@ -774,15 +774,15 @@ function DisputeResolvePanel({
     <Section title="Resolve Dispute">
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Outcome</label>
+          <label className="block text-xs font-medium text-ink-3 mb-1">Outcome</label>
           <div className="space-y-2">
             {OUTCOME_OPTIONS.map((opt) => (
               <label
                 key={opt.value}
                 className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer transition-colors ${
                   outcome === opt.value
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-primary bg-primary-soft'
+                    : 'border-line hover:bg-page'
                 }`}
               >
                 <input
@@ -797,8 +797,8 @@ function DisputeResolvePanel({
                   className="mt-0.5"
                 />
                 <div>
-                  <span className="text-sm font-medium text-gray-900">{opt.label}</span>
-                  <p className="text-xs text-gray-500">{opt.description}</p>
+                  <span className="text-sm font-medium text-ink">{opt.label}</span>
+                  <p className="text-xs text-ink-3">{opt.description}</p>
                 </div>
               </label>
             ))}
@@ -807,7 +807,7 @@ function DisputeResolvePanel({
 
         {outcome === 'split' && (
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-xs font-medium text-ink-3 mb-1">
               Refund amount to customer
             </label>
             <input
@@ -821,9 +821,9 @@ function DisputeResolvePanel({
                 setConfirming(false);
               }}
               placeholder={maxRefundable.toFixed(2)}
-              className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-40 rounded-lg border border-line px-3 py-2 text-sm"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-ink-3">
               Max refundable: £{maxRefundable.toFixed(2)}. Remainder released to cleaner with
               reduced earnings.
             </p>
@@ -831,7 +831,7 @@ function DisputeResolvePanel({
         )}
 
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Resolution notes</label>
+          <label className="block text-xs font-medium text-ink-3 mb-1">Resolution notes</label>
           <textarea
             rows={2}
             value={resolution}
@@ -840,25 +840,25 @@ function DisputeResolvePanel({
               setConfirming(false);
             }}
             placeholder="Explain the resolution decision…"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm resize-none"
           />
         </div>
 
         {error && (
-          <div className="rounded-lg px-4 py-3 text-sm bg-red-50 text-red-800">{error}</div>
+          <div className="rounded-lg px-4 py-3 text-sm bg-danger/10 text-danger">{error}</div>
         )}
 
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
             disabled={!canSubmit}
-            className="px-4 py-2 text-sm font-medium text-blue-700 rounded-lg border border-blue-300 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-primary rounded-lg border border-primary/30 hover:bg-primary-soft disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Resolve dispute
           </button>
         ) : (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-            <p className="text-sm font-semibold text-blue-800">
+          <div className="bg-primary-soft border border-primary/20 rounded-lg p-4 space-y-3">
+            <p className="text-sm font-semibold text-primary">
               Confirm: {OUTCOME_OPTIONS.find((o) => o.value === outcome)?.label}
               {outcome === 'split'
                 ? ` — refund £${(Number(refundAmount) || 0).toFixed(2)}, release remainder`
@@ -871,14 +871,14 @@ function DisputeResolvePanel({
               <button
                 onClick={runResolve}
                 disabled={submitting}
-                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-primary-hover hover:bg-primary-active disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Resolving…' : 'Confirm resolve'}
               </button>
               <button
                 onClick={() => setConfirming(false)}
                 disabled={submitting}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-3 py-1.5 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
               >
                 Back
               </button>
@@ -888,7 +888,7 @@ function DisputeResolvePanel({
 
         {result && (
           <div
-            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {result.message}
           </div>
@@ -971,7 +971,7 @@ function CancelPanel({
   if (!eligibleStatus) {
     return (
       <Section title="Cancel Booking">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-ink-3">
           Not available for {booking.status} bookings. Cancellable:{' '}
           {CANCELLABLE_STATUSES.join(', ')}.
         </p>
@@ -982,7 +982,7 @@ function CancelPanel({
   return (
     <Section title="Cancel Booking">
       {!moneyOk && (
-        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+        <div className="mb-3 bg-warning/10 border border-warning/20 rounded-lg p-3 text-xs text-warning">
           Transfer status is <span className="font-medium">{booking.transferStatus}</span> — cancel
           is blocked while money is in flight or already released. Post-release cancellation
           (clawing back the cleaner&apos;s payout) is not supported in this version.
@@ -990,7 +990,7 @@ function CancelPanel({
       )}
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+          <label className="block text-xs font-medium text-ink-3 mb-1">Reason</label>
           <textarea
             rows={2}
             value={reason}
@@ -999,12 +999,12 @@ function CancelPanel({
               setConfirming(false);
             }}
             placeholder="Why is this booking being cancelled?"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm resize-none"
           />
         </div>
 
-        <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+        <div className="rounded-lg border border-line p-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-ink-2">
             <input
               type="checkbox"
               checked={override}
@@ -1028,34 +1028,34 @@ function CancelPanel({
                   setConfirming(false);
                 }}
                 placeholder={maxRefundable.toFixed(2)}
-                className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-40 rounded-lg border border-line px-3 py-2 text-sm"
               />
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-ink-3">
                 Capped at the refundable remainder (£{maxRefundable.toFixed(2)}).
               </p>
             </div>
           ) : (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-ink-3">
               Default: full refund of the remainder (£{maxRefundable.toFixed(2)}).
             </p>
           )}
         </div>
 
         {error && (
-          <div className="rounded-lg px-4 py-3 text-sm bg-red-50 text-red-800">{error}</div>
+          <div className="rounded-lg px-4 py-3 text-sm bg-danger/10 text-danger">{error}</div>
         )}
 
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
             disabled={!reason.trim() || !moneyOk || !overrideValid}
-            className="px-4 py-2 text-sm font-medium text-red-700 rounded-lg border border-red-300 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-danger rounded-lg border border-danger/30 hover:bg-danger/10 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel booking
           </button>
         ) : (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
-            <p className="text-sm font-semibold text-red-800">
+          <div className="bg-danger/10 border border-danger/20 rounded-lg p-4 space-y-3">
+            <p className="text-sm font-semibold text-danger">
               Confirm cancellation
               {override
                 ? ` with a £${(Number(refundAmount) || 0).toFixed(2)} refund?`
@@ -1065,14 +1065,14 @@ function CancelPanel({
               <button
                 onClick={runCancel}
                 disabled={submitting}
-                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Cancelling…' : 'Confirm cancel'}
               </button>
               <button
                 onClick={() => setConfirming(false)}
                 disabled={submitting}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-3 py-1.5 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
               >
                 Back
               </button>
@@ -1082,7 +1082,7 @@ function CancelPanel({
 
         {result && (
           <div
-            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {result.message}
           </div>
@@ -1176,7 +1176,7 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
   if (!eligibleStatus) {
     return (
       <Section title="Reassign Cleaner">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-ink-3">
           Not available for {booking.status} bookings. Eligible:{' '}
           {REASSIGN_ELIGIBLE_STATUSES.join(', ')}.
         </p>
@@ -1190,7 +1190,7 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
   return (
     <Section title="Reassign Cleaner">
       {!moneyOk && (
-        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+        <div className="mb-3 bg-warning/10 border border-warning/20 rounded-lg p-3 text-xs text-warning">
           Transfer status is <span className="font-medium">{booking.transferStatus}</span> —
           reassign is blocked unless PENDING or FAILED.
           {(booking.transferStatus === 'RELEASED' || booking.transferStatus === 'RELEASING') &&
@@ -1199,9 +1199,7 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
       )}
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            New cleaner (User ID)
-          </label>
+          <label className="block text-xs font-medium text-ink-3 mb-1">New cleaner (User ID)</label>
           <input
             type="text"
             value={newCleanerId}
@@ -1210,62 +1208,62 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
               reset();
             }}
             placeholder="cleaner user id"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm font-mono"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+          <label className="block text-xs font-medium text-ink-3 mb-1">Reason</label>
           <textarea
             rows={2}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Why is this booking being reassigned?"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm resize-none"
           />
         </div>
         <button
           onClick={runPreview}
           disabled={!newCleanerId.trim() || !moneyOk || previewing}
-          className="px-3 py-1.5 text-sm font-medium text-blue-700 rounded-lg border border-blue-300 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 text-sm font-medium text-primary rounded-lg border border-primary/30 hover:bg-primary-soft disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {previewing ? 'Checking…' : 'Preview price'}
         </button>
 
         {error && (
-          <div className="rounded-lg px-4 py-3 text-sm bg-red-50 text-red-800">{error}</div>
+          <div className="rounded-lg px-4 py-3 text-sm bg-danger/10 text-danger">{error}</div>
         )}
 
         {preview && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 text-sm">
+          <div className="bg-page border border-line rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between items-center">
-              <span className="text-gray-500">New cleaner</span>
+              <span className="text-ink-3">New cleaner</span>
               <span className="font-medium">{preview.newCleanerName}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-500">Price case</span>
+              <span className="text-ink-3">Price case</span>
               <StatusBadge status={preview.priceCase} variant={caseVariant(preview.priceCase)} />
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-500">Original → New</span>
+              <span className="text-ink-3">Original → New</span>
               <span>
                 £{preview.originalTotal.toFixed(2)} → £{preview.newTotal.toFixed(2)}
               </span>
             </div>
             {preview.priceCase === 'PRICIER' && (
-              <p className="text-xs text-amber-700">
+              <p className="text-xs text-warning">
                 Customer will be asked to approve a £{(preview.topupAmount ?? 0).toFixed(2)} top-up.
                 Reassign only completes on approval; on decline it reverts to the current
                 cleaner/state. The customer is never force-charged.
               </p>
             )}
             {preview.priceCase === 'CHEAPER' && (
-              <p className="text-xs text-blue-700">
+              <p className="text-xs text-primary">
                 Customer will be refunded £{(preview.refundAmount ?? 0).toFixed(2)} and the swap
                 applies immediately.
               </p>
             )}
             {preview.priceCase === 'EQUAL' && (
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-ink-2">
                 No customer charge or refund — the swap applies immediately.
               </p>
             )}
@@ -1273,12 +1271,12 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
               <button
                 onClick={runReassign}
                 disabled={!reason.trim() || submitting}
-                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Reassigning…' : 'Confirm Reassign'}
               </button>
               {!reason.trim() && (
-                <span className="ml-2 text-xs text-gray-400">Enter a reason to confirm.</span>
+                <span className="ml-2 text-xs text-ink-3">Enter a reason to confirm.</span>
               )}
             </div>
           </div>
@@ -1286,7 +1284,7 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
 
         {result && (
           <div
-            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {result.message}
           </div>
@@ -1353,13 +1351,13 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <Link href="/admin/bookings" className="text-sm text-blue-600 hover:underline">
+          <Link href="/admin/bookings" className="text-sm text-primary hover:underline">
             &larr; All bookings
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">
+          <h1 className="text-2xl font-bold text-ink mt-1">
             Booking {b.id.substring(0, 8).toUpperCase()}
           </h1>
-          <p className="text-xs text-gray-400 font-mono mt-0.5">{b.id}</p>
+          <p className="text-xs text-ink-3 font-mono mt-0.5">{b.id}</p>
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge status={b.status} />
@@ -1372,7 +1370,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
         {refundable > 0.01 && (
           <button
             onClick={() => setShowRefund(true)}
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-red-600 hover:bg-red-700"
+            className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger"
           >
             Refund (up to £{refundable.toFixed(2)})
           </button>
@@ -1383,19 +1381,19 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             <>
               {releaseState.confirming ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-ink-2">
                     Release £{n(b.cleanerEarnings).toFixed(2)} to cleaner?
                   </span>
                   <button
                     onClick={handleRelease}
                     disabled={releaseState.loading}
-                    className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm font-medium text-white rounded-lg bg-trust hover:bg-trust disabled:opacity-50"
                   >
                     {releaseState.loading ? 'Processing…' : 'Confirm Release'}
                   </button>
                   <button
                     onClick={() => setReleaseState((s) => ({ ...s, confirming: false }))}
-                    className="px-3 py-1.5 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                    className="px-3 py-1.5 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
                   >
                     Cancel
                   </button>
@@ -1403,7 +1401,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
               ) : (
                 <button
                   onClick={() => setReleaseState((s) => ({ ...s, confirming: true, result: null }))}
-                  className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-green-600 hover:bg-green-700"
+                  className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-trust hover:bg-trust"
                 >
                   Release Funds
                 </button>
@@ -1415,7 +1413,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
 
       {releaseState.result && (
         <div
-          className={`rounded-lg px-4 py-3 text-sm ${releaseState.result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+          className={`rounded-lg px-4 py-3 text-sm ${releaseState.result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
         >
           {releaseState.result.message}
         </div>
@@ -1439,22 +1437,22 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             {b.cancelledAt && <Field label="Cancelled" value={fmtDate(b.cancelledAt)} />}
           </dl>
           {b.notes && (
-            <div className="mt-3 text-sm text-gray-600">
+            <div className="mt-3 text-sm text-ink-2">
               <span className="font-medium">Notes:</span> {b.notes}
             </div>
           )}
           {b.cleanerNotes && (
-            <div className="mt-1 text-sm text-gray-600">
+            <div className="mt-1 text-sm text-ink-2">
               <span className="font-medium">Cleaner notes:</span> {b.cleanerNotes}
             </div>
           )}
           {b.adminNotes && (
-            <div className="mt-1 text-sm text-gray-600">
+            <div className="mt-1 text-sm text-ink-2">
               <span className="font-medium">Admin notes:</span> {b.adminNotes}
             </div>
           )}
           {b.cancellationReason && (
-            <div className="mt-1 text-sm text-red-600">
+            <div className="mt-1 text-sm text-danger">
               <span className="font-medium">Cancellation reason:</span> {b.cancellationReason}
             </div>
           )}
@@ -1491,18 +1489,18 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             />
           </dl>
           {b.bookingAddons.length > 0 && (
-            <div className="mt-3 border-t border-gray-100 pt-3">
-              <p className="text-xs font-medium text-gray-500 mb-1">Add-ons</p>
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-xs font-medium text-ink-3 mb-1">Add-ons</p>
               {b.bookingAddons.map((a) => (
                 <div key={a.id} className="flex justify-between text-sm">
                   <span>{a.addon.name}</span>
-                  <span className="text-gray-600">£{a.price.toFixed(2)}</span>
+                  <span className="text-ink-2">£{a.price.toFixed(2)}</span>
                 </div>
               ))}
             </div>
           )}
           {b.payment?.discountPercent && (
-            <div className="mt-2 text-sm text-gray-600">
+            <div className="mt-2 text-sm text-ink-2">
               Discount: {b.payment.discountPercent}% ({b.payment.promoCode})
               {b.payment.discountAmount && ` = £${n(b.payment.discountAmount).toFixed(2)}`}
             </div>
@@ -1541,8 +1539,8 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             <Field label="Auto-Assign Backup" value={b.autoAssignBackup ? 'Yes' : 'No'} />
           </dl>
           {b.provisionalCleanerId && (
-            <div className="mt-3 border-t border-gray-100 pt-3">
-              <p className="text-xs font-medium text-gray-500 mb-1">Provisional Acceptance</p>
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-xs font-medium text-ink-3 mb-1">Provisional Acceptance</p>
               <dl className="grid grid-cols-2 gap-x-4">
                 <Field label="Provisional Cleaner" value={b.provisionalCleanerId} />
                 <Field
@@ -1593,11 +1591,11 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
         {/* Address — A12: prefer booking columns, fall back to legacy relation. */}
         {(b.addressLine1 || b.address) && (
           <Section title="Address">
-            <p className="text-sm text-gray-900">{b.addressLine1 || b.address?.line1}</p>
+            <p className="text-sm text-ink">{b.addressLine1 || b.address?.line1}</p>
             {(b.addressLine2 || b.address?.line2) && (
-              <p className="text-sm text-gray-900">{b.addressLine2 || b.address?.line2}</p>
+              <p className="text-sm text-ink">{b.addressLine2 || b.address?.line2}</p>
             )}
-            <p className="text-sm text-gray-900">
+            <p className="text-sm text-ink">
               {b.addressCity || b.address?.city} {b.addressPostcode || b.address?.postcode}
             </p>
           </Section>
@@ -1610,9 +1608,9 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
               <Field label="Rating" value={`${n(b.review.rating)}/5`} />
               <Field label="Date" value={fmtDate(b.review.createdAt)} />
             </dl>
-            {b.review.text && <p className="text-sm text-gray-700 mt-2">{b.review.text}</p>}
+            {b.review.text && <p className="text-sm text-ink-2 mt-2">{b.review.text}</p>}
             {b.review.reply && (
-              <p className="text-sm text-gray-600 mt-1 italic">Reply: {b.review.reply}</p>
+              <p className="text-sm text-ink-2 mt-1 italic">Reply: {b.review.reply}</p>
             )}
           </Section>
         )}
@@ -1628,17 +1626,17 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
                 <Field label="Resolved" value={fmtDate(b.dispute.resolvedAt)} />
               )}
             </dl>
-            <p className="text-sm text-gray-700 mt-2">{b.dispute.description}</p>
+            <p className="text-sm text-ink-2 mt-2">{b.dispute.description}</p>
             {b.dispute.resolution && (
-              <p className="text-sm text-green-700 mt-1">Resolution: {b.dispute.resolution}</p>
+              <p className="text-sm text-trust mt-1">Resolution: {b.dispute.resolution}</p>
             )}
             {b.dispute.evidence.length > 0 && (
               <div className="mt-2">
-                <p className="text-xs font-medium text-gray-500">
+                <p className="text-xs font-medium text-ink-3">
                   Evidence ({b.dispute.evidence.length})
                 </p>
                 {b.dispute.evidence.map((e) => (
-                  <div key={e.id} className="text-sm text-blue-600">
+                  <div key={e.id} className="text-sm text-primary">
                     {e.fileName || e.type} —{' '}
                     <a href={e.url} target="_blank" rel="noopener noreferrer" className="underline">
                       View
@@ -1664,7 +1662,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs font-medium text-gray-500 uppercase">
+                <tr className="text-left text-xs font-medium text-ink-3 uppercase">
                   <th className="pb-2">Date</th>
                   <th className="pb-2">Amount</th>
                   <th className="pb-2">Status</th>
@@ -1673,19 +1671,17 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
                   <th className="pb-2">Failure</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {b.refundRecords.map((r) => (
                   <tr key={r.id}>
-                    <td className="py-2 text-gray-600">{fmtDate(r.createdAt)}</td>
+                    <td className="py-2 text-ink-2">{fmtDate(r.createdAt)}</td>
                     <td className="py-2 font-medium">£{n(r.amount).toFixed(2)}</td>
                     <td className="py-2">
                       <StatusBadge status={r.status} />
                     </td>
-                    <td className="py-2 text-gray-600 max-w-xs truncate">{r.reason}</td>
-                    <td className="py-2 text-xs text-gray-400 font-mono">
-                      {r.stripeRefundId || '—'}
-                    </td>
-                    <td className="py-2 text-red-600 text-xs">{r.failureReason || '—'}</td>
+                    <td className="py-2 text-ink-2 max-w-xs truncate">{r.reason}</td>
+                    <td className="py-2 text-xs text-ink-3 font-mono">{r.stripeRefundId || '—'}</td>
+                    <td className="py-2 text-danger text-xs">{r.failureReason || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1700,7 +1696,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs font-medium text-gray-500 uppercase">
+                <tr className="text-left text-xs font-medium text-ink-3 uppercase">
                   <th className="pb-2">Date</th>
                   <th className="pb-2">Amount</th>
                   <th className="pb-2">Status</th>
@@ -1709,19 +1705,19 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
                   <th className="pb-2">Failure</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {b.topupRecords.map((t) => (
                   <tr key={t.id}>
-                    <td className="py-2 text-gray-600">{fmtDate(t.createdAt)}</td>
+                    <td className="py-2 text-ink-2">{fmtDate(t.createdAt)}</td>
                     <td className="py-2 font-medium">£{n(t.amount).toFixed(2)}</td>
                     <td className="py-2">
                       <StatusBadge status={t.status} />
                     </td>
-                    <td className="py-2 text-gray-600">{t.paymentMethodType || '—'}</td>
-                    <td className="py-2 text-xs text-gray-400 font-mono">
+                    <td className="py-2 text-ink-2">{t.paymentMethodType || '—'}</td>
+                    <td className="py-2 text-xs text-ink-3 font-mono">
                       {t.stripePaymentIntentId || '—'}
                     </td>
-                    <td className="py-2 text-red-600 text-xs">{t.failureReason || '—'}</td>
+                    <td className="py-2 text-danger text-xs">{t.failureReason || '—'}</td>
                   </tr>
                 ))}
               </tbody>
