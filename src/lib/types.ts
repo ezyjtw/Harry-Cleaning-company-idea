@@ -172,10 +172,14 @@ export interface Dispute {
 
 export interface DisputeEvidence {
   id: string;
-  type: 'photo' | 'video' | 'text' | 'timestamp';
+  // Aligned to the Prisma EvidenceType enum (was: photo|video|text|timestamp).
+  type: 'PHOTO' | 'VIDEO' | 'TEXT' | 'DOCUMENT';
+  fileName?: string;
   description: string;
   uploadedAt: string;
   uploadedBy: 'customer' | 'cleaner';
+  // Viewer route for the (encrypted-at-rest) file; absent for legacy/text rows.
+  url?: string;
 }
 
 // ─── Booking Flow ───────────────────────────────────────────

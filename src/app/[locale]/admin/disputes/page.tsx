@@ -55,6 +55,7 @@ async function getDisputes(): Promise<AdminDispute[]> {
         },
       },
       raisedBy: { select: { id: true, name: true, role: true } },
+      evidence: { orderBy: { uploadedAt: 'asc' } },
     },
   });
 
@@ -81,6 +82,16 @@ async function getDisputes(): Promise<AdminDispute[]> {
       status,
       amount: Number(d.booking.totalPrice),
       filedBy: isFiledByCleaner ? ('cleaner' as const) : ('customer' as const),
+      // Evidence viewer links (auth'd party-or-admin decrypt-stream route). Full
+      // dispute id is used in the URL even though the display id is truncated.
+      evidence: d.evidence.map((ev) => ({
+        id: ev.id,
+        type: ev.type,
+        fileName: ev.fileName,
+        uploadedBy:
+          ev.uploadedBy === d.booking.clientId ? ('customer' as const) : ('cleaner' as const),
+        url: `/api/disputes/${d.id}/evidence/${ev.id}`,
+      })),
     };
   });
 }
