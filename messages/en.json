@@ -92,6 +92,11 @@
     "airbnbDesc": "Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.",
     "airbnbPrice": "From £45",
     "getQuote": "Book a Cleaner Now",
+    "regularLabel": "Regular",
+    "deepLabel": "Deep Clean",
+    "eotLabel": "End of Tenancy",
+    "airbnbLabel": "Airbnb",
+    "sameDayLabel": "Same Day",
     "regularIncludes": [
       "All rooms, kitchen & bathrooms",
       "Your own products or theirs",

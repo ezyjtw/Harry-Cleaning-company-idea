@@ -1,7 +1,8 @@
 /**
  * Generates section-preview.html — the restyled S3 "Our services" section rendered
- * standalone (desktop + a ~380px mobile frame), interactive tabs, realistic data,
- * incl. the proposed 3-item tick-list copy for all 5 services. For review before merge.
+ * standalone: desktop (tab row + panel) and a ~380px mobile frame (accordion),
+ * realistic data, incl. the proposed 3-item tick-list copy for all 5 services.
+ * For review before merge.
  *
  * Service photos are downscaled to embedded JPEG data-URIs (via the pre-installed
  * Chromium) so the file is self-contained and opens anywhere. Preview loads
@@ -27,10 +28,11 @@ function findChrome(): string {
   throw new Error('Chromium not found; set CHROME=/path/to/chrome');
 }
 
-// Mirrors messages/en.json Services + the SERVICE_IMAGES map in ServicesSection.tsx.
+// Bookable services first; Same Day (coming soon) last. Mirrors messages/en.json.
 const SERVICES = [
   {
     id: 'regular',
+    label: 'Regular',
     title: 'Regular cleaning',
     description:
       'Weekly or fortnightly visits with your preferred cleaner. Consistent quality at a time that works for you.',
@@ -44,21 +46,8 @@ const SERVICES = [
     soon: false,
   },
   {
-    id: 'same-day',
-    title: 'Same day cleaning',
-    description:
-      "Need a cleaner today? We'll match you with a vetted, available cleaner near you for a same-day visit.",
-    price: 'From £18/hr',
-    includes: [
-      'Matched with an available cleaner',
-      'Vetted & background-checked',
-      'Booked and cleaned today',
-    ],
-    file: 'public/images/Same day cleaning.png',
-    soon: true,
-  },
-  {
     id: 'deep',
+    label: 'Deep Clean',
     title: 'Deep cleaning',
     description:
       'Top-to-bottom. Inside appliances, skirting boards, and every corner. A thorough reset for your home.',
@@ -73,6 +62,7 @@ const SERVICES = [
   },
   {
     id: 'end-of-tenancy',
+    label: 'End of Tenancy',
     title: 'End of tenancy',
     description:
       'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
@@ -87,9 +77,9 @@ const SERVICES = [
   },
   {
     id: 'airbnb',
+    label: 'Airbnb',
     title: 'Airbnb cleaning',
-    description:
-      'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
+    description: 'Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.',
     price: 'From £45',
     includes: [
       'Fast turnarounds between guests',
@@ -98,6 +88,21 @@ const SERVICES = [
     ],
     file: 'public/images/Air BnB cleaning.png',
     soon: false,
+  },
+  {
+    id: 'same-day',
+    label: 'Same Day',
+    title: 'Same day cleaning',
+    description:
+      "Need a cleaner today? We'll match you with a vetted, available cleaner near you for a same-day visit.",
+    price: 'From £18/hr',
+    includes: [
+      'Matched with an available cleaner',
+      'Vetted & background-checked',
+      'Booked and cleaned today',
+    ],
+    file: 'public/images/Same day cleaning.png',
+    soon: true,
   },
 ];
 
@@ -147,7 +152,6 @@ function downscaleImages(): Record<string, string> {
 }
 
 const imgs = downscaleImages();
-
 const dataScript = `const SERVICES=${JSON.stringify(
   SERVICES.map((s) => ({ ...s, img: imgs[s.id] || '' }))
 )};`;
@@ -174,6 +178,7 @@ const page = `<!doctype html><html lang="en"><head>
   .sec h2{font-family:'Newsreader',serif;font-weight:500;line-height:1.1;color:var(--ink);margin-bottom:26px;}
   .desktop .sec h2{font-size:42px;} .mobile .sec h2{font-size:30px;margin-bottom:18px;}
   .card{border:1px solid var(--line);border-radius:22px;overflow:hidden;background:#fff;}
+  /* desktop tabs + panel */
   .tabs{display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;}
   .tabs::-webkit-scrollbar{display:none;}
   .tab{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border:none;border-radius:999px;padding:9px 16px;font-family:'Jost';font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;text-indent:.06em;background:transparent;color:var(--ink-2);cursor:pointer;transition:all .15s;}
@@ -183,7 +188,7 @@ const page = `<!doctype html><html lang="en"><head>
   .panel{display:grid;grid-template-columns:1.05fr .95fr;min-height:235px;}
   .content{padding:36px;}
   .content h3{font-family:'Newsreader',serif;font-weight:600;font-size:26px;color:var(--ink);margin-bottom:8px;}
-  .content .desc{font-size:14px;line-height:1.6;color:var(--ink-2);max-width:440px;margin-bottom:20px;}
+  .desc{font-size:14px;line-height:1.6;color:var(--ink-2);max-width:440px;margin-bottom:20px;}
   .inc{list-style:none;margin-bottom:24px;}
   .inc li{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}
   .inc svg{flex:none;margin-top:2px;color:var(--trust);}
@@ -195,11 +200,26 @@ const page = `<!doctype html><html lang="en"><head>
   .photo{position:relative;overflow:hidden;min-height:235px;}
   .photo img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0;}
   .photo .ph{width:100%;height:100%;background:linear-gradient(135deg,var(--primary-soft),var(--wash-to));}
-  /* mobile frame overrides */
-  .mobile .panel{display:flex;flex-direction:column;}
-  .mobile .photo{min-height:0;height:180px;order:1;}
-  .mobile .content{order:2;padding:22px;}
-  .mobile .cta{display:block;text-align:center;width:100%;}
+  /* mobile accordion */
+  .arow + .arow{border-top:1px solid var(--line);}
+  .arow-btn{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:none;border:none;text-align:left;cursor:pointer;font-family:'Jost';}
+  .arow-btn.soon{cursor:default;}
+  .arow-name{font-family:'Newsreader',serif;font-weight:500;font-size:16px;color:var(--ink);}
+  .arow-name.soon{color:var(--ink-3);}
+  .arow-right{display:flex;align-items:center;gap:8px;flex:none;}
+  .arow-price{font-size:13px;color:var(--ink-3);}
+  .chev{color:var(--ink-3);transition:transform .2s ease;}
+  .chev.open{transform:rotate(180deg);}
+  .acc-body{max-height:0;opacity:0;overflow:hidden;transition:max-height .2s ease,opacity .2s ease;}
+  .acc-body.open{max-height:760px;opacity:1;}
+  .acc-inner{padding:0 20px 22px;}
+  .acc-photo{position:relative;height:110px;border-radius:12px;overflow:hidden;margin-bottom:16px;}
+  .acc-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .acc-photo .ph{width:100%;height:100%;background:linear-gradient(135deg,var(--primary-soft),var(--wash-to));}
+  .arow-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .cta-sm{padding:10px 20px;font-size:13px;}
+  @media (prefers-reduced-motion: reduce){.acc-body,.chev{transition:none;}}
+  /* copy table */
   .copytable{max-width:1000px;margin:44px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;}
   .copytable h3{font-family:'Newsreader',serif;font-weight:600;font-size:18px;margin-bottom:12px;}
   .copytable .row{padding:12px 0;border-top:1px solid var(--line);}
@@ -210,25 +230,28 @@ const page = `<!doctype html><html lang="en"><head>
 <body>
 <div class="head">
   <h1>S3 — “Our services” section restyle</h1>
-  <p>Desktop + mobile (~380px). Click the tabs to switch services. Same Day is disabled with a SOON chip.</p>
+  <p>Desktop = tab row + panel. Mobile (~380px) = accordion (one open at a time, Same Day non-bookable). Bookable services first, Same Day last.</p>
   <p class="note">Preview note: service photos are downscaled+embedded for a self-contained file; the live section uses the existing full-res images. Fonts load from Google here; the site self-hosts Newsreader/Jost.</p>
 </div>
 <div class="frames">
   <div class="desktop"><div class="framelabel">Desktop</div><div class="sec"><div class="eyebrow">Our services</div><h2>Whatever your home needs</h2><div id="cardD"></div></div></div>
-  <div class="mobile"><div class="framelabel">Mobile ~380px</div><div class="sec"><div class="eyebrow">Our services</div><h2>Whatever your home needs</h2><div id="cardM"></div></div></div>
+  <div class="mobile"><div class="framelabel">Mobile ~380px (accordion)</div><div class="sec"><div class="eyebrow">Our services</div><h2>Whatever your home needs</h2><div id="cardM"></div></div></div>
 </div>
 <div class="copytable" id="copy"></div>
 <script>
 ${dataScript}
 const CHECK='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
+const CHEV=(open)=>'<svg class="chev'+(open?' open':'')+'" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
 function priceHtml(p){const hr=/\\/hr\\s*$/.test(p);const main=hr?p.replace(/\\/hr\\s*$/,''):p;return '<span class="price">'+main+(hr?'<span class="hr">/hr</span>':'')+'</span>';}
-function render(rootId, active){
-  const root=document.getElementById(rootId);
+
+// Desktop: tab row + panel
+function renderDesktop(active){
+  const root=document.getElementById('cardD');
   const s=SERVICES[active];
   const tabs=SERVICES.map((x,i)=>{
     const cls='tab'+(i===active?' active':'')+(x.soon?' soon':'');
     const chip=x.soon?'<span class="chip">Soon</span>':'';
-    return '<button class="'+cls+'" data-i="'+i+'" '+(x.soon?'disabled':'')+'>'+x.title.toUpperCase()+chip+'</button>';
+    return '<button class="'+cls+'" data-i="'+i+'" '+(x.soon?'disabled':'')+'>'+x.label+chip+'</button>';
   }).join('');
   const photo=s.img?'<img src="'+s.img+'" alt="'+s.title+'">':'<div class="ph"></div>';
   const inc=s.includes.map(b=>'<li>'+CHECK+'<span>'+b+'</span></li>').join('');
@@ -236,11 +259,34 @@ function render(rootId, active){
     '<div class="panel"><div class="content"><h3>'+s.title+'</h3><p class="desc">'+s.description+'</p>'+
     '<ul class="inc">'+inc+'</ul><div class="priceRow">'+priceHtml(s.price)+'<a class="cta" href="#">Book a Cleaner Now</a></div></div>'+
     '<div class="photo">'+photo+'</div></div></div>';
-  root.querySelectorAll('.tab').forEach(b=>{ if(!b.disabled) b.addEventListener('click',()=>render(rootId, +b.dataset.i)); });
+  root.querySelectorAll('.tab').forEach(b=>{ if(!b.disabled) b.addEventListener('click',()=>renderDesktop(+b.dataset.i)); });
 }
-render('cardD',0); render('cardM',0);
+
+// Mobile: accordion (one open at a time)
+let openId=SERVICES.find(s=>!s.soon).id;
+function renderMobile(){
+  const root=document.getElementById('cardM');
+  root.innerHTML='<div class="card">'+SERVICES.map((s)=>{
+    const open=!s.soon && s.id===openId;
+    const name='<span class="arow-name'+(s.soon?' soon':'')+'">'+s.label+(s.soon?'<span class="chip" style="margin-left:8px">Soon</span>':'')+'</span>';
+    const right='<span class="arow-right"><span class="arow-price">'+s.price+'</span>'+(s.soon?'':CHEV(open))+'</span>';
+    const header='<button class="arow-btn'+(s.soon?' soon':'')+'" data-id="'+s.id+'" '+(s.soon?'disabled':'')+'>'+name+right+'</button>';
+    let body='';
+    if(!s.soon){
+      const photo=s.img?'<img src="'+s.img+'" alt="'+s.title+'">':'<div class="ph"></div>';
+      const inc=s.includes.map(b=>'<li>'+CHECK+'<span>'+b+'</span></li>').join('');
+      body='<div class="acc-body'+(open?' open':'')+'"><div class="acc-inner"><div class="acc-photo">'+photo+'</div>'+
+        '<p class="desc" style="max-width:none;margin-bottom:16px">'+s.description+'</p><ul class="inc" style="margin-bottom:20px">'+inc+'</ul>'+
+        '<div class="arow-cta">'+priceHtml(s.price)+'<a class="cta cta-sm" href="#">Book a Cleaner Now</a></div></div></div>';
+    }
+    return '<div class="arow">'+header+body+'</div>';
+  }).join('')+'</div>';
+  root.querySelectorAll('.arow-btn').forEach(b=>{ if(!b.disabled) b.addEventListener('click',()=>{ openId=(openId===b.dataset.id)?'':b.dataset.id; renderMobile(); }); });
+}
+
+renderDesktop(0); renderMobile();
 document.getElementById('copy').innerHTML='<h3>Proposed “what’s included” copy — all 5 services (for approval)</h3>'+
-  SERVICES.map(s=>'<div class="row"><div class="svc">'+s.title+' · '+s.price+'</div><div class="bul">'+s.includes.join('  ·  ')+'</div></div>').join('');
+  SERVICES.map(s=>'<div class="row"><div class="svc">'+s.label+' · '+s.price+'</div><div class="bul">'+s.includes.join('  ·  ')+'</div></div>').join('');
 </script>
 </body></html>`;
 
