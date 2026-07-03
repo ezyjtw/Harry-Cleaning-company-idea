@@ -257,7 +257,7 @@ export default function CleanerJobsPage() {
     }
     if (job.isReserve) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-slate-100 text-slate-600">
+        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-ink/5 text-ink-3">
           In reserve
         </span>
       );
@@ -267,7 +267,7 @@ export default function CleanerJobsPage() {
       (job.cascadePhase === 'COMBINED_OFFER' && !job.isPrimary)
     ) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-blue-50 text-blue-600">
+        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-primary-soft text-primary">
           Backup offer
         </span>
       );
@@ -548,7 +548,7 @@ export default function CleanerJobsPage() {
                         </button>
                       )}
                       {job.isReserve && (
-                        <p className="font-jost text-xs font-light text-slate-600 text-right max-w-xs">
+                        <p className="font-jost text-xs font-light text-ink-2 text-right max-w-xs">
                           You&apos;re held in reserve. If no cleaner accepts at or below the quoted
                           price, we&apos;ll offer this to you.
                         </p>
