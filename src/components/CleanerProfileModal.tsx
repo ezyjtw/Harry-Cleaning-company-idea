@@ -37,6 +37,10 @@ interface CleanerProfileModalProps {
    *  button renders, calling this (the same selection handler as the bench). */
   onSelectBackup?: () => void;
   isSelectedBackup?: boolean;
+  /** In-flow context (e.g. the wizard browse step): the profile's "Book" button
+   *  calls this instead of navigating to /book. */
+  onBook?: () => void;
+  bookLabel?: string;
 }
 
 function minPrice(map?: Record<string, number>): number | null {
@@ -51,6 +55,8 @@ export default function CleanerProfileModal({
   postcode,
   onSelectBackup,
   isSelectedBackup,
+  onBook,
+  bookLabel,
 }: CleanerProfileModalProps) {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
 
@@ -161,6 +167,8 @@ export default function CleanerProfileModal({
     bookHref: postcode
       ? `/book/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
       : `/book/${cleaner.id}`,
+    onBook,
+    bookLabel,
     about: cleaner.bio,
     ratings,
     experience: {

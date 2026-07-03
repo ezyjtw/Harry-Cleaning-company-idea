@@ -11,6 +11,7 @@ import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import CleanerIdentity from '@/components/CleanerIdentity';
+import CleanerProfileModal from '@/components/CleanerProfileModal';
 import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -21,7 +22,7 @@ import { bedroomIndexToPropertySize } from '@/lib/constants/services';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
-import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner, Review } from '@/lib/types';
+import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner } from '@/lib/types';
 import { isValidPostcode } from '@/lib/utils/postcode';
 
 const SERVICE_LABELS: Record<ServiceCategory, string> = {
@@ -2537,7 +2538,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Cleaner grid */}
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {cleaners.map((c) => {
-                const tier = TIER_INFO[c.tier];
                 const isAlreadySelected = selectedCleanerIds.includes(c.id);
                 return (
                   <button
@@ -2548,66 +2548,28 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
                         : setProfileCleaner(c)
                     }
-                    className={`group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md ${
-                      isAlreadySelected
-                        ? 'bg-gold/5 ring-2 ring-gold'
-                        : 'bg-white ring-ink/[0.06] hover:bg-cream'
-                    }`}
+                    className="group flex flex-col rounded-[16px] border border-line bg-surface p-5 text-left transition-shadow hover:shadow-md"
                   >
-                    <div className="flex items-start gap-3.5">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-newsreader ring-1 ring-ink/[0.06] transition">
-                        {c.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
-                          <span
-                            className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
-                          >
-                            {tier.label}
+                    <CleanerIdentity
+                      photo={c.photo}
+                      name={c.name}
+                      verified={c.identityVerified || c.backgroundChecked}
+                      rating={c.rating}
+                      reviewCount={c.reviewCount}
+                      meta={
+                        <>
+                          {c.location}
+                          {' · from '}
+                          <span className="font-newsreader text-[14px] font-medium text-ink">
+                            &pound;{getServiceListedRate(c, category).toFixed(2)}
                           </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
-                          <StarRating rating={c.rating} />
-                          <span>
-                            {c.rating} ({c.reviewCount})
-                          </span>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="font-newsreader font-light text-lg text-ink">
-                          &pound;{getServiceListedRate(c, category).toFixed(2)}
-                        </span>
-                        <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
-                        <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
-                          {SERVICE_RATE_LABELS[category]}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                          <span className="text-ink-3">/hr</span>
+                        </>
+                      }
+                    />
+                    <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
                       {c.bio}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {c.specialties.slice(0, 3).map((s) => (
-                        <span
-                          key={s}
-                          className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                    {c.availableNow && (
-                      <div className="mt-2.5 flex items-center gap-1.5">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
-                        </span>
-                        <span className="font-jost text-[11px] font-medium text-ink">
-                          Available now
-                        </span>
-                      </div>
-                    )}
                   </button>
                 );
               })}
@@ -3059,16 +3021,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
       {/* ── Cleaner profile slide-out ── */}
       {profileCleaner && (
-        <CleanerProfileSlideOut
+        <CleanerProfileModal
           cleaner={profileCleaner}
-          listedRate={getServiceListedRate(profileCleaner, category)}
-          rateLabel={SERVICE_RATE_LABELS[category]}
-          effectiveHours={effectiveHours}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {
             setSelectedCleanerIds([profileCleaner.id]);
             setProfileCleaner(null);
           }}
+          bookLabel={`Book ${profileCleaner.name.split(' ')[0]}`}
         />
       )}
     </div>
@@ -3076,285 +3036,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 }
 
 // ─── Sub-components ──────────────────────────────────────────
-
-function CleanerProfileSlideOut({
-  cleaner,
-  listedRate,
-  rateLabel,
-  effectiveHours,
-  onClose,
-  onBook,
-}: {
-  cleaner: Cleaner;
-  listedRate: number;
-  rateLabel: string;
-  effectiveHours: number;
-  onClose: () => void;
-  onBook: () => void;
-}) {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const tier = TIER_INFO[cleaner.tier];
-
-  useEffect(() => {
-    fetch(`/api/cleaners/${cleaner.id}/reviews`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setReviews)
-      .catch(() => setReviews([]));
-  }, [cleaner.id]);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.body.style.overflow = '';
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal panel */}
-      <div className="relative z-10 mx-4 mt-8 mb-8 max-h-[calc(100vh-64px)] w-full max-w-2xl overflow-y-auto bg-white shadow-2xl sm:mx-6 md:mt-12">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center text-ink-3 transition-colors hover:text-ink"
-          aria-label="Close"
-        >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        {/* Header */}
-        <div className="bg-cream px-6 py-8">
-          <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white font-newsreader text-[26px] font-semibold text-ink ring-1 ring-ink/[0.06]">
-              {cleaner.name.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-newsreader text-[24px] font-semibold leading-tight text-ink">
-                  {cleaner.name}
-                </h2>
-                <span
-                  className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
-                >
-                  {tier.label}
-                </span>
-                <VerificationBadge
-                  identityVerified={cleaner.identityVerified}
-                  backgroundChecked={cleaner.backgroundChecked}
-                  size="md"
-                />
-              </div>
-              <p className="mt-1 font-jost text-[13px] font-light text-ink-3">{cleaner.location}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <StarRating rating={cleaner.rating} />
-                <span className="font-jost text-[13px] font-light text-ink-2">
-                  {cleaner.rating} ({cleaner.reviewCount} reviews)
-                </span>
-              </div>
-              {cleaner.availableNow && (
-                <div className="mt-2 flex items-center gap-1.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
-                  </span>
-                  <span className="font-jost text-[12px] font-medium text-ink">
-                    Available today &middot; responds in {cleaner.responseTime}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Price + Book now */}
-          <div className="mt-6 flex items-end justify-between">
-            <div>
-              <span className="font-newsreader text-[28px] font-semibold text-ink">
-                &pound;{listedRate.toFixed(2)}
-              </span>
-              <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
-              <span className="ml-3 font-jost text-[13px] font-light text-ink-3">
-                &pound;{(listedRate * effectiveHours).toFixed(2)} for {effectiveHours}h
-              </span>
-              <p className="font-jost font-light text-[11px] text-ink-3 mt-0.5">{rateLabel}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onBook}
-              className="bg-ink px-6 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
-            >
-              Book now
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="px-6 py-8">
-          {/* Bio */}
-          <p className="font-jost text-[14px] font-light leading-relaxed text-ink-2">
-            {cleaner.bio}
-          </p>
-
-          {/* Specialties */}
-          <div className="mt-5 flex flex-wrap gap-2">
-            {cleaner.specialties.map((s) => (
-              <span
-                key={s}
-                className="rounded-full bg-cream px-3 py-1 font-jost text-[12px] font-medium text-ink-2"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-
-          {/* Stats */}
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[
-              { value: `${cleaner.yearsExperience}`, label: 'Years exp.' },
-              { value: `${cleaner.completedJobs}`, label: 'Jobs done' },
-              { value: `${cleaner.rating}`, label: 'Avg rating' },
-              { value: cleaner.responseTime, label: 'Response' },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="font-newsreader text-[22px] font-semibold text-ink">
-                  {stat.value}
-                </div>
-                <div className="font-jost text-[11px] font-light text-ink-3">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Detailed ratings */}
-          <div className="mt-8">
-            <h3 className="font-newsreader text-[18px] font-semibold text-ink">Ratings</h3>
-            <div className="mt-4 space-y-3">
-              {[
-                { label: 'Thoroughness', value: cleaner.categoryRatings.thoroughness },
-                { label: 'Punctuality', value: cleaner.categoryRatings.punctuality },
-                { label: 'Communication', value: cleaner.categoryRatings.communication },
-                { label: 'Value', value: cleaner.categoryRatings.value },
-              ].map((r) => (
-                <div key={r.label} className="flex items-center gap-3">
-                  <span className="w-28 font-jost text-[13px] font-light text-ink-2">
-                    {r.label}
-                  </span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-cream-2">
-                    <div
-                      className="h-full rounded-full bg-ink"
-                      style={{ width: `${(r.value / 5) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-8 text-right font-jost text-[13px] font-medium text-ink">
-                    {r.value.toFixed(1)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Availability */}
-          <div className="mt-8">
-            <h3 className="font-newsreader text-[18px] font-semibold text-ink">Availability</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                <span
-                  key={day}
-                  className={`rounded-full px-3.5 py-1.5 font-jost text-[12px] font-medium ${
-                    cleaner.availability.includes(day) ? 'bg-ink text-cream' : 'bg-cream text-ink-3'
-                  }`}
-                >
-                  {day}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Languages */}
-          {cleaner.languages.length > 0 && (
-            <div className="mt-6">
-              <h3 className="font-newsreader text-[18px] font-semibold text-ink">Languages</h3>
-              <p className="mt-2 font-jost text-[13px] font-light text-ink-2">
-                {cleaner.languages.join(', ')}
-              </p>
-            </div>
-          )}
-
-          {/* Reviews */}
-          {reviews.length > 0 && (
-            <div className="mt-8">
-              <h3 className="font-newsreader text-[18px] font-semibold text-ink">
-                Reviews ({reviews.length})
-              </h3>
-              <div className="mt-4 space-y-4">
-                {reviews.slice(0, 4).map((review) => (
-                  <div key={review.id} className="border-t border-ink/5 pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-jost text-[13px] font-medium text-ink">
-                          {review.customerName}
-                        </span>
-                        {review.verified && (
-                          <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-teal">
-                            Verified
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-jost text-[11px] font-light text-ink-3">
-                        {review.date}
-                      </span>
-                    </div>
-                    <div className="mt-1">
-                      <StarRating rating={review.rating} />
-                    </div>
-                    <p className="mt-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                      {review.comment}
-                    </p>
-                    {review.cleanerReply && (
-                      <div className="mt-3 rounded-md bg-cream px-4 py-3">
-                        <p className="font-jost text-[12px] font-medium text-ink">
-                          {cleaner.name} replied
-                        </p>
-                        <p className="mt-1 font-jost text-[12px] font-light text-ink-2">
-                          {review.cleanerReply}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Bottom book button */}
-          <div className="mt-8 border-t border-ink/5 pt-6">
-            <button
-              type="button"
-              onClick={onBook}
-              className="w-full bg-ink py-3.5 font-jost text-sm font-semibold text-white transition hover:bg-gold"
-            >
-              Book {cleaner.name} &middot; &pound;{listedRate.toFixed(2)}/hr
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function Counter({
   label,

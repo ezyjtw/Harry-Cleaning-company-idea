@@ -60,10 +60,16 @@ export default function CleanerIdentity({
       <div className="min-w-0 flex-1">
         <h3 className="truncate font-newsreader text-[19px] font-semibold text-ink">{name}</h3>
         <div className="mt-1 flex items-center gap-1.5">
-          <StarRating rating={rating} />
-          <span className="font-jost text-[12px] font-light text-ink-2">
-            {rating} ({reviewCount})
-          </span>
+          {reviewCount > 0 ? (
+            <>
+              <StarRating rating={rating} />
+              <span className="font-jost text-[12px] font-light text-ink-2">
+                {rating} ({reviewCount})
+              </span>
+            </>
+          ) : (
+            <span className="font-jost text-[12px] font-light text-ink-3">New to Rena</span>
+          )}
         </div>
         {meta && <p className="mt-1 font-jost text-[12.5px] text-ink-3">{meta}</p>}
         {children}
