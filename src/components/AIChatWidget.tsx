@@ -181,7 +181,7 @@ export default function AIChatWidget() {
         >
           <div className="flex items-center gap-3">
             <div
-              className="flex h-9 w-9 items-center justify-center font-cormorant text-lg font-light"
+              className="flex h-9 w-9 items-center justify-center font-newsreader text-lg font-medium"
               style={{ background: 'rgba(255,255,255,0.12)', color: '#F7F9FC' }}
             >
               R
@@ -223,7 +223,7 @@ export default function AIChatWidget() {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center mt-10 px-6">
-              <p className="font-cormorant text-xl font-light" style={{ color: '#1B2A4A' }}>
+              <p className="font-newsreader text-xl font-medium" style={{ color: '#1B2A4A' }}>
                 How can we help?
               </p>
               <p className="mt-2 font-jost text-xs font-light" style={{ color: '#7A8A9E' }}>

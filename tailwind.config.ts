@@ -78,8 +78,8 @@ const config: Config = {
         serif: ['var(--font-newsreader)', 'Georgia', 'Cambria', 'serif'],
         newsreader: ['var(--font-newsreader)', 'serif'],
         jost: ['var(--font-jost)', 'sans-serif'],
-        // Cormorant RETIRED -> remapped to Newsreader (font-cormorant usages inherit it).
-        cormorant: ['var(--font-newsreader)', 'serif'],
+        // Cormorant RETIRED and PURGED — the alias is gone; all usages are now
+        // font-newsreader. Do not reintroduce a cormorant key.
         etna: ['"Etna Sans Serif"', 'sans-serif'],
       },
       fontSize: {

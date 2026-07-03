@@ -128,7 +128,7 @@ export default function ContactPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
-            <h2 className="mt-6 font-cormorant text-2xl font-light text-ink">Message Sent!</h2>
+            <h2 className="mt-6 font-newsreader text-2xl font-semibold text-ink">Message Sent!</h2>
             <p className="mt-3 font-jost font-light text-ink-2">
               Thank you for getting in touch, {form.name.split(' ')[0]}. We have received your
               enquiry and will get back to you within 24 hours.
@@ -156,7 +156,7 @@ export default function ContactPage() {
     <main className="min-h-screen bg-cream">
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="font-cormorant text-3xl font-light tracking-tight text-ink sm:text-4xl">
+          <h1 className="font-newsreader text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Contact Us
           </h1>
           <p className="mt-3 font-jost text-lg font-light text-ink-2">

@@ -99,7 +99,7 @@ export default function FunnelAnalyticsPage() {
             <Link href="/admin" className="font-jost text-sm text-ink-3 hover:text-ink">
               &larr; Admin Dashboard
             </Link>
-            <h1 className="mt-1 font-cormorant text-2xl font-light text-ink">Funnel Analytics</h1>
+            <h1 className="mt-1 font-newsreader text-2xl font-semibold text-ink">Funnel Analytics</h1>
             <p className="font-jost text-sm font-light text-ink-3">
               Track where customers drop off and identify friction points
             </p>
@@ -160,7 +160,7 @@ export default function FunnelAnalyticsPage() {
           <div className="space-y-8">
             {/* ─── Funnel Visualisation ─── */}
             <section>
-              <h2 className="mb-4 font-cormorant text-xl font-light text-ink">Conversion Funnel</h2>
+              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Conversion Funnel</h2>
               {funnelData.length === 0 ? (
                 <p className="py-8 text-center font-jost text-sm text-ink-3">
                   No funnel data yet. Events will appear here as users interact with the{' '}
@@ -208,7 +208,7 @@ export default function FunnelAnalyticsPage() {
 
             {/* ─── Drop-Off Analysis ─── */}
             <section>
-              <h2 className="mb-4 font-cormorant text-xl font-light text-ink">Drop-Off Hotspots</h2>
+              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Drop-Off Hotspots</h2>
               {dropOffData.length === 0 ? (
                 <p className="py-8 text-center font-jost text-sm text-ink-3">
                   No drop-off events recorded yet.
@@ -271,7 +271,7 @@ export default function FunnelAnalyticsPage() {
 
             {/* ─── Form Errors ─── */}
             <section>
-              <h2 className="mb-4 font-cormorant text-xl font-light text-ink">
+              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">
                 Form Friction Points
               </h2>
               <p className="mb-3 font-jost text-sm text-ink-3">
@@ -310,7 +310,7 @@ export default function FunnelAnalyticsPage() {
 
             {/* ─── Step Timing ─── */}
             <section>
-              <h2 className="mb-4 font-cormorant text-xl font-light text-ink">Time per Step</h2>
+              <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Time per Step</h2>
               <p className="mb-3 font-jost text-sm text-ink-3">
                 High average times may indicate confusion or too many required fields
               </p>

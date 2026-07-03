@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
                 />
               </svg>
             </div>
-            <h1 className="font-cormorant text-3xl font-light text-ink">Check Your Email</h1>
+            <h1 className="font-newsreader text-3xl font-semibold text-ink">Check Your Email</h1>
             <p className="mt-4 font-jost text-sm font-light text-ink-2 leading-relaxed">
               If an account exists for <span className="font-normal text-ink">{email}</span>,
               we&apos;ve sent password reset instructions to your inbox.
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <div>
-            <h1 className="text-center font-cormorant text-3xl font-light text-ink">
+            <h1 className="text-center font-newsreader text-3xl font-semibold text-ink">
               Forgot Password?
             </h1>
             <p className="mt-3 text-center font-jost text-sm font-light text-ink-2">

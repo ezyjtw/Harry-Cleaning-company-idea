@@ -17,7 +17,7 @@ export default function SameDayComingSoonBanner() {
             />
           </svg>
         </div>
-        <h1 className="font-cormorant text-2xl font-light text-ink sm:text-3xl">
+        <h1 className="font-newsreader text-2xl font-semibold text-ink sm:text-3xl">
           Same-day cleaning is coming soon
         </h1>
         <p className="mx-auto mt-3 max-w-md font-jost text-sm font-light text-ink-3">

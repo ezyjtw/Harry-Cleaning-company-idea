@@ -187,7 +187,7 @@ export default function CleanerImportedReviewsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 lg:px-10 lg:py-10">
       <header className="mb-6">
-        <h1 className="font-cormorant text-[26px] font-semibold text-ink">Imported reviews</h1>
+        <h1 className="font-newsreader text-[26px] font-semibold text-ink">Imported reviews</h1>
         <p className="mt-1 font-jost text-sm font-light text-ink-2">
           Bring reviews from other platforms (Google, Checkatrade, a personal reference) onto your
           Rena profile. Each is checked by our team before it appears publicly, and is always
@@ -202,7 +202,7 @@ export default function CleanerImportedReviewsPage() {
         style={{ border: '1px solid rgba(14,14,12,0.06)' }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-jost text-[15px] font-medium text-ink">Add an imported review</h2>
+          <h2 className="font-newsreader text-[15px] font-semibold text-ink">Add an imported review</h2>
           <span className="font-jost text-[12px] font-light text-ink-3">
             {remaining} of {maxAllowed} remaining
           </span>
@@ -384,7 +384,7 @@ export default function CleanerImportedReviewsPage() {
 
       {/* Existing submissions with status badges */}
       <section className="mt-8">
-        <h2 className="mb-3 font-jost text-[15px] font-medium text-ink">Your imported reviews</h2>
+        <h2 className="mb-3 font-newsreader text-[15px] font-semibold text-ink">Your imported reviews</h2>
 
         {loading ? (
           <div className="space-y-3">

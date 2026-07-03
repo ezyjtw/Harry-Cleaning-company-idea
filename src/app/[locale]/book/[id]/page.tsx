@@ -286,7 +286,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   if (!cleaner) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-page">
-        <h1 className="font-newsreader text-2xl font-light text-ink">Cleaner not found</h1>
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">Cleaner not found</h1>
       </div>
     );
   }
@@ -466,7 +466,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   if (paymentStep && clientSecret) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-page">
-        <h1 className="font-newsreader text-3xl font-light text-ink text-center">
+        <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
           Complete Payment
         </h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
@@ -510,7 +510,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               style={{ borderTop: '0.5px solid #E4E9F0' }}
             >
               <span className="font-normal text-ink">Total</span>
-              <span className="font-newsreader text-2xl font-light text-primary">
+              <span className="font-newsreader text-2xl font-medium text-primary">
                 &pound;{priceBreakdown.total.toFixed(2)}
               </span>
             </div>
@@ -542,7 +542,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <div className="mx-auto flex h-16 w-16 items-center justify-center bg-primary-soft text-3xl text-primary">
           &#10003;
         </div>
-        <h1 className="mt-6 font-newsreader text-3xl font-light text-ink">
+        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
           {isLastMinute ? 'Express Booking Sent!' : 'Booking Confirmed!'}
         </h1>
         <p className="mt-4 font-jost font-light text-ink-2">
@@ -588,7 +588,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <div className="mt-2 pt-2" style={{ borderTop: '0.5px solid #E4E9F0' }}>
               <div className="flex justify-between">
                 <span className="font-normal text-ink">Total</span>
-                <span className="font-newsreader text-lg font-light text-primary">
+                <span className="font-newsreader text-lg font-medium text-primary">
                   &pound;{priceBreakdown.total.toFixed(2)}
                 </span>
               </div>
@@ -772,7 +772,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           Change service type
         </button>
       )}
-      <h1 className="mt-2 font-newsreader text-3xl font-light text-ink">
+      <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink">
         {isExpress ? 'Express Booking' : 'Book a Cleaning'}
       </h1>
 
@@ -1179,7 +1179,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     style={{ borderTop: '0.5px solid #E4E9F0' }}
                   >
                     <span className="font-normal text-ink">Total</span>
-                    <span className="font-newsreader text-2xl font-light text-primary">
+                    <span className="font-newsreader text-2xl font-medium text-primary">
                       &pound;{priceBreakdown.total.toFixed(2)}
                     </span>
                   </div>
@@ -1270,7 +1270,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   style={{ borderTop: '0.5px solid #E4E9F0' }}
                 >
                   <span className="font-normal text-ink">Total</span>
-                  <span className="font-newsreader text-2xl font-light text-primary">
+                  <span className="font-newsreader text-2xl font-medium text-primary">
                     &pound;{priceBreakdown.total.toFixed(2)}
                   </span>
                 </div>

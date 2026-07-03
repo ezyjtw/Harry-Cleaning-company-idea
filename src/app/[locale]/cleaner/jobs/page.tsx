@@ -311,7 +311,7 @@ export default function CleanerJobsPage() {
   return (
     <div className="bg-cream min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-cormorant text-2xl font-light text-ink">My Jobs</h1>
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">My Jobs</h1>
         <p className="font-jost text-sm font-light text-ink-3 mt-1">
           Manage your cleaning bookings
         </p>
@@ -385,7 +385,7 @@ export default function CleanerJobsPage() {
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
             />
           </svg>
-          <h3 className="mt-4 font-cormorant text-lg font-light text-ink">
+          <h3 className="mt-4 font-newsreader text-lg font-semibold text-ink">
             {emptyMessages[activeTab].title}
           </h3>
           <p className="mt-1 font-jost text-sm font-light text-ink-3">
@@ -462,7 +462,7 @@ export default function CleanerJobsPage() {
                   <div className="flex flex-col items-end gap-3">
                     {job.isProvisional ? (
                       <div className="text-right">
-                        <p className="font-cormorant text-2xl font-light text-ink">
+                        <p className="font-newsreader text-2xl font-medium text-ink">
                           &pound;{job.cleanerEarnings.toFixed(2)}
                         </p>
                         <p className="font-jost text-xs font-medium text-amber-600 mt-1">
@@ -473,7 +473,7 @@ export default function CleanerJobsPage() {
                       job.viewerEarnings !== null &&
                       job.viewerEarnings !== undefined ? (
                       <div className="text-right">
-                        <p className="font-cormorant text-2xl font-light text-ink">
+                        <p className="font-newsreader text-2xl font-medium text-ink">
                           &pound;{job.viewerEarnings.toFixed(2)}
                         </p>
                         <p className="font-jost text-[11px] text-ink-3">
@@ -485,7 +485,7 @@ export default function CleanerJobsPage() {
                       </div>
                     ) : (
                       <div className="text-right">
-                        <p className="font-cormorant text-2xl font-light text-ink">
+                        <p className="font-newsreader text-2xl font-medium text-ink">
                           &pound;{job.cleanerEarnings.toFixed(2)}
                         </p>
                         <p className="font-jost text-[11px] text-ink-3">

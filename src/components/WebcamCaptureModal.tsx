@@ -113,7 +113,7 @@ export default function WebcamCaptureModal({
         style={{ border: '1px solid rgba(14,14,12,0.1)' }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-cormorant text-lg font-light text-ink">Take Photo</h3>
+          <h3 className="font-newsreader text-lg font-semibold text-ink">Take Photo</h3>
           <button
             type="button"
             onClick={() => {

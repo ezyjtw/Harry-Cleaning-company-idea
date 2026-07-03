@@ -293,7 +293,7 @@ export default function CustomerDashboard() {
       {/* Section 1: Greeting + CTA */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-cormorant text-2xl font-light text-ink">Hello, {firstName}</h1>
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Hello, {firstName}</h1>
           <p className="mt-1 font-jost text-sm font-light text-ink-3">Welcome to your dashboard</p>
         </div>
         {mostRecentCleaner ? (
@@ -323,7 +323,7 @@ export default function CustomerDashboard() {
             className="flex items-center justify-between px-6 py-4"
             style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
           >
-            <h2 className="font-cormorant text-lg font-light text-ink">Upcoming Bookings</h2>
+            <h2 className="font-newsreader text-lg font-semibold text-ink">Upcoming Bookings</h2>
             {upcomingBookings.length > 0 && (
               <Link
                 href="/account/bookings"
@@ -412,7 +412,7 @@ export default function CustomerDashboard() {
                         </p>
                       )}
                     </div>
-                    <p className="font-cormorant text-lg font-light text-ink">
+                    <p className="font-newsreader text-lg font-medium text-ink">
                       £{Number(booking.totalPrice).toFixed(2)}
                     </p>
                   </Link>
@@ -426,7 +426,7 @@ export default function CustomerDashboard() {
       {/* Section 3: Recent Cleaners — hidden if none */}
       {recentCleaners.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-cormorant text-lg font-light text-ink">Your Cleaners</h2>
+          <h2 className="mb-4 font-newsreader text-lg font-semibold text-ink">Your Cleaners</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {recentCleaners.map((cleaner) => (
               <Link
@@ -458,7 +458,7 @@ export default function CustomerDashboard() {
       {/* Section 4: Unreviewed completed bookings — hidden if none */}
       {unreviewedBookings.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-cormorant text-lg font-light text-ink">Leave a Review</h2>
+          <h2 className="mb-4 font-newsreader text-lg font-semibold text-ink">Leave a Review</h2>
           <div className="space-y-3">
             {unreviewedBookings.map((booking) => (
               <div
@@ -503,7 +503,7 @@ export default function CustomerDashboard() {
 
       {/* Section 5: Account Quick Links */}
       <section>
-        <h2 className="mb-4 font-cormorant text-lg font-light text-ink">Quick Links</h2>
+        <h2 className="mb-4 font-newsreader text-lg font-semibold text-ink">Quick Links</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Link
             href="/account"

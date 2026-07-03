@@ -160,9 +160,14 @@ export async function middleware(request: NextRequest) {
     [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      // Fonts are self-hosted via next/font (Newsreader/Jost) + a same-origin
+      // @font-face (Etna) — no Google Fonts at runtime, so the CSP no longer
+      // allows fonts.googleapis.com / fonts.gstatic.com. (The dev-only preview
+      // script scripts/generate-cleaner-preview.ts pulls from Google, but it
+      // renders static HTML offline and is never served by the app.)
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data: https://fonts.gstatic.com",
+      "font-src 'self' data:",
       "connect-src 'self' https://api.stripe.com https://m.stripe.network https://*.sentry.io https://api.postcodes.io",
       'frame-src https://js.stripe.com https://hooks.stripe.com',
       "object-src 'none'",

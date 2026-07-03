@@ -274,7 +274,7 @@ export default function CleanerProfilePage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-cormorant text-2xl font-light text-ink">Edit Profile</h1>
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">Edit Profile</h1>
         <p className="font-jost text-sm font-light text-ink-3 mt-1">
           Update your public profile information
         </p>
@@ -328,7 +328,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             Profile Photo{!isPhotoComplete && incompleteBadge}
           </h2>
           <div className="flex items-center gap-6">
@@ -434,7 +434,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             Personal Information{!isPostcodeComplete && incompleteBadge}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -483,7 +483,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             About You{!isBioComplete && incompleteBadge}
           </h2>
           <textarea
@@ -507,7 +507,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Experience</h2>
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Experience</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
             How many years have you been cleaning professionally?
           </p>
@@ -534,7 +534,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             Specialties{!isSpecialtiesComplete && incompleteBadge}
           </h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
@@ -582,7 +582,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             Languages Spoken{!isLanguagesComplete && incompleteBadge}
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -647,7 +647,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Service Area</h2>
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Service Area</h2>
 
           <div className="mb-5">
             <p className="font-jost text-sm font-light text-ink-2 mb-3">
@@ -698,7 +698,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Hourly Rate</h2>
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Hourly Rate</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
             Set your base hourly rate. You can adjust this at any time.
           </p>
@@ -729,7 +729,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             Temporary Rate Modifier
           </h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-4">
@@ -897,7 +897,7 @@ export default function CleanerProfilePage() {
           className="rounded-xl bg-white p-6"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
             Public Liability Insurance
             {insuranceStatus && !insuranceStatus.insuranceVerified && incompleteBadge}
           </h2>

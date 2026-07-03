@@ -179,7 +179,7 @@ export default function CleanerPricingPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-cormorant text-2xl font-light text-ink">Pricing</h1>
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">Pricing</h1>
         <p className="font-jost text-sm font-light text-ink-3 mt-1">
           Manage your rates and the services you offer
         </p>
@@ -228,7 +228,7 @@ export default function CleanerPricingPage() {
       <div className="space-y-6">
         {/* Service types */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-2">Services Offered</h2>
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-2">Services Offered</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-4">
             Select the cleaning services you want to offer
           </p>
@@ -277,7 +277,7 @@ export default function CleanerPricingPage() {
         {/* Per-service hourly rates */}
         {serviceTypes.filter((s) => SERVICE_RATE_INFO[s]?.hourly).length > 0 && (
           <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-cormorant text-lg font-light text-ink mb-2">Hourly Rates</h2>
+            <h2 className="font-newsreader text-lg font-semibold text-ink mb-2">Hourly Rates</h2>
             <p className="font-jost text-sm font-light text-ink-2 mb-4">
               Set your hourly rate for each service type you offer
             </p>
@@ -324,7 +324,7 @@ export default function CleanerPricingPage() {
         {/* EOT & Airbnb fixed-price tables */}
         {(serviceTypes.includes('end_of_tenancy') || serviceTypes.includes('airbnb')) && (
           <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-            <h2 className="font-cormorant text-lg font-light text-ink mb-2">
+            <h2 className="font-newsreader text-lg font-semibold text-ink mb-2">
               Fixed-Price Services
             </h2>
             <p className="font-jost text-sm font-light text-ink-2 mb-5">
@@ -333,7 +333,7 @@ export default function CleanerPricingPage() {
 
             {serviceTypes.includes('end_of_tenancy') && (
               <div className="mb-6">
-                <h3 className="font-jost text-sm font-medium text-ink mb-3">
+                <h3 className="font-newsreader text-sm font-semibold text-ink mb-3">
                   {serviceTypeLabel('end_of_tenancy')}
                 </h3>
                 <div
@@ -394,7 +394,7 @@ export default function CleanerPricingPage() {
 
             {serviceTypes.includes('airbnb') && (
               <div className="mb-6">
-                <h3 className="font-jost text-sm font-medium text-ink mb-3">
+                <h3 className="font-newsreader text-sm font-semibold text-ink mb-3">
                   {serviceTypeLabel('airbnb')}
                 </h3>
                 <div
@@ -468,7 +468,7 @@ export default function CleanerPricingPage() {
 
         {/* Hours per week */}
         <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-lg font-light text-ink mb-4">Typical Working Hours</h2>
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Typical Working Hours</h2>
           <div className="flex items-center gap-3">
             <input
               type="number"

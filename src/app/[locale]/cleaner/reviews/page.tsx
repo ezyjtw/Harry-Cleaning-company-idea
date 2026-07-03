@@ -343,7 +343,7 @@ export default function ReviewsPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-cormorant text-2xl font-light text-ink">Reviews</h1>
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">Reviews</h1>
         <p className="font-jost text-sm font-light text-ink-2 mt-1">
           See what your customers are saying
         </p>
@@ -355,7 +355,7 @@ export default function ReviewsPage() {
         style={{ border: '1px solid rgba(14,14,12,0.06)' }}
       >
         <div className="flex items-center justify-between mb-1">
-          <h2 className="font-cormorant text-lg font-light text-ink">Client Testimonials</h2>
+          <h2 className="font-newsreader text-lg font-semibold text-ink">Client Testimonials</h2>
           <div className="flex items-center gap-2">
             {testimonialsSaved && (
               <span className="font-jost text-xs font-light text-green-600 flex items-center gap-1">
@@ -438,7 +438,7 @@ export default function ReviewsPage() {
           className="rounded-xl bg-white p-6 text-center"
           style={{ border: '1px solid rgba(14,14,12,0.06)' }}
         >
-          <p className="font-cormorant text-5xl font-light text-ink">{overallRating}</p>
+          <p className="font-newsreader text-5xl font-medium text-ink">{overallRating}</p>
           <div className="flex items-center justify-center gap-1 mt-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <svg

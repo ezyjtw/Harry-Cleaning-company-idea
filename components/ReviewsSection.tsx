@@ -54,7 +54,7 @@ export default function ReviewsSection() {
         <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-white/70">
           {t('sectionTitle')}
         </p>
-        <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-white md:mb-14 md:text-[42px]">
+        <h2 className="mb-10 font-newsreader text-[32px] font-semibold leading-tight text-white md:mb-14 md:text-[42px]">
           {t('sectionSubtitle')}
         </h2>
 

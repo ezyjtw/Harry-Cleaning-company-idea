@@ -13,7 +13,7 @@ export default function HowItWorksPage() {
       {/* Header */}
       <section className="bg-ink py-12 sm:py-16">
         <div className="container-page text-center">
-          <h1 className="font-cormorant font-light text-cream">How Rena Works</h1>
+          <h1 className="font-newsreader font-semibold text-cream">How Rena Works</h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg font-jost font-light text-cream/80">
             Getting a clean home has never been easier. Here&apos;s how it works for customers and
             cleaners.
@@ -24,7 +24,7 @@ export default function HowItWorksPage() {
       {/* For Customers */}
       <section className="section bg-cream">
         <div className="container-page">
-          <h2 className="text-center font-cormorant font-light text-ink">For Customers</h2>
+          <h2 className="text-center font-newsreader font-semibold text-ink">For Customers</h2>
           <div className="mx-auto mt-4 flex justify-center">
             <div className="w-8 h-px bg-gold" />
           </div>
@@ -52,11 +52,11 @@ export default function HowItWorksPage() {
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-5">
-                <div className="shrink-0 font-cormorant text-[40px] font-light text-cream-2 leading-none">
+                <div className="shrink-0 font-newsreader text-[40px] font-medium text-cream-2 leading-none">
                   {item.step}
                 </div>
                 <div>
-                  <h3 className="text-lg font-normal text-ink font-jost">{item.title}</h3>
+                  <h3 className="text-lg font-semibold text-ink font-newsreader">{item.title}</h3>
                   <p className="mt-1 font-jost font-light text-ink-2">{item.desc}</p>
                 </div>
               </div>
@@ -68,7 +68,7 @@ export default function HowItWorksPage() {
       {/* For Cleaners */}
       <section className="section bg-cream-2">
         <div className="container-page">
-          <h2 className="text-center font-cormorant font-light text-ink">For Cleaners</h2>
+          <h2 className="text-center font-newsreader font-semibold text-ink">For Cleaners</h2>
           <div className="mx-auto mt-4 flex justify-center">
             <div className="w-8 h-px bg-gold" />
           </div>
@@ -96,11 +96,11 @@ export default function HowItWorksPage() {
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-5">
-                <div className="shrink-0 font-cormorant text-[40px] font-light text-cream-2 leading-none">
+                <div className="shrink-0 font-newsreader text-[40px] font-medium text-cream-2 leading-none">
                   {item.step}
                 </div>
                 <div>
-                  <h3 className="text-lg font-normal text-ink font-jost">{item.title}</h3>
+                  <h3 className="text-lg font-semibold text-ink font-newsreader">{item.title}</h3>
                   <p className="mt-1 font-jost font-light text-ink-2">{item.desc}</p>
                 </div>
               </div>
@@ -117,7 +117,7 @@ export default function HowItWorksPage() {
             style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
           >
             <div>
-              <h3 className="text-xl font-normal text-ink font-cormorant font-light">
+              <h3 className="text-xl font-semibold text-ink font-newsreader font-semibold">
                 Ready to get started?
               </h3>
               <p className="mt-1 font-jost font-light text-ink-2">

@@ -252,7 +252,7 @@ export default function DateTimePicker({
     <div className="space-y-6">
       {/* Date selection */}
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-        <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">{dateLabel}</h2>
+        <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">{dateLabel}</h2>
         {dateSubtitle && (
           <p className="mt-2 font-jost text-sm font-light text-ink-3">{dateSubtitle}</p>
         )}
@@ -447,7 +447,7 @@ export default function DateTimePicker({
       {/* Time selection — appears below calendar after date click */}
       {selectedDate && (
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-          <h2 className="font-cormorant text-xl font-light text-ink sm:text-2xl">{timeLabel}</h2>
+          <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">{timeLabel}</h2>
           {timeSubtitle && (
             <p className="mt-2 font-jost text-sm font-light text-ink-3">{timeSubtitle}</p>
           )}

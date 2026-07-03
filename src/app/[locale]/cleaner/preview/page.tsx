@@ -160,7 +160,7 @@ export default function ProfilePreviewPage() {
           className="w-full h-full object-cover"
         />
       ) : (
-        <span className={`font-cormorant ${textSize} font-semibold text-ink`}>
+        <span className={`font-newsreader ${textSize} font-semibold text-ink`}>
           {data.name.charAt(0)}
         </span>
       )}
@@ -172,7 +172,7 @@ export default function ProfilePreviewPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-cormorant text-2xl font-light text-ink">Profile Preview</h1>
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Profile Preview</h1>
           <p className="font-jost text-sm font-light text-ink-3 mt-1">
             See how customers view your profile on the website
           </p>
@@ -302,7 +302,7 @@ export default function ProfilePreviewPage() {
                 {avatar(80, 'text-[32px]')}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
-                    <h2 className="font-cormorant text-[28px] font-light leading-tight text-ink sm:text-[34px] uppercase">
+                    <h2 className="font-newsreader text-[28px] font-semibold leading-tight text-ink sm:text-[34px] uppercase">
                       {data.name}
                     </h2>
                     {verifiedBadge('h-5 w-5')}
@@ -340,7 +340,7 @@ export default function ProfilePreviewPage() {
                 </div>
                 <div className="text-right">
                   <div>
-                    <span className="font-cormorant text-[32px] font-semibold text-ink">
+                    <span className="font-newsreader text-[32px] font-semibold text-ink">
                       &pound;{listedRate.toFixed(2)}
                     </span>
                     <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
@@ -368,7 +368,7 @@ export default function ProfilePreviewPage() {
             <div className="px-6 py-8 md:px-10 md:py-10">
               {/* About */}
               <section>
-                <h3 className="font-cormorant text-[22px] font-semibold text-ink">About</h3>
+                <h3 className="font-newsreader text-[22px] font-semibold text-ink">About</h3>
                 <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
                   {data.bio || 'No bio added yet.'}
                 </p>
@@ -383,7 +383,7 @@ export default function ProfilePreviewPage() {
                   { value: '~15 min', label: 'Response time' },
                 ].map((stat) => (
                   <div key={stat.label} className="bg-cream px-4 py-5 text-center">
-                    <div className="font-cormorant text-[26px] font-semibold text-ink">
+                    <div className="font-newsreader text-[26px] font-semibold text-ink">
                       {stat.value}
                     </div>
                     <div className="mt-1 font-jost text-[12px] font-light text-ink-3">
@@ -396,7 +396,7 @@ export default function ProfilePreviewPage() {
               {/* Languages */}
               {data.languages.length > 0 && (
                 <section className="mt-8">
-                  <h3 className="font-cormorant text-[22px] font-semibold text-ink">Languages</h3>
+                  <h3 className="font-newsreader text-[22px] font-semibold text-ink">Languages</h3>
                   <p className="mt-2 font-jost text-[14px] font-light text-ink-2">
                     {data.languages.join(', ')}
                   </p>
@@ -405,7 +405,7 @@ export default function ProfilePreviewPage() {
 
               {/* Availability */}
               <section className="mt-8">
-                <h3 className="font-cormorant text-[22px] font-semibold text-ink">Availability</h3>
+                <h3 className="font-newsreader text-[22px] font-semibold text-ink">Availability</h3>
                 <AvailabilityCalendar
                   slots={data.availabilitySlots}
                   blockedDates={data.blockedDates}
@@ -414,7 +414,7 @@ export default function ProfilePreviewPage() {
 
               {/* Reviews */}
               <section className="mt-8">
-                <h3 className="font-cormorant text-[22px] font-semibold text-ink">
+                <h3 className="font-newsreader text-[22px] font-semibold text-ink">
                   Reviews ({data.reviewCount + data.testimonials.length})
                 </h3>
                 <p className="mt-1 font-jost text-[12px] font-light text-ink-3">

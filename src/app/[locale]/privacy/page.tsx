@@ -9,14 +9,14 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="bg-cream mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-      <h1 className="font-cormorant text-4xl font-light tracking-tight text-ink">Privacy Policy</h1>
+      <h1 className="font-newsreader text-4xl font-semibold tracking-tight text-ink">Privacy Policy</h1>
       <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
         Last updated: 1 March 2026
       </p>
 
       <div className="mt-10 max-w-none">
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">1. Introduction</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">1. Introduction</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             Rena (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting
             your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard
@@ -27,8 +27,8 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">2. Information We Collect</h2>
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">2. Information We Collect</h2>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
             2.1 Information You Provide
           </h3>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
             </li>
           </ul>
 
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
             2.2 Information Collected Automatically
           </h3>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             3. How We Use Your Information
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             4. How We Share Your Information
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -151,7 +151,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">5. Data Retention</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">5. Data Retention</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             We retain your personal information for as long as your account is active or as needed
             to provide you with services. Specific retention periods are as follows:
@@ -204,7 +204,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">6. Your Rights</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">6. Your Rights</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             Under UK data protection law (UK GDPR), you have the right to:
           </p>
@@ -251,26 +251,26 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">7. Cookies</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">7. Cookies</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             We use cookies and similar technologies on the Platform. When you first visit, you will
             be shown a cookie consent banner where you can choose which types of cookies to accept.
           </p>
 
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">7.1 Essential Cookies</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">7.1 Essential Cookies</h3>
           <p className="mt-2 font-jost font-light text-ink-2 leading-relaxed">
             These are necessary for the Platform to function and cannot be disabled. They include
             session cookies to keep you signed in and security cookies to prevent fraud.
           </p>
 
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">7.2 Analytics Cookies</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">7.2 Analytics Cookies</h3>
           <p className="mt-2 font-jost font-light text-ink-2 leading-relaxed">
             With your consent, we use analytics cookies to understand how you use the Platform,
             which pages you visit, and where you experience difficulties. This data helps us improve
             the booking experience. Analytics data is anonymised after 2 years.
           </p>
 
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">7.3 Marketing Cookies</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">7.3 Marketing Cookies</h3>
           <p className="mt-2 font-jost font-light text-ink-2 leading-relaxed">
             With your consent, we may use marketing cookies to show you relevant content and measure
             the effectiveness of our communications. You can withdraw consent at any time.
@@ -284,7 +284,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">8. Data Security</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">8. Data Security</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             We implement appropriate technical and organisational measures to protect your personal
             information, including encryption of data in transit (TLS/SSL), secure storage of
@@ -295,7 +295,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             9. International Transfers
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -306,7 +306,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             10. Children&apos;s Privacy
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -317,7 +317,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             11. Changes to This Policy
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -329,7 +329,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             12. Legal Basis for Processing
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -360,7 +360,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             13. Data Protection Impact Assessments
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -373,7 +373,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="font-cormorant text-2xl font-light text-ink">14. Contact Us</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">14. Contact Us</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             If you have questions about this Privacy Policy or our data practices, please contact
             us:

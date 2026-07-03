@@ -106,7 +106,7 @@ export default function SignupPage() {
             >
               RENA
             </Link>
-            <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Join Rena</h1>
+            <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Join Rena</h1>
             <p className="mt-2 font-jost text-sm font-light text-ink-2">
               How would you like to use Rena?
             </p>
@@ -158,7 +158,7 @@ export default function SignupPage() {
           >
             RENA
           </Link>
-          <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Create Your Account</h1>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Create Your Account</h1>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
             Sign up to book cleaners and manage your home.
           </p>

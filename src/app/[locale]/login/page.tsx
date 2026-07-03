@@ -59,7 +59,7 @@ function LoginForm() {
           >
             RENA
           </Link>
-          <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Welcome Back</h1>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Welcome Back</h1>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
             Log in to manage your bookings and profile.
           </p>

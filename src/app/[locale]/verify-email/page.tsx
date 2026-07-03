@@ -76,7 +76,7 @@ export default function VerifyEmailPage() {
         >
           {copy.tone === 'ok' ? '✓' : '!'}
         </span>
-        <h1 className="mt-4 font-cormorant text-[26px] font-semibold text-ink">{copy.title}</h1>
+        <h1 className="mt-4 font-newsreader text-[26px] font-semibold text-ink">{copy.title}</h1>
         <p className="mt-2 font-jost text-[14px] text-ink-3">{copy.body}</p>
 
         {canResend && (

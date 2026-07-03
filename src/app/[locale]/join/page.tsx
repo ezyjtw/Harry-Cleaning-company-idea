@@ -564,25 +564,25 @@ function EarningsCalculator() {
           onChange={(e) => setHours(Number(e.target.value))}
           className="flex-1 h-1 appearance-none bg-ink/10 accent-gold cursor-pointer"
         />
-        <span className="font-cormorant text-xl font-light text-ink w-16 text-right">
+        <span className="font-newsreader text-xl font-medium text-ink w-16 text-right">
           {hours}hrs
         </span>
       </div>
       <div className="mt-6 grid grid-cols-3 gap-4">
         <div className="text-center">
-          <p className="font-cormorant text-2xl sm:text-3xl font-light text-ink">
+          <p className="font-newsreader text-2xl sm:text-3xl font-medium text-ink">
             £{weekly.toLocaleString()}
           </p>
           <p className="font-jost text-xs font-light text-ink-3 mt-1">Per week</p>
         </div>
         <div className="text-center">
-          <p className="font-cormorant text-2xl sm:text-3xl font-light text-gold">
+          <p className="font-newsreader text-2xl sm:text-3xl font-medium text-gold">
             £{monthly.toLocaleString()}
           </p>
           <p className="font-jost text-xs font-light text-ink-3 mt-1">Per month</p>
         </div>
         <div className="text-center">
-          <p className="font-cormorant text-2xl sm:text-3xl font-light text-ink">
+          <p className="font-newsreader text-2xl sm:text-3xl font-medium text-ink">
             £{yearly.toLocaleString()}
           </p>
           <p className="font-jost text-xs font-light text-ink-3 mt-1">Per year (gross)</p>
@@ -616,13 +616,13 @@ function EarningsCalculator() {
         >
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="font-cormorant text-lg font-light text-ink">
+              <p className="font-newsreader text-lg font-medium text-ink">
                 £{tax.incomeTax.toLocaleString()}
               </p>
               <p className="font-jost text-[11px] font-light text-ink-3 mt-0.5">Income tax</p>
             </div>
             <div>
-              <p className="font-cormorant text-lg font-light text-ink">
+              <p className="font-newsreader text-lg font-medium text-ink">
                 £{tax.nationalInsurance.toLocaleString()}
               </p>
               <p className="font-jost text-[11px] font-light text-ink-3 mt-0.5">
@@ -630,7 +630,7 @@ function EarningsCalculator() {
               </p>
             </div>
             <div>
-              <p className="font-cormorant text-lg font-light text-gold">
+              <p className="font-newsreader text-lg font-medium text-gold">
                 £{tax.takeHome.toLocaleString()}
               </p>
               <p className="font-jost text-[11px] font-light text-ink-3 mt-0.5">Est. take-home</p>
@@ -665,7 +665,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
       <section className="bg-ink py-20 sm:py-28">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">Join Rena</p>
-          <h1 className="mt-4 font-cormorant text-4xl font-light tracking-tight text-cream sm:text-5xl lg:text-6xl">
+          <h1 className="mt-4 font-newsreader text-4xl font-semibold tracking-tight text-cream sm:text-5xl lg:text-6xl">
             Earn on Your Terms.
             <br />
             We Handle the Rest.
@@ -716,7 +716,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
               },
             ].map((item) => (
               <div key={item.title} className="text-center sm:text-left">
-                <h3 className="font-cormorant text-lg font-light text-ink">{item.title}</h3>
+                <h3 className="font-newsreader text-lg font-semibold text-ink">{item.title}</h3>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
                   {item.desc}
                 </p>
@@ -733,7 +733,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
             <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">
               Earning Potential
             </p>
-            <h2 className="mt-3 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+            <h2 className="mt-3 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
               See How Much You Could Earn
             </h2>
             <p className="mt-4 font-jost font-light text-ink-2">
@@ -755,7 +755,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">Why Rena</p>
-            <h2 className="mt-3 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+            <h2 className="mt-3 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
               Built for Cleaners, Not Against Them
             </h2>
           </div>
@@ -792,7 +792,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
                 className="rounded-xl bg-white p-6 shadow-sm"
                 style={{ border: '1px solid rgba(14,14,12,0.06)' }}
               >
-                <h3 className="font-cormorant text-lg font-light text-ink">{item.title}</h3>
+                <h3 className="font-newsreader text-lg font-semibold text-ink">{item.title}</h3>
                 <p
                   className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: item.desc }}
@@ -806,7 +806,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
       {/* Self-employed CTA */}
       <section className="bg-ink py-16">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="font-cormorant text-3xl font-light text-cream sm:text-4xl">
+          <h2 className="font-newsreader text-3xl font-semibold text-cream sm:text-4xl">
             Ready to Be Your Own Boss?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl font-jost font-light text-cream/70 leading-relaxed">
