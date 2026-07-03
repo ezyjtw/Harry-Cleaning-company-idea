@@ -3,7 +3,6 @@
 import { useState, useRef } from 'react';
 
 import CleanerProfileModal from '@/components/CleanerProfileModal';
-import StarRating from '@/components/StarRating';
 import {
   BEDROOMS_TO_EOT_SIZE,
   BEDROOMS_TO_AIRBNB_SIZE,
@@ -26,6 +25,24 @@ interface BackupCleanerSliderProps {
   propertySize?: number;
 }
 
+/** Green circle-check pinned bottom-right (mirrors CleanerIdentity's VerifiedCheck). */
+function VerifiedCheck() {
+  return (
+    <span
+      className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white"
+      aria-label="Verified"
+    >
+      <svg className="h-4 w-4 text-trust" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </span>
+  );
+}
+
 export default function BackupCleanerSlider({
   cleaners,
   selectedIds,
@@ -37,44 +54,46 @@ export default function BackupCleanerSlider({
   propertySize,
 }: BackupCleanerSliderProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
   const [profileCleaner, setProfileCleaner] = useState<Cleaner | null>(null);
 
-  const updateScrollButtons = () => {
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    setCanScrollLeft(scrollLeft > 4);
-    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
-  };
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const amount = 260;
-    scrollRef.current.scrollBy({
-      left: direction === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    });
+  // Service-correct price for a backup: fixed (£X · size) for EoT/Airbnb, else
+  // hourly £X/hr. Unchanged from before — just the display sourcing.
+  const priceLabel = (c: Cleaner): string => {
+    if (serviceCategory && propertySize !== undefined) {
+      if (serviceCategory === 'end-of-tenancy') {
+        const slug = BEDROOMS_TO_EOT_SIZE[propertySize];
+        const base = slug ? c.eotPrices?.[slug] : undefined;
+        if (typeof base === 'number' && slug) {
+          const withFee = Math.round(base * (1 + SERVICE_FEE_PERCENT / 100) * 100) / 100;
+          return `£${withFee.toFixed(2)} · ${eotSizeLabel(slug)}`;
+        }
+      } else if (serviceCategory === 'airbnb') {
+        const slug = BEDROOMS_TO_AIRBNB_SIZE[propertySize];
+        const base = slug ? c.airbnbPrices?.[slug] : undefined;
+        if (typeof base === 'number' && slug) {
+          const withFee = Math.round(base * (1 + SERVICE_FEE_PERCENT / 100) * 100) / 100;
+          return `£${withFee.toFixed(2)} · ${airbnbSizeLabel(slug)}`;
+        }
+      }
+    }
+    return `£${(c.hourlyRateRegular ?? 0).toFixed(2)}/hr`;
   };
 
   if (cleaners.length === 0 && !autoAssign) return null;
 
   return (
     <div>
-      <h4 className="font-cormorant text-lg font-light text-ink">Backup Cleaners</h4>
+      <h4 className="font-newsreader text-lg font-semibold text-ink">Backup Cleaners</h4>
       <p className="mt-1 font-jost text-sm font-light text-ink-2">
         Select up to {maxSelections} backup cleaners available on your chosen date, just in case.
       </p>
 
-      {/* Auto-assign option */}
-      <label className="mt-4 flex items-start gap-3 cursor-pointer group">
+      {/* First choice: auto-assign */}
+      <label className="group mt-4 flex cursor-pointer items-start gap-3">
         <div
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-xs transition ${
-            autoAssign ? 'bg-gold text-cream' : 'bg-transparent'
+          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] text-xs transition ${
+            autoAssign ? 'bg-primary text-white' : 'border border-line bg-surface'
           }`}
-          style={{
-            border: autoAssign ? 'none' : '1.5px solid rgba(14,14,12,0.2)',
-          }}
         >
           {autoAssign && <>&#10003;</>}
         </div>
@@ -85,7 +104,7 @@ export default function BackupCleanerSlider({
           onChange={(e) => onAutoAssignChange(e.target.checked)}
         />
         <div>
-          <span className="font-jost text-sm font-normal text-ink group-hover:text-ink/80 transition">
+          <span className="font-jost text-sm font-medium text-ink transition group-hover:text-ink/80">
             Provide me an appropriate cleaner
           </span>
           <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
@@ -97,180 +116,88 @@ export default function BackupCleanerSlider({
 
       {cleaners.length > 0 && (
         <>
+          {/* The bench — a faces-first horizontal strip. Partial next face + edge
+              fade is the scroll affordance (no chevron button). */}
           <div className="relative mt-4">
-            {/* Left scroll button */}
-            {canScrollLeft && (
-              <button
-                type="button"
-                onClick={() => scroll('left')}
-                className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center bg-ink text-cream shadow-md hover:bg-ink/90 transition"
-                style={{ borderRadius: '50%' }}
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15.75 19.5L8.25 12l7.5-7.5"
-                  />
-                </svg>
-              </button>
-            )}
-
-            {/* Scrollable container */}
             <div
               ref={scrollRef}
-              onScroll={updateScrollButtons}
-              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
-              style={{
-                scrollSnapType: 'x mandatory',
-                msOverflowStyle: 'none',
-                scrollbarWidth: 'none',
-              }}
+              className="flex gap-1 overflow-x-auto scrollbar-hide pb-2 pr-10"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {cleaners.map((c) => {
                 const isSelected = selectedIds.includes(c.id);
                 const isDisabled = !isSelected && selectedIds.length >= maxSelections;
-
+                const firstName = c.name.split(' ')[0];
                 return (
-                  <div
-                    key={c.id}
-                    className={`relative flex-shrink-0 w-[240px] text-left transition ${
-                      isSelected
-                        ? 'bg-cream-2 ring-2 ring-gold'
-                        : isDisabled
-                          ? 'bg-cream-2 opacity-40'
-                          : 'bg-cream-2 hover:bg-cream-2/80'
-                    }`}
-                    style={{
-                      border: '0.5px solid rgba(14,14,12,0.1)',
-                      scrollSnapAlign: 'start',
-                    }}
-                  >
-                    {/* Clickable area for selection */}
+                  <div key={c.id} className="w-[104px] shrink-0 text-center">
+                    {/* Tap the FACE to select / deselect */}
                     <button
                       type="button"
                       disabled={isDisabled}
                       onClick={() => onToggle(c.id)}
-                      className={`w-full p-4 pb-2 text-left ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      aria-pressed={isSelected}
+                      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${c.name} as backup`}
+                      className={`relative mx-auto block ${
+                        isDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
+                      }`}
                     >
-                      {/* Selection indicator */}
-                      <div
-                        className={`absolute top-3 right-3 flex h-6 w-6 items-center justify-center text-xs transition ${
-                          isSelected ? 'bg-gold text-cream' : 'bg-transparent'
-                        }`}
-                        style={{
-                          border: isSelected ? 'none' : '1.5px solid rgba(14,14,12,0.2)',
-                        }}
-                      >
-                        {isSelected && <>&#10003;</>}
+                      <div className="relative">
+                        {c.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={c.photo}
+                            alt=""
+                            className={`h-14 w-14 rounded-full object-cover ${
+                              isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''
+                            }`}
+                          />
+                        ) : (
+                          <div
+                            className={`flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft font-newsreader text-xl font-medium text-primary ${
+                              isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''
+                            }`}
+                          >
+                            {c.name.charAt(0)}
+                          </div>
+                        )}
+                        {c.identityVerified && <VerifiedCheck />}
+                        {isSelected && (
+                          <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white ring-2 ring-surface">
+                            &#10003;
+                          </span>
+                        )}
                       </div>
-
-                      {/* Cleaner avatar */}
-                      <div className="flex h-10 w-10 items-center justify-center bg-ink font-cormorant text-lg font-light text-cream">
-                        {c.name.charAt(0)}
-                      </div>
-
-                      {/* Cleaner details */}
-                      <h5 className="mt-3 font-jost text-sm font-medium text-ink">{c.name}</h5>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <StarRating rating={c.rating} />
-                        <span className="font-jost text-xs font-light text-ink-3">
-                          {c.rating} ({c.reviewCount})
-                        </span>
-                      </div>
-                      <div className="mt-2 font-jost text-sm font-normal text-ink">
-                        {(() => {
-                          if (serviceCategory && propertySize !== undefined) {
-                            let basePrice: number | undefined;
-                            let label: string | undefined;
-
-                            if (serviceCategory === 'end-of-tenancy') {
-                              const slug = BEDROOMS_TO_EOT_SIZE[propertySize];
-                              if (slug) {
-                                basePrice = c.eotPrices?.[slug];
-                                label = eotSizeLabel(slug);
-                              }
-                            } else if (serviceCategory === 'airbnb') {
-                              const slug = BEDROOMS_TO_AIRBNB_SIZE[propertySize];
-                              if (slug) {
-                                basePrice = c.airbnbPrices?.[slug];
-                                label = airbnbSizeLabel(slug);
-                              }
-                            }
-
-                            if (basePrice !== undefined && label) {
-                              const withFee =
-                                Math.round(basePrice * (1 + SERVICE_FEE_PERCENT / 100) * 100) / 100;
-                              return (
-                                <>
-                                  &pound;{withFee.toFixed(2)}
-                                  <span className="block font-jost text-[11px] font-light text-ink-3">
-                                    {label} &middot; incl. {SERVICE_FEE_PERCENT}% fee
-                                  </span>
-                                </>
-                              );
-                            }
-                          }
-                          return <>&pound;{(c.hourlyRateRegular ?? 0).toFixed(2)}/hr</>;
-                        })()}
-                      </div>
-                      <div className="mt-1 font-jost text-xs font-light text-ink-3">
-                        {c.location}
-                      </div>
-                      {c.availableNow && (
-                        <span className="mt-2 inline-block font-jost text-[11px] font-normal text-gold">
-                          Available now
-                        </span>
-                      )}
                     </button>
 
-                    {/* Show more link */}
-                    <div className="px-4 pb-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProfileCleaner(c);
-                        }}
-                        className="font-jost text-xs font-normal text-gold hover:text-gold/80 underline underline-offset-2 transition"
-                      >
-                        Show more
-                      </button>
-                    </div>
+                    {/* Tap the NAME / details to open the profile */}
+                    <button
+                      type="button"
+                      onClick={() => setProfileCleaner(c)}
+                      className="mt-2 block w-full"
+                    >
+                      <span className="block truncate font-jost text-[13px] font-medium text-ink hover:underline">
+                        {firstName}
+                      </span>
+                      <span className="mt-0.5 block font-jost text-[11px] text-ink-3">
+                        {c.reviewCount > 0 ? (
+                          <>
+                            <span className="text-rating">&#9733;</span> {c.rating}
+                          </>
+                        ) : (
+                          'New to Rena'
+                        )}
+                      </span>
+                      <span className="mt-0.5 block truncate font-jost text-[11px] font-medium text-ink-2">
+                        {priceLabel(c)}
+                      </span>
+                    </button>
                   </div>
                 );
               })}
             </div>
 
-            {/* Right scroll button */}
-            {canScrollRight && cleaners.length > 2 && (
-              <button
-                type="button"
-                onClick={() => scroll('right')}
-                className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center bg-ink text-cream shadow-md hover:bg-ink/90 transition"
-                style={{ borderRadius: '50%' }}
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                  />
-                </svg>
-              </button>
-            )}
+            {/* Right edge fade — hints there's more to scroll */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-surface to-transparent" />
           </div>
 
           {selectedIds.length > 0 && (
@@ -282,9 +209,14 @@ export default function BackupCleanerSlider({
         </>
       )}
 
-      {/* Profile modal */}
+      {/* Profile modal — gains a "Select as backup" button in this context */}
       {profileCleaner && (
-        <CleanerProfileModal cleaner={profileCleaner} onClose={() => setProfileCleaner(null)} />
+        <CleanerProfileModal
+          cleaner={profileCleaner}
+          onClose={() => setProfileCleaner(null)}
+          onSelectBackup={() => onToggle(profileCleaner.id)}
+          isSelectedBackup={selectedIds.includes(profileCleaner.id)}
+        />
       )}
     </div>
   );

@@ -556,7 +556,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // the autocomplete engages auto-mode (dropdown, no second postcode box).
   const addressCard = (
     <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-      <h2 className="font-jost font-medium text-base text-ink">Cleaning Address</h2>
+      <h2 className="font-newsreader font-semibold text-base text-ink">Cleaning Address</h2>
       <p className="mt-2 font-jost text-sm font-light text-ink-2">Where should your cleaner go?</p>
       <div className="mt-4">
         <AddressAutocomplete
@@ -946,7 +946,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="space-y-8">
             {/* Postcode */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-jost font-medium text-base text-ink">Your Postcode</h2>
+              <h2 className="font-newsreader font-semibold text-base text-ink">Your Postcode</h2>
               <input
                 type="text"
                 value={postcode}
@@ -1023,7 +1023,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           .finally(() => setWaitlistLoading(false));
                       }}
                       disabled={waitlistLoading || !waitlistEmail.trim()}
-                      className="rounded-lg bg-ink px-5 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-cream transition hover:bg-gold disabled:opacity-50"
+                      className="rounded-lg bg-ink px-5 py-3 font-jost text-sm font-semibold text-white transition hover:bg-gold disabled:opacity-50"
                     >
                       {waitlistLoading ? 'Sending...' : 'Notify Me'}
                     </button>
@@ -1044,7 +1044,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Property Size — for fixed-price services (EOT & Airbnb) */}
             {isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">Property Size</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">Property Size</h2>
                 <p className="mt-2 font-jost text-xs font-light text-ink-3">
                   Select your property size to get a guide price.
                 </p>
@@ -1077,7 +1077,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Rooms — for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">How Many Rooms?</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">How Many Rooms?</h2>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Counter
                     label="Bedrooms"
@@ -1107,7 +1107,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Hours — only for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">How Many Hours?</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">How Many Hours?</h2>
                 <div className="mt-4 rounded-lg bg-cream-2/60 p-4 ring-1 ring-ink/[0.04]">
                   <p className="font-jost font-light text-sm text-ink-2">
                     We recommend{' '}
@@ -1161,7 +1161,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Products */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-jost font-medium text-base text-ink">Cleaning Products</h2>
+              <h2 className="font-newsreader font-semibold text-base text-ink">Cleaning Products</h2>
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
@@ -1203,7 +1203,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Email */}
             {isGuest ? (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">Your Email</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">Your Email</h2>
                 <input
                   type="email"
                   value={email}
@@ -1225,7 +1225,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             ) : (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-jost font-medium text-base text-ink">Your Account</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">Your Account</h2>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
                   Booking as <span className="font-normal text-ink">{user?.email}</span>
                 </p>
@@ -1357,7 +1357,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 setPhase('cleaner');
               }}
               disabled={!postcode || (isGuest && !email) || outsideCatchment || !!postcodeError}
-              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
             </button>
@@ -1597,7 +1597,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                 </svg>
                 <div>
-                  <h4 className="font-newsreader text-lg font-light text-ink">
+                  <h4 className="font-newsreader text-lg font-semibold text-ink">
                     Payment Held Securely
                   </h4>
                   <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -1626,7 +1626,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Key access */}
           <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+            <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
               How will the cleaner get in?
             </h2>
             <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
@@ -1669,7 +1669,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {/* Special instructions */}
           <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+            <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
               Special instructions
             </h2>
             <p className="mt-2 font-jost font-light text-sm text-ink-3">
@@ -1698,7 +1698,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             type="button"
             onClick={handleBookingSubmit}
             disabled={!selectedDate || !selectedTime24}
-            className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
           </button>
@@ -1885,7 +1885,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="mt-6 space-y-6">
             {/* Key access */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Property access
               </h2>
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
@@ -1915,7 +1915,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Special instructions */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Special instructions
               </h2>
               <textarea
@@ -1940,7 +1940,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <button
               type="button"
               onClick={handleBookingSubmit}
-              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
             >
               Confirm Same-Day Booking
             </button>
@@ -2090,7 +2090,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* ── Step 1: Choose a cleaner ────────────────────── */}
         {fixedStep === 'choose-cleaner' && (
           <div className="mt-8">
-            <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+            <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
               Choose your cleaner
             </h2>
             <p className="mt-2 font-jost font-light text-sm text-ink-3">
@@ -2246,7 +2246,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Key access */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Property access
               </h2>
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
@@ -2276,7 +2276,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Special instructions */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Special instructions
               </h2>
               <textarea
@@ -2363,7 +2363,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               type="button"
               onClick={handleBookingSubmit}
               disabled={bookingSubmitting}
-              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingSubmitting ? 'Submitting\u2026' : 'Submit Booking Request'}
             </button>
@@ -2622,7 +2622,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="space-y-6">
             {/* Step: pick a day + a time-of-day band */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-jost font-medium text-base text-ink">Pick a day</h2>
+              <h2 className="font-newsreader font-semibold text-base text-ink">Pick a day</h2>
               <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
                 {timeFirstDays.map((d) => (
                   <button
@@ -2646,7 +2646,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 ))}
               </div>
 
-              <h2 className="mt-6 font-jost font-medium text-base text-ink">Pick a time of day</h2>
+              <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">Pick a time of day</h2>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {TIME_FIRST_BANDS.map((b) => (
                   <button
@@ -2862,7 +2862,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                 </svg>
                 <div>
-                  <h4 className="font-newsreader text-lg font-light text-ink">
+                  <h4 className="font-newsreader text-lg font-semibold text-ink">
                     Payment Held Securely
                   </h4>
                   <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -2890,7 +2890,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Key access */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 How will the cleaner get in?
               </h2>
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
@@ -2933,7 +2933,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Special instructions */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Special instructions
               </h2>
               <p className="mt-2 font-jost font-light text-sm text-ink-3">
@@ -2951,7 +2951,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Summary & submit */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-              <h3 className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <h3 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Booking Summary
               </h3>
               <SummaryRow label="Service" value={serviceLabel} />
@@ -3049,7 +3049,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               type="button"
               onClick={handleBookingSubmit}
               disabled={!selectedDate || !selectedTime24}
-              className="w-full rounded-lg bg-ink py-4 font-jost text-[11px] uppercase tracking-[0.15em] text-cream shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
             </button>
@@ -3345,7 +3345,7 @@ function CleanerProfileSlideOut({
             <button
               type="button"
               onClick={onBook}
-              className="w-full bg-ink py-3.5 font-jost text-[12px] uppercase tracking-[0.1em] text-cream transition hover:bg-gold"
+              className="w-full bg-ink py-3.5 font-jost text-sm font-semibold text-white transition hover:bg-gold"
             >
               Book {cleaner.name} &middot; &pound;{listedRate.toFixed(2)}/hr
             </button>
