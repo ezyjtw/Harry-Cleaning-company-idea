@@ -70,7 +70,6 @@ export default function Footer() {
               {[
                 { href: '/about', label: t('aboutUs') },
                 { href: '/contact', label: t('contact') },
-                { href: '/company', label: t('partnerWithUs') },
               ].map((link) => (
                 <li key={link.href}>
                   <Link
