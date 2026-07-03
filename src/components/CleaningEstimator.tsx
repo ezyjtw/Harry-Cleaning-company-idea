@@ -75,7 +75,7 @@ export default function CleaningEstimator({
       >
         <div className="text-lg font-semibold text-brand-700">Not sure what you need?</div>
         <p className="mt-1 text-sm text-brand-600">
-          Tell us about your space and our AI will recommend the right service, duration, and price.
+          Tell us about your space and we&apos;ll recommend the right service, duration, and price.
         </p>
       </button>
     );
