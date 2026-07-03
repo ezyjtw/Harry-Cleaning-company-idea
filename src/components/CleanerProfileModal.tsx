@@ -177,7 +177,7 @@ export default function CleanerProfileModal({
   return (
     <div className="fade-in fixed inset-0 z-50 flex items-start justify-center">
       <div className="absolute inset-0 bg-ink/50 backdrop-blur-md" onClick={onClose} />
-      <div className="slide-up relative z-10 mx-4 mb-10 mt-10 max-h-[calc(100vh-80px)] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-[0_25px_60px_-12px_rgba(0,0,0,0.25)] sm:mx-6 md:mt-16">
+      <div className="slide-up relative z-10 mx-4 mb-10 mt-10 flex max-h-[calc(100vh-80px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_25px_60px_-12px_rgba(0,0,0,0.25)] sm:mx-6 md:mt-16">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-ink-3 shadow-sm ring-1 ring-ink/5 backdrop-blur-sm transition-all hover:bg-white hover:text-ink hover:shadow-md"
@@ -193,11 +193,11 @@ export default function CleanerProfileModal({
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <div className="max-h-[calc(100vh-80px)] overflow-y-auto overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <CleanerProfileView data={data} />
         </div>
         {onSelectBackup && (
-          <div className="border-t border-line bg-surface p-4">
+          <div className="shrink-0 border-t border-line bg-surface p-4">
             <button
               type="button"
               onClick={onSelectBackup}
