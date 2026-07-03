@@ -327,7 +327,17 @@ export default function BookingsPage() {
           displayId: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
           date: typeof b.date === 'string' ? b.date.split('T')[0] : String(b.date),
           time: b.startTime || b.time || '',
-          cleanerName: b.cleanerName || 'Assigned cleaner',
+          // The list API returns the cleaner NESTED (cleaner: { name }); there is
+          // no flat `cleanerName`, so the old read was always undefined and every
+          // card showed the "Assigned cleaner" fallback. Read the nested name; when
+          // it's genuinely absent, say so honestly for pre-assignment states.
+          cleanerName:
+            (b.cleaner as { name?: string | null } | null)?.name ||
+            (['PENDING', 'AWAITING_CLEANER', 'CASCADE_EXHAUSTED'].includes(
+              String(b.status || 'PENDING').toUpperCase()
+            )
+              ? 'Cleaner being assigned'
+              : 'Assigned cleaner'),
           serviceType: b.serviceType || 'Cleaning',
           price: Number(b.totalPrice || b.price || 0),
           status: mapStatus(
