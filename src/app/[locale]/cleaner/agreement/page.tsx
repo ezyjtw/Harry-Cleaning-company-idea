@@ -66,7 +66,7 @@ export default function CleanerAgreementPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="font-cormorant text-[24px] font-semibold text-ink">{doc.title}</h1>
+      <h1 className="font-newsreader text-[24px] font-semibold text-ink">{doc.title}</h1>
       <p className="mt-1 font-jost text-[12px] text-ink-3">
         Version {doc.version} · effective {doc.effectiveDate}
       </p>
@@ -106,8 +106,8 @@ export default function CleanerAgreementPage() {
               className="mt-1 h-4 w-4"
             />
             <span className="font-jost text-[14px] text-ink">
-              I confirm I have read and understand this acknowledgment, and that I work with Rena as a
-              self-employed cleaner.
+              I confirm I have read and understand this acknowledgment, and that I work with Rena as
+              a self-employed cleaner.
             </span>
           </label>
 
