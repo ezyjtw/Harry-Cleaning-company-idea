@@ -210,6 +210,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Clear the submit-time error banner when the user moves between steps, so a
+  // stale error from a previous attempt doesn't linger after they navigate.
+  useEffect(() => {
+    setBookingError(null);
+  }, [step, paymentStep]);
+
   // Fetch server-side quote when service/duration/cleaner/bedrooms changes
   useEffect(() => {
     if (!params.id) return;

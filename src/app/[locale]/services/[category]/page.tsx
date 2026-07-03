@@ -432,6 +432,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [paymentStep, setPaymentStep] = useState(false);
   const [saveCard, setSaveCard] = useState(false);
 
+  // Clear the submit / time-first error banners when the user navigates between
+  // wizard stages, so a stale error doesn't linger across steps.
+  useEffect(() => {
+    setBookingError(null);
+    setTfError(null);
+  }, [phase, scheduling, paymentStep]);
+
   useEffect(() => {
     if (isAuthenticated) setSaveCard(true);
   }, [isAuthenticated]);
