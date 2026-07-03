@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import SimpleMarkdown, { stripLeadingH1 } from '@/components/ui/SimpleMarkdown';
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import {
@@ -14,7 +15,6 @@ import {
   serviceTypeLabel,
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
-import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
@@ -166,6 +166,10 @@ const LANGUAGE_OPTIONS = [
   'Mandarin',
 ];
 
+// The join wizard offers a fixed, curated specialty set (approved mock) — no
+// free-text entry. Kept local to the wizard so it can't drift from the design.
+const JOIN_SPECIALTY_OPTIONS = ['Pet-Friendly', 'Eco-Friendly', 'Elderly-Friendly'];
+
 const STEPS = [
   { label: 'Personal', icon: '1' },
   { label: 'Experience', icon: '2' },
@@ -228,27 +232,43 @@ function toggleInArray(arr: string[], value: string): string[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
+// Keep a money input strictly numeric: digits and at most one decimal point,
+// no sign or letters. (A native type="number" lets "2-" through and then
+// reports an empty value, silently dropping the digits the user typed.)
+function sanitizeDecimal(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const dot = cleaned.indexOf('.');
+  if (dot === -1) return cleaned;
+  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, '');
+}
+
 /* ------------------------------------------------------------------ */
 /*  Reusable tiny components                                           */
 /* ------------------------------------------------------------------ */
 
-function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block font-jost text-sm font-light text-ink-2">{children}</label>;
+function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
+  return (
+    <label htmlFor={htmlFor} className="block font-jost text-sm font-medium text-ink-2">
+      {children}
+    </label>
+  );
 }
 
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function Input({
+  hasError,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { hasError?: boolean }) {
   return (
     <input
       {...props}
-      className="mt-1.5 w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-      style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+      className={`input-base mt-1.5 bg-surface ${hasError ? 'input-error' : ''}`}
     />
   );
 }
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1.5 font-jost text-[12px] text-red-500">{message}</p>;
+  return <p className="mt-1.5 font-jost text-[12px] text-danger">{message}</p>;
 }
 
 function PillToggle({
@@ -264,12 +284,11 @@ function PillToggle({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
+      className={`rounded-full px-4 py-2 font-jost text-[13px] font-medium transition ${
         active
-          ? 'bg-ink text-cream shadow-sm'
-          : 'bg-white text-ink-2 hover:bg-cream-2 hover:text-ink'
+          ? 'bg-primary text-white shadow-sm'
+          : 'border border-line bg-surface text-ink-2 hover:border-ink-3/40 hover:text-ink'
       }`}
-      style={active ? undefined : { border: '1px solid rgba(14,14,12,0.1)' }}
     >
       {label}
     </button>
@@ -319,19 +338,163 @@ function CustomAddInput({
               handleAdd();
             }
           }}
-          className="flex-1 rounded-lg bg-white px-4 py-2 font-jost text-[13px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-          style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+          className="input-base bg-surface flex-1"
         />
         <button
           type="button"
           onClick={handleAdd}
-          className="shrink-0 rounded-lg bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90"
+          className="shrink-0 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white transition hover:bg-primary-hover"
         >
           Add
         </button>
       </div>
-      {error && <p className="mt-1.5 font-jost text-[12px] text-red-500">{error}</p>}
+      {error && <p className="mt-1.5 font-jost text-[12px] text-danger">{error}</p>}
     </div>
+  );
+}
+
+/* ---- Step metadata: the Newsreader card title + the new
+   "Step N of 7 · {subtitle}" line under it (subtitles are new copy). ---- */
+const STEP_META: { title: string; subtitle: string }[] = [
+  { title: 'Personal Information', subtitle: 'A few details to set up your account' },
+  { title: 'Experience & Skills', subtitle: 'Show customers what you offer' },
+  { title: 'Pricing & Availability', subtitle: 'Set your rates and working hours' },
+  { title: 'Identity Verification', subtitle: 'Verify your identity and right to work in the UK' },
+  { title: 'DBS & Background Check', subtitle: 'Optional background check plus a quick selfie' },
+  { title: CURRENT_AGREEMENT.title, subtitle: 'How you work with Rena' },
+  { title: 'Review & Submit', subtitle: 'Check your details before submitting' },
+];
+
+/* ---- Card header: Newsreader title + the step-count subtitle line ---- */
+function StepHeader({ step }: { step: number }) {
+  const meta = STEP_META[step];
+  return (
+    <div className="border-b border-line pb-4">
+      <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">{meta.title}</h2>
+      <p className="mt-1 font-jost text-[13px] font-light text-ink-3">
+        Step {step + 1} of {STEPS.length} · {meta.subtitle}
+      </p>
+    </div>
+  );
+}
+
+/* ---- Desktop 7-node stepper — echoes the tokenised /verify node grammar ---- */
+function DesktopStepper({ currentStep }: { currentStep: number }) {
+  return (
+    <nav className="mt-8 hidden sm:block" aria-label="Progress">
+      <ol className="flex items-start">
+        {STEPS.map((s, i) => {
+          const isComplete = i < currentStep;
+          const isActive = i === currentStep;
+          return (
+            <li key={s.label} className="flex flex-1 items-start last:flex-none">
+              <div className="flex flex-col items-center gap-1.5">
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
+                    isComplete
+                      ? 'bg-primary text-white'
+                      : isActive
+                        ? 'bg-primary text-white ring-4 ring-primary-soft'
+                        : 'border border-line bg-surface text-ink-3'
+                  }`}
+                >
+                  {isComplete ? '✓' : i + 1}
+                </div>
+                <span
+                  className={`whitespace-nowrap text-[11px] ${
+                    isActive ? 'font-medium text-ink' : 'text-ink-3'
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div
+                  className={`mx-2 mt-[18px] h-0.5 flex-1 ${
+                    i < currentStep ? 'bg-primary' : 'bg-line'
+                  }`}
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/* ---- Mobile progress — "STEP N OF 7 · {name}" + a slim bar ---- */
+function MobileStepper({ currentStep }: { currentStep: number }) {
+  const pct = ((currentStep + 1) / STEPS.length) * 100;
+  return (
+    <div className="mt-6 sm:hidden">
+      <p className="font-jost text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3">
+        Step {currentStep + 1} of {STEPS.length} ·{' '}
+        <span className="text-ink">{STEPS[currentStep].label}</span>
+      </p>
+      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-line">
+        <div
+          className="h-full rounded-full bg-primary transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ---- Label-wrapped file dropzone (the dispute-evidence treatment): styled
+   trigger, hidden native input, trust-tinted confirmation once a file lands.
+   Behaviour is unchanged — same FileReader → data URL as before. ---- */
+function UploadDropzone({
+  label,
+  accept,
+  capture,
+  uploaded,
+  uploadedLabel,
+  onFile,
+}: {
+  label: string;
+  accept: string;
+  capture?: 'user' | 'environment';
+  uploaded: boolean;
+  uploadedLabel: string;
+  onFile: (dataUrl: string) => void;
+}) {
+  return (
+    <label
+      className={`mt-2 block w-full cursor-pointer rounded-[10px] border-2 border-dashed px-4 py-3 text-center text-sm transition ${
+        uploaded
+          ? 'border-trust/40 bg-trust/[0.06] text-trust'
+          : 'border-line text-ink-3 hover:border-primary hover:text-primary'
+      }`}
+    >
+      {uploaded ? (
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {uploadedLabel}
+        </span>
+      ) : (
+        label
+      )}
+      <input
+        type="file"
+        accept={accept}
+        {...(capture ? { capture } : {})}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (typeof reader.result === 'string') onFile(reader.result);
+          };
+          reader.readAsDataURL(file);
+          e.target.value = '';
+        }}
+      />
+    </label>
   );
 }
 
@@ -781,6 +944,8 @@ export default function JoinAsCleanerPage() {
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         e.email = 'Enter a valid email address';
       if (!form.phone.trim()) e.phone = 'Phone number is required';
+      else if (form.phone.replace(/\D/g, '').length < 10)
+        e.phone = 'Enter a valid phone number';
       if (!form.postcode.trim()) e.postcode = 'Postcode is required';
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
         e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
@@ -957,7 +1122,7 @@ export default function JoinAsCleanerPage() {
           hasRtwDoc: !!rightToWorkDocFile,
           hasDbsCert: !!dbsCertFile,
           hasSelfie: !!selfiePhoto,
-          selfiePhoto: !!selfiePhoto,
+          selfiePhoto: selfiePhoto || null,
           profilePhoto: profilePhoto || null,
         }),
       });
@@ -980,8 +1145,24 @@ export default function JoinAsCleanerPage() {
       const result = await response.json();
       const cleanerId = result.cleaner?.id;
 
-      // Upload documents after profile creation
-      if (cleanerId) {
+      localStorage.removeItem(STORAGE_KEY);
+      trackConversion({ email: form.email });
+
+      // Sign in BEFORE uploading documents. /api/cleaners/documents authorises
+      // the caller from their session, so uploading before sign-in returned 401
+      // and every document silently failed. Establish the session first.
+      let signedIn = false;
+      if (form.password) {
+        const signInResult = await signIn('credentials', {
+          email: form.email,
+          password: form.password,
+          redirect: false,
+        });
+        signedIn = !signInResult?.error;
+      }
+
+      // Upload documents now that we hold a session.
+      if (signedIn && cleanerId) {
         const docs: { data: string; type: string; label: string }[] = [];
         if (photoIdFile && photoIdFile.startsWith('data:'))
           docs.push({ data: photoIdFile, type: 'photo_id', label: 'Photo ID' });
@@ -1014,23 +1195,13 @@ export default function JoinAsCleanerPage() {
           setErrors({
             submit: `Your application was submitted, but the following documents failed to upload: ${failedUploads.join(', ')}. Please re-upload them from your cleaner dashboard after logging in.`,
           });
+          return;
         }
       }
 
-      localStorage.removeItem(STORAGE_KEY);
-      trackConversion({ email: form.email });
-
-      // Auto-sign in and redirect to cleaner dashboard
-      if (form.password) {
-        const signInResult = await signIn('credentials', {
-          email: form.email,
-          password: form.password,
-          redirect: false,
-        });
-        if (!signInResult?.error) {
-          router.push('/cleaner');
-          return;
-        }
+      if (signedIn) {
+        router.push('/cleaner');
+        return;
       }
 
       setSubmitted(true);
@@ -1047,11 +1218,11 @@ export default function JoinAsCleanerPage() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center bg-cream min-h-screen flex flex-col items-center justify-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gold/10 text-3xl text-gold">
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center bg-page min-h-screen flex flex-col items-center justify-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-trust/10 text-3xl text-trust">
           &#10024;
         </div>
-        <h1 className="mt-8 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+        <h1 className="mt-8 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
           Application Received!
         </h1>
         <p className="mt-4 max-w-md font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -1060,7 +1231,7 @@ export default function JoinAsCleanerPage() {
         </p>
         <Link
           href="/login"
-          className="mt-8 inline-block rounded-full bg-gold px-10 py-3 font-jost text-[13px] font-light text-ink shadow-sm transition hover:bg-gold/90"
+          className="mt-8 inline-flex items-center justify-center rounded-[10px] bg-primary px-10 py-3 font-jost text-sm font-semibold text-white shadow-sm transition hover:bg-primary-hover"
         >
           Log in to your dashboard
         </Link>
@@ -1084,10 +1255,10 @@ export default function JoinAsCleanerPage() {
   /* ================================================================ */
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8 bg-cream min-h-screen">
+    <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8 bg-page min-h-screen">
       <div className="text-center">
-        <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-gold">Application</p>
-        <h1 className="mt-2 font-cormorant text-3xl font-light text-ink sm:text-4xl">
+        <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-primary">Application</p>
+        <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
           Become a Cleaner
         </h1>
         <p className="mx-auto mt-3 max-w-lg font-jost text-sm font-light text-ink-2">
@@ -1096,68 +1267,15 @@ export default function JoinAsCleanerPage() {
       </div>
 
       {/* ---------- Step indicator ---------- */}
-      <nav className="mt-10" aria-label="Progress">
-        <ol className="flex items-center justify-between">
-          {STEPS.map((step, idx) => {
-            const isCompleted = idx < currentStep;
-            const isCurrent = idx === currentStep;
-            return (
-              <li key={step.label} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex w-full items-center">
-                  {idx > 0 && (
-                    <div
-                      className={`h-[1.5px] flex-1 transition-colors duration-300 ${idx <= currentStep ? 'bg-gold' : 'bg-ink/[0.06]'}`}
-                    />
-                  )}
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-cormorant text-sm font-light transition-all duration-300 ${
-                      isCompleted
-                        ? 'bg-gold text-cream shadow-sm'
-                        : isCurrent
-                          ? 'bg-ink text-cream shadow-md'
-                          : 'bg-white text-ink-3'
-                    }`}
-                    style={
-                      !isCompleted && !isCurrent
-                        ? { border: '1px solid rgba(14,14,12,0.08)' }
-                        : undefined
-                    }
-                  >
-                    {isCompleted ? '\u2713' : step.icon}
-                  </div>
-                  {idx < STEPS.length - 1 && (
-                    <div
-                      className={`h-[1.5px] flex-1 transition-colors duration-300 ${idx < currentStep ? 'bg-gold' : 'bg-ink/[0.06]'}`}
-                    />
-                  )}
-                </div>
-                <span
-                  className={`hidden text-[11px] sm:block font-jost tracking-wide ${
-                    isCurrent ? 'font-normal text-ink' : isCompleted ? 'text-gold' : 'text-ink-3'
-                  }`}
-                >
-                  {step.label}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+      <DesktopStepper currentStep={currentStep} />
+      <MobileStepper currentStep={currentStep} />
 
       {/* ---------- Step content card ---------- */}
-      <div
-        className="mt-10 rounded-2xl bg-white p-6 shadow-sm animate-fade-in sm:p-8"
-        style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-      >
+      <div className="mt-8 rounded-2xl border border-line bg-surface p-6 shadow-sm animate-fade-in sm:p-8">
         {/* ===== Step 0 – Personal ===== */}
         {currentStep === 0 && (
           <div className="space-y-5">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              Personal Information
-            </h2>
+            <StepHeader step={0} />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -1205,7 +1323,11 @@ export default function JoinAsCleanerPage() {
                 <Label>Date of Birth</Label>
                 <div className="mt-1.5 grid grid-cols-3 gap-2">
                   <select
-                    value={form.dateOfBirth ? new Date(form.dateOfBirth).getDate().toString() : ''}
+                    value={
+                      form.dateOfBirth.split('-')[2]
+                        ? String(Number(form.dateOfBirth.split('-')[2]))
+                        : ''
+                    }
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
                       const day = e.target.value.padStart(2, '0');
@@ -1213,8 +1335,7 @@ export default function JoinAsCleanerPage() {
                         set('dateOfBirth', `${parts[0]}-${parts[1]}-${day}`);
                       else set('dateOfBirth', `0000-01-${day}`);
                     }}
-                    className="w-full rounded-lg bg-white px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="w-full rounded-[10px] bg-surface px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/20 transition appearance-none border border-line"
                   >
                     <option value="" disabled>
                       Day
@@ -1227,7 +1348,9 @@ export default function JoinAsCleanerPage() {
                   </select>
                   <select
                     value={
-                      form.dateOfBirth ? (new Date(form.dateOfBirth).getMonth() + 1).toString() : ''
+                      form.dateOfBirth.split('-')[1]
+                        ? String(Number(form.dateOfBirth.split('-')[1]))
+                        : ''
                     }
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
@@ -1236,8 +1359,7 @@ export default function JoinAsCleanerPage() {
                       const year = parts[0] || '0000';
                       set('dateOfBirth', `${year}-${month}-${day}`);
                     }}
-                    className="w-full rounded-lg bg-white px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="w-full rounded-[10px] bg-surface px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/20 transition appearance-none border border-line"
                   >
                     <option value="" disabled>
                       Month
@@ -1264,7 +1386,7 @@ export default function JoinAsCleanerPage() {
                   <select
                     value={
                       form.dateOfBirth && !form.dateOfBirth.startsWith('0000')
-                        ? new Date(form.dateOfBirth).getFullYear().toString()
+                        ? form.dateOfBirth.split('-')[0]
                         : ''
                     }
                     onChange={(e) => {
@@ -1273,8 +1395,7 @@ export default function JoinAsCleanerPage() {
                       const day = parts[2] || '01';
                       set('dateOfBirth', `${e.target.value}-${month}-${day}`);
                     }}
-                    className="w-full rounded-lg bg-white px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="w-full rounded-[10px] bg-surface px-3 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/20 transition appearance-none border border-line"
                   >
                     <option value="" disabled>
                       Year
@@ -1324,8 +1445,7 @@ export default function JoinAsCleanerPage() {
                 <div className="mt-3 flex items-start gap-5">
                   {/* Preview circle */}
                   <div
-                    className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-2"
-                    style={{ border: '2px solid rgba(14,14,12,0.08)' }}
+                    className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft border-2 border-line"
                   >
                     {form.profilePhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1352,7 +1472,7 @@ export default function JoinAsCleanerPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-light text-white transition hover:bg-primary-hover">
                         <svg
                           className="w-4 h-4"
                           fill="none"
@@ -1388,8 +1508,7 @@ export default function JoinAsCleanerPage() {
                         <button
                           type="button"
                           onClick={() => setWebcamTarget('profilePhoto')}
-                          className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
-                          style={{ border: '1px solid rgba(14,14,12,0.12)' }}
+                          className="inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line"
                         >
                           <svg
                             className="w-4 h-4"
@@ -1414,8 +1533,7 @@ export default function JoinAsCleanerPage() {
                         </button>
                       ) : (
                         <label
-                          className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
-                          style={{ border: '1px solid rgba(14,14,12,0.12)' }}
+                          className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line"
                         >
                           <svg
                             className="w-4 h-4"
@@ -1479,12 +1597,7 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 1 – Experience ===== */}
         {currentStep === 1 && (
           <div className="space-y-5">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              Experience &amp; Skills
-            </h2>
+            <StepHeader step={1} />
 
             <div>
               <Label>Years of Experience</Label>
@@ -1517,7 +1630,7 @@ export default function JoinAsCleanerPage() {
             <div>
               <Label>Specialties</Label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {SPECIALTY_OPTIONS.map((s) => (
+                {JOIN_SPECIALTY_OPTIONS.map((s) => (
                   <PillToggle
                     key={s}
                     label={s}
@@ -1525,28 +1638,7 @@ export default function JoinAsCleanerPage() {
                     onClick={() => toggleArray('specialties', s)}
                   />
                 ))}
-                {/* Custom specialties added by user */}
-                {form.specialties
-                  .filter((s) => !(SPECIALTY_OPTIONS as readonly string[]).includes(s))
-                  .map((s) => (
-                    <PillToggle
-                      key={s}
-                      label={s}
-                      active={true}
-                      onClick={() => toggleArray('specialties', s)}
-                    />
-                  ))}
               </div>
-              {/* Add custom specialty */}
-              <CustomAddInput
-                placeholder="Add a specialty..."
-                onAdd={(value) => {
-                  const titled = toTitleCase(value);
-                  if (!form.specialties.includes(titled)) {
-                    setForm((prev) => ({ ...prev, specialties: [...prev.specialties, titled] }));
-                  }
-                }}
-              />
             </div>
 
             <div>
@@ -1593,8 +1685,7 @@ export default function JoinAsCleanerPage() {
                 value={form.bio}
                 onChange={(e) => set('bio', e.target.value)}
                 placeholder="Tell potential customers about yourself, your experience, and what makes your service special..."
-                className="mt-1.5 w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition resize-none"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-[10px] bg-surface px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition resize-none border border-line"
               />
               <FieldError message={errors.bio} />
             </div>
@@ -1604,12 +1695,7 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 2 – Pricing ===== */}
         {currentStep === 2 && (
           <div className="space-y-5">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              Pricing &amp; Availability
-            </h2>
+            <StepHeader step={2} />
 
             {/* Per-service rate inputs for hourly services */}
             <div className="space-y-4">
@@ -1625,19 +1711,17 @@ export default function JoinAsCleanerPage() {
                           &pound;
                         </span>
                         <input
-                          type="number"
-                          min="1"
-                          step="0.50"
+                          type="text"
+                          inputMode="decimal"
                           required
                           value={form.serviceRates[svc] || ''}
                           onChange={(e) =>
                             set('serviceRates', {
                               ...form.serviceRates,
-                              [svc]: e.target.value,
+                              [svc]: sanitizeDecimal(e.target.value),
                             })
                           }
-                          className="w-full rounded-lg bg-white py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                          style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                          className="w-full rounded-[10px] bg-surface py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/20 transition border border-line"
                         />
                       </div>
                       <p className="mt-1.5 font-jost text-[11px] text-ink-3">
@@ -1696,45 +1780,26 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 3 – Identity ===== */}
         {currentStep === 3 && (
           <div className="space-y-5">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              Identity Verification
-            </h2>
+            <StepHeader step={3} />
 
             <div>
               <Label>Photo ID</Label>
               <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
                 Passport or driving licence accepted.
               </p>
-              <div
-                className="mt-2 rounded-lg bg-cream-2/50 p-4"
-                style={{ border: '1px dashed rgba(14,14,12,0.12)' }}
-              >
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        set('photoIdFile', reader.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  className="block w-full font-jost text-[13px] font-light text-ink-2 file:mr-4 file:rounded-lg file:border-0 file:bg-ink file:px-5 file:py-2 file:font-jost file:text-[13px] file:font-light file:text-cream file:cursor-pointer hover:file:bg-ink/90 file:transition"
-                />
-              </div>
-              {form.photoIdFile && <p className="mt-1 text-xs text-green-600">Photo ID uploaded</p>}
+              <UploadDropzone
+                label="Upload photo / PDF"
+                accept="image/*,.pdf"
+                uploaded={!!form.photoIdFile}
+                uploadedLabel="Photo ID uploaded"
+                onFile={(dataUrl) => set('photoIdFile', dataUrl)}
+              />
               <FieldError message={errors.photoIdFile} />
             </div>
 
             {/* ---- Right to Work ---- */}
-            <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
-              <h3 className="font-cormorant text-xl font-light text-ink">Right to Work</h3>
+            <div className="mt-6 border-t border-line pt-6">
+              <h3 className="font-newsreader text-lg font-semibold text-ink">Right to Work</h3>
               <p className="mt-1 font-jost text-xs font-light text-ink-3">
                 UK law requires us to verify your right to work before you can accept bookings.
               </p>
@@ -1744,8 +1809,7 @@ export default function JoinAsCleanerPage() {
                 <select
                   value={form.rightToWorkDocType}
                   onChange={(e) => set('rightToWorkDocType', e.target.value)}
-                  className="mt-1.5 block w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition appearance-none"
-                  style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                  className="input-base mt-1.5 block appearance-none bg-surface"
                 >
                   <option value="">Select document type...</option>
                   <option value="uk_passport">UK Passport</option>
@@ -1771,8 +1835,7 @@ export default function JoinAsCleanerPage() {
                     onChange={(e) => set('rightToWorkShareCode', e.target.value.toUpperCase())}
                     placeholder="e.g. A1B2C3D4E"
                     maxLength={9}
-                    className="mt-1.5 block w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="input-base mt-1.5 block bg-surface"
                   />
                   <FieldError message={errors.rightToWorkShareCode} />
                 </div>
@@ -1787,8 +1850,7 @@ export default function JoinAsCleanerPage() {
                     type="date"
                     value={form.rightToWorkExpiryDate}
                     onChange={(e) => set('rightToWorkExpiryDate', e.target.value)}
-                    className="mt-1.5 block w-full rounded-lg bg-white px-4 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="input-base mt-1.5 block bg-surface"
                   />
                 </div>
               )}
@@ -1798,38 +1860,19 @@ export default function JoinAsCleanerPage() {
                 <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
                   Upload a clear photo or scan of your right to work document.
                 </p>
-                <div
-                  className="mt-2 rounded-lg bg-cream-2/50 p-4"
-                  style={{ border: '1px dashed rgba(14,14,12,0.12)' }}
-                >
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          set('rightToWorkDocFile', reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="block w-full font-jost text-[13px] font-light text-ink-2 file:mr-4 file:rounded-lg file:border-0 file:bg-ink file:px-5 file:py-2 file:font-jost file:text-[13px] file:font-light file:text-cream file:cursor-pointer hover:file:bg-ink/90 file:transition"
-                  />
-                </div>
-                {form.rightToWorkDocFile && (
-                  <p className="mt-1 text-xs text-green-600">Right to work document uploaded</p>
-                )}
+                <UploadDropzone
+                  label="Upload photo / PDF"
+                  accept="image/*,.pdf"
+                  uploaded={!!form.rightToWorkDocFile}
+                  uploadedLabel="Right to work document uploaded"
+                  onFile={(dataUrl) => set('rightToWorkDocFile', dataUrl)}
+                />
                 <FieldError message={errors.rightToWorkDocFile} />
               </div>
             </div>
 
-            <div
-              className="rounded-lg bg-cream-2/50 px-4 py-3"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-            >
-              <p className="font-jost text-[12px] font-light text-ink-3 leading-relaxed">
+            <div className="rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
+              <p className="font-jost text-[12px] font-light text-ink-2 leading-relaxed">
                 Your documents are encrypted and stored securely. They are only used for identity
                 and right to work verification purposes. We are required by law to verify your
                 eligibility to work in the United Kingdom before you can accept bookings.
@@ -1841,12 +1884,7 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 4 – DBS & Background Check ===== */}
         {currentStep === 4 && (
           <div className="space-y-5">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              DBS &amp; Background Check
-            </h2>
+            <StepHeader step={4} />
             <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
               A DBS (Disclosure and Barring Service) check helps us ensure the safety of our
               customers. Customers strongly prefer cleaners who are DBS checked.
@@ -1879,20 +1917,15 @@ export default function JoinAsCleanerPage() {
                     key={opt.value}
                     type="button"
                     onClick={() => set('dbsOption', opt.value)}
-                    className={`rounded-xl p-4 text-left transition-all duration-200 ${
+                    className={`rounded-xl border p-4 text-left transition-all duration-200 ${
                       form.dbsOption === opt.value
-                        ? 'bg-ink text-cream shadow-md'
-                        : 'bg-white text-ink hover:shadow-sm'
+                        ? 'border-primary bg-primary text-white shadow-sm'
+                        : 'border-line bg-surface text-ink hover:border-ink-3/40'
                     }`}
-                    style={
-                      form.dbsOption !== opt.value
-                        ? { border: '1px solid rgba(14,14,12,0.08)' }
-                        : undefined
-                    }
                   >
                     <span className="block font-jost text-[14px] font-normal">{opt.title}</span>
                     <span
-                      className={`mt-1 block font-jost text-[12px] font-light ${form.dbsOption === opt.value ? 'text-cream/70' : 'text-ink-3'}`}
+                      className={`mt-1 block font-jost text-[12px] font-light ${form.dbsOption === opt.value ? 'text-white/70' : 'text-ink-3'}`}
                     >
                       {opt.desc}
                     </span>
@@ -1904,11 +1937,8 @@ export default function JoinAsCleanerPage() {
 
             {/* Existing DBS Details */}
             {form.dbsOption === 'existing' && (
-              <div
-                className="space-y-4 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-xl font-light text-ink">
+              <div className="space-y-4 rounded-xl border border-line bg-page p-5 animate-fade-in">
+                <h3 className="font-newsreader text-lg font-semibold text-ink">
                   DBS Certificate Details
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1939,29 +1969,13 @@ export default function JoinAsCleanerPage() {
                     Clear photo or scan of the full certificate. We will verify the certificate
                     number and status via the DBS Update Service.
                   </p>
-                  <div
-                    className="mt-2 rounded-lg bg-cream-2/50 p-4"
-                    style={{ border: '1px dashed rgba(14,14,12,0.12)' }}
-                  >
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            set('dbsCertFile', reader.result as string);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      className="block w-full font-jost text-[13px] font-light text-ink-2 file:mr-4 file:rounded-lg file:border-0 file:bg-ink file:px-5 file:py-2 file:font-jost file:text-[13px] file:font-light file:text-cream file:cursor-pointer hover:file:bg-ink/90 file:transition"
-                    />
-                  </div>
-                  {form.dbsCertFile && (
-                    <p className="mt-1 text-xs text-green-600">DBS certificate uploaded</p>
-                  )}
+                  <UploadDropzone
+                    label="Upload photo / PDF"
+                    accept="image/*,.pdf"
+                    uploaded={!!form.dbsCertFile}
+                    uploadedLabel="DBS certificate uploaded"
+                    onFile={(dataUrl) => set('dbsCertFile', dataUrl)}
+                  />
                   <FieldError message={errors.dbsCertFile} />
                 </div>
               </div>
@@ -1969,11 +1983,8 @@ export default function JoinAsCleanerPage() {
 
             {/* Want a DBS — instructions */}
             {form.dbsOption === 'want' && (
-              <div
-                className="space-y-3 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-xl font-light text-ink">
+              <div className="space-y-3 rounded-xl border border-line bg-primary-soft/50 p-5 animate-fade-in">
+                <h3 className="font-newsreader text-lg font-semibold text-ink">
                   How to Get a DBS Certificate
                 </h3>
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -1982,27 +1993,27 @@ export default function JoinAsCleanerPage() {
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 font-jost text-sm text-gold">1.</span>
+                    <span className="mt-0.5 font-jost text-sm text-primary">1.</span>
                     <p className="font-jost text-sm font-light text-ink-2">
                       Visit{' '}
                       <a
                         href="https://www.gov.uk/request-copy-criminal-record"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gold underline"
+                        className="text-primary underline"
                       >
                         gov.uk/request-copy-criminal-record
                       </a>
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 font-jost text-sm text-gold">2.</span>
+                    <span className="mt-0.5 font-jost text-sm text-primary">2.</span>
                     <p className="font-jost text-sm font-light text-ink-2">
                       Select &ldquo;Basic DBS check&rdquo; and follow the application steps
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 font-jost text-sm text-gold">3.</span>
+                    <span className="mt-0.5 font-jost text-sm text-primary">3.</span>
                     <p className="font-jost text-sm font-light text-ink-2">
                       Once you receive your certificate, upload it in your Rena profile
                     </p>
@@ -2017,10 +2028,7 @@ export default function JoinAsCleanerPage() {
 
             {/* No DBS — nudge */}
             {form.dbsOption === 'none' && (
-              <div
-                className="space-y-3 rounded-xl bg-cream-2/50 p-5 animate-fade-in"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
+              <div className="space-y-3 rounded-xl border border-line bg-primary-soft/50 p-5 animate-fade-in">
                 <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
                   You can still register without a DBS certificate, but please be aware that
                   customers strongly prefer DBS-checked cleaners. Cleaners with a verified DBS badge
@@ -2034,23 +2042,17 @@ export default function JoinAsCleanerPage() {
             )}
 
             {/* Liveness / Selfie Verification */}
-            <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}>
-              <h3 className="font-cormorant text-xl font-light text-ink">Identity Verification</h3>
+            <div className="mt-6 border-t border-line pt-6">
+              <h3 className="font-newsreader text-lg font-semibold text-ink">Selfie Check</h3>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
                 photo ID you uploaded in the previous step. This is a one-time check to protect both
                 you and our customers.
               </p>
 
-              <div
-                className="mt-4 rounded-xl bg-cream-2/50 p-5"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
+              <div className="mt-4 rounded-xl border border-line bg-page p-5">
                 <div className="flex items-start gap-4">
-                  <div
-                    className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white"
-                    style={{ border: '1px solid rgba(14,14,12,0.08)' }}
-                  >
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-surface">
                     {form.selfiePhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -2091,7 +2093,7 @@ export default function JoinAsCleanerPage() {
                         <button
                           type="button"
                           onClick={() => setWebcamTarget('selfiePhoto')}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90"
+                          className="inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-light text-white transition hover:bg-primary-hover"
                         >
                           <svg
                             className="w-4 h-4"
@@ -2115,7 +2117,7 @@ export default function JoinAsCleanerPage() {
                           {form.selfiePhoto ? 'Retake' : 'Take Selfie'}
                         </button>
                       ) : (
-                        <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-ink px-4 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90">
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-light text-white transition hover:bg-primary-hover">
                           <svg
                             className="w-4 h-4"
                             fill="none"
@@ -2156,10 +2158,7 @@ export default function JoinAsCleanerPage() {
                           />
                         </label>
                       )}
-                      <label
-                        className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-cream-2"
-                        style={{ border: '1px solid rgba(14,14,12,0.12)' }}
-                      >
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink-2 transition hover:bg-page">
                         <svg
                           className="w-4 h-4"
                           fill="none"
@@ -2193,7 +2192,7 @@ export default function JoinAsCleanerPage() {
                         />
                       </label>
                       {form.selfiePhoto && (
-                        <span className="font-jost text-xs text-green-600">
+                        <span className="font-jost text-xs text-trust">
                           &#10003; Selfie captured
                         </span>
                       )}
@@ -2204,14 +2203,10 @@ export default function JoinAsCleanerPage() {
               <FieldError message={errors.selfiePhoto} />
             </div>
 
-            <div
-              className="rounded-lg bg-cream-2/50 px-4 py-3"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-            >
-              <p className="font-jost text-[12px] font-light text-ink-3 leading-relaxed">
-                Your selfie and DBS certificate are encrypted and processed securely. The selfie is
-                compared against your photo ID to confirm your identity. All data is handled in
-                accordance with UK GDPR and destroyed after the verification is complete.
+            <div className="rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
+              <p className="font-jost text-[12px] font-light text-ink-2 leading-relaxed">
+                Your selfie and documents are encrypted and processed securely, and handled in
+                accordance with UK GDPR.
               </p>
             </div>
           </div>
@@ -2220,18 +2215,10 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 5 – Self-employment acknowledgment ===== */}
         {currentStep === 5 && (
           <div className="space-y-6">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              {CURRENT_AGREEMENT.title}
-            </h2>
+            <StepHeader step={5} />
 
-            <div
-              className="max-h-[45vh] overflow-auto whitespace-pre-wrap rounded-xl bg-cream-2/50 px-5 py-4 font-jost text-[14px] leading-relaxed text-ink"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-            >
-              {CURRENT_AGREEMENT.body}
+            <div className="max-h-[45vh] overflow-auto rounded-xl border border-line bg-page px-5 py-4">
+              <SimpleMarkdown source={stripLeadingH1(CURRENT_AGREEMENT.body)} />
             </div>
 
             <label className="flex items-start gap-3">
@@ -2253,21 +2240,13 @@ export default function JoinAsCleanerPage() {
         {/* ===== Step 6 – Review & Submit ===== */}
         {currentStep === 6 && (
           <div className="space-y-6">
-            <h2
-              className="font-cormorant text-2xl font-light text-ink pb-3 mb-1"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.08)' }}
-            >
-              Review &amp; Submit
-            </h2>
+            <StepHeader step={6} />
 
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Personal */}
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">Personal</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">Personal</h3>
                 <div className="mt-2 flex items-start gap-3">
                   {form.profilePhoto && (
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
@@ -2305,11 +2284,8 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Experience */}
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">Experience</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">Experience</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Years:</dt>{' '}
@@ -2335,11 +2311,8 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Pricing */}
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">Pricing</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">Pricing</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   {form.serviceTypes
                     .filter((svc) => SERVICE_RATE_INFO[svc]?.hourly)
@@ -2348,7 +2321,9 @@ export default function JoinAsCleanerPage() {
                         <dt className="inline font-normal text-ink">
                           {SERVICE_RATE_INFO[svc]?.label}:
                         </dt>{' '}
-                        <dd className="inline">&pound;{form.serviceRates[svc] || '–'}/hr</dd>
+                        <dd className="inline font-newsreader text-[15px] font-semibold text-ink">
+                          &pound;{form.serviceRates[svc] || '–'}/hr
+                        </dd>
                       </div>
                     ))}
                   {form.serviceTypes.some((svc) => !SERVICE_RATE_INFO[svc]?.hourly) && (
@@ -2371,17 +2346,14 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Identity */}
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">Identity</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">Identity</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Photo ID:</dt>{' '}
                     <dd className="inline">
                       {form.photoIdFile ? (
-                        <span className="inline-flex items-center gap-1 text-green-700">
+                        <span className="inline-flex items-center gap-1 text-trust">
                           <svg
                             className="w-3.5 h-3.5"
                             fill="none"
@@ -2410,11 +2382,8 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* DBS */}
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">DBS Check</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">DBS Check</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Option:</dt>{' '}
@@ -2442,7 +2411,7 @@ export default function JoinAsCleanerPage() {
                         <dt className="inline font-normal text-ink">Certificate:</dt>{' '}
                         <dd className="inline">
                           {form.dbsCertFile ? (
-                            <span className="inline-flex items-center gap-1 text-green-700">
+                            <span className="inline-flex items-center gap-1 text-trust">
                               <svg
                                 className="w-3.5 h-3.5"
                                 fill="none"
@@ -2469,11 +2438,8 @@ export default function JoinAsCleanerPage() {
               </div>
 
               {/* Right to Work */}
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">Right to Work</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">Right to Work</h3>
                 <dl className="mt-2 space-y-1 font-jost text-sm font-light text-ink-2">
                   <div>
                     <dt className="inline font-normal text-ink">Document type:</dt>{' '}
@@ -2493,7 +2459,7 @@ export default function JoinAsCleanerPage() {
                     <dt className="inline font-normal text-ink">Document:</dt>{' '}
                     <dd className="inline">
                       {form.rightToWorkDocFile ? (
-                        <span className="inline-flex items-center gap-1 text-green-700">
+                        <span className="inline-flex items-center gap-1 text-trust">
                           <svg
                             className="w-3.5 h-3.5"
                             fill="none"
@@ -2532,11 +2498,8 @@ export default function JoinAsCleanerPage() {
 
             {/* Bio */}
             {form.bio && (
-              <div
-                className="rounded-xl bg-cream-2/50 p-4"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-              >
-                <h3 className="font-cormorant text-lg font-light text-ink">Bio</h3>
+              <div className="rounded-xl border border-line bg-page p-4">
+                <h3 className="font-newsreader text-base font-semibold text-ink">Bio</h3>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2 whitespace-pre-line">
                   {form.bio}
                 </p>
@@ -2544,26 +2507,23 @@ export default function JoinAsCleanerPage() {
             )}
 
             {/* T&C checkbox */}
-            <label className="flex items-start gap-3 cursor-pointer rounded-lg p-3 hover:bg-cream-2/50 transition">
+            <label className="flex items-start gap-3 cursor-pointer rounded-[10px] p-3 hover:bg-page/50 transition">
               <input
                 type="checkbox"
                 checked={form.agreedToTerms}
                 onChange={(e) => set('agreedToTerms', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded accent-gold"
+                className="mt-0.5 h-4 w-4 rounded accent-primary"
               />
               <span className="font-jost text-[13px] font-light text-ink-2">
                 I agree to the{' '}
-                <span className="font-normal text-gold underline">Terms &amp; Conditions</span> and
+                <span className="font-normal text-primary underline">Terms &amp; Conditions</span> and
                 consent to a background check as part of the verification process.
               </span>
             </label>
             <FieldError message={errors.agreedToTerms} />
 
             {errors.submit && (
-              <div
-                className="rounded-lg bg-red-50 px-4 py-3 font-jost text-[13px] font-light text-red-700"
-                style={{ border: '1px solid rgba(239,68,68,0.15)' }}
-              >
+              <div className="rounded-[10px] border border-danger/20 bg-red-50 px-4 py-3 font-jost text-[13px] font-light text-danger">
                 {errors.submit}
               </div>
             )}
@@ -2576,8 +2536,7 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goBack}
-              className="rounded-full px-6 py-2.5 font-jost text-[13px] font-light text-ink hover:bg-cream-2 transition"
-              style={{ border: '1px solid rgba(14,14,12,0.12)' }}
+              className="rounded-[10px] border border-line bg-surface px-6 py-2.5 font-jost text-sm font-semibold text-ink-2 transition-colors hover:bg-page"
             >
               Back
             </button>
@@ -2589,7 +2548,7 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goNext}
-              className="rounded-full bg-ink px-8 py-2.5 font-jost text-[13px] font-light text-cream shadow-sm hover:bg-ink/90 transition"
+              className="rounded-[10px] bg-primary px-8 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover"
             >
               Continue
             </button>
@@ -2598,7 +2557,7 @@ export default function JoinAsCleanerPage() {
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="rounded-full bg-ink px-8 py-2.5 font-jost text-[13px] font-light text-cream shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
+              className="rounded-[10px] bg-primary px-8 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Application'}
             </button>
