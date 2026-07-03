@@ -1305,7 +1305,11 @@ export default function JoinAsCleanerPage() {
                 <Label>Date of Birth</Label>
                 <div className="mt-1.5 grid grid-cols-3 gap-2">
                   <select
-                    value={form.dateOfBirth ? new Date(form.dateOfBirth).getDate().toString() : ''}
+                    value={
+                      form.dateOfBirth.split('-')[2]
+                        ? String(Number(form.dateOfBirth.split('-')[2]))
+                        : ''
+                    }
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
                       const day = e.target.value.padStart(2, '0');
@@ -1326,7 +1330,9 @@ export default function JoinAsCleanerPage() {
                   </select>
                   <select
                     value={
-                      form.dateOfBirth ? (new Date(form.dateOfBirth).getMonth() + 1).toString() : ''
+                      form.dateOfBirth.split('-')[1]
+                        ? String(Number(form.dateOfBirth.split('-')[1]))
+                        : ''
                     }
                     onChange={(e) => {
                       const parts = form.dateOfBirth ? form.dateOfBirth.split('-') : ['', '', ''];
@@ -1362,7 +1368,7 @@ export default function JoinAsCleanerPage() {
                   <select
                     value={
                       form.dateOfBirth && !form.dateOfBirth.startsWith('0000')
-                        ? new Date(form.dateOfBirth).getFullYear().toString()
+                        ? form.dateOfBirth.split('-')[0]
                         : ''
                     }
                     onChange={(e) => {
