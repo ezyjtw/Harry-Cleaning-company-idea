@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { AccountSection, Toggle } from '@/components/account/primitives';
+
 // A11b: user-scoped notification preferences UI. Rendered from both
 // /account/notifications (customer) and /cleaner/notifications (cleaner) — the
 // preferences are per-user, so one panel + one API serves both roles.
@@ -45,38 +47,6 @@ const TOGGLES: { key: ToggleKey; label: string; description: string }[] = [
     description: 'Occasional promotions, tips and updates. Off by default — opt in here.',
   },
 ];
-
-function Toggle({
-  checked,
-  disabled,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  disabled: boolean;
-  onChange: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onChange}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
-        checked ? 'bg-brand-600' : 'bg-gray-300'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-          checked ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-    </button>
-  );
-}
 
 export default function NotificationPreferencesPanel() {
   const [prefs, setPrefs] = useState<Preferences | null>(null);
@@ -122,12 +92,12 @@ export default function NotificationPreferencesPanel() {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading your preferences…</p>;
+    return <p className="text-sm text-ink-3">Loading your preferences…</p>;
   }
 
   if (error || !prefs) {
     return (
-      <p className="text-sm text-red-600">
+      <p className="text-sm text-danger">
         We couldn&rsquo;t load your notification preferences. Please refresh and try again.
       </p>
     );
@@ -135,46 +105,47 @@ export default function NotificationPreferencesPanel() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
-      <p className="mt-1 text-sm text-gray-500">
-        Choose what we send you. Essential messages about your bookings, payments and account
-        security are always sent and can&rsquo;t be turned off.
-      </p>
+      <AccountSection title="Notifications">
+        <p className="mt-1 text-sm text-ink-3">
+          Choose what we send you. Essential messages about your bookings, payments and account
+          security are always sent and can&rsquo;t be turned off.
+        </p>
 
-      {/* Essential — informational, no toggle (it can never be disabled). */}
-      <div className="mt-6 flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <div>
-          <p className="text-sm font-medium text-gray-900">Booking, payment & security</p>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Booking and payment confirmations, receipts, and account-security emails.
-          </p>
-        </div>
-        <span className="mt-0.5 shrink-0 rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-          Always on
-        </span>
-      </div>
-
-      {/* Toggleable categories. */}
-      <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-200">
-        {TOGGLES.map((t) => (
-          <div key={t.key} className="flex items-start justify-between gap-4 p-4">
-            <div>
-              <p className="text-sm font-medium text-gray-900">{t.label}</p>
-              <p className="mt-0.5 text-sm text-gray-500">{t.description}</p>
-            </div>
-            <Toggle
-              checked={prefs[t.key]}
-              disabled={savingKey !== null}
-              onChange={() => handleToggle(t.key)}
-              label={t.label}
-            />
+        {/* Essential — informational, no toggle (it can never be disabled). */}
+        <div className="mt-6 flex items-start justify-between gap-4 rounded-xl border border-line bg-page p-4">
+          <div>
+            <p className="text-sm font-medium text-ink">Booking, payment &amp; security</p>
+            <p className="mt-0.5 text-sm text-ink-3">
+              Booking and payment confirmations, receipts, and account-security emails.
+            </p>
           </div>
-        ))}
-      </div>
+          <span className="mt-0.5 shrink-0 rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-medium text-primary">
+            Always on
+          </span>
+        </div>
 
-      <p className="mt-3 text-xs text-gray-400">
-        Changes save automatically. Marketing emails require your explicit opt-in (UK PECR).
-      </p>
+        {/* Toggleable categories. */}
+        <div className="mt-3 divide-y divide-line rounded-xl border border-line">
+          {TOGGLES.map((t) => (
+            <div key={t.key} className="flex items-start justify-between gap-4 p-4">
+              <div>
+                <p className="text-sm font-medium text-ink">{t.label}</p>
+                <p className="mt-0.5 text-sm text-ink-3">{t.description}</p>
+              </div>
+              <Toggle
+                checked={prefs[t.key]}
+                disabled={savingKey !== null}
+                onChange={() => handleToggle(t.key)}
+                label={t.label}
+              />
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-3 text-xs text-ink-3">
+          Changes save automatically. Marketing emails require your explicit opt-in (UK PECR).
+        </p>
+      </AccountSection>
     </div>
   );
 }

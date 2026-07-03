@@ -35,21 +35,23 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900 lg:mb-8 lg:text-3xl">My Account</h1>
+      <h1 className="mb-6 font-newsreader text-2xl font-semibold text-ink lg:mb-8 lg:text-3xl">
+        My Account
+      </h1>
 
       <div className="lg:flex lg:gap-8">
         {/* Mobile: horizontal tabs */}
-        <nav className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-white p-1 lg:hidden">
+        <nav className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex shrink-0 items-center gap-2 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-brand-50 text-brand-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-primary-soft text-primary'
+                    : 'text-ink-2 hover:bg-page hover:text-ink'
                 }`}
               >
                 <svg
@@ -69,17 +71,17 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
         {/* Desktop: sidebar */}
         <aside className="hidden lg:block lg:w-56 lg:shrink-0">
-          <nav className="sticky top-24 space-y-1 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+          <nav className="sticky top-24 space-y-1 rounded-xl border border-line bg-surface p-2 shadow-sm">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-brand-50 text-brand-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-primary-soft text-primary'
+                      : 'text-ink-2 hover:bg-page hover:text-ink'
                   }`}
                 >
                   <svg
