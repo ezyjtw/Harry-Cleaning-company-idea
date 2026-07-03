@@ -873,7 +873,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           {/* Guest / Account selection */}
           {bookingMode === null && (
             <div className="mt-8 p-6" style={{ border: '0.5px solid #E4E9F0' }}>
-              <h3 className="font-newsreader text-lg font-light text-ink mb-4">
+              <h3 className="font-newsreader text-lg font-semibold text-ink mb-4">
                 How would you like to book?
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -907,7 +907,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           >
             {/* Contact info */}
             <div>
-              <h3 className="font-newsreader text-lg font-light text-ink">
+              <h3 className="font-newsreader text-lg font-semibold text-ink">
                 Your Information
                 {bookingMode === 'guest' && (
                   <span className="ml-2 font-jost text-sm font-light text-ink-3">
@@ -1006,7 +1006,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
             {/* Service details */}
             <div>
-              <h3 className="font-newsreader text-lg font-light text-ink">Service Details</h3>
+              <h3 className="font-newsreader text-lg font-semibold text-ink">Service Details</h3>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
