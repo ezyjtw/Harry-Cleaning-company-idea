@@ -375,8 +375,7 @@ export default function VerifyPage() {
 
           <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-700">
             <strong>Privacy:</strong> Your ID is encrypted and only used for verification. We never
-            share your documents with customers or cleaners. Verification data is deleted after 30
-            days.
+            share your documents with customers or cleaners.
           </div>
 
           <button
@@ -560,7 +559,7 @@ export default function VerifyPage() {
           </h2>
           <p className="mt-3 text-gray-600">
             Thanks — your ID and selfie are in. We&apos;ll review them within 24–48 hours and email
-            you when your Verified badge is live.
+            you the result.
           </p>
           <button
             onClick={() => (window.location.href = '/dashboard')}
