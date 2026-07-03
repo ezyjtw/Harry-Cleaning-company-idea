@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 import { useCompany } from '../_context/CompanyContext';
 
@@ -40,7 +40,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!company?.id) return;
@@ -90,22 +89,6 @@ export default function SettingsPage() {
       }
     } catch {}
     setSaving(false);
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const preview = URL.createObjectURL(file);
-      setProfile({ ...profile, logoPreview: preview });
-    }
-  };
-
-  const handleRemoveLogo = () => {
-    if (profile.logoPreview && profile.logoPreview.startsWith('blob:')) {
-      URL.revokeObjectURL(profile.logoPreview);
-    }
-    setProfile({ ...profile, logoPreview: '' });
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const toggleSpecialty = (specialty: string) => {
@@ -187,67 +170,6 @@ export default function SettingsPage() {
                   rows={4}
                   className={`${inputClass} resize-none`}
                 />
-              </div>
-
-              {/* Logo Upload */}
-              <div>
-                <label className={labelClass}>Company Logo</label>
-                <div className="mt-2 flex items-center gap-5">
-                  {profile.logoPreview ? (
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden bg-cream-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={profile.logoPreview}
-                        alt="Logo preview"
-                        className="h-full w-full object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-cream-2">
-                      <svg
-                        className="h-8 w-8 text-ink-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="font-jost text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4 transition-colors hover:text-ink-2"
-                    >
-                      {profile.logoPreview ? 'Change logo' : 'Upload logo'}
-                    </button>
-                    {profile.logoPreview && (
-                      <button
-                        type="button"
-                        onClick={handleRemoveLogo}
-                        className="font-jost text-[12px] font-light text-ink-3 underline underline-offset-4 transition-colors hover:text-ink"
-                      >
-                        Remove
-                      </button>
-                    )}
-                    <p className="font-jost text-[11px] font-light text-ink-3">
-                      PNG, JPG, SVG or WebP. Max 2MB.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           </section>
