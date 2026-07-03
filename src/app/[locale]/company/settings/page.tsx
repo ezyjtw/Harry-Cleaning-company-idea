@@ -118,7 +118,7 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="font-cormorant text-[32px] font-light leading-tight text-ink">
+            <h1 className="font-newsreader text-[32px] font-semibold leading-tight text-ink">
               Company Settings
             </h1>
             <p className="mt-1.5 font-jost text-[14px] font-light text-ink-2">
@@ -151,7 +151,7 @@ export default function SettingsPage() {
             className="bg-white p-6 md:p-8"
             style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
           >
-            <h2 className="font-cormorant text-[22px] font-light text-ink">Basic Information</h2>
+            <h2 className="font-newsreader text-[22px] font-semibold text-ink">Basic Information</h2>
             <div className="mt-6 space-y-5">
               <div>
                 <label className={labelClass}>Company Name</label>
@@ -179,7 +179,7 @@ export default function SettingsPage() {
             className="bg-white p-6 md:p-8"
             style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
           >
-            <h2 className="font-cormorant text-[22px] font-light text-ink">Contact Details</h2>
+            <h2 className="font-newsreader text-[22px] font-semibold text-ink">Contact Details</h2>
             <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Email</label>
@@ -216,7 +216,7 @@ export default function SettingsPage() {
             className="bg-white p-6 md:p-8"
             style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
           >
-            <h2 className="font-cormorant text-[22px] font-light text-ink">Services Offered</h2>
+            <h2 className="font-newsreader text-[22px] font-semibold text-ink">Services Offered</h2>
             <p className="mt-1 font-jost text-[13px] font-light text-ink-3">
               Select the services your company provides.
             </p>

@@ -130,7 +130,7 @@ export default function FAQPage() {
     <div className="min-h-screen bg-cream">
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="font-cormorant text-4xl font-light tracking-tight text-ink">
+          <h1 className="font-newsreader text-4xl font-semibold tracking-tight text-ink">
             Frequently Asked Questions
           </h1>
           <p className="mt-4 font-jost text-lg font-light text-ink-2">
@@ -149,7 +149,7 @@ export default function FAQPage() {
                 <div className="mb-2 h-px w-12 bg-gold" />
                 <h2
                   id={`faq-${category.name.toLowerCase()}`}
-                  className="font-cormorant text-2xl font-light text-ink"
+                  className="font-newsreader text-2xl font-semibold text-ink"
                 >
                   {category.name}
                 </h2>
@@ -215,7 +215,7 @@ export default function FAQPage() {
           className="mt-16 bg-cream-2 p-8 text-center"
           style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
         >
-          <h3 className="font-cormorant text-xl font-light text-ink">Still have questions?</h3>
+          <h3 className="font-newsreader text-xl font-semibold text-ink">Still have questions?</h3>
           <p className="mt-2 font-jost font-light text-ink-2">
             Our support team is here to help. Get in touch and we will get back to you within 24
             hours.

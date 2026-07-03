@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <div className="bg-cream mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-      <h1 className="font-cormorant text-4xl font-light tracking-tight text-ink">
+      <h1 className="font-newsreader text-4xl font-semibold tracking-tight text-ink">
         Terms of Service
       </h1>
       <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -18,7 +18,7 @@ export default function TermsPage() {
 
       <div className="mt-10 max-w-none">
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">1. Agreement to Terms</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">1. Agreement to Terms</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             By accessing or using the Rena platform (&quot;Platform&quot;), operated by Rena
             Cleaning Network (&quot;Rena&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;),
@@ -29,7 +29,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">2. Description of Service</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">2. Description of Service</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             Rena is an online marketplace that connects customers with independent cleaning
             professionals. Rena is not a cleaning company and does not provide cleaning services
@@ -40,7 +40,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">3. Account Registration</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">3. Account Registration</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             To use certain features of the Platform, you must create an account. You agree to:
           </p>
@@ -58,8 +58,8 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">4. Bookings and Services</h2>
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">4.1 For Customers</h3>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">4. Bookings and Services</h2>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">4.1 For Customers</h3>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
             <li>
               Bookings are requests for cleaning services and are subject to cleaner acceptance and
@@ -75,7 +75,7 @@ export default function TermsPage() {
             </li>
           </ul>
 
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">4.2 For Cleaners</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">4.2 For Cleaners</h3>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
             <li>
               You represent that you are an independent contractor and not an employee of Rena.
@@ -95,7 +95,7 @@ export default function TermsPage() {
             </li>
           </ul>
 
-          <h3 className="mt-6 font-cormorant text-lg font-light text-ink">
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
             4.3 Right to Substitution
           </h3>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -117,7 +117,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">5. Pricing and Payment</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">5. Pricing and Payment</h2>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
             <li>
               Cleaners set their own rates which are listed on the platform. A 6% service fee is
@@ -145,7 +145,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             6. Cancellation and Refunds
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -176,7 +176,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">7. Reviews and Ratings</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">7. Reviews and Ratings</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             After a completed booking, customers may leave a review and rating for the cleaner.
             Reviews must be honest, accurate, and based on the actual service received. We reserve
@@ -187,7 +187,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">8. Disputes</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">8. Disputes</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             If a dispute arises between a customer and a cleaner, either party may raise a dispute
             through the Platform. Rena will review the dispute and aim to reach a resolution within
@@ -197,7 +197,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">9. Prohibited Conduct</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">9. Prohibited Conduct</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">You agree not to:</p>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-light text-ink-2">
             <li>Use the Platform for any unlawful purpose</li>
@@ -214,7 +214,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">10. Intellectual Property</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">10. Intellectual Property</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             The Platform, including its design, logos, text, graphics, and software, is owned by
             Rena and protected by copyright, trademark, and other intellectual property laws. You
@@ -224,7 +224,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             11. Limitation of Liability
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -239,7 +239,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">12. Indemnification</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">12. Indemnification</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             You agree to indemnify, defend, and hold harmless Rena, its officers, directors,
             employees, and agents from any claims, liabilities, damages, losses, and expenses
@@ -249,7 +249,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">13. Termination</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">13. Termination</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             We may suspend or terminate your access to the Platform at any time for any reason,
             including violation of these Terms. You may delete your account at any time through your
@@ -260,7 +260,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">14. Governing Law</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">14. Governing Law</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             These Terms are governed by and construed in accordance with the laws of England and
             Wales. Any disputes arising from these Terms shall be subject to the exclusive
@@ -269,7 +269,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 pb-8" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.06)' }}>
-          <h2 className="font-cormorant text-2xl font-light text-ink">
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
             15. Changes to These Terms
           </h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -281,7 +281,7 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="font-cormorant text-2xl font-light text-ink">16. Contact Information</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">16. Contact Information</h2>
           <p className="mt-4 font-jost font-light text-ink-2 leading-relaxed">
             If you have questions about these Terms, please contact us:
           </p>

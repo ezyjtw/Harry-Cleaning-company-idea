@@ -42,7 +42,7 @@ export default function CleanerStatements() {
 
   return (
     <div className="mt-8 bg-white p-6" style={fieldStyle}>
-      <h2 className="font-cormorant text-xl font-light text-ink">Statements</h2>
+      <h2 className="font-newsreader text-xl font-semibold text-ink">Statements</h2>
       <p className="mt-1 font-jost text-sm font-light text-ink-3">
         Download a PDF summary of your earnings for your records or Self Assessment. Covers jobs
         whose funds were released to you in the period.

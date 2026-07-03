@@ -637,7 +637,7 @@ export default function HeroQuoteWidget() {
     if (!quote) {
       return (
         <div className="py-10 text-center">
-          <p className="mb-1 font-cormorant text-[22px] font-light text-ink">
+          <p className="mb-1 font-newsreader text-[22px] font-medium text-ink">
             Something went wrong
           </p>
           <p className="mb-5 font-jost text-[13px] font-light text-ink-3">
@@ -709,7 +709,7 @@ export default function HeroQuoteWidget() {
           </p>
           {quote.cleanerCount > 0 ? (
             <>
-              <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
+              <p className="mt-2 font-newsreader text-[36px] font-medium text-ink">
                 from &pound;{quote.minTotal.toFixed(2)}
               </p>
               <p className="mt-2 font-jost text-[12px] text-ink-3">
@@ -726,7 +726,7 @@ export default function HeroQuoteWidget() {
                 const range = ranges[key];
                 const low = range ? Math.ceil(range[0] * 1.06) : 0;
                 return (
-                  <p className="mt-2 font-cormorant text-[36px] font-light text-ink">
+                  <p className="mt-2 font-newsreader text-[36px] font-medium text-ink">
                     from &pound;{low}
                   </p>
                 );
@@ -820,7 +820,7 @@ export default function HeroQuoteWidget() {
               />
             </svg>
           </div>
-          <p className="mt-3 font-cormorant text-[22px] font-light text-ink">
+          <p className="mt-3 font-newsreader text-[22px] font-medium text-ink">
             Ready to find your cleaner
           </p>
           <p className="mt-1 font-jost text-[13px] font-light text-ink-3">
@@ -835,7 +835,7 @@ export default function HeroQuoteWidget() {
           className="mb-6 rounded-md bg-cream px-4 py-3 text-center"
           style={{ border: '1px solid rgba(27,42,74,0.06)' }}
         >
-          <span className="font-cormorant text-[20px] font-light text-ink">
+          <span className="font-newsreader text-[20px] font-medium text-ink">
             from &pound;{quote.minTotal.toFixed(2)}
           </span>
           <span className="ml-2 font-jost text-[12px] text-ink-3">estimated</span>

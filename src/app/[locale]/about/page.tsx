@@ -106,7 +106,7 @@ export default function AboutPage() {
       {/* Hero */}
       <section className="bg-ink py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-light tracking-tight text-cream font-cormorant sm:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-tight text-cream font-newsreader sm:text-5xl">
             Cleaning Done Right, for Everyone
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80">
@@ -120,7 +120,7 @@ export default function AboutPage() {
       {/* Our Story */}
       <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">Our Story</h2>
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">Our Story</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <div className="mt-6 space-y-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
             <p>
@@ -153,7 +153,7 @@ export default function AboutPage() {
       {/* Mission */}
       <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">Our Mission</h2>
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">Our Mission</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <div className="mt-6 space-y-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
             <p>
@@ -179,11 +179,11 @@ export default function AboutPage() {
       {/* How Rena is Different */}
       <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">How Rena is Different</h2>
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">How Rena is Different</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <div className="mt-10 grid gap-8 md:grid-cols-2">
             <div className="bg-cream p-8" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-              <h3 className="text-lg font-normal text-ink font-cormorant">
+              <h3 className="text-lg font-semibold text-ink font-newsreader">
                 Leading Platforms in the Industry
               </h3>
               <ul className="mt-4 space-y-3 font-jost font-light text-ink-2">
@@ -242,7 +242,7 @@ export default function AboutPage() {
               </ul>
             </div>
             <div className="bg-cream p-8" style={{ border: '0.5px solid #b8975a' }}>
-              <h3 className="text-lg font-normal text-gold font-cormorant">Rena</h3>
+              <h3 className="text-lg font-semibold text-gold font-newsreader">Rena</h3>
               <ul className="mt-4 space-y-3 font-jost font-light text-ink-2">
                 <li className="flex items-start gap-3">
                   <svg
@@ -305,7 +305,7 @@ export default function AboutPage() {
       {/* Vetting Process */}
       <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">
             Our Cleaner Vetting Process
           </h2>
           <div className="mt-4 w-8 h-px bg-gold" />
@@ -342,11 +342,11 @@ export default function AboutPage() {
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-6">
-                <div className="shrink-0 font-cormorant text-[40px] font-light text-cream-2 leading-none">
+                <div className="shrink-0 font-newsreader text-[40px] font-medium text-cream-2 leading-none">
                   {item.step}
                 </div>
                 <div>
-                  <h3 className="text-lg font-normal text-ink font-jost">{item.title}</h3>
+                  <h3 className="text-lg font-semibold text-ink font-newsreader">{item.title}</h3>
                   <p className="mt-1 font-jost font-light text-ink-2">{item.desc}</p>
                 </div>
               </div>
@@ -358,7 +358,7 @@ export default function AboutPage() {
       {/* Values */}
       <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-3xl font-light text-ink font-cormorant">Our Values</h2>
+          <h2 className="text-center text-3xl font-semibold text-ink font-newsreader">Our Values</h2>
           <div className="mx-auto mt-4 flex justify-center">
             <div className="w-8 h-px bg-gold" />
           </div>
@@ -370,7 +370,7 @@ export default function AboutPage() {
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <div className="flex h-12 w-12 items-center justify-center">{value.icon}</div>
-                <h3 className="mt-4 text-lg font-normal text-ink font-cormorant">{value.title}</h3>
+                <h3 className="mt-4 text-lg font-semibold text-ink font-newsreader">{value.title}</h3>
                 <p className="mt-2 font-jost font-light text-ink-2">{value.description}</p>
               </div>
             ))}
@@ -381,7 +381,7 @@ export default function AboutPage() {
       {/* CTA */}
       <section className="bg-ink py-14">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-light text-cream font-cormorant sm:text-3xl">
+          <h2 className="text-2xl font-semibold text-cream font-newsreader sm:text-3xl">
             Ready to experience the difference?
           </h2>
           <p className="mt-3 font-jost font-light text-cream/70">

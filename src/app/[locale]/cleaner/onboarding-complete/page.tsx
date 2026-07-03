@@ -48,7 +48,7 @@ export default async function OnboardingCompletePage() {
             </svg>
           </div>
 
-          <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">You&apos;re all set!</h1>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">You&apos;re all set!</h1>
 
           <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2 leading-relaxed">
             Your payment account is connected. You can now receive bookings from customers in your
@@ -123,7 +123,7 @@ export default async function OnboardingCompletePage() {
           </svg>
         </div>
 
-        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Almost done!</h1>
+        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Almost done!</h1>
 
         <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2 leading-relaxed">
           Stripe is verifying your details. This usually takes a few minutes. If additional

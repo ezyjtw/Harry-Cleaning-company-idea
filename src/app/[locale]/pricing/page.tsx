@@ -63,7 +63,7 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="bg-ink py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-light tracking-tight text-cream font-cormorant sm:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-tight text-cream font-newsreader sm:text-5xl">
             Simple, Transparent Pricing
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80">
@@ -76,7 +76,7 @@ export default function PricingPage() {
       {/* How pricing works */}
       <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">How Our Pricing Works</h2>
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">How Our Pricing Works</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <p className="mt-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
             Every cleaner on Rena sets their own hourly rate. You browse, compare, and pick the
@@ -104,7 +104,7 @@ export default function PricingPage() {
                 </svg>
               </div>
               <div>
-                <p className="font-cormorant text-xl font-light text-ink">6% Service Fee</p>
+                <p className="font-newsreader text-xl font-medium text-ink">6% Service Fee</p>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
                   This covers customer support, our satisfaction guarantee, held-payment protection,
                   and platform maintenance. It&apos;s always shown before you confirm your booking —
@@ -119,7 +119,7 @@ export default function PricingPage() {
             className="mt-10 bg-cream-2 p-8"
             style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
           >
-            <h3 className="text-lg font-normal text-ink font-cormorant">Example Price Breakdown</h3>
+            <h3 className="text-lg font-semibold text-ink font-newsreader">Example Price Breakdown</h3>
             <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               3-hour regular clean at &pound;16.50/hr
             </p>
@@ -141,8 +141,8 @@ export default function PricingPage() {
                 <span className="font-normal text-ink font-jost">&pound;3.16</span>
               </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="text-lg font-normal text-ink font-cormorant">Total you pay</span>
-                <span className="text-lg font-normal text-gold font-cormorant">&pound;52.66</span>
+                <span className="text-lg font-medium text-ink font-newsreader">Total you pay</span>
+                <span className="text-lg font-medium text-gold font-newsreader">&pound;52.66</span>
               </div>
             </div>
             <p className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -155,7 +155,7 @@ export default function PricingPage() {
       {/* Service rates */}
       <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">
             Typical Rates by Service Type
           </h2>
           <div className="mt-4 w-8 h-px bg-gold" />
@@ -235,7 +235,7 @@ export default function PricingPage() {
       {/* Airbnb & End of Tenancy explainer */}
       <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">Specialist Services</h2>
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">Specialist Services</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
 
           <div className="mt-10 grid gap-6 sm:grid-cols-2">
@@ -247,7 +247,7 @@ export default function PricingPage() {
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                 Short-Let Hosts
               </p>
-              <h3 className="mt-2 font-cormorant text-xl font-light text-ink">
+              <h3 className="mt-2 font-newsreader text-xl font-semibold text-ink">
                 Airbnb &amp; Holiday Let Cleaning
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -277,7 +277,7 @@ export default function PricingPage() {
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                 Tenants &amp; Landlords
               </p>
-              <h3 className="mt-2 font-cormorant text-xl font-light text-ink">
+              <h3 className="mt-2 font-newsreader text-xl font-semibold text-ink">
                 End of Tenancy Cleaning
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -332,7 +332,7 @@ export default function PricingPage() {
       {/* Comparison table */}
       <section className="bg-cream-2 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-light text-ink font-cormorant">
+          <h2 className="text-3xl font-semibold text-ink font-newsreader">
             Rena vs. Leading Platforms in the Industry
           </h2>
           <div className="mt-4 w-8 h-px bg-gold" />
@@ -417,7 +417,7 @@ export default function PricingPage() {
                   />
                 </svg>
               </div>
-              <h2 className="mt-6 text-3xl font-light text-ink font-cormorant">
+              <h2 className="mt-6 text-3xl font-semibold text-ink font-newsreader">
                 Our No Hidden Fees Guarantee
               </h2>
               <div className="mx-auto mt-4 w-8 h-px bg-gold" />

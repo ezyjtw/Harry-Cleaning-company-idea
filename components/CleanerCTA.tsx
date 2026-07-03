@@ -13,7 +13,7 @@ export default function CleanerCTA() {
           <p className="font-jost text-[11px] font-medium uppercase tracking-[0.2em] text-gold">
             {t('sectionTitle')}
           </p>
-          <h2 className="mt-3 font-cormorant text-[32px] font-light leading-tight text-cream md:text-[44px]">
+          <h2 className="mt-3 font-newsreader text-[32px] font-semibold leading-tight text-cream md:text-[44px]">
             {t('sectionSubtitle')}
           </h2>
           <p className="mt-4 max-w-lg font-jost text-[15px] font-light leading-relaxed text-cream/70">

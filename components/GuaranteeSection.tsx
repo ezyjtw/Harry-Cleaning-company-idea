@@ -70,7 +70,7 @@ export default function GuaranteeSection() {
             <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
               {t('sectionTitle')}
             </p>
-            <h2 className="mb-5 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-6 md:text-[42px]">
+            <h2 className="mb-5 font-newsreader text-[32px] font-semibold leading-tight text-ink md:mb-6 md:text-[42px]">
               {t('sectionSubtitle')}
             </h2>
             <p className="mb-8 max-w-[440px] font-jost text-[15px] font-light leading-[1.8] text-ink-3 md:mb-10">

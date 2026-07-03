@@ -235,7 +235,7 @@ export default function CleanerDashboard() {
             )}
           </div>
 
-          <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
             {isPending
               ? 'Your application is under review'
               : isRejected
@@ -410,7 +410,7 @@ export default function CleanerDashboard() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-cormorant text-2xl font-light text-ink">
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">
             Welcome back, {data.profile.name?.split(' ')[0] || 'Cleaner'}
           </h1>
           <p className="font-jost text-sm font-light text-ink-3 mt-1">
@@ -463,7 +463,7 @@ export default function CleanerDashboard() {
               </p>
               <div className="text-ink-3/40">{statIcons[i]}</div>
             </div>
-            <p className="font-cormorant text-3xl font-light text-ink">{stat.value}</p>
+            <p className="font-newsreader text-3xl font-medium text-ink">{stat.value}</p>
             <p className="font-jost text-xs font-light text-ink-3 mt-1">{stat.sub}</p>
           </div>
         ))}
@@ -474,7 +474,7 @@ export default function CleanerDashboard() {
           className="mb-6 rounded-xl bg-amber-50/50 px-5 py-4 flex items-center gap-3"
           style={{ border: '1px solid rgba(217,119,6,0.12)' }}
         >
-          <span className="font-cormorant text-2xl font-light text-amber-700">
+          <span className="font-newsreader text-2xl font-medium text-amber-700">
             {data.stats.backupBookingCount}
           </span>
           <p className="font-jost text-sm font-light text-ink-2">
@@ -496,7 +496,7 @@ export default function CleanerDashboard() {
             className="px-6 py-4 flex items-center justify-between"
             style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
           >
-            <h2 className="font-cormorant text-lg font-light text-ink">Upcoming Jobs</h2>
+            <h2 className="font-newsreader text-lg font-semibold text-ink">Upcoming Jobs</h2>
             <Link
               href="/cleaner/jobs"
               className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-gold/80 transition-colors"
@@ -562,7 +562,7 @@ export default function CleanerDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 sm:flex-col sm:items-end">
-                  <p className="font-cormorant text-lg font-light text-ink">
+                  <p className="font-newsreader text-lg font-medium text-ink">
                     {'£'}
                     {job.cleanerEarnings.toFixed(2)}
                   </p>
@@ -618,7 +618,7 @@ export default function CleanerDashboard() {
             className="rounded-xl bg-white p-6"
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
-            <h2 className="font-cormorant text-lg font-light text-ink mb-4">Earnings This Week</h2>
+            <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Earnings This Week</h2>
             <div className="h-40 flex items-end gap-2">
               {data.dailyPercents.map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
@@ -636,7 +636,7 @@ export default function CleanerDashboard() {
               className="mt-4 pt-4 text-center"
               style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}
             >
-              <p className="font-cormorant text-2xl font-light text-ink">
+              <p className="font-newsreader text-2xl font-medium text-ink">
                 {'£'}
                 {data.stats.weeklyEarnings}
               </p>
@@ -653,7 +653,7 @@ export default function CleanerDashboard() {
               className="px-6 py-4 flex items-center justify-between"
               style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
             >
-              <h2 className="font-cormorant text-lg font-light text-ink">Recent Reviews</h2>
+              <h2 className="font-newsreader text-lg font-semibold text-ink">Recent Reviews</h2>
               <Link
                 href="/cleaner/reviews"
                 className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-gold/80 transition-colors"

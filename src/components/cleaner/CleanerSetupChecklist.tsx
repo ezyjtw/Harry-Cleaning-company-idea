@@ -182,7 +182,7 @@ export default function CleanerSetupChecklist({ profile }: { profile: SetupCheck
             </svg>
           </span>
           <div>
-            <h2 className="font-cormorant text-[18px] font-semibold text-ink">
+            <h2 className="font-newsreader text-[18px] font-semibold text-ink">
               You&rsquo;re all set
             </h2>
             <p className="font-jost text-[12px] font-light text-ink-3">
@@ -207,7 +207,7 @@ export default function CleanerSetupChecklist({ profile }: { profile: SetupCheck
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-cormorant text-[20px] font-semibold text-ink">
+          <h2 className="font-newsreader text-[20px] font-semibold text-ink">
             Complete your profile
           </h2>
           <p className="font-jost text-[12px] font-light text-ink-3">

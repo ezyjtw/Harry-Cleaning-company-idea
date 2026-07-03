@@ -116,7 +116,7 @@ export default function DpiaPage() {
           <Link href="/admin" className="font-jost text-sm text-ink-3 hover:text-ink">
             &larr; Admin Dashboard
           </Link>
-          <h1 className="mt-1 font-cormorant text-2xl font-light text-ink">
+          <h1 className="mt-1 font-newsreader text-2xl font-semibold text-ink">
             Data Protection Impact Assessment
           </h1>
           <p className="mt-1 font-jost text-sm font-light text-ink-3">
@@ -129,7 +129,7 @@ export default function DpiaPage() {
       <main className="mx-auto max-w-5xl px-6 py-8">
         {/* Overview */}
         <div className="mb-8 bg-white p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-xl font-light text-ink">Assessment Overview</h2>
+          <h2 className="font-newsreader text-xl font-semibold text-ink">Assessment Overview</h2>
           <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 font-jost text-sm">
             <div>
               <dt className="font-normal text-ink">Data Controller</dt>
@@ -153,7 +153,7 @@ export default function DpiaPage() {
         </div>
 
         {/* Processing Activities */}
-        <h2 className="mb-4 font-cormorant text-xl font-light text-ink">Processing Activities</h2>
+        <h2 className="mb-4 font-newsreader text-xl font-semibold text-ink">Processing Activities</h2>
         <div className="space-y-4">
           {dpiaItems.map((item) => (
             <div
@@ -197,7 +197,7 @@ export default function DpiaPage() {
 
         {/* Action Items */}
         <div className="mt-8 bg-cream-2 p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-cormorant text-xl font-light text-ink">Pre-Launch Action Items</h2>
+          <h2 className="font-newsreader text-xl font-semibold text-ink">Pre-Launch Action Items</h2>
           <ul className="mt-4 space-y-2 font-jost text-sm font-light text-ink-2">
             <li className="flex items-start gap-2">
               <span className="mt-0.5 shrink-0 text-ink-3">&#9744;</span>

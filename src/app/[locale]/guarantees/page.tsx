@@ -18,7 +18,7 @@ export default function GuaranteesPage() {
       {/* Hero */}
       <section className="bg-ink py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <h1 className="font-cormorant text-4xl font-light tracking-tight text-cream sm:text-5xl">
+          <h1 className="font-newsreader text-4xl font-semibold tracking-tight text-cream sm:text-5xl">
             Book with Confidence
           </h1>
           <p className="mx-auto mt-6 max-w-2xl font-jost text-lg font-light text-cream/90">
@@ -49,7 +49,7 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-cormorant text-3xl font-light text-ink">
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">
                 Satisfaction Guarantee
               </h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -111,7 +111,7 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-cormorant text-3xl font-light text-ink">
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">
                 Secure Payment Protection
               </h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
@@ -124,7 +124,7 @@ export default function GuaranteesPage() {
                     className="p-4 text-center"
                     style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
-                    <div className="font-cormorant text-2xl font-light text-gold">1</div>
+                    <div className="font-newsreader text-2xl font-medium text-gold">1</div>
                     <p className="mt-2 font-jost text-sm font-light text-ink-2">
                       You pay at booking
                     </p>
@@ -133,7 +133,7 @@ export default function GuaranteesPage() {
                     className="p-4 text-center"
                     style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
-                    <div className="font-cormorant text-2xl font-light text-gold">2</div>
+                    <div className="font-newsreader text-2xl font-medium text-gold">2</div>
                     <p className="mt-2 font-jost text-sm font-light text-ink-2">
                       Funds held securely
                     </p>
@@ -142,7 +142,7 @@ export default function GuaranteesPage() {
                     className="p-4 text-center"
                     style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
                   >
-                    <div className="font-cormorant text-2xl font-light text-gold">3</div>
+                    <div className="font-newsreader text-2xl font-medium text-gold">3</div>
                     <p className="mt-2 font-jost text-sm font-light text-ink-2">
                       Released after completion
                     </p>
@@ -184,7 +184,7 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-cormorant text-3xl font-light text-ink">Insurance Coverage</h2>
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">Insurance Coverage</h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
                   All cleaners on the Rena platform are required to hold valid public liability
@@ -287,7 +287,7 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-cormorant text-3xl font-light text-ink">Refund Policy</h2>
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">Refund Policy</h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
                   If specific areas of your home were not cleaned to the agreed standard and your
@@ -340,7 +340,7 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-cormorant text-3xl font-light text-ink">Cancellation Policy</h2>
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">Cancellation Policy</h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
                   We understand plans change. Our cancellation policy is designed to be fair to both
@@ -408,7 +408,7 @@ export default function GuaranteesPage() {
       {/* CTA */}
       <section className="bg-ink py-14">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="font-cormorant text-2xl font-light text-cream sm:text-3xl">
+          <h2 className="font-newsreader text-2xl font-semibold text-cream sm:text-3xl">
             Protected on every booking
           </h2>
           <p className="mt-3 font-jost font-light text-cream/80">

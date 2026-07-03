@@ -82,7 +82,7 @@ export default function EarningsPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-cormorant text-2xl font-light text-ink">Earnings</h1>
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Earnings</h1>
           <p className="font-jost text-sm font-light text-ink-3 mt-1">
             Track your income and payouts
           </p>
@@ -124,7 +124,7 @@ export default function EarningsPage() {
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Gross Earnings
               </p>
-              <p className="font-cormorant text-3xl font-light text-ink mt-1">
+              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
                 £{(data.totalEarnings + data.platformCommission).toFixed(2)}
               </p>
               <p className="font-jost text-xs font-light text-ink-3 mt-1">
@@ -135,7 +135,7 @@ export default function EarningsPage() {
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Platform Fees
               </p>
-              <p className="font-cormorant text-3xl font-light text-ink mt-1">
+              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
                 -£{data.platformCommission.toFixed(2)}
               </p>
               <p className="font-jost text-xs font-light text-ink-3 mt-1">Commission deducted</p>
@@ -144,7 +144,7 @@ export default function EarningsPage() {
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
                 Net Earnings
               </p>
-              <p className="font-cormorant text-3xl font-light text-ink mt-1">
+              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
                 £{data.netEarnings.toFixed(2)}
               </p>
               <p className="font-jost text-xs font-light text-gold mt-1">Amount paid to you</p>
@@ -158,7 +158,7 @@ export default function EarningsPage() {
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
               <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <h2 className="font-cormorant text-lg font-light text-ink">Payout History</h2>
+                <h2 className="font-newsreader text-lg font-semibold text-ink">Payout History</h2>
               </div>
               {data.payouts.length === 0 ? (
                 <div className="px-6 py-12 text-center">
@@ -222,7 +222,7 @@ export default function EarningsPage() {
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
               <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
-                <h2 className="font-cormorant text-lg font-light text-ink">By Service Type</h2>
+                <h2 className="font-newsreader text-lg font-semibold text-ink">By Service Type</h2>
               </div>
               {data.breakdown.length === 0 ? (
                 <div className="p-6 text-center">

@@ -543,7 +543,7 @@ export default function AvailabilityPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="font-cormorant text-2xl font-light text-ink">Availability</h1>
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">Availability</h1>
         <p className="font-jost text-sm font-light text-ink-2 mt-1">
           Manage your weekly schedule and per-date availability
         </p>
@@ -635,7 +635,7 @@ export default function AvailabilityPage() {
               </svg>
             </button>
             <div className="text-center">
-              <h2 className="font-cormorant text-lg font-light text-ink">
+              <h2 className="font-newsreader text-lg font-semibold text-ink">
                 {formatWeekLabel(currentMonday)}
               </h2>
               {weekOffset !== 0 && (
@@ -706,7 +706,7 @@ export default function AvailabilityPage() {
                           {dayName.slice(0, 3)}
                         </p>
                         <p
-                          className={`font-cormorant text-lg font-light ${isToday ? 'text-gold' : 'text-ink'}`}
+                          className={`font-newsreader text-lg font-medium ${isToday ? 'text-gold' : 'text-ink'}`}
                         >
                           {new Date(`${dateStr}T12:00:00`).getDate()}
                         </p>
@@ -1073,7 +1073,7 @@ export default function AvailabilityPage() {
               style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
             >
               <div>
-                <h2 className="font-cormorant text-lg font-light text-ink">Weekly Schedule</h2>
+                <h2 className="font-newsreader text-lg font-semibold text-ink">Weekly Schedule</h2>
                 <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
                   {totalHours} hours per week &middot; This template repeats every week
                 </p>
@@ -1206,7 +1206,7 @@ export default function AvailabilityPage() {
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
             <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}>
-              <h2 className="font-cormorant text-lg font-light text-ink">
+              <h2 className="font-newsreader text-lg font-semibold text-ink">
                 Buffer Between Bookings
               </h2>
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
@@ -1247,7 +1247,7 @@ export default function AvailabilityPage() {
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
             <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}>
-              <h2 className="font-cormorant text-lg font-light text-ink">Blocked Dates</h2>
+              <h2 className="font-newsreader text-lg font-semibold text-ink">Blocked Dates</h2>
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
                 Block specific dates when you&apos;re unavailable (holidays, personal days)
               </p>

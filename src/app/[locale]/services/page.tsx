@@ -132,7 +132,7 @@ export default function ServicesPage() {
           <p className="font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
             Our Services
           </p>
-          <h1 className="mt-4 font-cormorant font-light text-cream text-4xl sm:text-5xl lg:text-[56px] leading-tight">
+          <h1 className="mt-4 font-newsreader font-semibold text-cream text-4xl sm:text-5xl lg:text-[56px] leading-tight">
             Professional cleaning, <span className="italic">tailored to you</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl font-jost font-light text-cream/70 text-lg leading-relaxed">
@@ -183,7 +183,7 @@ export default function ServicesPage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/20 to-transparent" />
                       <div className="relative flex h-full min-h-[220px] flex-col items-center justify-end px-8 pb-8 pt-10 text-center">
-                        <p className="font-cormorant text-3xl font-light text-white sm:text-[34px]">
+                        <p className="font-newsreader text-3xl font-medium text-white sm:text-[34px]">
                           {service.price}
                         </p>
                         {service.priceNote && (
@@ -199,7 +199,7 @@ export default function ServicesPage() {
                       <p className="font-jost text-[11px] uppercase tracking-[0.14em] text-gold">
                         {service.tagline}
                       </p>
-                      <h2 className="mt-2 font-cormorant font-light text-ink text-2xl sm:text-3xl">
+                      <h2 className="mt-2 font-newsreader font-semibold text-ink text-2xl sm:text-3xl">
                         {service.title}
                       </h2>
                       <p className="mt-4 font-jost font-light text-[15px] text-ink-2 leading-relaxed max-w-xl">
@@ -325,7 +325,7 @@ export default function ServicesPage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="font-jost text-[12px] uppercase tracking-[0.16em] text-gold">Why Rena</p>
-            <h2 className="mt-3 font-cormorant font-light text-ink text-3xl sm:text-4xl">
+            <h2 className="mt-3 font-newsreader font-semibold text-ink text-3xl sm:text-4xl">
               Every clean, guaranteed
             </h2>
             <div className="mx-auto mt-4 w-8 h-px bg-gold" />
@@ -404,7 +404,7 @@ export default function ServicesPage() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-cream-2 text-gold">
                   {item.icon}
                 </div>
-                <h3 className="mt-5 font-cormorant text-lg font-light text-ink">{item.title}</h3>
+                <h3 className="mt-5 font-newsreader text-lg font-semibold text-ink">{item.title}</h3>
                 <p className="mt-3 font-jost text-[13px] font-light text-ink-3 leading-relaxed">
                   {item.desc}
                 </p>
@@ -417,7 +417,7 @@ export default function ServicesPage() {
       {/* Bottom CTA */}
       <section className="bg-ink py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="font-cormorant font-light text-cream text-3xl sm:text-4xl">
+          <h2 className="font-newsreader font-semibold text-cream text-3xl sm:text-4xl">
             Ready to book your clean?
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-jost font-light text-cream/70 leading-relaxed">

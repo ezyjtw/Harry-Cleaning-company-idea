@@ -10,7 +10,7 @@ export default function FooterCTA() {
       className="bg-cream-2 px-5 py-16 text-center md:px-14 md:py-24"
       style={{ borderTop: '1px solid rgba(27,42,74,0.06)' }}
     >
-      <h2 className="mb-3 font-cormorant text-[36px] font-light text-ink md:text-[54px]">
+      <h2 className="mb-3 font-newsreader text-[36px] font-semibold text-ink md:text-[54px]">
         {t('title')}
       </h2>
       <p className="mb-9 font-jost text-[15px] font-light text-ink-3 md:text-[16px]">

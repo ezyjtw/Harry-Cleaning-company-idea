@@ -179,7 +179,7 @@ export default function CompleteProfilePage() {
   return (
     <div className="mx-auto max-w-lg px-5 py-12 md:py-20">
       <div className="text-center">
-        <h1 className="font-newsreader text-3xl font-light text-ink">Complete Your Profile</h1>
+        <h1 className="font-newsreader text-3xl font-semibold text-ink">Complete Your Profile</h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2">
           Welcome back, {profile.name}. We need a few more details before you can access your
           dashboard.

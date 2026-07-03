@@ -18,8 +18,19 @@ const SITE_URL = 'https://www.renacleaning.co.uk';
 const LOGO_URL = `${SITE_URL}/icons/rena-wordmark-email.png`;
 const SUPPORT_EMAIL = 'support@renacleaning.co.uk';
 
-const FONT_BODY = 'font-family:Arial,Helvetica,sans-serif;';
-const FONT_HEAD = "font-family:Georgia,'Times New Roman',serif;";
+// Brand fonts first, then the exact web-safe fallbacks used before this sweep.
+// Emails can't use next/font; clients that honour the linked webfont (see the
+// <style> block in renderEmail — e.g. Apple Mail / iOS Mail) render
+// Jost / Newsreader, every other client degrades to precisely today's
+// Arial / Georgia. Zero-regression floor.
+const FONT_BODY = 'font-family:Jost,Arial,Helvetica,sans-serif;';
+const FONT_HEAD = "font-family:Newsreader,Georgia,'Times New Roman',serif;";
+
+// Best-effort brand webfont for supporting clients. Rendered in the recipient's
+// mail client (NOT under the site CSP), so the Google Fonts import is fine here.
+// Non-supporting clients ignore it and fall back via FONT_HEAD / FONT_BODY.
+const BRAND_FONT_LINK =
+  '<style>@import url(\'https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Newsreader:wght@500;600&display=swap\');</style>';
 
 export interface EmailContent {
   subject: string;
@@ -114,7 +125,7 @@ function footerLink(href: string, text: string): string {
 
 export function renderEmail(opts: { contentHtml: string; footerNote?: string }): string {
   const { contentHtml, footerNote } = opts;
-  return `<div style="margin:0;padding:0;background:#f4f5f7;">
+  return `${BRAND_FONT_LINK}<div style="margin:0;padding:0;background:#f4f5f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
     <tr>
       <td align="center" style="padding:24px 12px;">

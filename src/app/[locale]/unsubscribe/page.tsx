@@ -29,7 +29,7 @@ export default function UnsubscribePage() {
 
       {status === 'done' && (
         <>
-          <h1 className="font-cormorant text-3xl font-light text-ink">
+          <h1 className="font-newsreader text-3xl font-semibold text-ink">
             You&rsquo;ve been unsubscribed
           </h1>
           <p className="mt-4 font-jost text-sm font-light text-ink-2">
@@ -48,7 +48,7 @@ export default function UnsubscribePage() {
 
       {status === 'error' && (
         <>
-          <h1 className="font-cormorant text-3xl font-light text-ink">Link not valid</h1>
+          <h1 className="font-newsreader text-3xl font-semibold text-ink">Link not valid</h1>
           <p className="mt-4 font-jost text-sm font-light text-ink-2">
             This unsubscribe link is invalid or has already been used. You can manage all your email
             preferences from{' '}

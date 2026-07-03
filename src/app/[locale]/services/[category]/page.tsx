@@ -800,7 +800,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
-        <h1 className="font-newsreader text-3xl font-light text-ink text-center">
+        <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
           Complete Payment
         </h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
@@ -863,7 +863,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
             >
               <span className="font-normal text-ink">Total</span>
-              <span className="font-newsreader text-2xl font-light text-gold">
+              <span className="font-newsreader text-2xl font-medium text-gold">
                 &pound;{(totalPrice + productCost).toFixed(2)}
               </span>
             </div>
@@ -913,7 +913,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Hero header */}
         <div className="mt-6 animate-fade-in">
-          <h1 className="font-jost font-medium text-2xl text-ink sm:text-3xl">{serviceLabel}</h1>
+          <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">{serviceLabel}</h1>
           <p className="mt-2 max-w-xl font-jost text-sm font-light leading-relaxed text-ink-3">
             {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
           </p>
@@ -1310,7 +1310,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </div>
                     <div className="flex justify-between pt-3 border-t border-line">
                       <span className="font-jost font-normal text-ink">Total</span>
-                      <span className="font-newsreader font-light text-3xl text-ink">
+                      <span className="font-newsreader font-medium text-3xl text-ink">
                         {priceBreakdown.isExact ? (
                           <>&pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)}</>
                         ) : (
@@ -1370,7 +1370,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     )}
                     <div className="flex justify-between pt-2 font-jost border-t border-ink/[0.06]">
                       <span className="text-sm text-ink">Total</span>
-                      <span className="font-newsreader font-light text-3xl text-ink">
+                      <span className="font-newsreader font-medium text-3xl text-ink">
                         &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                       </span>
                     </div>
@@ -1463,7 +1463,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </div>
                   <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                     <span className="font-jost font-normal text-ink">Total</span>
-                    <span className="font-newsreader font-light text-3xl text-ink">
+                    <span className="font-newsreader font-medium text-3xl text-ink">
                       &pound;
                       {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                     </span>
@@ -1512,7 +1512,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back to quote
         </button>
 
-        <h1 className="mt-6 font-newsreader font-light text-3xl text-ink sm:text-4xl">
+        <h1 className="mt-6 font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
           Choose a Time
         </h1>
         <div className="my-6 h-px bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
@@ -1566,7 +1566,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Cleaner summary */}
         <div className="mt-8 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 font-newsreader text-xl font-light text-ink ring-1 ring-ink/[0.06]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 font-newsreader text-xl font-medium text-ink ring-1 ring-ink/[0.06]">
             {preSelectedCleaner.name.charAt(0)}
           </div>
           <div className="min-w-0 flex-1">
@@ -1773,7 +1773,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back
         </button>
 
-        <h1 className="font-newsreader font-light text-3xl text-ink sm:text-4xl">
+        <h1 className="font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
           Cleaners Available Today
         </h1>
         <p className="mt-3 font-jost font-light text-sm text-ink-3">
@@ -1808,7 +1808,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               >
                 {/* Cleaner header */}
                 <div className="p-5 flex items-start gap-4 sm:p-6">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-light text-ink font-newsreader ring-1 ring-ink/[0.06]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-medium text-ink font-newsreader ring-1 ring-ink/[0.06]">
                     {c.name.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1848,7 +1848,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="font-newsreader font-light text-2xl text-ink">
+                    <span className="font-newsreader font-medium text-2xl text-ink">
                       &pound;{listedRate.toFixed(2)}
                     </span>
                     <span className="font-jost font-light text-[11px] text-ink-3">/hr</span>
@@ -1915,7 +1915,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </p>
               </div>
               <div className="text-right">
-                <span className="font-newsreader font-light text-2xl text-ink">
+                <span className="font-newsreader font-medium text-2xl text-ink">
                   &pound;{priceBreakdown.isFixed ? '0' : priceBreakdown.discountedTotal.toFixed(2)}
                 </span>
               </div>
@@ -2123,7 +2123,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           })}
         </div>
 
-        <h1 className="font-newsreader font-light text-3xl text-ink sm:text-4xl">
+        <h1 className="font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
           {category === 'end-of-tenancy' ? 'End of Tenancy' : 'Airbnb'} Booking
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
@@ -2167,7 +2167,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       className="group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md bg-white ring-ink/[0.06] hover:bg-cream"
                     >
                       <div className="flex items-start gap-3.5">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-light text-ink font-newsreader ring-1 ring-ink/[0.06] transition">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-medium text-ink font-newsreader ring-1 ring-ink/[0.06] transition">
                           {c.name.charAt(0)}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -2212,7 +2212,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} price
                         </span>
                         <div className="text-right">
-                          <span className="font-newsreader font-light text-2xl text-ink">
+                          <span className="font-newsreader font-medium text-2xl text-ink">
                             &pound;{priceTotal.toFixed(2)}
                           </span>
                           <span className="block font-jost font-light text-[10px] text-ink-3">
@@ -2233,7 +2233,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="mt-8">
             {/* Selected cleaner summary */}
             <div className="rounded-xl bg-white p-4 ring-1 ring-ink/[0.06] flex items-center gap-3.5 mb-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-2 text-lg font-light text-ink font-newsreader ring-1 ring-ink/[0.06]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-2 text-lg font-medium text-ink font-newsreader ring-1 ring-ink/[0.06]">
                 {fixedSelectedCleaner.name.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
@@ -2248,7 +2248,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <span className="font-newsreader font-light text-xl text-ink">
+                <span className="font-newsreader font-medium text-xl text-ink">
                   &pound;{cleanerBasePrice}
                 </span>
                 <span className="block font-jost font-light text-[10px] text-ink-3">
@@ -2334,7 +2334,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Booking summary */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-              <span className="font-newsreader text-xl font-light text-ink sm:text-2xl">
+              <span className="font-newsreader text-xl font-medium text-ink sm:text-2xl">
                 Booking summary
               </span>
 
@@ -2381,7 +2381,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 )}
                 <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                   <span className="font-jost font-normal text-ink">Total</span>
-                  <span className="font-newsreader font-light text-3xl text-ink">
+                  <span className="font-newsreader font-medium text-3xl text-ink">
                     &pound;{total.toFixed(2)}
                   </span>
                 </div>
@@ -2521,7 +2521,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         </div>
 
         {/* Page title */}
-        <h1 className="mt-8 font-newsreader font-light text-3xl text-ink sm:text-4xl">
+        <h1 className="mt-8 font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
           {currentStep === 'browse' && 'Browse Available Cleaners'}
           {currentStep === 'set-time' && 'Choose your time'}
           {currentStep === 'booking' && 'Complete Your Booking'}
@@ -2776,7 +2776,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   key={sc.id}
                   className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06] sm:p-6"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-light text-ink font-newsreader ring-1 ring-ink/[0.06]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-medium text-ink font-newsreader ring-1 ring-ink/[0.06]">
                     {sc.name.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -2801,7 +2801,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </div>
                   {!isFixedPrice(category) && (
                     <div className="shrink-0 text-right">
-                      <span className="font-newsreader font-light text-2xl text-ink">
+                      <span className="font-newsreader font-medium text-2xl text-ink">
                         &pound;{getServiceListedRate(sc, category).toFixed(2)}
                       </span>
                       <span className="font-jost font-light text-xs text-ink-3">/hr</span>
@@ -3015,7 +3015,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </>
                 <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                   <span className="font-jost font-normal text-ink">Total</span>
-                  <span className="font-newsreader font-light text-3xl text-ink">
+                  <span className="font-newsreader font-medium text-3xl text-ink">
                     &pound;
                     {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                   </span>
@@ -3092,7 +3092,7 @@ function Counter({
         >
           -
         </button>
-        <span className="w-8 text-center font-newsreader text-xl font-light text-ink">{value}</span>
+        <span className="w-8 text-center font-newsreader text-xl font-medium text-ink">{value}</span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, value + 1))}

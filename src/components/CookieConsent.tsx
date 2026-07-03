@@ -101,7 +101,7 @@ export default function CookieConsent() {
         style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
       >
         <div className="p-5 sm:p-6">
-          <h2 className="font-cormorant text-xl font-light text-ink">{t('title')}</h2>
+          <h2 className="font-newsreader text-xl font-semibold text-ink">{t('title')}</h2>
           <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
             {t('description')}{' '}
             <Link href="/privacy#cookies" className="text-gold underline hover:text-gold/80">
