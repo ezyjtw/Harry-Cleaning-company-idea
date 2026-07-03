@@ -107,7 +107,7 @@ function TestimonialCard({
           {[1, 2, 3, 4, 5].map((star) => (
             <button key={star} type="button" onClick={() => onChange({ ...t, rating: star })}>
               <svg
-                className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
+                className={`w-4 h-4 transition-colors ${star <= t.rating ? 'text-rating' : 'text-ink-3/15 hover:text-rating/40'}`}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -154,7 +154,7 @@ function TestimonialCard({
                   onClick={() => onChange({ ...t, categories: { ...cats, [key]: v } })}
                 >
                   <svg
-                    className={`w-3.5 h-3.5 transition-colors ${v <= cats[key] ? 'text-gold' : 'text-ink-3/15 hover:text-gold/40'}`}
+                    className={`w-3.5 h-3.5 transition-colors ${v <= cats[key] ? 'text-rating' : 'text-ink-3/15 hover:text-rating/40'}`}
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -443,7 +443,7 @@ export default function ReviewsPage() {
             {Array.from({ length: 5 }).map((_, i) => (
               <svg
                 key={i}
-                className={`w-5 h-5 ${i < Math.round(Number(overallRating)) ? 'text-gold' : 'text-ink-3/15'}`}
+                className={`w-5 h-5 ${i < Math.round(Number(overallRating)) ? 'text-rating' : 'text-ink-3/15'}`}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -575,7 +575,7 @@ export default function ReviewsPage() {
                         {Array.from({ length: 5 }).map((_, si) => (
                           <svg
                             key={si}
-                            className={`w-4 h-4 ${si < t.rating ? 'text-gold' : 'text-ink-3/15'}`}
+                            className={`w-4 h-4 ${si < t.rating ? 'text-rating' : 'text-ink-3/15'}`}
                             fill="currentColor"
                             viewBox="0 0 20 20"
                           >
@@ -634,7 +634,7 @@ export default function ReviewsPage() {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <svg
                         key={i}
-                        className={`w-4 h-4 ${i < review.rating ? 'text-gold' : 'text-ink-3/15'}`}
+                        className={`w-4 h-4 ${i < review.rating ? 'text-rating' : 'text-ink-3/15'}`}
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >

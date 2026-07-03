@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cleaner polish — before / after</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@400;500;600&family=Cormorant:wght@300;600&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1B2A4A;--ink-2:#3D5170;--ink-3:#7A8A9E;--line:#E4E9F0;--surface:#fff;--page:#FAFBFC;--primary:#16296b;--primary-soft:#e7ecf6;--trust:#16a34a;--warning:#d97706;--danger:#dc2626;--rating:#d97706;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Jost',sans-serif}
+body{background:#eef0f3;color:var(--ink);padding:28px 22px 70px}
+h1{font-family:'Newsreader',serif;font-weight:600;font-size:24px;margin-bottom:4px}
+.lead{font-size:13px;color:#6b7280;margin-bottom:24px;max-width:820px}
+.row{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:18px;max-width:900px}
+.row h2{font-size:15px;font-weight:600;margin-bottom:14px}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.cell{border:1px solid var(--line);border-radius:10px;padding:18px;background:var(--page)}
+.tag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;display:inline-block;padding:2px 8px;border-radius:999px}
+.tag.b{background:#fbe9e9;color:#b42318} .tag.a{background:#e7f6ec;color:#137a3b}
+.stars{font-size:22px;letter-spacing:2px}
+.s-navy{color:var(--primary)} .s-amber{color:var(--rating)} .s-off{color:rgba(122,138,158,.25)}
+.h-corm{font-family:'Cormorant',serif;font-weight:600;font-size:26px;color:var(--ink)}
+.h-news{font-family:'Newsreader',serif;font-weight:600;font-size:26px;color:var(--ink)}
+.chip{display:inline-block;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:500;margin:3px}
+.c-amber50{background:#fef3c7;color:#b45309} .c-green50{background:#dcfce7;color:#15803d} .c-red50{background:#fee2e2;color:#b91c1c}
+.c-warn{background:rgba(217,119,6,.10);color:var(--warning)} .c-trust{background:rgba(22,163,74,.10);color:var(--trust)} .c-danger{background:rgba(220,38,38,.10);color:var(--danger)}
+.note{font-size:12px;color:var(--ink-3);margin-top:10px}
+</style></head><body>
+<h1>Cleaner polish — before / after</h1>
+<p class="lead">Tokens-only, from the journey walkthrough. No handler/copy changes — 4 files, 10 className lines. <code>claude/cleaner-polish</code>.</p>
+
+<div class="row"><h2>(a) /cleaner/reviews — star ratings → <code>--color-rating</code> amber</h2>
+  <div class="ba">
+    <div class="cell"><span class="tag b">Before · text-gold (navy)</span><div class="stars"><span class="s-navy">★★★★</span><span class="s-off">★</span></div></div>
+    <div class="cell"><span class="tag a">After · text-rating (amber)</span><div class="stars"><span class="s-amber">★★★★</span><span class="s-off">★</span></div></div>
+  </div>
+  <p class="note">Applies to all rating stars on the page (overall, distribution, testimonial editor, review cards). Now matches the amber stars on /cleaner/imported-reviews and the account reviews. Navy <code>text-gold</code> accents that aren’t stars (labels/links) are left unchanged.</p>
+</div>
+
+<div class="row"><h2>(b) complete-profile + agreement headings → Newsreader</h2>
+  <div class="ba">
+    <div class="cell"><span class="tag b">Before · font-cormorant</span><div class="h-corm">Complete Your Profile</div></div>
+    <div class="cell"><span class="tag a">After · font-newsreader</span><div class="h-news">Complete Your Profile</div></div>
+  </div>
+  <p class="note">Family swap only — sizes/weights kept (text-3xl font-light on complete-profile, text-[24px] font-semibold on agreement). Aligns the portal content headings with the Newsreader used across the account/verify tiers.</p>
+</div>
+
+<div class="row"><h2>(c) /cleaner/imported-reviews — status badges → semantic chips</h2>
+  <div class="ba">
+    <div class="cell"><span class="tag b">Before · generic palette</span><br>
+      <span class="chip c-amber50">Pending review</span><span class="chip c-green50">Verified</span><span class="chip c-red50">Not verified</span></div>
+    <div class="cell"><span class="tag a">After · warning / trust / danger</span><br>
+      <span class="chip c-warn">Pending review</span><span class="chip c-trust">Verified</span><span class="chip c-danger">Not verified</span></div>
+  </div>
+  <p class="note">bg-amber-50/green-50/red-50 → bg-warning/10, bg-trust/10, bg-danger/10 (matching the account/disputes chip grammar). Labels unchanged.</p>
+</div>
+
+<div class="row"><h2>(d) /cleaner/availability slate pockets</h2>
+  <p class="note" style="margin-top:0"><b>No change needed.</b> Re-checked: availability has zero real slate/generic pockets — the audit’s hits were <code>translate-</code> substring false-positives. The Option-D pass did not miss anything here.</p>
+</div>
+
+</body></html>

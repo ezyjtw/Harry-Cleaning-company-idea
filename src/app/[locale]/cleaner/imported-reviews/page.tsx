@@ -40,9 +40,9 @@ const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
 
 function StatusBadge({ status }: { status: ImportedReviewItem['verificationStatus'] }) {
   const map = {
-    PENDING: { label: 'Pending review', cls: 'bg-amber-50 text-amber-700' },
-    VERIFIED: { label: 'Verified', cls: 'bg-green-50 text-green-700' },
-    REJECTED: { label: 'Not verified', cls: 'bg-red-50 text-red-700' },
+    PENDING: { label: 'Pending review', cls: 'bg-warning/10 text-warning' },
+    VERIFIED: { label: 'Verified', cls: 'bg-trust/10 text-trust' },
+    REJECTED: { label: 'Not verified', cls: 'bg-danger/10 text-danger' },
   }[status];
   return (
     <span
