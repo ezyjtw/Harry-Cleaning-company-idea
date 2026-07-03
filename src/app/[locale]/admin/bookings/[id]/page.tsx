@@ -13,7 +13,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
   const admin = await getAdminSession();
   if (!admin) {
     return (
-      <div className="p-8 text-center text-red-600">
+      <div className="p-8 text-center text-danger">
         Admin access required.{' '}
         <Link href="/login" className="underline">
           Login
@@ -50,9 +50,9 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
 
   if (!booking) {
     return (
-      <div className="p-8 text-center text-gray-600">
+      <div className="p-8 text-center text-ink-2">
         Booking not found.{' '}
-        <Link href="/admin/bookings" className="underline text-blue-600">
+        <Link href="/admin/bookings" className="underline text-primary">
           Back to bookings
         </Link>
       </div>

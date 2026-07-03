@@ -47,16 +47,16 @@ function RefundModal({ booking, onClose }: { booking: BookingRow; onClose: () =>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">Refund Booking</h3>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold text-ink mb-1">Refund Booking</h3>
+        <p className="text-sm text-ink-3 mb-4">
           {booking.customer} — {booking.id} — £{booking.amount.toFixed(2)} paid
           {booking.refundedAmount > 0 && `, £${booking.refundedAmount.toFixed(2)} already refunded`}
         </p>
 
         {result && (
           <div
-            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
           >
             {result.message}
           </div>
@@ -64,7 +64,7 @@ function RefundModal({ booking, onClose }: { booking: BookingRow; onClose: () =>
 
         {!result?.ok ? (
           <>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-ink-2 mb-1">
               Amount (max £{refundable.toFixed(2)})
             </label>
             <input
@@ -75,31 +75,31 @@ function RefundModal({ booking, onClose }: { booking: BookingRow; onClose: () =>
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               disabled={submitting}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Reason</label>
             <textarea
               rows={2}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               disabled={submitting}
               placeholder="Why is this refund being issued?"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
 
             <div className="flex justify-end gap-3">
               <button
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={!valid || submitting}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting
                   ? 'Processing…'
@@ -111,7 +111,7 @@ function RefundModal({ booking, onClose }: { booking: BookingRow; onClose: () =>
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
             >
               Close
             </button>
@@ -150,12 +150,12 @@ export default function AdminBookingsClient({
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const statusStyles: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    awaiting_cleaner: 'bg-amber-100 text-amber-700',
-    confirmed: 'bg-blue-100 text-blue-700',
+    pending: 'bg-warning/10 text-warning',
+    awaiting_cleaner: 'bg-warning/10 text-warning',
+    confirmed: 'bg-primary-soft text-primary',
     'in-progress': 'bg-orange-100 text-orange-700',
-    completed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-700',
+    completed: 'bg-trust/10 text-trust',
+    cancelled: 'bg-danger/10 text-danger',
     disputed: 'bg-purple-100 text-purple-700',
   };
 
@@ -163,12 +163,12 @@ export default function AdminBookingsClient({
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+          <h1 className="text-2xl font-bold text-ink">Bookings</h1>
           <div className="flex items-center gap-4 mt-1">
-            <p className="text-gray-500">{total} total bookings</p>
+            <p className="text-ink-3">{total} total bookings</p>
             <Link
               href="/admin/bookings/stuck-money"
-              className="text-sm text-red-600 hover:underline font-medium"
+              className="text-sm text-danger hover:underline font-medium"
             >
               Stuck money &rarr;
             </Link>
@@ -176,7 +176,7 @@ export default function AdminBookingsClient({
         </div>
         <div className="relative">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -196,7 +196,7 @@ export default function AdminBookingsClient({
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2.5 rounded-lg border border-line text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
           />
         </div>
       </div>
@@ -209,7 +209,7 @@ export default function AdminBookingsClient({
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
@@ -226,7 +226,7 @@ export default function AdminBookingsClient({
             setServiceFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="all">All Services</option>
           {serviceTypes.map((s) => (
@@ -237,60 +237,60 @@ export default function AdminBookingsClient({
         </select>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <tr className="border-b border-line bg-page">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Booking
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden md:table-cell">
                   Cleaner
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden lg:table-cell">
                   Service
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider hidden sm:table-cell">
                   Date/Time
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-line">
               {paginated.map((booking) => (
                 <tr
                   key={booking.id}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="hover:bg-page transition-colors cursor-pointer"
                   onClick={() => (window.location.href = `/admin/bookings/${booking.fullId}`)}
                 >
                   <td className="px-6 py-4">
                     <Link
                       href={`/admin/bookings/${booking.fullId}`}
-                      className="text-sm font-medium text-gray-900 hover:text-blue-600"
+                      className="text-sm font-medium text-ink hover:text-primary"
                     >
                       {booking.customer}
                     </Link>
-                    <p className="text-xs text-gray-400 font-mono">{booking.id}</p>
+                    <p className="text-xs text-ink-3 font-mono">{booking.id}</p>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">
+                  <td className="px-6 py-4 text-sm text-ink-2 hidden md:table-cell">
                     {booking.cleaner}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">
+                  <td className="px-6 py-4 text-sm text-ink-2 hidden lg:table-cell">
                     {booking.serviceType}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">
+                  <td className="px-6 py-4 text-sm text-ink-2 hidden sm:table-cell">
                     {booking.date} {booking.time}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 text-sm font-medium text-ink">
                     &pound;{booking.amount}
                   </td>
                   <td className="px-6 py-4">
@@ -304,7 +304,7 @@ export default function AdminBookingsClient({
                     {booking.amount - booking.refundedAmount > 0.01 && (
                       <button
                         onClick={() => setRefundTarget(booking)}
-                        className="text-xs font-medium text-red-600 hover:text-red-800"
+                        className="text-xs font-medium text-danger hover:text-danger"
                       >
                         Refund
                       </button>
@@ -317,8 +317,8 @@ export default function AdminBookingsClient({
         </div>
 
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <p className="text-sm text-gray-500">
+          <div className="px-6 py-4 border-t border-line flex items-center justify-between">
+            <p className="text-sm text-ink-3">
               Showing {(page - 1) * ITEMS_PER_PAGE + 1} to{' '}
               {Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
             </p>
@@ -326,14 +326,14 @@ export default function AdminBookingsClient({
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-line text-ink-2 hover:bg-page disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-line text-ink-2 hover:bg-page disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>

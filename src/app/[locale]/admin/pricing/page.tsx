@@ -102,44 +102,44 @@ export default function AdminPricingPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Pricing Configuration</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-ink">Pricing Configuration</h1>
+        <p className="text-sm text-ink-3 mt-1">
           Manage platform fees, multipliers, and fixed prices
         </p>
-        {saveStatus && <p className="mt-2 text-sm text-green-600">{saveStatus}</p>}
+        {saveStatus && <p className="mt-2 text-sm text-trust">{saveStatus}</p>}
       </div>
 
       {/* Platform Config Panel */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Platform Config</h2>
+      <section className="bg-surface rounded-xl border border-line p-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Platform Config</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Key</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Value</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Description</th>
-                <th className="text-right py-2 px-3 font-medium text-gray-500">Action</th>
+              <tr className="border-b border-line">
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Key</th>
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Value</th>
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Description</th>
+                <th className="text-right py-2 px-3 font-medium text-ink-3">Action</th>
               </tr>
             </thead>
             <tbody>
               {configs.map((c) => (
-                <tr key={c.id} className="border-b border-gray-100">
-                  <td className="py-2 px-3 font-mono text-xs text-gray-700">{c.key}</td>
+                <tr key={c.id} className="border-b border-line">
+                  <td className="py-2 px-3 font-mono text-xs text-ink-2">{c.key}</td>
                   <td className="py-2 px-3">
                     {editingKey === c.key ? (
                       <input
                         type="text"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
+                        className="w-24 rounded border border-line px-2 py-1 text-sm"
                         autoFocus
                       />
                     ) : (
                       <span className="font-mono text-sm">{c.value}</span>
                     )}
                   </td>
-                  <td className="py-2 px-3 text-gray-500 text-xs">{c.description}</td>
+                  <td className="py-2 px-3 text-ink-3 text-xs">{c.description}</td>
                   <td className="py-2 px-3 text-right">
                     {editingKey === c.key ? (
                       <div className="flex gap-1 justify-end">
@@ -151,7 +151,7 @@ export default function AdminPricingPage() {
                         </button>
                         <button
                           onClick={() => setEditingKey(null)}
-                          className="rounded bg-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-300"
+                          className="rounded bg-line px-3 py-1 text-xs text-ink-2 hover:bg-line"
                         >
                           Cancel
                         </button>
@@ -162,7 +162,7 @@ export default function AdminPricingPage() {
                           setEditingKey(c.key);
                           setEditValue(c.value);
                         }}
-                        className="rounded bg-gray-100 px-3 py-1 text-xs text-gray-600 hover:bg-gray-200"
+                        className="rounded bg-page px-3 py-1 text-xs text-ink-2 hover:bg-line"
                       >
                         Edit
                       </button>
@@ -176,27 +176,23 @@ export default function AdminPricingPage() {
       </section>
 
       {/* Fixed Price Editor */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Fixed Prices (EOT &amp; Airbnb)
-        </h2>
+      <section className="bg-surface rounded-xl border border-line p-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Fixed Prices (EOT &amp; Airbnb)</h2>
         {fixedServices.map((svc) => (
           <div key={svc.id} className="mb-6 last:mb-0">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">{svc.name}</h3>
+            <h3 className="text-sm font-semibold text-ink-2 mb-2">{svc.name}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-3 font-medium text-gray-500">Property</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-500">Est. Hours</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-500">
-                      Customer Price
-                    </th>
+                  <tr className="border-b border-line">
+                    <th className="text-left py-2 px-3 font-medium text-ink-3">Property</th>
+                    <th className="text-left py-2 px-3 font-medium text-ink-3">Est. Hours</th>
+                    <th className="text-left py-2 px-3 font-medium text-ink-3">Customer Price</th>
                   </tr>
                 </thead>
                 <tbody>
                   {svc.fixedPrices.map((fp) => (
-                    <tr key={fp.propertySize} className="border-b border-gray-100">
+                    <tr key={fp.propertySize} className="border-b border-line">
                       <td className="py-2 px-3">
                         {PROPERTY_SIZE_LABELS[fp.propertySize] ?? fp.propertySize}
                       </td>
@@ -212,29 +208,29 @@ export default function AdminPricingPage() {
       </section>
 
       {/* Margin Calculator */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Margin Calculator</h2>
-        <p className="text-sm text-gray-500 mb-4">
+      <section className="bg-surface rounded-xl border border-line p-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">Margin Calculator</h2>
+        <p className="text-sm text-ink-3 mb-4">
           Estimated Rena revenue at current config (3hr regular booking)
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Cleaner Rate</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Gross</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Rena Earns</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-500">Margin %</th>
+              <tr className="border-b border-line">
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Cleaner Rate</th>
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Gross</th>
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Rena Earns</th>
+                <th className="text-left py-2 px-3 font-medium text-ink-3">Margin %</th>
               </tr>
             </thead>
             <tbody>
               {[14, 20, 35].map((rate) => {
                 const m = calcMargin(rate, 3, 1.0);
                 return (
-                  <tr key={rate} className="border-b border-gray-100">
+                  <tr key={rate} className="border-b border-line">
                     <td className="py-2 px-3">&pound;{rate}/hr</td>
                     <td className="py-2 px-3">&pound;{m.gross.toFixed(2)}</td>
-                    <td className="py-2 px-3 font-medium text-green-600">
+                    <td className="py-2 px-3 font-medium text-trust">
                       &pound;{m.renaEarns.toFixed(2)}
                     </td>
                     <td className="py-2 px-3">{m.marginPct}%</td>

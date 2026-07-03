@@ -12,7 +12,7 @@ export default async function RenaFindQueuePage() {
   const admin = await getAdminSession();
   if (!admin) {
     return (
-      <div className="p-8 text-center text-red-600">
+      <div className="p-8 text-center text-danger">
         Admin access required.{' '}
         <Link href="/login" className="underline">
           Login
@@ -56,16 +56,16 @@ export default async function RenaFindQueuePage() {
   return (
     <div className="max-w-4xl mx-auto p-8">
       <div className="mb-4">
-        <Link href="/admin/bookings" className="text-sm text-blue-600 hover:underline">
+        <Link href="/admin/bookings" className="text-sm text-primary hover:underline">
           ← All bookings
         </Link>
       </div>
       <h1 className="text-xl font-semibold">Rena-find: Admin Review Queue</h1>
-      <p className="text-sm text-gray-500 mt-1">
+      <p className="text-sm text-ink-3 mt-1">
         Bookings where Rena-find found no cleaner above the rating floor. Decide: reassign manually,
         rebroadcast with lower floor, or refund.
       </p>
-      <div className="mt-1 text-sm text-gray-400">{rows.length} booking(s) awaiting decision</div>
+      <div className="mt-1 text-sm text-ink-3">{rows.length} booking(s) awaiting decision</div>
       <RenaFindQueueClient bookings={rows} />
     </div>
   );
