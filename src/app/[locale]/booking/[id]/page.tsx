@@ -160,7 +160,9 @@ export default function BookingDetailPage() {
               {cleaner?.name || 'Assigned cleaner'}
             </p>
             {Number(rating) > 0 && (
-              <p className="font-jost text-[12px] text-ink-3">★ {Number(rating).toFixed(1)}</p>
+              <p className="font-jost text-[12px] text-ink-3">
+                <span className="text-rating">★</span> {Number(rating).toFixed(1)}
+              </p>
             )}
           </div>
         </div>

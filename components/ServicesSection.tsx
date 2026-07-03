@@ -13,134 +13,192 @@ const SERVICE_IMAGES: Record<string, string> = {
   airbnb: '/images/Air BnB cleaning.png',
 };
 
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="mt-0.5 shrink-0 text-trust"
+      aria-hidden="true"
+    >
+      <path d="M5 12l5 5L20 7" />
+    </svg>
+  );
+}
+
+// One tab component, used for every service → uniform padding/gap/tracking by
+// construction. Labels are letter-spaced with a matching text-indent so they
+// stay optically centred despite the trailing tracking.
+function Tab({
+  label,
+  active,
+  soon,
+  soonLabel,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  soon?: boolean;
+  soonLabel?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-[9px] font-jost text-[12px] font-semibold uppercase tracking-[0.06em] transition-colors ${
+        active ? 'bg-primary text-white' : soon ? 'text-ink-3' : 'text-ink-2 hover:text-ink'
+      } ${disabled ? 'cursor-default' : ''}`}
+      style={{ textIndent: '0.06em' }}
+    >
+      {label}
+      {soon && soonLabel && (
+        <span
+          className="rounded-full bg-primary-soft px-1.5 py-0.5 font-jost text-[10px] font-semibold uppercase tracking-normal text-primary"
+          style={{ textIndent: 0 }}
+        >
+          {soonLabel}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function ServicesSection() {
   const [active, setActive] = useState(0);
   const t = useTranslations('Services');
 
   const services = [
-    { id: 'regular', title: t('regular'), description: t('regularDesc'), price: t('regularPrice') },
+    {
+      id: 'regular',
+      title: t('regular'),
+      description: t('regularDesc'),
+      price: t('regularPrice'),
+      includes: t.raw('regularIncludes') as string[],
+    },
     {
       id: 'same-day',
       title: t('sameDay'),
       description: t('sameDayDesc'),
       price: t('sameDayPrice'),
+      includes: t.raw('sameDayIncludes') as string[],
     },
-    { id: 'deep', title: t('deep'), description: t('deepDesc'), price: t('deepPrice') },
-    { id: 'end-of-tenancy', title: t('eot'), description: t('eotDesc'), price: t('eotPrice') },
-    { id: 'airbnb', title: t('airbnb'), description: t('airbnbDesc'), price: t('airbnbPrice') },
+    {
+      id: 'deep',
+      title: t('deep'),
+      description: t('deepDesc'),
+      price: t('deepPrice'),
+      includes: t.raw('deepIncludes') as string[],
+    },
+    {
+      id: 'end-of-tenancy',
+      title: t('eot'),
+      description: t('eotDesc'),
+      price: t('eotPrice'),
+      includes: t.raw('eotIncludes') as string[],
+    },
+    {
+      id: 'airbnb',
+      title: t('airbnb'),
+      description: t('airbnbDesc'),
+      price: t('airbnbPrice'),
+      includes: t.raw('airbnbIncludes') as string[],
+    },
   ];
+
+  const current = services[active];
+  const img = SERVICE_IMAGES[current.id];
+  const hasHr = /\/hr\s*$/.test(current.price);
+  const priceMain = hasHr ? current.price.replace(/\/hr\s*$/, '') : current.price;
 
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
-        <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
+        <p className="mb-2 font-jost text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
           {t('sectionTitle')}
         </p>
-        <h2 className="mb-10 font-cormorant text-[32px] font-light leading-tight text-ink md:mb-14 md:text-[42px]">
+        <h2 className="mb-8 font-newsreader text-[32px] font-medium leading-tight text-ink md:mb-12 md:text-[42px]">
           {t('sectionSubtitle')}
         </h2>
 
-        <div
-          className="grid grid-cols-2 gap-0 sm:grid-cols-3 md:grid-cols-5"
-          style={{ border: '1px solid rgba(27,42,74,0.08)' }}
-        >
-          {services.map((svc, i) => {
-            const isSameDay = svc.id === 'same-day';
-            return (
-              <button
-                key={svc.id}
-                onClick={() => !isSameDay && setActive(i)}
-                disabled={isSameDay}
-                className={`p-5 text-left transition-all md:p-6 ${
-                  isSameDay
-                    ? 'cursor-default opacity-50'
-                    : active === i
-                      ? 'bg-cream-2'
-                      : 'bg-white hover:bg-cream'
-                }`}
-                style={{
-                  borderBottom: '1px solid rgba(27,42,74,0.06)',
-                  borderRight: '1px solid rgba(27,42,74,0.06)',
-                }}
-              >
-                <div className="mb-1 flex items-center gap-2">
-                  <p className="font-jost text-[15px] font-semibold text-ink">{svc.title}</p>
-                  {isSameDay && (
-                    <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
-                      Coming Soon
-                    </span>
-                  )}
-                </div>
-                <p className="font-jost text-[12px] text-gold">{svc.price}</p>
-              </button>
-            );
-          })}
-        </div>
+        <div className="overflow-hidden rounded-[22px] border border-line bg-surface">
+          {/* Tab row — horizontally scrollable on mobile, hairline bottom border */}
+          <div className="flex items-center gap-2 overflow-x-auto border-b border-line p-3 scrollbar-hide">
+            {services.map((svc, i) => {
+              const isSameDay = svc.id === 'same-day';
+              return (
+                <Tab
+                  key={svc.id}
+                  label={svc.title}
+                  active={active === i}
+                  soon={isSameDay}
+                  soonLabel={isSameDay ? 'Soon' : undefined}
+                  disabled={isSameDay}
+                  onClick={() => !isSameDay && setActive(i)}
+                />
+              );
+            })}
+          </div>
 
-        {/* Expanded detail */}
-        <div
-          className="flex flex-col md:flex-row"
-          style={{ border: '1px solid rgba(27,42,74,0.08)', borderTop: 'none' }}
-        >
-          {/* Mobile: image background with text overlay */}
-          <div className="relative md:hidden">
-            <Image
-              key={`mobile-${services[active].id}`}
-              src={SERVICE_IMAGES[services[active].id]}
-              alt={services[active].title}
-              fill
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-ink/60" />
-            <div className="relative z-10 p-6">
-              <h3 className="mb-3 font-jost text-[20px] font-semibold text-white">
-                {services[active].title}
+          {/* Panel */}
+          <div className="flex flex-col md:grid md:min-h-[235px] md:grid-cols-[1.05fr_0.95fr]">
+            {/* LEFT — content */}
+            <div className="order-2 p-6 md:order-1 md:p-9">
+              <h3 className="mb-2 font-newsreader text-[22px] font-semibold text-ink md:text-[26px]">
+                {current.title}
               </h3>
-              <p className="mb-6 font-jost text-[15px] font-light leading-[1.8] text-white/85">
-                {services[active].description}
+              <p className="mb-5 max-w-[440px] text-sm leading-relaxed text-ink-2">
+                {current.description}
               </p>
+
+              <ul className="mb-6 space-y-2">
+                {current.includes.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <CheckIcon />
+                    <span className="font-jost text-[13px] leading-snug text-ink">{item}</span>
+                  </li>
+                ))}
+              </ul>
+
               <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                <span className="font-cormorant text-[32px] font-light text-white">
-                  {services[active].price}
+                <span className="font-newsreader text-[24px] font-medium text-ink">
+                  {priceMain}
+                  {hasHr && (
+                    <span className="font-jost text-[15px] font-normal text-ink-2">/hr</span>
+                  )}
                 </span>
                 <Link
-                  href={`/services/${services[active].id}`}
-                  className="rounded-md bg-gold px-7 py-3 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+                  href={`/services/${current.id}`}
+                  className="w-full rounded-[10px] bg-primary px-6 py-3 text-center font-jost text-[14px] font-medium text-white transition-colors hover:bg-primary-hover sm:w-auto"
                 >
                   {t('getQuote')}
                 </Link>
               </div>
             </div>
-          </div>
 
-          {/* Desktop: side-by-side layout */}
-          <div className="hidden flex-1 p-6 md:block md:p-10">
-            <h3 className="mb-3 font-jost text-[20px] font-semibold text-ink md:text-[24px]">
-              {services[active].title}
-            </h3>
-            <p className="mb-6 font-jost text-[15px] font-light leading-[1.8] text-ink-3">
-              {services[active].description}
-            </p>
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              <span className="font-cormorant text-[32px] font-light text-ink md:text-[38px]">
-                {services[active].price}
-              </span>
-              <Link
-                href={`/services/${services[active].id}`}
-                className="rounded-md bg-gold px-7 py-3 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
-              >
-                {t('getQuote')}
-              </Link>
+            {/* RIGHT — full-bleed photo (or wash-gradient placeholder) */}
+            <div className="relative order-1 h-[180px] w-full overflow-hidden md:order-2 md:h-auto md:min-h-[235px]">
+              {img ? (
+                <Image
+                  key={current.id}
+                  src={img}
+                  alt={current.title}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-br from-primary-soft to-wash-to" />
+              )}
             </div>
-          </div>
-          <div className="relative hidden w-[280px] shrink-0 overflow-hidden md:block lg:w-[340px]">
-            <Image
-              key={services[active].id}
-              src={SERVICE_IMAGES[services[active].id]}
-              alt={services[active].title}
-              fill
-              className="object-cover"
-            />
           </div>
         </div>
       </div>

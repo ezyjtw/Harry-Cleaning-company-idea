@@ -20,7 +20,7 @@ interface PendingImportedReview {
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span className="text-yellow-500" aria-label={`${rating} out of 5`}>
+    <span className="text-rating" aria-label={`${rating} out of 5`}>
       {'★'.repeat(Math.round(rating))}
       <span className="text-gray-300">{'★'.repeat(5 - Math.round(rating))}</span>
     </span>

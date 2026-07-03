@@ -25,6 +25,7 @@ const config: Config = {
         },
         warning: 'rgb(var(--color-warning) / <alpha-value>)',
         danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        rating: 'rgb(var(--color-rating) / <alpha-value>)',
         surface: 'rgb(var(--color-surface) / <alpha-value>)',
         page: 'rgb(var(--color-page) / <alpha-value>)',
         line: 'rgb(var(--color-border) / <alpha-value>)',
