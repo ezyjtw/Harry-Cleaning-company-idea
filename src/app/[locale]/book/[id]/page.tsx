@@ -11,9 +11,9 @@ import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
+import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerIdentity from '@/components/CleanerIdentity';
 import CleaningEstimator from '@/components/CleaningEstimator';
-import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import {
   bedroomIndexToPropertySize,
@@ -796,31 +796,28 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Cleaner summary */}
-      <div
-        className="mt-6 flex items-center gap-4 bg-primary-soft p-4"
-        style={{ border: '0.5px solid #E4E9F0' }}
-      >
-        <div className="flex h-14 w-14 items-center justify-center bg-primary font-newsreader text-xl font-light text-white">
-          {cleaner.name.charAt(0)}
-        </div>
-        <div className="flex-1">
-          <h2 className="font-jost font-normal text-ink">{cleaner.name}</h2>
-          <div className="flex items-center gap-2 font-jost text-sm font-light text-ink-3">
-            <StarRating rating={cleaner.rating} />
-            <span>
-              {cleaner.rating} ({cleaner.reviewCount} reviews)
-            </span>
-            {cleanerRateLabel && <span>&middot; {cleanerRateLabel}</span>}
-            {isLastMinute && cleaner.hourlyRateSameDay && (
-              <span className="text-primary font-normal">
-                &middot; &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr today
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="text-right font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+      <div className="mt-6 flex items-start justify-between gap-4 rounded-[10px] border border-line bg-surface p-4">
+        <CleanerIdentity
+          photo={cleaner.photo}
+          name={cleaner.name}
+          verified={cleaner.identityVerified || cleaner.backgroundChecked}
+          rating={cleaner.rating}
+          reviewCount={cleaner.reviewCount}
+          meta={
+            <>
+              {cleanerRateLabel}
+              {isLastMinute && cleaner.hourlyRateSameDay && (
+                <span className="text-primary">
+                  {' '}
+                  &middot; &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr today
+                </span>
+              )}
+            </>
+          }
+        />
+        <span className="shrink-0 text-right font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
           Trusted &amp; verified
-        </div>
+        </span>
       </div>
 
       {/* AI Estimator */}
@@ -1226,14 +1223,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
               {/* Cleaner info */}
               <div
-                className="flex items-center gap-3 mb-4 pb-4"
-                style={{ borderBottom: '0.5px solid #E4E9F0' }}
+                className="mb-4 flex items-center gap-3 border-b border-line pb-4"
               >
-                <div className="flex h-10 w-10 items-center justify-center bg-primary font-newsreader text-sm font-light text-white">
-                  {cleaner.name.charAt(0)}
-                </div>
+                <CleanerAvatar photo={cleaner.photo} name={cleaner.name} size={40} />
                 <div>
-                  <p className="font-jost text-sm font-normal text-ink">{cleaner.name}</p>
+                  <p className="font-jost text-sm font-medium text-ink">{cleaner.name}</p>
                   <p className="font-jost text-xs font-light text-ink-3">{cleanerRateLabel}</p>
                 </div>
               </div>
