@@ -30,10 +30,11 @@ export function formatCurrency(
  * Formats a Date object or ISO string into a human-readable date.
  * @example formatDate(new Date()) => "14 March 2026"
  * @example formatDate(new Date(), 'short') => "14/03/2026"
+ * @example formatDate(new Date(), 'full') => "Saturday 14 March 2026"
  */
 export function formatDate(
   date: Date | string,
-  style: 'long' | 'short' | 'relative' = 'long'
+  style: 'long' | 'short' | 'relative' | 'full' = 'long'
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date
 
@@ -49,6 +50,17 @@ export function formatDate(
     return new Intl.DateTimeFormat('en-GB', {
       day: '2-digit',
       month: '2-digit',
+      year: 'numeric',
+    }).format(d)
+  }
+
+  // 'full' — the long form with weekday: "Monday 20 July 2026". The canonical
+  // long-date used across the booking flow (book / booking detail / confirmation).
+  if (style === 'full') {
+    return new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
       year: 'numeric',
     }).format(d)
   }

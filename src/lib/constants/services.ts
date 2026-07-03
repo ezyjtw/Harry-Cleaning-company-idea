@@ -26,6 +26,18 @@ export function serviceTypeLabel(slug: ServiceTypeSlug): string {
   return SERVICE_TYPE_LABELS[slug];
 }
 
+/**
+ * Display label for a stored serviceType that may be in either slug shape
+ * (canonical underscore `end_of_tenancy` or the booking-form hyphen variant
+ * `end-of-tenancy` / `same-day`). Falls back to a title-cased slug for any
+ * unrecognised value so a raw slug never leaks to the UI.
+ */
+export function serviceLabelFromSlug(raw: string): string {
+  const normalized = raw.trim().toLowerCase().replace(/-/g, '_');
+  if (isServiceTypeSlug(normalized)) return SERVICE_TYPE_LABELS[normalized];
+  return raw.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function isServiceTypeSlug(value: string): value is ServiceTypeSlug {
   return (SERVICE_TYPE_SLUGS as readonly string[]).includes(value);
 }
