@@ -141,7 +141,7 @@ const P = {
   years: 8,
   jobs: 520,
   response: '~8 min',
-  languages: ['English', 'Polish'],
+  languages: ['English', 'Polish', 'Romanian'],
   ratings: [
     ['Thoroughness', 4.9],
     ['Punctuality', 4.8],
@@ -173,6 +173,7 @@ const profileHtml = (withPhoto: boolean) => `
   <div class="ledger">
     <div class="sec-label">About</div>
     <p class="labout">${P.bio}</p>
+    <div class="langrow"><span class="langlabel">Languages</span><span class="langval">${P.languages.join(', ')}</span></div>
     <div class="sec-label">Detailed ratings</div>
     ${P.ratings
       .map(
@@ -189,7 +190,6 @@ const profileHtml = (withPhoto: boolean) => `
       .join('')}
     <div class="sec-label">Experience</div>
     <div class="exp-row">${P.years} yrs · ${P.jobs} jobs · ${P.response} response</div>
-    <div class="langrow"><span class="langlabel">Languages</span><span>${P.languages.join(', ')}</span></div>
     <div class="sec-label">Services &amp; rates</div>
     ${P.services.map(([n, p]) => `<div class="lrow"><span>${n}</span><span class="serif-price">${p}</span></div>`).join('')}
     <div class="sec-label">Availability</div>
@@ -242,9 +242,9 @@ h1.t{font-family:'Newsreader',serif;font-weight:500;font-size:22px;margin:0 0 4p
 .sec-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 8px;}
 .lrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2);}
 .exp-row{border-top:1px solid var(--line);padding:11px 0;font-size:14px;color:var(--ink-2);}
-.langrow{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:11px 0;}
-.langlabel{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
-.langrow span:last-child{font-size:14px;color:var(--ink-2);}
+.langrow{display:flex;align-items:baseline;justify-content:space-between;gap:16px;border-top:1px solid var(--line);padding:11px 0;}
+.langlabel{flex:none;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
+.langval{flex:1;min-width:0;text-align:right;font-size:14px;color:var(--ink-2);}
 .availcal{display:flex;gap:6px;padding-top:6px;}
 .avc{flex:1;text-align:center;padding:10px 0;border-radius:8px;font-size:12px;font-weight:500;color:var(--ink-3);background:#f4f5f7;}
 .avc.on{background:var(--primary-soft);color:var(--primary);}
@@ -291,6 +291,12 @@ const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
 <div class="framelabel">Scroll inside the frame; the band stays pinned</div>
 <div class="mobwrap"><div class="mobscroll">${profileHtml(false)}</div>
   <div class="mob-sticky"><div><span class="from-label">From</span> <span class="serif-price big" style="font-size:22px">£${P.fromRate}</span><span class="hr">/hr</span></div><a class="book-band" href="#">Book now</a></div>
+</div>
+
+<div class="seclabel">Languages row — fit check at 360px (1 language vs many, same padding/hairline/label edge as Experience)</div>
+<div style="width:360px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:2px 20px;">
+  <div class="langrow"><span class="langlabel">Languages</span><span class="langval">English</span></div>
+  <div class="langrow"><span class="langlabel">Languages</span><span class="langval">English, Polish, Romanian, Spanish, Portuguese</span></div>
 </div>
 </body></html>`;
 

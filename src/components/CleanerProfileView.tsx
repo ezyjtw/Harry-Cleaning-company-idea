@@ -178,6 +178,17 @@ export default function CleanerProfileView({
           {data.about}
         </p>
 
+        {data.languages.length > 0 && (
+          <div className="mt-4 flex items-baseline justify-between gap-4 border-t border-line py-3">
+            <span className="shrink-0 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+              Languages
+            </span>
+            <span className="min-w-0 flex-1 text-right font-jost text-[14px] text-ink-2">
+              {data.languages.join(', ')}
+            </span>
+          </div>
+        )}
+
         <SectionLabel>Detailed ratings</SectionLabel>
         {data.ratings && data.ratings.length > 0 ? (
           <div className="max-w-md space-y-2 pt-1">
@@ -259,15 +270,6 @@ export default function CleanerProfileView({
         <div className="border-t border-line py-3 font-jost text-[14px] text-ink-2">
           {expBits.join(' · ')}
         </div>
-
-        {data.languages.length > 0 && (
-          <div className="flex items-center justify-between gap-3 border-t border-line py-3">
-            <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-              Languages
-            </span>
-            <span className="font-jost text-[14px] text-ink-2">{data.languages.join(', ')}</span>
-          </div>
-        )}
 
         {data.services.length > 0 && (
           <>
