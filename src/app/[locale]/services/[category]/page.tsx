@@ -18,7 +18,11 @@ import VerificationBadge from '@/components/VerificationBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { isInCatchmentArea } from '@/lib/catchment';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
-import { bedroomIndexToPropertySize } from '@/lib/constants/services';
+import {
+  bedroomIndexToPropertySize,
+  BEDROOMS_TO_EOT_SIZE,
+  BEDROOMS_TO_AIRBNB_SIZE,
+} from '@/lib/constants/services';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
@@ -701,15 +705,32 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const priceBreakdown = useMemo(() => {
     if (isFixedPrice(category) && fixedPriceQuote) {
-      // Range-based model for Airbnb & End of Tenancy — suggested range by property size
-      const lowSubtotal = fixedPriceQuote.lowTotal;
-      const highSubtotal = fixedPriceQuote.highTotal;
+      // Fixed-price (Airbnb / End of Tenancy). When a specific cleaner is chosen,
+      // show THEIR exact price for the configured size; only fall back to the
+      // suggested range when no cleaner is chosen (or they have no price set).
+      const activeCleaner = preSelectedCleaner ?? selectedCleaner;
+      let exactBase: number | null = null;
+      if (activeCleaner) {
+        const slug =
+          category === 'end-of-tenancy'
+            ? BEDROOMS_TO_EOT_SIZE[Math.min(rooms.bedrooms, 5)]
+            : BEDROOMS_TO_AIRBNB_SIZE[Math.min(rooms.bedrooms, 4)];
+        const base = slug
+          ? category === 'end-of-tenancy'
+            ? activeCleaner.eotPrices?.[slug]
+            : activeCleaner.airbnbPrices?.[slug]
+          : undefined;
+        if (typeof base === 'number' && base > 0) exactBase = base;
+      }
+      const lowSubtotal = exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
+      const highSubtotal = exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
       const lowServiceFee = Math.round(lowSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       const highServiceFee = Math.round(highSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       return {
         isFixed: true as const,
-        lowPrice: fixedPriceQuote.lowPrice,
-        highPrice: fixedPriceQuote.highPrice,
+        isExact: exactBase !== null,
+        lowPrice: exactBase !== null ? exactBase : fixedPriceQuote.lowPrice,
+        highPrice: exactBase !== null ? exactBase : fixedPriceQuote.highPrice,
         extrasTotal: fixedPriceQuote.extrasTotal,
         cleaningSubtotal: lowSubtotal,
         displayServiceFee: lowServiceFee,
@@ -744,7 +765,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
-  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, fixedPriceQuote]);
+  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, fixedPriceQuote, rooms.bedrooms]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
@@ -1239,7 +1260,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               {priceBreakdown.isFixed && fixedPriceQuote ? (
                 <>
                   <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    Suggested price range
+                    {priceBreakdown.isExact ? 'Your price' : 'Suggested price range'}
                   </span>
                   <div className="mt-3 space-y-2">
                     <div className="flex justify-between font-jost text-sm">
@@ -1247,7 +1268,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         {category === 'end-of-tenancy' ? 'End of tenancy' : 'Airbnb'} clean
                       </span>
                       <span className="text-ink">
-                        &pound;{fixedPriceQuote.lowPrice} &ndash; &pound;{fixedPriceQuote.highPrice}
+                        {priceBreakdown.isExact ? (
+                          <>&pound;{priceBreakdown.lowPrice}</>
+                        ) : (
+                          <>
+                            &pound;{priceBreakdown.lowPrice} &ndash; &pound;{priceBreakdown.highPrice}
+                          </>
+                        )}
                       </span>
                     </div>
                     {productCost > 0 && (
@@ -1261,29 +1288,44 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         Service fee ({SERVICE_FEE_PERCENT}%)
                       </span>
                       <span className="text-ink">
-                        &pound;
-                        {(
-                          Math.round(fixedPriceQuote.lowTotal * (SERVICE_FEE_PERCENT / 100) * 100) /
-                          100
-                        ).toFixed(2)}{' '}
-                        &ndash; &pound;
-                        {(
-                          Math.round(
-                            fixedPriceQuote.highTotal * (SERVICE_FEE_PERCENT / 100) * 100
-                          ) / 100
-                        ).toFixed(2)}
+                        {priceBreakdown.isExact ? (
+                          <>&pound;{priceBreakdown.displayServiceFee.toFixed(2)}</>
+                        ) : (
+                          <>
+                            &pound;
+                            {(
+                              Math.round(
+                                fixedPriceQuote.lowTotal * (SERVICE_FEE_PERCENT / 100) * 100
+                              ) / 100
+                            ).toFixed(2)}{' '}
+                            &ndash; &pound;
+                            {(
+                              Math.round(
+                                fixedPriceQuote.highTotal * (SERVICE_FEE_PERCENT / 100) * 100
+                              ) / 100
+                            ).toFixed(2)}
+                          </>
+                        )}
                       </span>
                     </div>
-                    <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
+                    <div className="flex justify-between pt-3 border-t border-line">
                       <span className="font-jost font-normal text-ink">Total</span>
                       <span className="font-newsreader font-light text-3xl text-ink">
-                        &pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)} &ndash; &pound;
-                        {(priceBreakdown.highTotal + productCost).toFixed(2)}
+                        {priceBreakdown.isExact ? (
+                          <>&pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)}</>
+                        ) : (
+                          <>
+                            &pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)} &ndash; &pound;
+                            {(priceBreakdown.highTotal + productCost).toFixed(2)}
+                          </>
+                        )}
                       </span>
                     </div>
                   </div>
                   <p className="mt-3 font-jost font-light text-xs text-ink-3">
-                    Cleaner-set prices by property size. No hidden charges, ever.
+                    {priceBreakdown.isExact
+                      ? `${(preSelectedCleaner ?? selectedCleaner)?.name ?? 'This cleaner'}'s price for your property size. No hidden charges, ever.`
+                      : 'Cleaner-set prices by property size. No hidden charges, ever.'}
                   </p>
                 </>
               ) : (
