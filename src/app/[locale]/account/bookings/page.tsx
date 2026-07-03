@@ -3,11 +3,9 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-import {
-  mapStatus,
-  statusStyles,
-  type BookingStatus,
-} from '@/components/BookingStatusChip';
+import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
+import CleanerAvatar from '@/components/CleanerAvatar';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
 
 interface Booking {
@@ -16,7 +14,9 @@ interface Booking {
   date: string;
   time: string;
   cleanerName: string;
+  cleanerImage: string | null;
   serviceType: string;
+  duration: number;
   price: number;
   status: BookingStatus;
   rawStatus: string;
@@ -83,6 +83,7 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Confirm-complete flow
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -338,7 +339,9 @@ export default function BookingsPage() {
             )
               ? 'Cleaner being assigned'
               : 'Assigned cleaner'),
+          cleanerImage: (b.cleaner as { image?: string | null } | null)?.image ?? null,
           serviceType: b.serviceType || 'Cleaning',
+          duration: Number(b.duration || 0),
           price: Number(b.totalPrice || b.price || 0),
           status: mapStatus(
             String(b.status || 'PENDING'),
@@ -436,56 +439,52 @@ export default function BookingsPage() {
               key={booking.fullId}
               className="rounded-xl border border-line bg-surface p-4 sm:p-5"
             >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedId((id) => (id === booking.fullId ? null : booking.fullId))
+                }
+                aria-expanded={expandedId === booking.fullId}
+                className="flex w-full items-center gap-3 text-left sm:gap-4"
+              >
+                <CleanerAvatar photo={booking.cleanerImage} name={booking.cleanerName} size={44} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-ink">{booking.serviceType}</span>
-                    <span
-                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusStyles[booking.status]}`}
-                    >
-                      {booking.status}
+                    <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
+                      {serviceLabelFromSlug(booking.serviceType)}
                     </span>
+                    <BookingStatusChip
+                      rawStatus={booking.rawStatus}
+                      cascadePhase={booking.cascadePhase}
+                    />
                   </div>
+                  <p className="mt-1 truncate font-jost text-sm text-ink-2">
+                    {booking.cleanerName} · {formatDate(booking.date)} at {booking.time}
+                  </p>
+                </div>
+                <span className="shrink-0 font-newsreader text-xl font-semibold text-ink">
+                  &pound;{booking.price.toFixed(2)}
+                </span>
+                <svg
+                  className={`h-5 w-5 shrink-0 text-ink-3 transition-transform ${
+                    expandedId === booking.fullId ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-                  <div className="mt-2 space-y-1 text-sm text-ink-2">
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="h-4 w-4 shrink-0 text-ink-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span>
-                        {formatDate(booking.date)} at {booking.time}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="h-4 w-4 shrink-0 text-ink-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                      <span>{booking.cleanerName}</span>
-                    </div>
+              {expandedId === booking.fullId && (
+                <div className="mt-4 space-y-4 border-t border-line pt-4">
+                  <div className="space-y-1.5 font-jost text-sm text-ink-2">
                     {booking.address && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
                         <svg
-                          className="h-4 w-4 shrink-0 text-ink-3"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-ink-3"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -505,6 +504,26 @@ export default function BookingsPage() {
                         <span>{booking.address}</span>
                       </div>
                     )}
+                    {booking.duration > 0 && (
+                      <div className="flex items-center gap-2">
+                        <svg
+                          className="h-4 w-4 shrink-0 text-ink-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span>
+                          {booking.duration} {booking.duration === 1 ? 'hour' : 'hours'}
+                        </span>
+                      </div>
+                    )}
                     {(booking.backupCleanerNames.length > 0 || booking.autoAssignBackup) && (
                       <div className="flex items-center gap-2 text-xs text-ink-3">
                         <span>
@@ -518,121 +537,87 @@ export default function BookingsPage() {
                         </span>
                       </div>
                     )}
+                    <div className="text-xs text-ink-3">Ref: {booking.displayId}</div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
-                  <span className="font-newsreader text-xl font-semibold text-ink">
-                    &pound;{booking.price.toFixed(2)}
-                  </span>
-                  <span className="text-xs text-ink-3">{booking.displayId}</span>
-                </div>
-              </div>
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/messages?bookingId=${booking.fullId}`}
+                      className="rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page"
+                    >
+                      Message cleaner
+                    </Link>
 
-              {/* Actions */}
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                <Link
-                  href={`/messages?bookingId=${booking.fullId}`}
-                  className="rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page"
-                >
-                  Message cleaner
-                </Link>
+                    {booking.rawStatus === 'COMPLETED' && (
+                      <>
+                        {confirmResult[booking.fullId] && (
+                          <span
+                            className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
+                          >
+                            {confirmResult[booking.fullId].ok ? '✓ ' : ''}
+                            {confirmResult[booking.fullId].message}
+                          </span>
+                        )}
 
-                {booking.rawStatus === 'COMPLETED' && (
-                  <>
-                    {confirmResult[booking.fullId] && (
-                      <span
-                        className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
-                      >
-                        {confirmResult[booking.fullId].ok ? '✓ ' : ''}
-                        {confirmResult[booking.fullId].message}
-                      </span>
-                    )}
+                        {!booking.completionConfirmed && !confirmResult[booking.fullId] && (
+                          <button
+                            onClick={() => confirmComplete(booking.fullId)}
+                            disabled={confirmingId === booking.fullId}
+                            className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
+                          >
+                            {confirmingId === booking.fullId
+                              ? 'Confirming…'
+                              : "I'm satisfied — release payment"}
+                          </button>
+                        )}
 
-                    {!booking.completionConfirmed && !confirmResult[booking.fullId] && (
-                      <button
-                        onClick={() => confirmComplete(booking.fullId)}
-                        disabled={confirmingId === booking.fullId}
-                        className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
-                      >
-                        {confirmingId === booking.fullId
-                          ? 'Confirming…'
-                          : "I'm satisfied — release payment"}
-                      </button>
-                    )}
+                        {reviewResult[booking.fullId] && (
+                          <span
+                            className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
+                          >
+                            {reviewResult[booking.fullId].ok ? '✓ ' : ''}
+                            {reviewResult[booking.fullId].message}
+                          </span>
+                        )}
 
-                    {reviewResult[booking.fullId] && (
-                      <span
-                        className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
-                      >
-                        {reviewResult[booking.fullId].ok ? '✓ ' : ''}
-                        {reviewResult[booking.fullId].message}
-                      </span>
-                    )}
+                        {booking.completionConfirmed &&
+                          !booking.hasReview &&
+                          !reviewResult[booking.fullId]?.ok &&
+                          reviewingId !== booking.fullId &&
+                          !confirmResult[booking.fullId]?.ok && (
+                            <button
+                              onClick={() => setReviewingId(booking.fullId)}
+                              className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
+                            >
+                              Leave a review
+                            </button>
+                          )}
 
-                    {booking.completionConfirmed &&
-                      !booking.hasReview &&
-                      !reviewResult[booking.fullId]?.ok &&
-                      reviewingId !== booking.fullId &&
-                      !confirmResult[booking.fullId]?.ok && (
-                        <button
-                          onClick={() => setReviewingId(booking.fullId)}
-                          className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
-                        >
-                          Leave a review
-                        </button>
-                      )}
+                        {reviewingId === booking.fullId && !booking.hasReview && (
+                          <div className="flex w-full flex-col gap-3 rounded-[10px] border border-line bg-page p-4">
+                            <span className="text-sm font-medium text-ink">
+                              How was your clean?
+                            </span>
 
-                    {reviewingId === booking.fullId && !booking.hasReview && (
-                      <div className="flex w-full flex-col gap-3 rounded-[10px] border border-line bg-page p-4">
-                        <span className="text-sm font-medium text-ink">How was your clean?</span>
-
-                        <div>
-                          <span className="mb-1 block text-xs text-ink-2">Overall rating</span>
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <button
-                                key={star}
-                                type="button"
-                                onClick={() => setReviewRating(star)}
-                                onMouseEnter={() => setReviewHover(star)}
-                                onMouseLeave={() => setReviewHover(0)}
-                                className="text-2xl focus:outline-none"
-                              >
-                                <span
-                                  className={
-                                    star <= (reviewHover || reviewRating)
-                                      ? 'text-rating'
-                                      : 'text-ink-3/40'
-                                  }
-                                >
-                                  &#9733;
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          {(
-                            [
-                              ['Thoroughness', reviewThoroughness, setReviewThoroughness],
-                              ['Punctuality', reviewPunctuality, setReviewPunctuality],
-                              ['Communication', reviewCommunication, setReviewCommunication],
-                            ] as const
-                          ).map(([label, value, setter]) => (
-                            <div key={label}>
-                              <span className="mb-1 block text-xs text-ink-3">{label}</span>
-                              <div className="flex gap-0.5">
+                            <div>
+                              <span className="mb-1 block text-xs text-ink-2">Overall rating</span>
+                              <div className="flex gap-1">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                   <button
                                     key={star}
                                     type="button"
-                                    onClick={() => (setter as (v: number) => void)(star)}
-                                    className="text-sm focus:outline-none"
+                                    onClick={() => setReviewRating(star)}
+                                    onMouseEnter={() => setReviewHover(star)}
+                                    onMouseLeave={() => setReviewHover(0)}
+                                    className="text-2xl focus:outline-none"
                                   >
                                     <span
-                                      className={star <= value ? 'text-rating' : 'text-ink-3/40'}
+                                      className={
+                                        star <= (reviewHover || reviewRating)
+                                          ? 'text-rating'
+                                          : 'text-ink-3/40'
+                                      }
                                     >
                                       &#9733;
                                     </span>
@@ -640,152 +625,186 @@ export default function BookingsPage() {
                                 ))}
                               </div>
                             </div>
-                          ))}
-                        </div>
 
-                        <textarea
-                          rows={3}
-                          value={reviewText}
-                          onChange={(e) => setReviewText(e.target.value)}
-                          placeholder="Tell us about your experience (optional)"
-                          maxLength={2000}
-                          className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
+                            <div className="grid grid-cols-3 gap-2">
+                              {(
+                                [
+                                  ['Thoroughness', reviewThoroughness, setReviewThoroughness],
+                                  ['Punctuality', reviewPunctuality, setReviewPunctuality],
+                                  ['Communication', reviewCommunication, setReviewCommunication],
+                                ] as const
+                              ).map(([label, value, setter]) => (
+                                <div key={label}>
+                                  <span className="mb-1 block text-xs text-ink-3">{label}</span>
+                                  <div className="flex gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => (setter as (v: number) => void)(star)}
+                                        className="text-sm focus:outline-none"
+                                      >
+                                        <span
+                                          className={
+                                            star <= value ? 'text-rating' : 'text-ink-3/40'
+                                          }
+                                        >
+                                          &#9733;
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => submitReview(booking.fullId)}
-                            disabled={reviewSubmitting || reviewRating < 1}
-                            className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
-                          >
-                            {reviewSubmitting ? 'Submitting…' : 'Submit review'}
-                          </button>
-                          <button
-                            onClick={dismissReview}
-                            disabled={reviewSubmitting}
-                            className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
-                          >
-                            Skip
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                            <textarea
+                              rows={3}
+                              value={reviewText}
+                              onChange={(e) => setReviewText(e.target.value)}
+                              placeholder="Tell us about your experience (optional)"
+                              maxLength={2000}
+                              className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
 
-                {booking.status === 'Price approval needed' && (
-                  <Link
-                    href={`/booking/${booking.fullId}/approve-topup`}
-                    className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
-                  >
-                    Review price change
-                    {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
-                  </Link>
-                )}
-
-                {canShowCancel(booking) &&
-                  (cancelId === booking.fullId ? (
-                    <div className="flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3">
-                      {previewing ? (
-                        <span className="text-xs text-ink-2">Checking your refund…</span>
-                      ) : cancelError ? (
-                        <span className="text-xs text-danger">{cancelError}</span>
-                      ) : preview && !preview.canCancel ? (
-                        <span className="text-xs text-danger">
-                          {preview.reason || 'This booking can no longer be cancelled.'}
-                        </span>
-                      ) : preview ? (
-                        <span className="text-xs text-ink-2">
-                          Cancel this booking? {refundMessage(preview)}
-                        </span>
-                      ) : null}
-
-                      <div className="flex flex-wrap gap-2">
-                        {preview?.canCancel && !cancelError && (
-                          <button
-                            onClick={() => confirmCancel(booking.fullId)}
-                            disabled={cancelling}
-                            className="rounded-[10px] bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                          >
-                            {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
-                          </button>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => submitReview(booking.fullId)}
+                                disabled={reviewSubmitting || reviewRating < 1}
+                                className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                              >
+                                {reviewSubmitting ? 'Submitting…' : 'Submit review'}
+                              </button>
+                              <button
+                                onClick={dismissReview}
+                                disabled={reviewSubmitting}
+                                className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                              >
+                                Skip
+                              </button>
+                            </div>
+                          </div>
                         )}
-                        <button
-                          onClick={dismissCancel}
-                          disabled={cancelling}
-                          className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
-                        >
-                          {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => startCancel(booking.fullId)}
-                      className="rounded-[10px] border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.06]"
-                    >
-                      Cancel booking
-                    </button>
-                  ))}
+                      </>
+                    )}
 
-                {canShowDispute(booking) &&
-                  (disputeId === booking.fullId ? (
-                    <div className="flex w-full flex-col gap-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] p-3">
-                      <span className="text-xs font-medium text-ink">
-                        Report a problem with this booking
-                      </span>
-                      <select
-                        value={disputeReason}
-                        onChange={(e) => setDisputeReason(e.target.value)}
-                        className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    {booking.status === 'Price approval needed' && (
+                      <Link
+                        href={`/booking/${booking.fullId}/approve-topup`}
+                        className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
                       >
-                        <option value="">Select a reason…</option>
-                        {DISPUTE_REASONS.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-                      <textarea
-                        rows={3}
-                        value={disputeDescription}
-                        onChange={(e) => setDisputeDescription(e.target.value)}
-                        placeholder="Please describe the problem…"
-                        maxLength={2000}
-                        className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                      {disputeError && <span className="text-xs text-danger">{disputeError}</span>}
-                      <div className="flex flex-wrap gap-2">
+                        Review price change
+                        {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
+                      </Link>
+                    )}
+
+                    {canShowCancel(booking) &&
+                      (cancelId === booking.fullId ? (
+                        <div className="flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3">
+                          {previewing ? (
+                            <span className="text-xs text-ink-2">Checking your refund…</span>
+                          ) : cancelError ? (
+                            <span className="text-xs text-danger">{cancelError}</span>
+                          ) : preview && !preview.canCancel ? (
+                            <span className="text-xs text-danger">
+                              {preview.reason || 'This booking can no longer be cancelled.'}
+                            </span>
+                          ) : preview ? (
+                            <span className="text-xs text-ink-2">
+                              Cancel this booking? {refundMessage(preview)}
+                            </span>
+                          ) : null}
+
+                          <div className="flex flex-wrap gap-2">
+                            {preview?.canCancel && !cancelError && (
+                              <button
+                                onClick={() => confirmCancel(booking.fullId)}
+                                disabled={cancelling}
+                                className="rounded-[10px] bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                              </button>
+                            )}
+                            <button
+                              onClick={dismissCancel}
+                              disabled={cancelling}
+                              className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                            >
+                              {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                         <button
-                          onClick={() => submitDispute(booking.fullId)}
-                          disabled={
-                            submittingDispute || !disputeReason || !disputeDescription.trim()
-                          }
-                          className="rounded-[10px] bg-warning px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
+                          onClick={() => startCancel(booking.fullId)}
+                          className="rounded-[10px] border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.06]"
                         >
-                          {submittingDispute ? 'Submitting…' : 'Submit report'}
+                          Cancel booking
                         </button>
+                      ))}
+
+                    {canShowDispute(booking) &&
+                      (disputeId === booking.fullId ? (
+                        <div className="flex w-full flex-col gap-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] p-3">
+                          <span className="text-xs font-medium text-ink">
+                            Report a problem with this booking
+                          </span>
+                          <select
+                            value={disputeReason}
+                            onChange={(e) => setDisputeReason(e.target.value)}
+                            className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          >
+                            <option value="">Select a reason…</option>
+                            {DISPUTE_REASONS.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                          <textarea
+                            rows={3}
+                            value={disputeDescription}
+                            onChange={(e) => setDisputeDescription(e.target.value)}
+                            placeholder="Please describe the problem…"
+                            maxLength={2000}
+                            className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                          {disputeError && (
+                            <span className="text-xs text-danger">{disputeError}</span>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => submitDispute(booking.fullId)}
+                              disabled={
+                                submittingDispute || !disputeReason || !disputeDescription.trim()
+                              }
+                              className="rounded-[10px] bg-warning px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
+                            >
+                              {submittingDispute ? 'Submitting…' : 'Submit report'}
+                            </button>
+                            <button
+                              onClick={dismissDispute}
+                              disabled={submittingDispute}
+                              className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                         <button
-                          onClick={dismissDispute}
-                          disabled={submittingDispute}
-                          className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                          onClick={() => {
+                            setDisputeId(booking.fullId);
+                            dismissCancel();
+                          }}
+                          className="rounded-[10px] border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/[0.08]"
                         >
-                          Cancel
+                          Report a problem
                         </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setDisputeId(booking.fullId);
-                        dismissCancel();
-                      }}
-                      className="rounded-[10px] border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/[0.08]"
-                    >
-                      Report a problem
-                    </button>
-                  ))}
-              </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
