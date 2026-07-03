@@ -6,6 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
+import ChromeHider from '@/components/ChromeHider';
+
 const navItems = [
   {
     href: '/cleaner',
@@ -107,6 +109,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="min-h-screen bg-page">
+      {/* Suppress the global Navbar/Footer — the portal brings its own chrome. */}
+      <ChromeHider bodyClass="portal-active" />
       {/* Mobile header */}
       <div className="lg:hidden flex items-center justify-between bg-ink px-4 py-3">
         <button

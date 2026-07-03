@@ -242,9 +242,12 @@
     }
   }
 
-  /* Hide layout nav/footer when homepage uses its own */
+  /* Hide layout nav/footer when a surface brings its own chrome — the homepage,
+     and the cleaner portal (which has its own sidebar). */
   body.homepage-active #layout-nav,
-  body.homepage-active #layout-footer {
+  body.homepage-active #layout-footer,
+  body.portal-active #layout-nav,
+  body.portal-active #layout-footer {
     display: none;
   }
 }
