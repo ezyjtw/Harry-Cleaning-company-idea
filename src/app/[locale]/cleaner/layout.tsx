@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 const navItems = [
@@ -250,6 +251,26 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               </svg>
               Back to Site
             </Link>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="mt-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-jost font-light text-white/40 transition-all duration-150 hover:bg-white/5 hover:text-white/70"
+            >
+              <svg
+                className="w-[18px] h-[18px]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              Sign out
+            </button>
           </div>
         </aside>
 
