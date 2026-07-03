@@ -34,9 +34,9 @@ const STATUS_STEPS = [
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
   if (currentStatus === 'CANCELLED') {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
-        <p className="text-lg font-semibold text-red-700">Booking Cancelled</p>
-        <p className="mt-1 text-sm text-red-600">This booking has been cancelled.</p>
+      <div className="rounded-lg border border-danger/30 bg-red-50 p-4 text-center">
+        <p className="text-lg font-semibold text-danger">Booking Cancelled</p>
+        <p className="mt-1 text-sm text-danger">This booking has been cancelled.</p>
       </div>
     );
   }
@@ -56,24 +56,24 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                 {index > 0 && (
                   <div
                     className={`absolute left-0 right-1/2 top-1/2 h-0.5 -translate-y-1/2 ${
-                      index <= currentIndex ? 'bg-blue-600' : 'bg-gray-200'
+                      index <= currentIndex ? 'bg-primary' : 'bg-line'
                     }`}
                   />
                 )}
                 {index < STATUS_STEPS.length - 1 && (
                   <div
                     className={`absolute left-1/2 right-0 top-1/2 h-0.5 -translate-y-1/2 ${
-                      index < currentIndex ? 'bg-blue-600' : 'bg-gray-200'
+                      index < currentIndex ? 'bg-primary' : 'bg-line'
                     }`}
                   />
                 )}
                 <div
                   className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
                     isCurrent
-                      ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                      ? 'bg-primary text-white ring-4 ring-primary-soft'
                       : isCompleted
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-500'
+                        ? 'bg-primary text-white'
+                        : 'bg-line text-ink-3'
                   }`}
                 >
                   {isCompleted && !isCurrent ? (
@@ -94,10 +94,10 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               <span
                 className={`mt-2 text-center text-xs leading-tight ${
                   isCurrent
-                    ? 'font-semibold text-blue-700'
+                    ? 'font-semibold text-primary'
                     : isCompleted
-                      ? 'font-medium text-blue-600'
-                      : 'text-gray-400'
+                      ? 'font-medium text-primary'
+                      : 'text-ink-3'
                 }`}
               >
                 {step.label}
@@ -174,10 +174,10 @@ function GuestBookingContent() {
   // Loading state
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center bg-page">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-          <p className="mt-4 text-gray-600">Loading your booking...</p>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary-soft border-t-primary" />
+          <p className="mt-4 text-ink-3">Loading your booking...</p>
         </div>
       </div>
     );
@@ -186,11 +186,11 @@ function GuestBookingContent() {
   // Error / not found state
   if (error || !booking) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="flex min-h-[60vh] items-center justify-center bg-page px-4">
         <div className="max-w-md text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
             <svg
-              className="h-8 w-8 text-red-500"
+              className="h-8 w-8 text-danger"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -203,14 +203,14 @@ function GuestBookingContent() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Booking Not Found</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="font-newsreader text-2xl text-ink">Booking Not Found</h1>
+          <p className="mt-2 text-ink-2">
             {error ||
               "We couldn't find a booking with that token. It may have expired or been removed."}
           </p>
           <Link
             href="/"
-            className="mt-6 inline-block rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="mt-6 inline-block rounded-[10px] bg-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
           >
             Back to Homepage
           </Link>
@@ -233,167 +233,171 @@ function GuestBookingContent() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
-      {/* Header */}
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-900">Your Booking</h1>
-        <p className="mt-1 text-gray-500">Booking reference: {booking.id}</p>
-      </div>
-
-      {/* Cancellation confirmation */}
-      {cancelled && (
-        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-start gap-3">
-            <svg
-              className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            <div>
-              <p className="font-semibold text-green-800">Booking Cancelled</p>
-              <p className="text-sm text-green-700">
-                Your booking has been successfully cancelled. If you were charged, a refund will be
-                processed within 3-5 business days.
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-page">
+      <div className="mx-auto max-w-2xl px-4 py-10">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h1 className="font-newsreader text-3xl text-ink">Your Booking</h1>
+          <p className="mt-1 text-ink-3">Booking reference: {booking.id}</p>
         </div>
-      )}
 
-      {/* Status Timeline */}
-      <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Booking Status
-        </h2>
-        <StatusTimeline currentStatus={booking.status} />
-      </div>
-
-      {/* Booking Details */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Booking Details
-        </h2>
-
-        <div className="space-y-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Cleaner</p>
-              <p className="font-medium text-gray-900">{booking.cleanerName}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Service</p>
-              <p className="font-medium text-gray-900">{booking.serviceType}</p>
-            </div>
-          </div>
-
-          <hr className="border-gray-100" />
-
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Date</p>
-              <p className="font-medium text-gray-900">{formattedDate}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Time</p>
-              <p className="font-medium text-gray-900">{booking.time}</p>
-            </div>
-          </div>
-
-          <hr className="border-gray-100" />
-
-          <div>
-            <p className="text-sm text-gray-500">Address</p>
-            <p className="font-medium text-gray-900">{booking.address}</p>
-          </div>
-
-          <hr className="border-gray-100" />
-
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Duration</p>
-              <p className="font-medium text-gray-900">
-                {booking.duration} hour{booking.duration !== 1 ? 's' : ''}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Total Price</p>
-              <p className="text-xl font-bold text-blue-600">£{booking.totalPrice.toFixed(2)}</p>
-            </div>
-          </div>
-
-          {booking.notes && (
-            <>
-              <hr className="border-gray-100" />
+        {/* Cancellation confirmation */}
+        {cancelled && (
+          <div className="mb-6 rounded-xl border border-trust/30 bg-green-50 p-4">
+            <div className="flex items-start gap-3">
+              <svg
+                className="mt-0.5 h-5 w-5 flex-shrink-0 text-trust"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
               <div>
-                <p className="text-sm text-gray-500">Notes</p>
-                <p className="text-gray-700">{booking.notes}</p>
+                <p className="font-semibold text-trust">Booking Cancelled</p>
+                <p className="text-sm text-trust">
+                  Your booking has been successfully cancelled. If you were charged, a refund will
+                  be processed within 3-5 business days.
+                </p>
               </div>
-            </>
-          )}
-        </div>
-      </div>
+            </div>
+          </div>
+        )}
 
-      {/* A16b-3: guest→account conversion. Messaging your cleaner and leaving a
-          review are account-only features — rather than a dead-end, offer a clear
-          path to create an account (email prefilled → verify → this booking
-          auto-attaches via A16b-2b). */}
-      {!cancelled && booking.status !== 'CANCELLED' && booking.guestEmail && (
-        <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-6">
-          <h2 className="text-base font-semibold text-gray-900">
-            Want to message your cleaner or leave a review?
+        {/* Status Timeline */}
+        <div className="mb-8 rounded-2xl border border-line bg-surface p-6">
+          <h2 className="mb-4 font-jost text-sm font-semibold uppercase tracking-wide text-ink-3">
+            Booking Status
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Create a free account with{' '}
-            <span className="font-medium text-gray-900">{booking.guestEmail}</span> to message your
-            cleaner, leave a review after your clean, and see all your bookings in one place — this
-            booking attaches to your account automatically.
+          <StatusTimeline currentStatus={booking.status} />
+        </div>
+
+        {/* Booking Details */}
+        <div className="mb-6 rounded-2xl border border-line bg-surface p-6">
+          <h2 className="mb-4 font-jost text-sm font-semibold uppercase tracking-wide text-ink-3">
+            Booking Details
+          </h2>
+
+          <div className="space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-ink-3">Cleaner</p>
+                <p className="font-medium text-ink">{booking.cleanerName}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-ink-3">Service</p>
+                <p className="font-medium text-ink">{booking.serviceType}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-line" />
+
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-ink-3">Date</p>
+                <p className="font-medium text-ink">{formattedDate}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-ink-3">Time</p>
+                <p className="font-medium text-ink">{booking.time}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-line" />
+
+            <div>
+              <p className="text-sm text-ink-3">Address</p>
+              <p className="font-medium text-ink">{booking.address}</p>
+            </div>
+
+            <div className="border-t border-line" />
+
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-ink-3">Duration</p>
+                <p className="font-medium text-ink">
+                  {booking.duration} hour{booking.duration !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-ink-3">Total Price</p>
+                <p className="font-newsreader text-2xl text-ink">
+                  £{booking.totalPrice.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {booking.notes && (
+              <>
+                <div className="border-t border-line" />
+                <div>
+                  <p className="text-sm text-ink-3">Notes</p>
+                  <p className="text-ink-2">{booking.notes}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* A16b-3: guest→account conversion. Messaging your cleaner and leaving a
+            review are account-only features — rather than a dead-end, offer a clear
+            path to create an account (email prefilled → verify → this booking
+            auto-attaches via A16b-2b). */}
+        {!cancelled && booking.status !== 'CANCELLED' && booking.guestEmail && (
+          <div className="mb-6 rounded-xl bg-primary-soft p-6">
+            <h2 className="text-base font-semibold text-ink">
+              Want to message your cleaner or leave a review?
+            </h2>
+            <p className="mt-1 text-sm text-ink-2">
+              Create a free account with{' '}
+              <span className="font-medium text-ink">{booking.guestEmail}</span> to message your
+              cleaner, leave a review after your clean, and see all your bookings in one place —
+              this booking attaches to your account automatically.
+            </p>
+            <Link
+              href={`/signup?email=${encodeURIComponent(booking.guestEmail)}`}
+              className="mt-4 inline-block rounded-[10px] bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+            >
+              Create an account
+            </Link>
+          </div>
+        )}
+
+        {/* Cancel Button */}
+        {canCancel && (
+          <div className="mb-6">
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="w-full rounded-[10px] border border-danger/40 bg-surface px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cancelling ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-danger/40 border-t-danger" />
+                  Cancelling...
+                </span>
+              ) : (
+                'Cancel Booking'
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Sign up CTA */}
+        <div className="rounded-xl bg-primary-soft p-6 text-center">
+          <h3 className="text-lg font-semibold text-ink">Want to manage all your bookings?</h3>
+          <p className="mt-1 text-sm text-ink-2">
+            Create an account to view booking history, save your favourite cleaners, and rebook with
+            one click.
           </p>
           <Link
-            href={`/signup?email=${encodeURIComponent(booking.guestEmail)}`}
-            className="mt-4 inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            href="/signup"
+            className="mt-4 inline-block rounded-[10px] bg-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
           >
-            Create an account
+            Create an Account
           </Link>
         </div>
-      )}
-
-      {/* Cancel Button */}
-      {canCancel && (
-        <div className="mb-6">
-          <button
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="w-full rounded-lg border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {cancelling ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-red-600" />
-                Cancelling...
-              </span>
-            ) : (
-              'Cancel Booking'
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Sign up CTA */}
-      <div className="rounded-xl border border-blue-100 bg-blue-50 p-6 text-center">
-        <h3 className="text-lg font-semibold text-gray-900">Want to manage all your bookings?</h3>
-        <p className="mt-1 text-sm text-gray-600">
-          Create an account to view booking history, save your favourite cleaners, and rebook with
-          one click.
-        </p>
-        <Link
-          href="/signup"
-          className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-          Create an Account
-        </Link>
       </div>
     </div>
   );
@@ -403,10 +407,10 @@ export default function GuestBookingPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex min-h-[60vh] items-center justify-center bg-page">
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-            <p className="mt-4 text-gray-600">Loading your booking...</p>
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary-soft border-t-primary" />
+            <p className="mt-4 text-ink-3">Loading your booking...</p>
           </div>
         </div>
       }
