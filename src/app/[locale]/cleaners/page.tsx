@@ -10,7 +10,6 @@ import {
   BEDROOMS_TO_AIRBNB_SIZE,
   eotSizeLabel,
   airbnbSizeLabel,
-  SPECIALTY_OPTIONS,
 } from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
 
@@ -21,14 +20,17 @@ const FILTER_LABEL_TO_SERVICE_SLUG: Record<string, string> = {
   'Airbnb / Short-Let': 'airbnb',
 };
 
+// Curated filter row (change order): services + the three cleaner specialties.
+// No Same-Day / Available-Now filters — that UI is removed pending relaunch.
 const SERVICE_FILTERS = [
   'All',
   'Regular Cleaning',
-  'Same Day',
   'Deep Cleaning',
   'End of Tenancy',
   'Airbnb / Short-Let',
-  ...SPECIALTY_OPTIONS.filter((s) => s !== 'Regular Cleaning' && s !== 'Deep Cleaning'),
+  'Pet-Friendly',
+  'Eco-Friendly',
+  'Elderly-Friendly',
 ];
 
 type SortOption = 'rating' | 'price-low' | 'price-high' | 'reviews' | 'available-now' | 'distance';
@@ -55,8 +57,6 @@ function CleanersContent() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>(postcode ? 'distance' : 'rating');
-  const [availableNowOnly, setAvailableNowOnly] = useState(false);
-  const [sameDayOnly, setSameDayOnly] = useState(false);
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null);
   const [allCleaners, setAllCleaners] = useState<Cleaner[]>([]);
@@ -162,8 +162,6 @@ function CleanersContent() {
     setSort('distance');
   };
 
-  const availableNowCount = allCleaners.filter((c) => c.availableNow).length;
-
   const filtered = allCleaners
     .filter((c) => {
       const q = search.toLowerCase();
@@ -179,9 +177,7 @@ function CleanersContent() {
           if (serviceSlug) return c.serviceTypes.includes(serviceSlug);
           return c.specialties.some((s) => s.toLowerCase().includes(f.toLowerCase()));
         });
-      const matchesAvailability = !availableNowOnly || c.availableNow;
-      const matchesSameDay = !sameDayOnly || c.availableNow;
-      return matchesSearch && matchesFilter && matchesAvailability && matchesSameDay;
+      return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
       if (sort === 'available-now') {
@@ -210,10 +206,10 @@ function CleanersContent() {
       <section className="relative bg-ink px-5 py-12 md:px-14 md:py-16">
         <div className="absolute inset-0 bg-gradient-to-br from-ink via-ink to-[#243656]" />
         <div className="relative mx-auto max-w-7xl">
-          <p className="mb-3 font-jost text-[12px] uppercase tracking-[0.2em] text-gold">
+          <h1 className="font-newsreader text-3xl font-semibold text-white sm:text-4xl">
             Browse cleaners
-          </p>
-          <p className="mt-1 max-w-xl font-jost text-[15px] font-light leading-[1.7] text-white/70 md:text-[16px]">
+          </h1>
+          <p className="mt-3 max-w-xl font-jost text-[15px] font-light leading-[1.7] text-white/70 md:text-[16px]">
             Browse our network of trusted, independent cleaning professionals — vetted, reviewed,
             and ready to help.
           </p>
@@ -270,33 +266,6 @@ function CleanersContent() {
         </div>
       </section>
 
-      {/* Available now banner */}
-      {availableNowCount > 0 && (
-        <div className="border-b border-ink/5 bg-white px-5 py-4 md:px-14">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal" />
-              </span>
-              <p className="font-jost text-[14px] font-normal text-ink">
-                {availableNowCount} cleaner{availableNowCount !== 1 ? 's' : ''} available for
-                same-day booking
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setAvailableNowOnly(true);
-                setSort('available-now');
-              }}
-              className="font-jost text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4 hover:text-ink-2"
-            >
-              Show available now
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Filters & sort */}
       <div className="border-b border-ink/5 bg-white px-5 py-5 md:px-14">
         <div className="mx-auto max-w-7xl">
@@ -316,7 +285,6 @@ function CleanersContent() {
             >
               <option value="rating">Highest rated</option>
               {postcode && <option value="distance">Nearest first</option>}
-              <option value="available-now">Available now first</option>
               <option value="price-low">Price: low to high</option>
               <option value="price-high">Price: high to low</option>
               <option value="reviews">Most reviews</option>
@@ -326,53 +294,16 @@ function CleanersContent() {
           {/* Filter tags */}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
-              onClick={() => setAvailableNowOnly(!availableNowOnly)}
-              className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
-                availableNowOnly
-                  ? 'bg-ink text-cream'
-                  : 'border border-ink/15 text-ink hover:border-ink/30'
-              }`}
-            >
-              Available now
-            </button>
-            <button
-              onClick={() => {
-                setSameDayOnly(!sameDayOnly);
-              }}
-              className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
-                sameDayOnly
-                  ? 'bg-ink text-cream'
-                  : 'border border-ink/15 text-ink hover:border-ink/30'
-              }`}
-            >
-              Same Day
-            </button>
-            <span className="w-px bg-ink/10" />
-            <button
               onClick={() => setFilters([])}
               className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
                 filters.length === 0
-                  ? 'bg-ink text-cream'
-                  : 'border border-ink/15 text-ink hover:border-ink/30'
+                  ? 'bg-primary text-white'
+                  : 'border border-line text-ink hover:border-ink-3/40'
               }`}
             >
               All
             </button>
             {SERVICE_FILTERS.filter((f) => f !== 'All').map((f) => {
-              const isSameDay = f === 'Same Day';
-              if (isSameDay) {
-                return (
-                  <span
-                    key={f}
-                    className="flex items-center gap-1.5 rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide border border-ink/10 text-ink-3/50 cursor-not-allowed"
-                  >
-                    {f}
-                    <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em]">
-                      Soon
-                    </span>
-                  </span>
-                );
-              }
               const isActive = filters.includes(f);
               return (
                 <button
@@ -382,8 +313,8 @@ function CleanersContent() {
                   }
                   className={`rounded-full px-4 py-1.5 font-jost text-[12px] font-medium tracking-wide transition ${
                     isActive
-                      ? 'bg-ink text-cream'
-                      : 'border border-ink/15 text-ink hover:border-ink/30'
+                      ? 'bg-primary text-white'
+                      : 'border border-line text-ink hover:border-ink-3/40'
                   }`}
                 >
                   {f}
@@ -484,14 +415,6 @@ function CleanersContent() {
                   <p className="font-jost text-[16px] font-light text-ink-3">
                     No cleaners found matching your criteria.
                   </p>
-                  {availableNowOnly && (
-                    <button
-                      onClick={() => setAvailableNowOnly(false)}
-                      className="mt-4 font-jost text-[13px] font-normal text-ink underline underline-offset-4 hover:text-ink-2"
-                    >
-                      Show all cleaners instead
-                    </button>
-                  )}
                 </div>
               )}
             </>
