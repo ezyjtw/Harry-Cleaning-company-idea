@@ -262,7 +262,7 @@ export default function CleanerImportedReviewsPage() {
                     aria-label={`${n} star${n > 1 ? 's' : ''}`}
                     className="text-2xl leading-none transition"
                   >
-                    <span className={n <= rating ? 'text-gold' : 'text-ink-3/25'}>★</span>
+                    <span className={n <= rating ? 'text-rating' : 'text-ink-3/25'}>★</span>
                   </button>
                 ))}
                 {rating > 0 && (

@@ -128,7 +128,7 @@ export default function ProfilePreviewPage() {
   }
 
   const stars = (rating: number) => (
-    <span className="inline-flex text-yellow-400">
+    <span className="inline-flex text-rating">
       {'★'.repeat(Math.floor(rating))}
       {rating % 1 >= 0.5 && '★'}
       {'☆'.repeat(5 - Math.floor(rating) - (rating % 1 >= 0.5 ? 1 : 0))}

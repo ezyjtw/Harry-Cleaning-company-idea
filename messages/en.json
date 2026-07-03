@@ -91,7 +91,37 @@
     "airbnb": "Airbnb cleaning",
     "airbnbDesc": "Fast, reliable turnarounds between guests. Checklist-based, linen-ready, every time.",
     "airbnbPrice": "From £45",
-    "getQuote": "Book a Cleaner Now"
+    "getQuote": "Book a Cleaner Now",
+    "regularLabel": "Regular",
+    "deepLabel": "Deep Clean",
+    "eotLabel": "End of Tenancy",
+    "airbnbLabel": "Airbnb",
+    "sameDayLabel": "Same Day",
+    "regularIncludes": [
+      "All rooms, kitchen & bathrooms",
+      "Your own products or theirs",
+      "Same cleaner, flexible schedule"
+    ],
+    "sameDayIncludes": [
+      "Matched with an available cleaner",
+      "Vetted & background-checked",
+      "Booked and cleaned today"
+    ],
+    "deepIncludes": [
+      "Inside appliances & cupboards",
+      "Skirting boards, doors & frames",
+      "Every corner, top to bottom"
+    ],
+    "eotIncludes": [
+      "Landlord-ready checklist",
+      "Backed by a satisfaction guarantee",
+      "Best chance of your deposit back"
+    ],
+    "airbnbIncludes": [
+      "Fast turnarounds between guests",
+      "Checklist-based every visit",
+      "Linen change & restock"
+    ]
   },
   "Guarantees": {
     "sectionTitle": "Trust and safety",

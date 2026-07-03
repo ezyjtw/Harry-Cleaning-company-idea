@@ -28,6 +28,7 @@
   --color-warning: 217 119 6; /* #d97706 */
   --color-danger: 220 38 38; /* #dc2626 */
   --color-wash-to: 238 243 251; /* #eef3fb */
+  --color-rating: 217 119 6; /* #d97706 — amber for star ratings (semantic, distinct from warning) */
 }
 
 @font-face {
