@@ -232,6 +232,16 @@ function toggleInArray(arr: string[], value: string): string[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
+// Keep a money input strictly numeric: digits and at most one decimal point,
+// no sign or letters. (A native type="number" lets "2-" through and then
+// reports an empty value, silently dropping the digits the user typed.)
+function sanitizeDecimal(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const dot = cleaned.indexOf('.');
+  if (dot === -1) return cleaned;
+  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, '');
+}
+
 /* ------------------------------------------------------------------ */
 /*  Reusable tiny components                                           */
 /* ------------------------------------------------------------------ */
@@ -1693,15 +1703,14 @@ export default function JoinAsCleanerPage() {
                           &pound;
                         </span>
                         <input
-                          type="number"
-                          min="1"
-                          step="0.50"
+                          type="text"
+                          inputMode="decimal"
                           required
                           value={form.serviceRates[svc] || ''}
                           onChange={(e) =>
                             set('serviceRates', {
                               ...form.serviceRates,
-                              [svc]: e.target.value,
+                              [svc]: sanitizeDecimal(e.target.value),
                             })
                           }
                           className="w-full rounded-[10px] bg-surface py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/20 transition border border-line"
