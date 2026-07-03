@@ -714,31 +714,11 @@ export default function AvailabilityPage() {
 
                       {blocked ? (
                         <span className="font-jost text-xs font-light text-danger">Blocked</span>
-                      ) : slots.length === 0 ? (
-                        <span className="font-jost text-xs font-light text-ink-3">
-                          Not available
+                      ) : isDateSpecific ? (
+                        <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-primary">
+                          Custom day
                         </span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {slots.map((s, i) => (
-                            <span
-                              key={i}
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-jost text-[11px] font-light ring-1 ${
-                                isDateSpecific
-                                  ? 'bg-primary/5 text-ink ring-primary/20'
-                                  : 'bg-page text-ink-2 ring-ink/[0.06]'
-                              }`}
-                            >
-                              {formatTime(s.start)}–{formatTime(s.end)}
-                            </span>
-                          ))}
-                          {isDateSpecific && (
-                            <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-primary self-center">
-                              custom
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -832,6 +812,55 @@ export default function AvailabilityPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* A1 timeline: a 6am–midnight track with the day's window(s)
+                      as navy blocks (times inside). Tapping it opens the SAME
+                      editor as the pencil — purely a visual read of the same data. */}
+                  {!isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => !isPast && openDayEditor(dateStr, dayName)}
+                      disabled={isPast || blocked}
+                      className="block w-full px-5 pb-4 text-left disabled:cursor-default"
+                      aria-label={`Edit ${dayName} availability`}
+                    >
+                      <div className="relative h-7 overflow-hidden rounded-md bg-page ring-1 ring-line">
+                        {blocked ? (
+                          <span className="absolute inset-0 flex items-center justify-center font-jost text-[11px] font-light text-danger">
+                            Blocked
+                          </span>
+                        ) : slots.length === 0 ? (
+                          <span className="absolute inset-0 flex items-center justify-center font-jost text-[11px] font-light text-ink-3">
+                            Not available
+                          </span>
+                        ) : (
+                          slots.map((s, i) => {
+                            const startM = Math.max(360, timeToMinutes(s.start));
+                            const endM = Math.min(1440, timeToMinutes(s.end));
+                            const left = ((startM - 360) / 1080) * 100;
+                            const width = Math.max(1, ((endM - startM) / 1080) * 100);
+                            return (
+                              <span
+                                key={i}
+                                className="absolute inset-y-0 flex items-center justify-center overflow-hidden rounded-md bg-primary px-1"
+                                style={{ left: `${left}%`, width: `${width}%` }}
+                              >
+                                <span className="truncate font-jost text-[10px] font-medium text-white">
+                                  {formatTime(s.start)}–{formatTime(s.end)}
+                                </span>
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                      <div className="mt-1 flex justify-between font-jost text-[9px] uppercase tracking-[0.08em] text-ink-3">
+                        <span>6a</span>
+                        <span>12p</span>
+                        <span>6p</span>
+                        <span>12a</span>
+                      </div>
+                    </button>
+                  )}
 
                   {/* Inline day editor */}
                   {isEditing && (
