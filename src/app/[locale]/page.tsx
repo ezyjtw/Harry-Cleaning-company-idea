@@ -7,10 +7,7 @@ import CleanerCTA from '../../../components/CleanerCTA';
 import FooterCTA from '../../../components/FooterCTA';
 import GuaranteeSection from '../../../components/GuaranteeSection';
 import HeroSection from '../../../components/HeroSection';
-import HomeFooter from '../../../components/HomeFooter';
 import HowItWorks from '../../../components/HowItWorks';
-import LayoutHider from '../../../components/LayoutHider';
-import NavBar from '../../../components/NavBar';
 import ReviewsSection from '../../../components/ReviewsSection';
 import ServicesSection from '../../../components/ServicesSection';
 import StatsBar from '../../../components/StatsBar';
@@ -50,8 +47,6 @@ export default async function HomePage({ params }: Props) {
           price: 14,
         })}
       />
-      <LayoutHider />
-      <NavBar />
       <HeroSection />
       <StatsBar />
       <ServicesSection />
@@ -60,7 +55,6 @@ export default async function HomePage({ params }: Props) {
       <ReviewsSection />
       <CleanerCTA />
       <FooterCTA />
-      <HomeFooter />
     </>
   );
 }
