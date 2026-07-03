@@ -12,7 +12,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const user = await getCompanyMemberSession(id);
     if (!user) {
-      return NextResponse.json({ error: 'Access denied. You must be a member of this company.' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Access denied. You must be a member of this company.' },
+        { status: 403 }
+      );
     }
 
     const company = await prisma.company.findUnique({ where: { id } });
@@ -55,23 +58,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (company.ownerId !== user.id && user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Only the company owner can add team members.' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Only the company owner can add team members.' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
 
-    if (!body.userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    // Resolve the target user by id (admin/programmatic callers) or by email
+    // (the company UI sends an email). The email→user lookup lives here, behind
+    // the owner/admin gate above, so it is not exposed as a public
+    // account-enumeration endpoint.
+    let targetUser = null;
+    if (body.userId) {
+      targetUser = await prisma.user.findUnique({ where: { id: body.userId } });
+    } else if (typeof body.email === 'string' && body.email.trim()) {
+      targetUser = await prisma.user.findFirst({
+        where: { email: { equals: body.email.trim(), mode: 'insensitive' } },
+      });
+    } else {
+      return NextResponse.json({ error: 'A user id or email is required' }, { status: 400 });
     }
 
-    const targetUser = await prisma.user.findUnique({ where: { id: body.userId } });
     if (!targetUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'No Rena account found for that email. Ask them to sign up first.' },
+        { status: 404 }
+      );
     }
 
     // Check for existing membership
     const existing = await prisma.teamMember.findUnique({
-      where: { companyId_userId: { companyId: id, userId: body.userId } },
+      where: { companyId_userId: { companyId: id, userId: targetUser.id } },
     });
 
     if (existing) {
@@ -81,7 +100,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const member = await prisma.teamMember.create({
       data: {
         companyId: id,
-        userId: body.userId,
+        userId: targetUser.id,
         role: body.role || 'CLEANER',
         canAcceptJobs: body.canAcceptJobs ?? false,
       },

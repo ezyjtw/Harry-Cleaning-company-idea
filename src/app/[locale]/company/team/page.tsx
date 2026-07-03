@@ -19,9 +19,6 @@ export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showInviteForm, setShowInviteForm] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteSent, setInviteSent] = useState(false);
   const [newMember, setNewMember] = useState({ email: '', role: 'CLEANER' });
   const [addError, setAddError] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -111,16 +108,6 @@ export default function TeamPage() {
     } catch {}
   };
 
-  const handleInvite = async () => {
-    if (!inviteEmail) return;
-    setInviteSent(true);
-    setTimeout(() => {
-      setInviteSent(false);
-      setInviteEmail('');
-      setShowInviteForm(false);
-    }, 3000);
-  };
-
   const filteredMembers =
     filterRole === 'all' ? members : members.filter((m) => m.role === filterRole);
   const activeCount = members.filter((m) => m.isActive).length;
@@ -152,25 +139,7 @@ export default function TeamPage() {
         <div className="flex gap-3">
           <button
             onClick={() => {
-              setShowInviteForm(!showInviteForm);
-              setShowAddForm(false);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-green-600 text-green-700 text-sm font-medium rounded-lg hover:bg-green-50 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            Invite Cleaner
-          </button>
-          <button
-            onClick={() => {
               setShowAddForm(!showAddForm);
-              setShowInviteForm(false);
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
           >
@@ -186,47 +155,6 @@ export default function TeamPage() {
           </button>
         </div>
       </div>
-
-      {/* Invite cleaner form */}
-      {showInviteForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Invite a Cleaner</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Send an email invitation to a cleaner to join your team on Rena.
-          </p>
-          {inviteSent ? (
-            <div className="flex items-center gap-2 text-green-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              <span className="text-sm font-medium">
-                Invitation sent! They&apos;ll receive an email with a link to join.
-              </span>
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="Enter cleaner's email address"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <button
-                onClick={handleInvite}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Send Invite
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Add member form */}
       {showAddForm && (
