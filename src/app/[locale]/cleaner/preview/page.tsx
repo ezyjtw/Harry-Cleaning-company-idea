@@ -1,48 +1,46 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
 import AvailabilityCalendar from '@/components/AvailabilityCalendar';
-import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
+import CleanerProfileView, {
+  type CleanerProfileData,
+  type ProfileService,
+  type ProfileReviewItem,
+} from '@/components/CleanerProfileView';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  serviceTypeLabel,
+  isServiceTypeSlug,
+  type ServiceTypeSlug,
+} from '@/lib/constants/services';
 
 interface Testimonial {
   clientName: string;
   rating: number;
   text: string;
-  categories?: { thoroughness: number; punctuality: number; communication: number };
+}
+interface Slot {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
 }
 
-interface PreviewData {
-  name: string;
-  image: string;
-  bio: string;
-  hourlyRateRegular: number | null;
-  hourlyRateDeep: number | null;
-  hourlyRateSameDay: number | null;
-  specialties: string[];
-  languages: string[];
-  location: string;
-  postcode: string;
-  yearsExperience: number | null;
-  completedJobs: number;
-  rating: number;
-  reviewCount: number;
-  availableNow: boolean;
-  identityVerified: boolean;
-  backgroundChecked: boolean;
-  testimonials: Testimonial[];
-  availabilitySlots: { dayOfWeek: number; startTime: string; endTime: string }[];
-  blockedDates: string[];
+function minPrice(map: Record<string, number> | null | undefined): number | null {
+  if (!map) return null;
+  const vals = Object.values(map).filter((n) => typeof n === 'number' && n > 0);
+  return vals.length ? Math.min(...vals) : null;
 }
 
 export default function ProfilePreviewPage() {
   const router = useRouter();
-  const [data, setData] = useState<PreviewData | null>(null);
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'card' | 'full'>('card');
 
   useEffect(() => {
     const dayMap: Record<string, number> = {
@@ -66,406 +64,140 @@ export default function ProfilePreviewPage() {
     ])
       .then(([p, avail]) => {
         if (!p) return;
-        const slots: PreviewData['availabilitySlots'] = [];
+        setProfile(p);
+        const s: Slot[] = [];
         if (avail?.weeklySlots) {
           for (const [dayName, daySlots] of Object.entries(avail.weeklySlots)) {
             const dow = dayMap[dayName];
             if (dow === undefined) continue;
-            for (const s of daySlots as { start: string; end: string }[]) {
-              slots.push({ dayOfWeek: dow, startTime: s.start, endTime: s.end });
+            for (const sl of daySlots as { start: string; end: string }[]) {
+              s.push({ dayOfWeek: dow, startTime: sl.start, endTime: sl.end });
             }
           }
         }
-        setData({
-          name: p.name || '',
-          image: p.image || '',
-          bio: p.bio || '',
-          hourlyRateRegular: p.hourlyRateRegular ?? null,
-          hourlyRateDeep: p.hourlyRateDeep ?? null,
-          hourlyRateSameDay: p.hourlyRateSameDay ?? null,
-          specialties: p.specialties || [],
-          languages: p.languages || [],
-          location: p.location || p.postcode || '',
-          postcode: p.postcode || '',
-          yearsExperience: p.yearsExperience ?? null,
-          completedJobs: p.completedJobs || 0,
-          rating: Number(p.rating) || 0,
-          reviewCount: p.reviewCount || 0,
-          availableNow: p.availableNow || false,
-          identityVerified: p.verificationStatus === 'VERIFIED',
-          backgroundChecked: p.backgroundCheckPassed || false,
-          testimonials: (Array.isArray(p.testimonials) ? p.testimonials : []).filter(
-            (t: Testimonial) => t.clientName?.trim() && t.text?.trim()
-          ),
-          availabilitySlots: slots,
-          blockedDates: (avail?.blockedDates || []).map((b: { date: string }) => b.date),
-        });
+        setSlots(s);
+        setBlockedDates((avail?.blockedDates || []).map((b: { date: string }) => b.date));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
 
-  const listedRate = data ? (data.hourlyRateRegular ?? 0) : 0;
-  const sameDayRate = data ? (data.hourlyRateSameDay ?? 0) : 0;
-
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-ink/5 rounded-lg w-48" />
-          <div className="h-64 bg-ink/5 rounded-xl" />
+          <div className="h-8 w-48 rounded-lg bg-line" />
+          <div className="h-64 rounded-xl bg-line" />
         </div>
       </div>
     );
   }
 
-  if (!data) {
+  if (!profile) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
         <p className="font-jost text-sm text-ink-3">Failed to load profile data.</p>
       </div>
     );
   }
 
-  const stars = (rating: number) => (
-    <span className="inline-flex text-rating">
-      {'★'.repeat(Math.floor(rating))}
-      {rating % 1 >= 0.5 && '★'}
-      {'☆'.repeat(5 - Math.floor(rating) - (rating % 1 >= 0.5 ? 1 : 0))}
-    </span>
-  );
+  // Build the SAME CleanerProfileData the public profile page builds, from the
+  // cleaner's own live profile — so the preview is exactly what customers see.
+  const p = profile as Record<string, unknown>;
+  const num = (v: unknown): number | null =>
+    typeof v === 'number' ? v : v ? Number(v) : null;
 
-  const verifiedBadge = (size: string) =>
-    (data.identityVerified || data.backgroundChecked) && (
-      <svg className={`${size} shrink-0 text-teal`} viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-          clipRule="evenodd"
-        />
-      </svg>
-    );
+  const serviceTypes = (((p.serviceTypes as string[]) || []).filter(
+    isServiceTypeSlug
+  ) as ServiceTypeSlug[]);
+  const hrReg = num(p.hourlyRateRegular);
+  const hrDeep = num(p.hourlyRateDeep);
+  const hrSame = num(p.hourlyRateSameDay);
+  const eot = (p.eotPrices as Record<string, number>) || null;
+  const air = (p.airbnbPrices as Record<string, number>) || null;
 
-  const avatar = (size: number, textSize: string) => (
-    <div
-      className={`flex shrink-0 items-center justify-center rounded-full bg-cream overflow-hidden`}
-      style={{ width: size, height: size }}
-    >
-      {data.image ? (
-        <Image
-          src={data.image}
-          alt=""
-          width={size}
-          height={size}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <span className={`font-newsreader ${textSize} font-semibold text-ink`}>
-          {data.name.charAt(0)}
-        </span>
-      )}
-    </div>
-  );
+  const services: ProfileService[] = [];
+  if (serviceTypes.includes('regular') && hrReg)
+    services.push({ label: serviceTypeLabel('regular'), price: `£${hrReg.toFixed(2)}/hr` });
+  if (serviceTypes.includes('deep') && hrDeep)
+    services.push({ label: serviceTypeLabel('deep'), price: `£${hrDeep.toFixed(2)}/hr` });
+  if (serviceTypes.includes('same_day') && hrSame)
+    services.push({
+      label: serviceTypeLabel('same_day'),
+      price: `£${hrSame.toFixed(2)}/hr`,
+      soon: true,
+    });
+  {
+    const m = serviceTypes.includes('end_of_tenancy') ? minPrice(eot) : null;
+    if (m !== null)
+      services.push({ label: serviceTypeLabel('end_of_tenancy'), price: `from £${m.toFixed(2)}` });
+  }
+  {
+    const m = serviceTypes.includes('airbnb') ? minPrice(air) : null;
+    if (m !== null)
+      services.push({ label: serviceTypeLabel('airbnb'), price: `from £${m.toFixed(2)}` });
+  }
+
+  const testimonials = (Array.isArray(p.testimonials) ? p.testimonials : []) as Testimonial[];
+  const reviews: ProfileReviewItem[] = testimonials
+    .filter((t) => t.clientName?.trim() && t.text?.trim())
+    .map((t, i) => ({ id: `testimonial-${i}`, name: t.clientName, rating: t.rating, text: t.text }));
+
+  const now = new Date();
+  const insuranceExpiry = p.insuranceExpiresAt ? new Date(p.insuranceExpiresAt as string) : null;
+
+  const data: CleanerProfileData = {
+    id: user?.id || '',
+    name: (p.name as string) || 'Cleaner',
+    photo: (p.image as string) || null,
+    location: (p.location as string) || (p.postcode as string) || '',
+    rating: num(p.rating) ?? 0,
+    reviewCount: (p.reviewCount as number) || 0,
+    idVerified: p.verificationStatus === 'VERIFIED',
+    insured: !!p.insuranceVerified && (!insuranceExpiry || insuranceExpiry > now),
+    backgroundChecked: !!p.backgroundCheckPassed,
+    fromPrice: hrReg ?? hrDeep ?? null,
+    bookHref: user?.id ? `/book/${user.id}` : '/cleaners',
+    about: (p.bio as string) || '',
+    // Sub-rating bars come from completed Rena bookings (server-computed); not
+    // available client-side, so the preview shows the honest "no Rena jobs yet"
+    // note when there are imported/testimonial reviews only.
+    ratings: null,
+    ratingsNote: reviews.length > 0 ? null : undefined,
+    experience: {
+      years: (p.yearsExperience as number) ?? null,
+      jobs: (p.completedJobs as number) || 0,
+      response: '~15 min',
+    },
+    languages: (p.languages as string[]) || [],
+    services,
+    reviews,
+    reviewsSubtitle: 'Only verified customers who completed a booking can leave reviews.',
+  };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-newsreader text-2xl font-semibold text-ink">Profile Preview</h1>
-          <p className="font-jost text-sm font-light text-ink-3 mt-1">
-            See how customers view your profile on the website
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Profile preview</h1>
+          <p className="mt-1 font-jost text-sm font-light text-ink-3">
+            This is exactly how customers see your profile — same layout, your live details.
           </p>
         </div>
         <Link
           href="/cleaner/profile"
-          className="shrink-0 rounded-full px-5 py-2.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition text-center"
+          className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
         >
-          Edit Profile
+          Edit profile
         </Link>
       </div>
 
-      {/* View toggle */}
-      <div
-        className="inline-flex rounded-lg bg-white p-1 mb-6"
-        style={{ border: '1px solid rgba(14,14,12,0.08)' }}
-      >
-        <button
-          onClick={() => setView('card')}
-          className={`rounded-md px-5 py-2 font-jost text-[13px] font-light transition ${
-            view === 'card' ? 'bg-ink text-cream shadow-sm' : 'text-ink-3 hover:text-ink'
-          }`}
-        >
-          Card View
-        </button>
-        <button
-          onClick={() => setView('full')}
-          className={`rounded-md px-5 py-2 font-jost text-[13px] font-light transition ${
-            view === 'full' ? 'bg-ink text-cream shadow-sm' : 'text-ink-3 hover:text-ink'
-          }`}
-        >
-          Full Profile
-        </button>
+      <div className="overflow-hidden rounded-[16px] border border-line bg-surface">
+        <CleanerProfileView
+          data={data}
+          availability={<AvailabilityCalendar slots={slots} blockedDates={blockedDates} />}
+        />
       </div>
-
-      {/* Card View */}
-      {view === 'card' && (
-        <div>
-          <p className="font-jost text-[13px] font-light text-ink-3 mb-4">
-            This is how your profile card appears in search results when customers browse cleaners.
-          </p>
-          <div className="max-w-sm">
-            <div
-              className="flex flex-col bg-white transition-shadow hover:shadow-md"
-              style={{ border: '0.5px solid rgba(27,42,74,0.08)' }}
-            >
-              <div className="flex items-start gap-4 px-5 pt-5 pb-4">
-                {avatar(48, 'text-[18px]')}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate font-jost text-[16px] font-medium text-ink uppercase">
-                      {data.name}
-                    </h3>
-                    {verifiedBadge('h-4 w-4')}
-                  </div>
-                  <p className="font-jost text-[12px] font-light text-ink-3">{data.location}</p>
-                </div>
-                <div className="text-right">
-                  <span className="font-jost text-[20px] font-semibold text-ink">
-                    &pound;{listedRate.toFixed(2)}
-                  </span>
-                  <span className="font-jost text-[11px] font-light text-ink-3">/hr</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 px-5">
-                {stars(data.rating)}
-                <span className="font-jost text-[12px] font-light text-ink-2">
-                  {data.rating} ({data.reviewCount})
-                </span>
-                {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
-                  <span className="ml-auto flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
-                    </span>
-                    <span className="font-jost text-[11px] font-medium text-ink">
-                      Available today
-                    </span>
-                  </span>
-                )}
-              </div>
-
-              <p className="mt-3 line-clamp-2 px-5 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                {data.bio || 'No bio added yet'}
-              </p>
-
-              {data.specialties.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5 px-5">
-                  {data.specialties.slice(0, 3).map((s) => (
-                    <span
-                      key={s}
-                      className="rounded-full bg-cream px-3 py-1 font-jost text-[11px] font-medium text-ink-2"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center justify-between border-t border-ink/5 px-5 py-3">
-                <span className="font-jost text-[11px] font-light text-ink-3">
-                  {data.yearsExperience ?? 0} yrs experience &middot; {data.completedJobs} jobs
-                </span>
-                <span className="font-jost text-[11px] font-medium uppercase tracking-[0.1em] text-ink underline underline-offset-4">
-                  Book now
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full Profile View */}
-      {view === 'full' && (
-        <div>
-          <p className="font-jost text-[13px] font-light text-ink-3 mb-4">
-            This is your full profile page that customers see when they click on your card.
-          </p>
-          <div
-            className="rounded-xl bg-white overflow-hidden"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-          >
-            {/* Profile header */}
-            <section className="bg-cream px-6 py-8 md:px-10 md:py-10">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-                {avatar(80, 'text-[32px]')}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h2 className="font-newsreader text-[28px] font-semibold leading-tight text-ink sm:text-[34px] uppercase">
-                      {data.name}
-                    </h2>
-                    {verifiedBadge('h-5 w-5')}
-                  </div>
-                  <p className="mt-1 font-jost text-[14px] font-light text-ink-3">
-                    {data.location}
-                  </p>
-                  <div className="mt-2 flex items-center gap-2">
-                    {stars(data.rating)}
-                    <span className="font-jost text-[13px] font-light text-ink-2">
-                      {data.rating} ({data.reviewCount} reviews)
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
-                      <span className="flex items-center gap-1.5 rounded-full bg-teal/10 px-3 py-1">
-                        <span className="relative flex h-2 w-2">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-teal" />
-                        </span>
-                        <span className="font-jost text-[11px] font-medium text-ink">
-                          Available today
-                        </span>
-                      </span>
-                    )}
-                    {data.specialties.map((s) => (
-                      <span
-                        key={s}
-                        className="rounded-full bg-white px-3 py-1 font-jost text-[12px] font-medium text-ink-2"
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div>
-                    <span className="font-newsreader text-[32px] font-semibold text-ink">
-                      &pound;{listedRate.toFixed(2)}
-                    </span>
-                    <span className="font-jost text-[13px] font-light text-ink-3">/hr</span>
-                  </div>
-                  {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
-                    <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
-                      &pound;{sameDayRate.toFixed(2)}/hr same-day
-                    </p>
-                  )}
-                  <div className="mt-4 flex flex-col gap-2">
-                    <span className="inline-block rounded-md bg-ink px-6 py-3 text-center font-jost text-[13px] font-medium text-cream">
-                      Book now
-                    </span>
-                    {SAME_DAY_FEATURE_ENABLED && data.availableNow && (
-                      <span className="inline-block rounded-md bg-teal px-6 py-3 text-center font-jost text-[13px] font-medium text-white">
-                        Book for today
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Body */}
-            <div className="px-6 py-8 md:px-10 md:py-10">
-              {/* About */}
-              <section>
-                <h3 className="font-newsreader text-[22px] font-semibold text-ink">About</h3>
-                <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
-                  {data.bio || 'No bio added yet.'}
-                </p>
-              </section>
-
-              {/* Stats */}
-              <section className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {[
-                  { value: `${data.yearsExperience ?? '-'}`, label: 'Years experience' },
-                  { value: `${data.completedJobs}`, label: 'Jobs completed' },
-                  { value: `${data.rating}`, label: 'Avg rating' },
-                  { value: '~15 min', label: 'Response time' },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-cream px-4 py-5 text-center">
-                    <div className="font-newsreader text-[26px] font-semibold text-ink">
-                      {stat.value}
-                    </div>
-                    <div className="mt-1 font-jost text-[12px] font-light text-ink-3">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </section>
-
-              {/* Languages */}
-              {data.languages.length > 0 && (
-                <section className="mt-8">
-                  <h3 className="font-newsreader text-[22px] font-semibold text-ink">Languages</h3>
-                  <p className="mt-2 font-jost text-[14px] font-light text-ink-2">
-                    {data.languages.join(', ')}
-                  </p>
-                </section>
-              )}
-
-              {/* Availability */}
-              <section className="mt-8">
-                <h3 className="font-newsreader text-[22px] font-semibold text-ink">Availability</h3>
-                <AvailabilityCalendar
-                  slots={data.availabilitySlots}
-                  blockedDates={data.blockedDates}
-                />
-              </section>
-
-              {/* Reviews */}
-              <section className="mt-8">
-                <h3 className="font-newsreader text-[22px] font-semibold text-ink">
-                  Reviews ({data.reviewCount + data.testimonials.length})
-                </h3>
-                <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
-                  Only verified customers who completed a booking can leave reviews.
-                </p>
-                <div className="mt-6 space-y-0">
-                  {data.testimonials.map((t, i) => (
-                    <div key={`testimonial-${i}`} className="border-t border-ink/5 py-5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-jost text-[14px] font-medium text-ink">
-                          {t.clientName}
-                        </span>
-                        <span className="rounded-full bg-cream px-2 py-0.5 font-jost text-[10px] font-medium text-ink-3">
-                          Testimonial
-                        </span>
-                      </div>
-                      <div className="mt-1">{stars(t.rating)}</div>
-                      {t.categories && (
-                        <div className="mt-2 flex flex-wrap gap-3">
-                          {[
-                            { label: 'Thoroughness', v: t.categories.thoroughness },
-                            { label: 'Punctuality', v: t.categories.punctuality },
-                            { label: 'Communication', v: t.categories.communication },
-                          ].map((cat) => (
-                            <span
-                              key={cat.label}
-                              className="font-jost text-[11px] font-light text-ink-3"
-                            >
-                              {cat.label}: {cat.v}/5
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {t.text && (
-                        <p className="mt-3 font-jost text-[14px] font-light leading-relaxed text-ink-2">
-                          {t.text}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {data.reviewCount === 0 && data.testimonials.length === 0 && (
-                  <p className="py-8 text-center font-jost text-[14px] font-light text-ink-3">
-                    No reviews yet.
-                  </p>
-                )}
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
