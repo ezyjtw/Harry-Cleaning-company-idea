@@ -16,6 +16,7 @@ import Link from 'next/link';
 export interface SetupChecklistProfile {
   acknowledgmentComplete: boolean;
   profileComplete: boolean;
+  insuranceVerified: boolean;
   stripeChargesEnabled: boolean;
   stripePayoutsEnabled: boolean;
   homePostcode: string | null;
@@ -73,6 +74,13 @@ function buildItems(p: SetupChecklistProfile): {
       description: 'Connect your payment account so customers can book you',
       done: p.stripeChargesEnabled && p.stripePayoutsEnabled,
       href: '/cleaner/stripe/connect',
+    },
+    {
+      key: 'insurance',
+      label: 'Upload public liability insurance',
+      description: 'Add your public liability cover so you can take bookings',
+      done: p.insuranceVerified,
+      href: '/cleaner/profile',
     },
     {
       key: 'area',
