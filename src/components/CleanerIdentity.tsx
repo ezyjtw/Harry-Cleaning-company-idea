@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import CleanerAvatar from './CleanerAvatar';
 import StarRating from './StarRating';
 
 /** Green circle-check, pinned to the headshot's bottom-right. */
@@ -46,14 +47,7 @@ export default function CleanerIdentity({
   return (
     <div className="flex items-start gap-4">
       <div className="relative shrink-0">
-        {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt={name} className="h-20 w-20 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-soft font-newsreader text-[30px] font-medium text-primary">
-            {name.charAt(0)}
-          </div>
-        )}
+        <CleanerAvatar photo={photo} name={name} size={80} />
         {verified && <VerifiedCheck />}
       </div>
 

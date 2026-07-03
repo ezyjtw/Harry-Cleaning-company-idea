@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 
+import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import {
   BEDROOMS_TO_EOT_SIZE,
@@ -142,24 +143,14 @@ export default function BackupCleanerSlider({
                       }`}
                     >
                       <div className="relative">
-                        {c.photo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={c.photo}
-                            alt=""
-                            className={`h-14 w-14 rounded-full object-cover ${
-                              isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''
-                            }`}
-                          />
-                        ) : (
-                          <div
-                            className={`flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft font-newsreader text-xl font-medium text-primary ${
-                              isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''
-                            }`}
-                          >
-                            {c.name.charAt(0)}
-                          </div>
-                        )}
+                        <CleanerAvatar
+                          photo={c.photo}
+                          name={c.name}
+                          size={56}
+                          className={
+                            isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''
+                          }
+                        />
                         {c.identityVerified && <VerifiedCheck />}
                         {isSelected && (
                           <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white ring-2 ring-surface">

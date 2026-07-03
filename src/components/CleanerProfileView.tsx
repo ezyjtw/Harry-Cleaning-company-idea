@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import CleanerAvatar from './CleanerAvatar';
 import StarRating from './StarRating';
 
 export interface ProfileService {
@@ -57,22 +58,7 @@ export interface CleanerProfileData {
 function Avatar({ name, photo, size }: { name: string; photo?: string | null; size: number }) {
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={photo}
-          alt={name}
-          className="rounded-full object-cover"
-          style={{ width: size, height: size }}
-        />
-      ) : (
-        <div
-          className="flex items-center justify-center rounded-full bg-primary-soft font-newsreader font-medium text-primary"
-          style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
-        >
-          {name.charAt(0)}
-        </div>
-      )}
+      <CleanerAvatar photo={photo} name={name} size={size} />
       <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white">
         <svg
           className="h-5 w-5 text-trust"
