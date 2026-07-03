@@ -1,17 +1,45 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import StarRating from '@/components/StarRating';
+import { useAuth } from '@/hooks/useAuth';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { formatDate } from '@/lib/utils/formatting';
+
+/** Green circle-check pinned to the headshot — mirrors CleanerIdentity's VerifiedCheck. */
+function VerifiedCheck() {
+  return (
+    <span
+      className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white"
+      aria-label="Verified"
+    >
+      <svg className="h-5 w-5 text-trust" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </span>
+  );
+}
+
 export default function BookingConfirmationPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [status, setStatus] = useState<string | null>(null);
   const [booking, setBooking] = useState<{
     serviceType: string;
     date: string;
     startTime: string;
+    duration: number;
     totalPrice: number;
     cleanerName: string;
+    cleanerPhoto: string | null;
+    cleanerRating: number | null;
     backupCleanerNames: string[];
     autoAssignBackup: boolean;
   } | null>(null);
@@ -27,8 +55,15 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
           serviceType: data.serviceType,
           date: data.date,
           startTime: data.startTime,
+          duration: Number(data.duration) || 0,
           totalPrice: Number(data.totalPrice),
           cleanerName: data.cleaner?.name || 'Your cleaner',
+          cleanerPhoto: data.cleaner?.image || null,
+          cleanerRating:
+            typeof data.cleaner?.cleanerProfile?.rating === 'number' ||
+            typeof data.cleaner?.cleanerProfile?.rating === 'string'
+              ? Number(data.cleaner.cleanerProfile.rating)
+              : null,
           backupCleanerNames: data.backupCleanerNames || [],
           autoAssignBackup: data.autoAssignBackup || false,
         });
@@ -88,83 +123,96 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
       .catch(() => {});
   }, [params.id]);
 
+  const primaryBtn =
+    'inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover';
+  const outlineBtn =
+    'inline-flex items-center justify-center rounded-[10px] border border-line bg-surface px-6 py-2.5 font-jost text-sm font-semibold text-ink-2 transition-colors hover:bg-page';
+
   if (status === 'SUCCEEDED') {
+    const firstName = (booking?.cleanerName || 'Your cleaner').split(' ')[0];
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2 text-3xl text-gold">
-          &#10003;
-        </div>
-        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Payment Received!</h1>
-        <p className="mt-4 font-jost font-light text-ink-2">
-          Your payment was successful. We&apos;re waiting for{' '}
-          {booking?.cleanerName || 'your cleaner'} to confirm your booking. You&apos;ll receive an
-          email when they accept.
+      <div className="mx-auto max-w-xl px-4 py-16 sm:py-20">
+        {/* Trust eyebrow (James-signed) */}
+        <p className="text-center font-jost text-[11px] font-semibold uppercase tracking-[0.18em] text-trust">
+          ✓ Booking confirmed
         </p>
 
         {booking && (
-          <div
-            className="mt-6 bg-cream-2 p-6 text-left"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-          >
-            <div className="grid gap-2 font-jost text-sm font-light">
-              <div className="flex justify-between">
-                <span className="text-ink-3">Cleaner</span>
-                <span className="font-normal text-ink">{booking.cleanerName}</span>
+          <>
+            {/* Cleaner hero — 76px photo (real / initial fallback) + pinned check */}
+            <div className="mt-6 flex flex-col items-center text-center">
+              <div className="relative">
+                {booking.cleanerPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={booking.cleanerPhoto}
+                    alt={booking.cleanerName}
+                    className="h-[76px] w-[76px] rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-primary-soft font-newsreader text-[28px] font-medium text-primary">
+                    {booking.cleanerName.charAt(0)}
+                  </div>
+                )}
+                <VerifiedCheck />
               </div>
-              <div className="flex justify-between">
-                <span className="text-ink-3">Service</span>
-                <span className="font-normal text-ink">{booking.serviceType}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-3">Date</span>
-                <span className="font-normal text-ink">
-                  {new Date(booking.date).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-3">Time</span>
-                <span className="font-normal text-ink">{booking.startTime}</span>
-              </div>
-              {booking.backupCleanerNames.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-ink-3">Backup cleaners</span>
-                  <span className="font-normal text-ink">
-                    {booking.backupCleanerNames.join(', ')}
+
+              <h1 className="mt-4 font-newsreader text-3xl font-semibold text-ink">
+                {firstName} is coming
+              </h1>
+              <p className="mt-1.5 font-jost text-sm text-ink-2">
+                {formatDate(booking.date, 'full')} at {booking.startTime}
+              </p>
+              {booking.cleanerRating !== null && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <StarRating rating={booking.cleanerRating} />
+                  <span className="font-jost text-[12px] font-light text-ink-2">
+                    {booking.cleanerRating}
                   </span>
                 </div>
               )}
-              {booking.autoAssignBackup && (
-                <div className="flex justify-between">
-                  <span className="text-ink-3">Auto-assign</span>
-                  <span className="font-normal text-ink">Rena will choose a backup if needed</span>
-                </div>
-              )}
-              <div
-                className="flex justify-between pt-2 mt-2"
-                style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-              >
-                <span className="font-normal text-ink">Total paid</span>
-                <span className="font-cormorant text-lg font-light text-gold">
-                  &pound;{booking.totalPrice.toFixed(2)}
-                </span>
-              </div>
             </div>
-          </div>
+
+            {/* Summary row — page-tinted hairline; service · duration · serif total */}
+            <div className="mt-8 flex items-center justify-between rounded-[10px] border border-line bg-page px-5 py-4">
+              <span className="font-jost text-sm text-ink-2">
+                {serviceLabelFromSlug(booking.serviceType)}
+                {booking.duration > 0 && ` · ${booking.duration}h`}
+              </span>
+              <span className="font-newsreader text-xl font-semibold text-ink">
+                £{booking.totalPrice.toFixed(2)}
+              </span>
+            </div>
+
+            {(booking.backupCleanerNames.length > 0 || booking.autoAssignBackup) && (
+              <p className="mt-3 text-center font-jost text-[12px] text-ink-3">
+                {booking.backupCleanerNames.length > 0
+                  ? `Backup: ${booking.backupCleanerNames.join(', ')}`
+                  : 'Rena will assign a backup cleaner if needed.'}
+              </p>
+            )}
+          </>
         )}
 
+        <p className="mt-6 text-center font-jost text-sm font-light text-ink-2">
+          Your payment was successful. We&apos;ll email you when {firstName} accepts.
+        </p>
+
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
-          >
-            Go to Dashboard
-          </button>
-          <button
-            onClick={() => router.push(`/messages?bookingId=${params.id}`)}
-            className="border border-ink/20 px-6 py-3 font-jost font-normal text-ink hover:bg-ink/5"
-          >
-            Message your cleaner
-          </button>
+          <Link href={`/booking/${params.id}`} className={primaryBtn}>
+            View booking
+          </Link>
+          {isAuthenticated ? (
+            <Link href={`/messages?bookingId=${params.id}`} className={outlineBtn}>
+              Message {firstName}
+            </Link>
+          ) : (
+            // Guests can't message (account-only) — route to the existing guest
+            // tracking surface instead. No new capability.
+            <Link href="/booking/guest" className={outlineBtn}>
+              Track your booking
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -172,11 +220,11 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
 
   if (status === 'FAILED' || status === 'CANCELED') {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center bg-red-50 text-3xl text-red-500">
+      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-danger/10 text-3xl text-danger">
           &#10007;
         </div>
-        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">
+        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
           Payment didn&apos;t go through
         </h1>
         <p className="mt-4 font-jost font-light text-ink-2">
@@ -184,11 +232,8 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
             ? 'Your payment could not be processed. Please try again with a different payment method.'
             : 'Your payment was canceled.'}
         </p>
-        <button
-          onClick={() => router.back()}
-          className="mt-8 bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
-        >
-          Try Again
+        <button onClick={() => router.back()} className={`mt-8 ${primaryBtn}`}>
+          Try again
         </button>
       </div>
     );
@@ -196,29 +241,26 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
 
   if (status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
-        <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">Booking Refunded</h1>
+      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Booking refunded</h1>
         <p className="mt-4 font-jost font-light text-ink-2">
-          This booking has been refunded. The funds will appear in your account within 5-10 business
+          This booking has been refunded. The funds will appear in your account within 5–10 business
           days.
         </p>
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="mt-8 bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
-        >
-          Go to Dashboard
-        </button>
+        <Link href="/dashboard" className={`mt-8 ${primaryBtn}`}>
+          Go to dashboard
+        </Link>
       </div>
     );
   }
 
   // PENDING / REQUIRES_ACTION / loading
   return (
-    <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-cream">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center bg-cream-2">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-ink border-t-transparent" />
+    <div className="mx-auto max-w-xl px-4 py-20 text-center">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
-      <h1 className="mt-6 font-cormorant text-3xl font-light text-ink">
+      <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
         Processing your payment&hellip;
       </h1>
       <p className="mt-4 font-jost font-light text-ink-2">
@@ -227,12 +269,9 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
           : "This usually takes a few seconds. Please don't close this page."}
       </p>
       {pollCount >= maxPolls && (
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="mt-8 bg-ink px-6 py-3 font-jost font-normal text-cream hover:bg-ink/90"
-        >
-          Go to Dashboard
-        </button>
+        <Link href="/dashboard" className={`mt-8 ${primaryBtn}`}>
+          Go to dashboard
+        </Link>
       )}
     </div>
   );
