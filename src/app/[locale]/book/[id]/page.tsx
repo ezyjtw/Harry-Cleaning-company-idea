@@ -15,7 +15,13 @@ import CleanerIdentity from '@/components/CleanerIdentity';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
-import { bedroomIndexToPropertySize } from '@/lib/constants/services';
+import {
+  bedroomIndexToPropertySize,
+  BEDROOMS_TO_EOT_SIZE,
+  BEDROOMS_TO_AIRBNB_SIZE,
+  eotSizeLabel,
+  airbnbSizeLabel,
+} from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -295,6 +301,31 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         total: serverQuote.customerTotal,
       }
     : { listedSubtotal: 0, serviceFee: 0, total: 0 };
+
+  // Booking Summary cleaner-rate line. Fixed-price services (EoT / Airbnb) don't
+  // have an hourly rate — read the cleaner's per-size fixed price instead of
+  // showing £0/hr. Hourly services show the service-correct £X/hr.
+  const cleanerRateLabel = (() => {
+    if (form.serviceType === 'end-of-tenancy') {
+      const slug = BEDROOMS_TO_EOT_SIZE[form.bedrooms];
+      if (!slug) return null;
+      const price = cleaner.eotPrices?.[slug];
+      return typeof price === 'number' ? `£${price.toFixed(2)} (${eotSizeLabel(slug)})` : null;
+    }
+    if (form.serviceType === 'airbnb') {
+      const slug = BEDROOMS_TO_AIRBNB_SIZE[form.bedrooms];
+      if (!slug) return null;
+      const price = cleaner.airbnbPrices?.[slug];
+      return typeof price === 'number' ? `£${price.toFixed(2)} (${airbnbSizeLabel(slug)})` : null;
+    }
+    const hourly =
+      form.serviceType === 'deep'
+        ? cleaner.hourlyRateDeep
+        : form.serviceType === 'same-day'
+          ? cleaner.hourlyRateSameDay
+          : cleaner.hourlyRateRegular;
+    return typeof hourly === 'number' ? `£${hourly.toFixed(2)}/hr` : null;
+  })();
 
   // Other cleaners available on the selected date (exclude the currently selected cleaner)
   const getDayAbbreviation = (dateStr: string): string => {
@@ -779,7 +810,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <span>
               {cleaner.rating} ({cleaner.reviewCount} reviews)
             </span>
-            <span>&middot; &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}/hr</span>
+            {cleanerRateLabel && <span>&middot; {cleanerRateLabel}</span>}
             {isLastMinute && cleaner.hourlyRateSameDay && (
               <span className="text-primary font-normal">
                 &middot; &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr today
@@ -1202,9 +1233,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </div>
                 <div>
                   <p className="font-jost text-sm font-normal text-ink">{cleaner.name}</p>
-                  <p className="font-jost text-xs font-light text-ink-3">
-                    &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}/hr
-                  </p>
+                  <p className="font-jost text-xs font-light text-ink-3">{cleanerRateLabel}</p>
                 </div>
               </div>
 
