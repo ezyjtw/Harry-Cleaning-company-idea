@@ -944,6 +944,8 @@ export default function JoinAsCleanerPage() {
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         e.email = 'Enter a valid email address';
       if (!form.phone.trim()) e.phone = 'Phone number is required';
+      else if (form.phone.replace(/\D/g, '').length < 10)
+        e.phone = 'Enter a valid phone number';
       if (!form.postcode.trim()) e.postcode = 'Postcode is required';
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
         e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
