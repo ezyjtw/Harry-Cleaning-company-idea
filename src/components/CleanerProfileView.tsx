@@ -39,6 +39,10 @@ export interface CleanerProfileData {
   /** Headline £/hr (hourlyRateRegular or lowest offered). */
   fromPrice: number | null;
   bookHref: string;
+  /** In-flow context (e.g. the wizard browse step): when set, the book button
+   *  calls this instead of navigating to bookHref. */
+  onBook?: () => void;
+  bookLabel?: string;
   about: string;
   /** Native sub-rating bars; null when there are no Rena sub-rated reviews yet. */
   ratings: ProfileRatingBar[] | null;
@@ -90,12 +94,18 @@ function Avatar({ name, photo, size }: { name: string; photo?: string | null; si
 function PriceBand({
   fromPrice,
   bookHref,
+  onBook,
+  bookLabel,
   className,
 }: {
   fromPrice: number | null;
   bookHref: string;
+  onBook?: () => void;
+  bookLabel?: string;
   className?: string;
 }) {
+  const btnClass =
+    'shrink-0 whitespace-nowrap rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover';
   return (
     <div
       className={`flex items-center justify-between gap-4 border-t border-ink bg-[#f7f8fb] px-6 py-4 sm:px-8 ${className ?? ''}`}
@@ -109,12 +119,15 @@ function PriceBand({
         </span>
         <span className="font-jost text-[14px] font-normal text-ink-2">/hr</span>
       </div>
-      <Link
-        href={bookHref}
-        className="shrink-0 whitespace-nowrap rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
-      >
-        Book now
-      </Link>
+      {onBook ? (
+        <button type="button" onClick={onBook} className={btnClass}>
+          {bookLabel ?? 'Book now'}
+        </button>
+      ) : (
+        <Link href={bookHref} className={btnClass}>
+          {bookLabel ?? 'Book now'}
+        </Link>
+      )}
     </div>
   );
 }
@@ -169,7 +182,13 @@ export default function CleanerProfileView({
       </div>
 
       {/* Price band — desktop (in-flow, after header) */}
-      <PriceBand fromPrice={data.fromPrice} bookHref={data.bookHref} className="hidden md:flex" />
+      <PriceBand
+        fromPrice={data.fromPrice}
+        bookHref={data.bookHref}
+        onBook={data.onBook}
+        bookLabel={data.bookLabel}
+        className="hidden md:flex"
+      />
 
       {/* Ledger — locked order: ABOUT → DETAILED RATINGS → REVIEWS → EXPERIENCE → SERVICES & RATES */}
       <div className="px-6 pb-6 sm:px-8">
@@ -309,6 +328,8 @@ export default function CleanerProfileView({
       <PriceBand
         fromPrice={data.fromPrice}
         bookHref={data.bookHref}
+        onBook={data.onBook}
+        bookLabel={data.bookLabel}
         className="sticky bottom-0 z-10 flex md:hidden"
       />
     </div>
