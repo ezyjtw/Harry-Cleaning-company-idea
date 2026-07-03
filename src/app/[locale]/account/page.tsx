@@ -1,515 +1,384 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import { AccountSection, Field } from '@/components/account/primitives';
-import PasswordRequirements from '@/components/ui/PasswordRequirements';
-import { validatePasswordPolicy } from '@/lib/utils/password-policy';
+import BookingStatusChip from '@/components/BookingStatusChip';
+import CleanerAvatar from '@/components/CleanerAvatar';
+import { useAuth } from '@/hooks/useAuth';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 
-const BTN_PRIMARY =
-  'rounded-[10px] bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50';
-const BTN_OUTLINE =
-  'rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-2 transition-colors hover:bg-page';
-
-interface Address {
+interface BookingUser {
   id: string;
-  label: string;
-  line1: string;
-  line2?: string;
-  city: string;
-  postcode: string;
-  isDefault: boolean;
+  name: string | null;
+  image: string | null;
 }
 
-export default function AccountPage() {
-  // Profile state
-  const [profile, setProfile] = useState({ name: '', email: '', phone: '' });
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '' });
-  const [profileSaved, setProfileSaved] = useState(false);
-  const [profileLoading, setProfileLoading] = useState(true);
+interface Booking {
+  id: string;
+  serviceType: string;
+  status: string;
+  paymentStatus: string;
+  date: string;
+  startTime: string;
+  totalPrice: number | string;
+  addressPostcode?: string | null;
+  address: { postcode?: string } | null;
+  cleaner: BookingUser;
+  review: { id: string } | null;
+  cascadePhase: string | null;
+  topupAmount: number | string | null;
+}
 
-  // Addresses state
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [showAddAddress, setShowAddAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({
-    label: '',
-    line1: '',
-    line2: '',
-    city: '',
-    postcode: '',
+interface BookingsResponse {
+  data: Booking[];
+}
+
+interface RecentCleaner {
+  id: string;
+  name: string;
+  image: string | null;
+  lastDate: string;
+}
+
+const UPCOMING_STATUSES = new Set([
+  'PENDING',
+  'AWAITING_CLEANER',
+  'CONFIRMED',
+  'ACCEPTED',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+  'CASCADE_EXHAUSTED',
+]);
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
   });
+}
 
-  // Password state
-  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
+export default function AccountHome() {
+  const router = useRouter();
+  const { user, isLoading: authLoading, isAuthenticated, isCleaner, isAdmin } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
+  const [recentCleaners, setRecentCleaners] = useState<RecentCleaner[]>([]);
+  const [unreviewedBookings, setUnreviewedBookings] = useState<Booking[]>([]);
+  const [mostRecentCleaner, setMostRecentCleaner] = useState<{ id: string; name: string } | null>(
+    null
+  );
 
-  // Delete account state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-
-  // Fetch profile and addresses on mount
   useEffect(() => {
-    Promise.all([
-      fetch('/api/auth/profile').then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/addresses').then((r) => (r.ok ? r.json() : [])),
-    ])
-      .then(([userData, addressData]) => {
-        if (userData) {
-          const p = {
-            name: userData.name || '',
-            email: userData.email || '',
-            phone: userData.phone || '',
-          };
-          setProfile(p);
-          setProfileForm(p);
-        }
-        if (Array.isArray(addressData)) {
-          setAddresses(
-            addressData.map((a: Record<string, unknown>) => ({
-              id: a.id as string,
-              label: (a.label as string) || 'Address',
-              line1: a.line1 as string,
-              line2: (a.line2 as string) || undefined,
-              city: a.city as string,
-              postcode: a.postcode as string,
-              isDefault: a.isDefault as boolean,
-            }))
-          );
-        }
-      })
-      .catch(() => {})
-      .finally(() => setProfileLoading(false));
-  }, []);
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push('/login?callbackUrl=/account');
+      return;
+    }
+    if (isCleaner) {
+      router.push('/cleaner');
+      return;
+    }
+    if (isAdmin) {
+      router.push('/admin');
+      return;
+    }
+  }, [authLoading, isAuthenticated, isCleaner, isAdmin, router]);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone }),
-      });
-      if (res.ok) {
-        setProfile(profileForm);
-        setIsEditingProfile(false);
-        setProfileSaved(true);
-        setTimeout(() => setProfileSaved(false), 3000);
-      }
-    } catch {}
-  };
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
 
-  const handleAddAddress = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/addresses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label: newAddress.label,
-          line1: newAddress.line1,
-          line2: newAddress.line2 || null,
-          city: newAddress.city,
-          postcode: newAddress.postcode,
-          isDefault: addresses.length === 0,
-        }),
-      });
-      if (res.ok) {
-        const addr = await res.json();
-        setAddresses((prev) => [
-          ...prev,
-          {
-            id: addr.id,
-            label: addr.label || 'Address',
-            line1: addr.line1,
-            line2: addr.line2 || undefined,
-            city: addr.city,
-            postcode: addr.postcode,
-            isDefault: addr.isDefault,
-          },
+    async function fetchHome() {
+      try {
+        const [allRes, completedRes] = await Promise.all([
+          fetch('/api/bookings'),
+          fetch('/api/bookings?status=COMPLETED'),
         ]);
-        setNewAddress({ label: '', line1: '', line2: '', city: '', postcode: '' });
-        setShowAddAddress(false);
+        // A transient 401 while still authenticated is a hiccup — surface it as a
+        // retryable load error, not a spurious logout (the guard effect handles a
+        // genuine session loss).
+        if (!allRes.ok || !completedRes.ok) {
+          throw new Error('Failed to load your dashboard');
+        }
+
+        const allData: BookingsResponse = await allRes.json();
+        const completedData: BookingsResponse = await completedRes.json();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        setUpcomingBookings(
+          allData.data
+            .filter((b) => UPCOMING_STATUSES.has(b.status) && new Date(b.date) >= today)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(0, 5)
+        );
+
+        const completed = completedData.data;
+        setUnreviewedBookings(completed.filter((b) => b.status === 'COMPLETED' && !b.review));
+
+        const seen = new Set<string>();
+        const cleaners: RecentCleaner[] = [];
+        for (const b of completed) {
+          if (!seen.has(b.cleaner.id)) {
+            seen.add(b.cleaner.id);
+            cleaners.push({
+              id: b.cleaner.id,
+              name: b.cleaner.name || 'Cleaner',
+              image: b.cleaner.image,
+              lastDate: b.date,
+            });
+          }
+        }
+        setRecentCleaners(cleaners);
+        if (completed.length > 0) {
+          setMostRecentCleaner({
+            id: completed[0].cleaner.id,
+            name: completed[0].cleaner.name || 'your cleaner',
+          });
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Something went wrong');
+      } finally {
+        setLoading(false);
       }
-    } catch {}
-  };
-
-  const handleRemoveAddress = async (id: string) => {
-    try {
-      const res = await fetch(`/api/addresses/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setAddresses((prev) => prev.filter((a) => a.id !== id));
-      }
-    } catch {}
-  };
-
-  const handleSetDefaultAddress = async (id: string) => {
-    try {
-      const res = await fetch(`/api/addresses/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isDefault: true }),
-      });
-      if (res.ok) {
-        setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
-      }
-    } catch {}
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess(false);
-
-    const pwResult = validatePasswordPolicy(passwordForm.new);
-    if (!pwResult.valid) {
-      setPasswordError(pwResult.errors[0]);
-      return;
     }
-    if (passwordForm.new !== passwordForm.confirm) {
-      setPasswordError('New passwords do not match.');
-      return;
-    }
 
-    try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: passwordForm.current,
-          newPassword: passwordForm.new,
-        }),
-      });
-      if (res.ok) {
-        setPasswordSuccess(true);
-        setPasswordForm({ current: '', new: '', confirm: '' });
-        setTimeout(() => setPasswordSuccess(false), 3000);
-      } else {
-        const data = await res.json();
-        setPasswordError(data.error || 'Failed to change password.');
-      }
-    } catch {
-      setPasswordError('Failed to change password.');
-    }
-  };
+    fetchHome();
+  }, [authLoading, isAuthenticated]);
 
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'DELETE') return;
-    try {
-      await fetch('/api/auth/profile', {
-        method: 'DELETE',
-      });
-      window.location.href = '/';
-    } catch {}
-    setShowDeleteModal(false);
-  };
+  if (authLoading || (!isAuthenticated && !error)) {
+    return null;
+  }
 
-  if (profileLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-ink-3">Loading account...</p>
+      <div className="animate-pulse space-y-6">
+        <div className="h-8 w-48 rounded-lg bg-line" />
+        <div className="h-16 rounded-xl bg-line" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 rounded-xl bg-line" />
+          ))}
+        </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="rounded-xl border border-danger/20 bg-danger/[0.06] p-8 text-center">
+        <p className="font-jost text-sm text-danger">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 rounded-[10px] bg-primary px-6 py-2.5 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const firstName = user?.name?.split(' ')[0] || 'there';
+
   return (
-    <div className="space-y-6">
-      {/* Profile Section */}
-      <AccountSection
-        title="Profile Information"
-        action={
-          !isEditingProfile && (
-            <button
-              onClick={() => {
-                setProfileForm(profile);
-                setIsEditingProfile(true);
-              }}
-              className="text-sm font-medium text-primary hover:text-primary-hover"
-            >
-              Edit
-            </button>
-          )
-        }
-      >
-        {profileSaved && (
-          <div className="mt-3 rounded-[10px] border border-trust/20 bg-green-50 p-3 text-sm text-trust">
-            Profile updated successfully.
+    <div className="space-y-8">
+      {/* Greeting + primary CTA */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Hello, {firstName}</h1>
+          <p className="mt-1 font-jost text-sm font-light text-ink-3">
+            Your bookings, cleaners and account — all in one place.
+          </p>
+        </div>
+        {mostRecentCleaner ? (
+          <Link
+            href={`/book/${mostRecentCleaner.id}`}
+            className="inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
+          >
+            Book {mostRecentCleaner.name.split(' ')[0]} again
+          </Link>
+        ) : (
+          <Link
+            href="/cleaners"
+            className="inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
+          >
+            Find a cleaner
+          </Link>
+        )}
+      </div>
+
+      {/* Upcoming bookings — teaser into the Bookings tab */}
+      <section>
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="flex items-center justify-between border-b border-line px-6 py-4">
+            <h2 className="font-newsreader text-lg font-semibold text-ink">Upcoming bookings</h2>
+            {upcomingBookings.length > 0 && (
+              <Link
+                href="/account/bookings"
+                className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary transition-colors hover:text-primary-hover"
+              >
+                View all
+              </Link>
+            )}
           </div>
-        )}
 
-        {isEditingProfile ? (
-          <form onSubmit={handleSaveProfile} className="mt-4 space-y-4">
-            <Field
-              id="name"
-              label="Full Name"
-              type="text"
-              required
-              value={profileForm.name}
-              onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-            />
-            <Field
-              id="email"
-              label="Email"
-              type="email"
-              disabled
-              value={profileForm.email}
-              note="Email cannot be changed."
-            />
-            <Field
-              id="phone"
-              label="Phone Number"
-              type="tel"
-              value={profileForm.phone}
-              onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-            />
-            <div className="flex gap-3">
-              <button type="submit" className={BTN_PRIMARY}>
-                Save Changes
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsEditingProfile(false)}
-                className={BTN_OUTLINE}
+          {upcomingBookings.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <svg
+                className="mx-auto mb-3 h-10 w-10 text-ink-3/30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <dl className="mt-4 space-y-3">
-            <div>
-              <dt className="text-sm text-ink-3">Full Name</dt>
-              <dd className="text-sm font-medium text-ink">{profile.name || 'Not set'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-ink-3">Email</dt>
-              <dd className="text-sm font-medium text-ink">{profile.email}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-ink-3">Phone</dt>
-              <dd className="text-sm font-medium text-ink">{profile.phone || 'Not set'}</dd>
-            </div>
-          </dl>
-        )}
-      </AccountSection>
-
-      {/* Saved Addresses Section */}
-      <AccountSection
-        title="Saved Addresses"
-        action={
-          <button
-            onClick={() => setShowAddAddress(!showAddAddress)}
-            className="text-sm font-medium text-primary hover:text-primary-hover"
-          >
-            {showAddAddress ? 'Cancel' : '+ Add Address'}
-          </button>
-        }
-      >
-        {showAddAddress && (
-          <form
-            onSubmit={handleAddAddress}
-            className="mt-4 space-y-3 rounded-[10px] border border-line bg-page p-4"
-          >
-            <Field
-              id="addr-label"
-              label="Label (e.g. Home, Office)"
-              type="text"
-              required
-              inputClassName="text-sm"
-              value={newAddress.label}
-              onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
-            />
-            <Field
-              id="addr-line1"
-              label="Address Line 1"
-              type="text"
-              required
-              inputClassName="text-sm"
-              value={newAddress.line1}
-              onChange={(e) => setNewAddress({ ...newAddress, line1: e.target.value })}
-            />
-            <Field
-              id="addr-line2"
-              label="Address Line 2 (optional)"
-              type="text"
-              inputClassName="text-sm"
-              value={newAddress.line2}
-              onChange={(e) => setNewAddress({ ...newAddress, line2: e.target.value })}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                id="addr-city"
-                label="City"
-                type="text"
-                required
-                inputClassName="text-sm"
-                value={newAddress.city}
-                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-              />
-              <Field
-                id="addr-postcode"
-                label="Postcode"
-                type="text"
-                required
-                inputClassName="text-sm"
-                value={newAddress.postcode}
-                onChange={(e) => setNewAddress({ ...newAddress, postcode: e.target.value })}
-              />
-            </div>
-            <button type="submit" className={BTN_PRIMARY}>
-              Save Address
-            </button>
-          </form>
-        )}
-
-        {addresses.length === 0 ? (
-          <p className="mt-4 text-sm text-ink-3">No saved addresses yet.</p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {addresses.map((addr) => (
-              <li
-                key={addr.id}
-                className="flex items-start justify-between rounded-[10px] border border-line p-3"
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <p className="font-jost text-sm font-light text-ink-3">No upcoming bookings</p>
+              <Link
+                href="/cleaners"
+                className="mt-3 inline-block font-jost text-sm text-primary transition-colors hover:text-primary-hover"
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-ink">{addr.label}</span>
-                    {addr.isDefault && (
-                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">
-                        Default
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-sm text-ink-2">
-                    {addr.line1}
-                    {addr.line2 ? `, ${addr.line2}` : ''}, {addr.city}, {addr.postcode}
+                Browse cleaners
+              </Link>
+            </div>
+          ) : (
+            <div>
+              {upcomingBookings.map((booking, i) => {
+                const isProvisional =
+                  booking.status === 'AWAITING_CLEANER' &&
+                  booking.cascadePhase === 'PROVISIONAL_APPROVAL';
+                const postcode = booking.addressPostcode || booking.address?.postcode;
+                return (
+                  <Link
+                    key={booking.id}
+                    href={
+                      isProvisional
+                        ? `/booking/${booking.id}/approve-topup`
+                        : '/account/bookings'
+                    }
+                    className={`flex flex-col gap-3 px-6 py-4 transition-colors hover:bg-page sm:flex-row sm:items-center ${
+                      i > 0 ? 'border-t border-line' : ''
+                    }`}
+                  >
+                    <CleanerAvatar
+                      photo={booking.cleaner.image}
+                      name={booking.cleaner.name || 'Cleaner'}
+                      size={40}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-jost text-sm text-ink">
+                          {serviceLabelFromSlug(booking.serviceType)}
+                        </p>
+                        <BookingStatusChip
+                          rawStatus={booking.status}
+                          cascadePhase={booking.cascadePhase}
+                        />
+                      </div>
+                      <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
+                        {booking.cleaner.name || 'Cleaner being assigned'}
+                      </p>
+                      <div className="mt-1 flex items-center gap-3 font-jost text-sm font-light text-ink-3">
+                        <span>{formatDate(booking.date)}</span>
+                        <span className="h-1 w-1 rounded-full bg-ink-3/40" />
+                        <span>{booking.startTime}</span>
+                        {postcode && (
+                          <>
+                            <span className="h-1 w-1 rounded-full bg-ink-3/40" />
+                            <span>{postcode}</span>
+                          </>
+                        )}
+                      </div>
+                      {isProvisional && booking.topupAmount && (
+                        <p className="mt-1 font-jost text-xs font-medium text-warning">
+                          Extra £{Number(booking.topupAmount).toFixed(2)} needed — tap to review
+                        </p>
+                      )}
+                    </div>
+                    <p className="font-newsreader text-lg font-medium text-ink">
+                      £{Number(booking.totalPrice).toFixed(2)}
+                    </p>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Your Cleaners — teaser into the My Cleaners tab */}
+      {recentCleaners.length > 0 && (
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-newsreader text-lg font-semibold text-ink">Your cleaners</h2>
+            <Link
+              href="/account/cleaners"
+              className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary transition-colors hover:text-primary-hover"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {recentCleaners.slice(0, 2).map((cleaner) => (
+              <Link
+                key={cleaner.id}
+                href="/account/cleaners"
+                className="flex items-center gap-3 rounded-xl border border-line bg-surface p-5 transition-colors hover:bg-page"
+              >
+                <CleanerAvatar photo={cleaner.image} name={cleaner.name} size={44} />
+                <div className="min-w-0">
+                  <p className="truncate font-jost text-sm text-ink">{cleaner.name}</p>
+                  <p className="font-jost text-xs font-light text-ink-3">
+                    Last clean: {formatDate(cleaner.lastDate)}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  {!addr.isDefault && (
-                    <button
-                      onClick={() => handleSetDefaultAddress(addr.id)}
-                      className="text-xs text-ink-3 hover:text-ink"
-                    >
-                      Set default
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleRemoveAddress(addr.id)}
-                    className="text-xs text-danger hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
+              </Link>
             ))}
-          </ul>
-        )}
-      </AccountSection>
-
-      {/* Change Password Section */}
-      <AccountSection title="Change Password">
-        {passwordSuccess && (
-          <div className="mt-3 rounded-[10px] border border-trust/20 bg-green-50 p-3 text-sm text-trust">
-            Password changed successfully.
           </div>
-        )}
-        {passwordError && (
-          <div className="mt-3 rounded-[10px] border border-danger/20 bg-red-50 p-3 text-sm text-danger">
-            {passwordError}
-          </div>
-        )}
+        </section>
+      )}
 
-        <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
-          <Field
-            id="current-password"
-            label="Current Password"
-            type="password"
-            required
-            inputClassName="sm:max-w-md"
-            value={passwordForm.current}
-            onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-          />
-          <Field
-            id="new-password"
-            label="New Password"
-            type="password"
-            required
-            minLength={8}
-            inputClassName="sm:max-w-md"
-            value={passwordForm.new}
-            onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-            after={<PasswordRequirements password={passwordForm.new} />}
-          />
-          <Field
-            id="confirm-password"
-            label="Confirm New Password"
-            type="password"
-            required
-            inputClassName="sm:max-w-md"
-            value={passwordForm.confirm}
-            onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-          />
-          <button type="submit" className={BTN_PRIMARY}>
-            Update Password
-          </button>
-        </form>
-      </AccountSection>
-
-      {/* Delete Account Section */}
-      <AccountSection title="Danger Zone" tone="danger">
-        <p className="mt-1 text-sm text-ink-2">
-          Once you delete your account, all your data will be permanently removed. This action
-          cannot be undone.
-        </p>
-        <button
-          onClick={() => setShowDeleteModal(true)}
-          className="mt-4 rounded-[10px] border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-red-50"
-        >
-          Delete My Account
-        </button>
-      </AccountSection>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl">
-            <h3 className="font-newsreader text-xl font-semibold text-danger">Delete Account</h3>
-            <p className="mt-2 text-sm text-ink-2">
-              This will permanently delete your account and all associated data including bookings,
-              reviews, and payment history.
-            </p>
-            <p className="mt-3 text-sm text-ink-2">
-              Type <span className="font-mono font-bold text-danger">DELETE</span> to confirm:
-            </p>
-            <input
-              type="text"
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="Type DELETE"
-              className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
-            />
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleteConfirmText !== 'DELETE'}
-                className="rounded-[10px] bg-danger px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+      {/* Review nudges — link into the Bookings tab where the review action lives */}
+      {unreviewedBookings.length > 0 && (
+        <section>
+          <h2 className="mb-4 font-newsreader text-lg font-semibold text-ink">Leave a review</h2>
+          <div className="space-y-3">
+            {unreviewedBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="flex items-center gap-4 rounded-xl border border-line bg-surface px-5 py-4"
               >
-                Permanently Delete
-              </button>
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteConfirmText('');
-                }}
-                className={BTN_OUTLINE}
-              >
-                Cancel
-              </button>
-            </div>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+                  <svg className="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-jost text-sm text-ink">
+                    How was your clean with {booking.cleaner.name || 'your cleaner'}?
+                  </p>
+                  <p className="font-jost text-xs font-light text-ink-3">
+                    {serviceLabelFromSlug(booking.serviceType)} &middot; {formatDate(booking.date)}
+                  </p>
+                </div>
+                <Link
+                  href="/account/bookings"
+                  className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] font-semibold uppercase tracking-[0.08em] text-white transition-colors hover:bg-primary-hover"
+                >
+                  Review
+                </Link>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
