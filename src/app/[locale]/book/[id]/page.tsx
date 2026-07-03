@@ -11,6 +11,7 @@ import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
+import CleanerIdentity from '@/components/CleanerIdentity';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -65,6 +66,24 @@ const SERVICE_TYPES = [
 ];
 
 const isFixedPriceService = (svc: string) => svc === 'end-of-tenancy' || svc === 'airbnb';
+
+// The homepage services-section (S3) photography, reused verbatim per service
+// so the booking ledger reads the same as the marketing site.
+const SERVICE_IMAGES: Record<string, string> = {
+  regular: '/images/Regular cleaning.png',
+  'same-day': '/images/Same day cleaning.png',
+  deep: '/images/Deep cleaning.png',
+  'end-of-tenancy': '/images/End of Tenancy.png',
+  airbnb: '/images/Air BnB cleaning.png',
+};
+
+// Lowest set price in a fixed-price map (EoT / Airbnb), for the "from £X" row —
+// same derivation as CleanerProfileModal.
+function minPrice(map?: Record<string, number>): number | null {
+  if (!map) return null;
+  const vals = Object.values(map).filter((n) => typeof n === 'number' && n > 0);
+  return vals.length ? Math.min(...vals) : null;
+}
 
 const BEDROOM_OPTIONS = [
   { value: 0, label: 'Studio' },
@@ -567,108 +586,137 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   if (step === 'service') {
+    const hourly =
+      cleaner.hourlyRateRegular ?? cleaner.hourlyRateDeep ?? cleaner.hourlyRateSameDay;
+    const fixedMin = minPrice(cleaner.eotPrices) ?? minPrice(cleaner.airbnbPrices);
+    const headlineMeta =
+      typeof hourly === 'number'
+        ? `from £${hourly.toFixed(2)}/hr`
+        : typeof fixedMin === 'number'
+          ? `from £${fixedMin.toFixed(2)}`
+          : undefined;
+
+    const priceFor = (value: string): string | null => {
+      switch (value) {
+        case 'regular':
+          return typeof cleaner.hourlyRateRegular === 'number'
+            ? `£${cleaner.hourlyRateRegular.toFixed(2)}/hr`
+            : null;
+        case 'deep':
+          return typeof cleaner.hourlyRateDeep === 'number'
+            ? `£${cleaner.hourlyRateDeep.toFixed(2)}/hr`
+            : null;
+        case 'same-day':
+          return typeof cleaner.hourlyRateSameDay === 'number'
+            ? `£${cleaner.hourlyRateSameDay.toFixed(2)}/hr`
+            : null;
+        case 'end-of-tenancy': {
+          const m = minPrice(cleaner.eotPrices);
+          return m !== null ? `from £${m.toFixed(2)}` : null;
+        }
+        case 'airbnb': {
+          const m = minPrice(cleaner.airbnbPrices);
+          return m !== null ? `from £${m.toFixed(2)}` : null;
+        }
+        default:
+          return null;
+      }
+    };
+
+    // Only services this cleaner offers (same gating as before), minus Same Day —
+    // which always renders last as a muted, non-tappable SOON row.
+    const offered = SERVICE_TYPES.filter((s) => {
+      if (s.value === 'same-day') return false;
+      const dbSlug = URL_SLUG_TO_DB_SLUG[s.value];
+      if (!dbSlug || !cleaner.serviceTypes.includes(dbSlug)) return false;
+      if (dbSlug === 'regular')
+        return cleaner.hourlyRateRegular !== null && cleaner.hourlyRateRegular !== undefined;
+      if (dbSlug === 'deep')
+        return cleaner.hourlyRateDeep !== null && cleaner.hourlyRateDeep !== undefined;
+      if (dbSlug === 'end_of_tenancy')
+        return (
+          cleaner.eotPrices !== null &&
+          cleaner.eotPrices !== undefined &&
+          Object.keys(cleaner.eotPrices).length > 0
+        );
+      if (dbSlug === 'airbnb')
+        return (
+          cleaner.airbnbPrices !== null &&
+          cleaner.airbnbPrices !== undefined &&
+          Object.keys(cleaner.airbnbPrices).length > 0
+        );
+      return true;
+    });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const sameDay = SERVICE_TYPES.find((s) => s.value === 'same-day')!;
+
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-page">
-        {/* Cleaner summary at top */}
-        <div
-          className="flex items-center gap-4 bg-primary-soft p-4"
-          style={{ border: '0.5px solid #E4E9F0' }}
-        >
-          <div className="flex h-14 w-14 items-center justify-center bg-primary font-newsreader text-xl font-light text-white">
-            {cleaner.name.charAt(0)}
-          </div>
-          <div className="flex-1">
-            <h2 className="font-jost font-normal text-ink">{cleaner.name}</h2>
-            <div className="flex items-center gap-2 font-jost text-sm font-light text-ink-3">
-              <StarRating rating={cleaner.rating} />
-              <span>
-                {cleaner.rating} ({cleaner.reviewCount} reviews)
-              </span>
-              <span>&middot; &pound;{(cleaner.hourlyRateRegular ?? 0).toFixed(2)}/hr</span>
-            </div>
-          </div>
-        </div>
+        {/* Cleaner header (S-C) */}
+        <CleanerIdentity
+          photo={cleaner.photo}
+          name={cleaner.name}
+          verified={cleaner.identityVerified || cleaner.verified}
+          rating={cleaner.rating}
+          reviewCount={cleaner.reviewCount}
+          meta={headlineMeta}
+        />
 
-        <h1 className="mt-8 font-newsreader text-3xl font-light text-ink">
+        <h1 className="mt-8 font-newsreader text-3xl font-semibold text-ink">
           What kind of cleaning do you need?
         </h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2">
           Choose a service to continue booking with {cleaner.name}.
         </p>
 
-        <div className="mt-6 grid gap-3">
-          {SERVICE_TYPES.filter((s) => {
-            if (s.value === 'same-day') return true;
-            const dbSlug = URL_SLUG_TO_DB_SLUG[s.value];
-            if (!dbSlug || !cleaner.serviceTypes.includes(dbSlug)) return false;
-            if (dbSlug === 'regular')
-              return cleaner.hourlyRateRegular !== null && cleaner.hourlyRateRegular !== undefined;
-            if (dbSlug === 'deep')
-              return cleaner.hourlyRateDeep !== null && cleaner.hourlyRateDeep !== undefined;
-            if (dbSlug === 'same_day')
-              return cleaner.hourlyRateSameDay !== null && cleaner.hourlyRateSameDay !== undefined;
-            if (dbSlug === 'end_of_tenancy')
-              return (
-                cleaner.eotPrices !== null &&
-                cleaner.eotPrices !== undefined &&
-                Object.keys(cleaner.eotPrices).length > 0
-              );
-            if (dbSlug === 'airbnb')
-              return (
-                cleaner.airbnbPrices !== null &&
-                cleaner.airbnbPrices !== undefined &&
-                Object.keys(cleaner.airbnbPrices).length > 0
-              );
-            return true;
-          }).map((s) => {
-            const isSameDay = s.value === 'same-day';
-            return (
-              <button
-                key={s.value}
-                disabled={isSameDay}
-                onClick={() => {
-                  if (!isSameDay) {
-                    router.push(`/services/${s.value}?cleaner=${params.id}`);
-                  }
-                }}
-                className={`group/card flex items-center justify-between p-5 text-left transition ${
-                  isSameDay ? 'cursor-not-allowed opacity-50' : 'hover:bg-page'
-                }`}
-                style={{ border: '0.5px solid #E4E9F0' }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
-                    {isSameDay && (
-                      <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
-                        Coming Soon
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
-                    {s.description}
-                  </p>
-                </div>
-                <svg
-                  className={`ml-3 h-5 w-5 shrink-0 transition ${
-                    isSameDay
-                      ? 'text-ink-3'
-                      : 'text-ink-3 group-hover/card:translate-x-0.5 group-hover/card:text-ink'
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                  />
-                </svg>
-              </button>
-            );
-          })}
+        {/* Service ledger — hairline rows with S3 imagery + the cleaner's real price */}
+        <div className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+          {offered.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => {
+                router.push(`/services/${s.value}?cleaner=${params.id}`);
+              }}
+              className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition hover:bg-page"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={SERVICE_IMAGES[s.value]}
+                alt=""
+                className="h-12 w-16 shrink-0 rounded-lg object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
+                <p className="mt-0.5 font-jost text-[13px] font-light text-ink-2">{s.description}</p>
+              </div>
+              {priceFor(s.value) && (
+                <span className="ml-3 shrink-0 font-newsreader text-[15px] font-semibold text-ink">
+                  {priceFor(s.value)}
+                </span>
+              )}
+            </button>
+          ))}
+
+          {/* Same Day — muted, greyscale, SOON, non-tappable (unchanged behaviour) */}
+          <div className="flex w-full items-center gap-4 px-4 py-3.5 opacity-60">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SERVICE_IMAGES['same-day']}
+              alt=""
+              className="h-12 w-16 shrink-0 rounded-lg object-cover grayscale"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-jost text-[15px] font-medium text-ink-2">{sameDay.label}</h3>
+                <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.08em] text-ink-3">
+                  Soon
+                </span>
+              </div>
+              <p className="mt-0.5 font-jost text-[13px] font-light text-ink-3">
+                {sameDay.description}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
