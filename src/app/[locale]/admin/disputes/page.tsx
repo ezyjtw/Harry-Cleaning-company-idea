@@ -89,7 +89,11 @@ async function getDisputes(): Promise<AdminDispute[]> {
         type: ev.type,
         fileName: ev.fileName,
         uploadedBy:
-          ev.uploadedBy === d.booking.clientId ? ('customer' as const) : ('cleaner' as const),
+          ev.uploadedBy === d.booking.clientId
+            ? ('customer' as const)
+            : ev.uploadedBy === d.booking.cleanerId
+              ? ('cleaner' as const)
+              : ('Rena team' as const),
         url: `/api/disputes/${d.id}/evidence/${ev.id}`,
       })),
     };

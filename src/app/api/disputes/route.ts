@@ -25,6 +25,18 @@ function mapPrismaStatus(status: string, resolution: string | null): DisputeStat
   }
 }
 
+// Label an evidence uploader by their role on the booking. Neither party →
+// "Rena team" (admin/support upload). Display-only.
+function labelUploader(
+  uploaderId: string,
+  clientId: string | null,
+  cleanerId: string
+): 'customer' | 'cleaner' | 'Rena team' {
+  if (uploaderId === clientId) return 'customer';
+  if (uploaderId === cleanerId) return 'cleaner';
+  return 'Rena team';
+}
+
 export async function GET() {
   try {
     const user = await getSessionUser();
@@ -42,7 +54,7 @@ export async function GET() {
       include: {
         evidence: { orderBy: { uploadedAt: 'asc' } },
         raisedBy: { select: { name: true, role: true } },
-        booking: { select: { id: true, clientId: true } },
+        booking: { select: { id: true, clientId: true, cleanerId: true } },
       },
     });
 
@@ -61,10 +73,9 @@ export async function GET() {
         fileName: ev.fileName ?? undefined,
         description: ev.description ?? ev.fileName ?? '',
         uploadedAt: ev.uploadedAt.toISOString(),
-        // A party is either the booking client or the cleaner; anyone who isn't
-        // the client uploaded as the cleaner side.
-        uploadedBy:
-          ev.uploadedBy === d.booking.clientId ? ('customer' as const) : ('cleaner' as const),
+        // Label the uploader by their role on the booking; an uploader who is
+        // neither party (admin/support) shows as "Rena team".
+        uploadedBy: labelUploader(ev.uploadedBy, d.booking.clientId, d.booking.cleanerId),
         // Viewer route (evidence is encrypted at rest — no raw presigned URL).
         url: `/api/disputes/${d.id}/evidence/${ev.id}`,
       })),

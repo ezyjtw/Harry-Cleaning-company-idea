@@ -8,7 +8,7 @@ export interface AdminDisputeEvidence {
   id: string;
   type: string;
   fileName: string | null;
-  uploadedBy: 'customer' | 'cleaner';
+  uploadedBy: 'customer' | 'cleaner' | 'Rena team';
   url: string;
 }
 
