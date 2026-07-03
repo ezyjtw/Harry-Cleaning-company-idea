@@ -20,6 +20,7 @@ import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
 import type { ServiceCategory } from '@/lib/types';
+import { formatDate } from '@/lib/utils/formatting';
 
 const URL_SLUG_TO_DB_SLUG: Record<string, string> = {
   regular: 'regular',
@@ -135,7 +136,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         setPastBookings(
           (result.data || []).slice(0, 5).map((b) => ({
             id: b.id as string,
-            date: new Date(b.date as string).toLocaleDateString(),
+            date: formatDate(b.date as string, 'full'),
             address:
               (b.addressLine1 as string) ||
               ((b.address as Record<string, unknown>)?.line1 as string) ||

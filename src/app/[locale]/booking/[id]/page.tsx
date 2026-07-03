@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { formatDate } from '@/lib/utils/formatting';
 
 // #5: customer job-detail view. Data + access control come entirely from the
 // existing ownership-gated GET /api/bookings/[id] (clientId/cleaner/backup/admin
@@ -36,15 +37,6 @@ interface BookingDetail {
 }
 
 type LoadState = 'loading' | 'ok' | 'unauth' | 'forbidden' | 'notfound' | 'error';
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -164,7 +156,7 @@ export default function BookingDetailPage() {
             label="Status"
             value={<BookingStatusChip rawStatus={booking.status} cascadePhase={booking.cascadePhase} />}
           />
-          <Row label="Date" value={formatDate(booking.date)} />
+          <Row label="Date" value={formatDate(booking.date, 'full')} />
           <Row label="Time" value={`${booking.startTime} · ${Number(booking.duration)}h`} />
           {address && <Row label="Address" value={address} />}
           <Row label="Total" value={`£${Number(booking.totalPrice).toFixed(2)}`} />
