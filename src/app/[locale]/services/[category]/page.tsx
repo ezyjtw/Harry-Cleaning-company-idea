@@ -657,9 +657,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     if (paymentStep) return 'payment';
     if (phase === 'quote') return 'quote';
     if (selectedCleanerIds.length > 0) return 'booking';
-    if (scheduling === 'flexible') return 'browse';
     if (scheduling === 'set-time') return 'set-time';
-    return 'choose-method';
+    // Method fork removed (M2): everything else in the cleaner phase is the
+    // by-cleaner grid (default), toggled to set-time via the results toggle.
+    return 'browse';
   }, [phase, scheduling, selectedCleanerIds, paymentStep]);
 
   const goBack = useCallback(() => {
@@ -673,12 +674,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         setDateTimeSelection(null);
         break;
       case 'browse':
-        setScheduling(null);
-        break;
       case 'set-time':
-        setScheduling(null);
-        break;
-      case 'choose-method':
+        // No method fork to return to — back from results goes to the quote.
         setPhase('quote');
         break;
       default:
@@ -1353,6 +1350,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   setPostcodeError('Please enter a valid UK postcode');
                   return;
                 }
+                // Quote proceeds straight to results (method fork removed, M2).
+                // Default to the by-cleaner grid; the toggle atop the results
+                // switches to the time-first picker.
+                setScheduling('flexible');
                 setPhase('cleaner');
               }}
               disabled={!postcode || (isGuest && !email) || outsideCatchment || !!postcodeError}
@@ -2375,12 +2376,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // ─── PHASE 2: Cleaner selection (no pre-selected cleaner) ────────────────
 
   const stepLabels = [
-    { key: 'choose-method', label: 'Method' },
-    ...(scheduling === 'flexible'
-      ? [{ key: 'browse', label: 'Browse' }]
-      : scheduling === 'set-time'
-        ? [{ key: 'set-time', label: 'Schedule' }]
-        : []),
+    ...(scheduling === 'set-time'
+      ? [{ key: 'set-time', label: 'Schedule' }]
+      : [{ key: 'browse', label: 'Browse' }]),
     { key: 'booking', label: 'Book' },
   ];
 
@@ -2443,11 +2441,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 {isPast ? (
                   <button
                     onClick={() => {
-                      if (step.key === 'choose-method') {
-                        setScheduling(null);
-                        setSelectedCleanerIds([]);
-                        setDateTimeSelection(null);
-                      } else if (step.key === 'browse' || step.key === 'set-time') {
+                      if (step.key === 'browse' || step.key === 'set-time') {
                         setSelectedCleanerIds([]);
                         setDateTimeSelection(null);
                       }
@@ -2485,14 +2479,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Page title */}
         <h1 className="mt-8 font-newsreader font-light text-3xl text-ink sm:text-4xl">
-          {currentStep === 'choose-method' && 'How would you like to book?'}
           {currentStep === 'browse' && 'Browse Available Cleaners'}
           {currentStep === 'set-time' && 'Choose your time'}
           {currentStep === 'booking' && 'Complete Your Booking'}
         </h1>
         <p className="mt-2 font-jost font-light text-sm text-ink-3">
-          {currentStep === 'choose-method' &&
-            'Start with what matters most \u2014 browse by who, or by when.'}
           {currentStep === 'browse' &&
             `${cleaners.length} cleaners available \u00b7 click to view profile`}
           {currentStep === 'set-time' &&
@@ -2502,95 +2493,27 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       </div>
 
       <div className="mt-10 space-y-10">
-        {/* ── Scheduling preference choice ── */}
-        {scheduling === null && selectedCleanerIds.length === 0 && (
-          <div>
-            <div className="grid gap-5 sm:grid-cols-2">
-              {/* Cleaner-first card */}
-              <button
-                type="button"
-                onClick={() => setScheduling('flexible')}
-                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-ink/15 hover:-translate-y-0.5"
-              >
-                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-ink/[0.02] blur-2xl transition-all duration-300 group-hover:bg-ink/[0.04]" />
-
-                <div className="relative">
-                  <h3 className="font-newsreader text-xl text-ink">Choose your cleaner</h3>
-                  <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    Browse by <span className="text-ink-2">who</span>: view cleaner profiles and
-                    reviews, pick the one you want, then choose a time from their calendar.
-                  </p>
-
-                  <div className="mt-5 flex items-center gap-3">
-                    <span className="inline-flex rounded-full bg-cream-2/60 px-2.5 py-1 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3">
-                      Flexible on timing
-                    </span>
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between border-t border-ink/[0.04] pt-5">
-                    <span className="inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-2 group-hover:text-ink transition-colors">
-                      Browse cleaners
-                      <svg
-                        className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </button>
-
-              {/* Time-first card */}
-              <button
-                type="button"
-                onClick={() => setScheduling('set-time')}
-                className="group relative overflow-hidden rounded-xl bg-white p-8 text-left shadow-sm ring-1 ring-ink/[0.06] transition-all duration-300 hover:shadow-md hover:ring-ink/15 hover:-translate-y-0.5"
-              >
-                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-ink/[0.02] blur-2xl transition-all duration-300 group-hover:bg-ink/[0.04]" />
-
-                <div className="relative">
-                  <h3 className="font-newsreader text-xl text-ink">Choose your time</h3>
-                  <p className="mt-2 font-jost font-light text-[13px] leading-relaxed text-ink-3">
-                    Browse by <span className="text-ink-2">when</span>: pick a day and time of day,
-                    and we&apos;ll show the cleaners free then. Choose one — they&apos;ll confirm
-                    your booking.
-                  </p>
-
-                  <div className="mt-5 flex items-center gap-3">
-                    <span className="inline-flex rounded-full bg-cream-2/60 px-2.5 py-1 font-jost text-[10px] uppercase tracking-[0.1em] text-ink-3">
-                      Flexible on the cleaner
-                    </span>
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between border-t border-ink/[0.04] pt-5">
-                    <span className="inline-flex items-center gap-1.5 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-2 group-hover:text-ink transition-colors">
-                      Pick a time
-                      <svg
-                        className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </button>
-            </div>
+        {/* Results view toggle (M2 — replaces the removed method fork) */}
+        {selectedCleanerIds.length === 0 && (
+          <div className="inline-flex rounded-full border border-line bg-surface p-1">
+            <button
+              type="button"
+              onClick={() => setScheduling('flexible')}
+              className={`rounded-full px-4 py-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                scheduling !== 'set-time' ? 'bg-primary text-white' : 'text-ink-3 hover:text-ink'
+              }`}
+            >
+              By cleaner
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduling('set-time')}
+              className={`rounded-full px-4 py-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                scheduling === 'set-time' ? 'bg-primary text-white' : 'text-ink-3 hover:text-ink'
+              }`}
+            >
+              By your availability
+            </button>
           </div>
         )}
 
