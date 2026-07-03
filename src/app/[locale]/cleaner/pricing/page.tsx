@@ -187,12 +187,12 @@ export default function CleanerPricingPage() {
 
       {dirty && (
         <div
-          className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 px-5 py-3"
-          style={{ border: '1px solid rgba(217,119,6,0.2)' }}
+          className="mb-6 flex items-center justify-between rounded-xl bg-warning/10 px-5 py-3"
+          style={{ border: '1px solid rgb(var(--color-warning) / 0.2)' }}
         >
           <div className="flex items-center gap-2">
             <svg
-              className="w-4 h-4 text-amber-600"
+              className="w-4 h-4 text-warning"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -204,12 +204,12 @@ export default function CleanerPricingPage() {
                 d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"
               />
             </svg>
-            <span className="font-jost text-sm text-amber-800">You have unsaved changes</span>
+            <span className="font-jost text-sm text-warning">You have unsaved changes</span>
           </div>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition disabled:opacity-50"
+            className="rounded-full px-4 py-1.5 bg-primary text-white font-jost text-[12px] font-light hover:bg-primary-hover transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save now'}
           </button>
@@ -218,16 +218,16 @@ export default function CleanerPricingPage() {
 
       {saveError && (
         <div
-          className="mb-6 rounded-xl bg-red-50 px-5 py-3"
+          className="mb-6 rounded-xl bg-danger/10 px-5 py-3"
           style={{ border: '1px solid rgba(239,68,68,0.15)' }}
         >
-          <p className="font-jost text-sm text-red-700">{saveError}</p>
+          <p className="font-jost text-sm text-danger">{saveError}</p>
         </div>
       )}
 
       <div className="space-y-6">
         {/* Service types */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div className="bg-page p-6" style={{ border: '0.5px solid rgb(var(--color-border))' }}>
           <h2 className="font-newsreader text-lg font-semibold text-ink mb-2">Services Offered</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-4">
             Select the cleaning services you want to offer
@@ -242,13 +242,13 @@ export default function CleanerPricingPage() {
                     onClick={() => toggleService(slug)}
                     className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                       serviceTypes.includes(slug)
-                        ? 'bg-ink text-cream shadow-sm'
-                        : 'bg-white text-ink-2 hover:bg-cream-2'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-surface text-ink-2 hover:bg-primary-soft'
                     }`}
                     style={
                       serviceTypes.includes(slug)
                         ? undefined
-                        : { border: '1px solid rgba(14,14,12,0.1)' }
+                        : { border: '1px solid rgb(var(--color-border))' }
                     }
                   >
                     {serviceTypes.includes(slug) && (
@@ -276,7 +276,7 @@ export default function CleanerPricingPage() {
 
         {/* Per-service hourly rates */}
         {serviceTypes.filter((s) => SERVICE_RATE_INFO[s]?.hourly).length > 0 && (
-          <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <div className="bg-page p-6" style={{ border: '0.5px solid rgb(var(--color-border))' }}>
             <h2 className="font-newsreader text-lg font-semibold text-ink mb-2">Hourly Rates</h2>
             <p className="font-jost text-sm font-light text-ink-2 mb-4">
               Set your hourly rate for each service type you offer
@@ -307,8 +307,8 @@ export default function CleanerPricingPage() {
                             markDirty();
                           }}
                           placeholder="—"
-                          className="w-full rounded-lg bg-white py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                          style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                          className="w-full rounded-lg bg-surface py-2.5 pl-8 pr-4 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                          style={{ border: '1px solid rgb(var(--color-border))' }}
                         />
                       </div>
                       <p className="mt-1 font-jost text-[11px] text-ink-3">
@@ -323,7 +323,7 @@ export default function CleanerPricingPage() {
 
         {/* EOT & Airbnb fixed-price tables */}
         {(serviceTypes.includes('end_of_tenancy') || serviceTypes.includes('airbnb')) && (
-          <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+          <div className="bg-page p-6" style={{ border: '0.5px solid rgb(var(--color-border))' }}>
             <h2 className="font-newsreader text-lg font-semibold text-ink mb-2">
               Fixed-Price Services
             </h2>
@@ -338,10 +338,10 @@ export default function CleanerPricingPage() {
                 </h3>
                 <div
                   className="overflow-hidden rounded-lg"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  style={{ border: '0.5px solid rgb(var(--color-border))' }}
                 >
                   <table className="min-w-full">
-                    <thead className="bg-cream-2">
+                    <thead className="bg-primary-soft">
                       <tr>
                         <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
                           Property
@@ -356,7 +356,10 @@ export default function CleanerPricingPage() {
                     </thead>
                     <tbody>
                       {EOT_SIZES_WITH_GUIDE.map((row) => (
-                        <tr key={row.slug} style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+                        <tr
+                          key={row.slug}
+                          style={{ borderTop: '0.5px solid rgb(var(--color-border))' }}
+                        >
                           <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
                             {eotSizeLabel(row.slug)}
                           </td>
@@ -369,8 +372,8 @@ export default function CleanerPricingPage() {
                                 type="number"
                                 placeholder="—"
                                 value={eotPrices[row.slug] || ''}
-                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-surface focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                style={{ border: '0.5px solid rgb(var(--color-border))' }}
                                 onChange={(e) => {
                                   setEotPrices((prev) => ({
                                     ...prev,
@@ -399,10 +402,10 @@ export default function CleanerPricingPage() {
                 </h3>
                 <div
                   className="overflow-hidden rounded-lg"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  style={{ border: '0.5px solid rgb(var(--color-border))' }}
                 >
                   <table className="min-w-full">
-                    <thead className="bg-cream-2">
+                    <thead className="bg-primary-soft">
                       <tr>
                         <th className="px-4 py-2.5 text-left font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
                           Property
@@ -417,7 +420,10 @@ export default function CleanerPricingPage() {
                     </thead>
                     <tbody>
                       {AIRBNB_SIZES_WITH_GUIDE.map((row) => (
-                        <tr key={row.slug} style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}>
+                        <tr
+                          key={row.slug}
+                          style={{ borderTop: '0.5px solid rgb(var(--color-border))' }}
+                        >
                           <td className="px-4 py-2.5 font-jost text-sm font-light text-ink">
                             {airbnbSizeLabel(row.slug)}
                           </td>
@@ -430,8 +436,8 @@ export default function CleanerPricingPage() {
                                 type="number"
                                 placeholder="—"
                                 value={airbnbPrices[row.slug] || ''}
-                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-white focus:outline-none focus:ring-1 focus:ring-gold/30"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                className="w-24 rounded-lg pl-6 pr-2 py-1.5 font-jost text-sm font-light text-ink bg-surface focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                style={{ border: '0.5px solid rgb(var(--color-border))' }}
                                 onChange={(e) => {
                                   setAirbnbPrices((prev) => ({
                                     ...prev,
@@ -454,8 +460,8 @@ export default function CleanerPricingPage() {
             )}
 
             <div
-              className="rounded-xl bg-cream-2/50 p-5"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              className="rounded-xl bg-primary-soft/50 p-5"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             >
               <p className="font-jost text-sm font-medium text-ink mb-2">How fees work</p>
               <p className="font-jost text-sm font-light text-ink-2 leading-relaxed">
@@ -467,8 +473,10 @@ export default function CleanerPricingPage() {
         )}
 
         {/* Hours per week */}
-        <div className="bg-cream p-6" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Typical Working Hours</h2>
+        <div className="bg-page p-6" style={{ border: '0.5px solid rgb(var(--color-border))' }}>
+          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+            Typical Working Hours
+          </h2>
           <div className="flex items-center gap-3">
             <input
               type="number"
@@ -480,8 +488,8 @@ export default function CleanerPricingPage() {
               min="1"
               max="80"
               placeholder="e.g. 20"
-              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             />
             <span className="font-jost text-sm font-light text-ink-2">hours per week</span>
           </div>
@@ -493,7 +501,7 @@ export default function CleanerPricingPage() {
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
-            <span className="font-jost text-sm font-light text-green-600 flex items-center gap-1">
+            <span className="font-jost text-sm font-light text-trust flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -508,7 +516,7 @@ export default function CleanerPricingPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full px-8 py-2.5 bg-ink text-cream font-jost text-[13px] font-light shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
+            className="rounded-full px-8 py-2.5 bg-primary text-white font-jost text-[13px] font-light shadow-sm hover:bg-primary-hover transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Pricing'}
           </button>

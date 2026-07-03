@@ -38,10 +38,10 @@ export default function CleanerStatements() {
 
   const inputCls =
     'px-3 py-2 font-jost text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20';
-  const fieldStyle = { border: '0.5px solid rgba(14,14,12,0.1)' } as const;
+  const fieldStyle = { border: '0.5px solid rgb(var(--color-border))' } as const;
 
   return (
-    <div className="mt-8 bg-white p-6" style={fieldStyle}>
+    <div className="mt-8 bg-surface p-6" style={fieldStyle}>
       <h2 className="font-newsreader text-xl font-semibold text-ink">Statements</h2>
       <p className="mt-1 font-jost text-sm font-light text-ink-3">
         Download a PDF summary of your earnings for your records or Self Assessment. Covers jobs
@@ -49,14 +49,14 @@ export default function CleanerStatements() {
       </p>
 
       {/* Mode toggle */}
-      <div className="mt-4 flex gap-1 bg-cream-2 p-1 w-fit" style={fieldStyle}>
+      <div className="mt-4 flex gap-1 bg-primary-soft p-1 w-fit" style={fieldStyle}>
         {(['taxYear', 'custom'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
             className={`px-3 py-1.5 font-jost text-xs transition-colors ${
-              mode === m ? 'bg-ink text-cream' : 'text-ink-3 hover:text-ink'
+              mode === m ? 'bg-primary text-white' : 'text-ink-3 hover:text-ink'
             }`}
           >
             {m === 'taxYear' ? 'Tax year' : 'Custom range'}
@@ -116,14 +116,14 @@ export default function CleanerStatements() {
           <button
             type="button"
             disabled
-            className="cursor-not-allowed bg-ink/30 px-5 py-2 font-jost text-xs uppercase tracking-[0.1em] text-cream"
+            className="cursor-not-allowed bg-ink/30 px-5 py-2 font-jost text-xs uppercase tracking-[0.1em] text-white"
           >
             Download statement (PDF)
           </button>
         ) : (
           <a
             href={href}
-            className="bg-ink px-5 py-2 text-center font-jost text-xs uppercase tracking-[0.1em] text-cream transition hover:bg-gold"
+            className="bg-primary px-5 py-2 text-center font-jost text-xs uppercase tracking-[0.1em] text-white transition hover:bg-primary"
           >
             Download statement (PDF)
           </a>
@@ -131,7 +131,7 @@ export default function CleanerStatements() {
       </div>
 
       {rangeInvalid && (
-        <p className="mt-2 font-jost text-xs font-light text-red-600">
+        <p className="mt-2 font-jost text-xs font-light text-danger">
           The start date must be on or before the end date.
         </p>
       )}

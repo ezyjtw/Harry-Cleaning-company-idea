@@ -75,6 +75,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const [cleanerName, setCleanerName] = useState('');
   const [cleanerTier, setCleanerTier] = useState('');
   const [cleanerImage, setCleanerImage] = useState('');
+  const [imageFailed, setImageFailed] = useState(false);
   const [initials, setInitials] = useState('');
 
   useEffect(() => {
@@ -170,12 +171,13 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {cleanerImage ? (
+                {cleanerImage && !imageFailed ? (
                   <Image
                     src={cleanerImage}
                     alt=""
                     width={40}
                     height={40}
+                    onError={() => setImageFailed(true)}
                     className="w-full h-full object-cover"
                   />
                 ) : (

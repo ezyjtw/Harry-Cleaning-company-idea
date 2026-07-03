@@ -65,7 +65,7 @@ export default function EarningsPage() {
 
   const getStatusBadge = (status: Payout['status']) => {
     const styles = {
-      completed: 'bg-gold/10 text-gold',
+      completed: 'bg-primary/10 text-primary',
       pending: 'bg-ink/5 text-ink-3',
       processing: 'bg-ink/5 text-ink-2',
     };
@@ -88,15 +88,15 @@ export default function EarningsPage() {
           </p>
         </div>
         <div
-          className="flex gap-1 bg-cream-2 p-1"
-          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+          className="flex gap-1 bg-primary-soft p-1"
+          style={{ border: '0.5px solid rgb(var(--color-border))' }}
         >
           {(Object.keys(periodLabels) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1.5 font-jost text-xs transition-colors ${
-                period === p ? 'bg-ink text-cream' : 'text-ink-3 hover:text-ink'
+                period === p ? 'bg-primary text-white' : 'text-ink-3 hover:text-ink'
               }`}
             >
               {periodLabels[p]}
@@ -120,7 +120,10 @@ export default function EarningsPage() {
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div
+              className="bg-primary-soft p-5"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
+            >
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Gross Earnings
               </p>
@@ -131,7 +134,10 @@ export default function EarningsPage() {
                 {data.bookingCount} completed bookings
               </p>
             </div>
-            <div className="bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+            <div
+              className="bg-primary-soft p-5"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
+            >
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Platform Fees
               </p>
@@ -140,24 +146,30 @@ export default function EarningsPage() {
               </p>
               <p className="font-jost text-xs font-light text-ink-3 mt-1">Commission deducted</p>
             </div>
-            <div className="bg-gold/5 p-5" style={{ border: '0.5px solid rgba(184,151,90,0.2)' }}>
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold">
+            <div
+              className="bg-primary/5 p-5"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
+            >
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-primary">
                 Net Earnings
               </p>
               <p className="font-newsreader text-3xl font-medium text-ink mt-1">
                 £{data.netEarnings.toFixed(2)}
               </p>
-              <p className="font-jost text-xs font-light text-gold mt-1">Amount paid to you</p>
+              <p className="font-jost text-xs font-light text-primary mt-1">Amount paid to you</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Payout history */}
             <div
-              className="lg:col-span-2 bg-cream-2 overflow-hidden"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className="lg:col-span-2 bg-primary-soft overflow-hidden"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
             >
-              <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="px-6 py-4"
+                style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}
+              >
                 <h2 className="font-newsreader text-lg font-semibold text-ink">Payout History</h2>
               </div>
               {data.payouts.length === 0 ? (
@@ -170,7 +182,7 @@ export default function EarningsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
+                      <tr style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}>
                         <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
                           Date
                         </th>
@@ -192,8 +204,8 @@ export default function EarningsPage() {
                       {data.payouts.map((payout) => (
                         <tr
                           key={payout.id}
-                          className="hover:bg-cream/50 transition-colors"
-                          style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
+                          className="hover:bg-page/50 transition-colors"
+                          style={{ borderTop: '0.5px solid rgb(var(--color-border))' }}
                         >
                           <td className="px-6 py-4 font-jost text-sm font-light text-ink">
                             {payout.date}
@@ -218,10 +230,13 @@ export default function EarningsPage() {
 
             {/* Service breakdown */}
             <div
-              className="bg-cream-2 overflow-hidden"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className="bg-primary-soft overflow-hidden"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
             >
-              <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
+              <div
+                className="px-6 py-4"
+                style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}
+              >
                 <h2 className="font-newsreader text-lg font-semibold text-ink">By Service Type</h2>
               </div>
               {data.breakdown.length === 0 ? (
@@ -241,8 +256,8 @@ export default function EarningsPage() {
                             £{item.amount.toFixed(2)}
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-cream overflow-hidden">
-                          <div className="h-full bg-gold" style={{ width: `${percentage}%` }} />
+                        <div className="w-full h-1.5 bg-page overflow-hidden">
+                          <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
                         </div>
                         <p className="font-jost text-xs font-light text-ink-3 mt-1">
                           {item.count} booking{item.count !== 1 ? 's' : ''}

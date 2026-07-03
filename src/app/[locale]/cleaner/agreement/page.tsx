@@ -74,12 +74,12 @@ export default function CleanerAgreementPage() {
       </p>
 
       {status.acknowledged && (
-        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2 font-jost text-[13px] text-green-800">
+        <div className="mt-4 rounded-lg border border-green-200 bg-trust/10 px-4 py-2 font-jost text-[13px] text-green-800">
           You&rsquo;ve acknowledged the current version. No action needed.
         </div>
       )}
       {needsReAck && (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 font-jost text-[13px] text-amber-800">
+        <div className="mt-4 rounded-lg border border-amber-200 bg-warning/10 px-4 py-2 font-jost text-[13px] text-warning">
           This acknowledgment has been updated since you last agreed. Please read and confirm the
           current version to keep taking jobs.
         </div>
@@ -113,7 +113,7 @@ export default function CleanerAgreementPage() {
           <button
             onClick={submit}
             disabled={!confirmed || busy}
-            className="mt-4 rounded-full bg-ink px-6 py-2.5 font-jost text-[12px] uppercase tracking-[0.1em] text-cream transition hover:bg-ink/90 disabled:opacity-50"
+            className="mt-4 rounded-[10px] bg-primary px-6 py-2.5 font-jost text-[12px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover disabled:opacity-50"
           >
             {busy ? 'Saving…' : 'Confirm & continue'}
           </button>

@@ -96,19 +96,21 @@ export async function GET() {
       where: {
         cleanerId: user.id,
         date: { gte: startOfDay },
-        // #4: same gating as today's count — drop offers this cleaner declined,
-        // and only show AWAITING_CLEANER while they're the current offer-holder,
-        // so a declined/passed-on offer no longer appears as an actionable
-        // "Pending" row (which then 409s on Accept).
         NOT: { declinedCleanerIds: { has: user.id } },
+        // Only surface what a cleaner can actually act on or already owns:
+        //  - CONFIRMED / ACCEPTED = their upcoming work (read-only, no Accept).
+        //  - AWAITING_CLEANER + a LIVE primary cascade phase = a genuine offer
+        //    they can Accept.
+        // Bare PENDING (assigned/auto-assigned but no open cascade) and
+        // null-phase AWAITING_CLEANER are NOT acceptable — the accept path
+        // requires AWAITING_CLEANER + an active cascadePhase (cascade.service),
+        // so showing them with an Accept button 400s "Booking is not awaiting a
+        // cleaner". They are excluded here.
         OR: [
-          { status: { in: ['PENDING', 'CONFIRMED', 'ACCEPTED'] } },
+          { status: { in: ['CONFIRMED', 'ACCEPTED'] } },
           {
             status: 'AWAITING_CLEANER',
-            OR: [
-              { cascadePhase: null },
-              { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
-            ],
+            cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] },
           },
         ],
       },
@@ -227,6 +229,9 @@ export async function GET() {
       price: Number(j.totalPrice),
       cleanerEarnings: Number(j.cleanerEarnings),
       status: j.status.toLowerCase(),
+      // A live offer the cleaner can Accept (only AWAITING_CLEANER rows reach
+      // here, and the query already restricted those to active primary phases).
+      isOffer: j.status === 'AWAITING_CLEANER',
       bedrooms: (j.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
     })),
     recentReviews: recentReviews.map((r) => ({
