@@ -1122,7 +1122,7 @@ export default function JoinAsCleanerPage() {
           hasRtwDoc: !!rightToWorkDocFile,
           hasDbsCert: !!dbsCertFile,
           hasSelfie: !!selfiePhoto,
-          selfiePhoto: !!selfiePhoto,
+          selfiePhoto: selfiePhoto || null,
           profilePhoto: profilePhoto || null,
         }),
       });
