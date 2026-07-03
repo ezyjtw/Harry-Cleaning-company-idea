@@ -273,8 +273,8 @@ export default function CleanerDashboard() {
               href: '/cleaner/profile',
             },
             {
-              label: 'Background check',
-              description: 'DBS certificate or apply for a new check',
+              label: 'Identity verification',
+              description: 'Verify your ID with a photo and selfie.',
               done: isPending || data.profile.verified,
               href: '/verify',
             },
