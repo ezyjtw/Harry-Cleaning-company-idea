@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
         reviewCount: c.user.reviewsReceived.length,
         completedJobs: c.completedJobs,
         yearsExperience: c.yearsExperience ?? 0,
+        languages: c.languages || [],
         hourlyRateRegular: c.hourlyRateRegular ? Number(c.hourlyRateRegular) : null,
         hourlyRateDeep: c.hourlyRateDeep ? Number(c.hourlyRateDeep) : null,
         hourlyRateSameDay: c.hourlyRateSameDay ? Number(c.hourlyRateSameDay) : null,

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import StarRating from './StarRating';
 
@@ -43,6 +44,7 @@ export interface CleanerProfileData {
   ratings: ProfileRatingBar[] | null;
   ratingsNote?: string | null;
   experience: { years: number | null; jobs: number; response: string };
+  languages: string[];
   services: ProfileService[];
   reviews: ProfileReviewItem[];
   reviewsSubtitle?: string;
@@ -117,7 +119,13 @@ function PriceBand({
   );
 }
 
-export default function CleanerProfileView({ data }: { data: CleanerProfileData }) {
+export default function CleanerProfileView({
+  data,
+  availability,
+}: {
+  data: CleanerProfileData;
+  availability?: ReactNode;
+}) {
   const verifications = [
     data.idVerified && 'ID Verified',
     data.insured && 'Insured',
@@ -252,6 +260,15 @@ export default function CleanerProfileView({ data }: { data: CleanerProfileData 
           {expBits.join(' · ')}
         </div>
 
+        {data.languages.length > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-line py-3">
+            <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+              Languages
+            </span>
+            <span className="font-jost text-[14px] text-ink-2">{data.languages.join(', ')}</span>
+          </div>
+        )}
+
         {data.services.length > 0 && (
           <>
             <SectionLabel>Services &amp; rates</SectionLabel>
@@ -277,6 +294,13 @@ export default function CleanerProfileView({ data }: { data: CleanerProfileData 
             </div>
           </>
         )}
+
+        {availability && (
+          <>
+            <SectionLabel>Availability</SectionLabel>
+            <div className="border-t border-line pt-4">{availability}</div>
+          </>
+        )}
       </div>
 
       {/* Price band — mobile (sticky at the bottom of the scroll container) */}
@@ -289,7 +313,7 @@ export default function CleanerProfileView({ data }: { data: CleanerProfileData 
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <p className="mb-1 mt-7 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
       {children}

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 
+import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 import CleanerProfileView, {
   type ProfileService,
   type ProfileReviewItem,
@@ -30,7 +31,14 @@ export default async function CleanerProfilePage({
 
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
-    include: { user: { select: { id: true, name: true, image: true } } },
+    include: {
+      user: { select: { id: true, name: true, image: true } },
+      availabilitySlots: true,
+      availabilityOverrides: {
+        where: { isBlocked: true, date: { gte: new Date() } },
+        select: { date: true },
+      },
+    },
   });
   if (!profile) notFound();
 
@@ -152,16 +160,29 @@ export default async function CleanerProfilePage({
       jobs: profile.completedJobs,
       response: profile.responseTime ? `~${profile.responseTime} min` : '~15 min',
     },
+    languages: profile.languages || [],
     services,
     reviews: reviewItems,
     reviewsSubtitle: 'Only verified customers who completed a booking can leave reviews.',
   };
 
+  const availabilitySlots = profile.availabilitySlots.map((s) => ({
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime,
+    endTime: s.endTime,
+  }));
+  const blockedDates = profile.availabilityOverrides.map((o) => o.date.toISOString().split('T')[0]);
+
   return (
     <div className="min-h-screen bg-page">
       <div className="mx-auto max-w-3xl sm:px-6 sm:py-10">
         <div className="bg-surface sm:overflow-hidden sm:rounded-[16px] sm:border sm:border-line">
-          <CleanerProfileView data={data} />
+          <CleanerProfileView
+            data={data}
+            availability={
+              <AvailabilityCalendar slots={availabilitySlots} blockedDates={blockedDates} />
+            }
+          />
         </div>
       </div>
     </div>

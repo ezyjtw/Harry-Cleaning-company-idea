@@ -19,7 +19,7 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     serviceTypes: (c.serviceTypes as string[]) || [],
     bio: (c.bio as string) || '',
     specialties: (c.specialties as string[]) || [],
-    languages: [],
+    languages: (c.languages as string[]) || [],
     tier: ((c.tier as string) || 'starter') as Cleaner['tier'],
     location: (c.location as string) || '',
     postcodeAreas: [],

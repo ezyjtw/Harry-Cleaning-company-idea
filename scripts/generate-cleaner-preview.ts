@@ -141,6 +141,7 @@ const P = {
   years: 8,
   jobs: 520,
   response: '~8 min',
+  languages: ['English', 'Polish'],
   ratings: [
     ['Thoroughness', 4.9],
     ['Punctuality', 4.8],
@@ -188,8 +189,12 @@ const profileHtml = (withPhoto: boolean) => `
       .join('')}
     <div class="sec-label">Experience</div>
     <div class="exp-row">${P.years} yrs · ${P.jobs} jobs · ${P.response} response</div>
+    <div class="langrow"><span class="langlabel">Languages</span><span>${P.languages.join(', ')}</span></div>
     <div class="sec-label">Services &amp; rates</div>
     ${P.services.map(([n, p]) => `<div class="lrow"><span>${n}</span><span class="serif-price">${p}</span></div>`).join('')}
+    <div class="sec-label">Availability</div>
+    <div class="availcal">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => `<div class="avc${[1, 2, 3, 4, 5].includes(i) ? ' on' : ''}">${d}</div>`).join('')}</div>
+    <div class="availcap">Mon–Fri · 8:00 AM – 6:00 PM · book any available day</div>
   </div>
 </div>`;
 
@@ -237,6 +242,13 @@ h1.t{font-family:'Newsreader',serif;font-weight:500;font-size:22px;margin:0 0 4p
 .sec-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 8px;}
 .lrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2);}
 .exp-row{border-top:1px solid var(--line);padding:11px 0;font-size:14px;color:var(--ink-2);}
+.langrow{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:11px 0;}
+.langlabel{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
+.langrow span:last-child{font-size:14px;color:var(--ink-2);}
+.availcal{display:flex;gap:6px;padding-top:6px;}
+.avc{flex:1;text-align:center;padding:10px 0;border-radius:8px;font-size:12px;font-weight:500;color:var(--ink-3);background:#f4f5f7;}
+.avc.on{background:var(--primary-soft);color:var(--primary);}
+.availcap{margin-top:8px;font-size:12px;color:var(--ink-3);}
 .labout{font-size:14px;font-weight:300;line-height:1.7;color:var(--ink-2);padding-top:4px;}
 .bar-row{display:flex;align-items:center;gap:12px;padding:7px 0;}
 .bar-l{width:130px;font-size:13px;color:var(--ink-2);font-weight:300;}

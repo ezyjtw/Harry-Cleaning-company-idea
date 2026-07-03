@@ -162,6 +162,7 @@ export default function CleanerProfileModal({
       jobs: cleaner.completedJobs,
       response: cleaner.responseTime,
     },
+    languages: cleaner.languages || [],
     services,
     reviews: reviewItems,
     reviewsSubtitle: 'Only verified customers who completed a booking can leave reviews.',
