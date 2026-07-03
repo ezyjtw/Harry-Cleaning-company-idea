@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import SimpleMarkdown, { stripLeadingH1 } from '@/components/ui/SimpleMarkdown';
+
 interface AgreementDoc {
   version: string;
   kind: string;
@@ -83,11 +85,8 @@ export default function CleanerAgreementPage() {
         </div>
       )}
 
-      <div
-        className="mt-5 max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-xl bg-cream px-5 py-4 font-jost text-[14px] leading-relaxed text-ink"
-        style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
-      >
-        {doc.body}
+      <div className="mt-5 max-h-[55vh] overflow-auto rounded-xl border border-line bg-page px-5 py-4">
+        <SimpleMarkdown source={stripLeadingH1(doc.body)} />
       </div>
 
       {msg && (
