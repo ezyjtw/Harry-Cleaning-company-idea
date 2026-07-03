@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 
 // #5: customer job-detail view. Data + access control come entirely from the
 // existing ownership-gated GET /api/bookings/[id] (clientId/cleaner/backup/admin
@@ -35,13 +36,6 @@ interface BookingDetail {
 }
 
 type LoadState = 'loading' | 'ok' | 'unauth' | 'forbidden' | 'notfound' | 'error';
-
-function prettyStatus(status: string): string {
-  return status
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -165,7 +159,7 @@ export default function BookingDetailPage() {
         </div>
 
         <div className="mt-5 border-t border-line">
-          <Row label="Service" value={prettyStatus(booking.serviceType)} />
+          <Row label="Service" value={serviceLabelFromSlug(booking.serviceType)} />
           <Row
             label="Status"
             value={<BookingStatusChip rawStatus={booking.status} cascadePhase={booking.cascadePhase} />}
