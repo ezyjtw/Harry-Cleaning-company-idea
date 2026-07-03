@@ -58,15 +58,14 @@ const DISPUTE_REASONS = [
 ] as const;
 
 // Semantic status chips: warning (amber) = in-progress/attention, trust (green)
-// = confirmed/done, danger (red) = failed/disputed, neutral = cancelled.
-// Completed defaults to the trust family; the preview shows a primary-soft
-// alternative for James to pick from.
+// = confirmed, primary-soft (navy) = completed, danger (red) = failed/disputed,
+// neutral = cancelled.
 const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-warning/10 text-warning border-warning/20',
   'Finding a cleaner': 'bg-warning/10 text-warning border-warning/20',
   'Price approval needed': 'bg-warning/10 text-warning border-warning/20',
   Confirmed: 'bg-trust/10 text-trust border-trust/20',
-  Completed: 'bg-trust/10 text-trust border-trust/20',
+  Completed: 'bg-primary-soft text-primary border-primary/15',
   Cancelled: 'bg-page text-ink-3 border-line',
   Disputed: 'bg-danger/10 text-danger border-danger/20',
   'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
