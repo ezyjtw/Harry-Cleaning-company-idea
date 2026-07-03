@@ -1,15 +1,18 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type VerifyStep =
   | 'start'
   | 'document'
   | 'selfie'
-  | 'liveness'
   | 'processing'
   | 'complete'
+  | 'submitted'
   | 'error';
+
+// Backend identity states (CleanerProfile.verificationStatus).
+type VerificationStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -20,6 +23,34 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
+// Shared "what's unlocked" list — used by both the just-verified and the
+// already-verified screens so the copy stays identical.
+function UnlockedList() {
+  return (
+    <div className="mt-8 rounded-xl bg-gray-50 p-6 text-left max-w-md mx-auto">
+      <h3 className="font-semibold text-gray-900">What&apos;s unlocked:</h3>
+      <ul className="mt-3 space-y-2 text-sm text-gray-600">
+        <li className="flex items-center gap-2">
+          <span className="text-green-500">&#10003;</span>
+          Verified badge on your profile and cards
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="text-green-500">&#10003;</span>
+          Priority in search results
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="text-green-500">&#10003;</span>
+          Arrival selfie confirmation for customers
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="text-green-500">&#10003;</span>
+          Eligible for Rena Guarantee jobs
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 export default function VerifyPage() {
   const [step, setStep] = useState<VerifyStep>('start');
   const [documentType, setDocumentType] = useState('drivers-license');
@@ -28,17 +59,44 @@ export default function VerifyPage() {
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfieBase64, setSelfieBase64] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [livenessChecks, setLivenessChecks] = useState({
-    blink: false,
-    turnLeft: false,
-    turnRight: false,
-    smile: false,
-  });
+
+  // Status-aware mount: read the cleaner's current verification status and
+  // render the right screen instead of always dropping into the wizard.
+  const [mountLoading, setMountLoading] = useState(true);
+  const [mountError, setMountError] = useState(false);
+  const [mountStatus, setMountStatus] = useState<VerificationStatus>('UNVERIFIED');
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
 
-  const allLivenessComplete = Object.values(livenessChecks).every(Boolean);
+  const fetchStatus = useCallback(async () => {
+    setMountLoading(true);
+    setMountError(false);
+    try {
+      const res = await fetch('/api/verification/dbs');
+      if (!res.ok) {
+        setMountError(true);
+        return;
+      }
+      const data = await res.json();
+      const v = data.verification;
+      setMountStatus((v?.identity?.verificationStatus as VerificationStatus) ?? 'UNVERIFIED');
+      setRejectionReason(
+        typeof v?.verificationMeta?.rejectionReason === 'string'
+          ? v.verificationMeta.rejectionReason
+          : null
+      );
+    } catch {
+      setMountError(true);
+    } finally {
+      setMountLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   const handleDocumentUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,20 +114,14 @@ export default function VerifyPage() {
     setSelfieBase64(base64);
   }, []);
 
-  const handleStartLiveness = () => {
-    setStep('liveness');
-    setTimeout(() => setLivenessChecks((p) => ({ ...p, blink: true })), 1500);
-    setTimeout(() => setLivenessChecks((p) => ({ ...p, turnLeft: true })), 3000);
-    setTimeout(() => setLivenessChecks((p) => ({ ...p, turnRight: true })), 4500);
-    setTimeout(() => setLivenessChecks((p) => ({ ...p, smile: true })), 6000);
-  };
-
   const handleCompleteVerification = async () => {
     if (!documentBase64 || !selfieBase64) return;
 
     setStep('processing');
 
     try {
+      // Server contract unchanged: still action:'liveness_check' with the same
+      // fields (renaming the action is a separate server-side change — backlog).
       const res = await fetch('/api/verification/dbs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,7 +136,14 @@ export default function VerifyPage() {
       const data = await res.json();
 
       if (res.ok && data.result?.success) {
-        setStep('complete');
+        // Only a genuine API match ('match') is truly verified. Everything else
+        // that succeeded (manual-review fallback 'pending_review', or a
+        // low-confidence 'no_match') is submitted for review — not verified.
+        if (data.result.status === 'match') {
+          setStep('complete');
+        } else {
+          setStep('submitted');
+        }
       } else {
         setErrorMessage(
           data.error || data.result?.message || 'Verification failed. Please try again.'
@@ -97,6 +156,105 @@ export default function VerifyPage() {
     }
   };
 
+  // ─── Fetch loading / error (the status read itself) ───
+  if (mountLoading) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6 lg:px-8">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-brand-600" />
+        <p className="mt-4 text-sm text-gray-500">Loading your verification status…</p>
+      </div>
+    );
+  }
+
+  if (mountError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6 lg:px-8">
+        <h1 className="font-newsreader text-2xl font-semibold text-gray-900">
+          Couldn&apos;t load your status
+        </h1>
+        <p className="mt-3 text-gray-600">
+          Something went wrong loading your verification status. Please try again.
+        </p>
+        <button
+          onClick={fetchStatus}
+          className="mt-8 rounded-lg bg-brand-600 px-8 py-3 font-semibold text-white hover:bg-brand-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  // ─── Already under review ───
+  if (mountStatus === 'PENDING') {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-4xl text-amber-600">
+          &#8987;
+        </div>
+        <h1 className="mt-6 font-newsreader text-2xl font-semibold text-gray-900">
+          Documents Under Review
+        </h1>
+        <p className="mt-3 text-gray-600">
+          We&apos;re reviewing your documents — this usually takes 24–48 hours. We&apos;ll email you
+          as soon as it&apos;s done.
+        </p>
+      </div>
+    );
+  }
+
+  // ─── Already verified ───
+  if (mountStatus === 'VERIFIED') {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl text-green-600">
+          &#10003;
+        </div>
+        <h1 className="mt-6 font-newsreader text-2xl font-semibold text-gray-900">
+          You&apos;re Verified
+        </h1>
+        <UnlockedList />
+        <button
+          onClick={() => (window.location.href = '/dashboard')}
+          className="mt-8 rounded-lg bg-brand-600 px-8 py-3 font-semibold text-white hover:bg-brand-700"
+        >
+          Go to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  // ─── Rejected ───
+  if (mountStatus === 'REJECTED') {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-4xl text-red-600">
+          &#10007;
+        </div>
+        <h1 className="mt-6 font-newsreader text-2xl font-semibold text-gray-900">
+          Verification Unsuccessful
+        </h1>
+        <p className="mt-3 text-gray-600">
+          {rejectionReason || 'We couldn’t verify your documents.'}
+        </p>
+        <button
+          onClick={() => {
+            setMountStatus('UNVERIFIED');
+            setStep('document');
+            setDocumentFile(null);
+            setDocumentBase64(null);
+            setSelfieFile(null);
+            setSelfieBase64(null);
+          }}
+          className="mt-8 rounded-lg bg-brand-600 px-8 py-3 font-semibold text-white hover:bg-brand-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  // ─── UNVERIFIED → the wizard ───
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-bold text-gray-900">Identity Verification</h1>
@@ -110,10 +268,10 @@ export default function VerifyPage() {
         {[
           { key: 'document', label: '1. ID Document' },
           { key: 'selfie', label: '2. Selfie Match' },
-          { key: 'liveness', label: '3. Liveness Check' },
         ].map((s, i) => {
-          const stepOrder = ['start', 'document', 'selfie', 'liveness', 'processing', 'complete'];
-          const currentIndex = stepOrder.indexOf(step === 'error' ? 'liveness' : step);
+          const stepOrder = ['start', 'document', 'selfie', 'processing', 'complete'];
+          const anchor = step === 'error' ? 'selfie' : step === 'submitted' ? 'complete' : step;
+          const currentIndex = stepOrder.indexOf(anchor);
           const stepIndex = stepOrder.indexOf(s.key);
           const isActive = currentIndex >= stepIndex;
           const isComplete = currentIndex > stepIndex;
@@ -136,7 +294,7 @@ export default function VerifyPage() {
               >
                 {s.label}
               </span>
-              {i < 2 && (
+              {i < 1 && (
                 <div className={`flex-1 h-0.5 ${isActive ? 'bg-brand-300' : 'bg-gray-200'}`} />
               )}
             </div>
@@ -371,73 +529,8 @@ export default function VerifyPage() {
           </div>
 
           <button
-            onClick={handleStartLiveness}
-            disabled={!selfieFile}
-            className="w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Continue to Liveness Check
-          </button>
-        </div>
-      )}
-
-      {/* ─── Liveness Check ─── */}
-      {step === 'liveness' && (
-        <div className="mt-8 space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Step 3: Liveness Check</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              This confirms you&apos;re a real person (not a photo of a photo). Follow the prompts —
-              it only takes a few seconds.
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-gray-900 p-8 text-center relative overflow-hidden">
-            <div className="mx-auto h-40 w-40 rounded-full border-4 border-dashed border-gray-600 flex items-center justify-center">
-              <span className="text-6xl">&#128100;</span>
-            </div>
-            <p className="mt-4 text-sm text-gray-300">Position your face in the circle</p>
-
-            <div className="mt-6 space-y-3">
-              {[
-                { key: 'blink' as const, label: 'Blink your eyes', icon: '&#128065;' },
-                { key: 'turnLeft' as const, label: 'Turn head left', icon: '&#11013;' },
-                { key: 'turnRight' as const, label: 'Turn head right', icon: '&#10145;' },
-                { key: 'smile' as const, label: 'Smile', icon: '&#128522;' },
-              ].map((check) => (
-                <div
-                  key={check.key}
-                  className={`flex items-center justify-between rounded-lg px-4 py-2 transition ${
-                    livenessChecks[check.key]
-                      ? 'bg-green-900/30 text-green-400'
-                      : 'bg-gray-800 text-gray-400'
-                  }`}
-                >
-                  <span className="flex items-center gap-2 text-sm">
-                    <span dangerouslySetInnerHTML={{ __html: check.icon }} />
-                    {check.label}
-                  </span>
-                  {livenessChecks[check.key] ? (
-                    <span className="text-green-400 font-bold">&#10003;</span>
-                  ) : (
-                    <span className="text-gray-600">Waiting...</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {allLivenessComplete && (
-            <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-center">
-              <div className="text-lg font-semibold text-green-700">Liveness Check Passed!</div>
-              <p className="mt-1 text-sm text-green-600">
-                You&apos;re confirmed as a real person. Finalizing verification...
-              </p>
-            </div>
-          )}
-
-          <button
             onClick={handleCompleteVerification}
-            disabled={!allLivenessComplete}
+            disabled={!selfieFile}
             className="w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Complete Verification
@@ -451,8 +544,30 @@ export default function VerifyPage() {
           <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-gray-200 border-t-brand-600" />
           <h2 className="mt-6 text-lg font-semibold text-gray-900">Verifying your identity...</h2>
           <p className="mt-2 text-sm text-gray-500">
-            Matching document, selfie, and liveness data. This takes just a moment.
+            Matching your document and selfie. This takes just a moment.
           </p>
+        </div>
+      )}
+
+      {/* ─── Submitted (under review) ─── */}
+      {step === 'submitted' && (
+        <div className="mt-16 text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-4xl text-amber-600">
+            &#8987;
+          </div>
+          <h2 className="mt-6 font-newsreader text-2xl font-semibold text-gray-900">
+            Documents Submitted
+          </h2>
+          <p className="mt-3 text-gray-600">
+            Thanks — your ID and selfie are in. We&apos;ll review them within 24–48 hours and email
+            you when your Verified badge is live.
+          </p>
+          <button
+            onClick={() => (window.location.href = '/dashboard')}
+            className="mt-8 rounded-lg bg-brand-600 px-8 py-3 font-semibold text-white hover:bg-brand-700"
+          >
+            Go to Dashboard
+          </button>
         </div>
       )}
 
@@ -471,7 +586,6 @@ export default function VerifyPage() {
               setDocumentBase64(null);
               setSelfieFile(null);
               setSelfieBase64(null);
-              setLivenessChecks({ blink: false, turnLeft: false, turnRight: false, smile: false });
             }}
             className="mt-8 rounded-lg bg-brand-600 px-8 py-3 font-semibold text-white hover:bg-brand-700"
           >
@@ -480,7 +594,7 @@ export default function VerifyPage() {
         </div>
       )}
 
-      {/* ─── Complete ─── */}
+      {/* ─── Complete (genuinely verified) ─── */}
       {step === 'complete' && (
         <div className="mt-16 text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl text-green-600">
@@ -492,27 +606,7 @@ export default function VerifyPage() {
             will see this when booking and upon your arrival.
           </p>
 
-          <div className="mt-8 rounded-xl bg-gray-50 p-6 text-left max-w-md mx-auto">
-            <h3 className="font-semibold text-gray-900">What&apos;s unlocked:</h3>
-            <ul className="mt-3 space-y-2 text-sm text-gray-600">
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">&#10003;</span>
-                Verified badge on your profile and cards
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">&#10003;</span>
-                Priority in search results
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">&#10003;</span>
-                Arrival selfie confirmation for customers
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">&#10003;</span>
-                Eligible for Rena Guarantee jobs
-              </li>
-            </ul>
-          </div>
+          <UnlockedList />
 
           <div className="mt-6 rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-700 max-w-md mx-auto">
             <strong>Arrival verification:</strong> When you arrive at a customer&apos;s home,
