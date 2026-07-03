@@ -4,6 +4,14 @@ import { useState, useTransition } from 'react';
 
 import type { DisputeStatus, DisputeReason } from '@/lib/types';
 
+export interface AdminDisputeEvidence {
+  id: string;
+  type: string;
+  fileName: string | null;
+  uploadedBy: 'customer' | 'cleaner' | 'Rena team';
+  url: string;
+}
+
 export interface AdminDispute {
   id: string;
   bookingRef: string;
@@ -15,6 +23,7 @@ export interface AdminDispute {
   status: DisputeStatus;
   amount: number;
   filedBy: 'customer' | 'cleaner';
+  evidence: AdminDisputeEvidence[];
 }
 
 const reasonLabels: Record<DisputeReason, string> = {
@@ -162,6 +171,33 @@ export default function DisputesList({ initialDisputes, resolveAction }: Dispute
                     </span>
                     <span>Date: {dispute.dateRaised}</span>
                   </div>
+
+                  {dispute.evidence.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Evidence ({dispute.evidence.length})
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {dispute.evidence.map((ev) => (
+                          <a
+                            key={ev.id}
+                            href={ev.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                          >
+                            <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium uppercase text-gray-600">
+                              {ev.type.toLowerCase()}
+                            </span>
+                            <span className="max-w-[160px] truncate">
+                              {ev.fileName || 'evidence'}
+                            </span>
+                            <span className="text-gray-400">· {ev.uploadedBy}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2 sm:flex-col">
                   {(dispute.status === 'open' || dispute.status === 'under-review') && (

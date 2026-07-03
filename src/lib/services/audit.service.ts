@@ -92,7 +92,10 @@ export type AuditAction =
   | 'IMPORTED_REVIEW_REJECTED'
   // Message moderation (A10 B2b)
   | 'MESSAGE_REPORT_ACTIONED'
-  | 'MESSAGE_REPORT_DISMISSED';
+  | 'MESSAGE_REPORT_DISMISSED'
+  // Dispute evidence (F1)
+  | 'DISPUTE_EVIDENCE_UPLOADED'
+  | 'DISPUTE_EVIDENCE_VIEWED';
 
 interface AuditLogParams {
   userId?: string;
