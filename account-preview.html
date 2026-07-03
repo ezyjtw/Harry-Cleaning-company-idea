@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>T1-3 restyle preview — /account tier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --page:#FAFBFC;--surface:#fff;--line:#E4E9F0;
+    --ink:#1B2A4A;--ink-2:#3D5170;--ink-3:#7A8A9E;
+    --primary:#16296b;--primary-hover:#203a85;--primary-soft:#e7ecf6;
+    --trust:#16a34a;--danger:#dc2626;--warning:#d97706;--rating:#d97706;
+    --red-50:#fef2f2;--green-50:#f0fdf4;
+    /* soft holders = token @ 10% over white */
+    --warn-10:#fbf3e7;--trust-10:#e7f6ec;--danger-10:#fceaea;
+    --warn-06:#fdf8f0;--danger-04:#fdf6f6;--warn-08:#fcf5ea;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Jost',system-ui,sans-serif;}
+  body{background:#e9ebef;color:var(--ink);padding:28px 20px 80px;}
+  h1.t{font-family:'Newsreader',serif;font-weight:600;font-size:24px;margin-bottom:4px;}
+  .lead{font-size:13px;color:#6b7280;margin-bottom:6px;max-width:820px;}
+  .note{font-size:12px;color:#b45309;margin-bottom:22px;max-width:820px;line-height:1.5;}
+  .seclabel{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin:38px 0 4px;border-top:1px solid #d5d9e0;padding-top:20px;}
+  .secdesc{font-size:12px;color:#8a94a6;margin-bottom:16px;}
+  .statelabel{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8a94a6;margin:0 0 8px 2px;}
+  .frames{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;}
+  .col{display:flex;flex-direction:column;}
+  .device{background:var(--page);border-radius:16px;padding:20px;}
+  .device.desktop{width:760px;max-width:100%;}
+  .device.mobile{width:380px;}
+
+  /* ---- shell ---- */
+  .shell{display:flex;gap:24px;}
+  .shell .side{width:200px;flex:none;}
+  .shell .main{flex:1;min-width:0;}
+  h2.acct{font-family:'Newsreader',serif;font-weight:600;font-size:28px;color:var(--ink);margin-bottom:20px;}
+  .nav{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px;position:sticky;top:24px;}
+  .navitem{display:block;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:500;text-decoration:none;margin-bottom:2px;}
+  .navitem.active{background:var(--primary-soft);color:var(--primary);}
+  .navitem.idle{color:var(--ink-2);}
+  .navitem.idle:hover{background:var(--page);color:var(--ink);}
+  /* mobile tabs */
+  .tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:18px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px;}
+  .tab{flex:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:500;text-decoration:none;white-space:nowrap;}
+  .tab.active{background:var(--primary-soft);color:var(--primary);}
+  .tab.idle{color:var(--ink-2);}
+
+  /* ---- AccountSection ---- */
+  .section{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:24px;margin-bottom:22px;}
+  .section.danger{border-color:rgba(220,38,38,.30);}
+  .sectop{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .sectop h3{font-family:'Newsreader',serif;font-weight:600;font-size:20px;color:var(--ink);}
+  .sectop h3.danger{color:var(--danger);}
+  .secaction{font-size:14px;font-weight:500;color:var(--primary);cursor:pointer;background:none;border:none;}
+
+  /* ---- Field ---- */
+  .field{margin-top:16px;}
+  .field label{display:block;font-size:14px;font-weight:500;color:var(--ink-2);margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px;color:var(--ink);background:var(--surface);}
+  .field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(22,41,107,.15);}
+  .field input.disabled{background:var(--page);color:var(--ink-3);}
+  .field .fnote{font-size:12px;color:var(--ink-3);margin-top:5px;}
+  .field.sm input{font-size:13px;}
+
+  /* dl view */
+  dl.view{margin-top:16px;}
+  dl.view .r{margin-bottom:12px;}
+  dl.view dt{font-size:14px;color:var(--ink-3);}
+  dl.view dd{font-size:14px;font-weight:500;color:var(--ink);}
+
+  /* buttons */
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;}
+  .btn{border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;border:none;text-decoration:none;display:inline-block;}
+  .btn.primary{background:var(--primary);color:#fff;}
+  .btn.outline{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);}
+  .btn.danger-solid{background:var(--danger);color:#fff;}
+  .btn.danger-out{border:1px solid rgba(220,38,38,.40);background:transparent;color:var(--danger);}
+  .btn.disabled{opacity:.5;cursor:not-allowed;}
+  .btn.sm{padding:6px 12px;font-size:12px;font-weight:500;border-radius:10px;}
+  .btn.trust{background:var(--trust);color:#fff;}
+  .btn.warn{background:var(--warning);color:#fff;}
+
+  /* banners */
+  .banner{margin-top:12px;border-radius:10px;padding:11px 12px;font-size:14px;}
+  .banner.trust{border:1px solid rgba(22,163,74,.20);background:var(--green-50);color:var(--trust);}
+  .banner.danger{border:1px solid rgba(220,38,38,.20);background:var(--red-50);color:var(--danger);}
+
+  /* address form / list */
+  .addrform{margin-top:16px;border:1px solid var(--line);background:var(--page);border-radius:10px;padding:16px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .addrlist{margin-top:16px;list-style:none;}
+  .addr{display:flex;align-items:flex-start;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;}
+  .addr .lbl{display:flex;align-items:center;gap:8px;}
+  .addr .lbl b{font-size:14px;font-weight:500;color:var(--ink);}
+  .pill-default{border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:500;padding:2px 10px;}
+  .addr p{font-size:14px;color:var(--ink-2);margin-top:3px;}
+  .addr .acts{display:flex;gap:10px;flex:none;}
+  .addr .acts button{background:none;border:none;font-size:12px;cursor:pointer;}
+  .link-mut{color:var(--ink-3);}
+  .link-dng{color:var(--danger);}
+
+  /* modal */
+  .modalwrap{background:rgba(0,0,0,.5);border-radius:14px;padding:40px 20px;display:flex;justify-content:center;}
+  .modal{width:420px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,.25);}
+  .modal h4{font-family:'Newsreader',serif;font-weight:600;font-size:20px;color:var(--danger);}
+  .modal p{font-size:14px;color:var(--ink-2);margin-top:8px;}
+  .modal .mono{font-family:ui-monospace,monospace;font-weight:700;color:var(--danger);}
+  .modal input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px;margin-top:8px;color:var(--ink-3);}
+
+  /* ---- bookings ---- */
+  .bkhead{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+  .bkhead h3{font-family:'Newsreader',serif;font-weight:600;font-size:24px;color:var(--ink);}
+  .filterpills{display:flex;gap:8px;overflow-x:auto;margin-bottom:18px;padding-bottom:2px;}
+  .fpill{flex:none;border-radius:999px;padding:6px 16px;font-size:11px;font-weight:600;letter-spacing:.08em;text-indent:.08em;text-transform:uppercase;cursor:pointer;}
+  .fpill.active{background:var(--primary);color:#fff;border:1px solid var(--primary);}
+  .fpill.idle{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);}
+  .bcard{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:18px;margin-bottom:14px;}
+  .btop{display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap;}
+  .btitle{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .btitle b{font-size:14px;font-weight:600;color:var(--ink);}
+  .chip{border-radius:999px;border:1px solid;padding:2px 10px;font-size:12px;font-weight:500;}
+  .chip.pending{background:var(--warn-10);color:var(--warning);border-color:rgba(217,119,6,.20);}
+  .chip.confirmed{background:var(--trust-10);color:var(--trust);border-color:rgba(22,163,74,.20);}
+  .chip.completed-trust{background:var(--trust-10);color:var(--trust);border-color:rgba(22,163,74,.20);}
+  .chip.completed-primary{background:var(--primary-soft);color:var(--primary);border-color:rgba(22,41,107,.15);}
+  .chip.cancelled{background:var(--page);color:var(--ink-3);border-color:var(--line);}
+  .chip.disputed{background:var(--danger-10);color:var(--danger);border-color:rgba(220,38,38,.20);}
+  .bmeta{margin-top:10px;font-size:14px;color:var(--ink-2);}
+  .bmeta div{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+  .bmeta svg{width:16px;height:16px;color:var(--ink-3);flex:none;}
+  .bprice{text-align:right;}
+  .bprice .p{font-family:'Newsreader',serif;font-weight:600;font-size:20px;color:var(--ink);}
+  .bprice .id{font-size:12px;color:var(--ink-3);}
+  .bactions{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+
+  /* sub-forms */
+  .subform{width:100%;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;}
+  .subform.review{border:1px solid var(--line);background:var(--page);}
+  .subform.cancel{border:1px solid rgba(220,38,38,.20);background:var(--danger-04);}
+  .subform.dispute{border:1px solid rgba(217,119,6,.25);background:var(--warn-06);}
+  .subform .sfh{font-size:14px;font-weight:500;color:var(--ink);}
+  .subform textarea,.subform select{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--ink);background:var(--surface);resize:none;}
+  .stars{display:flex;gap:4px;font-size:24px;line-height:1;}
+  .stars.sm{font-size:14px;gap:2px;}
+  .star-on{color:var(--rating);}
+  .star-off{color:rgba(122,138,158,.40);}
+  .subcap{font-size:12px;color:var(--ink-2);}
+  .subcap.mut{color:var(--ink-3);}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .grid3 .k{font-size:12px;color:var(--ink-3);margin-bottom:4px;display:block;}
+
+  /* notifications */
+  .essential{margin-top:20px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border:1px solid var(--line);background:var(--page);border-radius:12px;padding:16px;}
+  .essential b{font-size:14px;font-weight:500;color:var(--ink);}
+  .essential p{font-size:14px;color:var(--ink-3);margin-top:2px;}
+  .alwayson{flex:none;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:500;padding:3px 10px;}
+  .togglelist{margin-top:12px;border:1px solid var(--line);border-radius:12px;}
+  .trow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;border-bottom:1px solid var(--line);}
+  .trow:last-child{border-bottom:none;}
+  .trow b{font-size:14px;font-weight:500;color:var(--ink);}
+  .trow p{font-size:14px;color:var(--ink-3);margin-top:2px;}
+  .sw{width:44px;height:24px;border-radius:999px;flex:none;position:relative;transition:background .15s;}
+  .sw.on{background:var(--primary);}
+  .sw.off{background:var(--line);}
+  .sw .knob{position:absolute;top:4px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;}
+  .sw.on .knob{left:24px;} .sw.off .knob{left:4px;}
+  .pecr{margin-top:12px;font-size:12px;color:var(--ink-3);}
+  .plead{margin-top:6px;font-size:14px;color:var(--ink-3);}
+</style>
+</head>
+<body>
+
+<h1 class="t">T1-3 — /account tier restyle preview</h1>
+<p class="lead">Visual-only restyle onto the Rena design system. Shell + Overview + Bookings + Notifications, on the <b>AccountSection / Field / Toggle</b> primitives. All handlers, API calls, validation and copy are byte-identical to production.</p>
+<p class="note">⚠️ JAMES — one decision needed: the <b>Completed</b> status chip is shown in two variants below (trust-green vs primary-soft navy). Pick one. Everything else is final. Mobile column is a true 380px render of the same markup.</p>
+
+<!-- ============ SHELL ============ -->
+<div class="seclabel">1 · Shell — desktop sidebar + mobile tabs</div>
+<p class="secdesc">"My Account" in Newsreader ink; nav active = primary-soft/primary rounded-10px, inactive = ink-2. Mobile collapses the sidebar to horizontal scroll tabs.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop — sticky sidebar</div>
+    <div class="device desktop">
+      <h2 class="acct">My Account</h2>
+      <div class="shell">
+        <div class="side">
+          <nav class="nav">
+            <a class="navitem active">Overview</a>
+            <a class="navitem idle">Bookings</a>
+            <a class="navitem idle">Messages</a>
+            <a class="navitem idle">Notifications</a>
+          </nav>
+        </div>
+        <div class="main">
+          <div class="section"><div class="sectop"><h3>Profile Information</h3><button class="secaction">Edit</button></div><p class="plead">Page content renders here.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="statelabel">Mobile — scroll tabs</div>
+    <div class="device mobile">
+      <h2 class="acct" style="font-size:24px;">My Account</h2>
+      <div class="tabs">
+        <a class="tab active">Overview</a>
+        <a class="tab idle">Bookings</a>
+        <a class="tab idle">Messages</a>
+        <a class="tab idle">Notifications</a>
+      </div>
+      <div class="section"><div class="sectop"><h3>Profile Information</h3><button class="secaction">Edit</button></div><p class="plead">Page content renders here.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<div class="seclabel">2 · Overview — four sections + delete modal</div>
+<p class="secdesc">Profile (view + edit), Saved Addresses (form open + list), Change Password, Danger Zone. Success banners use the trust family; danger zone card border-danger/30.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop</div>
+    <div class="device desktop" style="width:640px;">
+
+      <!-- Profile: edit mode + success banner -->
+      <div class="section">
+        <div class="sectop"><h3>Profile Information</h3></div>
+        <div class="banner trust">Profile updated successfully.</div>
+        <div class="field"><label>Full Name</label><input value="Harriet Okonkwo" /></div>
+        <div class="field"><label>Email</label><input class="disabled" value="harriet@example.com" disabled /><p class="fnote">Email cannot be changed.</p></div>
+        <div class="field"><label>Phone Number</label><input value="07700 900123" /></div>
+        <div class="btnrow"><button class="btn primary">Save Changes</button><button class="btn outline">Cancel</button></div>
+      </div>
+
+      <!-- Addresses: form open + list -->
+      <div class="section">
+        <div class="sectop"><h3>Saved Addresses</h3><button class="secaction">Cancel</button></div>
+        <div class="addrform">
+          <div class="field sm"><label>Label (e.g. Home, Office)</label><input placeholder="Home" /></div>
+          <div class="field sm"><label>Address Line 1</label><input placeholder="12 Elm Road" /></div>
+          <div class="field sm"><label>Address Line 2 (optional)</label><input /></div>
+          <div class="grid2" style="margin-top:16px;">
+            <div class="field sm" style="margin-top:0;"><label>City</label><input placeholder="London" /></div>
+            <div class="field sm" style="margin-top:0;"><label>Postcode</label><input placeholder="SE1 2AB" /></div>
+          </div>
+          <div class="btnrow"><button class="btn primary">Save Address</button></div>
+        </div>
+        <ul class="addrlist">
+          <li class="addr">
+            <div><div class="lbl"><b>Home</b><span class="pill-default">Default</span></div><p>12 Elm Road, London, SE1 2AB</p></div>
+            <div class="acts"><button class="link-dng">Remove</button></div>
+          </li>
+          <li class="addr">
+            <div><div class="lbl"><b>Office</b></div><p>4 King St, London, EC2 9AA</p></div>
+            <div class="acts"><button class="link-mut">Set default</button><button class="link-dng">Remove</button></div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Change Password -->
+      <div class="section">
+        <div class="sectop"><h3>Change Password</h3></div>
+        <div class="field"><label>Current Password</label><input type="password" value="········" style="max-width:420px;" /></div>
+        <div class="field"><label>New Password</label><input type="password" value="············" style="max-width:420px;" /><p class="fnote">✓ 12+ characters · ✓ upper &amp; lower · ✓ number</p></div>
+        <div class="field"><label>Confirm New Password</label><input type="password" value="············" style="max-width:420px;" /></div>
+        <div class="btnrow"><button class="btn primary">Update Password</button></div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="section danger">
+        <div class="sectop"><h3 class="danger">Danger Zone</h3></div>
+        <p class="plead" style="color:var(--ink-2);">Once you delete your account, all your data will be permanently removed. This action cannot be undone.</p>
+        <div class="btnrow"><button class="btn danger-out">Delete My Account</button></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="statelabel">Mobile — profile view mode</div>
+    <div class="device mobile">
+      <div class="section">
+        <div class="sectop"><h3>Profile Information</h3><button class="secaction">Edit</button></div>
+        <dl class="view">
+          <div class="r"><dt>Full Name</dt><dd>Harriet Okonkwo</dd></div>
+          <div class="r"><dt>Email</dt><dd>harriet@example.com</dd></div>
+          <div class="r"><dt>Phone</dt><dd>07700 900123</dd></div>
+        </dl>
+      </div>
+      <div class="section"><div class="sectop"><h3>Saved Addresses</h3><button class="secaction">+ Add Address</button></div><p class="plead">No saved addresses yet.</p></div>
+    </div>
+
+    <div class="statelabel" style="margin-top:22px;">Delete confirmation modal</div>
+    <div class="device mobile" style="padding:0;background:transparent;">
+      <div class="modalwrap">
+        <div class="modal">
+          <h4>Delete Account</h4>
+          <p>This will permanently delete your account and all associated data including bookings, reviews, and payment history.</p>
+          <p>Type <span class="mono">DELETE</span> to confirm:</p>
+          <input placeholder="Type DELETE" />
+          <div class="btnrow"><button class="btn danger-solid disabled">Permanently Delete</button><button class="btn outline">Cancel</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BOOKINGS ============ -->
+<div class="seclabel">3 · Bookings — filter pills, cards, semantic chips, sub-forms</div>
+<p class="secdesc">Filter tabs → caps Jost 600 pills (active solid navy). Serif-ink price. Status chips are semantic. Inline sub-forms (review / cancel / dispute) on Field + btn primitives; review stars use --color-rating amber.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop</div>
+    <div class="device desktop" style="width:640px;">
+      <div class="bkhead"><h3>My Bookings</h3><a class="btn primary">+ New Booking</a></div>
+      <div class="filterpills">
+        <span class="fpill active">All</span>
+        <span class="fpill idle">Pending</span>
+        <span class="fpill idle">Confirmed</span>
+        <span class="fpill idle">Completed</span>
+        <span class="fpill idle">Cancelled</span>
+      </div>
+
+      <!-- Confirmed card -->
+      <div class="bcard">
+        <div class="btop">
+          <div style="min-width:0;flex:1;">
+            <div class="btitle"><b>End of Tenancy Clean</b><span class="chip confirmed">Confirmed</span></div>
+            <div class="bmeta">
+              <div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span>Fri, 11 Jul 2026 at 10:00</span></div>
+              <div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Grace M.</span></div>
+              <div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>12 Elm Road, London, SE1 2AB</span></div>
+            </div>
+          </div>
+          <div class="bprice"><div class="p">£180.00</div><div class="id">A3F9C1D2</div></div>
+        </div>
+        <div class="bactions">
+          <a class="btn sm outline">Message cleaner</a>
+          <button class="btn sm danger-out">Cancel booking</button>
+        </div>
+      </div>
+
+      <!-- Pending + price approval card -->
+      <div class="bcard">
+        <div class="btop">
+          <div style="min-width:0;flex:1;">
+            <div class="btitle"><b>Deep Clean</b><span class="chip pending">Price approval needed</span></div>
+            <div class="bmeta"><div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span>Mon, 14 Jul 2026 at 14:00</span></div></div>
+          </div>
+          <div class="bprice"><div class="p">£95.00</div><div class="id">B7E2A0F5</div></div>
+        </div>
+        <div class="bactions">
+          <a class="btn sm outline">Message cleaner</a>
+          <a class="btn sm primary">Review price change (+£20.00)</a>
+        </div>
+      </div>
+
+      <!-- Completed card with review sub-form open -->
+      <div class="bcard">
+        <div class="btop">
+          <div style="min-width:0;flex:1;">
+            <div class="btitle"><b>Regular Clean</b><span class="chip completed-trust">Completed</span></div>
+            <div class="bmeta"><div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span>Tue, 1 Jul 2026 at 09:00</span></div></div>
+          </div>
+          <div class="bprice"><div class="p">£60.00</div><div class="id">C1D8B4E9</div></div>
+        </div>
+        <div class="bactions">
+          <a class="btn sm outline">Message cleaner</a>
+          <div class="subform review">
+            <span class="sfh">How was your clean?</span>
+            <div><span class="subcap" style="display:block;margin-bottom:4px;">Overall rating</span><div class="stars"><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-off">★</span></div></div>
+            <div class="grid3">
+              <div><span class="k">Thoroughness</span><div class="stars sm"><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-off">★</span></div></div>
+              <div><span class="k">Punctuality</span><div class="stars sm"><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span></div></div>
+              <div><span class="k">Communication</span><div class="stars sm"><span class="star-on">★</span><span class="star-on">★</span><span class="star-on">★</span><span class="star-off">★</span><span class="star-off">★</span></div></div>
+            </div>
+            <textarea rows="2" placeholder="Tell us about your experience (optional)"></textarea>
+            <div class="btnrow" style="margin-top:0;"><button class="btn sm primary">Submit review</button><button class="btn sm outline">Skip</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cancelled + Disputed chips demo -->
+      <div class="bcard">
+        <div class="btop">
+          <div style="min-width:0;flex:1;">
+            <div class="btitle"><b>Office Clean</b><span class="chip cancelled">Cancelled</span></div>
+            <div class="bmeta"><div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span>Sat, 28 Jun 2026 at 11:00</span></div></div>
+          </div>
+          <div class="bprice"><div class="p">£120.00</div><div class="id">D5A1F3C7</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="statelabel">Mobile — cancel + dispute sub-forms</div>
+    <div class="device mobile">
+      <div class="bkhead"><h3 style="font-size:22px;">My Bookings</h3></div>
+      <div class="filterpills">
+        <span class="fpill active">All</span>
+        <span class="fpill idle">Pending</span>
+        <span class="fpill idle">Confirmed</span>
+        <span class="fpill idle">Completed</span>
+      </div>
+
+      <!-- Cancel preview open -->
+      <div class="bcard">
+        <div class="btop">
+          <div style="min-width:0;flex:1;"><div class="btitle"><b>Deep Clean</b><span class="chip confirmed">Confirmed</span></div><div class="bmeta"><div><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Grace M.</span></div></div></div>
+          <div class="bprice"><div class="p">£95.00</div><div class="id">E9C4B2A1</div></div>
+        </div>
+        <div class="bactions">
+          <a class="btn sm outline">Message cleaner</a>
+          <div class="subform cancel">
+            <span class="subcap">Cancel this booking? You'll receive a full refund of £95.00.</span>
+            <div class="btnrow" style="margin-top:0;"><button class="btn sm danger-solid">Confirm cancellation</button><button class="btn sm outline">Keep booking</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dispute open (on a completed booking, primary-soft chip variant) -->
+      <div class="bcard">
+        <div class="btop">
+          <div style="min-width:0;flex:1;"><div class="btitle"><b>Regular Clean</b><span class="chip completed-primary">Completed</span></div></div>
+          <div class="bprice"><div class="p">£60.00</div><div class="id">F2A8D1C0</div></div>
+        </div>
+        <div class="bactions">
+          <a class="btn sm outline">Message cleaner</a>
+          <div class="subform dispute">
+            <span class="sfh">Report a problem with this booking</span>
+            <select><option>Select a reason…</option></select>
+            <textarea rows="2" placeholder="Please describe the problem…"></textarea>
+            <div class="btnrow" style="margin-top:0;"><button class="btn sm warn">Submit report</button><button class="btn sm outline">Cancel</button></div>
+          </div>
+        </div>
+      </div>
+      <p class="secdesc" style="margin-top:-2px;">↑ this card shows the <b>primary-soft</b> Completed variant · the desktop review card above shows <b>trust-green</b>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NOTIFICATIONS ============ -->
+<div class="seclabel">4 · Notifications — one AccountSection, hairline rows, navy toggles</div>
+<p class="secdesc">Essential row carries the "Always on" primary-soft chip. Toggleable categories are hairline-separated; toggles navy-on / line-off. PECR footnote in ink-3.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop</div>
+    <div class="device desktop" style="width:640px;">
+      <div class="section" style="margin-bottom:0;">
+        <div class="sectop"><h3>Notifications</h3></div>
+        <p class="plead">Choose what we send you. Essential messages about your bookings, payments and account security are always sent and can't be turned off.</p>
+        <div class="essential">
+          <div><b>Booking, payment &amp; security</b><p>Booking and payment confirmations, receipts, and account-security emails.</p></div>
+          <span class="alwayson">Always on</span>
+        </div>
+        <div class="togglelist">
+          <div class="trow"><div><b>Booking reminders &amp; review requests</b><p>Upcoming-booking reminders and prompts to review a completed clean.</p></div><div class="sw on"><span class="knob"></span></div></div>
+          <div class="trow"><div><b>New message alerts</b><p>Get notified when a cleaner or customer sends you a message.</p></div><div class="sw on"><span class="knob"></span></div></div>
+          <div class="trow"><div><b>Push notifications</b><p>Browser/device push for the alerts above (master switch).</p></div><div class="sw off"><span class="knob"></span></div></div>
+          <div class="trow"><div><b>SMS notifications</b><p>Text-message alerts for the categories above (master switch).</p></div><div class="sw off"><span class="knob"></span></div></div>
+          <div class="trow"><div><b>Offers &amp; product news</b><p>Occasional promotions, tips and updates. Off by default — opt in here.</p></div><div class="sw off"><span class="knob"></span></div></div>
+        </div>
+        <p class="pecr">Changes save automatically. Marketing emails require your explicit opt-in (UK PECR).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="statelabel">Mobile</div>
+    <div class="device mobile">
+      <div class="section" style="margin-bottom:0;">
+        <div class="sectop"><h3>Notifications</h3></div>
+        <div class="essential"><div><b>Booking, payment &amp; security</b><p>Always-sent essentials.</p></div><span class="alwayson">Always on</span></div>
+        <div class="togglelist">
+          <div class="trow"><div><b>Booking reminders</b><p>Reminders &amp; review prompts.</p></div><div class="sw on"><span class="knob"></span></div></div>
+          <div class="trow"><div><b>Offers &amp; product news</b><p>Off by default — opt in.</p></div><div class="sw off"><span class="knob"></span></div></div>
+        </div>
+        <p class="pecr">Changes save automatically. Marketing emails require your explicit opt-in (UK PECR).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

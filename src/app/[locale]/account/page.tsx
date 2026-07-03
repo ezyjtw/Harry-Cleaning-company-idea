@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from 'react';
 
+import { AccountSection, Field } from '@/components/account/primitives';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
+
+const BTN_PRIMARY =
+  'rounded-[10px] bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50';
+const BTN_OUTLINE =
+  'rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-2 transition-colors hover:bg-page';
 
 interface Address {
   id: string;
@@ -202,7 +208,7 @@ export default function AccountPage() {
   if (profileLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-500">Loading account...</p>
+        <p className="text-sm text-ink-3">Loading account...</p>
       </div>
     );
   }
@@ -210,79 +216,61 @@ export default function AccountPage() {
   return (
     <div className="space-y-6">
       {/* Profile Section */}
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
-          {!isEditingProfile && (
+      <AccountSection
+        title="Profile Information"
+        action={
+          !isEditingProfile && (
             <button
               onClick={() => {
                 setProfileForm(profile);
                 setIsEditingProfile(true);
               }}
-              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+              className="text-sm font-medium text-primary hover:text-primary-hover"
             >
               Edit
             </button>
-          )}
-        </div>
-
+          )
+        }
+      >
         {profileSaved && (
-          <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          <div className="mt-3 rounded-[10px] border border-trust/20 bg-green-50 p-3 text-sm text-trust">
             Profile updated successfully.
           </div>
         )}
 
         {isEditingProfile ? (
           <form onSubmit={handleSaveProfile} className="mt-4 space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                required
-                value={profileForm.name}
-                onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                disabled
-                value={profileForm.email}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-500"
-              />
-              <p className="mt-1 text-xs text-gray-400">Email cannot be changed.</p>
-            </div>
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={profileForm.phone}
-                onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              />
-            </div>
+            <Field
+              id="name"
+              label="Full Name"
+              type="text"
+              required
+              value={profileForm.name}
+              onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+            />
+            <Field
+              id="email"
+              label="Email"
+              type="email"
+              disabled
+              value={profileForm.email}
+              note="Email cannot be changed."
+            />
+            <Field
+              id="phone"
+              label="Phone Number"
+              type="tel"
+              value={profileForm.phone}
+              onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+            />
             <div className="flex gap-3">
-              <button
-                type="submit"
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-              >
+              <button type="submit" className={BTN_PRIMARY}>
                 Save Changes
               </button>
               <button
                 type="button"
                 onClick={() => setIsEditingProfile(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                className={BTN_OUTLINE}
               >
                 Cancel
               </button>
@@ -291,132 +279,109 @@ export default function AccountPage() {
         ) : (
           <dl className="mt-4 space-y-3">
             <div>
-              <dt className="text-sm text-gray-500">Full Name</dt>
-              <dd className="text-sm font-medium text-gray-900">{profile.name || 'Not set'}</dd>
+              <dt className="text-sm text-ink-3">Full Name</dt>
+              <dd className="text-sm font-medium text-ink">{profile.name || 'Not set'}</dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Email</dt>
-              <dd className="text-sm font-medium text-gray-900">{profile.email}</dd>
+              <dt className="text-sm text-ink-3">Email</dt>
+              <dd className="text-sm font-medium text-ink">{profile.email}</dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Phone</dt>
-              <dd className="text-sm font-medium text-gray-900">{profile.phone || 'Not set'}</dd>
+              <dt className="text-sm text-ink-3">Phone</dt>
+              <dd className="text-sm font-medium text-ink">{profile.phone || 'Not set'}</dd>
             </div>
           </dl>
         )}
-      </section>
+      </AccountSection>
 
       {/* Saved Addresses Section */}
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Saved Addresses</h2>
+      <AccountSection
+        title="Saved Addresses"
+        action={
           <button
             onClick={() => setShowAddAddress(!showAddAddress)}
-            className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            className="text-sm font-medium text-primary hover:text-primary-hover"
           >
             {showAddAddress ? 'Cancel' : '+ Add Address'}
           </button>
-        </div>
-
+        }
+      >
         {showAddAddress && (
           <form
             onSubmit={handleAddAddress}
-            className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4"
+            className="mt-4 space-y-3 rounded-[10px] border border-line bg-page p-4"
           >
-            <div>
-              <label htmlFor="addr-label" className="block text-sm font-medium text-gray-700">
-                Label (e.g. Home, Office)
-              </label>
-              <input
-                id="addr-label"
-                type="text"
-                required
-                value={newAddress.label}
-                onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              />
-            </div>
-            <div>
-              <label htmlFor="addr-line1" className="block text-sm font-medium text-gray-700">
-                Address Line 1
-              </label>
-              <input
-                id="addr-line1"
-                type="text"
-                required
-                value={newAddress.line1}
-                onChange={(e) => setNewAddress({ ...newAddress, line1: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              />
-            </div>
-            <div>
-              <label htmlFor="addr-line2" className="block text-sm font-medium text-gray-700">
-                Address Line 2 (optional)
-              </label>
-              <input
-                id="addr-line2"
-                type="text"
-                value={newAddress.line2}
-                onChange={(e) => setNewAddress({ ...newAddress, line2: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              />
-            </div>
+            <Field
+              id="addr-label"
+              label="Label (e.g. Home, Office)"
+              type="text"
+              required
+              inputClassName="text-sm"
+              value={newAddress.label}
+              onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
+            />
+            <Field
+              id="addr-line1"
+              label="Address Line 1"
+              type="text"
+              required
+              inputClassName="text-sm"
+              value={newAddress.line1}
+              onChange={(e) => setNewAddress({ ...newAddress, line1: e.target.value })}
+            />
+            <Field
+              id="addr-line2"
+              label="Address Line 2 (optional)"
+              type="text"
+              inputClassName="text-sm"
+              value={newAddress.line2}
+              onChange={(e) => setNewAddress({ ...newAddress, line2: e.target.value })}
+            />
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="addr-city" className="block text-sm font-medium text-gray-700">
-                  City
-                </label>
-                <input
-                  id="addr-city"
-                  type="text"
-                  required
-                  value={newAddress.city}
-                  onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
-              </div>
-              <div>
-                <label htmlFor="addr-postcode" className="block text-sm font-medium text-gray-700">
-                  Postcode
-                </label>
-                <input
-                  id="addr-postcode"
-                  type="text"
-                  required
-                  value={newAddress.postcode}
-                  onChange={(e) => setNewAddress({ ...newAddress, postcode: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                />
-              </div>
+              <Field
+                id="addr-city"
+                label="City"
+                type="text"
+                required
+                inputClassName="text-sm"
+                value={newAddress.city}
+                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+              />
+              <Field
+                id="addr-postcode"
+                label="Postcode"
+                type="text"
+                required
+                inputClassName="text-sm"
+                value={newAddress.postcode}
+                onChange={(e) => setNewAddress({ ...newAddress, postcode: e.target.value })}
+              />
             </div>
-            <button
-              type="submit"
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-            >
+            <button type="submit" className={BTN_PRIMARY}>
               Save Address
             </button>
           </form>
         )}
 
         {addresses.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-500">No saved addresses yet.</p>
+          <p className="mt-4 text-sm text-ink-3">No saved addresses yet.</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {addresses.map((addr) => (
               <li
                 key={addr.id}
-                className="flex items-start justify-between rounded-lg border border-gray-200 p-3"
+                className="flex items-start justify-between rounded-[10px] border border-line p-3"
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{addr.label}</span>
+                    <span className="text-sm font-medium text-ink">{addr.label}</span>
                     {addr.isDefault && (
-                      <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">
                         Default
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-sm text-gray-600">
+                  <p className="mt-0.5 text-sm text-ink-2">
                     {addr.line1}
                     {addr.line2 ? `, ${addr.line2}` : ''}, {addr.city}, {addr.postcode}
                   </p>
@@ -425,14 +390,14 @@ export default function AccountPage() {
                   {!addr.isDefault && (
                     <button
                       onClick={() => handleSetDefaultAddress(addr.id)}
-                      className="text-xs text-gray-500 hover:text-gray-700"
+                      className="text-xs text-ink-3 hover:text-ink"
                     >
                       Set default
                     </button>
                   )}
                   <button
                     onClick={() => handleRemoveAddress(addr.id)}
-                    className="text-xs text-red-500 hover:text-red-700"
+                    className="text-xs text-danger hover:text-red-700"
                   >
                     Remove
                   </button>
@@ -441,111 +406,95 @@ export default function AccountPage() {
             ))}
           </ul>
         )}
-      </section>
+      </AccountSection>
 
       {/* Change Password Section */}
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
-
+      <AccountSection title="Change Password">
         {passwordSuccess && (
-          <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          <div className="mt-3 rounded-[10px] border border-trust/20 bg-green-50 p-3 text-sm text-trust">
             Password changed successfully.
           </div>
         )}
         {passwordError && (
-          <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{passwordError}</div>
+          <div className="mt-3 rounded-[10px] border border-danger/20 bg-red-50 p-3 text-sm text-danger">
+            {passwordError}
+          </div>
         )}
 
         <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
-          <div>
-            <label htmlFor="current-password" className="block text-sm font-medium text-gray-700">
-              Current Password
-            </label>
-            <input
-              id="current-password"
-              type="password"
-              required
-              value={passwordForm.current}
-              onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 sm:max-w-md"
-            />
-          </div>
-          <div>
-            <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">
-              New Password
-            </label>
-            <input
-              id="new-password"
-              type="password"
-              required
-              minLength={8}
-              value={passwordForm.new}
-              onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 sm:max-w-md"
-            />
-            <PasswordRequirements password={passwordForm.new} />
-          </div>
-          <div>
-            <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
-              Confirm New Password
-            </label>
-            <input
-              id="confirm-password"
-              type="password"
-              required
-              value={passwordForm.confirm}
-              onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 sm:max-w-md"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
+          <Field
+            id="current-password"
+            label="Current Password"
+            type="password"
+            required
+            inputClassName="sm:max-w-md"
+            value={passwordForm.current}
+            onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+          />
+          <Field
+            id="new-password"
+            label="New Password"
+            type="password"
+            required
+            minLength={8}
+            inputClassName="sm:max-w-md"
+            value={passwordForm.new}
+            onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+            after={<PasswordRequirements password={passwordForm.new} />}
+          />
+          <Field
+            id="confirm-password"
+            label="Confirm New Password"
+            type="password"
+            required
+            inputClassName="sm:max-w-md"
+            value={passwordForm.confirm}
+            onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+          />
+          <button type="submit" className={BTN_PRIMARY}>
             Update Password
           </button>
         </form>
-      </section>
+      </AccountSection>
 
       {/* Delete Account Section */}
-      <section className="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-red-700">Danger Zone</h2>
-        <p className="mt-1 text-sm text-gray-600">
+      <AccountSection title="Danger Zone" tone="danger">
+        <p className="mt-1 text-sm text-ink-2">
           Once you delete your account, all your data will be permanently removed. This action
           cannot be undone.
         </p>
         <button
           onClick={() => setShowDeleteModal(true)}
-          className="mt-4 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+          className="mt-4 rounded-[10px] border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-red-50"
         >
           Delete My Account
         </button>
-      </section>
+      </AccountSection>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
-            <p className="mt-2 text-sm text-gray-600">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl">
+            <h3 className="font-newsreader text-xl font-semibold text-danger">Delete Account</h3>
+            <p className="mt-2 text-sm text-ink-2">
               This will permanently delete your account and all associated data including bookings,
               reviews, and payment history.
             </p>
-            <p className="mt-3 text-sm text-gray-600">
-              Type <span className="font-mono font-bold text-red-600">DELETE</span> to confirm:
+            <p className="mt-3 text-sm text-ink-2">
+              Type <span className="font-mono font-bold text-danger">DELETE</span> to confirm:
             </p>
             <input
               type="text"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="Type DELETE"
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+              className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
             />
             <div className="mt-4 flex gap-3">
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirmText !== 'DELETE'}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[10px] bg-danger px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Permanently Delete
               </button>
@@ -554,7 +503,7 @@ export default function AccountPage() {
                   setShowDeleteModal(false);
                   setDeleteConfirmText('');
                 }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                className={BTN_OUTLINE}
               >
                 Cancel
               </button>

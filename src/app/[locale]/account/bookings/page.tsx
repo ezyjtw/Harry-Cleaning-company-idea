@@ -57,15 +57,19 @@ const DISPUTE_REASONS = [
   { value: 'other', label: 'Other' },
 ] as const;
 
+// Semantic status chips: warning (amber) = in-progress/attention, trust (green)
+// = confirmed/done, danger (red) = failed/disputed, neutral = cancelled.
+// Completed defaults to the trust family; the preview shows a primary-soft
+// alternative for James to pick from.
 const statusStyles: Record<BookingStatus, string> = {
-  Pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  'Finding a cleaner': 'bg-amber-50 text-amber-600 border-amber-200',
-  'Price approval needed': 'bg-amber-50 text-amber-600 border-amber-200',
-  Confirmed: 'bg-blue-50 text-blue-700 border-blue-200',
-  Completed: 'bg-green-50 text-green-700 border-green-200',
-  Cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
-  Disputed: 'bg-red-50 text-red-600 border-red-200',
-  'No cleaner available': 'bg-red-50 text-red-600 border-red-200',
+  Pending: 'bg-warning/10 text-warning border-warning/20',
+  'Finding a cleaner': 'bg-warning/10 text-warning border-warning/20',
+  'Price approval needed': 'bg-warning/10 text-warning border-warning/20',
+  Confirmed: 'bg-trust/10 text-trust border-trust/20',
+  Completed: 'bg-trust/10 text-trust border-trust/20',
+  Cancelled: 'bg-page text-ink-3 border-line',
+  Disputed: 'bg-danger/10 text-danger border-danger/20',
+  'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
 };
 
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
@@ -412,7 +416,7 @@ export default function BookingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-500">Loading bookings...</p>
+        <p className="text-sm text-ink-3">Loading bookings...</p>
       </div>
     );
   }
@@ -420,25 +424,25 @@ export default function BookingsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">My Bookings</h2>
+        <h2 className="font-newsreader text-2xl font-semibold text-ink">My Bookings</h2>
         <Link
           href="/services"
-          className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          className="inline-flex items-center justify-center rounded-[10px] bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
         >
           + New Booking
         </Link>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-1">
+      {/* Filter tabs — caps Jost selector pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {filterOptions.map((opt) => (
           <button
             key={opt.value}
             onClick={() => setFilter(opt.value)}
-            className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 rounded-full px-4 py-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.08em] [text-indent:0.08em] transition-colors ${
               filter === opt.value
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-white'
+                : 'border border-line bg-surface text-ink-2 hover:bg-page'
             }`}
           >
             {opt.label}
@@ -448,9 +452,9 @@ export default function BookingsPage() {
 
       {/* Bookings list */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
+        <div className="rounded-xl border border-line bg-surface p-12 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-gray-300"
+            className="mx-auto h-12 w-12 text-ink-3/50"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -462,7 +466,7 @@ export default function BookingsPage() {
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-ink-3">
             No bookings found{filter !== 'All' ? ` with status "${filter}"` : ''}.
           </p>
         </div>
@@ -471,14 +475,12 @@ export default function BookingsPage() {
           {filtered.map((booking) => (
             <div
               key={booking.fullId}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+              className="rounded-xl border border-line bg-surface p-4 sm:p-5"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {booking.serviceType}
-                    </span>
+                    <span className="text-sm font-semibold text-ink">{booking.serviceType}</span>
                     <span
                       className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusStyles[booking.status]}`}
                     >
@@ -486,10 +488,10 @@ export default function BookingsPage() {
                     </span>
                   </div>
 
-                  <div className="mt-2 space-y-1 text-sm text-gray-600">
+                  <div className="mt-2 space-y-1 text-sm text-ink-2">
                     <div className="flex items-center gap-2">
                       <svg
-                        className="h-4 w-4 shrink-0 text-gray-400"
+                        className="h-4 w-4 shrink-0 text-ink-3"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -507,7 +509,7 @@ export default function BookingsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <svg
-                        className="h-4 w-4 shrink-0 text-gray-400"
+                        className="h-4 w-4 shrink-0 text-ink-3"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -524,7 +526,7 @@ export default function BookingsPage() {
                     {booking.address && (
                       <div className="flex items-center gap-2">
                         <svg
-                          className="h-4 w-4 shrink-0 text-gray-400"
+                          className="h-4 w-4 shrink-0 text-ink-3"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -545,7 +547,7 @@ export default function BookingsPage() {
                       </div>
                     )}
                     {(booking.backupCleanerNames.length > 0 || booking.autoAssignBackup) && (
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 text-xs text-ink-3">
                         <span>
                           {booking.backupCleanerNames.length > 0
                             ? `Backups: ${booking.backupCleanerNames.join(', ')}`
@@ -561,18 +563,18 @@ export default function BookingsPage() {
                 </div>
 
                 <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
-                  <span className="text-lg font-bold text-gray-900">
+                  <span className="font-newsreader text-xl font-semibold text-ink">
                     &pound;{booking.price.toFixed(2)}
                   </span>
-                  <span className="text-xs text-gray-400">{booking.displayId}</span>
+                  <span className="text-xs text-ink-3">{booking.displayId}</span>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                 <Link
                   href={`/messages?bookingId=${booking.fullId}`}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page"
                 >
                   Message cleaner
                 </Link>
@@ -581,7 +583,7 @@ export default function BookingsPage() {
                   <>
                     {confirmResult[booking.fullId] && (
                       <span
-                        className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-green-700' : 'text-red-700'}`}
+                        className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
                       >
                         {confirmResult[booking.fullId].ok ? '✓ ' : ''}
                         {confirmResult[booking.fullId].message}
@@ -592,7 +594,7 @@ export default function BookingsPage() {
                       <button
                         onClick={() => confirmComplete(booking.fullId)}
                         disabled={confirmingId === booking.fullId}
-                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                        className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
                       >
                         {confirmingId === booking.fullId
                           ? 'Confirming…'
@@ -602,7 +604,7 @@ export default function BookingsPage() {
 
                     {reviewResult[booking.fullId] && (
                       <span
-                        className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-green-700' : 'text-red-700'}`}
+                        className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
                       >
                         {reviewResult[booking.fullId].ok ? '✓ ' : ''}
                         {reviewResult[booking.fullId].message}
@@ -616,20 +618,18 @@ export default function BookingsPage() {
                       !confirmResult[booking.fullId]?.ok && (
                         <button
                           onClick={() => setReviewingId(booking.fullId)}
-                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                          className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
                         >
                           Leave a review
                         </button>
                       )}
 
                     {reviewingId === booking.fullId && !booking.hasReview && (
-                      <div className="flex w-full flex-col gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4">
-                        <span className="text-sm font-medium text-gray-900">
-                          How was your clean?
-                        </span>
+                      <div className="flex w-full flex-col gap-3 rounded-[10px] border border-line bg-page p-4">
+                        <span className="text-sm font-medium text-ink">How was your clean?</span>
 
                         <div>
-                          <span className="mb-1 block text-xs text-gray-600">Overall rating</span>
+                          <span className="mb-1 block text-xs text-ink-2">Overall rating</span>
                           <div className="flex gap-1">
                             {[1, 2, 3, 4, 5].map((star) => (
                               <button
@@ -643,8 +643,8 @@ export default function BookingsPage() {
                                 <span
                                   className={
                                     star <= (reviewHover || reviewRating)
-                                      ? 'text-yellow-400'
-                                      : 'text-gray-300'
+                                      ? 'text-rating'
+                                      : 'text-ink-3/40'
                                   }
                                 >
                                   &#9733;
@@ -663,7 +663,7 @@ export default function BookingsPage() {
                             ] as const
                           ).map(([label, value, setter]) => (
                             <div key={label}>
-                              <span className="mb-1 block text-xs text-gray-500">{label}</span>
+                              <span className="mb-1 block text-xs text-ink-3">{label}</span>
                               <div className="flex gap-0.5">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                   <button
@@ -673,9 +673,7 @@ export default function BookingsPage() {
                                     className="text-sm focus:outline-none"
                                   >
                                     <span
-                                      className={
-                                        star <= value ? 'text-yellow-400' : 'text-gray-300'
-                                      }
+                                      className={star <= value ? 'text-rating' : 'text-ink-3/40'}
                                     >
                                       &#9733;
                                     </span>
@@ -692,21 +690,21 @@ export default function BookingsPage() {
                           onChange={(e) => setReviewText(e.target.value)}
                           placeholder="Tell us about your experience (optional)"
                           maxLength={2000}
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-xs resize-none"
+                          className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                         />
 
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => submitReview(booking.fullId)}
                             disabled={reviewSubmitting || reviewRating < 1}
-                            className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                            className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
                           >
                             {reviewSubmitting ? 'Submitting…' : 'Submit review'}
                           </button>
                           <button
                             onClick={dismissReview}
                             disabled={reviewSubmitting}
-                            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
                           >
                             Skip
                           </button>
@@ -719,7 +717,7 @@ export default function BookingsPage() {
                 {booking.status === 'Price approval needed' && (
                   <Link
                     href={`/booking/${booking.fullId}/approve-topup`}
-                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                    className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
                   >
                     Review price change
                     {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
@@ -728,17 +726,17 @@ export default function BookingsPage() {
 
                 {canShowCancel(booking) &&
                   (cancelId === booking.fullId ? (
-                    <div className="flex w-full flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                    <div className="flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3">
                       {previewing ? (
-                        <span className="text-xs text-gray-600">Checking your refund…</span>
+                        <span className="text-xs text-ink-2">Checking your refund…</span>
                       ) : cancelError ? (
-                        <span className="text-xs text-red-700">{cancelError}</span>
+                        <span className="text-xs text-danger">{cancelError}</span>
                       ) : preview && !preview.canCancel ? (
-                        <span className="text-xs text-red-700">
+                        <span className="text-xs text-danger">
                           {preview.reason || 'This booking can no longer be cancelled.'}
                         </span>
                       ) : preview ? (
-                        <span className="text-xs text-gray-700">
+                        <span className="text-xs text-ink-2">
                           Cancel this booking? {refundMessage(preview)}
                         </span>
                       ) : null}
@@ -748,7 +746,7 @@ export default function BookingsPage() {
                           <button
                             onClick={() => confirmCancel(booking.fullId)}
                             disabled={cancelling}
-                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                            className="rounded-[10px] bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                           >
                             {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
                           </button>
@@ -756,7 +754,7 @@ export default function BookingsPage() {
                         <button
                           onClick={dismissCancel}
                           disabled={cancelling}
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
                         >
                           {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
                         </button>
@@ -765,7 +763,7 @@ export default function BookingsPage() {
                   ) : (
                     <button
                       onClick={() => startCancel(booking.fullId)}
-                      className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                      className="rounded-[10px] border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.06]"
                     >
                       Cancel booking
                     </button>
@@ -773,14 +771,14 @@ export default function BookingsPage() {
 
                 {canShowDispute(booking) &&
                   (disputeId === booking.fullId ? (
-                    <div className="flex w-full flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3">
-                      <span className="text-xs font-medium text-gray-800">
+                    <div className="flex w-full flex-col gap-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] p-3">
+                      <span className="text-xs font-medium text-ink">
                         Report a problem with this booking
                       </span>
                       <select
                         value={disputeReason}
                         onChange={(e) => setDisputeReason(e.target.value)}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs bg-white"
+                        className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                       >
                         <option value="">Select a reason…</option>
                         {DISPUTE_REASONS.map((r) => (
@@ -795,23 +793,23 @@ export default function BookingsPage() {
                         onChange={(e) => setDisputeDescription(e.target.value)}
                         placeholder="Please describe the problem…"
                         maxLength={2000}
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-xs resize-none"
+                        className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
-                      {disputeError && <span className="text-xs text-red-700">{disputeError}</span>}
+                      {disputeError && <span className="text-xs text-danger">{disputeError}</span>}
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => submitDispute(booking.fullId)}
                           disabled={
                             submittingDispute || !disputeReason || !disputeDescription.trim()
                           }
-                          className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                          className="rounded-[10px] bg-warning px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
                         >
                           {submittingDispute ? 'Submitting…' : 'Submit report'}
                         </button>
                         <button
                           onClick={dismissDispute}
                           disabled={submittingDispute}
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
                         >
                           Cancel
                         </button>
@@ -823,7 +821,7 @@ export default function BookingsPage() {
                         setDisputeId(booking.fullId);
                         dismissCancel();
                       }}
-                      className="rounded-lg border border-orange-300 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50"
+                      className="rounded-[10px] border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/[0.08]"
                     >
                       Report a problem
                     </button>
