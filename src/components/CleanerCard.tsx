@@ -66,15 +66,8 @@ export default function CleanerCard({
           </>
         }
       >
-        {cleaner.availableNow && (
-          <span className="mt-1.5 inline-flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-trust opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-trust" />
-            </span>
-            <span className="font-jost text-[11px] font-medium text-ink">Available today</span>
-          </span>
-        )}
+        {/* "Available today" badge removed with the same-day UI sweep; the
+            availableNow data/system is untouched (relaunch later). */}
       </CleanerIdentity>
 
       {hasFixed && fixedServiceLabel && (
