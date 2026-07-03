@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
 import { detectContactInfo } from '@/lib/utils/pii';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -300,7 +301,7 @@ export default function MessagesPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-sm text-gray-500">Loading messages...</div>
+        <div className="text-sm text-ink-3">Loading messages...</div>
       </div>
     );
   }
@@ -310,9 +311,9 @@ export default function MessagesPage() {
   if (conversations.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
           <svg
-            className="h-8 w-8 text-gray-400"
+            className="h-8 w-8 text-primary"
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={1.5}
@@ -325,8 +326,8 @@ export default function MessagesPage() {
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-gray-900">No messages yet</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="font-newsreader text-xl font-semibold text-ink">No messages yet</h2>
+        <p className="mt-1 text-sm text-ink-3">
           When you book a cleaner, you can message them here.
         </p>
       </div>
@@ -334,18 +335,18 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-full border-x border-gray-200">
+    <div className="flex h-full border-x border-line">
       {/* ─── Left Panel: Conversation List ─────────────────── */}
       <div
-        className={`w-full flex-shrink-0 border-r border-gray-200 md:w-80 lg:w-96 ${
+        className={`w-full flex-shrink-0 border-r border-line md:w-80 lg:w-96 ${
           activeConversationId ? 'hidden md:block' : 'block'
         }`}
       >
         {/* Header */}
-        <div className="border-b border-gray-200 px-4 py-4">
+        <div className="border-b border-line px-4 py-4">
           <Link
             href={currentUserRole === 'cleaner' ? '/cleaner' : '/dashboard'}
-            className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-gray-700"
+            className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
           >
             <svg
               className="h-4 w-4"
@@ -358,7 +359,7 @@ export default function MessagesPage() {
             </svg>
             Back to dashboard
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">Messages</h1>
+          <h1 className="font-newsreader text-xl font-semibold text-ink">Messages</h1>
         </div>
 
         {/* Conversation list */}
@@ -370,51 +371,17 @@ export default function MessagesPage() {
             const isOwnMessage = lastMsg.senderId === currentUserId;
 
             return (
-              <button
+              <ConversationRow
                 key={conversation.id}
+                initials={getInitials(other.name)}
+                name={other.name}
+                timeAgo={timeAgo(conversation.updatedAt)}
+                preview={lastMsg.content}
+                isOwnLast={isOwnMessage}
+                unreadCount={conversation.unreadCount}
+                isActive={isActive}
                 onClick={() => setActiveConversationId(conversation.id)}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-50 ${
-                  isActive ? 'bg-blue-50' : ''
-                } ${conversation.unreadCount > 0 ? 'bg-blue-50/30' : ''}`}
-              >
-                {/* Avatar */}
-                <div className="relative flex-shrink-0">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-                    {getInitials(other.name)}
-                  </div>
-                  {conversation.unreadCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                      {conversation.unreadCount}
-                    </span>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`truncate text-sm ${
-                        conversation.unreadCount > 0
-                          ? 'font-semibold text-gray-900'
-                          : 'font-medium text-gray-900'
-                      }`}
-                    >
-                      {other.name}
-                    </span>
-                    <span className="flex-shrink-0 text-xs text-gray-400">
-                      {timeAgo(conversation.updatedAt)}
-                    </span>
-                  </div>
-                  <p
-                    className={`mt-0.5 truncate text-sm ${
-                      conversation.unreadCount > 0 ? 'font-medium text-gray-800' : 'text-gray-500'
-                    }`}
-                  >
-                    {isOwnMessage ? 'You: ' : ''}
-                    {lastMsg.content}
-                  </p>
-                </div>
-              </button>
+              />
             );
           })}
         </div>
@@ -425,11 +392,11 @@ export default function MessagesPage() {
         {activeConversation ? (
           <>
             {/* Chat header */}
-            <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
               {/* Back button (mobile) */}
               <button
                 onClick={handleBackToList}
-                className="rounded-lg p-1.5 text-gray-500 transition hover:bg-gray-100 md:hidden"
+                className="rounded-lg p-1.5 text-ink-3 transition hover:bg-page md:hidden"
                 aria-label="Back to conversations"
               >
                 <svg
@@ -447,14 +414,15 @@ export default function MessagesPage() {
                 </svg>
               </button>
 
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-                {getInitials(getOtherParticipant(activeConversation).name)}
-              </div>
+              <Avatar
+                initials={getInitials(getOtherParticipant(activeConversation).name)}
+                size="sm"
+              />
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">
+                <h2 className="text-sm font-semibold text-ink">
                   {getOtherParticipant(activeConversation).name}
                 </h2>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-3">
                   {getOtherParticipant(activeConversation).role === 'cleaner'
                     ? 'Cleaner'
                     : 'Customer'}
@@ -463,50 +431,35 @@ export default function MessagesPage() {
 
               <button
                 onClick={handleToggleBlock}
-                className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+                className="ml-auto rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition hover:bg-page"
               >
                 {activeConversation.blockedByMe ? 'Unblock' : 'Block'}
               </button>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
               <div className="space-y-4">
                 {messages.map((message) => {
                   const isOwn = message.senderId === currentUserId;
 
                   return (
-                    <div
+                    <MessageBubble
                       key={message.id}
-                      className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}
+                      content={message.content}
+                      time={formatTime(message.createdAt)}
+                      isOwn={isOwn}
                     >
-                      <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                          isOwn
-                            ? 'rounded-br-md bg-blue-600 text-white'
-                            : 'rounded-bl-md bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        <p className="text-sm leading-relaxed">{message.content}</p>
-                        <p
-                          className={`mt-1 text-right text-xs ${
-                            isOwn ? 'text-blue-200' : 'text-gray-400'
-                          }`}
-                        >
-                          {formatTime(message.createdAt)}
-                        </p>
-                      </div>
-
                       {/* Report — only on messages you received */}
                       {!isOwn &&
                         (reportedIds.has(message.id) ? (
-                          <span className="mt-1 text-[11px] text-gray-400">Reported</span>
+                          <span className="mt-1 text-[11px] text-ink-3">Reported</span>
                         ) : reportingId === message.id ? (
-                          <div className="mt-1 w-full max-w-[75%] rounded-lg border border-gray-200 bg-white p-2">
+                          <div className="mt-1 w-full max-w-[75%] rounded-[10px] border border-line bg-surface p-2">
                             <select
                               value={reportReason}
                               onChange={(e) => setReportReason(e.target.value)}
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:outline-none"
+                              className="w-full rounded-[8px] border border-line px-2 py-1 text-xs text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                             >
                               <option value="SPAM">Spam</option>
                               <option value="HARASSMENT">Harassment</option>
@@ -520,19 +473,19 @@ export default function MessagesPage() {
                               rows={2}
                               maxLength={1000}
                               placeholder="Add details (optional)"
-                              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:outline-none"
+                              className="mt-1 w-full rounded-[8px] border border-line px-2 py-1 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <div className="mt-1 flex gap-2">
                               <button
                                 onClick={() => submitReport(message.id)}
                                 disabled={reportBusy}
-                                className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                className="rounded-[8px] bg-danger px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                               >
                                 {reportBusy ? 'Reporting…' : 'Submit report'}
                               </button>
                               <button
                                 onClick={() => setReportingId(null)}
-                                className="text-xs text-gray-500 hover:text-gray-700"
+                                className="text-xs text-ink-3 hover:text-ink"
                               >
                                 Cancel
                               </button>
@@ -545,7 +498,7 @@ export default function MessagesPage() {
                               setReportReason('SPAM');
                               setReportDetails('');
                             }}
-                            className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600"
+                            className="mt-1 inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-danger"
                           >
                             <svg
                               className="h-3 w-3"
@@ -563,7 +516,7 @@ export default function MessagesPage() {
                             Report
                           </button>
                         ))}
-                    </div>
+                    </MessageBubble>
                   );
                 })}
               </div>
@@ -571,10 +524,10 @@ export default function MessagesPage() {
 
             {/* Message input — read-only once the pair has no active/settling booking */}
             {activeConversation.canSend ? (
-              <div className="border-t border-gray-200 px-4 py-3">
+              <div className="border-t border-line bg-surface px-4 py-3">
                 {showPiiWarning && (
-                  <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                    <p className="text-xs text-amber-800">
+                  <div className="mb-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] px-3 py-2">
+                    <p className="text-xs text-warning">
                       This looks like contact info. Keep conversations and payments on Rena —
                       sharing contact details or paying off-platform isn&rsquo;t allowed and may
                       affect your account.
@@ -586,13 +539,13 @@ export default function MessagesPage() {
                           if (conv?.activeBookingId) doSend(conv.activeBookingId);
                         }}
                         disabled={sending}
-                        className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                        className="rounded-[8px] bg-warning px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
                       >
                         Send anyway
                       </button>
                       <button
                         onClick={() => setShowPiiWarning(false)}
-                        className="text-xs font-medium text-gray-600 hover:text-gray-800"
+                        className="rounded-[8px] border border-line px-3 py-1 text-xs font-medium text-ink-2 transition-colors hover:bg-page"
                       >
                         Edit
                       </button>
@@ -606,12 +559,12 @@ export default function MessagesPage() {
                     onKeyDown={handleKeyDown}
                     placeholder="Type a message..."
                     rows={1}
-                    className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 resize-none rounded-[10px] border border-line px-4 py-2.5 text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={!messageInput.trim() || sending}
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] bg-primary text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Send message"
                   >
                     <svg
@@ -631,8 +584,8 @@ export default function MessagesPage() {
                 </div>
               </div>
             ) : (
-              <div className="border-t border-gray-200 px-4 py-4 text-center">
-                <p className="text-sm text-gray-500">
+              <div className="border-t border-line bg-page px-4 py-4 text-center">
+                <p className="text-sm text-ink-3">
                   {activeConversation.blockedByMe
                     ? "You've blocked this person. Unblock to message them again."
                     : 'This conversation is read-only — start a new booking to message again.'}
@@ -642,10 +595,10 @@ export default function MessagesPage() {
           </>
         ) : (
           /* No conversation selected */
-          <div className="hidden flex-1 flex-col items-center justify-center text-center md:flex">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+          <div className="hidden flex-1 flex-col items-center justify-center bg-page text-center md:flex">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
               <svg
-                className="h-8 w-8 text-gray-400"
+                className="h-8 w-8 text-primary"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
@@ -658,8 +611,10 @@ export default function MessagesPage() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Select a conversation</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="font-newsreader text-xl font-semibold text-ink">
+              Select a conversation
+            </h2>
+            <p className="mt-1 text-sm text-ink-3">
               Choose a conversation from the list to start messaging.
             </p>
           </div>

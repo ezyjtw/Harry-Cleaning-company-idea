@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>T1-4 restyle preview — messages · notifications · disputes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --page:#FAFBFC;--surface:#fff;--line:#E4E9F0;
+    --ink:#1B2A4A;--ink-2:#3D5170;--ink-3:#7A8A9E;
+    --primary:#16296b;--primary-hover:#203a85;--primary-soft:#e7ecf6;
+    --trust:#16a34a;--danger:#dc2626;--warning:#d97706;--rating:#d97706;
+    --red-50:#fef2f2;--green-50:#f0fdf4;
+    --trust-10:#e7f6ec;--warn-10:#fbf3e7;--danger-10:#fceaea;--ink-06:#eef0f3;
+    --warn-06:#fdf8f0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Jost',system-ui,sans-serif;}
+  body{background:#e9ebef;color:var(--ink);padding:28px 20px 80px;}
+  h1.t{font-family:'Newsreader',serif;font-weight:600;font-size:24px;margin-bottom:4px;}
+  .lead{font-size:13px;color:#6b7280;margin-bottom:6px;max-width:840px;}
+  .note{font-size:12px;color:#b45309;margin-bottom:22px;max-width:840px;line-height:1.5;}
+  .seclabel{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin:40px 0 4px;border-top:1px solid #d5d9e0;padding-top:20px;}
+  .secdesc{font-size:12px;color:#8a94a6;margin-bottom:16px;max-width:840px;}
+  .statelabel{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8a94a6;margin:0 0 8px 2px;}
+  .frames{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;}
+  .col{display:flex;flex-direction:column;}
+  .device{background:var(--page);border-radius:16px;padding:0;overflow:hidden;border:1px solid var(--line);}
+  .device.pad{padding:20px;}
+  .device.desktop{width:760px;max-width:100%;}
+  .device.mobile{width:380px;}
+
+  .newser{font-family:'Newsreader',serif;}
+  .btn{border-radius:10px;font-weight:600;cursor:pointer;border:none;display:inline-block;text-decoration:none;}
+  .btn.primary{background:var(--primary);color:#fff;}
+  .btn.outline{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);}
+  .btn.danger{background:var(--danger);color:#fff;}
+  .btn.warn{background:var(--warning);color:#fff;}
+
+  /* ---------- MESSAGES ---------- */
+  .msg{display:flex;height:480px;background:var(--surface);}
+  .msg .list{width:300px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;}
+  .msg .list .hd{border-bottom:1px solid var(--line);padding:16px;}
+  .msg .list .hd .back{font-size:12px;font-weight:500;color:var(--ink-3);}
+  .msg .list .hd h2{font-family:'Newsreader',serif;font-weight:600;font-size:20px;color:var(--ink);margin-top:2px;}
+  .crow{display:flex;gap:12px;align-items:center;padding:12px 16px;text-align:left;width:100%;border:none;background:none;cursor:pointer;}
+  .crow.active{background:var(--primary-soft);}
+  .crow.unread{background:rgba(231,236,246,.4);}
+  .av{height:48px;width:48px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none;position:relative;}
+  .av.sm{height:40px;width:40px;}
+  .av .badge{position:absolute;top:-2px;right:-2px;height:20px;width:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .crow .body{min-width:0;flex:1;}
+  .crow .body .top{display:flex;justify-content:space-between;}
+  .crow .body .nm{font-size:14px;color:var(--ink);}
+  .crow.unread .nm{font-weight:600;} .crow .nm{font-weight:500;}
+  .crow .body .tm{font-size:12px;color:var(--ink-3);flex:none;}
+  .crow .body .pv{font-size:14px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .crow.unread .pv{color:var(--ink-2);font-weight:500;}
+  .msg .pane{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .msg .pane .chd{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:12px 16px;background:var(--surface);}
+  .msg .pane .chd h3{font-size:14px;font-weight:600;color:var(--ink);}
+  .msg .pane .chd .role{font-size:12px;color:var(--ink-3);}
+  .blockbtn{margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer;}
+  .thread{flex:1;overflow-y:auto;background:var(--page);padding:16px;display:flex;flex-direction:column;gap:16px;}
+  .bwrap{display:flex;flex-direction:column;}
+  .bwrap.own{align-items:flex-end;} .bwrap.other{align-items:flex-start;}
+  .bubble{max-width:75%;border-radius:16px;padding:10px 16px;}
+  .bubble.own{background:var(--primary-soft);color:var(--ink);border-bottom-right-radius:6px;}
+  .bubble.other{background:var(--surface);border:1px solid var(--line);color:var(--ink);border-bottom-left-radius:6px;}
+  .bubble p{font-size:14px;line-height:1.5;}
+  .bubble .tm{font-size:12px;color:var(--ink-3);text-align:right;margin-top:4px;}
+  .reportlink{font-size:11px;color:var(--ink-3);margin-top:4px;cursor:pointer;}
+  .reportform{margin-top:4px;width:75%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px;}
+  .reportform select,.reportform textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;color:var(--ink);margin-bottom:6px;}
+  .composer{border-top:1px solid var(--line);background:var(--surface);padding:12px 16px;}
+  .pii{border:1px solid rgba(217,119,6,.25);background:var(--warn-06);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+  .pii p{font-size:12px;color:var(--warning);}
+  .pii .row{display:flex;gap:8px;margin-top:8px;}
+  .cbar{display:flex;gap:8px;align-items:flex-end;}
+  .cbar textarea{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:14px;color:var(--ink);resize:none;}
+  .send{height:40px;width:40px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;border:none;cursor:pointer;}
+  .readonly{border-top:1px solid var(--line);background:var(--page);padding:16px;text-align:center;font-size:14px;color:var(--ink-3);}
+
+  /* ---------- NOTIFICATIONS ---------- */
+  .nhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;}
+  .nhead h2{font-family:'Newsreader',serif;font-weight:600;font-size:24px;color:var(--ink);}
+  .nhead .sub{font-size:14px;color:var(--ink-3);margin-top:2px;}
+  .grouplabel{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 12px;}
+  .ncard{border:1px solid var(--line);background:var(--surface);border-radius:12px;overflow:hidden;margin-bottom:24px;}
+  .nrow{display:flex;gap:16px;padding:16px;border-bottom:1px solid var(--line);position:relative;}
+  .nrow:last-child{border-bottom:none;}
+  .nrow.unread{background:rgba(231,236,246,.4);}
+  .nrow .dot{position:absolute;left:6px;top:50%;transform:translateY(-50%);height:8px;width:8px;border-radius:50%;background:var(--primary);}
+  .nic{height:40px;width:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;}
+  .nic svg{height:20px;width:20px;}
+  .nic.trust{background:var(--trust-10);color:var(--trust);}
+  .nic.warning{background:var(--warn-10);color:var(--warning);}
+  .nic.danger{background:var(--danger-10);color:var(--danger);}
+  .nic.primary{background:var(--primary-soft);color:var(--primary);}
+  .nbody{min-width:0;flex:1;}
+  .nbody .top{display:flex;justify-content:space-between;gap:8px;}
+  .nbody .ti{font-size:14px;color:var(--ink);}
+  .nrow.unread .ti{font-weight:600;} .nrow .ti{font-weight:500;color:var(--ink-2);}
+  .markread{font-size:12px;font-weight:500;color:var(--primary);cursor:pointer;flex:none;}
+  .nbody .bd{font-size:14px;color:var(--ink-2);margin-top:4px;line-height:1.5;}
+  .nbody .tm{font-size:12px;color:var(--ink-3);margin-top:8px;}
+  .emptybox{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:60px 16px;text-align:center;}
+  .emptybox .circ{height:56px;width:56px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .emptybox h3{font-family:'Newsreader',serif;font-weight:600;font-size:20px;}
+  .emptybox p{font-size:14px;color:var(--ink-3);margin-top:4px;}
+
+  /* ---------- DISPUTES ---------- */
+  .dhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:24px;}
+  .dhead h2{font-family:'Newsreader',serif;font-weight:600;font-size:28px;color:var(--ink);}
+  .dhead p{font-size:14px;color:var(--ink-2);margin-top:8px;max-width:440px;}
+  .section{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:24px;}
+  .section h3{font-family:'Newsreader',serif;font-weight:600;font-size:20px;color:var(--ink);}
+  .flabel{font-size:14px;font-weight:500;color:var(--ink-2);display:block;margin-bottom:5px;}
+  .finput,.ftext{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px;color:var(--ink);}
+  .reasoncard{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;}
+  .reasoncard.chosen{border-color:var(--primary);background:var(--primary-soft);box-shadow:0 0 0 1px var(--primary);}
+  .reasoncard .rl{font-size:14px;font-weight:500;color:var(--ink);}
+  .reasoncard .rd{font-size:12px;color:var(--ink-3);}
+  .radio{height:16px;width:16px;border:2px solid var(--ink-3);border-radius:50%;flex:none;margin-top:2px;}
+  .reasoncard.chosen .radio{border-color:var(--primary);background:radial-gradient(var(--primary) 40%,transparent 45%);}
+  .evrow{display:flex;justify-content:space-between;align-items:center;background:var(--page);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--ink-2);margin-bottom:8px;}
+  .evadd{width:100%;border:2px dashed var(--line);border-radius:10px;padding:12px;font-size:14px;color:var(--ink-3);text-align:center;background:none;cursor:pointer;}
+  .warnbox{border:1px solid rgba(217,119,6,.25);background:var(--warn-06);border-radius:10px;padding:16px;}
+  .warnbox h4{font-size:14px;font-weight:500;color:var(--warning);}
+  .warnbox ul{margin-top:8px;font-size:12px;color:var(--ink-2);line-height:1.7;list-style:none;}
+  .submit{width:100%;border-radius:10px;background:var(--danger);color:#fff;padding:12px;font-size:16px;font-weight:600;border:none;cursor:pointer;}
+  .dcard{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .dctop{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;}
+  .dctop h3{font-family:'Newsreader',serif;font-weight:600;font-size:18px;color:var(--ink);}
+  .schip{border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500;}
+  .schip.warning{background:var(--warn-10);color:var(--warning);}
+  .schip.primary{background:var(--primary-soft);color:var(--primary);}
+  .schip.trust{background:var(--trust-10);color:var(--trust);}
+  .schip.ink{background:var(--ink-06);color:var(--ink);}
+  .schip.danger{background:var(--danger-10);color:var(--danger);}
+  .filedby{font-size:14px;color:var(--ink-3);margin-top:4px;}
+  .evchip{border-radius:6px;padding:2px 8px;font-size:12px;font-weight:500;background:var(--primary-soft);color:var(--primary);}
+  .underreview{border:1px solid rgba(22,41,107,.2);background:var(--primary-soft);border-radius:10px;padding:12px;margin-top:16px;}
+  .underreview p{font-size:14px;color:var(--primary);}
+  .stack{display:flex;flex-direction:column;gap:16px;}
+  .mt6{margin-top:24px;} .mt4{margin-top:16px;} .mt3{margin-top:12px;}
+</style>
+</head>
+<body>
+
+<h1 class="t">T1-4 — messages · notifications · disputes restyle preview</h1>
+<p class="lead">Visual-only restyle onto the Rena design system. Chip colours come from the retokened <b>trust.ts</b>. Messages get two new presentational primitives (ConversationRow, MessageBubble); notifications is a tokens-only pass on the mock page; disputes moves onto AccountSection/Field.</p>
+<p class="note">⚠️ Handlers, fetches, the send gate (incl. detectContactInfo), POST send/block/report, Enter-to-send, and disputes GET/POST are byte-identical to production. Notifications is a mock page (no backend) — restyle only.</p>
+
+<!-- ============ MESSAGES ============ -->
+<div class="seclabel">1 · Messages — split-pane, bubbles, report, PII, read-only</div>
+<p class="secdesc">ConversationRow (navy initials avatar, navy unread badge + weighted preview). MessageBubble (own = primary-soft on the right w/ squared inner corner; other = surface/hairline on a page-tinted thread). Header outline Block; composer hairline field + navy send. PII → warning family; report → danger submit.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop — active thread + report form open</div>
+    <div class="device desktop">
+      <div class="msg">
+        <div class="list">
+          <div class="hd"><div class="back">‹ Back to dashboard</div><h2>Messages</h2></div>
+          <button class="crow active"><div class="av">GM</div><div class="body"><div class="top"><span class="nm">Grace M.</span><span class="tm">2h</span></div><div class="pv">You: Sounds good, see you then!</div></div></button>
+          <button class="crow unread"><div class="av">JT<span class="badge">2</span></div><div class="body"><div class="top"><span class="nm">James T.</span><span class="tm">5h</span></div><div class="pv">I'll bring my own products.</div></div></button>
+          <button class="crow"><div class="av">SM</div><div class="body"><div class="top"><span class="nm">Sarah M.</span><span class="tm">1d</span></div><div class="pv">Thanks for the review!</div></div></button>
+        </div>
+        <div class="pane">
+          <div class="chd"><div class="av sm">GM</div><div><h3>Grace M.</h3><div class="role">Cleaner</div></div><button class="blockbtn">Block</button></div>
+          <div class="thread">
+            <div class="bwrap other"><div class="bubble other"><p>Hi! Confirming I'll bring my own products for Tuesday.</p><div class="tm">10:02</div></div><div class="reportlink">⚑ Report</div></div>
+            <div class="bwrap own"><div class="bubble own"><p>Sounds good, see you then!</p><div class="tm">10:05</div></div></div>
+            <div class="bwrap other">
+              <div class="bubble other"><p>Great — my number is 07…</p><div class="tm">10:07</div></div>
+              <div class="reportform">
+                <select><option>Spam</option></select>
+                <textarea rows="2" placeholder="Add details (optional)"></textarea>
+                <div style="display:flex;gap:8px;"><button class="btn danger" style="padding:5px 12px;font-size:12px;">Submit report</button><span style="font-size:12px;color:var(--ink-3);align-self:center;">Cancel</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="cbar"><textarea rows="1" placeholder="Type a message..."></textarea><button class="send">➤</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="statelabel">Mobile — PII interstitial</div>
+    <div class="device mobile">
+      <div class="msg" style="height:460px;">
+        <div class="pane">
+          <div class="chd"><span style="font-size:18px;color:var(--ink-3);">‹</span><div class="av sm">JT</div><div><h3>James T.</h3><div class="role">Cleaner</div></div><button class="blockbtn">Block</button></div>
+          <div class="thread">
+            <div class="bwrap own"><div class="bubble own"><p>What's the best way to reach you?</p><div class="tm">14:20</div></div></div>
+          </div>
+          <div class="composer">
+            <div class="pii">
+              <p>This looks like contact info. Keep conversations and payments on Rena — sharing contact details or paying off-platform isn't allowed and may affect your account.</p>
+              <div class="row"><button class="btn warn" style="padding:5px 12px;font-size:12px;">Send anyway</button><button class="btn outline" style="padding:5px 12px;font-size:12px;">Edit</button></div>
+            </div>
+            <div class="cbar"><textarea rows="1">Call me on 07700…</textarea><button class="send">➤</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statelabel" style="margin-top:22px;">Read-only footers (blocked · no active booking)</div>
+    <div class="device mobile pad">
+      <div class="readonly" style="border:1px solid var(--line);border-radius:10px;margin-bottom:12px;">You've blocked this person. Unblock to message them again.</div>
+      <div class="readonly" style="border:1px solid var(--line);border-radius:10px;">This conversation is read-only — start a new booking to message again.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NOTIFICATIONS ============ -->
+<div class="seclabel">2 · Notifications (mock page) — grouped list, 4 semantic icon tints, empty state</div>
+<p class="secdesc">8-colour icon map collapses to 4 semantic tints — trust (confirmed/payment), danger (cancelled/dispute), warning (reminder/review), primary (assigned/message). Unread dot + row tint → primary. Mark-all / Load-more → outline. Group labels caps ink-3.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop — grouped, unread + read</div>
+    <div class="device desktop pad" style="max-width:620px;">
+      <div class="nhead"><div><h2>Notifications</h2><div class="sub">You have 2 unread notifications</div></div><button class="btn outline" style="padding:8px 16px;font-size:14px;">Mark all as read</button></div>
+      <div class="grouplabel">Today</div>
+      <div class="ncard">
+        <div class="nrow unread"><span class="dot"></span><div class="nic trust"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></div><div class="nbody"><div class="top"><span class="ti">Booking confirmed</span><span class="markread">Mark read</span></div><div class="bd">Your cleaning with Sarah M. on March 18 at 10:00 AM has been confirmed.</div><div class="tm">1 hour ago</div></div></div>
+        <div class="nrow unread"><span class="dot"></span><div class="nic primary"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.555-.337A5.97 5.97 0 0 1 5.41 20.97a4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/></svg></div><div class="nbody"><div class="top"><span class="ti">New message from Sarah M.</span><span class="markread">Mark read</span></div><div class="bd">Hi! Just confirming I will bring my own cleaning products.</div><div class="tm">2 hours ago</div></div></div>
+        <div class="nrow"><div class="nic trust"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 4.5h16.5c.83 0 1.5.67 1.5 1.5v12c0 .83-.67 1.5-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5v-12c0-.83.67-1.5 1.5-1.5Z"/></svg></div><div class="nbody"><span class="ti">Payment processed</span><div class="bd">Your payment of £85.00 is being held securely for booking #1042.</div><div class="tm">5 hours ago</div></div></div>
+      </div>
+      <div class="grouplabel">Earlier</div>
+      <div class="ncard">
+        <div class="nrow"><div class="nic warning"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.5a.56.56 0 0 1 1.04 0l2.12 5.11a.56.56 0 0 0 .48.35l5.52.44c.5.04.7.66.32.99l-4.2 3.6a.56.56 0 0 0-.18.56l1.28 5.38a.56.56 0 0 1-.84.61l-4.72-2.88a.56.56 0 0 0-.59 0l-4.72 2.88a.56.56 0 0 1-.84-.61l1.28-5.38a.56.56 0 0 0-.18-.56l-4.2-3.6a.56.56 0 0 1 .32-.99l5.52-.44a.56.56 0 0 0 .48-.35L11.48 3.5Z"/></svg></div><div class="nbody"><span class="ti">New review received</span><div class="bd">Emma L. left you a 5-star review.</div><div class="tm">3 Mar at 09:12</div></div></div>
+        <div class="nrow"><div class="nic danger"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.22 3.37 1.95 3.37h14.7c1.73 0 2.82-1.87 1.95-3.37L13.95 3.38c-.87-1.5-3.03-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z"/></svg></div><div class="nbody"><span class="ti">Dispute resolved</span><div class="bd">Your dispute for booking #1035 has been resolved in your favour.</div><div class="tm">28 Feb at 16:40</div></div></div>
+      </div>
+      <div style="text-align:center;"><button class="btn outline" style="padding:10px 24px;font-size:14px;">Load more notifications</button></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="statelabel">Mobile · empty state</div>
+    <div class="device mobile pad">
+      <div class="nhead"><div><h2 style="font-size:22px;">Notifications</h2></div></div>
+      <div class="emptybox">
+        <div class="circ"><svg style="height:28px;width:28px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.86 17.08a23.85 23.85 0 0 0 5.45-1.31A8.97 8.97 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.97 8.97 0 0 1-2.31 6.02c1.73.64 3.56 1.09 5.45 1.31m5.72 0a24.26 24.26 0 0 1-5.72 0m5.72 0a3 3 0 1 1-5.72 0"/></svg></div>
+        <h3>No notifications</h3><p>You are all caught up!</p>
+        <div style="margin-top:16px;font-size:14px;font-weight:500;color:var(--primary);">Back to home</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DISPUTES ============ -->
+<div class="seclabel">3 · Disputes — form on AccountSection/Field, selectable reason cards, list + under-review</div>
+<p class="secdesc">Form → AccountSection + Field. Reason radio-cards → hairline selectable (chosen = primary ring + primary-soft). Success → trust; "How disputes work" → warning-soft; submit → danger-solid. Status chips from retokened trust.ts. Old brand-* remnants purged.</p>
+<div class="frames">
+  <div class="col">
+    <div class="statelabel">Desktop — file a new dispute</div>
+    <div class="device desktop pad" style="max-width:640px;">
+      <div class="dhead"><div><h2>Dispute Resolution</h2><p>We take every dispute seriously. Both parties can submit evidence, and our team reviews within 24–48 hours.</p></div><button class="btn outline" style="padding:10px 16px;font-size:14px;">Back to Disputes</button></div>
+      <div class="section">
+        <h3>File a New Dispute</h3>
+        <p style="font-size:14px;color:var(--ink-3);margin-top:4px;">Please provide as much detail and evidence as possible.</p>
+        <div class="mt6"><label class="flabel">Booking Reference</label><input class="finput" placeholder="e.g. b3" /></div>
+        <div class="mt6"><label class="flabel">Reason for Dispute</label>
+          <div class="mt3">
+            <label class="reasoncard chosen"><span class="radio"></span><div><div class="rl">Quality not as expected</div><div class="rd">The cleaning did not meet the agreed standard.</div></div></label>
+            <label class="reasoncard"><span class="radio"></span><div><div class="rl">Cleaner didn't show up</div><div class="rd">The cleaner did not arrive at the scheduled time.</div></div></label>
+            <label class="reasoncard"><span class="radio"></span><div><div class="rl">Property damage</div><div class="rd">Something was broken or damaged during the cleaning.</div></div></label>
+          </div>
+        </div>
+        <div class="mt6"><label class="flabel">What happened?</label><textarea class="ftext" rows="3" placeholder="Describe the issue in detail…"></textarea></div>
+        <div class="mt6"><label class="flabel">Evidence</label><p style="font-size:12px;color:var(--ink-3);margin:4px 0 12px;">Upload photos, videos, or screenshots. Stronger evidence leads to faster resolution.</p>
+          <div class="evrow"><span>📎 evidence-1.jpg</span><span style="color:var(--danger);font-size:12px;">Remove</span></div>
+          <button class="evadd">+ Upload Photo / Video / Screenshot</button>
+        </div>
+        <div class="warnbox mt6"><h4>How disputes work</h4><ul><li>• Your held payment is frozen immediately when a dispute is filed.</li><li>• The other party has 24 hours to respond.</li><li>• Our team resolves within 24–48 hours.</li><li>• Outcomes: full refund, full payment to cleaner, or a fair split.</li></ul></div>
+        <button class="submit mt6">Submit Dispute</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="statelabel">Mobile — list + under-review + status chips</div>
+    <div class="device mobile pad">
+      <div style="border:1px solid rgba(22,163,74,.2);background:var(--green-50);border-radius:10px;padding:12px;margin-bottom:16px;display:flex;gap:8px;align-items:center;"><span style="color:var(--trust);">✔</span><span style="font-size:13px;font-weight:500;color:var(--trust);">Dispute submitted. Our team will review within 24–48 hours.</span></div>
+      <div class="dcard">
+        <div class="dctop"><div><div style="display:flex;gap:8px;align-items:center;"><h3>Dispute #d12</h3><span class="schip primary">Under Review</span></div><div class="filedby">Filed by Harriet O. (customer) on 2 Jul 2026</div></div></div>
+        <div class="mt3" style="font-size:14px;font-weight:500;color:var(--ink-2);">Reason: <span style="font-weight:400;">Quality not as expected</span></div>
+        <p style="font-size:14px;color:var(--ink-2);margin-top:8px;">Kitchen surfaces were left greasy and the bathroom wasn't touched.</p>
+        <div class="mt4"><div class="grouplabel" style="margin-bottom:8px;">Evidence (1)</div><div class="evrow"><div style="display:flex;gap:8px;align-items:center;"><span class="evchip">photo</span><span>Kitchen photo</span></div><span style="font-size:12px;color:var(--ink-3);">by customer</span></div></div>
+        <div class="underreview"><p>This dispute is under review. You can add additional evidence or information to strengthen your case.</p><button class="btn primary mt3" style="padding:6px 12px;font-size:12px;">Add More Evidence</button></div>
+      </div>
+      <div class="statelabel" style="margin-top:8px;">Status-chip family (retokened trust.ts)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="schip warning">Open</span><span class="schip primary">Under Review</span><span class="schip trust">Resolved — Customer Refunded</span><span class="schip ink">Resolved — Split Payment</span><span class="schip danger">Escalated to Support</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -155,45 +155,50 @@ function getDateGroup(dateString: string): 'Today' | 'Yesterday' | 'Earlier' {
 function getNotificationIcon(type: NotificationType): React.ReactNode {
   const iconClass = 'h-5 w-5';
 
+  // 8 notification types collapse onto 4 semantic tints:
+  //   trust  = positive/success (confirmed, payment)
+  //   danger = negative (cancelled, dispute)
+  //   warning = time-sensitive/attention (reminder, review)
+  //   primary = informational (cleaner assigned, message)
   const iconMap: Record<NotificationType, { bg: string; color: string; path: string }> = {
     BOOKING_CONFIRMED: {
-      bg: 'bg-green-100',
-      color: 'text-green-600',
+      bg: 'bg-trust/10',
+      color: 'text-trust',
       path: 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
     },
     BOOKING_CANCELLED: {
-      bg: 'bg-red-100',
-      color: 'text-red-600',
+      bg: 'bg-danger/10',
+      color: 'text-danger',
       path: 'm9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
     },
     BOOKING_REMINDER: {
-      bg: 'bg-yellow-100',
-      color: 'text-yellow-600',
+      bg: 'bg-warning/10',
+      color: 'text-warning',
       path: 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
     },
     CLEANER_ASSIGNED: {
-      bg: 'bg-blue-100',
-      color: 'text-blue-600',
+      bg: 'bg-primary-soft',
+      color: 'text-primary',
       path: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
     },
     PAYMENT_RECEIVED: {
-      bg: 'bg-emerald-100',
-      color: 'text-emerald-600',
+      bg: 'bg-trust/10',
+      color: 'text-trust',
       path: 'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z',
     },
     REVIEW_RECEIVED: {
-      bg: 'bg-amber-100',
-      color: 'text-amber-600',
+      bg: 'bg-warning/10',
+      color: 'text-warning',
       path: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z',
     },
     MESSAGE_RECEIVED: {
-      bg: 'bg-purple-100',
-      color: 'text-purple-600',
+      bg: 'bg-primary-soft',
+      color: 'text-primary',
       path: 'M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z',
     },
     DISPUTE_UPDATE: {
-      bg: 'bg-orange-100',
-      color: 'text-orange-600',
+      bg: 'bg-danger/10',
+      color: 'text-danger',
       path: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z',
     },
   };
@@ -257,9 +262,9 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Notifications</h1>
           {unreadCount > 0 && (
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-ink-3">
               You have {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
             </p>
           )}
@@ -267,7 +272,7 @@ export default function NotificationsPage() {
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllAsRead}
-            className="self-start rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="self-start rounded-[10px] border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-2 transition hover:bg-page focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             Mark all as read
           </button>
@@ -276,10 +281,10 @@ export default function NotificationsPage() {
 
       {/* Empty state */}
       {notifications.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-16 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+        <div className="rounded-xl border border-line bg-surface px-4 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft">
             <svg
-              className="h-7 w-7 text-gray-400"
+              className="h-7 w-7 text-primary"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={1.5}
@@ -292,11 +297,11 @@ export default function NotificationsPage() {
               />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">No notifications</h2>
-          <p className="mt-1 text-sm text-gray-500">You are all caught up!</p>
+          <h2 className="font-newsreader text-xl font-semibold text-ink">No notifications</h2>
+          <p className="mt-1 text-sm text-ink-3">You are all caught up!</p>
           <Link
             href="/"
-            className="mt-4 inline-block text-sm font-medium text-blue-600 transition hover:text-blue-800"
+            className="mt-4 inline-block text-sm font-medium text-primary transition hover:text-primary-hover"
           >
             Back to home
           </Link>
@@ -311,16 +316,16 @@ export default function NotificationsPage() {
 
               return (
                 <div key={group}>
-                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+                  <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">
                     {group}
                   </h2>
-                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-                    <ul className="divide-y divide-gray-100">
+                  <div className="overflow-hidden rounded-xl border border-line bg-surface">
+                    <ul className="divide-y divide-line">
                       {items.map((notification) => (
                         <li
                           key={notification.id}
                           className={`relative flex gap-4 px-4 py-4 transition sm:px-6 ${
-                            !notification.read ? 'bg-blue-50/40' : 'bg-white'
+                            !notification.read ? 'bg-primary-soft/40' : 'bg-surface'
                           }`}
                         >
                           {/* Icon */}
@@ -332,8 +337,8 @@ export default function NotificationsPage() {
                               <p
                                 className={`text-sm ${
                                   !notification.read
-                                    ? 'font-semibold text-gray-900'
-                                    : 'font-medium text-gray-800'
+                                    ? 'font-semibold text-ink'
+                                    : 'font-medium text-ink-2'
                                 }`}
                               >
                                 {notification.title}
@@ -341,17 +346,17 @@ export default function NotificationsPage() {
                               {!notification.read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notification.id)}
-                                  className="flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
+                                  className="flex-shrink-0 rounded-[8px] px-2 py-0.5 text-xs font-medium text-primary transition hover:bg-primary-soft"
                                   title="Mark as read"
                                 >
                                   Mark read
                                 </button>
                               )}
                             </div>
-                            <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                            <p className="mt-1 text-sm leading-relaxed text-ink-2">
                               {notification.body}
                             </p>
-                            <p className="mt-2 text-xs text-gray-400">
+                            <p className="mt-2 text-xs text-ink-3">
                               {formatTimestamp(notification.createdAt)}
                             </p>
                           </div>
@@ -359,7 +364,7 @@ export default function NotificationsPage() {
                           {/* Unread dot */}
                           {!notification.read && (
                             <div className="absolute left-1.5 top-1/2 -translate-y-1/2 sm:left-2">
-                              <div className="h-2 w-2 rounded-full bg-blue-500" />
+                              <div className="h-2 w-2 rounded-full bg-primary" />
                             </div>
                           )}
                         </li>
@@ -376,7 +381,7 @@ export default function NotificationsPage() {
             <div className="mt-6 text-center">
               <button
                 onClick={handleLoadMore}
-                className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="inline-flex items-center rounded-[10px] border border-line bg-surface px-6 py-2.5 text-sm font-medium text-ink-2 transition hover:bg-page focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 Load more notifications
               </button>
