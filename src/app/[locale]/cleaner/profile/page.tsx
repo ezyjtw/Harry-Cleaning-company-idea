@@ -224,7 +224,7 @@ export default function CleanerProfilePage() {
 
   const incompleteBadge = (
     <span
-      className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-jost text-[11px] font-medium text-amber-700"
+      className="ml-2 inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-0.5 font-jost text-[11px] font-medium text-warning"
       style={{ border: '1px solid rgba(217,119,6,0.2)' }}
     >
       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +241,7 @@ export default function CleanerProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+      <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-ink/5 rounded-lg w-32" />
           {[1, 2, 3, 4].map((i) => (
@@ -253,7 +253,7 @@ export default function CleanerProfilePage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+    <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="font-newsreader text-2xl font-semibold text-ink">Edit Profile</h1>
         <p className="font-jost text-sm font-light text-ink-3 mt-1">
@@ -264,12 +264,12 @@ export default function CleanerProfilePage() {
       {/* Unsaved changes banner */}
       {dirty && (
         <div
-          className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 px-5 py-3"
+          className="mb-6 flex items-center justify-between rounded-xl bg-warning/10 px-5 py-3"
           style={{ border: '1px solid rgba(217,119,6,0.2)' }}
         >
           <div className="flex items-center gap-2">
             <svg
-              className="w-4 h-4 text-amber-600"
+              className="w-4 h-4 text-warning"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -281,12 +281,12 @@ export default function CleanerProfilePage() {
                 d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"
               />
             </svg>
-            <span className="font-jost text-sm text-amber-800">You have unsaved changes</span>
+            <span className="font-jost text-sm text-warning">You have unsaved changes</span>
           </div>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition disabled:opacity-50"
+            className="rounded-[10px] px-4 py-1.5 bg-primary text-white font-jost text-[12px] font-light hover:bg-primary-hover transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save now'}
           </button>
@@ -296,24 +296,21 @@ export default function CleanerProfilePage() {
       {/* Save error */}
       {saveError && (
         <div
-          className="mb-6 rounded-xl bg-red-50 px-5 py-3"
-          style={{ border: '1px solid rgba(239,68,68,0.15)' }}
+          className="mb-6 rounded-xl bg-danger/10 px-5 py-3"
+          style={{ border: '1px solid rgb(var(--color-danger) / 0.2)' }}
         >
-          <p className="font-jost text-sm text-red-700">{saveError}</p>
+          <p className="font-jost text-sm text-danger">{saveError}</p>
         </div>
       )}
 
       <div className="space-y-6">
         {/* Photo upload */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
             Profile Photo{!isPhotoComplete && incompleteBadge}
           </h2>
           <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-cream-2 border-2 border-dashed border-ink-3/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="w-24 h-24 rounded-full bg-primary-soft border-2 border-dashed border-ink-3/30 flex items-center justify-center overflow-hidden flex-shrink-0">
               {photo ? (
                 <Image
                   src={photo}
@@ -341,8 +338,8 @@ export default function CleanerProfilePage() {
             <div>
               <div className="flex flex-wrap gap-2">
                 <label
-                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-page text-ink font-jost text-sm font-light cursor-pointer hover:bg-primary-soft transition-colors"
+                  style={{ border: '0.5px solid rgb(var(--color-border))' }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -364,8 +361,8 @@ export default function CleanerProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowWebcam(true)}
-                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light hover:bg-cream-2 transition-colors"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-page text-ink font-jost text-sm font-light hover:bg-primary-soft transition-colors"
+                    style={{ border: '0.5px solid rgb(var(--color-border))' }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -380,8 +377,8 @@ export default function CleanerProfilePage() {
                   </button>
                 ) : (
                   <label
-                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
-                    style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-page text-ink font-jost text-sm font-light cursor-pointer hover:bg-primary-soft transition-colors"
+                    style={{ border: '0.5px solid rgb(var(--color-border))' }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -411,11 +408,8 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Personal info */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
             Personal Information{!isPostcodeComplete && incompleteBadge}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -449,8 +443,8 @@ export default function CleanerProfilePage() {
                   markDirty();
                 }}
                 placeholder="e.g. SW1A 1AA"
-                className="mt-1.5 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
             </div>
           </div>
@@ -460,11 +454,8 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Bio */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
             About You{!isBioComplete && incompleteBadge}
           </h2>
           <textarea
@@ -474,8 +465,8 @@ export default function CleanerProfilePage() {
               markDirty();
             }}
             placeholder="Tell customers about yourself, your experience, and what makes you a great cleaner..."
-            className="w-full rounded-lg px-4 py-3 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none transition"
-            style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+            className="w-full rounded-lg px-4 py-3 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none transition"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
             rows={4}
           />
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
@@ -484,11 +475,8 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Experience */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Experience</h2>
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">Experience</h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
             How many years have you been cleaning professionally?
           </p>
@@ -503,19 +491,16 @@ export default function CleanerProfilePage() {
               min="0"
               max="50"
               placeholder="e.g. 5"
-              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             />
             <span className="font-jost text-sm font-light text-ink-2">years</span>
           </div>
         </div>
 
         {/* Specialties */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
             Specialties{!isSpecialtiesComplete && incompleteBadge}
           </h2>
           <p className="font-jost text-sm font-light text-ink-2 mb-3">
@@ -528,13 +513,13 @@ export default function CleanerProfilePage() {
                 onClick={() => toggleSpecialty(s)}
                 className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                   selectedSpecialties.includes(s)
-                    ? 'bg-ink text-cream shadow-sm'
-                    : 'bg-cream text-ink-2 hover:bg-cream-2'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-page text-ink-2 hover:bg-primary-soft'
                 }`}
                 style={
                   selectedSpecialties.includes(s)
                     ? undefined
-                    : { border: '1px solid rgba(14,14,12,0.1)' }
+                    : { border: '1px solid rgb(var(--color-border))' }
                 }
               >
                 {selectedSpecialties.includes(s) && (
@@ -559,11 +544,8 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Languages */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
             Languages Spoken{!isLanguagesComplete && incompleteBadge}
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -573,13 +555,13 @@ export default function CleanerProfilePage() {
                 onClick={() => toggleLanguage(l)}
                 className={`rounded-full px-4 py-2 font-jost text-[13px] font-light transition ${
                   selectedLanguages.includes(l)
-                    ? 'bg-ink text-cream shadow-sm'
-                    : 'bg-cream text-ink-2 hover:bg-cream-2'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-page text-ink-2 hover:bg-primary-soft'
                 }`}
                 style={
                   selectedLanguages.includes(l)
                     ? undefined
-                    : { border: '1px solid rgba(14,14,12,0.1)' }
+                    : { border: '1px solid rgb(var(--color-border))' }
                 }
               >
                 {l}
@@ -596,8 +578,8 @@ export default function CleanerProfilePage() {
                 value={customLanguage}
                 onChange={(e) => setCustomLanguage(e.target.value)}
                 placeholder="e.g. Swahili"
-                className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
               <button
                 type="button"
@@ -615,7 +597,7 @@ export default function CleanerProfilePage() {
                   }
                 }}
                 disabled={!customLanguage.trim()}
-                className="rounded-lg px-4 py-2.5 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-[10px] px-4 py-2.5 bg-primary text-white font-jost text-sm font-light hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>
@@ -624,11 +606,8 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Service Area */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Service Area</h2>
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">Service Area</h2>
 
           <div className="mb-5">
             <p className="font-jost text-sm font-light text-ink-2 mb-3">
@@ -642,8 +621,8 @@ export default function CleanerProfilePage() {
                 markDirty();
               }}
               placeholder="e.g. SW1A 1AA"
-              className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition uppercase"
-              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+              className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition uppercase"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             />
           </div>
 
@@ -663,8 +642,8 @@ export default function CleanerProfilePage() {
                 max="120"
                 step="5"
                 placeholder="e.g. 30"
-                className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
               <span className="font-jost text-sm font-light text-ink-2">minutes</span>
             </div>
@@ -675,22 +654,19 @@ export default function CleanerProfilePage() {
         </div>
 
         {/* Insurance */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
             Public Liability Insurance
             {insuranceStatus && !insuranceStatus.insuranceVerified && incompleteBadge}
           </h2>
 
           {insuranceStatus?.insuranceVerified && !insuranceStatus.isExpired && (
             <div
-              className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3"
+              className="mb-4 flex items-center gap-2 rounded-lg bg-trust/10 px-4 py-3"
               style={{ border: '1px solid rgba(34,197,94,0.2)' }}
             >
               <svg
-                className="w-5 h-5 text-green-600"
+                className="w-5 h-5 text-trust"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -715,11 +691,11 @@ export default function CleanerProfilePage() {
 
           {insuranceStatus?.isExpired && (
             <div
-              className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3"
+              className="mb-4 flex items-center gap-2 rounded-lg bg-danger/10 px-4 py-3"
               style={{ border: '1px solid rgba(239,68,68,0.2)' }}
             >
               <svg
-                className="w-5 h-5 text-red-600"
+                className="w-5 h-5 text-danger"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -732,8 +708,8 @@ export default function CleanerProfilePage() {
                 />
               </svg>
               <div>
-                <p className="font-jost text-sm font-medium text-red-800">Insurance expired</p>
-                <p className="font-jost text-[12px] text-red-700">
+                <p className="font-jost text-sm font-medium text-danger">Insurance expired</p>
+                <p className="font-jost text-[12px] text-danger">
                   Please upload a renewed policy to continue accepting bookings.
                 </p>
               </div>
@@ -747,8 +723,8 @@ export default function CleanerProfilePage() {
 
           {insuranceStatus?.document && !insuranceStatus.isExpired && (
             <div
-              className="mb-4 rounded-lg bg-cream px-4 py-3"
-              style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+              className="mb-4 rounded-lg bg-page px-4 py-3"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             >
               <p className="font-jost text-sm text-ink">{insuranceStatus.document.fileName}</p>
               <p className="font-jost text-[11px] text-ink-3">
@@ -767,8 +743,8 @@ export default function CleanerProfilePage() {
                 value={insuranceExpiry}
                 onChange={(e) => setInsuranceExpiry(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
             </div>
             <div>
@@ -792,8 +768,8 @@ export default function CleanerProfilePage() {
               />
               <button
                 onClick={() => insuranceInputRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 bg-cream text-ink font-jost text-sm font-light cursor-pointer hover:bg-cream-2 transition-colors"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 bg-page text-ink font-jost text-sm font-light cursor-pointer hover:bg-primary-soft transition-colors"
+                style={{ border: '0.5px solid rgb(var(--color-border))' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -808,7 +784,7 @@ export default function CleanerProfilePage() {
               <p className="mt-1 font-jost text-[11px] text-ink-3">PDF, JPG, or PNG. Max 10MB.</p>
             </div>
             {insuranceError && (
-              <p className="font-jost text-[12px] text-red-600">{insuranceError}</p>
+              <p className="font-jost text-[12px] text-danger">{insuranceError}</p>
             )}
             <button
               disabled={insuranceUploading || !insuranceFile || !insuranceExpiry}
@@ -840,7 +816,7 @@ export default function CleanerProfilePage() {
                 }
                 setInsuranceUploading(false);
               }}
-              className="rounded-full px-6 py-2 bg-ink text-cream font-jost text-[13px] font-light hover:bg-ink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-[10px] px-6 py-2 bg-primary text-white font-jost text-[13px] font-light hover:bg-primary-hover transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {insuranceUploading ? 'Uploading...' : 'Upload Insurance'}
             </button>
@@ -850,7 +826,7 @@ export default function CleanerProfilePage() {
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
-            <span className="font-jost text-sm font-light text-green-600 flex items-center gap-1">
+            <span className="font-jost text-sm font-light text-trust flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -865,7 +841,7 @@ export default function CleanerProfilePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full px-8 py-2.5 bg-ink text-cream font-jost text-[13px] font-light shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
+            className="rounded-[10px] px-8 py-2.5 bg-primary text-white font-jost text-[13px] font-light shadow-sm hover:bg-primary-hover transition disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Profile'}
           </button>
