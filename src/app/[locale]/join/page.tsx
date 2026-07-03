@@ -1145,8 +1145,24 @@ export default function JoinAsCleanerPage() {
       const result = await response.json();
       const cleanerId = result.cleaner?.id;
 
-      // Upload documents after profile creation
-      if (cleanerId) {
+      localStorage.removeItem(STORAGE_KEY);
+      trackConversion({ email: form.email });
+
+      // Sign in BEFORE uploading documents. /api/cleaners/documents authorises
+      // the caller from their session, so uploading before sign-in returned 401
+      // and every document silently failed. Establish the session first.
+      let signedIn = false;
+      if (form.password) {
+        const signInResult = await signIn('credentials', {
+          email: form.email,
+          password: form.password,
+          redirect: false,
+        });
+        signedIn = !signInResult?.error;
+      }
+
+      // Upload documents now that we hold a session.
+      if (signedIn && cleanerId) {
         const docs: { data: string; type: string; label: string }[] = [];
         if (photoIdFile && photoIdFile.startsWith('data:'))
           docs.push({ data: photoIdFile, type: 'photo_id', label: 'Photo ID' });
@@ -1179,23 +1195,13 @@ export default function JoinAsCleanerPage() {
           setErrors({
             submit: `Your application was submitted, but the following documents failed to upload: ${failedUploads.join(', ')}. Please re-upload them from your cleaner dashboard after logging in.`,
           });
+          return;
         }
       }
 
-      localStorage.removeItem(STORAGE_KEY);
-      trackConversion({ email: form.email });
-
-      // Auto-sign in and redirect to cleaner dashboard
-      if (form.password) {
-        const signInResult = await signIn('credentials', {
-          email: form.email,
-          password: form.password,
-          redirect: false,
-        });
-        if (!signInResult?.error) {
-          router.push('/cleaner');
-          return;
-        }
+      if (signedIn) {
+        router.push('/cleaner');
+        return;
       }
 
       setSubmitted(true);
