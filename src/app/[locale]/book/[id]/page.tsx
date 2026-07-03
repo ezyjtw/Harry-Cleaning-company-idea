@@ -1115,6 +1115,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 autoAssign={autoAssignBackup}
                 onAutoAssignChange={setAutoAssignBackup}
                 serviceCategory={form.serviceType as ServiceCategory}
+                propertySize={form.bedrooms}
               />
             </div>
 
