@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cleaner Portal — Option D (dark sidebar retoken)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --page:#FAFBFC;--surface:#fff;--line:#E4E9F0;
+    --ink:#1B2A4A;--ink-2:#3D5170;--ink-3:#7A8A9E;
+    --primary:#16296b;--primary-soft:#e7ecf6;--trust:#16a34a;--danger:#dc2626;--warning:#d97706;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Jost',system-ui,sans-serif;}
+  body{background:#e9ebef;color:var(--ink);padding:28px 20px 80px;}
+  /* Etna isn't web-available; approximate the wordmark with a wide-tracked serif */
+  .wordmark{font-family:'Newsreader',serif;font-weight:600;letter-spacing:.22em;}
+  h1.t{font-family:'Newsreader',serif;font-weight:600;font-size:24px;margin-bottom:4px;}
+  .lead{font-size:13px;color:#6b7280;margin-bottom:6px;max-width:820px;}
+  .note{font-size:12px;color:#b45309;margin-bottom:22px;max-width:820px;line-height:1.5;}
+  .seclabel{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin:34px 0 14px;border-top:1px solid #d5d9e0;padding-top:18px;}
+  .frames{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;}
+  .statelabel{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8a94a6;margin:0 0 8px 2px;}
+
+  /* ---- sidebar (dark) ---- */
+  .portal{display:flex;border-radius:14px;overflow:hidden;border:1px solid var(--line);width:820px;max-width:100%;height:560px;}
+  .sidebar{width:256px;flex:none;background:var(--ink);display:flex;flex-direction:column;}
+  .sb-brand{padding:24px 24px 8px;display:flex;align-items:center;gap:8px;}
+  .sb-brand .rena{color:#fff;font-size:20px;}
+  .sb-brand .tag{font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:rgba(255,255,255,.45);}
+  .sb-user{padding:16px 24px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;}
+  .sb-av{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:500;font-size:14px;flex:none;}
+  .sb-user .nm{font-weight:300;color:rgba(255,255,255,.9);font-size:14px;text-transform:uppercase;}
+  .sb-user .tier{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.45);}
+  .sb-nav{flex:1;padding:12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
+  .sb-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:300;color:rgba(255,255,255,.55);text-decoration:none;transition:.15s;}
+  .sb-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.85);}
+  .sb-item.active{background:rgba(255,255,255,.14);color:#fff;}
+  .sb-item svg{width:18px;height:18px;flex:none;}
+  .sb-bottom{padding:12px;border-top:.5px solid rgba(255,255,255,.08);}
+  .sb-back{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:300;color:rgba(255,255,255,.4);text-decoration:none;}
+  .sb-back:hover{color:rgba(255,255,255,.7);background:rgba(255,255,255,.05);}
+
+  /* ---- jobs content (light) ---- */
+  .content{flex:1;background:var(--page);padding:24px;overflow-y:auto;}
+  .content h2{font-family:'Newsreader',serif;font-weight:600;font-size:24px;color:var(--ink);margin-bottom:4px;}
+  .content .sub{font-size:13px;color:var(--ink-3);margin-bottom:20px;}
+  .jobcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
+  .jobtop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+  .jobtop b{font-size:14px;font-weight:600;color:var(--ink);}
+  .chip{display:inline-flex;align-items:center;padding:2px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:500;}
+  .chip.neutral{background:rgba(27,42,74,.05);color:var(--ink-3);}
+  .chip.primary{background:var(--primary-soft);color:var(--primary);}
+  .jobmeta{font-size:13px;color:var(--ink-2);margin-top:8px;}
+  .jobprice{font-family:'Newsreader',serif;font-size:20px;font-weight:600;color:var(--ink);}
+  .reserve-note{font-size:12px;font-weight:300;color:var(--ink-2);text-align:right;max-width:280px;margin-top:8px;}
+  .btn{border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;border:none;cursor:pointer;}
+  .btn.primary{background:var(--primary);color:#fff;} .btn.outline{border:1px solid var(--line);background:#fff;color:var(--ink-2);}
+
+  /* mobile */
+  .mobile{width:390px;max-width:100%;border-radius:14px;overflow:hidden;border:1px solid var(--line);}
+  .m-header{background:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:12px 16px;}
+  .m-header .burger{color:rgba(255,255,255,.8);}
+  .m-header .brand{display:flex;align-items:center;gap:8px;}
+  .m-header .rena{color:#fff;font-size:18px;} .m-header .tag{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:rgba(255,255,255,.45);}
+  .m-content{background:var(--page);padding:16px;}
+  .m-drawer{width:256px;background:var(--ink);border-radius:14px;overflow:hidden;}
+</style>
+</head>
+<body>
+
+<h1 class="t">Cleaner Portal — Option D (deliberate dark identity)</h1>
+<p class="lead">CleanerSidebar stays dark (<code>bg-ink</code> #1B2A4A) as a sanctioned dark surface, rebuilt on tokens: RENA wordmark white, caps labels muted steel-blue (white-alpha on navy), inactive items soft blue-gray, active = soft-white pill (~14% white) + white text. All gold and legacy (cormorant) fonts removed; Etna kept only for the wordmark. Content pages stay light.</p>
+<p class="note">⚠️ The wordmark here is a serif stand-in — the real build uses Etna. Everything else (colours, opacities, spacing) is faithful. Slate pockets in cleaner/jobs are retokenised (In-reserve → neutral ink, Backup-offer → primary-soft).</p>
+
+<div class="seclabel">Desktop — sidebar + jobs</div>
+<div class="frames">
+  <div>
+    <div class="portal">
+      <div class="sidebar">
+        <div class="sb-brand"><span class="wordmark rena">RENA</span><span class="tag">Cleaner Portal</span></div>
+        <div class="sb-user"><div class="sb-av">JM</div><div><div class="nm">Jamie Munro</div><div class="tier">Gold Tier</div></div></div>
+        <div class="sb-nav">
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>Dashboard</a>
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile</a>
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>Pricing</a>
+          <a class="sb-item active"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>My Jobs</a>
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</a>
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Availability</a>
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 9v1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Earnings &amp; Statements</a>
+          <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118L2.9 10.8c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>Reviews</a>
+        </div>
+        <div class="sb-bottom"><a class="sb-back"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>Back to Site</a></div>
+      </div>
+      <div class="content">
+        <h2>My Jobs</h2>
+        <div class="sub">Offers, upcoming cleans and your job history.</div>
+        <div class="jobcard">
+          <div class="jobtop">
+            <div><b>Deep Clean · 3 hrs</b> <span class="chip primary" style="margin-left:6px;">Backup offer</span>
+              <div class="jobmeta">Fri, 11 Jul · 10:00 · SE1 2AB</div></div>
+            <div style="text-align:right;"><div class="jobprice">£72.00</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;"><button class="btn primary">Accept</button><button class="btn outline">Decline</button></div>
+        </div>
+        <div class="jobcard">
+          <div class="jobtop">
+            <div><b>Regular Clean · 2 hrs</b> <span class="chip neutral" style="margin-left:6px;">In reserve</span>
+              <div class="jobmeta">Mon, 14 Jul · 14:00 · E2 9AA</div></div>
+            <div><p class="reserve-note">You're held in reserve. If no cleaner accepts at or below the quoted price, we'll offer this to you.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="seclabel">Mobile — header + drawer</div>
+<div class="frames">
+  <div>
+    <div class="statelabel">Header + content</div>
+    <div class="mobile">
+      <div class="m-header">
+        <span class="burger">☰</span>
+        <div class="brand"><span class="wordmark rena">RENA</span><span class="tag">Cleaner</span></div>
+        <span style="width:20px;"></span>
+      </div>
+      <div class="m-content">
+        <h2 style="font-family:'Newsreader',serif;font-size:22px;color:var(--ink);margin-bottom:12px;">My Jobs</h2>
+        <div class="jobcard">
+          <div><b style="font-size:14px;color:var(--ink);">Deep Clean · 3 hrs</b> <span class="chip primary" style="margin-left:4px;">Backup offer</span></div>
+          <div class="jobmeta">Fri, 11 Jul · 10:00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="statelabel">Slide-out drawer (open)</div>
+    <div class="m-drawer">
+      <div class="sb-brand"><span class="wordmark rena">RENA</span><span class="tag">Cleaner Portal</span></div>
+      <div class="sb-user"><div class="sb-av">JM</div><div><div class="nm">Jamie Munro</div><div class="tier">Gold Tier</div></div></div>
+      <div class="sb-nav" style="padding-bottom:16px;">
+        <a class="sb-item active"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/></svg>My Jobs</a>
+        <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile</a>
+        <a class="sb-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Availability</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -105,12 +105,12 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   }, [router, pathname]);
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-page">
       {/* Mobile header */}
       <div className="lg:hidden flex items-center justify-between bg-ink px-4 py-3">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-cream/80 hover:text-cream"
+          className="text-white/80 hover:text-white"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -122,8 +122,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           </svg>
         </button>
         <div className="flex items-center gap-2">
-          <span className="font-etna text-lg tracking-widest text-cream">RENA</span>
-          <span className="font-jost text-[10px] uppercase tracking-[0.15em] text-cream/50">
+          <span className="font-etna text-lg tracking-widest text-white">RENA</span>
+          <span className="font-jost text-[10px] uppercase tracking-[0.15em] text-white/45">
             Cleaner
           </span>
         </div>
@@ -152,10 +152,10 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           {/* Brand */}
           <div className="px-6 pt-6 pb-2">
             <Link href="/" className="flex items-center gap-2">
-              <span className="font-etna text-xl font-semibold tracking-widest text-cream">
+              <span className="font-etna text-xl font-semibold tracking-widest text-white">
                 RENA
               </span>
-              <span className="font-jost text-[9px] uppercase tracking-[0.2em] text-cream/70">
+              <span className="font-jost text-[9px] uppercase tracking-[0.2em] text-white/45">
                 Cleaner Portal
               </span>
             </Link>
@@ -164,7 +164,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           {/* Cleaner info */}
           <div className="px-6 py-4" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {cleanerImage ? (
                   <Image
                     src={cleanerImage}
@@ -174,16 +174,16 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-gold font-cormorant font-light text-sm">
+                  <span className="text-white font-jost font-medium text-sm">
                     {initials || '..'}
                   </span>
                 )}
               </div>
               <div className="min-w-0">
-                <p className="font-jost font-light text-cream text-sm truncate uppercase">
+                <p className="font-jost font-light text-white/90 text-sm truncate uppercase">
                   {cleanerName || 'Loading...'}
                 </p>
-                <span className="font-jost text-[10px] uppercase tracking-[0.12em] text-cream/60">
+                <span className="font-jost text-[10px] uppercase tracking-[0.12em] text-white/45">
                   {cleanerTier
                     ? `${cleanerTier.charAt(0) + cleanerTier.slice(1).toLowerCase()} Tier`
                     : ''}
@@ -205,8 +205,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                     flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-jost font-light transition-all duration-150
                     ${
                       isActive
-                        ? 'bg-cream/10 text-cream'
-                        : 'text-cream/50 hover:bg-cream/5 hover:text-cream/80'
+                        ? 'bg-white/[0.14] text-white'
+                        : 'text-white/55 hover:bg-white/5 hover:text-white/85'
                     }
                   `}
                 >
@@ -224,7 +224,6 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                     />
                   </svg>
                   {item.label}
-                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold" />}
                 </Link>
               );
             })}
@@ -234,7 +233,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           <div className="p-3" style={{ borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-jost font-light text-cream/35 hover:text-cream/60 hover:bg-cream/5 transition-all duration-150"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-jost font-light text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-150"
             >
               <svg
                 className="w-[18px] h-[18px]"
