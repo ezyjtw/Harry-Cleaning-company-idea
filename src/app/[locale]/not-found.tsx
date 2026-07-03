@@ -6,22 +6,22 @@ export default function NotFound() {
       <div className="mx-auto max-w-md">
         {/* 404 illustration */}
         <div className="mb-6">
-          <span className="text-8xl font-extrabold text-blue-600">404</span>
+          <span className="font-newsreader text-8xl font-semibold text-primary">404</span>
         </div>
 
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Page not found</h1>
-        <p className="mb-6 text-gray-600">
+        <h1 className="mb-2 font-newsreader text-2xl font-semibold text-ink">Page not found</h1>
+        <p className="mb-6 text-ink-2">
           Sorry, we could not find the page you are looking for. It may have been moved or no longer
           exists.
         </p>
 
         {/* Search suggestion */}
-        <div className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-4 text-left">
-          <p className="text-sm font-medium text-gray-700">Here are some suggestions:</p>
-          <ul className="mt-2 space-y-1 text-sm text-gray-600">
+        <div className="mb-8 rounded-[10px] border border-line bg-page p-4 text-left">
+          <p className="text-sm font-medium text-ink-2">Here are some suggestions:</p>
+          <ul className="mt-2 space-y-1 text-sm text-ink-2">
             <li className="flex items-center gap-2">
               <svg
-                className="h-4 w-4 text-blue-500"
+                className="h-4 w-4 text-primary"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2}
@@ -37,7 +37,7 @@ export default function NotFound() {
             </li>
             <li className="flex items-center gap-2">
               <svg
-                className="h-4 w-4 text-blue-500"
+                className="h-4 w-4 text-primary"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2}
@@ -53,7 +53,7 @@ export default function NotFound() {
             </li>
             <li className="flex items-center gap-2">
               <svg
-                className="h-4 w-4 text-blue-500"
+                className="h-4 w-4 text-primary"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2}
@@ -73,13 +73,13 @@ export default function NotFound() {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href="/"
-            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
           >
             Go to home page
           </Link>
           <Link
             href="/cleaners"
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="inline-flex items-center justify-center rounded-[10px] border border-line bg-surface px-6 py-3 text-sm font-semibold text-ink-2 transition hover:bg-page focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
           >
             Find a cleaner
           </Link>

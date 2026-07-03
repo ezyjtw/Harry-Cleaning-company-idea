@@ -23,9 +23,9 @@ export default function MessagesError({
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-danger/10">
         <svg
-          className="h-8 w-8 text-gray-400"
+          className="h-8 w-8 text-danger"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={1.5}
@@ -38,14 +38,16 @@ export default function MessagesError({
           />
         </svg>
       </div>
-      <h2 className="text-lg font-semibold text-gray-900">Couldn&rsquo;t load your messages</h2>
-      <p className="mt-1 max-w-sm text-sm text-gray-500">
+      <h2 className="font-newsreader text-xl font-semibold text-ink">
+        Couldn&rsquo;t load your messages
+      </h2>
+      <p className="mt-1 max-w-sm text-sm text-ink-2">
         Something went wrong loading this page. Please try again — if it keeps happening, contact
         support.
       </p>
       <button
         onClick={reset}
-        className="mt-4 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+        className="mt-4 rounded-[10px] bg-primary px-5 py-2 text-sm font-medium text-white transition hover:bg-primary-hover"
       >
         Try again
       </button>

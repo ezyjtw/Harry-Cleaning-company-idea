@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quick-wins preview — fallbacks + token pockets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --page:#FAFBFC;--surface:#fff;--line:#E4E9F0;
+    --ink:#1B2A4A;--ink-2:#3D5170;--ink-3:#7A8A9E;
+    --primary:#16296b;--primary-hover:#203a85;--primary-soft:#e7ecf6;
+    --trust:#16a34a;--danger:#dc2626;--warning:#d97706;
+    --trust-10:#e7f6ec;--warn-10:#fbf3e7;--danger-10:#fceaea;--ink-05:#f2f3f6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Jost',system-ui,sans-serif;}
+  body{background:#e9ebef;color:var(--ink);padding:28px 20px 80px;}
+  h1.t{font-family:'Newsreader',serif;font-weight:600;font-size:24px;margin-bottom:4px;}
+  .lead{font-size:13px;color:#6b7280;margin-bottom:22px;max-width:820px;}
+  .seclabel{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin:34px 0 14px;border-top:1px solid #d5d9e0;padding-top:18px;}
+  .frames{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;}
+  .statelabel{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8a94a6;margin:0 0 8px 2px;}
+  .card{width:420px;max-width:100%;background:var(--page);border:1px solid var(--line);border-radius:14px;padding:40px 28px;text-align:center;}
+  .newser{font-family:'Newsreader',serif;}
+  .circ{margin:0 auto 20px;height:64px;width:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .circ.danger{background:var(--danger-10);} .circ.danger svg{stroke:var(--danger);}
+  h2.big{font-family:'Newsreader',serif;font-weight:600;font-size:26px;color:var(--ink);margin-bottom:8px;}
+  .big404{font-family:'Newsreader',serif;font-weight:600;font-size:72px;color:var(--primary);line-height:1;margin-bottom:12px;}
+  p.body{font-size:15px;color:var(--ink-2);line-height:1.6;margin-bottom:24px;}
+  .btnrow{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .btn{border-radius:10px;padding:12px 24px;font-size:14px;font-weight:600;border:none;cursor:pointer;text-decoration:none;display:inline-block;}
+  .btn.primary{background:var(--primary);color:#fff;}
+  .btn.outline{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);}
+  .suggest{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:16px;text-align:left;margin-bottom:24px;font-size:14px;}
+  .suggest .h{font-weight:500;color:var(--ink-2);margin-bottom:8px;}
+  .suggest li{list-style:none;display:flex;gap:8px;align-items:center;color:var(--ink-2);margin-bottom:4px;}
+  .suggest svg{stroke:var(--primary);}
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;width:640px;max-width:100%;}
+  .chip{border-radius:999px;padding:3px 12px;font-size:12px;font-weight:500;}
+  .c-warn{background:var(--warn-10);color:var(--warning);}
+  .c-trust{background:var(--trust-10);color:var(--trust);}
+  .c-primary{background:var(--primary-soft);color:var(--primary);}
+  .c-danger{background:var(--danger-10);color:var(--danger);}
+  .c-neutral{background:var(--ink-05);color:var(--ink-3);}
+  .c-gold{background:rgba(22,41,107,.10);color:var(--primary);}
+  .tier{border-radius:8px;padding:4px 12px;font-size:12px;font-weight:500;}
+  .t-neutral3{background:var(--ink-05);color:var(--ink-3);}
+  .t-neutral2{background:var(--ink-05);color:var(--ink-2);}
+  .ge{width:420px;max-width:100%;background:var(--page);border:1px dashed #c3c9d4;border-radius:14px;padding:40px 28px;text-align:center;}
+  .note{font-size:11px;color:#8a94a6;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<h1 class="t">Quick-wins — fallbacks + token-pocket cleanup</h1>
+<p class="lead">Tokens-only, no design rounds. The four fallbacks + a new self-contained <b>global-error</b>, plus the dashboard status-chip map and the services tier badges normalised onto the semantic tokens. Newsreader titles, ink-2 body, navy primary rect + outline secondary.</p>
+
+<div class="seclabel">Fallbacks</div>
+<div class="frames">
+  <div><div class="statelabel">404 — not-found</div>
+    <div class="card">
+      <div class="big404">404</div>
+      <h2 class="big" style="font-size:22px;">Page not found</h2>
+      <p class="body">Sorry, we could not find the page you are looking for. It may have been moved or no longer exists.</p>
+      <div class="suggest">
+        <div class="h">Here are some suggestions:</div>
+        <ul>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2"><path stroke-linecap="round" d="m21 21-5.2-5.2m0 0A7.5 7.5 0 1 0 5.2 5.2a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>Try searching for a cleaner in your area</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2"><path stroke-linecap="round" d="M2.25 12l8.95-8.96c.44-.44 1.15-.44 1.6 0L21.75 12"/></svg>Browse our available services</li>
+        </ul>
+      </div>
+      <div class="btnrow"><a class="btn primary">Go to home page</a><a class="btn outline">Find a cleaner</a></div>
+    </div>
+  </div>
+
+  <div><div class="statelabel">error boundary</div>
+    <div class="card">
+      <div class="circ danger"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.22 3.37 1.95 3.37h14.7c1.73 0 2.82-1.87 1.95-3.37L13.95 3.38c-.87-1.5-3.03-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z"/></svg></div>
+      <h2 class="big">Something went wrong</h2>
+      <p class="body">We apologize for the inconvenience. An unexpected error has occurred. Please try again, or return to the home page.</p>
+      <div class="btnrow"><button class="btn primary">↻ Try again</button><a class="btn outline">Go to home page</a></div>
+    </div>
+  </div>
+
+  <div><div class="statelabel">messages error (in-pane)</div>
+    <div class="card">
+      <div class="circ danger"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.01v.01H12v-.01Z"/></svg></div>
+      <h2 class="big" style="font-size:20px;">Couldn't load your messages</h2>
+      <p class="body">Something went wrong loading this page. Please try again — if it keeps happening, contact support.</p>
+      <div class="btnrow"><button class="btn primary">Try again</button></div>
+    </div>
+  </div>
+
+  <div><div class="statelabel">offline (PWA)</div>
+    <div class="card">
+      <div style="font-size:56px;margin-bottom:8px;">🔌</div>
+      <h2 class="big">You're Offline</h2>
+      <p class="body">It looks like you've lost your internet connection. Please check your connection and try again.</p>
+      <div class="btnrow"><button class="btn primary">Try Again</button></div>
+    </div>
+  </div>
+
+  <div><div class="statelabel">global-error (self-contained, no app CSS)</div>
+    <div class="ge">
+      <div class="circ danger"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.22 3.37 1.95 3.37h14.7c1.73 0 2.82-1.87 1.95-3.37L13.95 3.38c-.87-1.5-3.03-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z"/></svg></div>
+      <h2 class="big">Something went wrong</h2>
+      <p class="body">We hit an unexpected error. Please try again, or return to the home page.</p>
+      <div class="btnrow"><button class="btn primary">Try again</button><a class="btn outline">Go to home page</a></div>
+      <div class="note">Inline styles + literal brand hex + serif stack (renders with no stylesheet on a hard crash).</div>
+    </div>
+  </div>
+</div>
+
+<div class="seclabel">Dashboard status chips — full map normalised to semantic tokens</div>
+<div class="chiprow">
+  <span class="chip c-gold">Pending</span>
+  <span class="chip c-warn">Awaiting cleaner</span>
+  <span class="chip c-warn">Finding a cleaner</span>
+  <span class="chip c-warn">Price approval needed</span>
+  <span class="chip c-trust">Confirmed</span>
+  <span class="chip c-primary">On the way</span>
+  <span class="chip c-primary">In progress</span>
+  <span class="chip c-danger">No cleaner available</span>
+  <span class="chip c-neutral">Cancelled</span>
+  <span class="chip c-danger">Disputed</span>
+</div>
+<p class="note" style="max-width:640px;">warning = attention/in-progress · trust = confirmed · primary(navy) = en-route/in-progress (was blue) · danger = failed/disputed · neutral = cancelled · Pending keeps the gold/primary alias. (Residual amber/red pockets in the dashboard's error state + a couple of badges are outside the flagged status-chip scope — flagged, not touched.)</p>
+
+<div class="seclabel">Services tier badges — slate → neutral tokens</div>
+<div class="chiprow">
+  <span class="tier t-neutral3">Starter</span>
+  <span class="tier" style="background:rgba(217,119,6,.10);color:#b45309;">Bronze</span>
+  <span class="tier t-neutral2">Silver</span>
+  <span class="tier" style="background:rgba(217,119,6,.14);color:#a16207;">Gold</span>
+</div>
+<p class="note">Only the two <b>slate</b> tiers (Starter, Silver) were retokenised to neutral ink; the metallic Bronze/Gold amber stays as an intentional tier cue.</p>
+
+</body>
+</html>

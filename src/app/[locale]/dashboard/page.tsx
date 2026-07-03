@@ -116,29 +116,29 @@ function statusBadge(
   cascadePhase?: string | null
 ): { text: string; className: string } {
   if (status === 'AWAITING_CLEANER' && cascadePhase === 'PROVISIONAL_APPROVAL') {
-    return { text: 'Price approval needed', className: 'bg-amber-50 text-amber-600' };
+    return { text: 'Price approval needed', className: 'bg-warning/10 text-warning' };
   }
   if (status === 'AWAITING_CLEANER' && cascadePhase === 'BACKUP_OFFER') {
-    return { text: 'Finding a cleaner', className: 'bg-amber-50 text-amber-600' };
+    return { text: 'Finding a cleaner', className: 'bg-warning/10 text-warning' };
   }
   switch (status) {
     case 'PENDING':
       return { text: 'Pending', className: 'bg-gold/10 text-gold' };
     case 'AWAITING_CLEANER':
-      return { text: 'Awaiting cleaner', className: 'bg-amber-50 text-amber-600' };
+      return { text: 'Awaiting cleaner', className: 'bg-warning/10 text-warning' };
     case 'CONFIRMED':
     case 'ACCEPTED':
-      return { text: 'Confirmed', className: 'bg-green-50 text-green-600' };
+      return { text: 'Confirmed', className: 'bg-trust/10 text-trust' };
     case 'EN_ROUTE':
-      return { text: 'On the way', className: 'bg-blue-50 text-blue-600' };
+      return { text: 'On the way', className: 'bg-primary-soft text-primary' };
     case 'IN_PROGRESS':
-      return { text: 'In progress', className: 'bg-blue-50 text-blue-600' };
+      return { text: 'In progress', className: 'bg-primary-soft text-primary' };
     case 'CASCADE_EXHAUSTED':
-      return { text: 'No cleaner available', className: 'bg-red-50 text-red-600' };
+      return { text: 'No cleaner available', className: 'bg-danger/10 text-danger' };
     case 'CANCELLED':
       return { text: 'Cancelled', className: 'bg-ink/5 text-ink-3' };
     case 'DISPUTED':
-      return { text: 'Disputed', className: 'bg-red-50 text-red-600' };
+      return { text: 'Disputed', className: 'bg-danger/10 text-danger' };
     default:
       return { text: status, className: 'bg-ink/5 text-ink-3' };
   }
