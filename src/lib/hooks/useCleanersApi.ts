@@ -26,7 +26,7 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     verified: (c.verified as boolean) || false,
     identityVerified: (c.identityVerified as boolean) || false,
     backgroundChecked: (c.backgroundChecked as boolean) || false,
-    yearsExperience: 0,
+    yearsExperience: (c.yearsExperience as number) || 0,
     completedJobs: (c.completedJobs as number) || 0,
     availability: (c.availability as string[]) || [],
     timeSlots: (c.timeSlots as Record<string, string[]>) || {},

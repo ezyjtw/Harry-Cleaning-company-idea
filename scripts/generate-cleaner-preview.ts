@@ -138,6 +138,7 @@ const P = {
     ['Airbnb cleaning', 'from £45.00'],
   ] as [string, string][],
   bio: 'Professional cleaner with 8 years of experience across regular, deep and end-of-tenancy work. I take pride in leaving every home spotless and fresh, and I use eco-friendly products that are safe for families and pets.',
+  years: 8,
   jobs: 520,
   response: '~8 min',
   ratings: [
@@ -169,13 +170,8 @@ const profileHtml = (withPhoto: boolean) => `
     <a class="book book-band" href="#">Book now</a>
   </div>
   <div class="ledger">
-    <div class="sec-label">Services &amp; rates</div>
-    ${P.services.map(([n, p]) => `<div class="lrow"><span>${n}</span><span class="serif-price">${p}</span></div>`).join('')}
     <div class="sec-label">About</div>
     <p class="labout">${P.bio}</p>
-    <div class="sec-label">Experience</div>
-    <div class="lrow"><span>Jobs completed</span><span class="serif-price">${P.jobs}</span></div>
-    <div class="lrow"><span>Response time</span><span class="serif-price">${P.response}</span></div>
     <div class="sec-label">Detailed ratings</div>
     ${P.ratings
       .map(
@@ -190,6 +186,10 @@ const profileHtml = (withPhoto: boolean) => `
           `<div class="rev"><div class="rev-top"><span class="rev-name">${n}${ver ? '<span class="vpill">Verified</span>' : ''}</span>${stars(r as number)}</div><p class="rev-txt">${t}</p></div>`
       )
       .join('')}
+    <div class="sec-label">Experience</div>
+    <div class="exp-row">${P.years} yrs · ${P.jobs} jobs · ${P.response} response</div>
+    <div class="sec-label">Services &amp; rates</div>
+    ${P.services.map(([n, p]) => `<div class="lrow"><span>${n}</span><span class="serif-price">${p}</span></div>`).join('')}
   </div>
 </div>`;
 
@@ -236,6 +236,7 @@ h1.t{font-family:'Newsreader',serif;font-weight:500;font-size:22px;margin:0 0 4p
 .ledger{padding:6px 28px 28px;}
 .sec-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 8px;}
 .lrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2);}
+.exp-row{border-top:1px solid var(--line);padding:11px 0;font-size:14px;color:var(--ink-2);}
 .labout{font-size:14px;font-weight:300;line-height:1.7;color:var(--ink-2);padding-top:4px;}
 .bar-row{display:flex;align-items:center;gap:12px;padding:7px 0;}
 .bar-l{width:130px;font-size:13px;color:var(--ink-2);font-weight:300;}
