@@ -18,6 +18,7 @@ interface UpcomingJob {
   price: number;
   cleanerEarnings: number;
   status: string;
+  isOffer: boolean;
   bedrooms?: number;
 }
 
@@ -134,7 +135,9 @@ export default function CleanerDashboard() {
           await loadDashboard().catch(() => {});
           return;
         }
-        setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed' } : j)));
+        setJobs((prev) =>
+          prev.map((j) => (j.id === jobId ? { ...j, status: 'confirmed', isOffer: false } : j))
+        );
       } else {
         const data = await res.json().catch(() => null);
         setActionError(data?.error || 'Failed to accept job. Please try again.');
@@ -542,14 +545,10 @@ export default function CleanerDashboard() {
                     <p className="font-jost text-sm font-normal text-ink">{job.clientName}</p>
                     <span
                       className={`rounded-full font-jost text-[10px] uppercase tracking-[0.1em] px-2.5 py-0.5 ${
-                        job.status === 'confirmed' || job.status === 'accepted'
-                          ? 'bg-gold/10 text-gold'
-                          : 'bg-ink/5 text-ink-3'
+                        job.isOffer ? 'bg-gold/10 text-gold' : 'bg-ink/5 text-ink-3'
                       }`}
                     >
-                      {job.status === 'confirmed' || job.status === 'accepted'
-                        ? 'Confirmed'
-                        : 'Pending'}
+                      {job.isOffer ? 'New offer' : 'Confirmed'}
                     </span>
                   </div>
                   <p className="font-jost text-sm font-light text-ink-3 mt-0.5">{job.address}</p>
@@ -588,7 +587,7 @@ export default function CleanerDashboard() {
                         </p>
                       </div>
                     )}
-                  {job.status === 'pending' && (
+                  {job.isOffer && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAccept(job.id)}
