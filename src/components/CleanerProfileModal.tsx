@@ -33,6 +33,10 @@ interface CleanerProfileModalProps {
   /** Customer's search postcode — forwarded to /book so the address step
    *  auto-looks-up without re-entry. */
   postcode?: string;
+  /** Backup-picker context only: when provided, a "Select as backup" footer
+   *  button renders, calling this (the same selection handler as the bench). */
+  onSelectBackup?: () => void;
+  isSelectedBackup?: boolean;
 }
 
 function minPrice(map?: Record<string, number>): number | null {
@@ -45,6 +49,8 @@ export default function CleanerProfileModal({
   cleaner,
   onClose,
   postcode,
+  onSelectBackup,
+  isSelectedBackup,
 }: CleanerProfileModalProps) {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
 
@@ -190,6 +196,21 @@ export default function CleanerProfileModal({
         <div className="max-h-[calc(100vh-80px)] overflow-y-auto overscroll-contain">
           <CleanerProfileView data={data} />
         </div>
+        {onSelectBackup && (
+          <div className="border-t border-line bg-surface p-4">
+            <button
+              type="button"
+              onClick={onSelectBackup}
+              className={`w-full rounded-[10px] px-6 py-2.5 font-jost text-sm font-semibold transition-colors ${
+                isSelectedBackup
+                  ? 'border border-primary bg-primary-soft text-primary'
+                  : 'bg-primary text-white hover:bg-primary-hover'
+              }`}
+            >
+              {isSelectedBackup ? '✓ Selected as backup' : 'Select as backup'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
