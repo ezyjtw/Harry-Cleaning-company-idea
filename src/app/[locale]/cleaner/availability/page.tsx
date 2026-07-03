@@ -551,14 +551,14 @@ export default function AvailabilityPage() {
 
       {/* Tab switcher */}
       <div
-        className="flex gap-1 mb-6 rounded-lg bg-cream-2 p-1"
-        style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        className="flex gap-1 mb-6 rounded-lg bg-primary-soft p-1"
+        style={{ border: '1px solid rgb(var(--color-border))' }}
       >
         <button
           onClick={() => setTab('week')}
           className={`flex-1 rounded-md px-4 py-2 font-jost text-sm transition-all ${
             tab === 'week'
-              ? 'bg-white text-ink shadow-sm font-normal'
+              ? 'bg-surface text-ink shadow-sm font-normal'
               : 'text-ink-3 font-light hover:text-ink'
           }`}
         >
@@ -568,7 +568,7 @@ export default function AvailabilityPage() {
           onClick={() => setTab('recurring')}
           className={`flex-1 rounded-md px-4 py-2 font-jost text-sm transition-all ${
             tab === 'recurring'
-              ? 'bg-white text-ink shadow-sm font-normal'
+              ? 'bg-surface text-ink shadow-sm font-normal'
               : 'text-ink-3 font-light hover:text-ink'
           }`}
         >
@@ -579,8 +579,8 @@ export default function AvailabilityPage() {
       {/* Same-day bookings toggle */}
       {SAME_DAY_FEATURE_ENABLED && (
         <div
-          className="rounded-xl bg-white p-5 mb-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+          className="rounded-xl bg-surface p-5 mb-6"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -598,11 +598,11 @@ export default function AvailabilityPage() {
                 setSaved(false);
               }}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                sameDayBookings ? 'bg-gold' : 'bg-ink-3/30'
+                sameDayBookings ? 'bg-primary' : 'bg-ink-3/30'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
                   sameDayBookings ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
@@ -618,7 +618,7 @@ export default function AvailabilityPage() {
           <div className="flex items-center justify-between mb-6">
             <button
               onClick={() => setWeekOffset((p) => p - 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-3/20 hover:border-gold/40 hover:bg-gold/5 transition-all"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-3/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
             >
               <svg
                 className="h-4 w-4 text-ink-3"
@@ -641,7 +641,7 @@ export default function AvailabilityPage() {
               {weekOffset !== 0 && (
                 <button
                   onClick={() => setWeekOffset(0)}
-                  className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold hover:text-gold/70 transition"
+                  className="font-jost text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/70 transition"
                 >
                   Go to this week
                 </button>
@@ -649,7 +649,7 @@ export default function AvailabilityPage() {
             </div>
             <button
               onClick={() => setWeekOffset((p) => p + 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-3/20 hover:border-gold/40 hover:bg-gold/5 transition-all"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-3/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
             >
               <svg
                 className="h-4 w-4 text-ink-3"
@@ -671,13 +671,13 @@ export default function AvailabilityPage() {
             <button
               onClick={handleLockIn}
               disabled={lockingIn}
-              className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[11px] uppercase tracking-[0.1em] hover:bg-ink/90 disabled:opacity-50 transition-colors"
+              className="rounded-full px-4 py-1.5 bg-primary text-white font-jost text-[11px] uppercase tracking-[0.1em] hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
               {lockingIn ? 'Locking in…' : 'Lock in this week'}
             </button>
           </div>
           {lockInResult && (
-            <p className="mb-4 font-jost text-xs font-light text-green-600">{lockInResult}</p>
+            <p className="mb-4 font-jost text-xs font-light text-trust">{lockInResult}</p>
           )}
 
           {/* Day cards */}
@@ -694,10 +694,10 @@ export default function AvailabilityPage() {
               return (
                 <div
                   key={dateStr}
-                  className={`rounded-xl bg-white overflow-hidden transition-all ${
-                    isEditing ? 'ring-2 ring-gold shadow-md' : ''
+                  className={`rounded-xl bg-surface overflow-hidden transition-all ${
+                    isEditing ? 'ring-2 ring-primary shadow-md' : ''
                   }`}
-                  style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+                  style={{ border: '1px solid rgb(var(--color-border))' }}
                 >
                   <div className="px-5 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -706,14 +706,14 @@ export default function AvailabilityPage() {
                           {dayName.slice(0, 3)}
                         </p>
                         <p
-                          className={`font-newsreader text-lg font-medium ${isToday ? 'text-gold' : 'text-ink'}`}
+                          className={`font-newsreader text-lg font-medium ${isToday ? 'text-primary' : 'text-ink'}`}
                         >
                           {new Date(`${dateStr}T12:00:00`).getDate()}
                         </p>
                       </div>
 
                       {blocked ? (
-                        <span className="font-jost text-xs font-light text-red-500">Blocked</span>
+                        <span className="font-jost text-xs font-light text-danger">Blocked</span>
                       ) : slots.length === 0 ? (
                         <span className="font-jost text-xs font-light text-ink-3">
                           Not available
@@ -725,15 +725,15 @@ export default function AvailabilityPage() {
                               key={i}
                               className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-jost text-[11px] font-light ring-1 ${
                                 isDateSpecific
-                                  ? 'bg-gold/5 text-ink ring-gold/20'
-                                  : 'bg-cream text-ink-2 ring-ink/[0.06]'
+                                  ? 'bg-primary/5 text-ink ring-primary/20'
+                                  : 'bg-page text-ink-2 ring-ink/[0.06]'
                               }`}
                             >
                               {formatTime(s.start)}–{formatTime(s.end)}
                             </span>
                           ))}
                           {isDateSpecific && (
-                            <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-gold self-center">
+                            <span className="font-jost text-[10px] uppercase tracking-[0.1em] text-primary self-center">
                               custom
                             </span>
                           )}
@@ -749,7 +749,7 @@ export default function AvailabilityPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => openDayEditor(dateStr, dayName)}
-                            className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-cream transition"
+                            className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-page transition"
                             title="Edit this day"
                           >
                             <svg
@@ -769,7 +769,7 @@ export default function AvailabilityPage() {
                           {blocked ? (
                             <button
                               onClick={() => unblockDate(dateStr)}
-                              className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+                              className="p-1.5 rounded-lg text-red-400 hover:text-danger hover:bg-danger/10 transition"
                               title="Unblock this date"
                             >
                               <svg
@@ -789,7 +789,7 @@ export default function AvailabilityPage() {
                           ) : (
                             <button
                               onClick={() => blockDate(dateStr)}
-                              className="p-1.5 rounded-lg text-ink-3 hover:text-red-500 hover:bg-red-50 transition"
+                              className="p-1.5 rounded-lg text-ink-3 hover:text-danger hover:bg-danger/10 transition"
                               title="Block this date"
                             >
                               <svg
@@ -810,7 +810,7 @@ export default function AvailabilityPage() {
                           {isDateSpecific && (
                             <button
                               onClick={() => revertToRecurring(dateStr)}
-                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-cream transition"
+                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-page transition"
                               title="Revert to recurring schedule"
                             >
                               <svg
@@ -837,10 +837,10 @@ export default function AvailabilityPage() {
                   {isEditing && (
                     <div
                       className="px-5 pb-4 pt-1"
-                      style={{ borderTop: '1px solid rgba(14,14,12,0.06)' }}
+                      style={{ borderTop: '1px solid rgb(var(--color-border))' }}
                     >
                       {copyOnEditNotice && (
-                        <div className="mb-3 rounded-lg bg-gold/5 p-3 ring-1 ring-gold/20">
+                        <div className="mb-3 rounded-lg bg-primary/5 p-3 ring-1 ring-primary/20">
                           <p className="font-jost text-xs font-light text-ink-2">
                             Adding hours to this day will set this {dayName}&apos;s hours
                             independently from your usual {dayName} schedule. Your usual schedule
@@ -855,7 +855,7 @@ export default function AvailabilityPage() {
                             <select
                               value={slot.start}
                               onChange={(e) => updateEditingSlot(idx, 'start', e.target.value)}
-                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                             >
                               {TIME_OPTIONS.map((t) => (
                                 <option key={t} value={t}>
@@ -867,7 +867,7 @@ export default function AvailabilityPage() {
                             <select
                               value={slot.end}
                               onChange={(e) => updateEditingSlot(idx, 'end', e.target.value)}
-                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                             >
                               {TIME_OPTIONS.map((t) => (
                                 <option key={t} value={t}>
@@ -877,7 +877,7 @@ export default function AvailabilityPage() {
                             </select>
                             <button
                               onClick={() => removeEditingSlot(idx)}
-                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-cream transition"
+                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-page transition"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -898,7 +898,7 @@ export default function AvailabilityPage() {
 
                         <button
                           onClick={addEditingSlot}
-                          className="font-jost text-xs font-light text-gold hover:text-gold/70 transition flex items-center gap-1"
+                          className="font-jost text-xs font-light text-primary hover:text-primary/70 transition flex items-center gap-1"
                         >
                           <svg
                             className="w-3.5 h-3.5"
@@ -918,7 +918,7 @@ export default function AvailabilityPage() {
                       </div>
 
                       {validationError && editingDate === dateStr && (
-                        <p className="mt-2 font-jost text-[12px] font-light text-red-600">
+                        <p className="mt-2 font-jost text-[12px] font-light text-danger">
                           {validationError}
                         </p>
                       )}
@@ -927,7 +927,7 @@ export default function AvailabilityPage() {
                         <button
                           onClick={saveDateSlots}
                           disabled={editingSaving}
-                          className="rounded-full px-5 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 disabled:opacity-50 transition-colors"
+                          className="rounded-full px-5 py-1.5 bg-primary text-white font-jost text-[12px] font-light hover:bg-primary-hover disabled:opacity-50 transition-colors"
                         >
                           {editingSaving ? 'Saving…' : 'Save for this day'}
                         </button>
@@ -956,8 +956,8 @@ export default function AvailabilityPage() {
         <>
           {/* Always Available toggle */}
           <div
-            className="rounded-xl bg-white p-5 mb-6"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+            className="rounded-xl bg-surface p-5 mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -969,11 +969,11 @@ export default function AvailabilityPage() {
               <button
                 onClick={handleAlwaysAvailableToggle}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  alwaysAvailable ? 'bg-gold' : 'bg-ink-3/30'
+                  alwaysAvailable ? 'bg-primary' : 'bg-ink-3/30'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
                     alwaysAvailable ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -982,7 +982,7 @@ export default function AvailabilityPage() {
 
             {/* Always Available config modal */}
             {showAlwaysConfig && (
-              <div className="mt-4 rounded-lg bg-cream p-4 ring-1 ring-ink/[0.06]">
+              <div className="mt-4 rounded-lg bg-page p-4 ring-1 ring-ink/[0.06]">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="font-jost text-xs font-normal text-ink mb-2">
@@ -992,7 +992,7 @@ export default function AvailabilityPage() {
                       <select
                         value={weekdayHours.start}
                         onChange={(e) => setWeekdayHours((p) => ({ ...p, start: e.target.value }))}
-                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-white ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-surface ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>
@@ -1004,7 +1004,7 @@ export default function AvailabilityPage() {
                       <select
                         value={weekdayHours.end}
                         onChange={(e) => setWeekdayHours((p) => ({ ...p, end: e.target.value }))}
-                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-white ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-surface ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>
@@ -1022,7 +1022,7 @@ export default function AvailabilityPage() {
                       <select
                         value={weekendHours.start}
                         onChange={(e) => setWeekendHours((p) => ({ ...p, start: e.target.value }))}
-                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-white ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-surface ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>
@@ -1034,7 +1034,7 @@ export default function AvailabilityPage() {
                       <select
                         value={weekendHours.end}
                         onChange={(e) => setWeekendHours((p) => ({ ...p, end: e.target.value }))}
-                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-white ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                        className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-surface ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>
@@ -1048,7 +1048,7 @@ export default function AvailabilityPage() {
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={applyAlwaysAvailable}
-                    className="rounded-full px-5 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition-colors"
+                    className="rounded-full px-5 py-1.5 bg-primary text-white font-jost text-[12px] font-light hover:bg-primary-hover transition-colors"
                   >
                     Apply
                   </button>
@@ -1065,12 +1065,12 @@ export default function AvailabilityPage() {
 
           {/* Weekly Schedule */}
           <div
-            className="rounded-xl bg-white overflow-hidden mb-6"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+            className="rounded-xl bg-surface overflow-hidden mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
             <div
               className="px-6 py-4 flex items-center justify-between"
-              style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}
+              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
             >
               <div>
                 <h2 className="font-newsreader text-lg font-semibold text-ink">Weekly Schedule</h2>
@@ -1092,11 +1092,11 @@ export default function AvailabilityPage() {
                           type="button"
                           onClick={() => toggleDay(day)}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            enabled ? 'bg-gold' : 'bg-ink-3/30'
+                            enabled ? 'bg-primary' : 'bg-ink-3/30'
                           }`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
                               enabled ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
@@ -1130,7 +1130,7 @@ export default function AvailabilityPage() {
                             <select
                               value={range.start}
                               onChange={(e) => updateRange(day, idx, 'start', e.target.value)}
-                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                             >
                               {TIME_OPTIONS.map((t) => (
                                 <option key={t} value={t}>
@@ -1142,7 +1142,7 @@ export default function AvailabilityPage() {
                             <select
                               value={range.end}
                               onChange={(e) => updateRange(day, idx, 'end', e.target.value)}
-                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                              className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
                             >
                               {TIME_OPTIONS.map((t) => (
                                 <option key={t} value={t}>
@@ -1153,7 +1153,7 @@ export default function AvailabilityPage() {
                             <button
                               type="button"
                               onClick={() => removeRange(day, idx)}
-                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-cream transition"
+                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-page transition"
                               title="Remove range"
                             >
                               <svg
@@ -1175,7 +1175,7 @@ export default function AvailabilityPage() {
                         <button
                           type="button"
                           onClick={() => addRange(day)}
-                          className="font-jost text-xs font-light text-gold hover:text-gold/70 transition flex items-center gap-1"
+                          className="font-jost text-xs font-light text-primary hover:text-primary/70 transition flex items-center gap-1"
                         >
                           <svg
                             className="w-3.5 h-3.5"
@@ -1202,10 +1202,13 @@ export default function AvailabilityPage() {
 
           {/* Buffer between bookings */}
           <div
-            className="rounded-xl bg-white overflow-hidden mb-6"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+            className="rounded-xl bg-surface overflow-hidden mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
-            <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}>
+            <div
+              className="px-6 py-4"
+              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
+            >
               <h2 className="font-newsreader text-lg font-semibold text-ink">
                 Buffer Between Bookings
               </h2>
@@ -1226,8 +1229,8 @@ export default function AvailabilityPage() {
                     }}
                     className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                       bookingBuffer === mins
-                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:text-ink hover:shadow-sm'
+                        ? 'bg-primary/5 text-ink ring-2 ring-primary shadow-sm'
+                        : 'bg-page text-ink-2 ring-ink/[0.06] hover:bg-primary-soft hover:text-ink hover:shadow-sm'
                     }`}
                   >
                     {mins === 30 ? '30 minutes' : '1 hour'}
@@ -1243,10 +1246,13 @@ export default function AvailabilityPage() {
 
           {/* Blocked dates */}
           <div
-            className="rounded-xl bg-white overflow-hidden mb-6"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+            className="rounded-xl bg-surface overflow-hidden mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
-            <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(14,14,12,0.06)' }}>
+            <div
+              className="px-6 py-4"
+              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
+            >
               <h2 className="font-newsreader text-lg font-semibold text-ink">Blocked Dates</h2>
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
                 Block specific dates when you&apos;re unavailable (holidays, personal days)
@@ -1260,7 +1266,7 @@ export default function AvailabilityPage() {
                     .map((bd) => (
                       <div
                         key={bd.date}
-                        className="flex items-center justify-between rounded-lg bg-cream px-4 py-2.5"
+                        className="flex items-center justify-between rounded-lg bg-page px-4 py-2.5"
                       >
                         <div className="flex items-center gap-3">
                           <svg
@@ -1320,8 +1326,8 @@ export default function AvailabilityPage() {
                     type="date"
                     value={newBlockDate}
                     onChange={(e) => setNewBlockDate(e.target.value)}
-                    className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                    style={{ border: '1px solid rgb(var(--color-border))' }}
                   />
                 </div>
                 <div>
@@ -1333,14 +1339,14 @@ export default function AvailabilityPage() {
                     value={newBlockReason}
                     onChange={(e) => setNewBlockReason(e.target.value)}
                     placeholder="e.g. Holiday"
-                    className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                    style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                    className="rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                    style={{ border: '1px solid rgb(var(--color-border))' }}
                   />
                 </div>
                 <button
                   onClick={addBlockedDate}
                   disabled={!newBlockDate}
-                  className="rounded-full px-5 py-2 bg-ink text-cream font-jost text-[13px] font-light hover:bg-ink/90 disabled:opacity-50 transition-colors"
+                  className="rounded-full px-5 py-2 bg-primary text-white font-jost text-[13px] font-light hover:bg-primary-hover disabled:opacity-50 transition-colors"
                 >
                   Block Date
                 </button>
@@ -1351,17 +1357,15 @@ export default function AvailabilityPage() {
           {/* Save recurring schedule button */}
           <div className="flex items-center justify-end gap-3 pt-2">
             {validationError && tab === 'recurring' && !editingDate && (
-              <span className="font-jost text-[12px] font-light text-red-600">
+              <span className="font-jost text-[12px] font-light text-danger">
                 {validationError}
               </span>
             )}
             {dirty && !validationError && (
-              <span className="font-jost text-[12px] font-light text-amber-600">
-                Unsaved changes
-              </span>
+              <span className="font-jost text-[12px] font-light text-warning">Unsaved changes</span>
             )}
             {saved && (
-              <span className="font-jost text-sm font-light text-green-600 flex items-center gap-1">
+              <span className="font-jost text-sm font-light text-trust flex items-center gap-1">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -1376,7 +1380,7 @@ export default function AvailabilityPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="rounded-full px-8 py-2.5 bg-ink text-cream font-jost text-[13px] font-light shadow-sm hover:bg-ink/90 transition disabled:opacity-50"
+              className="rounded-full px-8 py-2.5 bg-primary text-white font-jost text-[13px] font-light shadow-sm hover:bg-primary-hover transition disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>

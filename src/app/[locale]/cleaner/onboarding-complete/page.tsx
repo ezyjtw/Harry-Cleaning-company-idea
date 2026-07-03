@@ -34,7 +34,7 @@ export default async function OnboardingCompletePage() {
             style={{ background: 'rgba(34,197,94,0.08)' }}
           >
             <svg
-              className="h-10 w-10 text-green-600"
+              className="h-10 w-10 text-trust"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -48,7 +48,9 @@ export default async function OnboardingCompletePage() {
             </svg>
           </div>
 
-          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">You&apos;re all set!</h1>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
+            You&apos;re all set!
+          </h1>
 
           <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2 leading-relaxed">
             Your payment account is connected. You can now receive bookings from customers in your
@@ -56,11 +58,11 @@ export default async function OnboardingCompletePage() {
           </p>
 
           <div
-            className="mt-6 rounded-xl bg-amber-50/60 px-5 py-4 text-left"
-            style={{ border: '1px solid rgba(217,119,6,0.12)' }}
+            className="mt-6 rounded-xl bg-warning/10/60 px-5 py-4 text-left"
+            style={{ border: '1px solid rgb(var(--color-warning) / 0.2)' }}
           >
-            <p className="font-jost text-sm font-normal text-amber-800">First payout timing</p>
-            <p className="font-jost text-[13px] font-light text-amber-700 mt-1">
+            <p className="font-jost text-sm font-normal text-warning">First payout timing</p>
+            <p className="font-jost text-[13px] font-light text-warning mt-1">
               Your first payout will be held for 7–14 days as part of Stripe&apos;s verification
               process. After that, you&apos;ll be paid every Wednesday.
             </p>
@@ -68,8 +70,8 @@ export default async function OnboardingCompletePage() {
 
           {needsPricing && (
             <div
-              className="mt-4 rounded-xl bg-cream px-5 py-4 text-left"
-              style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
+              className="mt-4 rounded-xl bg-page px-5 py-4 text-left"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
             >
               <p className="font-jost text-sm font-normal text-ink">Next step</p>
               <p className="font-jost text-[13px] font-light text-ink-2 mt-1">
@@ -83,7 +85,7 @@ export default async function OnboardingCompletePage() {
               </p>
               <Link
                 href="/cleaner/pricing"
-                className="inline-block mt-2 font-jost text-[13px] font-normal text-gold underline underline-offset-2 hover:text-gold/80 transition"
+                className="inline-block mt-2 font-jost text-[13px] font-normal text-primary underline underline-offset-2 hover:text-primary/80 transition"
               >
                 Set up pricing &rarr;
               </Link>
@@ -92,7 +94,7 @@ export default async function OnboardingCompletePage() {
 
           <Link
             href="/cleaner"
-            className="inline-block mt-8 rounded-full px-8 py-3 bg-ink text-cream font-jost text-[13px] uppercase tracking-[0.1em] hover:bg-ink/90 transition"
+            className="inline-block mt-8 rounded-full px-8 py-3 bg-primary text-white font-jost text-[13px] uppercase tracking-[0.1em] hover:bg-primary-hover transition"
           >
             Go to Dashboard
           </Link>
@@ -106,10 +108,10 @@ export default async function OnboardingCompletePage() {
       <div className="max-w-lg w-full text-center">
         <div
           className="mx-auto flex h-20 w-20 items-center justify-center rounded-full"
-          style={{ background: 'rgba(234,179,8,0.08)' }}
+          style={{ background: 'rgb(var(--color-warning) / 0.1)' }}
         >
           <svg
-            className="h-10 w-10 text-gold"
+            className="h-10 w-10 text-primary"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -132,8 +134,8 @@ export default async function OnboardingCompletePage() {
 
         <a
           href=""
-          className="inline-block mt-6 rounded-full px-8 py-3 bg-white text-ink font-jost text-[13px] uppercase tracking-[0.1em] hover:bg-cream-2 transition"
-          style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+          className="inline-block mt-6 rounded-full px-8 py-3 bg-surface text-ink font-jost text-[13px] uppercase tracking-[0.1em] hover:bg-primary-soft transition"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           Refresh status
         </a>

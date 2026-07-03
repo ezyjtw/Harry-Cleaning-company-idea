@@ -116,8 +116,8 @@ export default function ReviewsPage() {
       {/* Overall rating and breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div
-          className="rounded-xl bg-white p-6 text-center"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+          className="rounded-xl bg-surface p-6 text-center"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <p className="font-newsreader text-5xl font-medium text-ink">{overallRating}</p>
           <div className="flex items-center justify-center gap-1 mt-2">
@@ -138,8 +138,8 @@ export default function ReviewsPage() {
         </div>
 
         <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+          className="rounded-xl bg-surface p-6"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
             Rating Distribution
@@ -150,9 +150,9 @@ export default function ReviewsPage() {
                 <span className="font-jost text-sm font-light text-ink-2 w-8">
                   {item.rating} star
                 </span>
-                <div className="flex-1 h-2 bg-cream-2 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-primary-soft rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gold rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${item.percentage}%` }}
                   />
                 </div>
@@ -165,8 +165,8 @@ export default function ReviewsPage() {
         </div>
 
         <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+          className="rounded-xl bg-surface p-6"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
             Category Breakdown
@@ -178,9 +178,9 @@ export default function ReviewsPage() {
                   <span className="font-jost text-sm font-light text-ink-2 capitalize">{key}</span>
                   <span className="font-jost text-sm font-light text-ink">{value.toFixed(1)}</span>
                 </div>
-                <div className="w-full h-2 bg-cream-2 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-primary-soft rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gold rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${(value / 5) * 100}%` }}
                   />
                 </div>
@@ -198,9 +198,9 @@ export default function ReviewsPage() {
             key={r}
             onClick={() => setFilter(r)}
             className={`rounded-full px-3.5 py-1.5 font-jost text-sm font-light transition-colors ${
-              filter === r ? 'bg-ink text-cream' : 'bg-white text-ink-3 hover:text-ink'
+              filter === r ? 'bg-primary text-white' : 'bg-surface text-ink-3 hover:text-ink'
             }`}
-            style={{ border: filter === r ? 'none' : '1px solid rgba(14,14,12,0.08)' }}
+            style={{ border: filter === r ? 'none' : '1px solid rgb(var(--color-border))' }}
           >
             {r === 0 ? 'All' : `${r} Star`}
           </button>
@@ -211,8 +211,8 @@ export default function ReviewsPage() {
       <div className="space-y-4">
         {data.reviews.length === 0 ? (
           <div
-            className="text-center py-12 rounded-xl bg-white"
-            style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+            className="text-center py-12 rounded-xl bg-surface"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
             <svg
               className="w-10 h-10 text-ink-3/20 mx-auto mb-3"
@@ -237,8 +237,8 @@ export default function ReviewsPage() {
             {data.reviews.map((review) => (
               <div
                 key={review.id}
-                className="rounded-xl bg-white p-5"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+                className="rounded-xl bg-surface p-5"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -263,8 +263,8 @@ export default function ReviewsPage() {
                 <p className="font-jost text-sm font-light text-ink-2">{review.comment}</p>
 
                 {review.reply && (
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-gold rounded-r-lg bg-gold/5 p-3">
-                    <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-gold mb-1">
+                  <div className="mt-3 ml-4 pl-4 border-l-2 border-primary rounded-r-lg bg-primary/5 p-3">
+                    <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-primary mb-1">
                       Your Reply
                     </p>
                     <p className="font-jost text-sm font-light text-ink-2">{review.reply}</p>
@@ -277,14 +277,14 @@ export default function ReviewsPage() {
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       placeholder="Write your reply..."
-                      className="w-full rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-cream focus:outline-none focus:ring-1 focus:ring-gold/30"
-                      style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+                      className="w-full rounded-lg px-3 py-2 font-jost text-sm font-light text-ink bg-page focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      style={{ border: '1px solid rgb(var(--color-border))' }}
                       rows={3}
                     />
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => handleReply(review.id)}
-                        className="rounded-full px-4 py-1.5 bg-ink text-cream font-jost text-[12px] font-light hover:bg-ink/90 transition-colors"
+                        className="rounded-full px-4 py-1.5 bg-primary text-white font-jost text-[12px] font-light hover:bg-primary-hover transition-colors"
                       >
                         Submit Reply
                       </button>
@@ -293,8 +293,8 @@ export default function ReviewsPage() {
                           setReplyingTo(null);
                           setReplyText('');
                         }}
-                        className="rounded-full px-4 py-1.5 bg-white text-ink font-jost text-[12px] font-light hover:bg-cream-2 transition-colors"
-                        style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+                        className="rounded-full px-4 py-1.5 bg-surface text-ink font-jost text-[12px] font-light hover:bg-primary-soft transition-colors"
+                        style={{ border: '1px solid rgb(var(--color-border))' }}
                       >
                         Cancel
                       </button>
@@ -303,7 +303,7 @@ export default function ReviewsPage() {
                 ) : !review.reply ? (
                   <button
                     onClick={() => setReplyingTo(review.id)}
-                    className="mt-3 font-jost text-sm font-light text-gold hover:text-gold/80 transition-colors"
+                    className="mt-3 font-jost text-sm font-light text-primary hover:text-primary/80 transition-colors"
                   >
                     Reply to this review
                   </button>

@@ -121,12 +121,12 @@ function buildItems(p: SetupChecklistProfile): {
 function ItemRow({ item }: { item: ChecklistItem }) {
   return (
     <div
-      className="flex items-center gap-4 rounded-xl bg-cream px-5 py-3.5"
-      style={{ border: '0.5px solid rgba(14,14,12,0.08)' }}
+      className="flex items-center gap-4 rounded-xl bg-page px-5 py-3.5"
+      style={{ border: '0.5px solid rgb(var(--color-border))' }}
     >
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          item.done ? 'bg-green-50 text-green-600' : 'bg-ink/5 text-ink-3'
+          item.done ? 'bg-trust/10 text-trust' : 'bg-ink/5 text-ink-3'
         }`}
       >
         {item.done ? (
@@ -152,7 +152,7 @@ function ItemRow({ item }: { item: ChecklistItem }) {
       {!item.done && (
         <Link
           href={item.href}
-          className="shrink-0 rounded-full bg-ink px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-cream transition hover:bg-ink/90"
+          className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
         >
           Set up
         </Link>
@@ -174,11 +174,11 @@ export default function CleanerSetupChecklist({ profile }: { profile: SetupCheck
   if (allRequiredDone) {
     return (
       <section
-        className="mb-6 rounded-xl bg-white p-5 lg:p-6"
-        style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+        className="mb-6 rounded-xl bg-surface p-5 lg:p-6"
+        style={{ border: '1px solid rgb(var(--color-border))' }}
       >
         <div className="flex items-center gap-2.5">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-trust/10 text-trust">
             <svg
               className="h-4 w-4"
               fill="none"
@@ -210,8 +210,8 @@ export default function CleanerSetupChecklist({ profile }: { profile: SetupCheck
 
   return (
     <section
-      className="mb-6 rounded-xl bg-white p-5 lg:p-6"
-      style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+      className="mb-6 rounded-xl bg-surface p-5 lg:p-6"
+      style={{ border: '1px solid rgb(var(--color-border))' }}
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
@@ -227,9 +227,9 @@ export default function CleanerSetupChecklist({ profile }: { profile: SetupCheck
         </span>
       </div>
 
-      <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-cream-2">
+      <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-primary-soft">
         <div
-          className="h-full rounded-full bg-gold transition-all duration-500"
+          className="h-full rounded-full bg-primary transition-all duration-500"
           style={{ width: `${percent}%` }}
         />
       </div>

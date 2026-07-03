@@ -266,7 +266,7 @@ export default function CleanerJobsPage() {
   };
 
   return (
-    <div className="bg-cream min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-page p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="font-newsreader text-2xl font-semibold text-ink">My Jobs</h1>
         <p className="font-jost text-sm font-light text-ink-3 mt-1">
@@ -275,7 +275,7 @@ export default function CleanerJobsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6" style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}>
+      <div className="mb-6 border-b border-line">
         <nav className="flex gap-6 -mb-px overflow-x-auto">
           {tabs.map((tab) => (
             <button
@@ -286,7 +286,7 @@ export default function CleanerJobsPage() {
               }}
               className={`whitespace-nowrap pb-3 px-1 font-jost text-[11px] uppercase tracking-[0.1em] border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? 'border-gold text-gold'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-ink-3 hover:text-ink-2 hover:border-ink/20'
               }`}
             >
@@ -294,7 +294,7 @@ export default function CleanerJobsPage() {
               {counts[tab.key] > 0 && (
                 <span
                   className={`ml-2 inline-flex items-center justify-center px-2 py-0.5 font-jost text-[10px] ${
-                    activeTab === tab.key ? 'bg-gold/10 text-gold' : 'bg-ink/5 text-ink-3'
+                    activeTab === tab.key ? 'bg-primary-soft text-primary' : 'bg-page text-ink-3'
                   }`}
                 >
                   {counts[tab.key]}
@@ -306,11 +306,11 @@ export default function CleanerJobsPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-800 font-jost text-sm flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between rounded-[10px] bg-danger/10 p-3 font-jost text-sm text-danger">
           <span>{error}</span>
           <button
             onClick={() => setError(null)}
-            className="ml-4 text-red-600 hover:text-red-800 font-medium"
+            className="ml-4 font-medium text-danger hover:text-danger/80"
           >
             &times;
           </button>
@@ -321,7 +321,7 @@ export default function CleanerJobsPage() {
       {loading && (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse bg-ink/5 h-32" />
+            <div key={i} className="h-32 animate-pulse rounded-xl bg-line" />
           ))}
         </div>
       )}
@@ -356,64 +356,27 @@ export default function CleanerJobsPage() {
           {jobList.map((job) => {
             const ds = toDisplayStatus(job.status);
             return (
-              <div
-                key={job.id}
-                className="bg-cream-2 p-5"
-                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
+              <div key={job.id} className="rounded-xl border border-line bg-surface p-5">
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <p className="font-jost text-sm font-medium text-ink">{job.clientName}</p>
-                      {getStatusBadge(job)}
-                    </div>
-                    <p className="font-jost text-sm font-light text-ink-2">
-                      {ds === 'pending' ? job.address : job.fullAddress || job.address}
-                    </p>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 font-jost text-sm font-light text-ink-3">
-                      <span className="flex items-center gap-1">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        {job.date}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        {job.time} ({job.duration}h)
-                      </span>
-                      <span className="text-gold font-medium">
+                    <div className="mb-1.5 flex items-center gap-3">
+                      <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
                         {serviceLabelFromSlug(job.serviceType)}
                       </span>
+                      {getStatusBadge(job)}
                     </div>
+                    <p className="font-jost text-sm text-ink">
+                      {job.clientName} &middot; {job.date} at {job.time} ({job.duration}h)
+                    </p>
+                    <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
+                      {ds === 'pending' ? job.address : job.fullAddress || job.address}
+                    </p>
                     {job.extras && job.extras.length > 0 && (
-                      <p className="font-jost text-xs font-light text-ink-3 mt-1">
+                      <p className="mt-1 font-jost text-xs font-light text-ink-3">
                         Add-ons: {job.extras.join(', ')}
                       </p>
                     )}
-                    <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-1">
+                    <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                       Ref: {job.id.slice(0, 12)}
                     </p>
                   </div>
@@ -424,7 +387,7 @@ export default function CleanerJobsPage() {
                         <p className="font-newsreader text-2xl font-medium text-ink">
                           &pound;{job.cleanerEarnings.toFixed(2)}
                         </p>
-                        <p className="font-jost text-xs font-medium text-amber-600 mt-1">
+                        <p className="mt-1 font-jost text-xs font-medium text-warning">
                           Provisionally yours — awaiting customer approval
                         </p>
                       </div>
@@ -455,10 +418,7 @@ export default function CleanerJobsPage() {
 
                     {(job.serviceType === 'end-of-tenancy' || job.serviceType === 'airbnb') &&
                       job.bedrooms !== undefined && (
-                        <div
-                          className="bg-gold/5 px-4 py-3 text-left max-w-xs"
-                          style={{ border: '0.5px solid rgba(184,151,90,0.2)' }}
-                        >
+                        <div className="max-w-xs rounded-lg border border-line bg-primary-soft px-4 py-3 text-left">
                           <p className="font-jost text-sm font-medium text-ink">
                             {job.serviceType === 'end-of-tenancy'
                               ? 'End of Tenancy'
@@ -484,7 +444,7 @@ export default function CleanerJobsPage() {
                                 : job.platformFee
                               ).toFixed(2)}
                             </p>
-                            <p className="font-jost text-sm font-medium text-gold mt-1">
+                            <p className="mt-1 font-jost text-sm font-medium text-primary">
                               You receive: &pound;
                               {(!job.isPrimary &&
                               job.viewerEarnings !== null &&
@@ -501,7 +461,7 @@ export default function CleanerJobsPage() {
                       {!job.isReserve && !job.isProvisional && (
                         <button
                           onClick={() => router.push(`/messages?bookingId=${job.id}`)}
-                          className="px-4 py-2 border border-ink/20 text-ink font-jost text-sm font-light hover:bg-ink/5 transition-colors"
+                          className="rounded-[10px] border border-line px-4 py-2 font-jost text-sm font-medium text-ink-2 transition-colors hover:bg-page"
                         >
                           Message customer
                         </button>
@@ -516,14 +476,13 @@ export default function CleanerJobsPage() {
                         <>
                           <button
                             onClick={() => handleAccept(job.id)}
-                            className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
+                            className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                           >
                             Accept
                           </button>
                           <button
                             onClick={() => handleDecline(job.id)}
-                            className="px-4 py-2 bg-cream text-ink font-jost text-sm font-light hover:bg-cream-2 transition-colors"
-                            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                            className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-sm font-medium text-ink-2 transition-colors hover:bg-page"
                           >
                             Decline
                           </button>
@@ -532,7 +491,7 @@ export default function CleanerJobsPage() {
                       {ds === 'upcoming' && (
                         <button
                           onClick={() => transitionJob(job.id, 'en-route')}
-                          className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
+                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                         >
                           I&apos;m On My Way
                         </button>
@@ -540,7 +499,7 @@ export default function CleanerJobsPage() {
                       {ds === 'en-route' && (
                         <button
                           onClick={() => transitionJob(job.id, 'in-progress')}
-                          className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
+                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                         >
                           Start Cleaning
                         </button>
@@ -558,13 +517,12 @@ export default function CleanerJobsPage() {
                                   }))
                                 }
                                 placeholder="Add completion notes (optional)..."
-                                className="w-full bg-cream px-3 py-2 font-jost text-sm font-light text-ink focus:outline-none focus:ring-1 focus:ring-gold"
-                                style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                                className="w-full rounded-[10px] border border-line bg-page px-3 py-2 font-jost text-sm font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 rows={2}
                               />
                               <button
                                 onClick={() => transitionJob(job.id, 'completed')}
-                                className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
+                                className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                               >
                                 Confirm Complete
                               </button>
@@ -572,7 +530,7 @@ export default function CleanerJobsPage() {
                           ) : (
                             <button
                               onClick={() => setShowNotesFor(job.id)}
-                              className="px-4 py-2 bg-ink text-cream font-jost text-sm font-light hover:bg-ink/90 transition-colors"
+                              className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                             >
                               Mark Complete
                             </button>
@@ -588,10 +546,7 @@ export default function CleanerJobsPage() {
                   ds === 'en-route' ||
                   ds === 'in-progress' ||
                   ds === 'completed') && (
-                  <div
-                    className="mt-4 pt-4"
-                    style={{ borderTop: '0.5px solid rgba(14,14,12,0.06)' }}
-                  >
+                  <div className="mt-4 border-t border-line pt-4">
                     <div className="flex items-center justify-between">
                       {LIFECYCLE_STEPS.map((step, i) => {
                         const currentIdx = getLifecycleStepIndex(job.status);
@@ -604,9 +559,9 @@ export default function CleanerJobsPage() {
                                 className={`w-8 h-8 flex items-center justify-center font-jost text-[10px] font-medium ${
                                   isCompleted
                                     ? isCurrent
-                                      ? 'bg-gold text-cream ring-4 ring-gold/10'
-                                      : 'bg-ink text-cream'
-                                    : 'bg-ink/5 text-ink-3'
+                                      ? 'bg-primary text-white ring-4 ring-primary/15'
+                                      : 'bg-primary text-white'
+                                    : 'bg-primary-soft text-ink-3'
                                 }`}
                               >
                                 {isCompleted && !isCurrent ? (
@@ -628,14 +583,14 @@ export default function CleanerJobsPage() {
                                 )}
                               </div>
                               <p
-                                className={`mt-1 font-jost text-[10px] uppercase tracking-[0.1em] ${isCurrent ? 'font-medium text-gold' : isCompleted ? 'text-ink' : 'text-ink-3'}`}
+                                className={`mt-1 font-jost text-[10px] uppercase tracking-[0.1em] ${isCurrent ? 'font-medium text-primary' : isCompleted ? 'text-ink' : 'text-ink-3'}`}
                               >
                                 {step.label}
                               </p>
                             </div>
                             {i < LIFECYCLE_STEPS.length - 1 && (
                               <div
-                                className={`h-0.5 flex-1 mx-1 ${i < currentIdx ? 'bg-ink' : 'bg-ink/5'}`}
+                                className={`h-0.5 flex-1 mx-1 ${i < currentIdx ? 'bg-primary' : 'bg-line'}`}
                               />
                             )}
                           </div>

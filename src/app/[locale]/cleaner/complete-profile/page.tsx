@@ -191,7 +191,7 @@ export default function CompleteProfilePage() {
 
       {errors.form && (
         <div
-          className="mt-6 bg-red-50 px-4 py-3 font-jost text-sm font-light text-red-700"
+          className="mt-6 bg-danger/10 px-4 py-3 font-jost text-sm font-light text-danger"
           style={{ border: '0.5px solid rgba(239,68,68,0.2)' }}
           role="alert"
         >
@@ -212,10 +212,10 @@ export default function CompleteProfilePage() {
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell clients about your experience and what makes you great..."
             className="mt-1 w-full resize-none px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            style={{ border: '0.5px solid rgb(var(--color-border))' }}
           />
           <div className="mt-1 flex justify-between">
-            <span>{errors.bio && <span className="text-xs text-red-600">{errors.bio}</span>}</span>
+            <span>{errors.bio && <span className="text-xs text-danger">{errors.bio}</span>}</span>
             <span className="text-xs text-ink-3">{bio.length}/500</span>
           </div>
         </div>
@@ -231,9 +231,9 @@ export default function CompleteProfilePage() {
             onChange={(e) => setPostcode(e.target.value.toUpperCase())}
             placeholder="e.g. SW1A 1AA"
             className="mt-1 w-full px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            style={{ border: '0.5px solid rgb(var(--color-border))' }}
           />
-          {errors.postcode && <p className="mt-1 text-xs text-red-600">{errors.postcode}</p>}
+          {errors.postcode && <p className="mt-1 text-xs text-danger">{errors.postcode}</p>}
         </div>
 
         {/* Specialties */}
@@ -249,18 +249,20 @@ export default function CompleteProfilePage() {
                 onClick={() => toggleSpecialty(s)}
                 className={`px-4 py-1.5 font-jost text-sm font-light transition ${
                   specialties.includes(s)
-                    ? 'bg-ink text-cream'
-                    : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
+                    ? 'bg-primary text-white'
+                    : 'bg-primary-soft text-ink-2 hover:bg-primary-soft/80'
                 }`}
                 style={
-                  specialties.includes(s) ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }
+                  specialties.includes(s)
+                    ? undefined
+                    : { border: '0.5px solid rgb(var(--color-border))' }
                 }
               >
                 {s}
               </button>
             ))}
           </div>
-          {errors.specialties && <p className="mt-1 text-xs text-red-600">{errors.specialties}</p>}
+          {errors.specialties && <p className="mt-1 text-xs text-danger">{errors.specialties}</p>}
         </div>
 
         {/* Languages */}
@@ -279,18 +281,20 @@ export default function CompleteProfilePage() {
                 onClick={() => toggleLanguage(l)}
                 className={`px-4 py-1.5 font-jost text-sm font-light transition ${
                   languages.includes(l)
-                    ? 'bg-ink text-cream'
-                    : 'bg-cream-2 text-ink-2 hover:bg-cream-2/80'
+                    ? 'bg-primary text-white'
+                    : 'bg-primary-soft text-ink-2 hover:bg-primary-soft/80'
                 }`}
                 style={
-                  languages.includes(l) ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }
+                  languages.includes(l)
+                    ? undefined
+                    : { border: '0.5px solid rgb(var(--color-border))' }
                 }
               >
                 {l}
               </button>
             ))}
           </div>
-          {errors.languages && <p className="mt-1 text-xs text-red-600">{errors.languages}</p>}
+          {errors.languages && <p className="mt-1 text-xs text-danger">{errors.languages}</p>}
         </div>
 
         {/* Hourly rate */}
@@ -310,13 +314,13 @@ export default function CompleteProfilePage() {
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
               className="w-full pl-7 pr-3 py-2 font-jost text-sm font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
             />
           </div>
           <p className="mt-1 font-jost text-xs font-light text-ink-3">
             Between £14 and £35 per hour
           </p>
-          {errors.hourlyRate && <p className="mt-1 text-xs text-red-600">{errors.hourlyRate}</p>}
+          {errors.hourlyRate && <p className="mt-1 text-xs text-danger">{errors.hourlyRate}</p>}
         </div>
 
         {/* Password — only shown if user has no password */}
@@ -337,9 +341,9 @@ export default function CompleteProfilePage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  style={{ border: '0.5px solid rgb(var(--color-border))' }}
                 />
-                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                {errors.password && <p className="mt-1 text-xs text-danger">{errors.password}</p>}
               </div>
               <div>
                 <input
@@ -349,10 +353,10 @@ export default function CompleteProfilePage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-                  style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+                  style={{ border: '0.5px solid rgb(var(--color-border))' }}
                 />
                 {errors.confirmPassword && (
-                  <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>
+                  <p className="mt-1 text-xs text-danger">{errors.confirmPassword}</p>
                 )}
               </div>
             </div>
@@ -362,7 +366,7 @@ export default function CompleteProfilePage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream transition hover:bg-ink/90 disabled:opacity-50"
+          className="w-full bg-primary py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-white transition hover:bg-primary-hover disabled:opacity-50"
         >
           {submitting ? 'Saving...' : 'Complete Profile'}
         </button>

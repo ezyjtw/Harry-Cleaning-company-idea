@@ -198,11 +198,13 @@ export default function CleanerImportedReviewsPage() {
 
       {/* Add form */}
       <section
-        className="rounded-xl bg-white p-5 lg:p-6"
-        style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+        className="rounded-xl bg-surface p-5 lg:p-6"
+        style={{ border: '1px solid rgb(var(--color-border))' }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-newsreader text-[15px] font-semibold text-ink">Add an imported review</h2>
+          <h2 className="font-newsreader text-[15px] font-semibold text-ink">
+            Add an imported review
+          </h2>
           <span className="font-jost text-[12px] font-light text-ink-3">
             {remaining} of {maxAllowed} remaining
           </span>
@@ -210,8 +212,8 @@ export default function CleanerImportedReviewsPage() {
 
         {!canAdd && !loading && (
           <div
-            className="rounded-lg bg-cream px-4 py-3"
-            style={{ border: '1px solid rgba(14,14,12,0.08)' }}
+            className="rounded-lg bg-page px-4 py-3"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
             <p className="font-jost text-sm font-light text-ink-2">
               You&rsquo;ve reached the maximum of {maxAllowed} imported reviews. Remove or wait for
@@ -228,8 +230,8 @@ export default function CleanerImportedReviewsPage() {
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="mt-1.5 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-gold/30"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink focus:outline-none focus:ring-2 focus:ring-primary/30"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               >
                 {SOURCES.map((s) => (
                   <option key={s} value={s}>
@@ -244,8 +246,8 @@ export default function CleanerImportedReviewsPage() {
                   onChange={(e) => setSourceOther(e.target.value)}
                   placeholder="e.g. Nextdoor, a letting agency"
                   maxLength={200}
-                  className="mt-2 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30"
-                  style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                  className="mt-2 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  style={{ border: '1px solid rgb(var(--color-border))' }}
                 />
               )}
             </div>
@@ -288,8 +290,8 @@ export default function CleanerImportedReviewsPage() {
                 rows={3}
                 maxLength={2000}
                 placeholder="Paste or summarise what the reviewer wrote."
-                className="mt-1.5 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
             </div>
 
@@ -304,8 +306,8 @@ export default function CleanerImportedReviewsPage() {
                 onChange={(e) => setReviewerName(e.target.value)}
                 maxLength={200}
                 placeholder="e.g. Sarah M."
-                className="mt-1.5 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
             </div>
 
@@ -330,7 +332,7 @@ export default function CleanerImportedReviewsPage() {
                   setError('');
                   setFile(f);
                 }}
-                className="mt-1.5 block w-full font-jost text-[13px] font-light text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-4 file:py-1.5 file:font-jost file:text-[12px] file:font-light file:text-cream hover:file:bg-ink/90"
+                className="mt-1.5 block w-full font-jost text-[13px] font-light text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-1.5 file:font-jost file:text-[12px] file:font-light file:text-white hover:file:bg-ink/90"
               />
               <p className="mt-1 font-jost text-[11px] font-light text-ink-3">
                 Helps our team verify faster. JPG, PNG, WebP or PDF, up to 10MB. Stored securely and
@@ -350,17 +352,17 @@ export default function CleanerImportedReviewsPage() {
                 rows={2}
                 maxLength={1000}
                 placeholder="Name, phone or email our team can use to confirm a personal reference."
-                className="mt-1.5 w-full rounded-lg bg-cream px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-gold/30"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               />
             </div>
 
             {error && (
               <div
-                className="rounded-lg bg-red-50 px-4 py-3"
+                className="rounded-lg bg-danger/10 px-4 py-3"
                 style={{ border: '1px solid rgba(239,68,68,0.15)' }}
               >
-                <p className="font-jost text-sm font-light text-red-700">{error}</p>
+                <p className="font-jost text-sm font-light text-danger">{error}</p>
               </div>
             )}
 
@@ -368,12 +370,12 @@ export default function CleanerImportedReviewsPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-full bg-ink px-5 py-2 font-jost text-[13px] font-light text-cream transition hover:bg-ink/90 disabled:opacity-50"
+                className="rounded-[10px] bg-primary px-5 py-2 font-jost text-[13px] font-light text-white transition hover:bg-primary-hover disabled:opacity-50"
               >
                 {submitting ? 'Submitting…' : 'Submit for review'}
               </button>
               {success && (
-                <span className="font-jost text-sm font-light text-green-600">
+                <span className="font-jost text-sm font-light text-trust">
                   Submitted — pending review.
                 </span>
               )}
@@ -384,7 +386,9 @@ export default function CleanerImportedReviewsPage() {
 
       {/* Existing submissions with status badges */}
       <section className="mt-8">
-        <h2 className="mb-3 font-newsreader text-[15px] font-semibold text-ink">Your imported reviews</h2>
+        <h2 className="mb-3 font-newsreader text-[15px] font-semibold text-ink">
+          Your imported reviews
+        </h2>
 
         {loading ? (
           <div className="space-y-3">
@@ -401,8 +405,8 @@ export default function CleanerImportedReviewsPage() {
             {data.reviews.map((r) => (
               <div
                 key={r.id}
-                className="rounded-xl bg-white p-5"
-                style={{ border: '1px solid rgba(14,14,12,0.06)' }}
+                className="rounded-xl bg-surface p-5"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -438,10 +442,10 @@ export default function CleanerImportedReviewsPage() {
 
                 {r.verificationStatus === 'REJECTED' && r.adminNotes && (
                   <div
-                    className="mt-3 rounded-lg bg-red-50 px-3 py-2"
+                    className="mt-3 rounded-lg bg-danger/10 px-3 py-2"
                     style={{ border: '1px solid rgba(239,68,68,0.12)' }}
                   >
-                    <p className="font-jost text-[12px] font-light text-red-700">
+                    <p className="font-jost text-[12px] font-light text-danger">
                       <span className="font-medium">Reason:</span> {r.adminNotes}
                     </p>
                   </div>
