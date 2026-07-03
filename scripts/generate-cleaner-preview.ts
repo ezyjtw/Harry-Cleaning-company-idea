@@ -226,6 +226,10 @@ h1.t{font-family:'Newsreader',serif;font-weight:500;font-size:22px;margin:0 0 4p
 .avail .dot{width:8px;height:8px;border-radius:50%;background:var(--trust);}
 .cbio{margin-top:12px;font-size:13px;font-weight:300;line-height:1.5;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .book{margin-top:16px;display:block;text-align:center;background:var(--primary);color:#fff;border-radius:10px;padding:12px;font-size:13px;font-weight:500;text-decoration:none;}
+.tf-eyebrow{margin-top:16px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--primary);}
+.tf-slots{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.slot{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--ink-2);cursor:pointer;transition:all .15s;}
+.slot.on,.slot:hover{border-color:var(--primary);background:var(--primary);color:#fff;}
 /* profile */
 .profile{width:720px;max-width:100%;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
 .profile.mob{width:380px;}
@@ -281,6 +285,24 @@ const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
 
 <div class="seclabel">J small card — grid of 3</div>
 <div class="grid">${CARDS.map(cardHtml).join('')}</div>
+
+<div class="seclabel">Time-first available card (J presentation) — slot pills unselected &amp; hover/selected</div>
+<div class="grid">${[false, true]
+  .map((sel) => {
+    const slots = ['9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM'];
+    return `<div class="card" style="width:340px">
+    <div class="card-top">${avatar(80, PHOTO, 'M', true)}<div class="card-main">
+      <div class="cname">Maria Santos</div>
+      <div class="crow">${stars(4.9)}<span class="cmeta">4.9 (128)</span></div>
+      <div class="cmeta2">E4 · from <span class="serif-price">£16.00</span><span class="hr">/hr</span></div>
+    </div></div>
+    <p class="cbio" style="margin-top:12px">Professional cleaner with 8 years of experience — thorough, punctual, eco-friendly products.</p>
+    <p class="tf-eyebrow">Available Tuesday 14 July</p>
+    <div class="tf-slots">${slots.map((s, i) => `<span class="slot${sel && i === 2 ? ' on' : ''}">${s}</span>`).join('')}</div>
+  </div>`;
+  })
+  .join('')}</div>
+<p class="note" style="max-width:700px">Note: the slot pill IS the action (clicking books that slot — one-step, unchanged). "Selected" shown here is the hover/press state; there is no persistent selected-slot state or separate Book CTA in the live card (adding one would change booking behaviour — flagged separately).</p>
 
 <div class="seclabel">H3 ledger profile — desktop (photo) &amp; initial-fallback header</div>
 <div class="row2">

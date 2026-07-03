@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import type { Cleaner } from '@/lib/types';
 
-import StarRating from './StarRating';
+import CleanerIdentity from './CleanerIdentity';
 
 interface CleanerCardProps {
   cleaner: Cleaner;
@@ -16,24 +16,6 @@ interface CleanerCardProps {
   /** Customer's search postcode — forwarded to /book so the address step
    *  auto-looks-up without re-entry. */
   postcode?: string;
-}
-
-/** Green circle-check, pinned to the headshot's bottom-right. */
-function VerifiedCheck() {
-  return (
-    <span
-      className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white"
-      aria-label="Verified"
-    >
-      <svg className="h-5 w-5 text-trust" viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-          clipRule="evenodd"
-        />
-      </svg>
-    </span>
-  );
 }
 
 export default function CleanerCard({
@@ -55,35 +37,14 @@ export default function CleanerCard({
       className="group flex cursor-pointer flex-col rounded-[16px] border border-line bg-surface p-5 transition-shadow hover:shadow-md"
       onClick={onViewProfile}
     >
-      <div className="flex items-start gap-4">
-        {/* 80px headshot — photo if present, else serif initial on primary-soft */}
-        <div className="relative shrink-0">
-          {cleaner.photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={cleaner.photo}
-              alt={cleaner.name}
-              className="h-20 w-20 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-soft font-newsreader text-[30px] font-medium text-primary">
-              {cleaner.name.charAt(0)}
-            </div>
-          )}
-          {isVerified && <VerifiedCheck />}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate font-newsreader text-[19px] font-semibold text-ink">
-            {cleaner.name}
-          </h3>
-          <div className="mt-1 flex items-center gap-1.5">
-            <StarRating rating={cleaner.rating} />
-            <span className="font-jost text-[12px] font-light text-ink-2">
-              {cleaner.rating} ({cleaner.reviewCount})
-            </span>
-          </div>
-          <p className="mt-1 font-jost text-[12.5px] text-ink-3">
+      <CleanerIdentity
+        photo={cleaner.photo}
+        name={cleaner.name}
+        verified={isVerified}
+        rating={cleaner.rating}
+        reviewCount={cleaner.reviewCount}
+        meta={
+          <>
             {cleaner.location}
             {hasFixed ? (
               <>
@@ -102,18 +63,19 @@ export default function CleanerCard({
                 <span className="text-ink-3">/hr</span>
               </>
             )}
-          </p>
-          {cleaner.availableNow && (
-            <span className="mt-1.5 inline-flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-trust opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-trust" />
-              </span>
-              <span className="font-jost text-[11px] font-medium text-ink">Available today</span>
+          </>
+        }
+      >
+        {cleaner.availableNow && (
+          <span className="mt-1.5 inline-flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-trust opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-trust" />
             </span>
-          )}
-        </div>
-      </div>
+            <span className="font-jost text-[11px] font-medium text-ink">Available today</span>
+          </span>
+        )}
+      </CleanerIdentity>
 
       {hasFixed && fixedServiceLabel && (
         <p className="mt-3 rounded-[8px] bg-primary-soft px-3 py-2 font-jost text-[12px] font-medium text-ink">

@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
+import CleanerIdentity from '@/components/CleanerIdentity';
 import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -2776,53 +2777,49 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     {tfResults.map((card) => {
                       const cleaner = tfCleanerToCleaner(card);
-                      const tier = TIER_INFO[cleaner.tier];
                       return (
                         <div
                           key={card.id}
-                          className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]"
+                          className="flex flex-col rounded-[16px] border border-line bg-surface p-5"
                         >
-                          <div className="flex items-start gap-3.5">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-lg font-light text-ink font-cormorant ring-1 ring-ink/[0.06]">
-                              {card.name.charAt(0)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-jost font-normal text-sm text-ink">
-                                  {card.name}
-                                </span>
-                                <span
-                                  className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
-                                >
-                                  {tier.label}
-                                </span>
-                              </div>
-                              <div className="mt-1 flex items-center gap-1.5 font-jost font-light text-xs text-ink-3">
-                                <StarRating rating={card.rating} />
-                                <span>
-                                  {card.rating} ({card.reviewCount})
-                                </span>
-                              </div>
-                            </div>
-                            {!isFixedPrice(category) && (
-                              <div className="shrink-0 text-right">
-                                <span className="font-cormorant font-light text-lg text-ink">
-                                  &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
-                                </span>
-                                <span className="font-jost font-light text-[11px] text-ink-3">
-                                  /hr
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                          {/* Identity — identical to CleanerCard (shared component). */}
+                          <CleanerIdentity
+                            photo={cleaner.photo || null}
+                            name={card.name}
+                            verified={card.identityVerified || card.backgroundChecked}
+                            rating={card.rating}
+                            reviewCount={card.reviewCount}
+                            meta={
+                              <>
+                                {postcode || ''}
+                                {!isFixedPrice(category) && (
+                                  <>
+                                    {postcode ? ' · from ' : 'from '}
+                                    <span className="font-newsreader text-[14px] font-medium text-ink">
+                                      &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
+                                    </span>
+                                    <span className="text-ink-3">/hr</span>
+                                  </>
+                                )}
+                              </>
+                            }
+                          />
+                          <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
                             {card.bio}
                           </p>
 
-                          {/* Pick an exact 30-min start within the band → pins the cleaner + slot
-                              and opens the NORMAL booking (they can still change it there). */}
-                          <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.08em] text-ink-3">
-                            Pick a start time
+                          {/* Caps eyebrow = the searched date. Picking an exact 30-min start
+                              within the band pins the cleaner + slot and opens the NORMAL
+                              booking (unchanged one-step behaviour — the pill IS the action). */}
+                          <p className="mt-4 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
+                            Available{' '}
+                            {new Date(`${tfDate}T00:00:00`)
+                              .toLocaleDateString('en-GB', {
+                                weekday: 'long',
+                                day: 'numeric',
+                                month: 'long',
+                              })
+                              .toUpperCase()}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {card.openStartTimes.map((start) => (
@@ -2830,7 +2827,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                                 key={start}
                                 type="button"
                                 onClick={() => handleTimeFirstPick(cleaner, start)}
-                                className="rounded-md bg-cream-2/60 px-2.5 py-1.5 font-jost text-[12px] text-ink-2 transition hover:bg-ink hover:text-cream"
+                                className="rounded-full border border-line px-3.5 py-1.5 font-jost text-[12px] font-medium text-ink-2 transition-colors hover:border-primary hover:bg-primary hover:text-white"
                               >
                                 {to12h(start)}
                               </button>
