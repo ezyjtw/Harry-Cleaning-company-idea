@@ -185,7 +185,7 @@ function calculateFixedPriceRange(
 const isFixedPrice = (cat: ServiceCategory) => cat === 'airbnb' || cat === 'end-of-tenancy';
 
 const TIER_INFO: Record<string, { label: string; color: string; desc: string }> = {
-  starter: { label: 'Starter', color: 'bg-slate-50 text-slate-500', desc: 'New to the platform' },
+  starter: { label: 'Starter', color: 'bg-ink/5 text-ink-3', desc: 'New to the platform' },
   bronze: {
     label: 'Bronze',
     color: 'bg-amber-50/60 text-amber-700',
@@ -193,7 +193,7 @@ const TIER_INFO: Record<string, { label: string; color: string; desc: string }> 
   },
   silver: {
     label: 'Silver',
-    color: 'bg-slate-50 text-slate-600',
+    color: 'bg-ink/5 text-ink-2',
     desc: 'Experienced and consistent',
   },
   gold: {

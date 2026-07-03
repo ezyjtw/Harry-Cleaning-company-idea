@@ -19,9 +19,9 @@ export default function GlobalError({
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <div className="mx-auto max-w-md">
         {/* Error icon */}
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 mx-auto">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-danger/10">
           <svg
-            className="h-10 w-10 text-red-600"
+            className="h-10 w-10 text-danger"
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={1.5}
@@ -35,8 +35,10 @@ export default function GlobalError({
           </svg>
         </div>
 
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Something went wrong</h1>
-        <p className="mb-8 text-gray-600">
+        <h1 className="mb-2 font-newsreader text-2xl font-semibold text-ink">
+          Something went wrong
+        </h1>
+        <p className="mb-8 text-ink-2">
           We apologize for the inconvenience. An unexpected error has occurred. Please try again, or
           return to the home page.
         </p>
@@ -44,7 +46,7 @@ export default function GlobalError({
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <button
             onClick={reset}
-            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
           >
             <svg
               className="mr-2 h-4 w-4"
@@ -64,7 +66,7 @@ export default function GlobalError({
 
           <Link
             href="/"
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="inline-flex items-center justify-center rounded-[10px] border border-line bg-surface px-6 py-3 text-sm font-semibold text-ink-2 transition hover:bg-page focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
           >
             Go to home page
           </Link>
