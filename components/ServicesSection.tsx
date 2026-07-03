@@ -247,13 +247,17 @@ export default function ServicesSection() {
                   }`}
                 >
                   <span
-                    className={`font-newsreader text-[16px] font-medium ${
+                    className={`font-jost text-[12.5px] font-semibold uppercase tracking-[0.06em] ${
                       svc.soon ? 'text-ink-3' : 'text-ink'
                     }`}
+                    style={{ textIndent: '0.06em' }}
                   >
                     {svc.label}
                     {svc.soon && (
-                      <span className="ml-2 rounded-full bg-primary-soft px-1.5 py-0.5 align-middle font-jost text-[10px] font-semibold uppercase tracking-normal text-primary">
+                      <span
+                        className="ml-2 rounded-full bg-primary-soft px-1.5 py-0.5 align-middle font-jost text-[10px] font-semibold uppercase tracking-normal text-primary"
+                        style={{ textIndent: 0 }}
+                      >
                         Soon
                       </span>
                     )}
@@ -300,7 +304,7 @@ export default function ServicesSection() {
                         </span>
                         <Link
                           href={`/services/${svc.id}`}
-                          className="rounded-[10px] bg-primary px-5 py-2.5 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
+                          className="shrink-0 whitespace-nowrap rounded-[10px] bg-primary px-4 py-2.5 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
                         >
                           {t('getQuote')}
                         </Link>

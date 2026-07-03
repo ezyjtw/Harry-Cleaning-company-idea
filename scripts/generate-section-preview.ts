@@ -172,7 +172,7 @@ const page = `<!doctype html><html lang="en"><head>
   .frames{display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap;justify-content:center;}
   .framelabel{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin:0 0 8px 2px;}
   .desktop{width:1000px;max-width:100%;}
-  .mobile{width:380px;}
+  .mobile{width:360px;}
   .sec{background:#fff;}
   .sec .eyebrow{font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;}
   .sec h2{font-family:'Newsreader',serif;font-weight:500;line-height:1.1;color:var(--ink);margin-bottom:26px;}
@@ -196,7 +196,7 @@ const page = `<!doctype html><html lang="en"><head>
   .priceRow{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
   .price{font-family:'Newsreader',serif;font-weight:500;font-size:24px;color:var(--ink);}
   .price .hr{font-family:'Jost';font-weight:400;font-size:15px;color:var(--ink-2);}
-  .cta{display:inline-block;background:var(--primary);color:#fff;border-radius:10px;padding:12px 24px;font-family:'Jost';font-weight:500;font-size:14px;text-decoration:none;}
+  .cta{display:inline-block;background:var(--primary);color:#fff;border-radius:10px;padding:12px 24px;font-family:'Jost';font-weight:500;font-size:14px;text-decoration:none;white-space:nowrap;}
   .photo{position:relative;overflow:hidden;min-height:235px;}
   .photo img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0;}
   .photo .ph{width:100%;height:100%;background:linear-gradient(135deg,var(--primary-soft),var(--wash-to));}
@@ -204,7 +204,7 @@ const page = `<!doctype html><html lang="en"><head>
   .arow + .arow{border-top:1px solid var(--line);}
   .arow-btn{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:none;border:none;text-align:left;cursor:pointer;font-family:'Jost';}
   .arow-btn.soon{cursor:default;}
-  .arow-name{font-family:'Newsreader',serif;font-weight:500;font-size:16px;color:var(--ink);}
+  .arow-name{font-family:'Jost';font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;text-indent:.06em;color:var(--ink);}
   .arow-name.soon{color:var(--ink-3);}
   .arow-right{display:flex;align-items:center;gap:8px;flex:none;}
   .arow-price{font-size:13px;color:var(--ink-3);}
@@ -217,7 +217,7 @@ const page = `<!doctype html><html lang="en"><head>
   .acc-photo img{width:100%;height:100%;object-fit:cover;display:block;}
   .acc-photo .ph{width:100%;height:100%;background:linear-gradient(135deg,var(--primary-soft),var(--wash-to));}
   .arow-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-  .cta-sm{padding:10px 20px;font-size:13px;}
+  .cta-sm{padding:10px 16px;font-size:13px;flex:none;}
   @media (prefers-reduced-motion: reduce){.acc-body,.chev{transition:none;}}
   /* copy table */
   .copytable{max-width:1000px;margin:44px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;}
@@ -235,7 +235,7 @@ const page = `<!doctype html><html lang="en"><head>
 </div>
 <div class="frames">
   <div class="desktop"><div class="framelabel">Desktop</div><div class="sec"><div class="eyebrow">Our services</div><h2>Whatever your home needs</h2><div id="cardD"></div></div></div>
-  <div class="mobile"><div class="framelabel">Mobile ~380px (accordion)</div><div class="sec"><div class="eyebrow">Our services</div><h2>Whatever your home needs</h2><div id="cardM"></div></div></div>
+  <div class="mobile"><div class="framelabel">Mobile ~360px (accordion)</div><div class="sec"><div class="eyebrow">Our services</div><h2>Whatever your home needs</h2><div id="cardM"></div></div></div>
 </div>
 <div class="copytable" id="copy"></div>
 <script>
