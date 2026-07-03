@@ -2523,18 +2523,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'flexible' && selectedCleanerIds.length === 0 && (
           <div>
-            {/* Tier legend */}
-            <div className="mt-6 flex flex-wrap gap-3">
-              {(['elite', 'gold', 'silver', 'bronze', 'starter'] as const).map((tier) => (
-                <span
-                  key={tier}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-jost text-[11px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[tier].color}`}
-                >
-                  {TIER_INFO[tier].label}
-                </span>
-              ))}
-            </div>
-
             {/* Cleaner grid */}
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {cleaners.map((c) => {
