@@ -20,6 +20,31 @@ const FILTER_LABEL_TO_SERVICE_SLUG: Record<string, string> = {
   'Airbnb / Short-Let': 'airbnb',
 };
 
+// A cleaner only "offers" a service if they have a USABLE price for it. A service
+// listed in serviceTypes with no price (e.g. end_of_tenancy in serviceTypes but
+// empty eotPrices) is a profile data-integrity mismatch and must NOT appear under
+// that service's filter.
+function serviceHasUsablePrice(c: Cleaner, slug: string): boolean {
+  switch (slug) {
+    case 'regular':
+      return typeof c.hourlyRateRegular === 'number' && c.hourlyRateRegular > 0;
+    case 'deep':
+      return typeof c.hourlyRateDeep === 'number' && c.hourlyRateDeep > 0;
+    case 'same_day':
+      return typeof c.hourlyRateSameDay === 'number' && c.hourlyRateSameDay > 0;
+    case 'end_of_tenancy':
+      return (
+        !!c.eotPrices && Object.values(c.eotPrices).some((p) => typeof p === 'number' && p > 0)
+      );
+    case 'airbnb':
+      return (
+        !!c.airbnbPrices && Object.values(c.airbnbPrices).some((p) => typeof p === 'number' && p > 0)
+      );
+    default:
+      return true;
+  }
+}
+
 // Curated filter row (change order): services + the three cleaner specialties.
 // No Same-Day / Available-Now filters — that UI is removed pending relaunch.
 const SERVICE_FILTERS = [
@@ -174,7 +199,8 @@ function CleanersContent() {
         filters.length === 0 ||
         filters.every((f) => {
           const serviceSlug = FILTER_LABEL_TO_SERVICE_SLUG[f];
-          if (serviceSlug) return c.serviceTypes.includes(serviceSlug);
+          if (serviceSlug)
+            return c.serviceTypes.includes(serviceSlug) && serviceHasUsablePrice(c, serviceSlug);
           return c.specialties.some((s) => s.toLowerCase().includes(f.toLowerCase()));
         });
       return matchesSearch && matchesFilter;
