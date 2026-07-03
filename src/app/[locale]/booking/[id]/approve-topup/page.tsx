@@ -93,18 +93,18 @@ export default function ApproveTopupPage() {
 
   if (state === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <p className="text-sm text-ink-3">Loading...</p>
       </div>
     );
   }
 
   if (state === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <h2 className="text-lg font-semibold text-red-800">Error</h2>
-          <p className="text-red-600 mt-2">{error}</p>
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="max-w-md rounded-2xl border border-danger/30 bg-red-50 p-6 sm:p-7">
+          <h2 className="font-newsreader text-2xl text-danger">Error</h2>
+          <p className="mt-2 text-sm text-danger">{error}</p>
         </div>
       </div>
     );
@@ -112,10 +112,21 @@ export default function ApproveTopupPage() {
 
   if (state === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 max-w-md text-center">
-          <h2 className="text-lg font-semibold text-green-800">Payment Confirmed</h2>
-          <p className="text-green-600 mt-2">
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+            <svg
+              className="h-7 w-7 text-trust"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="font-newsreader text-2xl text-ink">Payment Confirmed</h2>
+          <p className="mt-2 text-sm text-ink-2">
             Your booking has been confirmed with the new cleaner at &pound;
             {data?.newPrice?.toFixed(2)}.
           </p>
@@ -126,10 +137,10 @@ export default function ApproveTopupPage() {
 
   if (state === 'declined') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 max-w-md text-center">
-          <h2 className="text-lg font-semibold text-gray-800">Declined</h2>
-          <p className="text-gray-600 mt-2">
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
+          <h2 className="font-newsreader text-2xl text-ink">Declined</h2>
+          <p className="mt-2 text-sm text-ink-2">
             You&apos;ve declined the price change. We&apos;ll continue looking for a cleaner at your
             original price.
           </p>
@@ -140,10 +151,10 @@ export default function ApproveTopupPage() {
 
   if (state === 'payment' && clientSecret) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-md w-full">
-          <h2 className="text-lg font-semibold mb-4">Complete Payment</h2>
-          <p className="text-gray-600 mb-4">
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 sm:p-7">
+          <h2 className="mb-4 font-newsreader text-2xl text-ink">Complete Payment</h2>
+          <p className="mb-4 text-sm text-ink-2">
             Please complete the payment of &pound;{data?.topupAmount?.toFixed(2)} to confirm your
             booking.
           </p>
@@ -171,43 +182,48 @@ export default function ApproveTopupPage() {
     : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-md w-full">
-        <h2 className="text-lg font-semibold mb-4">Price Change Approval</h2>
-        <p className="text-gray-600 mb-4">
+    <div className="flex min-h-screen items-center justify-center bg-page p-4">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 sm:p-7">
+        <h2 className="mb-4 font-newsreader text-2xl text-ink">Price Change Approval</h2>
+        <p className="mb-4 text-sm text-ink-2">
           Your original cleaner was unavailable. A backup cleaner is available at a different rate.
         </p>
 
-        <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+        <div className="mb-4 space-y-2 rounded-xl bg-primary-soft p-4">
           <div className="flex justify-between">
-            <span className="text-gray-500">Original price</span>
-            <span className="font-medium">&pound;{data.originalPrice.toFixed(2)}</span>
+            <span className="text-sm text-ink-2">Original price</span>
+            <span className="text-sm font-medium text-ink">
+              &pound;{data.originalPrice.toFixed(2)}
+            </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">New price</span>
-            <span className="font-medium">&pound;{data.newPrice.toFixed(2)}</span>
+            <span className="text-sm text-ink-2">New price</span>
+            <span className="text-sm font-medium text-ink">&pound;{data.newPrice.toFixed(2)}</span>
           </div>
-          <hr className="border-gray-200" />
-          <div className="flex justify-between">
-            <span className="text-gray-500 font-medium">Extra to pay</span>
-            <span className="font-semibold text-blue-600">
+          <div className="border-t border-ink/10" />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-ink">Extra to pay</span>
+            <span className="font-newsreader text-2xl text-ink">
               &pound;{data.topupAmount.toFixed(2)}
             </span>
           </div>
         </div>
 
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="mb-4 text-xs text-ink-3">
           {data.serviceType} &middot; {data.date} at {data.time}
           {hoursLeft !== null && hoursLeft > 0 && (
             <>
               {' '}
-              &middot; {hoursLeft} hour{hoursLeft !== 1 ? 's' : ''} left to decide
+              &middot;{' '}
+              <span className="font-medium text-ink-2">
+                {hoursLeft} hour{hoursLeft !== 1 ? 's' : ''} left to decide
+              </span>
             </>
           )}
         </p>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 text-red-600 text-sm">
+          <div className="mb-4 rounded border border-danger/30 bg-red-50 p-3 text-sm text-danger">
             {error}
           </div>
         )}
@@ -216,14 +232,14 @@ export default function ApproveTopupPage() {
           <button
             onClick={handleDecline}
             disabled={state === 'processing'}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
           >
             Decline
           </button>
           <button
             onClick={handleApprove}
             disabled={state === 'processing'}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {state === 'processing' ? 'Processing...' : 'Approve & Pay'}
           </button>
@@ -274,7 +290,7 @@ function TopupPaymentForm({
       <button
         type="submit"
         disabled={processing || !stripeHook}
-        className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        className="mt-4 w-full rounded-[10px] bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
         {processing ? 'Processing...' : 'Pay Now'}
       </button>
