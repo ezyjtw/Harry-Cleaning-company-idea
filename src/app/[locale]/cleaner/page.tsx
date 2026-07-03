@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
+import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
 import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 
 interface UpcomingJob {
   id: string;
@@ -543,13 +545,7 @@ export default function CleanerDashboard() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-jost text-sm font-normal text-ink">{job.clientName}</p>
-                    <span
-                      className={`rounded-full font-jost text-[10px] uppercase tracking-[0.1em] px-2.5 py-0.5 ${
-                        job.isOffer ? 'bg-gold/10 text-gold' : 'bg-ink/5 text-ink-3'
-                      }`}
-                    >
-                      {job.isOffer ? 'New offer' : 'Confirmed'}
-                    </span>
+                    <CleanerStatusChip status={job.status} />
                   </div>
                   <p className="font-jost text-sm font-light text-ink-3 mt-0.5">{job.address}</p>
                   <div className="flex items-center gap-3 mt-1 font-jost text-sm font-light text-ink-3">
@@ -557,7 +553,7 @@ export default function CleanerDashboard() {
                     <span className="w-1 h-1 rounded-full bg-ink-3/30" />
                     <span>{job.time}</span>
                     <span className="w-1 h-1 rounded-full bg-ink-3/30" />
-                    <span className="text-gold">{job.serviceType}</span>
+                    <span className="text-gold">{serviceLabelFromSlug(job.serviceType)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 sm:flex-col sm:items-end">
@@ -617,7 +613,9 @@ export default function CleanerDashboard() {
             className="rounded-xl bg-white p-6"
             style={{ border: '1px solid rgba(14,14,12,0.06)' }}
           >
-            <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Earnings This Week</h2>
+            <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
+              Earnings This Week
+            </h2>
             <div className="h-40 flex items-end gap-2">
               {data.dailyPercents.map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1.5">

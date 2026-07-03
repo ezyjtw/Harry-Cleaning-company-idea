@@ -3,6 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+
 type JobStatus = 'pending' | 'upcoming' | 'en-route' | 'in-progress' | 'completed';
 
 interface Job {
@@ -247,61 +250,15 @@ export default function CleanerJobsPage() {
     [activeTab, fetchJobs]
   );
 
-  const getStatusBadge = (job: Job) => {
-    if (job.isProvisional) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-amber-50 text-amber-600">
-          Awaiting approval
-        </span>
-      );
-    }
-    if (job.isReserve) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-ink/5 text-ink-3">
-          In reserve
-        </span>
-      );
-    }
-    if (
-      job.cascadePhase === 'BACKUP_OFFER' ||
-      (job.cascadePhase === 'COMBINED_OFFER' && !job.isPrimary)
-    ) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-primary-soft text-primary">
-          Backup offer
-        </span>
-      );
-    }
-    if (job.cascadePhase === 'CASCADE_EXHAUSTED') {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] bg-red-50 text-red-600">
-          Expired
-        </span>
-      );
-    }
-    const ds = toDisplayStatus(job.status);
-    const styles: Record<JobStatus, string> = {
-      pending: 'bg-ink/5 text-ink-3',
-      upcoming: 'bg-gold/10 text-gold',
-      'en-route': 'bg-ink/10 text-ink',
-      'in-progress': 'bg-gold/20 text-gold',
-      completed: 'bg-gold/10 text-gold',
-    };
-    const labels: Record<JobStatus, string> = {
-      pending: 'Pending',
-      upcoming: 'Accepted',
-      'en-route': 'En Route',
-      'in-progress': 'In Progress',
-      completed: 'Completed',
-    };
-    return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${styles[ds]}`}
-      >
-        {labels[ds]}
-      </span>
-    );
-  };
+  const getStatusBadge = (job: Job) => (
+    <CleanerStatusChip
+      status={job.status}
+      cascadePhase={job.cascadePhase}
+      isPrimary={job.isPrimary}
+      isProvisional={job.isProvisional}
+      isReserve={job.isReserve}
+    />
+  );
 
   const getLifecycleStepIndex = (status: string): number => {
     const ds = toDisplayStatus(status);
@@ -447,7 +404,9 @@ export default function CleanerJobsPage() {
                         </svg>
                         {job.time} ({job.duration}h)
                       </span>
-                      <span className="text-gold font-medium">{job.serviceType}</span>
+                      <span className="text-gold font-medium">
+                        {serviceLabelFromSlug(job.serviceType)}
+                      </span>
                     </div>
                     {job.extras && job.extras.length > 0 && (
                       <p className="font-jost text-xs font-light text-ink-3 mt-1">
