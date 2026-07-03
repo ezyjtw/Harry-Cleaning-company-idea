@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
-import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
-const specialtyOptions = SPECIALTY_OPTIONS;
+// Matches the customer wizard's specialty set. Existing stored specialties on
+// a profile are left untouched — only the selectable options shown here change.
+const specialtyOptions = ['Pet-Friendly', 'Eco-Friendly', 'Elderly-Friendly'];
 
 const languageOptions = [
   'English',
@@ -46,7 +47,6 @@ export default function CleanerProfilePage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguages, setCustomLanguages] = useState<string[]>([]);
   const [customLanguage, setCustomLanguage] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('15');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -67,15 +67,6 @@ export default function CleanerProfilePage() {
   const [insuranceError, setInsuranceError] = useState('');
   const insuranceInputRef = useRef<HTMLInputElement>(null);
 
-  // Rate modifiers state
-  const [rateModifiers, setRateModifiers] = useState<
-    { id: string; date: string; modifierPercent: number; reason: string | null }[]
-  >([]);
-  const [modifierPercent, setModifierPercent] = useState('');
-  const [modifierDates, setModifierDates] = useState<string[]>([]);
-  const [modifierReason, setModifierReason] = useState('');
-  const [modifierSaving, setModifierSaving] = useState(false);
-  const [modifierError, setModifierError] = useState('');
   const [showWebcam, setShowWebcam] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -106,7 +97,6 @@ export default function CleanerProfilePage() {
         setPhone(data.phone || '');
         setPostcode(data.postcode || '');
         setBio(data.bio || '');
-        setHourlyRate(data.hourlyRateRegular ? String(data.hourlyRateRegular) : '15');
         setYearsExperience(
           data.yearsExperience !== null && data.yearsExperience !== undefined
             ? String(data.yearsExperience)
@@ -129,13 +119,6 @@ export default function CleanerProfilePage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setInsuranceStatus(data);
-      })
-      .catch(() => {});
-
-    fetch('/api/cleaner/rate-modifiers')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.modifiers) setRateModifiers(data.modifiers);
       })
       .catch(() => {});
   }, [router]);
@@ -208,7 +191,6 @@ export default function CleanerProfilePage() {
           homePostcode,
           maxTravelMinutes: Number(maxTravelMinutes),
           image: photo,
-          hourlyRateRegular: Number(hourlyRate),
           yearsExperience: yearsExperience ? Number(yearsExperience) : null,
         }),
       });
@@ -231,7 +213,6 @@ export default function CleanerProfilePage() {
     homePostcode,
     maxTravelMinutes,
     photo,
-    hourlyRate,
     yearsExperience,
   ]);
 
@@ -690,205 +671,6 @@ export default function CleanerProfilePage() {
             <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
               Only customers within this travel time will see your profile
             </p>
-          </div>
-        </div>
-
-        {/* Hourly Rate */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">Hourly Rate</h2>
-          <p className="font-jost text-sm font-light text-ink-2 mb-3">
-            Set your base hourly rate. You can adjust this at any time.
-          </p>
-          <div className="flex items-center gap-3">
-            <span className="font-jost text-lg text-ink">£</span>
-            <input
-              type="number"
-              value={hourlyRate}
-              onChange={(e) => {
-                setHourlyRate(e.target.value);
-                markDirty();
-              }}
-              min="14"
-              max="100"
-              step="0.50"
-              className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-              style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-            />
-            <span className="font-jost text-sm font-light text-ink-2">per hour</span>
-          </div>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">
-            Minimum £14/hr. This is the rate customers will see.
-          </p>
-        </div>
-
-        {/* Rate Modifiers (Temp Pricing) */}
-        <div
-          className="rounded-xl bg-white p-6"
-          style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-        >
-          <h2 className="font-newsreader text-lg font-semibold text-ink mb-4">
-            Temporary Rate Modifier
-          </h2>
-          <p className="font-jost text-sm font-light text-ink-2 mb-4">
-            Apply a temporary percentage adjustment to your rate on selected days.
-          </p>
-
-          {rateModifiers.length > 0 && (
-            <div className="mb-5 space-y-2">
-              <p className="font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3 mb-2">
-                Active modifiers
-              </p>
-              {rateModifiers.map((mod) => (
-                <div
-                  key={mod.id}
-                  className="flex items-center justify-between rounded-lg bg-cream px-4 py-2.5"
-                  style={{ border: '1px solid rgba(14,14,12,0.06)' }}
-                >
-                  <div>
-                    <span className="font-jost text-sm text-ink">
-                      {new Date(mod.date).toLocaleDateString('en-GB', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </span>
-                    <span className="ml-2 font-jost text-sm font-medium text-gold">
-                      {mod.modifierPercent > 0 ? '+' : ''}
-                      {mod.modifierPercent}%
-                    </span>
-                    {mod.reason && (
-                      <span className="ml-2 font-jost text-[12px] text-ink-3">({mod.reason})</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={async () => {
-                      await fetch(`/api/cleaner/rate-modifiers?date=${mod.date}`, {
-                        method: 'DELETE',
-                      });
-                      setRateModifiers((prev) => prev.filter((m) => m.id !== mod.id));
-                    }}
-                    className="font-jost text-[12px] text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3 mb-1.5">
-                Percentage adjustment
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={modifierPercent}
-                  onChange={(e) => setModifierPercent(e.target.value)}
-                  placeholder="e.g. 25"
-                  min="-50"
-                  max="200"
-                  className="w-28 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                  style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-                />
-                <span className="font-jost text-sm text-ink-2">%</span>
-                {modifierPercent && Number(hourlyRate) > 0 && (
-                  <span className="font-jost text-[12px] text-ink-3">
-                    = £{(Number(hourlyRate) * (1 + Number(modifierPercent) / 100)).toFixed(2)}/hr
-                  </span>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3 mb-1.5">
-                Select dates
-              </label>
-              <input
-                type="date"
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val && !modifierDates.includes(val)) {
-                    setModifierDates((prev) => [...prev, val]);
-                  }
-                }}
-                className="rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-              />
-              {modifierDates.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {modifierDates.map((d) => (
-                    <span
-                      key={d}
-                      className="inline-flex items-center gap-1 rounded-full bg-cream-2 px-3 py-1 font-jost text-[12px] text-ink"
-                    >
-                      {new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                      <button
-                        onClick={() => setModifierDates((prev) => prev.filter((x) => x !== d))}
-                        className="text-ink-3 hover:text-red-500 ml-0.5"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3 mb-1.5">
-                Reason (optional)
-              </label>
-              <input
-                type="text"
-                value={modifierReason}
-                onChange={(e) => setModifierReason(e.target.value)}
-                placeholder="e.g. Bank holiday"
-                className="w-full rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30 transition"
-                style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-              />
-            </div>
-            {modifierError && <p className="font-jost text-[12px] text-red-600">{modifierError}</p>}
-            <button
-              disabled={modifierSaving || !modifierPercent || modifierDates.length === 0}
-              onClick={async () => {
-                setModifierSaving(true);
-                setModifierError('');
-                try {
-                  const res = await fetch('/api/cleaner/rate-modifiers', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      dates: modifierDates,
-                      modifierPercent: Number(modifierPercent),
-                      reason: modifierReason.trim() || null,
-                    }),
-                  });
-                  if (res.ok) {
-                    const data = await res.json();
-                    setRateModifiers((prev) => [...prev, ...data.modifiers]);
-                    setModifierPercent('');
-                    setModifierDates([]);
-                    setModifierReason('');
-                  } else {
-                    const err = await res.json().catch(() => null);
-                    setModifierError(err?.error || 'Failed to apply modifier');
-                  }
-                } catch {
-                  setModifierError('Network error');
-                }
-                setModifierSaving(false);
-              }}
-              className="rounded-full px-6 py-2 bg-ink text-cream font-jost text-[13px] font-light hover:bg-ink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {modifierSaving ? 'Applying...' : 'Apply Modifier'}
-            </button>
           </div>
         </div>
 
