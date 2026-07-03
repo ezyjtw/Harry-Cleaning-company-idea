@@ -2043,7 +2043,7 @@ export default function JoinAsCleanerPage() {
 
             {/* Liveness / Selfie Verification */}
             <div className="mt-6 border-t border-line pt-6">
-              <h3 className="font-newsreader text-lg font-semibold text-ink">Identity Verification</h3>
+              <h3 className="font-newsreader text-lg font-semibold text-ink">Selfie Check</h3>
               <p className="mt-1 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 To confirm you are who you say you are, we need a live selfie to match against the
                 photo ID you uploaded in the previous step. This is a one-time check to protect both
@@ -2205,9 +2205,8 @@ export default function JoinAsCleanerPage() {
 
             <div className="rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
               <p className="font-jost text-[12px] font-light text-ink-2 leading-relaxed">
-                Your selfie and DBS certificate are encrypted and processed securely. The selfie is
-                compared against your photo ID to confirm your identity. All data is handled in
-                accordance with UK GDPR and destroyed after the verification is complete.
+                Your selfie and documents are encrypted and processed securely, and handled in
+                accordance with UK GDPR.
               </p>
             </div>
           </div>
