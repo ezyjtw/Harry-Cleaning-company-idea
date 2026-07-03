@@ -3,17 +3,12 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
+import {
+  mapStatus,
+  statusStyles,
+  type BookingStatus,
+} from '@/components/BookingStatusChip';
 import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
-
-type BookingStatus =
-  | 'Pending'
-  | 'Finding a cleaner'
-  | 'Price approval needed'
-  | 'Confirmed'
-  | 'Completed'
-  | 'Cancelled'
-  | 'Disputed'
-  | 'No cleaner available';
 
 interface Booking {
   fullId: string;
@@ -57,20 +52,6 @@ const DISPUTE_REASONS = [
   { value: 'other', label: 'Other' },
 ] as const;
 
-// Semantic status chips: warning (amber) = in-progress/attention, trust (green)
-// = confirmed, primary-soft (navy) = completed, danger (red) = failed/disputed,
-// neutral = cancelled.
-const statusStyles: Record<BookingStatus, string> = {
-  Pending: 'bg-warning/10 text-warning border-warning/20',
-  'Finding a cleaner': 'bg-warning/10 text-warning border-warning/20',
-  'Price approval needed': 'bg-warning/10 text-warning border-warning/20',
-  Confirmed: 'bg-trust/10 text-trust border-trust/20',
-  Completed: 'bg-primary-soft text-primary border-primary/15',
-  Cancelled: 'bg-page text-ink-3 border-line',
-  Disputed: 'bg-danger/10 text-danger border-danger/20',
-  'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
-};
-
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'All', value: 'All' },
   { label: 'Pending', value: 'Pending' },
@@ -78,37 +59,6 @@ const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'Completed', value: 'Completed' },
   { label: 'Cancelled', value: 'Cancelled' },
 ];
-
-function mapStatus(apiStatus: string, cascadePhase?: string | null): BookingStatus {
-  const s = apiStatus.toUpperCase();
-  if (s === 'AWAITING_CLEANER' && cascadePhase === 'PROVISIONAL_APPROVAL') {
-    return 'Price approval needed';
-  }
-  if (s === 'AWAITING_CLEANER' && cascadePhase === 'BACKUP_OFFER') {
-    return 'Finding a cleaner';
-  }
-  switch (s) {
-    case 'PENDING':
-    case 'AWAITING_CLEANER':
-      return 'Pending';
-    case 'CONFIRMED':
-    case 'ACCEPTED':
-    case 'EN_ROUTE':
-    case 'IN_PROGRESS':
-      return 'Confirmed';
-    case 'COMPLETED':
-    case 'REVIEWED':
-      return 'Completed';
-    case 'CANCELLED':
-      return 'Cancelled';
-    case 'DISPUTED':
-      return 'Disputed';
-    case 'CASCADE_EXHAUSTED':
-      return 'No cleaner available';
-    default:
-      return 'Pending';
-  }
-}
 
 interface CancelPreview {
   canCancel: boolean;
