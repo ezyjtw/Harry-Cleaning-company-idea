@@ -25,19 +25,19 @@ export function getVerificationBadge(level: VerificationLevel) {
     case 'full':
       return {
         label: 'ID & Background Verified',
-        color: 'bg-green-50 text-green-700 ring-green-200',
+        color: 'bg-trust/10 text-trust ring-trust/20',
         icon: 'shield-check',
       };
     case 'basic':
       return {
         label: 'ID Verified',
-        color: 'bg-blue-50 text-blue-700 ring-blue-200',
+        color: 'bg-primary-soft text-primary ring-primary/20',
         icon: 'id-card',
       };
     default:
       return {
         label: 'Unverified',
-        color: 'bg-gray-50 text-gray-500 ring-gray-200',
+        color: 'bg-page text-ink-3 ring-line',
         icon: 'question',
       };
   }
@@ -76,15 +76,15 @@ export function createEscrowTransaction(
 export function getEscrowStatusLabel(status: EscrowStatus) {
   switch (status) {
     case 'held':
-      return { label: 'Payment Held Securely', color: 'text-amber-600 bg-amber-50' };
+      return { label: 'Payment Held Securely', color: 'text-warning bg-warning/10' };
     case 'released':
-      return { label: 'Payment Released to Cleaner', color: 'text-green-600 bg-green-50' };
+      return { label: 'Payment Released to Cleaner', color: 'text-trust bg-trust/10' };
     case 'refunded':
-      return { label: 'Payment Refunded', color: 'text-blue-600 bg-blue-50' };
+      return { label: 'Payment Refunded', color: 'text-primary bg-primary-soft' };
     case 'disputed':
-      return { label: 'Payment Frozen — Dispute Open', color: 'text-red-600 bg-red-50' };
+      return { label: 'Payment Frozen — Dispute Open', color: 'text-danger bg-danger/10' };
     default:
-      return { label: 'Direct Payment', color: 'text-gray-600 bg-gray-50' };
+      return { label: 'Direct Payment', color: 'text-ink-3 bg-page' };
   }
 }
 
@@ -159,18 +159,18 @@ export const DISPUTE_REASONS: { value: DisputeReason; label: string; description
 export function getDisputeStatusLabel(status: DisputeStatus) {
   switch (status) {
     case 'open':
-      return { label: 'Open', color: 'bg-yellow-50 text-yellow-700' };
+      return { label: 'Open', color: 'bg-warning/10 text-warning' };
     case 'under-review':
-      return { label: 'Under Review', color: 'bg-blue-50 text-blue-700' };
+      return { label: 'Under Review', color: 'bg-primary-soft text-primary' };
     case 'resolved-customer':
-      return { label: 'Resolved — Customer Refunded', color: 'bg-green-50 text-green-700' };
+      return { label: 'Resolved — Customer Refunded', color: 'bg-trust/10 text-trust' };
     case 'resolved-cleaner':
-      return { label: 'Resolved — Cleaner Paid', color: 'bg-green-50 text-green-700' };
+      return { label: 'Resolved — Cleaner Paid', color: 'bg-trust/10 text-trust' };
     case 'resolved-split':
-      return { label: 'Resolved — Split Payment', color: 'bg-purple-50 text-purple-700' };
+      return { label: 'Resolved — Split Payment', color: 'bg-ink/[0.06] text-ink' };
     case 'escalated':
-      return { label: 'Escalated to Support', color: 'bg-red-50 text-red-700' };
+      return { label: 'Escalated to Support', color: 'bg-danger/10 text-danger' };
     default:
-      return { label: status, color: 'bg-gray-50 text-gray-700' };
+      return { label: status, color: 'bg-page text-ink-3' };
   }
 }
