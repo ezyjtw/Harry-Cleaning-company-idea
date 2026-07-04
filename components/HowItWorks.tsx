@@ -219,12 +219,22 @@ function StepHead({ n, title }: { n: string; title: string }) {
   );
 }
 
-/** 4:5 media slot (steps 1 & 3), the shared PANEL. Replace the PNG via GitHub
+/** 4:5 media slot (steps 1 & 3), the shared PANEL. Uses object-contain +
+ *  object-center so the whole screenshot always renders centred and fully
+ *  visible regardless of the asset's aspect (a phone screenshot taller than 4:5
+ *  was being cropped by object-cover's default centre position). An asset
+ *  authored at 4:5 fills the panel edge-to-edge. Replace the PNG via GitHub
  *  upload and it renders automatically. */
 function StepMedia({ src, alt }: { src: string; alt: string }) {
   return (
     <div className={`overflow-hidden ${PANEL}`}>
-      <Image src={src} alt={alt} width={380} height={475} className="h-full w-full object-cover" />
+      <Image
+        src={src}
+        alt={alt}
+        width={380}
+        height={475}
+        className="h-full w-full object-contain object-center"
+      />
     </div>
   );
 }
@@ -242,31 +252,42 @@ export default function HowItWorks() {
           <span className="font-etna tracking-wider">RENA</span> {t('sectionSubtitle')}
         </h2>
 
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-12">
-          {/* Step 1 — enter your postcode / browse */}
-          <div className="flex flex-col">
+        {/* Structural alignment: on desktop the three TEXT blocks share grid row 1
+            (stretched to a common height) and the three PANELS share row 2, so the
+            media panels sit on the same horizontal line regardless of copy length.
+            DOM order is interleaved (text→panel per step) so mobile stacks each
+            step's text above its own panel in a clean vertical flow. */}
+        <div className="grid grid-cols-1 gap-y-8 md:grid-cols-3 md:grid-rows-[auto_1fr] md:gap-x-12 md:gap-y-6">
+          {/* Step 1 */}
+          <div className="flex flex-col md:col-start-1 md:row-start-1">
             <StepHead n="01" title={t('step1Title')} />
-            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
+            <p className="font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step1Description')}
             </p>
+          </div>
+          <div className="md:col-start-1 md:row-start-2">
             <StepMedia src="/images/how-step-1.png" alt="Browsing cleaners on the Rena app" />
           </div>
 
-          {/* Step 2 — choose someone you trust (stacked-pair cleaner carousel) */}
-          <div className="flex flex-col">
+          {/* Step 2 */}
+          <div className="flex flex-col md:col-start-2 md:row-start-1">
             <StepHead n="02" title={t('step2Title')} />
-            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
+            <p className="font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step2Description')}
             </p>
+          </div>
+          <div className="md:col-start-2 md:row-start-2">
             <StepCleanerCarousel />
           </div>
 
-          {/* Step 3 — they arrive, you relax */}
-          <div className="flex flex-col">
+          {/* Step 3 */}
+          <div className="flex flex-col md:col-start-3 md:row-start-1">
             <StepHead n="03" title={t('step3Title')} />
-            <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
+            <p className="font-jost text-[14px] font-light leading-[1.7] text-ink-3">
               {t('step3Description')}
             </p>
+          </div>
+          <div className="md:col-start-3 md:row-start-2">
             <StepMedia src="/images/how-step-3.png" alt="Your booking confirmed in the Rena app" />
           </div>
         </div>
