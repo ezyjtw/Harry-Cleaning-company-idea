@@ -161,12 +161,10 @@
   "Stats": {
     "ratingValue": "4.8",
     "ratingLabel": "Average rating",
-    "rebookValue": "96%",
-    "rebookLabel": "Rebook their cleaner",
-    "bookingTimeValue": "<2 min",
-    "bookingTimeLabel": "Average booking time",
-    "sameDayValue": "Same day",
-    "sameDayLabel": "Available in most areas"
+    "insuredValue": "Insured",
+    "insuredLabel": "Cleaners",
+    "recommendedValue": "Recommended",
+    "recommendedLabel": "By people in your area"
   },
   "Cookie": {
     "title": "Cookie Preferences",
