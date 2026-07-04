@@ -9,9 +9,9 @@ export default function StatsBar() {
   // (display-figure weight — applies to the word cells too), labels are Jost caps
   // white/60. All type flows through the CSS-var pipeline (no inline font-family).
   const stats = [
+    { value: t('recommendedValue'), label: t('recommendedLabel') },
     { value: t('ratingValue'), label: t('ratingLabel') },
     { value: t('insuredValue'), label: t('insuredLabel') },
-    { value: t('recommendedValue'), label: t('recommendedLabel') },
   ];
 
   return (
