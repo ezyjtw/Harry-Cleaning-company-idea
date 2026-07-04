@@ -108,11 +108,11 @@ function StepDots({ current, total }: { current: number; total: number }) {
         <div key={s} className="flex items-center gap-3">
           <div
             className={`h-[7px] w-[7px] rounded-full transition-all duration-300 ${
-              s === current ? 'scale-125 bg-gold' : s < current ? 'bg-gold-2' : 'bg-ink/10'
+              s === current ? 'scale-125 bg-primary' : s < current ? 'bg-trust' : 'bg-ink/10'
             }`}
           />
           {s < total && (
-            <div className={`h-px w-4 ${s < current ? 'bg-gold/40' : 'bg-ink/[0.06]'}`} />
+            <div className={`h-px w-4 ${s < current ? 'bg-primary/40' : 'bg-ink/[0.06]'}`} />
           )}
         </div>
       ))}
@@ -124,7 +124,7 @@ function PanelFooter() {
   return (
     <div
       className="flex justify-between pt-5"
-      style={{ borderTop: '1px solid rgba(27,42,74,0.06)' }}
+      style={{ borderTop: '1px solid rgb(var(--color-border))' }}
     >
       <span className="font-jost text-[12px] font-light text-ink-3">
         From £14 / hr · No hidden fees
@@ -145,14 +145,14 @@ function PostcodeBar({
 }) {
   return (
     <div
-      className="mb-6 flex items-center gap-3 rounded-md bg-cream px-4 py-3"
-      style={{ border: '1px solid rgba(27,42,74,0.08)' }}
+      className="mb-6 flex items-center gap-3 rounded-md bg-page px-4 py-3"
+      style={{ border: '1px solid rgb(var(--color-border))' }}
     >
-      <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gold/10">
+      <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-primary/10">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path
             d="M3 7L6 10L11 4"
-            stroke="#16296b"
+            stroke="rgb(var(--color-primary))"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -169,7 +169,7 @@ function PostcodeBar({
       )}
       <button
         onClick={onChangeClick}
-        className="font-jost text-[11px] uppercase tracking-[0.08em] text-gold"
+        className="font-jost text-[11px] uppercase tracking-[0.08em] text-primary"
       >
         CHANGE
       </button>
@@ -190,9 +190,9 @@ function OptionButton({
     <button
       onClick={onClick}
       className={`rounded-md px-4 py-2 font-jost text-[13px] transition ${
-        selected ? 'bg-gold text-white' : 'text-ink-2'
+        selected ? 'bg-primary text-white' : 'text-ink-2'
       }`}
-      style={!selected ? { border: '1px solid rgba(27,42,74,0.12)' } : undefined}
+      style={!selected ? { border: '1px solid rgb(var(--color-border))' } : undefined}
     >
       {children}
     </button>
@@ -397,7 +397,7 @@ export default function HeroQuoteWidget() {
 
       <div
         className="flex overflow-hidden rounded-md"
-        style={{ border: '1px solid rgba(27,42,74,0.12)' }}
+        style={{ border: '1px solid rgb(var(--color-border))' }}
       >
         <input
           type="text"
@@ -414,14 +414,14 @@ export default function HeroQuoteWidget() {
         />
         <button
           onClick={handlePostcodeSubmit}
-          className="bg-gold px-7 font-jost text-[13px] tracking-[0.04em] text-white transition-opacity hover:opacity-90"
+          className="bg-primary px-7 font-jost text-[13px] tracking-[0.04em] text-white transition-opacity hover:opacity-90"
         >
           Continue
         </button>
       </div>
 
       {postcodeError ? (
-        <p className="mb-7 mt-2 font-jost text-[12px] text-red-500">{postcodeError}</p>
+        <p className="mb-7 mt-2 font-jost text-[12px] text-danger">{postcodeError}</p>
       ) : (
         <p className="mb-7 mt-2 font-jost text-[12px] text-ink-3">e.g. IG11 7QR</p>
       )}
@@ -429,8 +429,8 @@ export default function HeroQuoteWidget() {
       {/* Out-of-area waitlist */}
       {showWaitlist && !waitlistSubmitted && (
         <div
-          className="mb-4 rounded-md bg-cream p-4"
-          style={{ border: '1px solid rgba(27,42,74,0.08)' }}
+          className="mb-4 rounded-md bg-page p-4"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <p className="font-jost text-[13px] font-medium text-ink">
             We&apos;re expanding to your area soon
@@ -449,12 +449,12 @@ export default function HeroQuoteWidget() {
                 if (e.key === 'Enter') handleWaitlistSubmit();
               }}
               placeholder="your@email.com"
-              className="flex-1 rounded-md border border-ink/10 bg-white px-3 py-2 font-jost text-[13px] placeholder:text-ink-3/60 outline-none focus:border-gold"
+              className="flex-1 rounded-md border border-ink/10 bg-white px-3 py-2 font-jost text-[13px] placeholder:text-ink-3/60 outline-none focus:border-primary"
             />
             <button
               onClick={handleWaitlistSubmit}
               disabled={waitlistLoading || !waitlistEmail.trim()}
-              className="rounded-md bg-gold px-4 py-2 font-jost text-[12px] font-medium text-white disabled:opacity-50"
+              className="rounded-md bg-primary px-4 py-2 font-jost text-[12px] font-medium text-white disabled:opacity-50"
             >
               {waitlistLoading ? '...' : 'Notify me'}
             </button>
@@ -464,10 +464,10 @@ export default function HeroQuoteWidget() {
 
       {showWaitlist && waitlistSubmitted && (
         <div
-          className="mb-4 rounded-md bg-cream p-4"
-          style={{ border: '1px solid rgba(27,42,74,0.08)' }}
+          className="mb-4 rounded-md bg-page p-4"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
-          <p className="font-jost text-[13px] font-medium text-gold">You&apos;re on the list</p>
+          <p className="font-jost text-[13px] font-medium text-primary">You&apos;re on the list</p>
           <p className="mt-1 font-jost text-[12px] text-ink-3">
             We&apos;ll email you as soon as we launch in your area.
           </p>
@@ -540,7 +540,7 @@ export default function HeroQuoteWidget() {
               <span
                 key={key}
                 className="flex items-center gap-1.5 rounded-md px-4 py-2 font-jost text-[13px] text-ink-3/50 cursor-not-allowed"
-                style={{ border: '1px solid rgba(27,42,74,0.08)' }}
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               >
                 {SERVICE_LABELS[key]}
                 <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[9px] uppercase tracking-[0.08em] text-ink-3">
@@ -576,7 +576,7 @@ export default function HeroQuoteWidget() {
             max={8}
             value={hours}
             onChange={(e) => setHours(Number(e.target.value))}
-            className="w-full accent-gold"
+            className="w-full accent-primary"
           />
           <div className="flex justify-between font-jost text-[11px] text-ink-3/60">
             <span>{serviceSlug === 'deep' ? '3 hrs' : '2 hrs'}</span>
@@ -597,8 +597,8 @@ export default function HeroQuoteWidget() {
           const high = Math.ceil(range[1] * 1.06);
           return (
             <div
-              className="mb-6 rounded-md bg-cream px-4 py-3 text-center"
-              style={{ border: '1px solid rgba(27,42,74,0.08)' }}
+              className="mb-6 rounded-md bg-page px-4 py-3 text-center"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             >
               <span className="font-jost text-[13px] font-medium text-ink">
                 Prices from &pound;{low} &ndash; &pound;{high}
@@ -614,7 +614,7 @@ export default function HeroQuoteWidget() {
         onClick={handleStep2Next}
         disabled={!canProceedStep2}
         className={`mb-6 w-full rounded-md py-4 font-jost text-[13px] tracking-[0.08em] transition-opacity ${
-          canProceedStep2 ? 'bg-gold text-white' : 'cursor-not-allowed bg-gold/30 text-white'
+          canProceedStep2 ? 'bg-primary text-white' : 'cursor-not-allowed bg-primary/30 text-white'
         }`}
       >
         {isFixed ? 'See prices' : 'Get estimate'}
@@ -628,7 +628,7 @@ export default function HeroQuoteWidget() {
     if (quoteLoading) {
       return (
         <div className="py-10 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="mt-3 font-jost text-[13px] text-ink-3">Calculating your quote...</p>
         </div>
       );
@@ -645,7 +645,7 @@ export default function HeroQuoteWidget() {
           </p>
           <button
             onClick={() => fetchQuote()}
-            className="rounded-md bg-gold px-6 py-3 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
+            className="rounded-md bg-primary px-6 py-3 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
           >
             Try again
           </button>
@@ -671,7 +671,7 @@ export default function HeroQuoteWidget() {
         <div className="mb-6 flex flex-wrap gap-2">
           <span
             className="rounded-md px-3 py-1.5 font-jost text-[11px] text-ink-2"
-            style={{ border: '1px solid rgba(27,42,74,0.1)' }}
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
             {isFixed
               ? (() => {
@@ -685,14 +685,14 @@ export default function HeroQuoteWidget() {
           </span>
           <span
             className="rounded-md px-3 py-1.5 font-jost text-[11px] text-ink-2"
-            style={{ border: '1px solid rgba(27,42,74,0.1)' }}
+            style={{ border: '1px solid rgb(var(--color-border))' }}
           >
             {SERVICE_LABELS[serviceSlug]}
           </span>
           {!isFixed && (
             <span
               className="rounded-md px-3 py-1.5 font-jost text-[11px] text-ink-2"
-              style={{ border: '1px solid rgba(27,42,74,0.1)' }}
+              style={{ border: '1px solid rgb(var(--color-border))' }}
             >
               {hours} hrs
             </span>
@@ -701,8 +701,8 @@ export default function HeroQuoteWidget() {
 
         {/* Estimate display */}
         <div
-          className="mb-6 rounded-md bg-cream p-5 text-center"
-          style={{ border: '1px solid rgba(27,42,74,0.06)' }}
+          className="mb-6 rounded-md bg-page p-5 text-center"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <p className="font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
             Estimated price
@@ -751,14 +751,14 @@ export default function HeroQuoteWidget() {
               {availableAddons.map((addon) => (
                 <label
                   key={addon.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-md px-4 py-3 transition hover:bg-cream"
-                  style={{ border: '1px solid rgba(27,42,74,0.1)' }}
+                  className="flex cursor-pointer items-center gap-3 rounded-md px-4 py-3 transition hover:bg-page"
+                  style={{ border: '1px solid rgb(var(--color-border))' }}
                 >
                   <input
                     type="checkbox"
                     checked={selectedAddons.includes(addon.id)}
                     onChange={() => handleAddonToggle(addon.id)}
-                    className="h-4 w-4 rounded border-ink/20 accent-gold"
+                    className="h-4 w-4 rounded border-ink/20 accent-primary"
                   />
                   <span className="flex-1 font-jost text-[13px] text-ink">{addon.name}</span>
                   <span className="font-jost text-[12px] font-medium text-ink-3">
@@ -772,15 +772,15 @@ export default function HeroQuoteWidget() {
 
         <button
           onClick={() => setStep(4)}
-          className="mb-3 w-full rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
+          className="mb-3 w-full rounded-md bg-primary py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
         >
           Continue
         </button>
 
         <button
           onClick={() => setStep(2)}
-          className="mb-6 w-full rounded-md py-3 font-jost text-[13px] text-ink-2 transition hover:bg-cream"
-          style={{ border: '1px solid rgba(27,42,74,0.12)' }}
+          className="mb-6 w-full rounded-md py-3 font-jost text-[13px] text-ink-2 transition hover:bg-page"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           Adjust details
         </button>
@@ -799,7 +799,7 @@ export default function HeroQuoteWidget() {
           </p>
           <button
             onClick={handleReset}
-            className="rounded-md bg-gold px-6 py-3 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
+            className="rounded-md bg-primary px-6 py-3 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
           >
             Start over
           </button>
@@ -809,11 +809,11 @@ export default function HeroQuoteWidget() {
     return (
       <>
         <div className="mb-5 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold/10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path
                 d="M5 13l4 4L19 7"
-                stroke="#C9A96E"
+                stroke="rgb(var(--color-trust))"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -832,8 +832,8 @@ export default function HeroQuoteWidget() {
         </div>
 
         <div
-          className="mb-6 rounded-md bg-cream px-4 py-3 text-center"
-          style={{ border: '1px solid rgba(27,42,74,0.06)' }}
+          className="mb-6 rounded-md bg-page px-4 py-3 text-center"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           <span className="font-newsreader text-[20px] font-medium text-ink">
             from &pound;{quote.minTotal.toFixed(2)}
@@ -844,15 +844,15 @@ export default function HeroQuoteWidget() {
         {/* Two genuinely different paths: direct booking (high-intent) vs browse-first. */}
         <a
           href={buildBookingUrl()}
-          className="mb-3 flex w-full items-center justify-center rounded-md bg-gold py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
+          className="mb-3 flex w-full items-center justify-center rounded-md bg-primary py-4 font-jost text-[13px] tracking-[0.08em] text-white transition-opacity hover:opacity-90"
         >
           Book a clean
         </a>
 
         <a
           href={`/cleaners?postcode=${encodeURIComponent(confirmedPostcode)}`}
-          className="mb-3 flex w-full items-center justify-center rounded-md py-3 font-jost text-[13px] tracking-[0.08em] text-ink transition hover:bg-cream"
-          style={{ border: '1px solid rgba(27,42,74,0.10)' }}
+          className="mb-3 flex w-full items-center justify-center rounded-md py-3 font-jost text-[13px] tracking-[0.08em] text-ink transition hover:bg-page"
+          style={{ border: '1px solid rgb(var(--color-border))' }}
         >
           Browse cleaners
         </a>
@@ -874,7 +874,7 @@ export default function HeroQuoteWidget() {
   return (
     <div
       className="rounded-lg bg-white p-6 shadow-soft md:p-10"
-      style={{ border: '1px solid rgba(27,42,74,0.06)' }}
+      style={{ border: '1px solid rgb(var(--color-border))' }}
     >
       <StepDots current={step} total={4} />
       {step === 1 && renderStep1()}

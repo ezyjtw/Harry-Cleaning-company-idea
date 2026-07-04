@@ -7,13 +7,13 @@ function ShieldIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M10 2L4 5V9.5C4 13.5 6.5 17 10 18.5C13.5 17 16 13.5 16 9.5V5L10 2Z"
-        stroke="#16296b"
+        stroke="rgb(var(--color-primary))"
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
       <path
         d="M7.5 10L9.5 12L13 8"
-        stroke="#16a34a"
+        stroke="rgb(var(--color-trust))"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -25,10 +25,15 @@ function ShieldIcon() {
 function ProcessIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 6H16M4 10H16M4 14H11" stroke="#16296b" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M4 6H16M4 10H16M4 14H11"
+        stroke="rgb(var(--color-primary))"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
       <path
         d="M14 13L16 15L14 17"
-        stroke="#3D5170"
+        stroke="rgb(var(--color-ink-2))"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -40,14 +45,22 @@ function ProcessIcon() {
 function LockIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="9" width="12" height="8" rx="2" stroke="#16296b" strokeWidth="1.5" />
+      <rect
+        x="4"
+        y="9"
+        width="12"
+        height="8"
+        rx="2"
+        stroke="rgb(var(--color-primary))"
+        strokeWidth="1.5"
+      />
       <path
         d="M7 9V6C7 4.34 8.34 3 10 3C11.66 3 13 4.34 13 6V9"
-        stroke="#16296b"
+        stroke="rgb(var(--color-primary))"
         strokeWidth="1.5"
         strokeLinecap="round"
       />
-      <circle cx="10" cy="13" r="1" fill="#3D5170" />
+      <circle cx="10" cy="13" r="1" fill="rgb(var(--color-ink-2))" />
     </svg>
   );
 }
@@ -62,12 +75,12 @@ export default function GuaranteeSection() {
   ];
 
   return (
-    <section className="bg-cream">
+    <section className="bg-page">
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-20">
           {/* Left */}
           <div>
-            <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-gold">
+            <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-primary">
               {t('sectionTitle')}
             </p>
             <h2 className="mb-5 font-newsreader text-[32px] font-semibold leading-tight text-ink md:mb-6 md:text-[42px]">
@@ -79,14 +92,14 @@ export default function GuaranteeSection() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <a
                 href="/services"
-                className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+                className="rounded-md bg-primary px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
                 {t('bookClean')}
               </a>
               <a
                 href="/guarantees"
-                className="rounded-md px-7 py-3.5 text-center font-jost text-[14px] font-normal text-ink transition-colors hover:bg-cream-2"
-                style={{ border: '1px solid rgba(27,42,74,0.15)' }}
+                className="rounded-md px-7 py-3.5 text-center font-jost text-[14px] font-normal text-ink transition-colors hover:bg-primary-soft"
+                style={{ border: '1px solid rgb(var(--color-border))' }}
               >
                 {t('ourGuarantees')}
               </a>
@@ -94,18 +107,21 @@ export default function GuaranteeSection() {
           </div>
 
           {/* Right */}
-          <div className="rounded-lg bg-white" style={{ border: '1px solid rgba(27,42,74,0.06)' }}>
+          <div
+            className="rounded-lg bg-white"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
+          >
             {guarantees.map((g, i) => (
               <div
                 key={g.title}
                 className="flex gap-4 px-6 py-5"
                 style={
                   i < guarantees.length - 1
-                    ? { borderBottom: '1px solid rgba(27,42,74,0.06)' }
+                    ? { borderBottom: '1px solid rgb(var(--color-border))' }
                     : undefined
                 }
               >
-                <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-lg bg-cream-2">
+                <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-lg bg-primary-soft">
                   {g.icon}
                 </div>
                 <div>

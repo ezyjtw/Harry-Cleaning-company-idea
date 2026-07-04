@@ -20,7 +20,7 @@ export default function HeroSection() {
       {/* Background image */}
       <div className="absolute inset-0">
         <Image src="/images/hero-banner.jpg" alt="" fill className="object-cover" priority />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#1B2A4A]/70 via-[#1B2A4A]/50 to-[#1B2A4A]/30" />
+        <div className="absolute inset-0 bg-gradient-to-r from-ink/70 via-ink/50 to-ink/30" />
       </div>
 
       <div className="relative px-5 py-14 md:px-14 md:py-24">
@@ -50,7 +50,7 @@ export default function HeroSection() {
             <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">
               <a
                 href="/cleaners"
-                className="rounded-md bg-gold px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+                className="rounded-md bg-primary px-7 py-3.5 text-center font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
               >
                 {t('bookCleaner')}
               </a>
