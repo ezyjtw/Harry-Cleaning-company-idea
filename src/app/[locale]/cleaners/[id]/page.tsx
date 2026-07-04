@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
 
-import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 import CleanerProfileView, {
   type ProfileService,
   type ProfileReviewItem,
 } from '@/components/CleanerProfileView';
+import ProfileWeekAvailability from '@/components/ProfileWeekAvailability';
 import {
   serviceTypeLabel,
   isServiceTypeSlug,
@@ -171,7 +171,6 @@ export default async function CleanerProfilePage({
     startTime: s.startTime,
     endTime: s.endTime,
   }));
-  const blockedDates = profile.availabilityOverrides.map((o) => o.date.toISOString().split('T')[0]);
 
   return (
     <div className="min-h-screen bg-page">
@@ -179,9 +178,7 @@ export default async function CleanerProfilePage({
         <div className="bg-surface sm:overflow-hidden sm:rounded-[16px] sm:border sm:border-line">
           <CleanerProfileView
             data={data}
-            availability={
-              <AvailabilityCalendar slots={availabilitySlots} blockedDates={blockedDates} />
-            }
+            availability={<ProfileWeekAvailability slots={availabilitySlots} />}
           />
         </div>
       </div>
