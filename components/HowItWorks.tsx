@@ -5,8 +5,13 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-import CleanerAvatar from '../src/components/CleanerAvatar';
-import StarRating from '../src/components/StarRating';
+import CleanerIdentity from '../src/components/CleanerIdentity';
+
+// ── Shared panel: all three step visuals render at the SAME fixed size + treatment
+//    so desktop reads as one strip of three equal panels and mobile stacks equal
+//    sections. Chosen: 4:5 portrait (≈ 380×475 at the desktop 3-col width), matching
+//    the phone-screenshot assets. ─────────────────────────────────────────────────
+const PANEL = 'aspect-[4/5] rounded-md border border-line bg-surface shadow-sm';
 
 interface MiniCleaner {
   id: string | null; // null = curated fallback (no real profile)
@@ -19,7 +24,7 @@ interface MiniCleaner {
 }
 
 // Curated fallback — only ever shown if the live fetch fails or returns nothing,
-// rendered through the IDENTICAL mini-card. id=null so taps route to browse.
+// rendered through the IDENTICAL card. id=null so taps route to browse.
 const SAMPLE_CLEANERS: MiniCleaner[] = [
   {
     id: null,
@@ -32,12 +37,12 @@ const SAMPLE_CLEANERS: MiniCleaner[] = [
   },
   {
     id: null,
-    name: 'Katarzyna Nowak',
+    name: 'Agnieszka Kowalska',
     photo: null,
-    rating: 4.85,
-    reviewCount: 245,
-    location: 'Ilford, London',
-    fromPrice: 15,
+    rating: 4.92,
+    reviewCount: 402,
+    location: 'Dagenham, London',
+    fromPrice: 16,
   },
   {
     id: null,
@@ -50,12 +55,12 @@ const SAMPLE_CLEANERS: MiniCleaner[] = [
   },
   {
     id: null,
-    name: 'Agnieszka Kowalska',
+    name: 'Sofia Dimitrova',
     photo: null,
-    rating: 4.92,
-    reviewCount: 402,
-    location: 'Dagenham, London',
-    fromPrice: 16,
+    rating: 4.88,
+    reviewCount: 310,
+    location: 'Stratford, London',
+    fromPrice: 19,
   },
   {
     id: null,
@@ -68,50 +73,50 @@ const SAMPLE_CLEANERS: MiniCleaner[] = [
   },
   {
     id: null,
-    name: 'Sofia Dimitrova',
+    name: 'Katarzyna Nowak',
     photo: null,
-    rating: 4.88,
-    reviewCount: 310,
-    location: 'Stratford, London',
-    fromPrice: 19,
+    rating: 4.85,
+    reviewCount: 245,
+    location: 'Ilford, London',
+    fromPrice: 15,
   },
 ];
 
-const PAGE_SIZE = 6;
+const PAIR = 2; // viewport shows exactly two cards, paginated in pairs
 
-function MiniCard({ c }: { c: MiniCleaner }) {
-  const firstName = c.name.split(' ')[0];
+function CleanerPairCard({ c }: { c: MiniCleaner }) {
   const href = c.id ? `/cleaners/${c.id}` : '/cleaners';
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-1 rounded-lg border border-line bg-surface p-3 text-center transition-colors hover:bg-page"
+      className="block rounded-lg border border-line p-3 transition-colors hover:bg-page"
     >
-      <CleanerAvatar photo={c.photo} name={c.name} size={44} />
-      <p className="mt-1 w-full truncate font-jost text-[12px] font-medium text-ink">{firstName}</p>
-      {c.reviewCount > 0 ? (
-        <span className="flex items-center gap-1">
-          <StarRating rating={c.rating} />
-          <span className="font-jost text-[10px] font-light text-ink-3">{c.rating}</span>
-        </span>
-      ) : (
-        <span className="font-jost text-[10px] font-light text-ink-3">New to Rena</span>
-      )}
-      <p className="w-full truncate font-jost text-[10px] font-light text-ink-3">{c.location}</p>
-      {c.fromPrice !== null && (
-        <p className="font-jost text-[11px] font-medium text-ink-2">from £{c.fromPrice}</p>
-      )}
+      <CleanerIdentity
+        photo={c.photo}
+        name={c.name}
+        verified
+        rating={c.rating}
+        reviewCount={c.reviewCount}
+        meta={
+          <>
+            {c.location}
+            {c.fromPrice !== null && <> · from £{c.fromPrice}</>}
+          </>
+        }
+      />
     </Link>
   );
 }
 
-function LiveCleanerGrid() {
+/** Step-2 visual: a carousel whose viewport shows exactly two stacked cards;
+ *  arrows page through the roster in pairs. Sized to the shared PANEL. */
+function StepCleanerCarousel() {
   const [cleaners, setCleaners] = useState<MiniCleaner[]>(SAMPLE_CLEANERS);
   const [page, setPage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/cleaners?limit=${PAGE_SIZE * 3}`)
+    fetch('/api/cleaners?limit=12')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled) return;
@@ -125,7 +130,7 @@ function LiveCleanerGrid() {
           location: (c.location as string) || '',
           fromPrice: (c.hourlyRateRegular as number) ?? (c.hourlyRateDeep as number) ?? null,
         }));
-        // Never empty, never broken — fall back to the curated set.
+        // Never empty, never broken — keep the curated set unless we got real data.
         if (mapped.length > 0) setCleaners(mapped);
       })
       .catch(() => {
@@ -136,16 +141,16 @@ function LiveCleanerGrid() {
     };
   }, []);
 
-  const pageCount = Math.max(1, Math.ceil(cleaners.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(cleaners.length / PAIR));
   const safePage = Math.min(page, pageCount - 1);
-  const shown = cleaners.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const shown = cleaners.slice(safePage * PAIR, safePage * PAIR + PAIR);
 
   return (
-    <div className="rounded-md border border-line bg-page p-3">
-      {/* 2 rows × 3 cols on desktop; collapses to 2 columns on mobile */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className={`flex flex-col ${PANEL} p-3`}>
+      {/* exactly two cards, stacked; never more than two on screen */}
+      <div className="flex flex-1 flex-col justify-center gap-3">
         {shown.map((c, i) => (
-          <MiniCard key={c.id ?? `sample-${safePage}-${i}`} c={c} />
+          <CleanerPairCard key={c.id ?? `sample-${safePage}-${i}`} c={c} />
         ))}
       </div>
 
@@ -214,13 +219,11 @@ function StepHead({ n, title }: { n: string; title: string }) {
   );
 }
 
-/**
- * 4:5 media slot for the step screenshots (steps 1 & 3). Replace the PNG at the
- * given path via GitHub upload and it renders automatically.
- */
+/** 4:5 media slot (steps 1 & 3), the shared PANEL. Replace the PNG via GitHub
+ *  upload and it renders automatically. */
 function StepMedia({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="aspect-[4/5] overflow-hidden rounded-md border border-line bg-surface shadow-sm">
+    <div className={`overflow-hidden ${PANEL}`}>
       <Image src={src} alt={alt} width={380} height={475} className="h-full w-full object-cover" />
     </div>
   );
@@ -249,13 +252,13 @@ export default function HowItWorks() {
             <StepMedia src="/images/how-step-1.png" alt="Browsing cleaners on the Rena app" />
           </div>
 
-          {/* Step 2 — choose someone you trust (live cleaner grid-carousel) */}
+          {/* Step 2 — choose someone you trust (stacked-pair cleaner carousel) */}
           <div className="flex flex-col">
             <StepHead n="02" title={t('step2Title')} />
             <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
               {t('step2Description')}
             </p>
-            <LiveCleanerGrid />
+            <StepCleanerCarousel />
           </div>
 
           {/* Step 3 — they arrive, you relax */}
