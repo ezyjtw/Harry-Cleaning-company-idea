@@ -104,7 +104,7 @@ export default function HowItWorks() {
             <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
               {t('step1Description')}
             </p>
-            <StepMedia src={null} alt="Browsing cleaners on the Rena app" />
+            <StepMedia src="/images/how-step-1.png" alt="Browsing cleaners on the Rena app" />
           </div>
 
           {/* Step 2 — choose someone you trust (real card grammar) */}
@@ -138,7 +138,7 @@ export default function HowItWorks() {
             <p className="mb-4 font-jost text-[14px] font-light leading-[1.7] text-ink-3 md:min-h-[96px]">
               {t('step3Description')}
             </p>
-            <StepMedia src={null} alt="Your booking confirmed in the Rena app" />
+            <StepMedia src="/images/how-step-3.png" alt="Your booking confirmed in the Rena app" />
           </div>
         </div>
       </div>
