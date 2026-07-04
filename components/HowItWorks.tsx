@@ -227,13 +227,13 @@ function StepHead({ n, title }: { n: string; title: string }) {
  *  upload and it renders automatically. */
 function StepMedia({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className={`overflow-hidden ${PANEL}`}>
+    <div className={`relative overflow-hidden ${PANEL}`}>
       <Image
         src={src}
         alt={alt}
-        width={380}
-        height={475}
-        className="h-full w-full object-contain object-center"
+        fill
+        sizes="(max-width: 768px) 90vw, 380px"
+        className="object-contain object-center"
       />
     </div>
   );
@@ -266,7 +266,7 @@ export default function HowItWorks() {
             </p>
           </div>
           <div className="md:col-start-1 md:row-start-2">
-            <StepMedia src="/images/how-step-1.png" alt="Browsing cleaners on the Rena app" />
+            <StepMedia src="/images/how-step-1.webp" alt="Browsing cleaners on the Rena app" />
           </div>
 
           {/* Step 2 */}
@@ -288,7 +288,7 @@ export default function HowItWorks() {
             </p>
           </div>
           <div className="md:col-start-3 md:row-start-2">
-            <StepMedia src="/images/how-step-3.png" alt="Your booking confirmed in the Rena app" />
+            <StepMedia src="/images/how-step-3.webp" alt="Your booking confirmed in the Rena app" />
           </div>
         </div>
       </div>

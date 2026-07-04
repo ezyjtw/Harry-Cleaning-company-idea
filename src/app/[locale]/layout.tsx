@@ -65,7 +65,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <meta name="msapplication-TileColor" content="#16296b" />
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
         {/* Fonts are self-hosted via next/font (see src/app/layout.tsx) — no Google Fonts link. */}
-        <link rel="preload" as="image" href="/images/hero-banner.jpg" fetchPriority="high" />
+        <link rel="preload" as="image" href="/images/hero-banner.webp" fetchPriority="high" />
         <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">

@@ -76,11 +76,11 @@ const isFixedPriceService = (svc: string) => svc === 'end-of-tenancy' || svc ===
 // The homepage services-section (S3) photography, reused verbatim per service
 // so the booking ledger reads the same as the marketing site.
 const SERVICE_IMAGES: Record<string, string> = {
-  regular: '/images/Regular cleaning.png',
-  'same-day': '/images/Same day cleaning.png',
-  deep: '/images/Deep cleaning.png',
-  'end-of-tenancy': '/images/End of Tenancy.png',
-  airbnb: '/images/Air BnB cleaning.png',
+  regular: '/images/Regular cleaning.webp',
+  'same-day': '/images/Same day cleaning.webp',
+  deep: '/images/Deep cleaning.webp',
+  'end-of-tenancy': '/images/End of Tenancy.webp',
+  airbnb: '/images/Air BnB cleaning.webp',
 };
 
 // Lowest set price in a fixed-price map (EoT / Airbnb), for the "from £X" row —

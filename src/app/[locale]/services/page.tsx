@@ -36,7 +36,7 @@ const services: {
     priceNote: 'Save up to 10% with a recurring schedule',
     badge: 'Most Popular',
     idealFor: 'Busy households wanting a reliable, ongoing clean',
-    image: '/images/Regular cleaning.png',
+    image: '/images/Regular cleaning.webp',
   },
   {
     id: 'same-day',
@@ -53,7 +53,7 @@ const services: {
     ],
     price: 'From £18/hr',
     idealFor: 'Last-minute guests, property viewings, or urgent tidying',
-    image: '/images/Same day cleaning.png',
+    image: '/images/Same day cleaning.webp',
   },
   {
     id: 'deep',
@@ -73,7 +73,7 @@ const services: {
     priceNote: 'Typically 3–8 hours depending on property size',
     badge: 'Best Value',
     idealFor: 'Seasonal refreshes, pre-event prep, or a fresh start',
-    image: '/images/Deep cleaning.png',
+    image: '/images/Deep cleaning.webp',
   },
   {
     id: 'airbnb',
@@ -92,7 +92,7 @@ const services: {
     price: 'From £55',
     priceNote: 'Fixed price based on property size',
     idealFor: 'Airbnb hosts, holiday lets, and short-stay properties',
-    image: '/images/Air BnB cleaning.png',
+    image: '/images/Air BnB cleaning.webp',
   },
   {
     id: 'end-of-tenancy',
@@ -113,7 +113,7 @@ const services: {
     price: '£150 – £580',
     priceNote: 'Cleaner-set prices by property size',
     idealFor: 'Tenants moving out who want their full deposit returned',
-    image: '/images/End of Tenancy.png',
+    image: '/images/End of Tenancy.webp',
   },
 ];
 
