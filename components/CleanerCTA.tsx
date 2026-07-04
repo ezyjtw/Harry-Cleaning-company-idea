@@ -7,16 +7,16 @@ export default function CleanerCTA() {
   const t = useTranslations('CleanerCTA');
 
   return (
-    <section className="bg-ink px-5 py-16 md:px-14 md:py-24">
+    <section className="bg-primary-soft px-5 py-16 md:px-14 md:py-24">
       <div className="mx-auto max-w-5xl md:flex md:items-center md:justify-between md:gap-12">
         <div className="md:flex-1">
-          <p className="font-jost text-[11px] font-medium uppercase tracking-[0.2em] text-gold">
+          <p className="font-jost text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
             {t('sectionTitle')}
           </p>
-          <h2 className="mt-3 font-newsreader text-[32px] font-semibold leading-tight text-cream md:text-[44px]">
+          <h2 className="mt-3 font-newsreader text-[32px] font-semibold leading-tight text-ink md:text-[44px]">
             {t('sectionSubtitle')}
           </h2>
-          <p className="mt-4 max-w-lg font-jost text-[15px] font-light leading-relaxed text-cream/70">
+          <p className="mt-4 max-w-lg font-jost text-[15px] font-light leading-relaxed text-ink-2">
             {t('description')}
           </p>
           <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
@@ -24,7 +24,7 @@ export default function CleanerCTA() {
               (item) => (
                 <div key={item} className="flex items-center gap-2">
                   <svg
-                    className="h-4 w-4 text-gold"
+                    className="h-4 w-4 text-primary"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -32,7 +32,7 @@ export default function CleanerCTA() {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="font-jost text-[13px] font-light text-cream/80">{item}</span>
+                  <span className="font-jost text-[13px] font-light text-ink-2">{item}</span>
                 </div>
               )
             )}
@@ -41,11 +41,11 @@ export default function CleanerCTA() {
         <div className="mt-10 md:mt-0 md:shrink-0">
           <Link
             href="/join"
-            className="inline-block rounded-md bg-gold px-10 py-4 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+            className="inline-block rounded-md bg-primary px-10 py-4 font-jost text-[14px] font-medium text-white transition-opacity hover:opacity-90"
           >
             {t('applyButton')}
           </Link>
-          <p className="mt-3 font-jost text-[12px] font-light text-cream/50">{t('applySubtext')}</p>
+          <p className="mt-3 font-jost text-[12px] font-light text-ink-3">{t('applySubtext')}</p>
         </div>
       </div>
     </section>

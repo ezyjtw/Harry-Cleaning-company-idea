@@ -106,7 +106,7 @@ export default function ReviewsSection() {
                   key={i}
                   onClick={() => setCurrent(i)}
                   className={`h-[6px] rounded-full transition-all ${
-                    i === current ? 'w-6 bg-gold' : 'w-[6px] bg-white/20'
+                    i === current ? 'w-6 bg-white' : 'w-[6px] bg-white/20'
                   }`}
                 />
               ))}

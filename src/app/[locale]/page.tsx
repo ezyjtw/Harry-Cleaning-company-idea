@@ -10,7 +10,6 @@ import HeroSection from '../../../components/HeroSection';
 import HowItWorks from '../../../components/HowItWorks';
 import ReviewsSection from '../../../components/ReviewsSection';
 import ServicesSection from '../../../components/ServicesSection';
-import StatsBar from '../../../components/StatsBar';
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -48,7 +47,6 @@ export default async function HomePage({ params }: Props) {
         })}
       />
       <HeroSection />
-      <StatsBar />
       <ServicesSection />
       <HowItWorks />
       <GuaranteeSection />
