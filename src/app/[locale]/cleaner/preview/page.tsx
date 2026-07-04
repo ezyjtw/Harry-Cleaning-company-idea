@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
-import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 import CleanerProfileView, {
   type CleanerProfileData,
   type ProfileService,
   type ProfileReviewItem,
 } from '@/components/CleanerProfileView';
+import ProfileWeekAvailability from '@/components/ProfileWeekAvailability';
 import { useAuth } from '@/hooks/useAuth';
 import {
   serviceTypeLabel,
@@ -39,7 +39,6 @@ export default function ProfilePreviewPage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,7 +75,6 @@ export default function ProfilePreviewPage() {
           }
         }
         setSlots(s);
-        setBlockedDates((avail?.blockedDates || []).map((b: { date: string }) => b.date));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -195,7 +193,7 @@ export default function ProfilePreviewPage() {
       <div className="overflow-hidden rounded-[16px] border border-line bg-surface">
         <CleanerProfileView
           data={data}
-          availability={<AvailabilityCalendar slots={slots} blockedDates={blockedDates} />}
+          availability={<ProfileWeekAvailability slots={slots} />}
         />
       </div>
     </div>
