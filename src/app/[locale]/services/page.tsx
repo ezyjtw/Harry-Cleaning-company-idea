@@ -158,11 +158,13 @@ export default function ServicesPage() {
                   className={`group relative bg-white transition-shadow duration-300 ${isSameDay ? 'opacity-50' : 'hover:shadow-lg'}`}
                   style={{ border: '0.5px solid rgba(27,42,74,0.1)' }}
                 >
-                  {/* Badge */}
+                  {/* Badge — z-20 so it always sits above the card's image panel,
+                      which is later in the DOM and was painting over the badge's
+                      overlapping edge (the intermittent "behind the tile" bug). */}
                   {(service.badge || isSameDay) && (
-                    <div className="absolute -top-3 right-6 sm:right-8">
+                    <div className="absolute -top-3 right-6 z-20 sm:right-8">
                       <span
-                        className={`inline-block px-4 py-1 font-jost text-[10px] uppercase tracking-[0.14em] text-white ${isSameDay ? 'bg-ink/40' : 'bg-gold'}`}
+                        className={`inline-block px-4 py-1 font-jost text-[10px] uppercase tracking-[0.14em] text-white ${isSameDay ? 'bg-ink/40' : 'bg-primary'}`}
                       >
                         {isSameDay ? 'Coming Soon' : service.badge}
                       </span>
@@ -404,7 +406,9 @@ export default function ServicesPage() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-cream-2 text-gold">
                   {item.icon}
                 </div>
-                <h3 className="mt-5 font-newsreader text-lg font-semibold text-ink">{item.title}</h3>
+                <h3 className="mt-5 font-newsreader text-lg font-semibold text-ink">
+                  {item.title}
+                </h3>
                 <p className="mt-3 font-jost text-[13px] font-light text-ink-3 leading-relaxed">
                   {item.desc}
                 </p>

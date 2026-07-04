@@ -259,10 +259,7 @@ function Input({
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { hasError?: boolean }) {
   return (
-    <input
-      {...props}
-      className={`input-base mt-1.5 bg-surface ${hasError ? 'input-error' : ''}`}
-    />
+    <input {...props} className={`input-base mt-1.5 bg-surface ${hasError ? 'input-error' : ''}`} />
   );
 }
 
@@ -594,7 +591,7 @@ function EarningsCalculator() {
         <button
           type="button"
           onClick={() => setShowTakeHome(!showTakeHome)}
-          className="inline-flex items-center gap-1.5 font-jost text-[12px] text-gold hover:text-gold/80 transition-colors"
+          className="inline-flex items-center gap-1.5 font-jost text-[12px] text-primary hover:text-primary/80 transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
             <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
@@ -678,7 +675,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <button
               onClick={onApply}
-              className="rounded-full bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink shadow-sm transition hover:bg-gold/90"
+              className="rounded-full bg-primary px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-white shadow-sm transition hover:bg-primary-hover"
             >
               Apply Now
             </button>
@@ -820,7 +817,7 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
           </div>
           <button
             onClick={onApply}
-            className="mt-8 rounded-full bg-gold px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-ink shadow-sm transition hover:bg-gold/90"
+            className="mt-8 rounded-full bg-primary px-10 py-4 font-jost text-sm uppercase tracking-[0.15em] text-white shadow-sm transition hover:bg-primary-hover"
           >
             Start Your Application
           </button>
@@ -944,8 +941,7 @@ export default function JoinAsCleanerPage() {
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         e.email = 'Enter a valid email address';
       if (!form.phone.trim()) e.phone = 'Phone number is required';
-      else if (form.phone.replace(/\D/g, '').length < 10)
-        e.phone = 'Enter a valid phone number';
+      else if (form.phone.replace(/\D/g, '').length < 10) e.phone = 'Enter a valid phone number';
       if (!form.postcode.trim()) e.postcode = 'Postcode is required';
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
         e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
@@ -1444,9 +1440,7 @@ export default function JoinAsCleanerPage() {
                 <Label>Profile Picture</Label>
                 <div className="mt-3 flex items-start gap-5">
                   {/* Preview circle */}
-                  <div
-                    className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft border-2 border-line"
-                  >
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft border-2 border-line">
                     {form.profilePhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1532,9 +1526,7 @@ export default function JoinAsCleanerPage() {
                           Take Photo
                         </button>
                       ) : (
-                        <label
-                          className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line"
-                        >
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line">
                           <svg
                             className="w-4 h-4"
                             fill="none"
@@ -2229,8 +2221,8 @@ export default function JoinAsCleanerPage() {
                 className="mt-1 h-4 w-4"
               />
               <span className="font-jost text-[14px] text-ink">
-                I confirm I have read and understand this acknowledgment, and that I work with Rena as
-                a self-employed cleaner.
+                I confirm I have read and understand this acknowledgment, and that I work with Rena
+                as a self-employed cleaner.
               </span>
             </label>
             <FieldError message={errors.acknowledgeSelfEmployment} />
@@ -2516,8 +2508,8 @@ export default function JoinAsCleanerPage() {
               />
               <span className="font-jost text-[13px] font-light text-ink-2">
                 I agree to the{' '}
-                <span className="font-normal text-primary underline">Terms &amp; Conditions</span> and
-                consent to a background check as part of the verification process.
+                <span className="font-normal text-primary underline">Terms &amp; Conditions</span>{' '}
+                and consent to a background check as part of the verification process.
               </span>
             </label>
             <FieldError message={errors.agreedToTerms} />
