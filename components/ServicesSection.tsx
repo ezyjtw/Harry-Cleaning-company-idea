@@ -6,11 +6,11 @@ import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 const SERVICE_IMAGES: Record<string, string> = {
-  regular: '/images/Regular cleaning.png',
-  'same-day': '/images/Same day cleaning.png',
-  deep: '/images/Deep cleaning.png',
-  'end-of-tenancy': '/images/End of Tenancy.png',
-  airbnb: '/images/Air BnB cleaning.png',
+  regular: '/images/Regular cleaning.webp',
+  'same-day': '/images/Same day cleaning.webp',
+  deep: '/images/Deep cleaning.webp',
+  'end-of-tenancy': '/images/End of Tenancy.webp',
+  airbnb: '/images/Air BnB cleaning.webp',
 };
 
 function CheckIcon() {
@@ -220,6 +220,7 @@ export default function ServicesSection() {
                   src={currentImg}
                   alt={current.title}
                   fill
+                  sizes="(min-width: 768px) 50vw, 1px"
                   className="object-cover"
                 />
               ) : (
@@ -277,7 +278,13 @@ export default function ServicesSection() {
                     <div className="px-5 pb-6">
                       <div className="relative mb-4 aspect-[3/2] w-full overflow-hidden rounded-[12px]">
                         {img ? (
-                          <Image src={img} alt={svc.title} fill className="object-cover" />
+                          <Image
+                            src={img}
+                            alt={svc.title}
+                            fill
+                            sizes="(max-width: 768px) 92vw, 1px"
+                            className="object-cover"
+                          />
                         ) : (
                           <div className="h-full w-full bg-gradient-to-br from-primary-soft to-wash-to" />
                         )}

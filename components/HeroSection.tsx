@@ -19,7 +19,14 @@ export default function HeroSection() {
     <section className="relative overflow-hidden">
       {/* Background image */}
       <div className="absolute inset-0">
-        <Image src="/images/hero-banner.jpg" alt="" fill className="object-cover" priority />
+        <Image
+          src="/images/hero-banner.webp"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover"
+          priority
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/70 via-ink/50 to-ink/30" />
       </div>
 
