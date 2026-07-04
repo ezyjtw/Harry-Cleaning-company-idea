@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
+import CleanerAvatar from '@/components/CleanerAvatar';
 import StarRating from '@/components/StarRating';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -142,18 +143,7 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
             {/* Cleaner hero — 76px photo (real / initial fallback) + pinned check */}
             <div className="mt-6 flex flex-col items-center text-center">
               <div className="relative">
-                {booking.cleanerPhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={booking.cleanerPhoto}
-                    alt={booking.cleanerName}
-                    className="h-[76px] w-[76px] rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-primary-soft font-newsreader text-[28px] font-medium text-primary">
-                    {booking.cleanerName.charAt(0)}
-                  </div>
-                )}
+                <CleanerAvatar photo={booking.cleanerPhoto} name={booking.cleanerName} size={76} />
                 <VerifiedCheck />
               </div>
 
