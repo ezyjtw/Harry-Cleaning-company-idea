@@ -611,6 +611,47 @@ export default function AvailabilityPage() {
         </div>
       )}
 
+      {/* Buffer between bookings */}
+      <div
+        className="rounded-xl bg-surface overflow-hidden mb-6"
+        style={{ border: '1px solid rgb(var(--color-border))' }}
+      >
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid rgb(var(--color-border))' }}>
+          <h2 className="font-newsreader text-lg font-semibold text-ink">
+            Buffer Between Bookings
+          </h2>
+          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+            Time blocked before and after each booking for travel and preparation
+          </p>
+        </div>
+        <div className="px-6 py-4">
+          <div className="flex gap-3">
+            {([30, 60] as const).map((mins) => (
+              <button
+                key={mins}
+                type="button"
+                onClick={() => {
+                  setBookingBuffer(mins);
+                  setDirty(true);
+                  setSaved(false);
+                }}
+                className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
+                  bookingBuffer === mins
+                    ? 'bg-primary/5 text-ink ring-2 ring-primary shadow-sm'
+                    : 'bg-page text-ink-2 ring-ink/[0.06] hover:bg-primary-soft hover:text-ink hover:shadow-sm'
+                }`}
+              >
+                {mins === 30 ? '30 minutes' : '1 hour'}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 font-jost text-xs font-light text-ink-3">
+            A {bookingBuffer}-minute buffer will be blocked before and after each booking so you
+            have time to travel and prepare.
+          </p>
+        </div>
+      </div>
+
       {/* ─── WEEK VIEW TAB ─────────────────────────────── */}
       {tab === 'week' && (
         <>
@@ -1226,50 +1267,6 @@ export default function AvailabilityPage() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Buffer between bookings */}
-          <div
-            className="rounded-xl bg-surface overflow-hidden mb-6"
-            style={{ border: '1px solid rgb(var(--color-border))' }}
-          >
-            <div
-              className="px-6 py-4"
-              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
-            >
-              <h2 className="font-newsreader text-lg font-semibold text-ink">
-                Buffer Between Bookings
-              </h2>
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-                Time blocked before and after each booking for travel and preparation
-              </p>
-            </div>
-            <div className="px-6 py-4">
-              <div className="flex gap-3">
-                {([30, 60] as const).map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => {
-                      setBookingBuffer(mins);
-                      setDirty(true);
-                      setSaved(false);
-                    }}
-                    className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
-                      bookingBuffer === mins
-                        ? 'bg-primary/5 text-ink ring-2 ring-primary shadow-sm'
-                        : 'bg-page text-ink-2 ring-ink/[0.06] hover:bg-primary-soft hover:text-ink hover:shadow-sm'
-                    }`}
-                  >
-                    {mins === 30 ? '30 minutes' : '1 hour'}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 font-jost text-xs font-light text-ink-3">
-                A {bookingBuffer}-minute buffer will be blocked before and after each booking so you
-                have time to travel and prepare.
-              </p>
             </div>
           </div>
 
