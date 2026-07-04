@@ -15,18 +15,21 @@ export default function StatsBar() {
   ];
 
   return (
-    <section className="bg-ink px-5 py-6 md:flex md:justify-center md:px-14 md:py-5">
+    // A single horizontal band at every width: three cells in one slim row on
+    // mobile (compact height, smaller display + labels), a taller centered row on
+    // desktop. Never a tall stacked block.
+    <section className="flex justify-center bg-ink px-4 py-3.5 md:px-14 md:py-5">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className={`px-4 py-4 text-center md:px-14 md:py-0 ${
-            i > 0 ? 'border-t border-white/10 md:border-l md:border-t-0' : ''
+          className={`flex-1 px-2 text-center md:flex-none md:px-14 ${
+            i > 0 ? 'border-l border-white/10' : ''
           }`}
         >
-          <div className="font-newsreader text-[26px] font-medium text-white md:text-[30px]">
+          <div className="font-newsreader text-[16px] font-medium leading-none text-white md:text-[30px]">
             {stat.value}
           </div>
-          <div className="mt-1 font-jost text-[10px] uppercase tracking-[0.1em] text-white/60 md:text-[11px]">
+          <div className="mt-1 font-jost text-[8px] uppercase leading-tight tracking-[0.08em] text-white/60 md:mt-1.5 md:text-[11px] md:tracking-[0.1em]">
             {stat.label}
           </div>
         </div>
