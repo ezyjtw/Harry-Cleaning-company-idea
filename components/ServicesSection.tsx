@@ -275,7 +275,7 @@ export default function ServicesSection() {
                     }`}
                   >
                     <div className="px-5 pb-6">
-                      <div className="relative mb-4 h-[200px] w-full overflow-hidden rounded-[12px]">
+                      <div className="relative mb-4 aspect-[3/2] w-full overflow-hidden rounded-[12px]">
                         {img ? (
                           <Image src={img} alt={svc.title} fill className="object-cover" />
                         ) : (
