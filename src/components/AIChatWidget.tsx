@@ -167,41 +167,26 @@ export default function AIChatWidget() {
     <>
       {/* Chat Panel */}
       <div
-        className={`fixed bottom-20 right-4 z-50 flex flex-col overflow-hidden
+        className={`fixed bottom-20 right-4 z-50 flex flex-col overflow-hidden rounded-2xl border border-line bg-page shadow-xl
           w-[calc(100vw-2rem)] sm:w-[400px] h-[520px]
           transition-all duration-300 ease-in-out origin-bottom-right
           ${isOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none'}
         `}
-        style={{ border: '0.5px solid rgba(14,14,12,0.1)', background: '#F7F9FC' }}
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-          style={{ background: '#1B2A4A' }}
-        >
+        <div className="flex flex-shrink-0 items-center justify-between bg-primary px-5 py-4">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center font-newsreader text-lg font-medium"
-              style={{ background: 'rgba(255,255,255,0.12)', color: '#F7F9FC' }}
-            >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 font-newsreader text-lg font-medium text-white">
               R
             </div>
             <div>
-              <h3 className="font-jost text-sm font-normal" style={{ color: '#F7F9FC' }}>
-                Rena Assistant
-              </h3>
-              <p
-                className="font-jost text-[10px] uppercase tracking-[0.1em]"
-                style={{ color: 'rgba(247,249,252,0.5)' }}
-              >
-                Online
-              </p>
+              <h3 className="font-jost text-sm font-medium text-white">Rena Assistant</h3>
+              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-white/60">Online</p>
             </div>
           </div>
           <button
             onClick={toggleChat}
-            className="p-1.5 transition-colors hover:opacity-70"
-            style={{ color: '#F7F9FC' }}
+            className="rounded-[10px] p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             aria-label="Close chat"
           >
             <svg
@@ -222,11 +207,9 @@ export default function AIChatWidget() {
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
-            <div className="text-center mt-10 px-6">
-              <p className="font-newsreader text-xl font-medium" style={{ color: '#1B2A4A' }}>
-                How can we help?
-              </p>
-              <p className="mt-2 font-jost text-xs font-light" style={{ color: '#7A8A9E' }}>
+            <div className="mt-10 px-6 text-center">
+              <p className="font-newsreader text-xl font-medium text-ink">How can we help?</p>
+              <p className="mt-2 font-jost text-xs text-ink-3">
                 Ask about bookings, pricing, cleaner availability, or any issues with your service.
               </p>
               <div className="mt-6 space-y-2">
@@ -243,12 +226,7 @@ export default function AIChatWidget() {
                       setInput(q);
                       setTimeout(() => inputRef.current?.focus(), 50);
                     }}
-                    className="block w-full px-4 py-2.5 text-left font-jost text-sm font-light transition hover:bg-cream-2"
-                    style={{
-                      color: '#1B2A4A',
-                      border: '0.5px solid rgba(14,14,12,0.1)',
-                      background: '#FFFFFF',
-                    }}
+                    className="block w-full rounded-[10px] border border-line bg-surface px-4 py-2.5 text-left font-jost text-sm text-ink transition hover:border-primary hover:bg-primary-soft/50"
                   >
                     {q}
                   </button>
@@ -263,21 +241,11 @@ export default function AIChatWidget() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className="max-w-[80%] px-4 py-2.5 font-jost text-sm font-light leading-relaxed whitespace-pre-wrap"
-                style={
+                className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 font-jost text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? {
-                        background: '#1B2A4A',
-                        color: '#F7F9FC',
-                        borderRadius: '2px 2px 2px 2px',
-                      }
-                    : {
-                        background: '#FFFFFF',
-                        color: '#1B2A4A',
-                        border: '0.5px solid rgba(14,14,12,0.1)',
-                        borderRadius: '2px 2px 2px 2px',
-                      }
-                }
+                    ? 'rounded-br-md bg-primary-soft text-ink'
+                    : 'rounded-bl-md border border-line bg-surface text-ink'
+                }`}
               >
                 {msg.content}
               </div>
@@ -287,26 +255,11 @@ export default function AIChatWidget() {
           {/* Typing Indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div
-                className="px-4 py-3"
-                style={{
-                  background: '#FFFFFF',
-                  border: '0.5px solid rgba(14,14,12,0.1)',
-                }}
-              >
+              <div className="rounded-2xl rounded-bl-md border border-line bg-surface px-4 py-3">
                 <div className="flex items-center gap-1.5">
-                  <span
-                    className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]"
-                    style={{ background: '#7A8A9E' }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]"
-                    style={{ background: '#7A8A9E' }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:300ms]"
-                    style={{ background: '#7A8A9E' }}
-                  />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3 [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3 [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3 [animation-delay:300ms]" />
                 </div>
               </div>
             </div>
@@ -316,7 +269,7 @@ export default function AIChatWidget() {
         </div>
 
         {/* Input Area */}
-        <div className="flex-shrink-0 p-3" style={{ borderTop: '0.5px solid rgba(14,14,12,0.1)' }}>
+        <div className="flex-shrink-0 border-t border-line bg-surface p-3">
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -324,20 +277,14 @@ export default function AIChatWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
-              className="flex-1 px-4 py-2.5 font-jost text-sm font-light focus:outline-none"
-              style={{
-                color: '#1B2A4A',
-                background: '#FFFFFF',
-                border: '0.5px solid rgba(14,14,12,0.1)',
-              }}
+              placeholder="Type your message…"
+              className="flex-1 rounded-[10px] border border-line bg-surface px-4 py-2.5 font-jost text-sm text-ink placeholder:text-ink-3 focus:border-primary focus:outline-none"
               disabled={isLoading}
             />
             <button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ background: '#1B2A4A', color: '#F7F9FC' }}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] bg-primary text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-30"
               aria-label="Send message"
             >
               <svg
@@ -356,13 +303,7 @@ export default function AIChatWidget() {
       {/* Floating Chat Button */}
       <button
         onClick={toggleChat}
-        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center transition-all duration-300 hover:opacity-80"
-        style={{
-          background: '#1B2A4A',
-          color: '#F7F9FC',
-          border: '0.5px solid rgba(14,14,12,0.1)',
-          boxShadow: '0 2px 15px -3px rgba(0, 0, 0, 0.12)',
-        }}
+        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white shadow-lg transition-all duration-300 hover:bg-primary-hover"
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
         {isOpen ? (
