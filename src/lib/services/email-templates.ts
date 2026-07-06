@@ -429,6 +429,34 @@ export function buildGuestBookingConfirmation(
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+export function buildGuestBookingReminder(
+  booking: BookingEmailData,
+  guestName: string,
+  guestToken: string
+): EmailContent {
+  const manageLink = `${appUrl()}/booking/guest?token=${guestToken}`;
+  const subject = 'Your cleaning is tomorrow';
+  const rows: Array<[string, string]> = [
+    ['Date', booking.date],
+    ['Time', booking.time],
+    ['Address', booking.address],
+  ];
+  if (booking.cleanerName) rows.push(['Cleaner', booking.cleanerName]);
+  const contentHtml =
+    h('Your cleaning is tomorrow') +
+    p(`Hi ${guestName},`) +
+    p('This is a friendly reminder that your Rena cleaning is booked for tomorrow.') +
+    infoBlock(rows) +
+    p('You can view, reschedule, or cancel your booking here:') +
+    button(manageLink, 'Manage Booking') +
+    p("This link is personal to you — please don't share it.");
+  // Transactional service message for a booking the guest placed (not marketing).
+  // The manage-booking link above is the opt-out: cancelling stops any further
+  // reminders. Footer states why they received it, per PECR good practice.
+  const footerNote = `You're receiving this because you booked a cleaning with Rena. Manage or cancel your booking with the link above.`;
+  return { subject, html: renderEmail({ contentHtml, footerNote }) };
+}
+
 export function buildAbandonmentEmail(
   data: { cleanerName?: string; postcode?: string; personalizedMessage: string },
   unsubscribeUrl?: string

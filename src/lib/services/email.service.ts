@@ -15,6 +15,7 @@ import {
   buildReviewRequest,
   buildNewMessageEmail,
   buildGuestBookingConfirmation,
+  buildGuestBookingReminder,
   buildAbandonmentEmail,
   buildVerificationDecision,
   buildTopupApprovalRequest,
@@ -267,6 +268,20 @@ export async function sendGuestBookingConfirmation(
   guestToken: string
 ): Promise<boolean> {
   const { subject, html } = buildGuestBookingConfirmation(booking, email, guestName, guestToken);
+  return sendEmail(email, subject, html);
+}
+
+// Guest 24h reminder. Transactional (a booking the guest placed) → ESSENTIAL, so
+// it always sends; the caller only reaches this when the booking is not
+// cancelled. Guests have no account/preference row; the manage-booking link is
+// the opt-out.
+export async function sendGuestBookingReminder(
+  booking: BookingEmailData,
+  email: string,
+  guestName: string,
+  guestToken: string
+): Promise<boolean> {
+  const { subject, html } = buildGuestBookingReminder(booking, guestName, guestToken);
   return sendEmail(email, subject, html);
 }
 
