@@ -20,44 +20,63 @@ interface Offer {
   bedrooms?: number;
 }
 
+type Tier = 'normal' | 'amber' | 'danger' | 'expired';
+
 function serviceLabel(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function windowLabel(expiresAt: string | null, now: number): string | null {
-  if (!expiresAt) return null;
+// Staged urgency: normal → amber under 10 min → danger under 3 min → expired.
+function windowState(expiresAt: string | null, now: number): { text: string; tier: Tier } {
+  if (!expiresAt) return { text: '', tier: 'normal' };
   const diff = new Date(expiresAt).getTime() - now;
-  if (diff <= 0) return 'Expired';
+  if (diff <= 0) return { text: 'Offer expired', tier: 'expired' };
   const mins = Math.floor(diff / 60000);
   const secs = Math.floor((diff % 60000) / 1000);
-  if (mins >= 60) {
-    const h = Math.floor(mins / 60);
-    return `${h}h ${mins % 60}m left to respond`;
-  }
-  return `${mins}m ${String(secs).padStart(2, '0')}s left to respond`;
+  const clock =
+    mins >= 60
+      ? `${Math.floor(mins / 60)}h ${mins % 60}m left to respond`
+      : `${mins}m ${String(secs).padStart(2, '0')}s left to respond`;
+  if (diff < 3 * 60000) return { text: clock, tier: 'danger' };
+  if (diff < 10 * 60000) return { text: clock, tier: 'amber' };
+  return { text: clock, tier: 'normal' };
 }
+
+const TIER_STYLE: Record<Exclude<Tier, 'expired'>, string> = {
+  normal: 'bg-primary-soft text-primary',
+  amber: 'bg-warning/10 text-warning',
+  danger: 'bg-danger/10 text-danger',
+};
 
 export default function OfferPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [offer, setOffer] = useState<Offer | null>(null);
   const [loading, setLoading] = useState(true);
   const [gone, setGone] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [expired, setExpired] = useState(false);
   const [processing, setProcessing] = useState<'accept' | 'decline' | null>(null);
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [transientError, setTransientError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const fetchOffer = useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch(`/api/cleaner/jobs/${params.id}`);
       if (res.status === 404) {
         setGone(true);
         return;
       }
+      if (!res.ok) {
+        setLoadError(true);
+        return;
+      }
       const data = await res.json().catch(() => null);
       if (data?.job) setOffer(data.job);
-      else setGone(true);
+      else setLoadError(true);
     } catch {
-      setResult({ ok: false, text: "Couldn't load this offer. Please try again." });
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -67,17 +86,22 @@ export default function OfferPage({ params }: { params: { id: string } }) {
     fetchOffer();
   }, [fetchOffer]);
 
+  // Tick the countdown every second; flip to the expired terminal state at zero.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    if (offer && windowState(offer.cascadeExpiresAt, now).tier === 'expired') {
+      setExpired(true);
+    }
+  }, [offer, now]);
+
   const respond = async (action: 'accept' | 'decline') => {
     if (!offer) return;
     setProcessing(action);
-    setResult(null);
-    // RENA_FIND offers accept via a dedicated endpoint; every other offer phase
-    // uses the standard cascade accept. Decline is shared.
+    setTransientError(null);
     const endpoint =
       action === 'decline'
         ? `/api/cleaner/jobs/${offer.id}/decline`
@@ -89,40 +113,75 @@ export default function OfferPage({ params }: { params: { id: string } }) {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success !== false) {
         if (action === 'accept') {
-          setResult({ ok: true, text: 'Job accepted — added to Today.' });
+          setAccepted(true);
           setTimeout(() => router.push('/app/today'), 900);
         } else {
-          setResult({ ok: true, text: 'Offer declined.' });
-          setTimeout(() => router.push('/app/today'), 900);
+          router.push('/app/today');
         }
       } else {
-        setResult({
-          ok: false,
-          text: data?.reason || data?.error || 'This offer is no longer available.',
-        });
+        // The server rejected it — the offer was taken or its window closed while
+        // we were deciding (last-second race). Show the SAME expired treatment,
+        // never a raw error.
+        setExpired(true);
       }
     } catch {
-      setResult({ ok: false, text: 'Network error — please try again.' });
+      // A genuine network error (not a rejection) — let them retry, don't expire.
+      setTransientError('Network error — please try again.');
     } finally {
       setProcessing(null);
     }
   };
 
+  // ── Loading skeleton (never a spinner as a terminal state) ──
   if (loading) {
-    return <div className="h-64 animate-pulse rounded-xl bg-line" />;
+    return (
+      <div className="space-y-4">
+        <div className="h-10 animate-pulse rounded-xl bg-line" />
+        <div className="h-64 animate-pulse rounded-2xl bg-line" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="h-12 animate-pulse rounded-xl bg-line" />
+          <div className="h-12 animate-pulse rounded-xl bg-line" />
+        </div>
+      </div>
+    );
   }
 
-  if (gone) {
+  // ── Load error (retry) ──
+  if (loadError) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">Offer no longer available</h1>
+        <h1 className="font-newsreader text-xl font-semibold text-ink">Couldn&apos;t load this offer</h1>
+        <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            fetchOffer();
+          }}
+          className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // ── Gone (404) OR expired (window closed / lost the race) — same terminal ──
+  if (gone || expired) {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-6 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-2xl text-ink-3">
+          ⏱
+        </div>
+        <h1 className="mt-4 font-newsreader text-xl font-semibold text-ink">This offer has expired</h1>
         <p className="mt-2 font-jost text-sm text-ink-2">
-          This job has been taken or the offer window has closed.
+          It may have been passed to another cleaner. No action is needed — new offers will appear
+          here and on Today.
         </p>
         <button
           type="button"
           onClick={() => router.push('/app/today')}
-          className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          className="mt-5 rounded-[10px] bg-primary px-5 py-2.5 font-jost text-sm font-medium text-white"
         >
           Back to Today
         </button>
@@ -132,17 +191,12 @@ export default function OfferPage({ params }: { params: { id: string } }) {
 
   if (!offer) return null;
 
-  const wl = windowLabel(offer.cascadeExpiresAt, now);
-  const expired = wl === 'Expired';
+  const { text: wl, tier } = windowState(offer.cascadeExpiresAt, now);
 
   return (
     <div>
-      {wl && (
-        <div
-          className={`mb-4 rounded-xl px-4 py-2.5 text-center font-jost text-sm font-semibold ${
-            expired ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'
-          }`}
-        >
+      {wl && tier !== 'expired' && (
+        <div className={`mb-4 rounded-xl px-4 py-2.5 text-center font-jost text-sm font-semibold ${TIER_STYLE[tier]}`}>
           {wl}
         </div>
       )}
@@ -180,22 +234,23 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         )}
       </div>
 
-      {result && (
-        <div
-          className={`mt-4 rounded-lg px-4 py-3 font-jost text-sm ${
-            result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'
-          }`}
-        >
-          {result.text}
+      {accepted && (
+        <div className="mt-4 rounded-lg bg-trust/10 px-4 py-3 font-jost text-sm text-trust">
+          Job accepted — added to Today.
+        </div>
+      )}
+      {transientError && (
+        <div className="mt-4 rounded-lg bg-danger/10 px-4 py-3 font-jost text-sm text-danger">
+          {transientError}
         </div>
       )}
 
-      {!result?.ok && (
+      {!accepted && (
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => respond('decline')}
-            disabled={!!processing || expired}
+            disabled={!!processing}
             className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-base font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
           >
             {processing === 'decline' ? 'Declining…' : 'Decline'}
@@ -203,7 +258,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           <button
             type="button"
             onClick={() => respond('accept')}
-            disabled={!!processing || expired}
+            disabled={!!processing}
             className="rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
           >
             {processing === 'accept' ? 'Accepting…' : 'Accept'}
