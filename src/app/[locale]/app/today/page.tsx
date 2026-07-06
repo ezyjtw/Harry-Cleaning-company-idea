@@ -24,16 +24,15 @@ const LIFECYCLE_ACTION: Record<string, { label: string; next: string } | undefin
   in_progress: { label: 'Complete', next: 'COMPLETED' },
 };
 
-function todayIso(): string {
-  // Local calendar date, matching how the API stringifies booking dates.
-  const d = new Date();
+function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-
+function todayIso(): string {
+  return isoOf(new Date());
+}
 function pay(job: Job): number {
   return job.viewerEarnings ?? job.cleanerEarnings;
 }
-
 function startsInLabel(dateIso: string, time: string): string | null {
   const [h, m] = time.split(':').map(Number);
   const start = new Date(`${dateIso}T00:00:00`);
@@ -42,26 +41,25 @@ function startsInLabel(dateIso: string, time: string): string | null {
   if (diffMs <= 0) return null;
   const mins = Math.round(diffMs / 60000);
   if (mins < 60) return `Starts in ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  return `Starts in ${hrs}h ${mins % 60}m`;
+  return `Starts in ${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
-
 function serviceLabel(slug: string): string {
-  return slug
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function TodayPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [view, setView] = useState<'today' | 'week'>('today');
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const fetchJobs = useCallback(async () => {
+    setRefreshing(true);
     try {
       const res = await fetch(
         '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS,COMPLETED&limit=50'
@@ -70,12 +68,18 @@ export default function TodayPage() {
         setAccessDenied(true);
         return;
       }
+      if (!res.ok) {
+        setLoadError(true);
+        return;
+      }
       const data = await res.json().catch(() => null);
       setJobs(Array.isArray(data?.jobs) ? data.jobs : []);
+      setLoadError(false);
     } catch {
-      setMessage("Couldn't load your jobs. Pull to refresh.");
+      setLoadError(true);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -83,9 +87,27 @@ export default function TodayPage() {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Tick the countdown once a minute.
+  // Freshness: refetch when the app/tab regains focus or becomes visible (a
+  // cleaner switching back from Maps/messages sees current jobs), and expose a
+  // refetch the native shell's pull-to-refresh can call via injected JS.
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 60000);
+    const onFocus = () => fetchJobs();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchJobs();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    (window as unknown as { __renaRefresh?: () => void }).__renaRefresh = fetchJobs;
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+      delete (window as unknown as { __renaRefresh?: () => void }).__renaRefresh;
+    };
+  }, [fetchJobs]);
+
+  // Live-ticking next-job countdown.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(t);
   }, []);
 
@@ -96,11 +118,11 @@ export default function TodayPage() {
   );
 
   const weekByDay = useMemo(() => {
-    const days: { iso: string; label: string; jobs: Job[] }[] = [];
+    const days: { iso: string; label: string; isToday: boolean; jobs: Job[] }[] = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const iso = isoOf(d);
       const label =
         i === 0
           ? 'Today'
@@ -110,6 +132,7 @@ export default function TodayPage() {
       days.push({
         iso,
         label,
+        isToday: i === 0,
         jobs: jobs.filter((j) => j.date === iso).sort((a, b) => a.time.localeCompare(b.time)),
       });
     }
@@ -117,25 +140,21 @@ export default function TodayPage() {
   }, [jobs]);
 
   const weekSummary = useMemo(() => {
-    // Completed earnings within the current week (Mon–Sun).
     const d = new Date();
-    const day = (d.getDay() + 6) % 7; // 0 = Monday
     const monday = new Date(d);
-    monday.setDate(d.getDate() - day);
+    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     monday.setHours(0, 0, 0, 0);
-    const inWeek = jobs.filter((j) => {
-      const jd = new Date(`${j.date}T00:00:00`);
-      return jd >= monday && j.status === 'completed';
-    });
-    const earned = inWeek.reduce((sum, j) => sum + pay(j), 0);
-    return { earned, count: inWeek.length };
+    const inWeek = jobs.filter(
+      (j) => new Date(`${j.date}T00:00:00`) >= monday && j.status === 'completed'
+    );
+    return { earned: inWeek.reduce((s, j) => s + pay(j), 0), count: inWeek.length };
   }, [jobs]);
 
   const advance = async (job: Job) => {
     const action = LIFECYCLE_ACTION[job.status];
     if (!action) return;
     setProcessingId(job.id);
-    setMessage('');
+    setActionError('');
     try {
       const res = await fetch(`/api/cleaner/jobs/${job.id}`, {
         method: 'PATCH',
@@ -143,13 +162,10 @@ export default function TodayPage() {
         body: JSON.stringify({ status: action.next }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok) {
-        await fetchJobs();
-      } else {
-        setMessage(data?.error || 'Could not update the job.');
-      }
+      if (res.ok) await fetchJobs();
+      else setActionError(data?.error || 'Could not update the job.');
     } catch {
-      setMessage('Network error — please try again.');
+      setActionError('Network error — please try again.');
     } finally {
       setProcessingId(null);
     }
@@ -163,19 +179,46 @@ export default function TodayPage() {
     );
   }
 
-  const list = view === 'today' ? todayJobs : null;
+  // Full error state (retry) — only when we have nothing to show.
+  if (!loading && loadError && jobs.length === 0) {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-6 text-center">
+        <h1 className="font-newsreader text-xl font-semibold text-ink">Couldn&apos;t load your jobs</h1>
+        <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            fetchJobs();
+          }}
+          className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Header */}
       <header className="mb-4">
-        <h1 className="font-newsreader text-2xl font-semibold text-ink">
-          {loading
-            ? 'Your day'
-            : todayJobs.length === 0
-              ? 'No jobs today'
-              : `You have ${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">
+            {loading
+              ? 'Your day'
+              : todayJobs.length === 0
+                ? 'No jobs today'
+                : `You have ${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
+          </h1>
+          <button
+            type="button"
+            onClick={() => fetchJobs()}
+            aria-label="Refresh"
+            className="mt-1 shrink-0 rounded-full border border-line bg-surface px-3 py-1 font-jost text-[12px] font-medium text-ink-2"
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (
             <button
@@ -192,9 +235,9 @@ export default function TodayPage() {
         </div>
       </header>
 
-      {message && (
+      {actionError && (
         <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
-          <p className="text-sm text-ink-2">{message}</p>
+          <p className="text-sm text-ink-2">{actionError}</p>
         </div>
       )}
 
@@ -205,9 +248,9 @@ export default function TodayPage() {
           ))}
         </div>
       ) : view === 'today' ? (
-        list && list.length > 0 ? (
+        todayJobs.length > 0 ? (
           <div className="space-y-3">
-            {list.map((job, i) => (
+            {todayJobs.map((job, i) => (
               <JobRow
                 key={job.id}
                 job={job}
@@ -233,11 +276,20 @@ export default function TodayPage() {
         <div className="space-y-5">
           {weekByDay.map((d) => (
             <div key={d.iso}>
-              <p className="mb-2 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+              <h2
+                className={`mb-2 font-newsreader text-base font-semibold ${
+                  d.isToday ? 'text-primary' : 'text-ink'
+                }`}
+              >
                 {d.label}
-              </p>
+                {d.isToday && d.jobs.length > 0 && (
+                  <span className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 align-middle font-jost text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+                    {d.jobs.length}
+                  </span>
+                )}
+              </h2>
               {d.jobs.length === 0 ? (
-                <p className="font-jost text-sm font-light text-ink-3">No jobs</p>
+                <p className="font-jost text-sm font-light text-ink-3/70">No jobs</p>
               ) : (
                 <div className="space-y-3">
                   {d.jobs.map((job) => (
@@ -250,7 +302,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* This-week earnings strip */}
       {!loading && (
         <div className="mt-6 rounded-xl bg-primary-soft px-5 py-3 text-center">
           <p className="font-jost text-sm text-ink-2">
@@ -278,8 +329,7 @@ function JobRow({
   onAdvance: () => void;
 }) {
   const action = LIFECYCLE_ACTION[job.status];
-  // now is referenced so the countdown recomputes on the minute tick.
-  void now;
+  void now; // referenced so the row re-renders on the countdown tick
   const countdown = highlightCountdown ? startsInLabel(job.date, job.time) : null;
   const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
 
@@ -290,10 +340,7 @@ function JobRow({
           <p className="font-newsreader text-lg font-semibold text-ink">
             {job.time} · {job.clientName}
           </p>
-          <a
-            href={mapsHref}
-            className="mt-0.5 block truncate font-jost text-sm text-primary underline"
-          >
+          <a href={mapsHref} className="mt-0.5 block truncate font-jost text-sm text-primary underline">
             {job.address}
           </a>
           <p className="mt-1 font-jost text-[13px] text-ink-3">
