@@ -118,6 +118,30 @@ export async function middleware(request: NextRequest) {
   // Strip locale prefix from pathname for auth checks
   const pathnameWithoutLocale = pathname.replace(/^\/en/, '') || '/';
 
+  // Rena Pro shell preview bypass: ?shell=1 on an /app route persists a preview
+  // cookie so James can view the (production shell-only) /app/* screens in a plain
+  // browser. The native shell sends its own x-rena-shell header; this is the human
+  // bypass. We REDIRECT to the same URL minus ?shell=1, carrying the Set-Cookie —
+  // so the /app layout's server render sees the cookie on this very load (a
+  // response cookie alone isn't visible to the render until the next request,
+  // which would 404 the first click). Low-risk: the /app data endpoints already
+  // require a CLEANER session, so this only unlocks the chrome-free wrapper.
+  if (
+    pathnameWithoutLocale.startsWith('/app') &&
+    request.nextUrl.searchParams.get('shell') === '1'
+  ) {
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.searchParams.delete('shell');
+    const redirect = NextResponse.redirect(cleanUrl);
+    redirect.cookies.set('rena-app-preview', '1', {
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return redirect;
+  }
+
   // Auth protection — validate the session via NextAuth's getToken, which
   // verifies the JWT and is aware of the `__Secure-`/`__Host-` cookie prefixes
   // and chunked (…session-token.0/.1) cookies. The previous raw check for two
@@ -144,23 +168,6 @@ export async function middleware(request: NextRequest) {
 
   // Run next-intl middleware for locale detection and routing
   const response = intlMiddleware(request);
-
-  // Rena Pro shell preview: ?shell=1 on an /app route persists a preview cookie so
-  // James can view the (production shell-only) /app/* routes in a plain browser.
-  // The native shell sends its own x-rena-shell header; this is the human bypass.
-  // Low-risk: the /app data endpoints already require a CLEANER session, so this
-  // only unlocks the chrome-free wrapper, not any data.
-  if (
-    pathnameWithoutLocale.startsWith('/app') &&
-    request.nextUrl.searchParams.get('shell') === '1'
-  ) {
-    response.cookies.set('rena-app-preview', '1', {
-      httpOnly: false,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
-  }
 
   // Security headers
   response.headers.set('X-Frame-Options', 'DENY');

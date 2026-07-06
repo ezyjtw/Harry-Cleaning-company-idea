@@ -7,9 +7,9 @@ import { isRenaShell } from '@/lib/shell';
 // The Rena Pro purpose-built screens (Today, Offer). Rendered chrome-free inside
 // the native shell — the native tab bar replaces the marketing nav/footer
 // (hidden via ChromeHider). Served only to the shell in production, EXCEPT for a
-// human preview: append ?shell=1 once (the middleware persists a `rena-app-preview`
-// cookie) so James can view /app/* logged in on the live deploy. Previewable
-// freely in dev.
+// human preview: append ?shell=1 once — the middleware redirects to the clean URL
+// with a `rena-app-preview` cookie set, so this render sees it immediately and
+// every later /app/* navigation stays unlocked. Previewable freely in dev.
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
   const [headersList, cookieStore] = await Promise.all([headers(), cookies()]);
   const inShell = isRenaShell(headersList);
