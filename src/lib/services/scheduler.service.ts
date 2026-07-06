@@ -20,10 +20,12 @@ export interface SchedulerSummary {
   releases: HandlerResult;
   exhaustedRefunds: HandlerResult;
   backgroundJobs: HandlerResult;
+  abandonedBookings: HandlerResult;
   compliance: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
+import stripe from '@/lib/stripe';
 
 import {
   processExpiredCascadeWindows as cascadeHandler,
@@ -31,6 +33,60 @@ import {
 } from './cascade.service';
 import { ComplianceSchedulerService } from './compliance-scheduler.service';
 import { releaseBookingFunds } from './transfer.service';
+
+const ABANDONED_BATCH_LIMIT = 50;
+const ABANDONED_AGE_MS = 60 * 60 * 1000; // 60 minutes
+
+// Reaper for bookings that were created but never paid (customer abandoned at the
+// card step, or no webhook ever arrived). Without this they sit as PENDING rows
+// that hold the cleaner's slot forever and clutter their job list.
+//
+// AMENDMENT 1 (James-signed): cancel the PaymentIntent at Stripe FIRST. If cancel
+// SUCCEEDS, the payment can no longer complete → safe to cancel the booking. If
+// cancel ERRORS because the intent already succeeded, STAND DOWN — the succeeded
+// webhook owns that booking. Either way the outcome is coherent: payment-and-
+// booking, or neither, never one without the other. The final booking update is
+// atomically guarded on status='PENDING' so it can't clobber a booking the
+// webhook just took live.
+async function processAbandonedBookings(): Promise<HandlerResult> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const cutoff = new Date(Date.now() - ABANDONED_AGE_MS);
+
+  const stale = await prisma.booking.findMany({
+    where: {
+      status: 'PENDING',
+      paymentStatus: { in: ['PENDING', 'FAILED', 'CANCELED', 'REQUIRES_ACTION'] },
+      createdAt: { lt: cutoff },
+    },
+    select: { id: true, stripePaymentIntentId: true },
+    take: ABANDONED_BATCH_LIMIT,
+  });
+
+  let processed = 0;
+
+  for (const booking of stale) {
+    // 1. Cancel the PaymentIntent at Stripe first.
+    if (booking.stripePaymentIntentId) {
+      try {
+        await stripe.paymentIntents.cancel(booking.stripePaymentIntentId);
+      } catch {
+        // Intent already succeeded (or otherwise uncancelable) — stand down and
+        // let the succeeded webhook complete the booking.
+        continue;
+      }
+    }
+
+    // 2. PI is cancelled (or there was none) — cancel the booking, guarded on
+    //    PENDING so we never cancel a booking the webhook just took live.
+    const result = await prisma.booking.updateMany({
+      where: { id: booking.id, status: 'PENDING' },
+      data: { status: 'CANCELLED', paymentStatus: 'CANCELED' },
+    });
+    if (result.count > 0) processed++;
+  }
+
+  return { processed };
+}
 
 async function processExpiredCascadeWindows(): Promise<HandlerResult> {
   return cascadeHandler();
@@ -128,6 +184,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const releases = await processDueReleases();
   const exhaustedRefunds = await processExhaustedRefunds();
   const backgroundJobs = await processBackgroundJobs();
+  const abandonedBookings = await processAbandonedBookings();
   const compliance = await processComplianceJobsDaily();
 
   return {
@@ -136,6 +193,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     releases,
     exhaustedRefunds,
     backgroundJobs,
+    abandonedBookings,
     compliance,
   };
 }

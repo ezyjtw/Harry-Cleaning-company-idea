@@ -10,11 +10,6 @@ import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/
 import prisma from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
-import {
-  sendBookingConfirmation,
-  sendCleanerAssignment,
-  sendGuestBookingConfirmation,
-} from '@/lib/services/email.service';
 import { pricingService } from '@/lib/services/pricing.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import stripe from '@/lib/stripe';
@@ -684,64 +679,12 @@ export async function POST(request: NextRequest) {
         .catch(() => {});
     }
 
-    // Send confirmation emails
-    const bookingEmailData = {
-      id: booking.id,
-      customerName: body.name,
-      cleanerName: cleaner.name || 'Your cleaner',
-      date: body.date,
-      time: body.time,
-      address: [addressLine1, addressLine2, addressCity, addressPostcode]
-        .filter(Boolean)
-        .join(', '),
-      serviceType: body.serviceType,
-      totalPrice,
-    };
-
-    if (!sessionUser) {
-      await sendGuestBookingConfirmation(
-        bookingEmailData,
-        body.email,
-        body.name,
-        booking.guestToken || ''
-      ).catch(() => {});
-    } else {
-      await sendBookingConfirmation(bookingEmailData, {
-        name: body.name,
-        email: body.email,
-      }).catch(() => {});
-    }
-
-    await sendCleanerAssignment(bookingEmailData, {
-      name: cleaner.name || '',
-      email: cleaner.email,
-    }).catch(() => {});
-
-    await prisma.notification
-      .create({
-        data: {
-          userId: body.cleanerId,
-          type: 'BOOKING_REQUEST',
-          title: 'New booking request',
-          body: `New ${body.serviceType} cleaning on ${body.date}`,
-          data: { bookingId: booking.id },
-        },
-      })
-      .catch(() => {});
-
-    if (sessionUser) {
-      await prisma.notification
-        .create({
-          data: {
-            userId: sessionUser.id,
-            type: 'BOOKING_CONFIRMED',
-            title: 'Booking submitted',
-            body: `Your ${body.serviceType} cleaning on ${body.date} has been submitted.`,
-            data: { bookingId: booking.id },
-          },
-        })
-        .catch(() => {});
-    }
+    // NO confirmation / cleaner-offer emails or notifications here. The booking
+    // is still PENDING (unpaid) at this point. All "you're booked" side-effects —
+    // guest/customer confirmation, cleaner assignment email, cleaner offer
+    // notification, and the cascade offer going live — fire on payment success in
+    // the payment_intent.succeeded webhook. An abandoned/unpaid booking therefore
+    // never triggers a premature email, and is reaped after 60 minutes.
 
     return NextResponse.json(
       {

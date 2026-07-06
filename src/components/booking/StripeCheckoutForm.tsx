@@ -74,7 +74,14 @@ export default function StripeCheckoutForm({
     });
 
     if (result.error) {
-      setError(result.error.message || 'Payment failed. Please try again.');
+      // A stale form (e.g. an hour-old guest tab) whose PaymentIntent was already
+      // cancelled by the abandoned-booking reaper returns an unexpected-state
+      // error. Show a clean "expired" message, not a raw card error.
+      if (result.error.code === 'payment_intent_unexpected_state') {
+        setError('This booking has expired. Please start again to book your cleaner.');
+      } else {
+        setError(result.error.message || 'Payment failed. Please try again.');
+      }
       setProcessing(false);
     }
   };

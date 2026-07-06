@@ -6,6 +6,8 @@ import prisma from '@/lib/db/prisma';
 import { computeCascadeWindows } from '@/lib/services/cascade.service';
 import {
   sendBookingConfirmation,
+  sendCleanerAssignment,
+  sendGuestBookingConfirmation,
   sendPaymentFailureNotification,
 } from '@/lib/services/email.service';
 import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
@@ -221,20 +223,49 @@ export async function POST(request: NextRequest) {
         occurredAt: new Date(pi.created * 1000).toISOString(),
       }).catch(() => {});
 
-      if (booking?.client) {
-        await sendBookingConfirmation(
-          {
-            id: booking.id,
-            customerName: booking.client.name || 'Customer',
-            cleanerName: booking.cleaner?.name || 'Your cleaner',
-            date: booking.date.toISOString().split('T')[0],
-            time: booking.startTime,
-            address: '',
-            serviceType: booking.serviceType,
-            totalPrice: Number(booking.totalPrice),
-          },
-          { name: booking.client.name || 'Customer', email: booking.client.email }
-        ).catch(() => {});
+      // Confirmation + cleaner-offer emails fire HERE, on payment success — not at
+      // booking creation — so an abandoned/unpaid booking never triggers a
+      // "you're booked" email. (Resequenced from POST /api/bookings; also kills
+      // the previous double-fire for registered users.)
+      if (booking) {
+        const emailData = {
+          id: booking.id,
+          customerName: booking.client?.name || booking.guestName || 'Customer',
+          cleanerName: booking.cleaner?.name || 'Your cleaner',
+          date: booking.date.toISOString().split('T')[0],
+          time: booking.startTime,
+          address: [
+            booking.addressLine1,
+            booking.addressLine2,
+            booking.addressCity,
+            booking.addressPostcode,
+          ]
+            .filter(Boolean)
+            .join(', '),
+          serviceType: booking.serviceType,
+          totalPrice: Number(booking.totalPrice),
+        };
+
+        if (booking.client) {
+          await sendBookingConfirmation(emailData, {
+            name: booking.client.name || 'Customer',
+            email: booking.client.email,
+          }).catch(() => {});
+        } else if (booking.guestEmail) {
+          await sendGuestBookingConfirmation(
+            emailData,
+            booking.guestEmail,
+            booking.guestName || 'there',
+            booking.guestToken || ''
+          ).catch(() => {});
+        }
+
+        if (booking.cleaner?.email) {
+          await sendCleanerAssignment(emailData, {
+            name: booking.cleaner.name || '',
+            email: booking.cleaner.email,
+          }).catch(() => {});
+        }
       }
 
       // Notify primary cleaner (and backups in COMBINED_OFFER)
@@ -280,6 +311,15 @@ export async function POST(request: NextRequest) {
         data: { paymentStatus: 'FAILED' },
       });
 
+      // Teardown: a payment that failed before the booking went live cancels it,
+      // so the cleaner's slot frees immediately and it leaves their job list.
+      // Guarded on PENDING so a failure event for an already-live booking can't
+      // cancel confirmed work.
+      await prisma.booking.updateMany({
+        where: { id: bookingId, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      });
+
       const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
         include: { client: { select: { name: true, email: true } } },
@@ -319,6 +359,12 @@ export async function POST(request: NextRequest) {
       await prisma.booking.update({
         where: { id: bookingId },
         data: { paymentStatus: 'CANCELED' },
+      });
+      // Teardown (see payment_failed) — free the slot for a booking that never
+      // went live. Guarded on PENDING.
+      await prisma.booking.updateMany({
+        where: { id: bookingId, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
       });
     }
   }
