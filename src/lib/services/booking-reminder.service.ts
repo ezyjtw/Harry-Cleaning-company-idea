@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import {
   sendBookingReminder,
   sendCleanerReminder,
+  sendGuestBookingReminder,
   sendReviewRequest,
 } from '@/lib/services/email.service';
 
@@ -151,18 +152,34 @@ export class BookingReminderService {
       await sendCleanerReminder(
         emailData,
         { name: booking.cleaner.name ?? 'Cleaner', email: booking.cleaner.email },
-        recipientId
+        recipientId,
       );
       return;
     }
 
-    // customer_reminder + review_request → the client (account-holders only)
-    if (!booking.client?.email) return;
-    const user = { name: booking.client.name ?? 'Customer', email: booking.client.email };
-    if (reminderType === 'customer_reminder') {
-      await sendBookingReminder(emailData, user, recipientId);
-    } else {
-      await sendReviewRequest(emailData, user, recipientId);
+    // customer_reminder + review_request → the customer.
+    if (booking.client?.email) {
+      // Account-holder — gated by the recipient's REMINDER/EMAIL preference.
+      const user = { name: booking.client.name ?? 'Customer', email: booking.client.email };
+      if (reminderType === 'customer_reminder') {
+        await sendBookingReminder(emailData, user, recipientId);
+      } else {
+        await sendReviewRequest(emailData, user, recipientId);
+      }
+      return;
+    }
+
+    // Guest booking (no account). Only the 24h customer reminder is sent to
+    // guests, via the transactional guest-email path (they have no preference
+    // row; the manage-booking link is the opt-out). Review requests need an
+    // account, so guests are not sent one.
+    if (reminderType === 'customer_reminder' && booking.guestEmail && booking.guestToken) {
+      await sendGuestBookingReminder(
+        emailData,
+        booking.guestEmail,
+        booking.guestName ?? 'there',
+        booking.guestToken,
+      );
     }
   }
 

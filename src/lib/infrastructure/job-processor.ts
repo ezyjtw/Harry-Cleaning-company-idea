@@ -207,28 +207,28 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
   // Producer (BookingReminderService.scheduleReminders) sets recipientId +
   // reminderType + bookingId. (The previous handler read payload.userId, which
   // producers never set — so every reminder was a silent no-op.)
-  const recipientId = payload.recipientId as string | undefined;
+  // recipientId is the account-holder's userId; it is '' for guest bookings
+  // (no account), which still get the transactional customer email path.
+  const recipientId = (payload.recipientId as string | undefined) || '';
   const reminderType = payload.reminderType as string | undefined;
   const bookingId = payload.bookingId as string | undefined;
-  if (!recipientId) return;
+  if (!reminderType || !bookingId) return;
 
   // Skip stale reminders for bookings that were cancelled/exhausted after the
   // reminder was scheduled (no cancelReminders wiring needed — the send checks
-  // live state at fire time).
-  if (bookingId) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: { status: true },
-    });
-    if (!booking || booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED') {
-      return;
-    }
+  // live state at fire time). Applies to guests too ("send unless cancelled").
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { status: true },
+  });
+  if (!booking || booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED') {
+    return;
   }
 
   // Push and email are gated independently (A11) — a disabled push channel must
-  // not suppress an allowed email, and vice-versa. All reminder types are
-  // category REMINDER.
-  if (await shouldSend(recipientId, 'REMINDER', 'PUSH')) {
+  // not suppress an allowed email, and vice-versa. Push is account-holders only
+  // (guests have no userId/subscription). All reminder types are category REMINDER.
+  if (recipientId && (await shouldSend(recipientId, 'REMINDER', 'PUSH'))) {
     const copy = (reminderType && REMINDER_COPY[reminderType]) || {
       title: 'Reminder',
       body: 'You have an upcoming booking.',
@@ -246,13 +246,12 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
   }
 
   // Branded email for the email-eligible types (customer 24h, cleaner 12h,
-  // review request). Arrival alert stays push-only. sendReminderEmail gates on
-  // the EMAIL channel preference internally.
-  if (reminderType && bookingId) {
-    await BookingReminderService.sendReminderEmail(reminderType, bookingId, recipientId).catch(
-      () => {}
-    );
-  }
+  // review request; guest 24h via the guest path). Arrival alert stays
+  // push-only. sendReminderEmail gates on the EMAIL preference internally for
+  // account-holders; guest sends are transactional.
+  await BookingReminderService.sendReminderEmail(reminderType, bookingId, recipientId).catch(
+    () => {}
+  );
 });
 
 registerJobHandler('PROCESS_PAYMENT', async (payload) => {
