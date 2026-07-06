@@ -148,6 +148,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 1a. Email format — the confirmation + reminder emails depend on it. Reject
+    // a malformed address at the door rather than storing an unreachable one.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email).trim())) {
+      return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 });
+    }
+
     // 1b. Date validation
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(body.date)) {
