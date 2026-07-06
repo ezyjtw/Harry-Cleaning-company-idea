@@ -263,6 +263,7 @@ model User {
   complaints          Complaint[]           @relation("ComplaintsFiled")
   cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
   pushSubscriptions   PushSubscription[]
+  deviceTokens        DeviceToken[]
   importedReviews     ImportedReview[]      @relation("ImportedReviews")
   notificationPreference NotificationPreference?
 
@@ -1358,6 +1359,22 @@ model PushSubscription {
   userId       String
   subscription String   @db.Text // JSON stringified PushSubscription
   createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Native (Rena Pro / Expo) push device tokens — multi-device per user. Parallel
+// to PushSubscription (web push); the notification service's EXPO_PUSH channel
+// sends to these. Additive model — safe under `prisma db push`.
+model DeviceToken {
+  id            String   @id @default(cuid())
+  userId        String
+  expoPushToken String   @unique
+  platform      String // 'ios' | 'android'
+  createdAt     DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

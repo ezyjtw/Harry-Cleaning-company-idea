@@ -259,6 +259,38 @@ registerJobHandler('PROCESS_PAYMENT', async (payload) => {
   console.log('[JobProcessor] Processing payment:', payload);
 });
 
+// Native (Rena Pro / Expo) push. Sends the queued device tokens to the Expo push
+// API. EXPO_ACCESS_TOKEN is optional (only needed if the Expo project enforces
+// enhanced push security). Throws on transport failure to trigger the standard
+// job retry; token-cleanup (DeviceNotRegistered receipts) is a v1.1 follow-up.
+registerJobHandler('EXPO_PUSH', async (payload) => {
+  const tokens = Array.isArray(payload.tokens) ? (payload.tokens as string[]) : [];
+  if (tokens.length === 0) return;
+
+  const messages = tokens.map((to) => ({
+    to,
+    title: payload.title as string,
+    body: payload.body as string,
+    data: payload.data as Record<string, unknown> | undefined,
+    sound: 'default',
+    priority: 'high',
+  }));
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (process.env.EXPO_ACCESS_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`;
+  }
+
+  const res = await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(messages),
+  });
+  if (!res.ok) {
+    throw new Error(`Expo push failed: ${res.status}`);
+  }
+});
+
 // A13-Xero-c: post bank transactions to Xero (gated + idempotent inside the handler).
 registerJobHandler('XERO_PUSH', async (payload) => {
   await processXeroPush(payload as unknown as XeroPushPayload);

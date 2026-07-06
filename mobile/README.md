@@ -26,6 +26,54 @@ detection) is already live on `main`.
 
 ---
 
+## Expo Go quick-start (fastest loop — no build needed)
+This is the quickest way to see the shell on your phone while iterating. It runs
+the JS in the **Expo Go** app (App Store / Play Store) — no EAS build, no Apple
+account needed.
+
+```bash
+cd mobile
+npm install
+npx expo start          # a QR code appears in the terminal
+```
+- **iOS:** open the **Camera** app, point at the QR → "Open in Expo Go".
+- **Android:** open **Expo Go** → "Scan QR code".
+
+By default the WebViews load the **live** web app (`expo.extra.baseUrl` =
+`https://www.renacleaning.co.uk`), so sign-in → Today → Offer all work immediately.
+
+**Works in Expo Go:** the tab bar, all five WebViews (Today + portal routes),
+native login → the session-bridge cookie flow, pull-to-refresh, the offline state.
+
+**Needs the EAS dev/prod build (not reliable in Go):**
+- **Face ID** — `expo-local-authentication` runs in Go, but Go supplies its own
+  generic permission prompt (our branded `NSFaceIDUsageDescription` from the
+  config plugin only applies in an EAS build), and behaviour is only guaranteed
+  in a standalone build.
+- **Push** — not implemented until P2, and Expo Go can't receive push tokens
+  anyway; needs an EAS dev/prod build.
+- **Cookie persistence across cold starts** — Go uses its own WebView container,
+  so the bridged session cookie may not survive a Go restart the way it does in a
+  standalone build with a persistent `WKWebsiteDataStore`. Expect to re-login in
+  Go more often; the real build persists it.
+
+**Pointing the WebViews at a LOCAL web dev server** (to test unreleased web
+changes): set `expo.extra.baseUrl` in `app.json` to your **Mac's LAN IP**, not
+`localhost` — on the phone, `localhost` means the phone itself.
+```jsonc
+// app.json → expo.extra
+"baseUrl": "http://192.168.1.42:3000"   // your Mac's LAN IP (System Settings → Wi-Fi → Details)
+```
+Then run the web app so it binds to the LAN, with the phone on the **same Wi-Fi**:
+```bash
+# in the web repo root
+npm run dev -- -H 0.0.0.0        # Next.js listens on all interfaces
+```
+Set `baseUrl` back to the production URL before building for TestFlight. (Local
+HTTP works in Go; a production build needs HTTPS for the secure session cookie.)
+
+---
+
 ## What YOU (James) do vs what's automated
 | Step | Who |
 |---|---|

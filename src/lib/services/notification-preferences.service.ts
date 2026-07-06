@@ -20,7 +20,9 @@ import { prisma } from '@/lib/db/prisma';
 // honour their channel master switch for non-essential categories.
 
 export type NotificationCategory = 'ESSENTIAL' | 'REMINDER' | 'NEW_MESSAGE' | 'MARKETING';
-export type DeliveryChannel = 'IN_APP' | 'EMAIL' | 'PUSH' | 'SMS';
+// EXPO_PUSH is native (Rena Pro) push; it rides the same push master switch as
+// web PUSH, and — like PUSH — ESSENTIAL always passes regardless of preference.
+export type DeliveryChannel = 'IN_APP' | 'EMAIL' | 'PUSH' | 'SMS' | 'EXPO_PUSH';
 
 // Safe defaults applied when a user has no preference row yet (existing users
 // after the additive migration, or brand-new accounts). Must match the column
@@ -162,7 +164,7 @@ export async function shouldSend(
   }
 
   // Channel master switches (only when a row exists; absent ⇒ default ON).
-  if (channel === 'PUSH' && prefs && !prefs.push) return false;
+  if ((channel === 'PUSH' || channel === 'EXPO_PUSH') && prefs && !prefs.push) return false;
   if (channel === 'SMS' && prefs && !prefs.sms) return false;
 
   // Category-level toggle (default ON when no row exists).
