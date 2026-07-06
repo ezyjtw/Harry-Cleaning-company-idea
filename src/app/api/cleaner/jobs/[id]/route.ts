@@ -68,6 +68,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     job: {
       id: booking.id,
       status: booking.status,
+      // Offer-cascade fields (Rena Pro Offer screen: window countdown + accept routing).
+      cascadePhase: booking.cascadePhase,
+      cascadeExpiresAt: booking.cascadeExpiresAt ? booking.cascadeExpiresAt.toISOString() : null,
       clientName: booking.client?.name || booking.guestName || 'Guest',
       clientEmail: booking.client?.email || booking.guestEmail || '',
       // A12: read from booking columns (legacy relation fallback in helper).

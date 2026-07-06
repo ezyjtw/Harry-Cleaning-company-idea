@@ -37,8 +37,9 @@ export function generateApiToken(user: {
 /**
  * Verify a Bearer token and return the user payload.
  * Returns null if the token is invalid or the user no longer exists/is active.
+ * Exported for the Rena Pro auth bridge (token → NextAuth session cookie).
  */
-async function verifyBearerToken(token: string): Promise<SessionUser | null> {
+export async function verifyBearerToken(token: string): Promise<SessionUser | null> {
   try {
     const payload = jwt.verify(token, JWT_SECRET, { issuer: 'rena-cleaning' }) as {
       id: string;
