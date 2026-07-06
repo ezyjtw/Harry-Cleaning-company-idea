@@ -145,6 +145,23 @@ export async function middleware(request: NextRequest) {
   // Run next-intl middleware for locale detection and routing
   const response = intlMiddleware(request);
 
+  // Rena Pro shell preview: ?shell=1 on an /app route persists a preview cookie so
+  // James can view the (production shell-only) /app/* routes in a plain browser.
+  // The native shell sends its own x-rena-shell header; this is the human bypass.
+  // Low-risk: the /app data endpoints already require a CLEANER session, so this
+  // only unlocks the chrome-free wrapper, not any data.
+  if (
+    pathnameWithoutLocale.startsWith('/app') &&
+    request.nextUrl.searchParams.get('shell') === '1'
+  ) {
+    response.cookies.set('rena-app-preview', '1', {
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+
   // Security headers
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');

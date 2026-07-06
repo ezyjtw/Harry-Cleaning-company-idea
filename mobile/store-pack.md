@@ -10,9 +10,22 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 ## 1. Store listing copy (James's voice — edit freely)
 
 ### App name / subtitle
-- **App name:** RENA Cleaners *(or "Rena Pro" — pick one; keep it consistent across both stores)*
+- **App name:** `RENA Cleaners` — **WORKING PLACEHOLDER, NOT LOCKED.**
 - **App Store subtitle** (≤30 chars): `Cleaning jobs, on your terms`
 - **Play short description** (≤80 chars): `Get cleaning jobs near you, set your own rates, and earn on your terms.`
+
+> **⚠️ App-name decision (final call at the P4 gate, before submission)**
+> James's logo draft says "RENA Cleaners", but he's weighing a
+> customer-confusion risk: a *customer* downloading the cleaner app by mistake.
+> - **Candidates:** `RENA Cleaners` (current logo draft) · `Rena Pro` · open to
+>   alternatives.
+> - **Mitigations if we keep "RENA Cleaners":** the App Store **subtitle**
+>   disambiguates ("Cleaning jobs, on your terms" — clearly for cleaners, not
+>   customers); the reviewer/store copy states "for verified self-employed
+>   cleaners"; and when the **customer** app ships, it becomes plain **"RENA"**,
+>   leaving "RENA Cleaners" unambiguously the pro app.
+> - **Decide before submitting** and set it consistently across both stores +
+>   `app.json` `expo.name`.
 
 ### Full description ("earn on your terms" positioning)
 > **Your cleaning work, your way.**
@@ -78,22 +91,26 @@ web); the app processes no card data natively. **No device location** is accesse
 - **Data Used to Track You:** *None.*
 - **Data Linked to You** (collected + tied to identity):
   - **Contact Info** — name, email, phone.
+  - **Financial Info** — **DECLARE YES.** The app surfaces the cleaner's
+    **earnings / payout amounts** (Earnings screen, per-job pay). Collected,
+    **linked to the user**, **not** used for tracking. Card/bank details
+    themselves are **held by Stripe as our payment processor** — the app never
+    handles them natively (state this in the review notes).
   - **User Content** — messages; job/booking details; (identity documents are
     uploaded via the web verification flow, not a native camera capture).
   - **Identifiers** — user ID; push token.
   - **Usage Data** — product interaction/analytics (first-party).
   - **Diagnostics** — crash/performance (if you enable any; otherwise omit).
-  - *(Financial info: payouts are handled by Stripe, which collects bank details
-    directly — declare under Stripe's processing, not the app's, unless you
-    surface earnings figures, which are "User Content"/financial. Confirm with the
-    Stripe data-processing addendum.)*
 - **Data Not Linked to You:** *None* (or Diagnostics if anonymised).
 
 ### Google Play Data Safety form
-- **Data collected:** Personal info (name, email, phone), Messages, App activity
-  (usage), Device IDs (push token). **Location: No** (no device location).
-- **Data shared with third parties:** Stripe (payments/payouts) — "Financial info"
-  is collected by Stripe as a processor. No sharing for advertising.
+- **Data collected:** Personal info (name, email, phone), **Financial info
+  (earnings/payout amounts — collected, linked to the user, not for ads)**,
+  Messages, App activity (usage), Device IDs (push token). **Location: No** (no
+  device location).
+- **Data shared with third parties:** **Stripe** (payments/payouts) — bank/card
+  details are collected and held by Stripe as our processor. No sharing for
+  advertising, no data brokers.
 - **Security:** data encrypted in transit (HTTPS/TLS). Users can request deletion
   (GDPR erasure flow — link the privacy policy; the app/portal supports account
   deletion requests).
@@ -109,9 +126,10 @@ web); the app processes no card data natively. **No device location** is accesse
 > day's jobs, receive and accept/decline new job offers via push, manage their
 > availability and earnings, and message customers. Account management and detailed
 > views are presented in an embedded, authenticated web layer; the Today and Offer
-> screens and the app's navigation, notifications, and Face ID are native. A demo
-> cleaner account with live jobs and a pending offer is provided below so you can
-> exercise the full flow.
+> screens and the app's navigation, notifications, and Face ID are native. Payments
+> and payouts are handled by **Stripe**; the app displays the cleaner's earnings but
+> never handles card or bank details itself. A demo cleaner account with live jobs
+> and a pending offer is provided below so you can exercise the full flow.
 
 ### 4.2 positioning line (per the Phase-0 survival plan)
 > This is a native workday companion for self-employed cleaners — real-time job
