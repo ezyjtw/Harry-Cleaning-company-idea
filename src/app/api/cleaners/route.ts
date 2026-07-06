@@ -11,6 +11,7 @@ import { DocumentStorageService } from '@/lib/services/document-storage.service'
 import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -208,18 +209,12 @@ export async function GET(request: NextRequest) {
   });
 }
 
-async function uploadProfilePhoto(userId: string, dataUrl: string): Promise<string | null> {
-  const match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-  if (!match) return null;
-
-  const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-  const buffer = Buffer.from(match[2], 'base64');
-
-  const MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024;
-  if (buffer.length > MAX_PROFILE_PHOTO_SIZE) return null;
-
+// Stores an already-validated profile photo (content-verified + size-checked by
+// decodeBase64File up-front in the POST handler). Returns the R2 object key.
+async function uploadProfilePhoto(userId: string, buffer: Buffer, mime: string): Promise<string> {
+  const ext = mime === 'image/jpeg' ? 'jpg' : mime.split('/')[1];
   const objectKey = `profile-photos/${userId}.${ext}`;
-  await putObject(objectKey, buffer, `image/${match[1]}`);
+  await putObject(objectKey, buffer, mime);
   return objectKey;
 }
 
@@ -247,6 +242,21 @@ export async function POST(request: NextRequest) {
       if (!body[field]?.trim()) {
         return NextResponse.json({ error: `${field} is required` }, { status: 400 });
       }
+    }
+
+    // Validate the profile photo up-front (before any DB writes) so an invalid
+    // file returns a human 400 to the wizard instead of being silently dropped.
+    let photoUpload: { buffer: Buffer; mime: string } | null = null;
+    if (body.profilePhoto && typeof body.profilePhoto === 'string') {
+      const check = decodeBase64File(body.profilePhoto, {
+        allowed: IMAGE_MIMES,
+        maxSize: 5 * 1024 * 1024,
+        typeLabel: 'a JPG or PNG photo',
+      });
+      if (!check.ok) {
+        return NextResponse.json({ error: check.error }, { status: 400 });
+      }
+      photoUpload = { buffer: check.buffer, mime: check.mime };
     }
 
     // Coverage is mandatory: without a travel radius a cleaner can't be matched to
@@ -329,12 +339,8 @@ export async function POST(request: NextRequest) {
 
       // Existing client — upgrade to cleaner
       let upgradePhotoKey: string | null = null;
-      if (
-        body.profilePhoto &&
-        typeof body.profilePhoto === 'string' &&
-        body.profilePhoto.startsWith('data:image/')
-      ) {
-        upgradePhotoKey = await uploadProfilePhoto(existing.id, body.profilePhoto);
+      if (photoUpload) {
+        upgradePhotoKey = await uploadProfilePhoto(existing.id, photoUpload.buffer, photoUpload.mime);
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -542,13 +548,14 @@ export async function POST(request: NextRequest) {
       return { user, profile };
     });
 
-    // Upload profile photo to R2 after user creation (need the real userId for the key)
-    if (
-      body.profilePhoto &&
-      typeof body.profilePhoto === 'string' &&
-      body.profilePhoto.startsWith('data:image/')
-    ) {
-      const photoKey = await uploadProfilePhoto(result.user.id, body.profilePhoto);
+    // Upload profile photo to R2 after user creation (need the real userId for
+    // the key). Already content-verified + size-checked up-front.
+    if (photoUpload) {
+      const photoKey = await uploadProfilePhoto(
+        result.user.id,
+        photoUpload.buffer,
+        photoUpload.mime
+      );
       if (photoKey) {
         await prisma.user.update({
           where: { id: result.user.id },
