@@ -1,6 +1,11 @@
 import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import {
+  sendBookingReminder,
+  sendCleanerReminder,
+  sendReviewRequest,
+} from '@/lib/services/email.service';
 
 export interface ReminderSchedule {
   bookingId: string;
@@ -90,6 +95,75 @@ export class BookingReminderService {
     }
 
     return reminders;
+  }
+
+  /**
+   * Send the branded reminder EMAIL for the email-eligible reminder types
+   * (customer 24h, cleaner 12h, review request). The 30-minute arrival alert is
+   * push-only. Each send gates on shouldSend(recipient,'REMINDER','EMAIL') inside
+   * email.service, so channel-level opt-outs are honoured. Guest bookings (no
+   * account) have no recipient user and are skipped.
+   */
+  static async sendReminderEmail(
+    reminderType: string,
+    bookingId: string,
+    recipientId: string
+  ): Promise<void> {
+    if (
+      reminderType !== 'customer_reminder' &&
+      reminderType !== 'cleaner_reminder' &&
+      reminderType !== 'review_request'
+    ) {
+      return;
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { client: true, cleaner: true },
+    });
+    if (!booking) return;
+
+    const bookingDate = new Date(booking.date).toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+    const emailData = {
+      id: booking.id,
+      customerName: booking.client?.name ?? 'Customer',
+      cleanerName: booking.cleaner?.name ?? undefined,
+      date: bookingDate,
+      time: booking.startTime,
+      address: [
+        booking.addressLine1,
+        booking.addressLine2,
+        booking.addressCity,
+        booking.addressPostcode,
+      ]
+        .filter(Boolean)
+        .join(', '),
+      serviceType: booking.serviceType,
+      totalPrice: Number(booking.totalPrice),
+    };
+
+    if (reminderType === 'cleaner_reminder') {
+      if (!booking.cleaner?.email) return;
+      await sendCleanerReminder(
+        emailData,
+        { name: booking.cleaner.name ?? 'Cleaner', email: booking.cleaner.email },
+        recipientId
+      );
+      return;
+    }
+
+    // customer_reminder + review_request → the client (account-holders only)
+    if (!booking.client?.email) return;
+    const user = { name: booking.client.name ?? 'Customer', email: booking.client.email };
+    if (reminderType === 'customer_reminder') {
+      await sendBookingReminder(emailData, user, recipientId);
+    } else {
+      await sendReviewRequest(emailData, user, recipientId);
+    }
   }
 
   /**

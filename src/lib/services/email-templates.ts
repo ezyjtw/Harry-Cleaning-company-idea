@@ -188,7 +188,7 @@ export function buildBookingConfirmation(
 }
 
 export function buildBookingReminder(booking: BookingEmailData, user: UserEmailData): EmailContent {
-  const subject = `Reminder: Cleaning tomorrow at ${booking.time}`;
+  const subject = 'Your cleaning is tomorrow';
   const rows: Array<[string, string]> = [
     ['Date', booking.date],
     ['Time', booking.time],
@@ -196,11 +196,30 @@ export function buildBookingReminder(booking: BookingEmailData, user: UserEmailD
   ];
   if (booking.cleanerName) rows.push(['Cleaner', booking.cleanerName]);
   const contentHtml =
-    h('Cleaning reminder') +
+    h('Your cleaning is tomorrow') +
     p(`Hi ${user.name},`) +
-    p('This is a friendly reminder that you have a cleaning session tomorrow.') +
+    p('This is a friendly reminder that your Rena cleaning is booked for tomorrow.') +
     infoBlock(rows) +
-    p('Need to reschedule? Please let us know at least 4 hours in advance.');
+    p(`Need to reschedule? You can manage your booking any time from ${inlineLink(`${appUrl()}/account/bookings`, 'your bookings')}, or let us know at least 4 hours in advance.`);
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+export function buildCleanerReminder(
+  booking: BookingEmailData,
+  cleaner: CleanerEmailData
+): EmailContent {
+  const subject = 'You have a job tomorrow';
+  const contentHtml =
+    h('You have a job tomorrow') +
+    p(`Hi ${cleaner.name},`) +
+    p(`A reminder that you have a ${booking.serviceType} cleaning job tomorrow.`) +
+    infoBlock([
+      ['Date', booking.date],
+      ['Time', booking.time],
+      ['Address', booking.address],
+      ['Customer', booking.customerName],
+    ]) +
+    p(`Please arrive on time. You can view the job in ${inlineLink(`${appUrl()}/dashboard`, 'your dashboard')}, and message the customer there if anything changes.`);
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
