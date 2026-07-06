@@ -36,6 +36,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
   // which used to leave a paid guest stuck on the spinner forever).
   const searchParams = useSearchParams();
   const guestToken = searchParams.get('gt');
+  // Stripe appends redirect_status to the return_url — the client-side truth
+  // about whether the payment actually went through, independent of our own
+  // (possibly-failing) status fetch. We NEVER tell a customer their booking is
+  // safe unless Stripe reported success here.
+  const paidPerStripe = searchParams.get('redirect_status') === 'succeeded';
   const [status, setStatus] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [booking, setBooking] = useState<{
@@ -270,33 +275,53 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
     );
   }
 
-  // Hard load error (e.g. an invalid/expired guest token) — a paid customer must
-  // never be left on an endless spinner. Give a real terminal state + a way out.
+  // Hard load error — a customer must never be left on an endless spinner. Branch
+  // strictly on Stripe's redirect_status: only claim the booking is safe when
+  // Stripe itself reported the payment succeeded.
   if (loadError && status !== 'SUCCEEDED') {
+    if (paidPerStripe) {
+      // (a) Stripe says succeeded, but our booking fetch failed.
+      return (
+        <div className="mx-auto max-w-xl px-4 py-20 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-trust/10 text-3xl text-trust">
+            ✓
+          </div>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Payment received</h1>
+          <p className="mt-4 font-jost font-light text-ink-2">
+            Your booking is confirmed and we&apos;ve emailed you the details. If the email
+            doesn&apos;t arrive shortly, contact us at{' '}
+            <a
+              href="mailto:support@renacleaning.co.uk"
+              className="text-primary underline hover:text-primary-hover"
+            >
+              support@renacleaning.co.uk
+            </a>{' '}
+            with reference {params.id}.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link href={guestToken ? '/booking/guest' : '/dashboard'} className={primaryBtn}>
+              {guestToken ? 'Track your booking' : 'Go to dashboard'}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    // (b) Stripe did NOT report success — no charge, no booking.
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-warning/10 text-3xl text-warning">
-          !
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-danger/10 text-3xl text-danger">
+          &#10007;
         </div>
         <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
-          We couldn&apos;t load your confirmation
+          Your payment didn&apos;t complete
         </h1>
         <p className="mt-4 font-jost font-light text-ink-2">
-          If your payment went through, your booking is safe — we&apos;ve emailed your confirmation.
-          Please check your inbox, or contact us at{' '}
-          <a
-            href="mailto:support@renacleaning.co.uk"
-            className="text-primary underline hover:text-primary-hover"
-          >
-            support@renacleaning.co.uk
-          </a>{' '}
-          and we&apos;ll help.
+          You have <strong className="font-semibold">not</strong> been charged and no booking was
+          made. Please try again.
         </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href={guestToken ? '/booking/guest' : '/dashboard'} className={primaryBtn}>
-            {guestToken ? 'Track your booking' : 'Go to dashboard'}
-          </Link>
-        </div>
+        <button onClick={() => router.back()} className={`mt-8 ${primaryBtn}`}>
+          Try again
+        </button>
       </div>
     );
   }
