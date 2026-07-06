@@ -10,6 +10,7 @@ import {
   sendGuestBookingConfirmation,
   sendPaymentFailureNotification,
 } from '@/lib/services/email.service';
+import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
 import { enqueueXeroPush } from '@/lib/services/xero-push.service';
 import stripe from '@/lib/stripe';
@@ -281,6 +282,10 @@ export async function POST(request: NextRequest) {
             },
           })
           .catch(() => {});
+        // Rena Pro: native offer push to the primary offeree (cascade entry).
+        await EnhancedNotificationService.sendNewOfferPush(bookingId, booking.cleanerId).catch(
+          () => {}
+        );
       }
 
       if (cascadeData?.initialPhase === 'COMBINED_OFFER' && booking) {
@@ -296,6 +301,8 @@ export async function POST(request: NextRequest) {
               },
             })
             .catch(() => {});
+          // Rena Pro: native offer push to each combined-offer backup offeree.
+          await EnhancedNotificationService.sendNewOfferPush(bookingId, backupId).catch(() => {});
         }
       }
     }

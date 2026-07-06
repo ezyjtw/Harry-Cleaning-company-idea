@@ -121,26 +121,25 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * Send the Rena Pro NEW-OFFER push to a cleaner. Category ESSENTIAL — never
-   * suppressible by preference toggles (standing ruling); only logout stops it.
-   * Delivers IN_APP + EXPO_PUSH; the payload deep-links to /app/offer/[id].
-   *
-   * ⚠️ DORMANT — not called anywhere yet. Wiring the cascade offer to call this
-   * is HELD until the P1 build is signed off (so no offer push can fire before
-   * the app exists to receive it).
+   * Send the Rena Pro NEW-OFFER native push to a newly-offered cleaner, deep-
+   * linking to /app/offer/[id]. Category ESSENTIAL — never suppressible (standing
+   * ruling); only logout stops offer pushes. PUSH-ONLY: the in-app bell is already
+   * created by the cascade's own BOOKING_REQUEST notification at each offer point,
+   * so this must NOT create a duplicate — it queues the Expo push directly
+   * (bypassing preference gating, which is correct for ESSENTIAL). queueExpoPush
+   * is a no-op when the cleaner has no registered device tokens (web-only cleaners
+   * are unaffected).
    */
   static async sendNewOfferPush(bookingId: string, cleanerId: string) {
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
     if (!booking) return;
 
-    await this.send({
+    await this.queueExpoPush({
       userId: cleanerId,
       type: 'BOOKING_REQUEST',
       title: 'New job offer',
       body: `${booking.serviceType} · £${Number(booking.cleanerEarnings).toFixed(2)} · ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}`,
       data: { bookingId, url: `/app/offer/${bookingId}` },
-      category: 'ESSENTIAL',
-      channels: ['IN_APP', 'EXPO_PUSH'],
     });
   }
 

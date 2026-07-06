@@ -15,6 +15,7 @@ import prisma from '@/lib/db/prisma';
 import { AuditService } from './audit.service';
 import { BookingReminderService } from './booking-reminder.service';
 import { sendTopupApprovalRequest } from './email.service';
+import { EnhancedNotificationService } from './enhanced-notification.service';
 import { MatchingService } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
@@ -160,6 +161,8 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
         },
       })
       .catch(() => {});
+    // Rena Pro: native offer push to this newly-offered backup (no-op if no device).
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, backupId).catch(() => {});
   }
 
   const clientBooking = await prisma.booking.findUnique({
@@ -798,6 +801,8 @@ async function reopenToBackups(
         },
       })
       .catch(() => {});
+    // Rena Pro: native offer push to this newly-offered backup (no-op if no device).
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, backupId).catch(() => {});
   }
 
   if (booking.clientId) {
@@ -1328,6 +1333,8 @@ async function enterRenaFind(
         },
       })
       .catch(() => {});
+    // Rena Pro: native offer push to this newly-offered Rena-find cleaner.
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, cleanerId).catch(() => {});
   }
 
   if (booking.clientId) {
