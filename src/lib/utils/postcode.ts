@@ -87,3 +87,20 @@ export function haversineDistance(lat1: number, lng1: number, lat2: number, lng2
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
+
+/**
+ * The single coverage predicate: does a cleaner serve a customer `distanceMiles`
+ * away? Travel-time first (25 mph average → minutes), radius as fallback. EVERY
+ * discovery path (search, matching, the booking address-step check) must call
+ * this so search-eligibility and address validation can never disagree.
+ */
+export function isWithinTravelRange(
+  distanceMiles: number,
+  maxTravelMinutes: number | null | undefined,
+  radiusMiles: number | null | undefined
+): boolean {
+  if (maxTravelMinutes !== null && maxTravelMinutes !== undefined) {
+    return (distanceMiles / 25) * 60 <= maxTravelMinutes;
+  }
+  return distanceMiles <= (radiusMiles ?? 10);
+}

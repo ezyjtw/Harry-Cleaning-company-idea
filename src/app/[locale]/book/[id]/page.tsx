@@ -209,6 +209,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [saveCard, setSaveCard] = useState(true);
   const [bookingData, setBookingData] = useState<{
     id: string;
+    guestToken: string | null;
   } | null>(null);
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
@@ -437,7 +438,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
       if (response.ok) {
         const data = await response.json();
-        setBookingData(data.booking ? { id: data.booking.id } : null);
+        setBookingData(
+          data.booking
+            ? { id: data.booking.id, guestToken: data.booking.guestToken ?? null }
+            : null
+        );
 
         trackConversion({
           cleanerId: cleaner.id,
@@ -526,6 +531,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             saveCard={saveCard}
             onSaveCardChange={handleSaveCardToggle}
             isGuest={bookingMode === 'guest'}
+            guestToken={bookingData?.guestToken ?? null}
             onBack={() => {
               setPaymentStep(false);
               setPaymentPending(false);

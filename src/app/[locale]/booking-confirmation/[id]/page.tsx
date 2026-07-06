@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 
 import CleanerAvatar from '@/components/CleanerAvatar';
 import StarRating from '@/components/StarRating';
@@ -28,10 +28,16 @@ function VerifiedCheck() {
   );
 }
 
-export default function BookingConfirmationPage({ params }: { params: { id: string } }) {
+function BookingConfirmationContent({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  // Guests arrive with ?gt=<guestToken> in the return_url. Their reads go through
+  // the guest-safe endpoint (the account-only endpoints 401 without a session,
+  // which used to leave a paid guest stuck on the spinner forever).
+  const searchParams = useSearchParams();
+  const guestToken = searchParams.get('gt');
   const [status, setStatus] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [booking, setBooking] = useState<{
     serviceType: string;
     date: string;
@@ -49,30 +55,42 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
 
   const fetchBooking = useCallback(async () => {
     try {
-      const res = await fetch(`/api/bookings/${params.id}`);
+      const res = guestToken
+        ? await fetch(`/api/bookings/guest?token=${encodeURIComponent(guestToken)}`)
+        : await fetch(`/api/bookings/${params.id}`);
       if (res.ok) {
-        const data = await res.json();
+        const raw = await res.json();
+        // The guest endpoint nests the booking under `booking` and uses `time`;
+        // the account endpoint returns it flat with `startTime` + cleaner object.
+        const data = guestToken ? raw.booking : raw;
         setBooking({
           serviceType: data.serviceType,
           date: data.date,
-          startTime: data.startTime,
+          startTime: guestToken ? data.time : data.startTime,
           duration: Number(data.duration) || 0,
           totalPrice: Number(data.totalPrice),
-          cleanerName: data.cleaner?.name || 'Your cleaner',
-          cleanerPhoto: data.cleaner?.image || null,
+          cleanerName: guestToken
+            ? data.cleanerName || 'Your cleaner'
+            : data.cleaner?.name || 'Your cleaner',
+          cleanerPhoto: guestToken ? null : data.cleaner?.image || null,
           cleanerRating:
-            typeof data.cleaner?.cleanerProfile?.rating === 'number' ||
-            typeof data.cleaner?.cleanerProfile?.rating === 'string'
+            !guestToken &&
+            (typeof data.cleaner?.cleanerProfile?.rating === 'number' ||
+              typeof data.cleaner?.cleanerProfile?.rating === 'string')
               ? Number(data.cleaner.cleanerProfile.rating)
               : null,
-          backupCleanerNames: data.backupCleanerNames || [],
-          autoAssignBackup: data.autoAssignBackup || false,
+          backupCleanerNames: guestToken ? [] : data.backupCleanerNames || [],
+          autoAssignBackup: guestToken ? false : data.autoAssignBackup || false,
         });
+      } else {
+        // A read the recipient is entitled to failed (e.g. an invalid/expired
+        // guest token, or a 404) — surface a terminal error, never spin forever.
+        setLoadError(true);
       }
     } catch {
-      // ignore
+      setLoadError(true);
     }
-  }, [params.id]);
+  }, [params.id, guestToken]);
 
   useEffect(() => {
     fetchBooking();
@@ -90,39 +108,47 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
 
     if (pollCount >= maxPolls) return;
 
+    const statusUrl = guestToken
+      ? `/api/bookings/guest?token=${encodeURIComponent(guestToken)}`
+      : `/api/bookings/${params.id}/payment-status`;
+
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/bookings/${params.id}/payment-status`);
+        const res = await fetch(statusUrl);
         if (res.ok) {
-          const data = await res.json();
-          setStatus(data.paymentStatus);
+          const raw = await res.json();
+          const paymentStatus = guestToken ? raw.booking?.paymentStatus : raw.paymentStatus;
+          setStatus(paymentStatus);
           if (
-            data.paymentStatus === 'SUCCEEDED' ||
-            data.paymentStatus === 'FAILED' ||
-            data.paymentStatus === 'CANCELED'
+            paymentStatus === 'SUCCEEDED' ||
+            paymentStatus === 'FAILED' ||
+            paymentStatus === 'CANCELED'
           ) {
             clearInterval(interval);
             fetchBooking();
           }
         }
       } catch {
-        // ignore
+        // transient — keep polling until maxPolls, then the terminal copy shows.
       }
       setPollCount((c) => c + 1);
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [params.id, status, pollCount, fetchBooking]);
+  }, [params.id, status, pollCount, fetchBooking, guestToken]);
 
   // Initial status fetch
   useEffect(() => {
-    fetch(`/api/bookings/${params.id}/payment-status`)
+    const statusUrl = guestToken
+      ? `/api/bookings/guest?token=${encodeURIComponent(guestToken)}`
+      : `/api/bookings/${params.id}/payment-status`;
+    fetch(statusUrl)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data) setStatus(data.paymentStatus);
+        if (data) setStatus(guestToken ? data.booking?.paymentStatus : data.paymentStatus);
       })
       .catch(() => {});
-  }, [params.id]);
+  }, [params.id, guestToken]);
 
   const primaryBtn =
     'inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover';
@@ -244,6 +270,37 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
     );
   }
 
+  // Hard load error (e.g. an invalid/expired guest token) — a paid customer must
+  // never be left on an endless spinner. Give a real terminal state + a way out.
+  if (loadError && status !== 'SUCCEEDED') {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-warning/10 text-3xl text-warning">
+          !
+        </div>
+        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
+          We couldn&apos;t load your confirmation
+        </h1>
+        <p className="mt-4 font-jost font-light text-ink-2">
+          If your payment went through, your booking is safe — we&apos;ve emailed your confirmation.
+          Please check your inbox, or contact us at{' '}
+          <a
+            href="mailto:support@renacleaning.co.uk"
+            className="text-primary underline hover:text-primary-hover"
+          >
+            support@renacleaning.co.uk
+          </a>{' '}
+          and we&apos;ll help.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link href={guestToken ? '/booking/guest' : '/dashboard'} className={primaryBtn}>
+            {guestToken ? 'Track your booking' : 'Go to dashboard'}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // PENDING / REQUIRES_ACTION / loading
   return (
     <div className="mx-auto max-w-xl px-4 py-20 text-center">
@@ -255,14 +312,30 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
       </h1>
       <p className="mt-4 font-jost font-light text-ink-2">
         {pollCount >= maxPolls
-          ? "Your payment is still processing. We'll email you when it's confirmed. You can also check your dashboard."
+          ? "Your payment is still processing. We'll email you as soon as it's confirmed."
           : "This usually takes a few seconds. Please don't close this page."}
       </p>
       {pollCount >= maxPolls && (
-        <Link href="/dashboard" className={`mt-8 ${primaryBtn}`}>
-          Go to dashboard
+        <Link href={guestToken ? '/booking/guest' : '/dashboard'} className={`mt-8 ${primaryBtn}`}>
+          {guestToken ? 'Track your booking' : 'Go to dashboard'}
         </Link>
       )}
     </div>
+  );
+}
+
+export default function BookingConfirmationPage({ params }: { params: { id: string } }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-xl px-4 py-20 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        </div>
+      }
+    >
+      <BookingConfirmationContent params={params} />
+    </Suspense>
   );
 }
