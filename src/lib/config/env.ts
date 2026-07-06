@@ -105,6 +105,18 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     description: 'Stripe publishable key (client-side, exposed to browser)',
   },
   { name: 'STRIPE_WEBHOOK_SECRET', required: true, description: 'Stripe webhook signing secret' },
+  {
+    name: 'STRIPE_WEBHOOK_SECRET_PLATFORM',
+    required: true,
+    description:
+      'Stripe webhook signing secret for the Platform (your-account) destination — verifies payment_intent.* and charge.refunded events. Without it, payment/refund webhooks silently fail signature.',
+  },
+  {
+    name: 'GROQ_API_KEY',
+    required: false,
+    description:
+      'Groq API key powering the AI support chat widget (/api/chat). Unset ⇒ chat returns "not configured"; the rest of the app is unaffected.',
+  },
 ];
 
 export interface ValidationResult {

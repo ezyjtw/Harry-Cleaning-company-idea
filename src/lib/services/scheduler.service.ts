@@ -20,6 +20,7 @@ export interface SchedulerSummary {
   releases: HandlerResult;
   exhaustedRefunds: HandlerResult;
   backgroundJobs: HandlerResult;
+  compliance: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -28,6 +29,7 @@ import {
   processExpiredCascadeWindows as cascadeHandler,
   processExhaustedRefunds as exhaustedRefundHandler,
 } from './cascade.service';
+import { ComplianceSchedulerService } from './compliance-scheduler.service';
 import { releaseBookingFunds } from './transfer.service';
 
 async function processExpiredCascadeWindows(): Promise<HandlerResult> {
@@ -90,11 +92,43 @@ async function processBackgroundJobs(): Promise<HandlerResult> {
   return { processed };
 }
 
+const COMPLIANCE_MARKER_KEY = 'last_compliance_run_date';
+
+// The compliance / retention batch (DBS + RTW destruction, RTW expiry alerts
+// and auto-suspension, analytics anonymisation, DPA expiry) is daily-cadence,
+// but this orchestrator fires every 5 minutes. Day-guard it with an atomic
+// compare-and-swap on a PlatformConfig marker: flip the marker to today's UTC
+// date only if it isn't already today. Postgres re-evaluates the updateMany
+// WHERE against the committed row under its lock, so of two overlapping cron
+// ticks exactly one gets count===1 and runs the batch — no double-run.
+//
+// The marker row is seeded (create-only) by seed-reference-data.ts, which runs
+// before the server starts, so it always exists when a cron tick fires. If it
+// were somehow absent the CAS matches nothing and the batch simply skips (fails
+// safe) until the next deploy re-seeds it.
+async function processComplianceJobsDaily(): Promise<HandlerResult> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const today = new Date().toISOString().slice(0, 10); // UTC yyyy-mm-dd
+
+  const claim = await prisma.platformConfig.updateMany({
+    where: { key: COMPLIANCE_MARKER_KEY, value: { not: today } },
+    data: { value: today },
+  });
+
+  if (claim.count === 0) {
+    return { processed: 0 }; // already ran today (or marker missing → safe skip)
+  }
+
+  const results = await ComplianceSchedulerService.runAllJobs();
+  return { processed: results.length };
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const releases = await processDueReleases();
   const exhaustedRefunds = await processExhaustedRefunds();
   const backgroundJobs = await processBackgroundJobs();
+  const compliance = await processComplianceJobsDaily();
 
   return {
     timestamp: new Date().toISOString(),
@@ -102,5 +136,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     releases,
     exhaustedRefunds,
     backgroundJobs,
+    compliance,
   };
 }

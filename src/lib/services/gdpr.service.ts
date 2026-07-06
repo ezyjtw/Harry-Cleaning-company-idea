@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
+import { DocumentStorageService } from './document-storage.service';
 
 export type ConsentType = 'marketing' | 'analytics' | 'essential' | 'data_processing';
 
@@ -380,24 +381,21 @@ export class GdprService {
         },
       });
 
-      // Also destroy the encrypted file from DocumentUpload
+      // Also destroy the encrypted file from DocumentUpload. Route through
+      // DocumentStorageService.destroyDocument so the ciphertext is actually
+      // deleted from R2 (crypto-shred) — the previous inline update only flipped
+      // the isDestroyed flag and left the object in the bucket indefinitely.
       const docs = await prisma.documentUpload.findMany({
         where: {
           profileId: profile.id,
           documentType: 'right_to_work',
           isDestroyed: false,
         },
+        select: { id: true },
       });
 
       for (const doc of docs) {
-        await prisma.documentUpload.update({
-          where: { id: doc.id },
-          data: {
-            isDestroyed: true,
-            destroyedAt: new Date(),
-            destroyedReason: 'retention_policy',
-          },
-        });
+        await DocumentStorageService.destroyDocument(doc.id, 'retention_policy', 'SYSTEM');
       }
 
       await prisma.dataRetentionLog.create({
@@ -458,7 +456,10 @@ export class GdprService {
         where: { id: profile.id },
         data: {
           dbsCertDestroyedAt: new Date(),
-          // In production: also delete the actual file from storage here
+          // This method records the profile-level destruction flag only. The
+          // encrypted DBS file itself is deleted from R2 by the sibling loop in
+          // ComplianceSchedulerService.destroyExpiredDbsCertificates, which
+          // calls DocumentStorageService.destroyDocument for each expired doc.
         },
       });
 
