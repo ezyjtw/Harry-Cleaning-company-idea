@@ -3,9 +3,18 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { generateEstimate, type RoomDetail } from '@/lib/estimator';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    const rl = rateLimit(request, 'estimate', 120, 60 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
+
     const body = await request.json();
     const { rooms, hasPets, extras, cleanerId } = body;
 

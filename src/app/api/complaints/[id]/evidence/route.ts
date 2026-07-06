@@ -24,6 +24,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // Validate `type` against the enum.
+    const ALLOWED_TYPES = ['PHOTO', 'VIDEO', 'TEXT', 'DOCUMENT'];
+    if (!ALLOWED_TYPES.includes(body.type)) {
+      return NextResponse.json({ error: 'Invalid evidence type.' }, { status: 400 });
+    }
+
+    // Validate `url`: bounded length, well-formed, http(s) only (reject
+    // javascript:/data:/file: and other schemes that could be stored and later
+    // rendered as a link).
+    if (typeof body.url !== 'string' || body.url.length > 2048) {
+      return NextResponse.json({ error: 'Invalid evidence URL.' }, { status: 400 });
+    }
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(body.url);
+    } catch {
+      return NextResponse.json({ error: 'Evidence URL is malformed.' }, { status: 400 });
+    }
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      return NextResponse.json({ error: 'Evidence URL must be http(s).' }, { status: 400 });
+    }
+
+    if (typeof body.fileName === 'string' && body.fileName.length > 255) {
+      return NextResponse.json({ error: 'fileName is too long.' }, { status: 400 });
+    }
+    if (typeof body.description === 'string' && body.description.length > 2000) {
+      return NextResponse.json({ error: 'description is too long.' }, { status: 400 });
+    }
+
     const complaint = await prisma.complaint.findUnique({ where: { id } });
     if (!complaint) {
       return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });

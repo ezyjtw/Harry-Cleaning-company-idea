@@ -99,3 +99,20 @@ export function getClientIp(request: Request): string {
   // Topology unknown — best effort (see CAVEAT above).
   return cf || rightmostXff() || realIp || 'unknown';
 }
+
+/**
+ * Per-IP rate-limit guard for a route. Resolves the client IP, buckets on
+ * `${key}:${ip}`, and returns either { ok: true } or { ok: false, retryAfter }
+ * (seconds). Callers turn the false case into a 429 with a Retry-After header.
+ */
+export function rateLimit(
+  request: Request,
+  key: string,
+  maxRequests: number,
+  windowMs: number
+): { ok: true } | { ok: false; retryAfter: number } {
+  const ip = getClientIp(request);
+  const result = checkRateLimit(`${key}:${ip}`, maxRequests, windowMs);
+  if (result.allowed) return { ok: true };
+  return { ok: false, retryAfter: Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000)) };
+}

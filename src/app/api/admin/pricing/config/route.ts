@@ -1,25 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 
+import { getAdminSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
-
-async function requireAdmin() {
-  const session = await getServerSession();
-  if (!session?.user?.email) {
-    return null;
-  }
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user || user.role !== 'ADMIN') {
-    return null;
-  }
-  return user;
-}
 
 export async function GET() {
   try {
-    const admin = await requireAdmin();
+    const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -38,7 +26,7 @@ const updateSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin();
+    const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -4,11 +4,12 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { DBSVerificationService } from '@/lib/services/dbs-verification.service';
+import { decodeBase64File, DOCUMENT_MIMES, IMAGE_MIMES } from '@/lib/utils/file-validation';
 
 /**
  * GET /api/verification/dbs — Get DBS verification status for the authenticated cleaner.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const user = await getCleanerSession();
     if (!user) {
@@ -69,6 +70,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Content-verify the certificate (PDF or image), bound its size.
+      const certCheck = decodeBase64File(certFile, { allowed: DOCUMENT_MIMES });
+      if (!certCheck.ok) {
+        return NextResponse.json({ error: certCheck.error }, { status: 400 });
+      }
+
       const result = await DBSVerificationService.verifyExistingDBS({
         userId: user.id,
         profileId: profile.id,
@@ -115,6 +122,16 @@ export async function POST(request: NextRequest) {
           { error: 'selfieImage and idImage (base64) are required' },
           { status: 400 }
         );
+      }
+
+      // Content-verify both images (JPEG/PNG/WebP only), bound their size.
+      const selfieCheck = decodeBase64File(selfieImage, { allowed: IMAGE_MIMES });
+      if (!selfieCheck.ok) {
+        return NextResponse.json({ error: `Selfie: ${selfieCheck.error}` }, { status: 400 });
+      }
+      const idCheck = decodeBase64File(idImage, { allowed: IMAGE_MIMES });
+      if (!idCheck.ok) {
+        return NextResponse.json({ error: `ID image: ${idCheck.error}` }, { status: 400 });
       }
 
       const result = await DBSVerificationService.performLivenessCheck({

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { getClientIp } from '@/lib/rate-limit';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AnalyticsTrackingService } from '@/lib/services/analytics-tracking.service';
 
 const VALID_EVENT_TYPES = [
@@ -23,6 +23,14 @@ function sanitize(input: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const rl = rateLimit(request, 'analytics-events', 200, 60 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Too many events.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
+
     const body = await request.json();
     const {
       sessionId,

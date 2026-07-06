@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { rateLimit } from '@/lib/rate-limit';
 import { pricingService } from '@/lib/services/pricing.service';
 
 const SERVICE_SLUGS = ['regular', 'same-day', 'deep', 'eot', 'airbnb'] as const;
@@ -23,6 +24,14 @@ const areaQuoteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const rl = rateLimit(req, 'pricing-quote', 120, 60 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
+
     const body = await req.json();
 
     if (body.cleanerId) {
