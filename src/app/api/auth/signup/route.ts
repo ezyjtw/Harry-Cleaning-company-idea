@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { generateApiToken } from '@/lib/auth/session';
+import { generateApiToken, generateBridgeCode } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { registerUser } from '@/lib/services/auth.service';
@@ -66,7 +66,12 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { user: result.user, token, message: result.message },
+      {
+        user: result.user,
+        token,
+        bridgeCode: generateBridgeCode({ id: result.user.id }),
+        message: result.message,
+      },
       { status: 201 }
     );
   } catch {

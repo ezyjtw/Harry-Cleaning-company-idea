@@ -2,25 +2,25 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { encode } from 'next-auth/jwt';
 
-import { verifyBearerToken } from '@/lib/auth/session';
+import { verifyAndConsumeBridgeCode } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rate-limit';
 
 // ─── Rena Pro auth bridge ────────────────────────────────────────────────────
 //
-// GET /api/auth/session-bridge?token=<bearer>&callbackUrl=/app/today
+// GET /api/auth/session-bridge?code=<bridgeCode>&callbackUrl=/app/today
 //
-// The native shell logs in via POST /api/auth/login (→ a 30-day Bearer JWT held
-// in the device Keychain). The wrapped portal + /app/* routes render inside the
-// WebView and authenticate by the NextAuth *cookie* (getServerSession /
-// getToken). This endpoint bridges the two: it verifies the Bearer JWT and mints
-// an equivalent NextAuth session cookie, then redirects into the app — so the
-// shell loads this URL once at login and the WebView lands authenticated for both
-// the portal and /app/*.
+// The native shell logs in via POST /api/auth/login, which returns (a) a 30-day
+// Bearer JWT held in the device Keychain for native API calls, and (b) a
+// single-use, 60-second `bridgeCode`. The wrapped portal + /app/* render inside
+// the WebView and authenticate by the NextAuth *cookie*. This endpoint bridges
+// the two: it consumes the bridgeCode (once) and mints an equivalent NextAuth
+// session cookie, then redirects into the app — so the shell loads this URL once
+// at login and the WebView lands authenticated for both the portal and /app/*.
 //
-// Security notes: the token travels as a query param (a GET the WebView can load
-// and follow the redirect from), so it can appear in server logs — it is
-// short-lived-in-use and already the secret the native app holds; the exchange is
-// rate-limited. The minted cookie is HttpOnly + SameSite=Lax + Secure (in prod).
+// Security: only the short-lived single-use `code` is accepted — the long-lived
+// Bearer is NEVER put in a URL. A code appearing in a redirect/log is spent and
+// expired within 60s. Rate-limited; the minted cookie is HttpOnly + SameSite=Lax
+// + Secure (in prod); the callback is restricted to same-origin relative paths.
 
 const THIRTY_DAYS_S = 30 * 24 * 60 * 60;
 
@@ -42,18 +42,26 @@ export async function GET(request: NextRequest) {
   }
 
   const url = new URL(request.url);
-  const token = url.searchParams.get('token');
+  const code = url.searchParams.get('code');
   // Only allow same-origin relative callbacks (never an open redirect).
   const rawCallback = url.searchParams.get('callbackUrl') || '/app/today';
   const callbackUrl = rawCallback.startsWith('/') ? rawCallback : '/app/today';
 
-  if (!token) {
-    return NextResponse.json({ error: 'token is required' }, { status: 400 });
+  // Refuse a long-lived Bearer outright — only the single-use code is accepted.
+  if (url.searchParams.get('token') || request.headers.get('authorization')) {
+    return NextResponse.json(
+      { error: 'This endpoint accepts only a single-use bridge code, not a token.' },
+      { status: 400 }
+    );
   }
 
-  const user = await verifyBearerToken(token);
+  if (!code) {
+    return NextResponse.json({ error: 'code is required' }, { status: 400 });
+  }
+
+  const user = await verifyAndConsumeBridgeCode(code);
   if (!user) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid, expired, or already-used code' }, { status: 401 });
   }
 
   const secret = process.env.NEXTAUTH_SECRET;

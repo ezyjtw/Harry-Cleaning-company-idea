@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import jwt from 'jsonwebtoken';
 import { headers } from 'next/headers';
 import { getServerSession } from 'next-auth';
@@ -34,12 +36,67 @@ export function generateApiToken(user: {
   );
 }
 
+// ─── Rena Pro session-bridge code ────────────────────────────────────────────
+//
+// A single-use, 60-second code the login/signup response hands the native shell.
+// The shell exchanges it (once) at /api/auth/session-bridge for a NextAuth
+// session cookie in the WebView. Deliberately NOT the long-lived Bearer: the code
+// is short-exp and one-time, so its appearance in a redirect URL / server log is
+// low-value. Distinct issuer ('rena-bridge') so the bridge can reject a Bearer
+// (issuer 'rena-cleaning') outright.
+const BRIDGE_CODE_TTL_S = 60;
+const consumedBridgeJtis = new Map<string, number>(); // jti → expiry (ms)
+
+// Drop consumed jtis once they've expired (they can never be replayed after exp).
+setInterval(() => {
+  const now = Date.now();
+  consumedBridgeJtis.forEach((exp, jti) => {
+    if (exp < now) consumedBridgeJtis.delete(jti);
+  });
+}, 60 * 1000);
+
+export function generateBridgeCode(user: { id: string }): string {
+  const jti = randomUUID();
+  return jwt.sign({ id: user.id, jti }, JWT_SECRET, {
+    expiresIn: BRIDGE_CODE_TTL_S,
+    issuer: 'rena-bridge',
+  });
+}
+
+/**
+ * Verify a bridge code and CONSUME it (single-use). Returns the active user, or
+ * null if the code is invalid/expired/already-used or the user is gone/suspended.
+ */
+export async function verifyAndConsumeBridgeCode(code: string): Promise<SessionUser | null> {
+  let payload: { id: string; jti: string; exp?: number };
+  try {
+    payload = jwt.verify(code, JWT_SECRET, { issuer: 'rena-bridge' }) as {
+      id: string;
+      jti: string;
+      exp?: number;
+    };
+  } catch {
+    return null;
+  }
+
+  if (!payload.jti || consumedBridgeJtis.has(payload.jti)) return null; // replay / missing jti
+  // Mark consumed immediately (before the DB read) so concurrent uses can't both win.
+  consumedBridgeJtis.set(payload.jti, (payload.exp ?? Math.floor(Date.now() / 1000) + BRIDGE_CODE_TTL_S) * 1000);
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.id },
+    select: { id: true, email: true, name: true, role: true, accountStatus: true, isSuspended: true },
+  });
+  if (!user || user.accountStatus !== 'ACTIVE' || user.isSuspended) return null;
+
+  return { id: user.id, email: user.email, name: user.name || '', role: user.role };
+}
+
 /**
  * Verify a Bearer token and return the user payload.
  * Returns null if the token is invalid or the user no longer exists/is active.
- * Exported for the Rena Pro auth bridge (token → NextAuth session cookie).
  */
-export async function verifyBearerToken(token: string): Promise<SessionUser | null> {
+async function verifyBearerToken(token: string): Promise<SessionUser | null> {
   try {
     const payload = jwt.verify(token, JWT_SECRET, { issuer: 'rena-cleaning' }) as {
       id: string;

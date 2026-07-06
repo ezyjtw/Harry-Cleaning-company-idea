@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { generateApiToken } from '@/lib/auth/session';
+import { generateApiToken, generateBridgeCode } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { loginUser } from '@/lib/services/auth.service';
 
@@ -50,6 +50,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       user: result.user,
       token,
+      // Single-use, 60s code the native shell exchanges for a WebView session
+      // cookie at /api/auth/session-bridge (never the Bearer in a URL).
+      bridgeCode: generateBridgeCode({ id: result.user.id }),
       message: result.message,
     });
   } catch {
