@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+ios/
+android/
+# EAS / credentials
+credentials.json
+google-services.json
+*.p8
+*.p12
+*.mobileprovision
