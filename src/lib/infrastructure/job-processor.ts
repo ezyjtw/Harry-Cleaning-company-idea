@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma';
+import { BookingReminderService } from '@/lib/services/booking-reminder.service';
 import { shouldSend } from '@/lib/services/notification-preferences.service';
 import { processXeroPush, type XeroPushPayload } from '@/lib/services/xero-push.service';
 
@@ -224,24 +225,33 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
     }
   }
 
-  // Respect the recipient's notification preferences (A11): all reminder types
-  // are category REMINDER; only deliver push if reminders + push are enabled.
-  if (!(await shouldSend(recipientId, 'REMINDER', 'PUSH'))) return;
+  // Push and email are gated independently (A11) — a disabled push channel must
+  // not suppress an allowed email, and vice-versa. All reminder types are
+  // category REMINDER.
+  if (await shouldSend(recipientId, 'REMINDER', 'PUSH')) {
+    const copy = (reminderType && REMINDER_COPY[reminderType]) || {
+      title: 'Reminder',
+      body: 'You have an upcoming booking.',
+    };
+    const pushHandler = jobHandlers.get('SEND_EMAIL');
+    if (pushHandler) {
+      await pushHandler({
+        action: 'PUSH_NOTIFICATION',
+        userId: recipientId,
+        title: copy.title,
+        body: copy.body,
+        data: { bookingId, reminderType },
+      });
+    }
+  }
 
-  const copy = (reminderType && REMINDER_COPY[reminderType]) || {
-    title: 'Reminder',
-    body: 'You have an upcoming booking.',
-  };
-
-  const pushHandler = jobHandlers.get('SEND_EMAIL');
-  if (pushHandler) {
-    await pushHandler({
-      action: 'PUSH_NOTIFICATION',
-      userId: recipientId,
-      title: copy.title,
-      body: copy.body,
-      data: { bookingId, reminderType },
-    });
+  // Branded email for the email-eligible types (customer 24h, cleaner 12h,
+  // review request). Arrival alert stays push-only. sendReminderEmail gates on
+  // the EMAIL channel preference internally.
+  if (reminderType && bookingId) {
+    await BookingReminderService.sendReminderEmail(reminderType, bookingId, recipientId).catch(
+      () => {}
+    );
   }
 });
 

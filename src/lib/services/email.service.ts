@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import {
   buildBookingConfirmation,
   buildBookingReminder,
+  buildCleanerReminder,
   buildBookingCancellation,
   buildRefundConfirmation,
   buildCleanerAssignment,
@@ -136,10 +137,20 @@ export async function sendBookingConfirmation(
 
 export async function sendBookingReminder(
   booking: BookingEmailData,
-  user: UserEmailData
+  user: UserEmailData,
+  userId?: string | null
 ): Promise<boolean> {
   const { subject, html } = buildBookingReminder(booking, user);
-  return sendEmail(user.email, subject, html);
+  return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
+}
+
+export async function sendCleanerReminder(
+  booking: BookingEmailData,
+  cleaner: CleanerEmailData,
+  userId?: string | null
+): Promise<boolean> {
+  const { subject, html } = buildCleanerReminder(booking, cleaner);
+  return sendEmail(cleaner.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
 }
 
 export async function sendBookingCancellation(
@@ -218,10 +229,11 @@ export async function sendSupportAlert(data: {
 
 export async function sendReviewRequest(
   booking: BookingEmailData,
-  user: UserEmailData
+  user: UserEmailData,
+  userId?: string | null
 ): Promise<boolean> {
   const { subject, html } = buildReviewRequest(booking, user);
-  return sendEmail(user.email, subject, html);
+  return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
 }
 
 // ─── New Message Email ──────────────────────────────────────
