@@ -13,6 +13,7 @@ import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/
 import prisma from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
+import { BookingReminderService } from './booking-reminder.service';
 import { sendTopupApprovalRequest } from './email.service';
 import { MatchingService } from './matching.service';
 import { pricingService } from './pricing.service';
@@ -335,6 +336,10 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
     return { success: false, reason: 'This booking was just taken by another cleaner.' };
   }
 
+  // Booking confirmed — schedule the reminder series (best-effort; never blocks
+  // the accept). The atomic guard above ensures this runs exactly once.
+  await BookingReminderService.scheduleReminders(bookingId).catch(() => {});
+
   // Best-effort loser notifications
   const losers = getLoserSet(booking, cleanerId);
   for (const loserId of losers) {
@@ -405,6 +410,9 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
   if (result.count === 0) {
     return { success: false, reason: 'This booking was just taken by another cleaner.' };
   }
+
+  // Booking confirmed via Rena-find — schedule the reminder series (best-effort).
+  await BookingReminderService.scheduleReminders(bookingId).catch(() => {});
 
   const losers = booking.backupCleanerIds.filter(
     (id) => id !== cleanerId && !(booking.declinedCleanerIds ?? []).includes(id)

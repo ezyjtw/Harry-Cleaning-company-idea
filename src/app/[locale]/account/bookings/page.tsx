@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { DISPUTE_REASONS } from '@/lib/trust';
 import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
 
 interface Booking {
@@ -42,15 +43,6 @@ const CANCELLABLE_RAW_STATUSES = [
 ];
 
 const DISPUTABLE_RAW_STATUSES = ['COMPLETED', 'IN_PROGRESS'];
-
-const DISPUTE_REASONS = [
-  { value: 'no-show-cleaner', label: 'Cleaner did not show up' },
-  { value: 'poor-quality', label: 'Poor quality of cleaning' },
-  { value: 'property-damage', label: 'Property damage' },
-  { value: 'incorrect-duration', label: 'Incorrect duration' },
-  { value: 'safety-concern', label: 'Safety concern' },
-  { value: 'other', label: 'Other' },
-] as const;
 
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'All', value: 'All' },

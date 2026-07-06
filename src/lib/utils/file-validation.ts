@@ -109,10 +109,14 @@ export function detectMimeFromMagicBytes(buffer: Buffer): string | null {
  */
 export function decodeBase64File(
   input: string,
-  opts: { maxSize?: number; allowed?: Set<string> } = {}
+  opts: { maxSize?: number; allowed?: Set<string>; typeLabel?: string } = {}
 ): { ok: true; buffer: Buffer; mime: string } | { ok: false; error: string } {
   const maxSize = opts.maxSize ?? MAX_EVIDENCE_SIZE;
   const allowed = opts.allowed ?? DOCUMENT_MIMES;
+  // Human-readable guidance for the unsupported-type case (e.g. a HEIC photo
+  // that didn't transcode). Never a raw enum/mime dump.
+  const typeLabel = opts.typeLabel ?? 'a JPG, PNG, WebP, or PDF file';
+  const maxMb = Math.round(maxSize / (1024 * 1024));
 
   // Strip a data-URL prefix if present, then bound the encoded length before
   // decoding so an oversized payload is never fully materialised in memory.
@@ -120,26 +124,26 @@ export function decodeBase64File(
   const b64 = commaIdx >= 0 ? input.slice(commaIdx + 1) : input;
 
   if (b64.length > Math.ceil(maxSize * 1.4) + 128) {
-    return { ok: false, error: 'File exceeds the maximum allowed size.' };
+    return { ok: false, error: `That file is too large. Please choose one under ${maxMb} MB.` };
   }
 
   let buffer: Buffer;
   try {
     buffer = Buffer.from(b64, 'base64');
   } catch {
-    return { ok: false, error: 'File could not be decoded.' };
+    return { ok: false, error: 'Sorry, that file could not be read. Please try another.' };
   }
 
   if (buffer.length === 0) {
-    return { ok: false, error: 'File is empty.' };
+    return { ok: false, error: 'That file appears to be empty. Please choose another.' };
   }
   if (buffer.length > maxSize) {
-    return { ok: false, error: 'File exceeds the maximum allowed size.' };
+    return { ok: false, error: `That file is too large. Please choose one under ${maxMb} MB.` };
   }
 
   const mime = detectMimeFromMagicBytes(buffer);
   if (!mime || !allowed.has(mime)) {
-    return { ok: false, error: 'Unsupported or unverifiable file type.' };
+    return { ok: false, error: `Please upload ${typeLabel}.` };
   }
 
   return { ok: true, buffer, mime };

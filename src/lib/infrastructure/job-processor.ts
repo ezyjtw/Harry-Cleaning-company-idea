@@ -5,7 +5,29 @@
  */
 
 import { prisma } from '@/lib/db/prisma';
+import { shouldSend } from '@/lib/services/notification-preferences.service';
 import { processXeroPush, type XeroPushPayload } from '@/lib/services/xero-push.service';
+
+// Copy for each scheduled reminder type (title, body). Category is REMINDER for
+// all of them, so delivery honours the user's reminder + push preferences.
+const REMINDER_COPY: Record<string, { title: string; body: string }> = {
+  customer_reminder: {
+    title: 'Your cleaning is tomorrow',
+    body: 'A reminder that your Rena cleaning is coming up. Tap to view the details.',
+  },
+  cleaner_reminder: {
+    title: 'You have a job tomorrow',
+    body: 'A reminder about your upcoming Rena cleaning job. Tap to view the details.',
+  },
+  arrival_alert: {
+    title: 'Your cleaner is arriving soon',
+    body: 'Your cleaner should arrive in about 30 minutes.',
+  },
+  review_request: {
+    title: 'How was your cleaning?',
+    body: 'Leave a review for your recent Rena cleaning.',
+  },
+};
 
 type JobHandler = (payload: Record<string, unknown>) => Promise<void>;
 
@@ -181,23 +203,45 @@ registerJobHandler('SEND_SMS', async (payload) => {
 });
 
 registerJobHandler('SEND_REMINDER', async (payload) => {
-  // Send reminder via email and/or push notification
-  // eslint-disable-next-line no-console
-  console.log('[JobProcessor] Sending reminder:', payload);
+  // Producer (BookingReminderService.scheduleReminders) sets recipientId +
+  // reminderType + bookingId. (The previous handler read payload.userId, which
+  // producers never set — so every reminder was a silent no-op.)
+  const recipientId = payload.recipientId as string | undefined;
+  const reminderType = payload.reminderType as string | undefined;
+  const bookingId = payload.bookingId as string | undefined;
+  if (!recipientId) return;
 
-  // Queue a push notification for the reminder
-  const userId = payload.userId as string;
-  if (userId) {
-    const pushHandler = jobHandlers.get('SEND_EMAIL');
-    if (pushHandler) {
-      await pushHandler({
-        action: 'PUSH_NOTIFICATION',
-        userId,
-        title: (payload.title as string) || 'Reminder',
-        body: (payload.body as string) || 'You have an upcoming booking',
-        data: payload.data as Record<string, unknown> | undefined,
-      });
+  // Skip stale reminders for bookings that were cancelled/exhausted after the
+  // reminder was scheduled (no cancelReminders wiring needed — the send checks
+  // live state at fire time).
+  if (bookingId) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { status: true },
+    });
+    if (!booking || booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED') {
+      return;
     }
+  }
+
+  // Respect the recipient's notification preferences (A11): all reminder types
+  // are category REMINDER; only deliver push if reminders + push are enabled.
+  if (!(await shouldSend(recipientId, 'REMINDER', 'PUSH'))) return;
+
+  const copy = (reminderType && REMINDER_COPY[reminderType]) || {
+    title: 'Reminder',
+    body: 'You have an upcoming booking.',
+  };
+
+  const pushHandler = jobHandlers.get('SEND_EMAIL');
+  if (pushHandler) {
+    await pushHandler({
+      action: 'PUSH_NOTIFICATION',
+      userId: recipientId,
+      title: copy.title,
+      body: copy.body,
+      data: { bookingId, reminderType },
+    });
   }
 });
 

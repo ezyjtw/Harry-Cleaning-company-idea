@@ -4,6 +4,7 @@ import { deleteObject } from '@/lib/storage/r2-client';
 import { AuditService } from './audit.service';
 import { DocumentStorageService } from './document-storage.service';
 import { GdprService } from './gdpr.service';
+import { JobQueueService } from './job-queue.service';
 import { RightToWorkService } from './right-to-work.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -45,6 +46,7 @@ export class ComplianceSchedulerService {
     results.push(await this.destroyResolvedDisputeEvidence());
     results.push(await this.destroyDecidedImportedReviewEvidence());
     results.push(await this.processApprovedDeletionRequests());
+    results.push(await this.cleanupBackgroundJobs());
 
     await AuditService.log({
       action: 'COMPLIANCE_JOB_RUN',
@@ -534,6 +536,30 @@ export class ComplianceSchedulerService {
     } catch (error) {
       return {
         job: 'process_approved_deletion_requests',
+        success: false,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        executedAt: new Date(),
+      };
+    }
+  }
+
+  /**
+   * Job 12: Prune COMPLETED/FAILED BackgroundJob rows older than 30 days so the
+   * queue table doesn't grow unbounded (every email/push/reminder job persists
+   * a row otherwise).
+   */
+  static async cleanupBackgroundJobs(): Promise<ComplianceJobResult> {
+    try {
+      const result = await JobQueueService.cleanup(30);
+      return {
+        job: 'cleanup_background_jobs',
+        success: true,
+        details: { deleted: result.count },
+        executedAt: new Date(),
+      };
+    } catch (error) {
+      return {
+        job: 'cleanup_background_jobs',
         success: false,
         details: { error: error instanceof Error ? error.message : 'Unknown error' },
         executedAt: new Date(),
