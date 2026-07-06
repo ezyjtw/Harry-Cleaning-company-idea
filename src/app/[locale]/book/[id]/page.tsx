@@ -1174,6 +1174,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   Booking Summary
                 </h4>
                 <div className="space-y-2 font-jost text-sm font-light">
+                  {(form.addressLine1 || form.addressPostcode) && (
+                    <div className="flex justify-between gap-4 pb-2" style={{ borderBottom: '0.5px solid #E4E9F0' }}>
+                      <span className="text-ink-3">Address</span>
+                      <span className="text-right font-normal text-ink">
+                        {[form.addressLine1, form.addressCity, form.addressPostcode]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-ink-3">
                       {isFixedPriceService(form.serviceType) ? (
@@ -1265,6 +1275,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </div>
 
               <div className="space-y-2 font-jost text-sm font-light">
+                {(form.addressLine1 || form.addressPostcode) && (
+                  <div className="flex justify-between gap-4 border-b border-line pb-2">
+                    <span className="text-ink-3">Address</span>
+                    <span className="text-right font-normal text-ink">
+                      {[form.addressLine1, form.addressCity, form.addressPostcode]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-ink-3">
                     {isFixedPriceService(form.serviceType) ? (
