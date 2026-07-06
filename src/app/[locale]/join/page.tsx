@@ -696,8 +696,8 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                title: 'Next Business Day Payouts',
-                desc: 'Get paid fast. Earnings land in your bank account the next business day.',
+                title: 'Fast, secure payouts',
+                desc: 'Funds are released within 24 hours of a completed job — often instantly once your customer confirms — then paid to your bank on Stripe’s schedule (around 7 days for your first payout, faster after that).',
               },
               {
                 title: 'Keep 90% of Earnings',
@@ -760,8 +760,8 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
           <div className="mt-12 grid gap-8 sm:grid-cols-2">
             {[
               {
-                title: 'Next Business Day Payouts',
-                desc: 'No waiting weeks for your money. Complete a job today, see the payment in your bank account the next business day via Stripe.',
+                title: 'Fast, secure payouts',
+                desc: 'Funds are released within 24 hours of a completed job — often instantly once your customer confirms — then paid to your bank on Stripe’s schedule (around 7 days for your first payout, faster after that).',
               },
               {
                 title: 'Everything Looked After',
@@ -812,8 +812,8 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
             the support — you provide the skill.
           </p>
           <div className="mt-6 font-jost text-sm text-cream/50">
-            Average cleaner on Rena: £15/hr &middot; 20hrs/week &middot; £1,200/month &middot;
-            Next-day payouts
+            Average cleaner on Rena: £15/hr &middot; 20hrs/week &middot; £1,200/month &middot; Fast,
+            secure payouts via Stripe
           </div>
           <button
             onClick={onApply}

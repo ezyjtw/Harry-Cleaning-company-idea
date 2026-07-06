@@ -63,8 +63,10 @@ export default async function OnboardingCompletePage() {
           >
             <p className="font-jost text-sm font-normal text-warning">First payout timing</p>
             <p className="font-jost text-[13px] font-light text-warning mt-1">
-              Your first payout will be held for 7–14 days as part of Stripe&apos;s verification
-              process. After that, you&apos;ll be paid every Wednesday.
+              After each completed job, your funds are released within 24 hours (often instantly once
+              your customer confirms), then paid to your bank on Stripe&apos;s schedule. Your first
+              payout takes a little longer — around 7 days while Stripe verifies your account — and
+              it&apos;s faster after that.
             </p>
           </div>
 

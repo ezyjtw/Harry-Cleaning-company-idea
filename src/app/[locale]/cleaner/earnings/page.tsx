@@ -118,45 +118,37 @@ export default function EarningsPage() {
 
       {!loading && data && (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div
-              className="bg-primary-soft p-5"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Gross Earnings
-              </p>
-              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
-                £{(data.totalEarnings + data.platformCommission).toFixed(2)}
-              </p>
-              <p className="font-jost text-xs font-light text-ink-3 mt-1">
-                {data.bookingCount} completed bookings
-              </p>
-            </div>
-            <div
-              className="bg-primary-soft p-5"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Platform Fees
-              </p>
-              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
-                -£{data.platformCommission.toFixed(2)}
-              </p>
-              <p className="font-jost text-xs font-light text-ink-3 mt-1">Commission deducted</p>
-            </div>
+          {/* Summary cards — net-first. The full gross → commission → net
+              breakdown lives in the downloadable statement (for tax); the
+              day-to-day view leads with what the cleaner actually receives. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             <div
               className="bg-primary/5 p-5"
               style={{ border: '0.5px solid rgb(var(--color-border))' }}
             >
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-primary">
-                Net Earnings
+                You&apos;ll receive
               </p>
               <p className="font-newsreader text-3xl font-medium text-ink mt-1">
                 £{data.netEarnings.toFixed(2)}
               </p>
-              <p className="font-jost text-xs font-light text-primary mt-1">Amount paid to you</p>
+              <p className="font-jost text-xs font-light text-primary mt-1">
+                Paid to you across {data.bookingCount} completed bookings
+              </p>
+            </div>
+            <div
+              className="bg-primary-soft p-5"
+              style={{ border: '0.5px solid rgb(var(--color-border))' }}
+            >
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Completed bookings
+              </p>
+              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
+                {data.bookingCount}
+              </p>
+              <p className="font-jost text-xs font-light text-ink-3 mt-1">
+                For a full breakdown, download your statement below
+              </p>
             </div>
           </div>
 

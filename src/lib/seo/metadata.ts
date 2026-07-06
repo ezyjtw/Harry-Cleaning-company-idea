@@ -76,7 +76,7 @@ export const PAGE_METADATA = {
   join: generatePageMetadata({
     title: 'Become a Cleaner',
     description:
-      'Join Rena and keep 90% of your earnings. Next business day payouts, set your own hours and rates.',
+      'Join Rena and keep 90% of your earnings. Fast, secure payouts via Stripe, set your own hours and rates.',
     path: '/join',
   }),
 };

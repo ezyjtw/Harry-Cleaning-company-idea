@@ -495,7 +495,7 @@ export function buildVerificationDecision(data: {
       ) +
       button(`${base}/en/cleaner/stripe/connect`, 'Connect your payment account') +
       pMuted(
-        'This is required to receive payments. Note: your first payout will be held for 7&ndash;14 days as part of Stripe&rsquo;s verification process. After that, you&rsquo;ll be paid every Wednesday.'
+        'This is required to receive payments. After each completed job your funds are released within 24 hours (often instantly once your customer confirms), then paid to your bank on Stripe&rsquo;s schedule. Your first payout takes a little longer &mdash; around 7 days while Stripe verifies your account &mdash; and it&rsquo;s faster after that.'
       ) +
       p('Thank you for joining Rena Cleaning Network!');
     return { subject, html: renderEmail({ contentHtml }) };

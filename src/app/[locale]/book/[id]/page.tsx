@@ -214,6 +214,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [showRebook, setShowRebook] = useState(false);
   const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [serverQuote, setServerQuote] = useState<{
@@ -390,7 +391,19 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   };
 
   // Silently capture email for abandonment tracking
+  // A basic but effective email-format check — the confirmation + reminders all
+  // depend on this address being real, so we validate client-side (inline) and
+  // the API validates again server-side.
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const validateEmail = (): boolean => {
+    const ok = EMAIL_RE.test(form.email.trim());
+    setEmailError(form.email.trim() && !ok ? 'Please enter a valid email address.' : null);
+    return ok;
+  };
+
   const handleEmailBlur = () => {
+    validateEmail();
     if (form.email && !abandonmentCaptured) {
       setAbandonmentCaptured(true);
       trackStep(8, 'contact_info', { field: 'email' });
@@ -411,6 +424,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     e.preventDefault();
     // A16b-1: block a rapid second submit synchronously (button-disable is async).
     if (submittingRef.current) return;
+
+    // Guest checkout depends on a real email for confirmation + reminders.
+    if (bookingMode === 'guest' && !validateEmail()) {
+      return;
+    }
+
     submittingRef.current = true;
     setPaymentPending(true);
     setBookingError(null);
@@ -940,11 +959,18 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     type="email"
                     required
                     value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, email: e.target.value });
+                      if (emailError) setEmailError(null);
+                    }}
                     onBlur={handleEmailBlur}
+                    aria-invalid={!!emailError}
                     className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                    style={{ border: '0.5px solid #E4E9F0' }}
+                    style={{ border: emailError ? '1px solid #dc2626' : '0.5px solid #E4E9F0' }}
                   />
+                  {emailError && (
+                    <p className="mt-1 font-jost text-xs text-danger">{emailError}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
