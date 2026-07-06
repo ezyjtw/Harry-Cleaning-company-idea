@@ -435,15 +435,6 @@ export default function CleanerJobsPage() {
                                 : job.totalPrice
                               ).toFixed(2)}
                             </p>
-                            <p className="font-jost text-sm font-light text-ink-2">
-                              Platform fee: -&pound;
-                              {(!job.isPrimary &&
-                              job.viewerPlatformFee !== null &&
-                              job.viewerPlatformFee !== undefined
-                                ? job.viewerPlatformFee
-                                : job.platformFee
-                              ).toFixed(2)}
-                            </p>
                             <p className="mt-1 font-jost text-sm font-medium text-primary">
                               You receive: &pound;
                               {(!job.isPrimary &&
