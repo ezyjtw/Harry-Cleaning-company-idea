@@ -356,7 +356,7 @@ export default function ServicesPage() {
               },
               {
                 title: 'Transparent Pricing',
-                desc: 'No hidden fees. You see the full price before booking, with just a 6% service fee at checkout.',
+                desc: 'No hidden fees. You see the full, all-inclusive price before booking — the price you see at checkout is the price you pay.',
                 icon: (
                   <svg
                     className="h-6 w-6"

@@ -4,11 +4,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Pricing — Transparent Cleaning Rates | Rena',
   description:
-    'See exactly what you pay with Rena. Cleaner rates are listed upfront with just a 6% service fee at checkout. No hidden fees, no surprises.',
+    'See exactly what you pay with Rena. Cleaner rates are listed upfront and the price you see at checkout is the price you pay. No hidden fees, no surprises.',
   openGraph: {
     title: 'Pricing — Transparent Cleaning Rates | Rena',
     description:
-      'See exactly what you pay with Rena. Cleaner rates listed upfront with just a 6% service fee.',
+      'See exactly what you pay with Rena. The price you see at checkout is the price you pay.',
   },
 };
 
@@ -47,7 +47,7 @@ const serviceRates = [
 ];
 
 const comparisonFeatures = [
-  { feature: 'Service fee', rena: '6%', competitor1: 'Hidden', competitor2: '10\u201316%' },
+  { feature: 'Service fee', rena: 'All-inclusive', competitor1: 'Hidden', competitor2: '10\u201316%' },
   { feature: 'Choose your cleaner', rena: 'Yes', competitor1: 'Limited', competitor2: 'No' },
   { feature: 'Transparent pricing', rena: 'Yes', competitor1: 'Partial', competitor2: 'No' },
   { feature: 'Payment protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
@@ -68,7 +68,8 @@ export default function PricingPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80">
             No hidden fees, no subscription traps. Each cleaner sets their own rate and you see the
-            full price before you book. We add just a small 6% service fee at checkout.
+            full, all-inclusive price before you book — the price you see at checkout is the price
+            you pay.
           </p>
         </div>
       </section>
@@ -80,8 +81,8 @@ export default function PricingPage() {
           <div className="mt-4 w-8 h-px bg-gold" />
           <p className="mt-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
             Every cleaner on Rena sets their own hourly rate. You browse, compare, and pick the
-            cleaner that suits you. The only extra charge is a small 6% service fee added at
-            checkout.
+            cleaner that suits you. The price you see at checkout is the full, all-inclusive price
+            you pay.
           </p>
           <div
             className="mt-6 bg-cream-2 p-6 sm:p-8"
@@ -104,11 +105,11 @@ export default function PricingPage() {
                 </svg>
               </div>
               <div>
-                <p className="font-newsreader text-xl font-medium text-ink">6% Service Fee</p>
+                <p className="font-newsreader text-xl font-medium text-ink">One all-inclusive price</p>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
-                  This covers customer support, our satisfaction guarantee, held-payment protection,
-                  and platform maintenance. It&apos;s always shown before you confirm your booking —
-                  no surprises.
+                  Your price covers the clean plus customer support, our satisfaction guarantee,
+                  held-payment protection, and platform maintenance. The full total is always shown
+                  before you confirm your booking — no surprises.
                 </p>
               </div>
             </div>
@@ -119,29 +120,15 @@ export default function PricingPage() {
             className="mt-10 bg-cream-2 p-8"
             style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
           >
-            <h3 className="text-lg font-semibold text-ink font-newsreader">Example Price Breakdown</h3>
+            <h3 className="text-lg font-semibold text-ink font-newsreader">Example Price</h3>
             <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               3-hour regular clean at &pound;16.50/hr
             </p>
             <div className="mt-6 space-y-4">
-              <div
-                className="flex items-center justify-between pb-3"
-                style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <span className="font-jost font-light text-ink-2">
-                  Cleaning (3 hrs &times; &pound;16.50)
-                </span>
-                <span className="font-normal text-ink font-jost">&pound;49.50</span>
-              </div>
-              <div
-                className="flex items-center justify-between pb-3"
-                style={{ borderBottom: '0.5px solid rgba(14,14,12,0.1)' }}
-              >
-                <span className="font-jost font-light text-ink-2">Service fee (6% of total)</span>
-                <span className="font-normal text-ink font-jost">&pound;3.16</span>
-              </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="text-lg font-medium text-ink font-newsreader">Total you pay</span>
+                <span className="text-lg font-medium text-ink font-newsreader">
+                  All-inclusive total
+                </span>
                 <span className="text-lg font-medium text-gold font-newsreader">&pound;52.66</span>
               </div>
             </div>
@@ -226,8 +213,8 @@ export default function PricingPage() {
             </table>
           </div>
           <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            * Rates shown are listed cleaner rates. A 6% service fee is added at checkout and always
-            displayed before you confirm.
+            * Rates shown are listed cleaner rates. Your all-inclusive total is always displayed at
+            checkout before you confirm.
           </p>
         </div>
       </section>
@@ -252,8 +239,8 @@ export default function PricingPage() {
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 Prices are set by each cleaner. Typical rates on Rena range from &pound;45 for a
-                studio to &pound;165 for a 4-bedroom property. A 6% service fee is added at
-                checkout. Choose your cleaner to see their exact price.
+                studio to &pound;165 for a 4-bedroom property, all-inclusive. Choose your cleaner to
+                see their exact price.
               </p>
               <div
                 className="mt-4 bg-cream p-4"
@@ -263,8 +250,8 @@ export default function PricingPage() {
                   Typical range
                 </p>
                 <p className="mt-1 font-jost text-sm font-light text-ink-2">
-                  <span className="font-normal text-ink">&pound;45 &ndash; &pound;165</span> + 6%
-                  service fee
+                  <span className="font-normal text-ink">&pound;45 &ndash; &pound;165</span>{' '}
+                  all-inclusive
                 </p>
               </div>
             </div>
@@ -282,8 +269,8 @@ export default function PricingPage() {
               </h3>
               <p className="mt-3 font-jost text-sm font-light text-ink-2 leading-relaxed">
                 Prices are set by each cleaner. Typical rates on Rena range from &pound;150 for a
-                studio to &pound;580 for a 5-bedroom property. A 6% service fee is added at
-                checkout. Choose your cleaner to see their exact price.
+                studio to &pound;580 for a 5-bedroom property, all-inclusive. Choose your cleaner to
+                see their exact price.
               </p>
               <div
                 className="mt-5 overflow-hidden bg-cream"
@@ -322,7 +309,7 @@ export default function PricingPage() {
                 </table>
               </div>
               <p className="mt-3 font-jost text-xs font-light text-ink-3">
-                Prices shown are typical cleaner rates. A 6% service fee is added at checkout.
+                Prices shown are typical cleaner rates. Your all-inclusive total is shown at checkout.
               </p>
             </div>
           </div>
@@ -422,8 +409,8 @@ export default function PricingPage() {
               </h2>
               <div className="mx-auto mt-4 w-8 h-px bg-gold" />
               <p className="mx-auto mt-4 max-w-2xl text-lg font-jost font-light text-ink-2">
-                The price you see at checkout is the price you pay. A 6% service fee is the only
-                charge we add, and it&apos;s always shown before you confirm a booking.
+                The price you see at checkout is the price you pay — one all-inclusive total, always
+                shown in full before you confirm a booking. No hidden charges, ever.
               </p>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                 <Link

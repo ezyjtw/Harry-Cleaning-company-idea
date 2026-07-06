@@ -40,7 +40,7 @@ export const PAGE_METADATA = {
   home: generatePageMetadata({
     title: 'Book Trusted Cleaners',
     description:
-      'Book vetted, trusted cleaners in north-east London and Essex. Fair pricing with just a 6% service fee. No hidden charges.',
+      'Book vetted, trusted cleaners in north-east London and Essex. Fair, all-inclusive pricing — the price you see is the price you pay. No hidden charges.',
     path: '/',
   }),
   cleaners: generatePageMetadata({
@@ -58,13 +58,13 @@ export const PAGE_METADATA = {
   pricing: generatePageMetadata({
     title: 'Transparent Pricing',
     description:
-      'Simple, fair pricing with no hidden fees. Just a 6% service fee at checkout — one of the lowest in the industry.',
+      'Simple, fair pricing with no hidden fees. The price you see at checkout is the price you pay — all-inclusive.',
     path: '/pricing',
   }),
   about: generatePageMetadata({
     title: 'About Us',
     description:
-      'Rena connects customers with vetted cleaners. Fair for everyone — only a 6% service fee, no hidden charges.',
+      'Rena connects customers with vetted cleaners. Fair for everyone — one all-inclusive price, no hidden charges.',
     path: '/about',
   }),
   faq: generatePageMetadata({

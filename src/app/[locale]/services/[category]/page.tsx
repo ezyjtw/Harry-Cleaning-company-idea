@@ -2727,31 +2727,40 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           key={card.id}
                           className="flex flex-col rounded-[16px] border border-line bg-surface p-5"
                         >
-                          {/* Identity — identical to CleanerCard (shared component). */}
-                          <CleanerIdentity
-                            photo={cleaner.photo || null}
-                            name={card.name}
-                            verified={card.identityVerified || card.backgroundChecked}
-                            rating={card.rating}
-                            reviewCount={card.reviewCount}
-                            meta={
-                              <>
-                                {postcode || ''}
-                                {!isFixedPrice(category) && (
-                                  <>
-                                    {postcode ? ' · from ' : 'from '}
-                                    <span className="font-newsreader text-[14px] font-medium text-ink">
-                                      &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
-                                    </span>
-                                    <span className="text-ink-3">/hr</span>
-                                  </>
-                                )}
-                              </>
-                            }
-                          />
-                          <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                            {card.bio}
-                          </p>
+                          {/* Identity — tapping the name/identity opens the shared
+                              CleanerProfileModal (with its in-flow Book). The slot
+                              pills below stay a distinct action. */}
+                          <button
+                            type="button"
+                            onClick={() => setProfileCleaner(cleaner)}
+                            className="-m-1 rounded-lg p-1 text-left transition-colors hover:bg-page"
+                            aria-label={`View ${card.name}'s profile`}
+                          >
+                            <CleanerIdentity
+                              photo={cleaner.photo || null}
+                              name={card.name}
+                              verified={card.identityVerified || card.backgroundChecked}
+                              rating={card.rating}
+                              reviewCount={card.reviewCount}
+                              meta={
+                                <>
+                                  {postcode || ''}
+                                  {!isFixedPrice(category) && (
+                                    <>
+                                      {postcode ? ' · from ' : 'from '}
+                                      <span className="font-newsreader text-[14px] font-medium text-ink">
+                                        &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
+                                      </span>
+                                      <span className="text-ink-3">/hr</span>
+                                    </>
+                                  )}
+                                </>
+                              }
+                            />
+                            <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                              {card.bio}
+                            </p>
+                          </button>
 
                           {/* Caps eyebrow = the searched date. Picking an exact 30-min start
                               within the band pins the cleaner + slot and opens the NORMAL

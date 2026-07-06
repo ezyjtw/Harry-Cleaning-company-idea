@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isInCatchmentArea } from '@/lib/catchment';
 import { BEDROOMS_TO_EOT_SIZE, BEDROOMS_TO_AIRBNB_SIZE } from '@/lib/constants/services';
-import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -604,7 +603,7 @@ export default function HeroQuoteWidget() {
                 Prices from &pound;{low} &ndash; &pound;{high}
               </span>
               <p className="mt-1 font-jost text-[11px] text-ink-3">
-                depending on your cleaner. Includes {SERVICE_FEE_PERCENT}% service fee.
+                depending on your cleaner. All-inclusive — no hidden fees.
               </p>
             </div>
           );
@@ -714,7 +713,7 @@ export default function HeroQuoteWidget() {
               </p>
               <p className="mt-2 font-jost text-[12px] text-ink-3">
                 Based on {quote.cleanerCount} cleaner{quote.cleanerCount !== 1 ? 's' : ''} near you.
-                Includes {SERVICE_FEE_PERCENT}% service fee.
+                All-inclusive — no hidden fees.
               </p>
             </>
           ) : (
@@ -732,7 +731,7 @@ export default function HeroQuoteWidget() {
                 );
               })()}
               <p className="mt-2 font-jost text-[12px] text-ink-3">
-                Typical starting price for your area. Includes {SERVICE_FEE_PERCENT}% service fee.
+                Typical starting price for your area. All-inclusive — no hidden fees.
               </p>
             </>
           )}
