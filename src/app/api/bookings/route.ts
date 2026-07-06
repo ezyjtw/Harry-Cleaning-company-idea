@@ -111,7 +111,11 @@ export async function POST(request: NextRequest) {
     // paying the SAME PaymentIntent. The idempotency key is derived SERVER-SIDE
     // below from the validated request + a time bucket — never trusted from the
     // client (a client-supplied key could wrongly collapse or be replayed).
-    const buildReplay = async (bk: { id: string; stripePaymentIntentId: string | null }) => {
+    const buildReplay = async (bk: {
+      id: string;
+      stripePaymentIntentId: string | null;
+      guestToken: string | null;
+    }) => {
       let clientSecret: string | null = null;
       if (bk.stripePaymentIntentId) {
         try {
@@ -124,7 +128,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           message: 'Booking already created',
-          booking: { id: bk.id, stripePaymentIntentId: bk.stripePaymentIntentId },
+          booking: {
+            id: bk.id,
+            stripePaymentIntentId: bk.stripePaymentIntentId,
+            guestToken: bk.guestToken,
+          },
           clientSecret,
           idempotentReplay: true,
         },
@@ -545,7 +553,7 @@ export async function POST(request: NextRequest) {
     // bucket boundary still matches the original booking.
     const replayExisting = await prisma.booking.findFirst({
       where: { idempotencyKey: { in: [idempotencyKey, keyForBucket(bucket - 1)] } },
-      select: { id: true, stripePaymentIntentId: true },
+      select: { id: true, stripePaymentIntentId: true, guestToken: true },
     });
     if (replayExisting) return buildReplay(replayExisting);
 
@@ -597,7 +605,7 @@ export async function POST(request: NextRequest) {
       if (idempotencyKey && (err as { code?: string }).code === 'P2002') {
         const existing = await prisma.booking.findUnique({
           where: { idempotencyKey },
-          select: { id: true, stripePaymentIntentId: true },
+          select: { id: true, stripePaymentIntentId: true, guestToken: true },
         });
         if (existing) return buildReplay(existing);
       }

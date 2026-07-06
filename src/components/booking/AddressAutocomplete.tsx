@@ -35,8 +35,9 @@ interface Props {
   /** The postcode already entered earlier in the flow — pre-fills the field. */
   autoLookupPostcode?: string;
   /** Validate a postcode change. Return accepted=false to surface a message
-   *  (e.g. chosen cleaner doesn't cover the area). */
-  onPostcodeChange?: (postcode: string) => PostcodeChangeVerdict;
+   *  (e.g. chosen cleaner doesn't cover the area). May be async (coverage is
+   *  checked server-side against the same geocode/distance logic as search). */
+  onPostcodeChange?: (postcode: string) => Promise<PostcodeChangeVerdict> | PostcodeChangeVerdict;
   /** Bounce to cleaner selection for the new postcode (after a coverage reject). */
   onReselectCleaner?: (postcode: string) => void;
 }
@@ -70,11 +71,11 @@ export default function AddressAutocomplete({
   }, [autoLookupPostcode, initialPostcode]);
 
   // Re-validate catchment / chosen-cleaner coverage when a full postcode is entered.
-  function revalidatePostcode() {
+  async function revalidatePostcode() {
     const pc = value.postcode.trim().toUpperCase();
     setCoverageMsg(null);
     if (onPostcodeChange && isValidPostcode(pc)) {
-      const verdict = onPostcodeChange(pc);
+      const verdict = await onPostcodeChange(pc);
       if (!verdict.accepted) {
         setCoverageMsg(verdict.message || "That cleaner doesn't cover this postcode.");
         setPendingPc(pc);

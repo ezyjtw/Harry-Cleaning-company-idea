@@ -476,13 +476,38 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // A12: "Change postcode" from the address step re-validates catchment + the
   // chosen cleaner's coverage, so we never silently keep an out-of-catchment cleaner.
-  const handleAddressPostcodeChange = (pc: string): { accepted: boolean; message?: string } => {
+  const handleAddressPostcodeChange = async (
+    pc: string
+  ): Promise<{ accepted: boolean; message?: string }> => {
     const p = pc.trim().toUpperCase();
     const active = preSelectedCleaner ?? selectedCleaner;
-    const area = getPostcodeArea(p);
-    const inCatchment = isInCatchmentArea(p);
-    const covers = active ? !!area && active.postcodeAreas.includes(area) : true;
-    if (inCatchment && covers) {
+
+    // 1. Do we serve this area at all?
+    if (!isInCatchmentArea(p)) {
+      return { accepted: false, message: `We're not in ${p} yet. Choose another address or area.` };
+    }
+
+    // 2. Does the CHOSEN cleaner cover it? Uses the shared coverage endpoint —
+    //    the SAME geocode + distance logic as search — so this can never disagree
+    //    with who search said serves the area. (The old check tested an always-
+    //    empty postcodeAreas list, which false-rejected every address.) Fails
+    //    open: any inability to evaluate accepts rather than wrongly rejecting.
+    let covers = true;
+    if (active?.id) {
+      try {
+        const res = await fetch(
+          `/api/cleaners/${active.id}/covers?postcode=${encodeURIComponent(p)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          covers = data.covers !== false;
+        }
+      } catch {
+        covers = true;
+      }
+    }
+
+    if (covers) {
       setPostcode(p);
       setOutsideCatchment(false);
       return { accepted: true };
@@ -490,9 +515,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const name = active?.name ?? 'This cleaner';
     return {
       accepted: false,
-      message: inCatchment
-        ? `${name} doesn't cover ${p}. Choose another cleaner for that area.`
-        : `We're not in ${p} yet. Choose another address or area.`,
+      message: `${name} doesn't cover ${p}. Choose another cleaner for that area.`,
     };
   };
 

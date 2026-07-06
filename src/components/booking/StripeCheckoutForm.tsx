@@ -11,6 +11,7 @@ interface StripeCheckoutFormProps {
   onSaveCardChange: (checked: boolean) => void;
   onBack: () => void;
   isGuest?: boolean;
+  guestToken?: string | null;
 }
 
 export default function StripeCheckoutForm({
@@ -21,6 +22,7 @@ export default function StripeCheckoutForm({
   onSaveCardChange,
   onBack,
   isGuest = false,
+  guestToken = null,
 }: StripeCheckoutFormProps) {
   const stripeHook = useStripe();
   const elements = useElements();
@@ -56,10 +58,18 @@ export default function StripeCheckoutForm({
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
+    // Carry the guestToken through the return_url so the confirmation page can
+    // read the booking via the guest-safe endpoint (a guest has no session, so
+    // the account-only status endpoints would 401 → infinite spinner).
+    const returnUrl =
+      isGuest && guestToken
+        ? `${appUrl}/en/booking-confirmation/${bookingId}?gt=${encodeURIComponent(guestToken)}`
+        : `${appUrl}/en/booking-confirmation/${bookingId}`;
+
     const result = await stripeHook.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${appUrl}/en/booking-confirmation/${bookingId}`,
+        return_url: returnUrl,
       },
     });
 

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
-import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
+import { haversineDistance, isWithinTravelRange, lookupPostcode } from '@/lib/utils/postcode';
 
 import { TravelTimeService } from './travel-time.service';
 import type { LocationCoords } from './travel-time.service';
@@ -124,11 +124,7 @@ export class MatchingService {
             cleaner.latitude,
             cleaner.longitude
           );
-          if (cleaner.maxTravelMinutes) {
-            const travelMinutes = (distanceMiles / 25) * 60;
-            return travelMinutes <= cleaner.maxTravelMinutes;
-          }
-          return distanceMiles <= (cleaner.radius || 10);
+          return isWithinTravelRange(distanceMiles, cleaner.maxTravelMinutes, cleaner.radius);
         })
       : // Geocode unavailable (unresolvable postcode / lookup outage) — fall back to the
         // legacy outward-code match so discovery degrades gracefully instead of empty.

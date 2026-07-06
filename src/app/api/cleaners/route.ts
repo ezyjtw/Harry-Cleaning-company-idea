@@ -12,7 +12,7 @@ import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
-import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
+import { haversineDistance, isWithinTravelRange, lookupPostcode } from '@/lib/utils/postcode';
 
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -189,11 +189,7 @@ export async function GET(request: NextRequest) {
   if (customerGeo) {
     results = results.filter((r) => {
       if (r.distance === null) return false;
-      if (r.maxTravelMinutes !== null && r.maxTravelMinutes !== undefined) {
-        const travelMins = (r.distance / 25) * 60;
-        return travelMins <= r.maxTravelMinutes;
-      }
-      return r.distance <= r.radius;
+      return isWithinTravelRange(r.distance, r.maxTravelMinutes, r.radius);
     });
     results.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   }
