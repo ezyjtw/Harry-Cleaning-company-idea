@@ -73,7 +73,7 @@ export default function CleanerCard({
       {hasFixed && fixedServiceLabel && (
         <p className="mt-3 rounded-[8px] bg-primary-soft px-3 py-2 font-jost text-[12px] font-medium text-ink">
           Total for your {fixedServiceLabel}: £{fixedWithFee}
-          <span className="font-light text-ink-3"> · incl. 6% service fee</span>
+          <span className="font-light text-ink-3"> · all-inclusive</span>
         </p>
       )}
 

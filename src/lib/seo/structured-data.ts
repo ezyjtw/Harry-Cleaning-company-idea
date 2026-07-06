@@ -11,7 +11,7 @@ export function generateOrganizationSchema() {
     url: process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk',
     logo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk'}/icons/icon-512x512.png`,
     description:
-      'Book trusted, vetted cleaners in your area. Fair pricing with just a 6% service fee.',
+      'Book trusted, vetted cleaners in your area. Fair, all-inclusive pricing — the price you see is the price you pay.',
     address: {
       '@type': 'PostalAddress',
       addressLocality: 'North-East London and Essex',
@@ -59,7 +59,7 @@ export function generateLocalBusinessSchema(area: string) {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
     name: `Rena Cleaning Network - ${area}`,
-    description: `Professional cleaning services in ${area}. Book vetted cleaners with just a 6% service fee.`,
+    description: `Professional cleaning services in ${area}. Book vetted cleaners with fair, all-inclusive pricing.`,
     address: {
       '@type': 'PostalAddress',
       addressLocality: area,

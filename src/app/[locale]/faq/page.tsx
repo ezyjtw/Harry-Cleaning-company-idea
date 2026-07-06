@@ -12,7 +12,7 @@ const faqCategories = [
       },
       {
         q: 'How is Rena different from other cleaning services?',
-        a: 'Unlike traditional cleaning agencies, Rena lets you choose your cleaner based on real reviews, ratings, and availability. We only add a small 6% service fee at checkout — far lower than the 20-30% markups charged by traditional agencies — which means better rates for you and higher earnings for cleaners.',
+        a: 'Unlike traditional cleaning agencies, Rena lets you choose your cleaner based on real reviews, ratings, and availability. You pay one all-inclusive price — far less than the 20-30% markups charged by traditional agencies — which means better rates for you and higher earnings for cleaners.',
       },
       {
         q: 'What areas does Rena cover?',
@@ -54,7 +54,7 @@ const faqCategories = [
       },
       {
         q: 'Are there any hidden fees?',
-        a: 'No. Rena has a transparent pricing model. The price shown at checkout is the price you pay. A 6% service fee is the only extra charge and it is always shown before you confirm — there are no surprise charges.',
+        a: 'No. Rena has a transparent pricing model. The price shown at checkout is the price you pay — one all-inclusive total, always shown in full before you confirm. There are no surprise charges.',
       },
       {
         q: 'Do regular bookings cost less?',

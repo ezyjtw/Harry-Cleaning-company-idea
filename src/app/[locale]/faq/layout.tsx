@@ -13,7 +13,7 @@ const faqs = [
   {
     question: 'How much does a cleaning cost?',
     answer:
-      'Cleaners set their own hourly rates, typically £14–£25/hr. A 6% service fee is added at checkout with no hidden charges.',
+      'Cleaners set their own hourly rates, typically £14–£25/hr. The price you see at checkout is the price you pay — all-inclusive, with no hidden charges.',
   },
   {
     question: 'How are cleaners vetted?',

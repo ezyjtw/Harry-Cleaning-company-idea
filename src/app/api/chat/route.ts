@@ -22,7 +22,7 @@ BOOKING & SCHEDULING
 - Cancellations: free cancellation up to 24 hours before the booking.
 
 PRICING
-- Regular cleaning: from £14/hr (cleaner sets their own rate, plus 6% service fee).
+- Regular cleaning: from £14/hr (cleaner sets their own rate; the price shown at checkout is all-inclusive).
 - Deep cleaning: 1.45x the cleaner's rate.
 - Same-day: 1.30x the cleaner's rate.
 - End of tenancy: fixed price from £175 (studio) to £550 (5 bed+). Cleaner paid at deep rate × hours × 1.10 bonus.
@@ -30,7 +30,7 @@ PRICING
 - End of tenancy: fixed price starting from £120 (base fee + per-room charges + optional extras).
 - Recurring discounts: weekly bookings save 10%, fortnightly saves 5%. One-off cleans are also available.
 - Cleaner brings products: additional £5 flat fee.
-- No hidden charges. 6% service fee is included in the displayed total.
+- No hidden charges. The price shown at checkout is the all-inclusive total the customer pays.
 
 CLEANER ISSUES
 - If a customer has a complaint about a cleaner (quality, lateness, damage, behaviour), empathise and ask for their booking reference and a brief description.
