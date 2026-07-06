@@ -5,6 +5,7 @@ import { getAdminSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { ComplianceSchedulerService } from '@/lib/services/compliance-scheduler.service';
+import { GdprService } from '@/lib/services/gdpr.service';
 
 /**
  * GET /api/admin/compliance — Get compliance dashboard data
@@ -38,6 +39,11 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       });
       return NextResponse.json({ registration });
+    }
+
+    if (section === 'deletions') {
+      const requests = await GdprService.getManageableDeletionRequests();
+      return NextResponse.json({ requests });
     }
 
     // Overview: aggregate compliance metrics
@@ -99,6 +105,33 @@ export async function POST(request: NextRequest) {
     if (action === 'run_all_jobs') {
       const results = await ComplianceSchedulerService.runAllJobs();
       return NextResponse.json({ message: 'Compliance jobs completed', results });
+    }
+
+    // Approve a data-deletion request AND execute it immediately. Approval is
+    // the mandatory gate — erasure is irreversible, so it only runs on this
+    // deliberate admin action (a daily sweep is a safety-net for failures).
+    if (action === 'approve_deletion') {
+      if (!body.requestId) {
+        return NextResponse.json({ error: 'requestId is required' }, { status: 400 });
+      }
+      await GdprService.approveDataDeletion({ requestId: body.requestId, adminId });
+      const result = await GdprService.processDataDeletion({
+        requestId: body.requestId,
+        processedBy: adminId,
+      });
+      return NextResponse.json({ message: 'Deletion request approved and executed', result });
+    }
+
+    if (action === 'reject_deletion') {
+      if (!body.requestId) {
+        return NextResponse.json({ error: 'requestId is required' }, { status: 400 });
+      }
+      await GdprService.rejectDataDeletion({
+        requestId: body.requestId,
+        adminId,
+        notes: body.notes,
+      });
+      return NextResponse.json({ message: 'Deletion request rejected' });
     }
 
     if (action === 'create_dpa') {
