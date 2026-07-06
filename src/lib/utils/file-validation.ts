@@ -63,3 +63,84 @@ export function validateFileType(
 }
 
 export const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+export const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+export const DOCUMENT_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+
+/**
+ * Detect a file's MIME purely from its magic bytes (no claimed-type input),
+ * rejecting SVG/XML. Returns null if the content matches no allowed signature.
+ */
+export function detectMimeFromMagicBytes(buffer: Buffer): string | null {
+  if (buffer.length > 0) {
+    const first = buffer[0];
+    // Reject SVG/XML (raw `<` or UTF-8 BOM + `<`)
+    if (first === 0x3c || (first === 0xef && buffer.length > 3 && buffer[3] === 0x3c)) {
+      return null;
+    }
+  }
+
+  for (const sig of MAGIC_BYTES) {
+    const offset = sig.offset ?? 0;
+    if (buffer.length < offset + sig.bytes.length) continue;
+    const matches = sig.bytes.every((b, i) => buffer[offset + i] === b);
+    if (!matches) continue;
+    if (sig.mime === 'image/webp') {
+      if (
+        buffer.length < 12 ||
+        buffer[8] !== 0x57 ||
+        buffer[9] !== 0x45 ||
+        buffer[10] !== 0x42 ||
+        buffer[11] !== 0x50
+      ) {
+        continue;
+      }
+    }
+    return sig.mime;
+  }
+  return null;
+}
+
+/**
+ * Decode a base64 (or data-URL) upload and validate it by size and magic bytes.
+ * Bounds the decoded size, rejects empty/oversized/mistyped/SVG content, and
+ * returns the content-verified MIME (never a client-claimed one). Mirrors the
+ * treatment the multipart evidence routes already apply.
+ */
+export function decodeBase64File(
+  input: string,
+  opts: { maxSize?: number; allowed?: Set<string> } = {}
+): { ok: true; buffer: Buffer; mime: string } | { ok: false; error: string } {
+  const maxSize = opts.maxSize ?? MAX_EVIDENCE_SIZE;
+  const allowed = opts.allowed ?? DOCUMENT_MIMES;
+
+  // Strip a data-URL prefix if present, then bound the encoded length before
+  // decoding so an oversized payload is never fully materialised in memory.
+  const commaIdx = input.startsWith('data:') ? input.indexOf(',') : -1;
+  const b64 = commaIdx >= 0 ? input.slice(commaIdx + 1) : input;
+
+  if (b64.length > Math.ceil(maxSize * 1.4) + 128) {
+    return { ok: false, error: 'File exceeds the maximum allowed size.' };
+  }
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(b64, 'base64');
+  } catch {
+    return { ok: false, error: 'File could not be decoded.' };
+  }
+
+  if (buffer.length === 0) {
+    return { ok: false, error: 'File is empty.' };
+  }
+  if (buffer.length > maxSize) {
+    return { ok: false, error: 'File exceeds the maximum allowed size.' };
+  }
+
+  const mime = detectMimeFromMagicBytes(buffer);
+  if (!mime || !allowed.has(mime)) {
+    return { ok: false, error: 'Unsupported or unverifiable file type.' };
+  }
+
+  return { ok: true, buffer, mime };
+}

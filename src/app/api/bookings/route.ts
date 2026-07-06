@@ -8,7 +8,7 @@ import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/time
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit, getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import {
   sendBookingConfirmation,
@@ -94,6 +94,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // General create limit (the price-tamper sub-path has its own stricter one).
+    // Guest checkout creates DB rows + Stripe PaymentIntents, so bound abuse.
+    const createRl = rateLimit(request, 'booking-create', 20, 60 * 60 * 1000);
+    if (!createRl.ok) {
+      return NextResponse.json(
+        { error: 'Too many booking attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(createRl.retryAfter) } }
+      );
+    }
+
     const body = await request.json();
 
     // A16b-1: buildReplay returns an already-created booking + its live

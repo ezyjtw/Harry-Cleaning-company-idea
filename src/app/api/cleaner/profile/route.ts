@@ -9,6 +9,7 @@ import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET() {
@@ -268,6 +269,20 @@ export async function PUT(request: NextRequest) {
     profileUpdate.testimonials = testimonials;
   }
 
+  // Validate + upload a new profile photo (data URL) BEFORE the transaction, so
+  // an invalid file returns 400 from the handler and the R2 write stays out of
+  // the DB transaction. Content-verify (JPEG/PNG/WebP) and cap at 5 MB.
+  let imageObjectKey: string | null = null;
+  if (typeof image === 'string' && image.startsWith('data:image/')) {
+    const check = decodeBase64File(image, { allowed: IMAGE_MIMES, maxSize: 5 * 1024 * 1024 });
+    if (!check.ok) {
+      return NextResponse.json({ error: check.error }, { status: 400 });
+    }
+    const ext = check.mime === 'image/jpeg' ? 'jpg' : check.mime.split('/')[1];
+    imageObjectKey = `profile-photos/${user.id}.${ext}`;
+    await putObject(imageObjectKey, check.buffer, check.mime);
+  }
+
   await prisma.$transaction(async (tx) => {
     if (Object.keys(profileUpdate).length > 0) {
       await tx.cleanerProfile.update({
@@ -278,16 +293,9 @@ export async function PUT(request: NextRequest) {
 
     const userUpdate: Record<string, unknown> = {};
     if (image !== undefined) {
-      if (typeof image === 'string' && image.startsWith('data:image/')) {
-        const match = image.match(/^data:image\/(\w+);base64,(.+)$/);
-        if (match) {
-          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-          const buffer = Buffer.from(match[2], 'base64');
-          const objectKey = `profile-photos/${user.id}.${ext}`;
-          await putObject(objectKey, buffer, `image/${match[1]}`);
-          userUpdate.image = objectKey;
-        }
-      } else if (typeof image === 'string' && image.length > 0) {
+      if (imageObjectKey) {
+        userUpdate.image = imageObjectKey;
+      } else if (typeof image === 'string' && image.length > 0 && !image.startsWith('data:')) {
         userUpdate.image = image;
       }
     }

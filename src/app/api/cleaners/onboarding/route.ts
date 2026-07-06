@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
@@ -16,6 +17,14 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
  */
 export async function POST(request: NextRequest) {
   try {
+    const rl = rateLimit(request, 'cleaner-onboarding', 5, 60 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Too many onboarding attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
+
     const formData = await request.formData();
     const ipAddress =
       request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;

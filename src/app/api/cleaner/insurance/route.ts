@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
+import { decodeBase64File, DOCUMENT_MIMES } from '@/lib/utils/file-validation';
 
 export async function GET() {
   try {
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fileData, fileName, mimeType, expiryDate } = body;
+    const { fileData, fileName, expiryDate } = body;
 
     if (!fileData || !fileName) {
       return NextResponse.json({ error: 'fileData and fileName are required' }, { status: 400 });
@@ -106,15 +107,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fileBuffer = Buffer.from(fileData, 'base64');
+    // Content-verify the certificate (PDF or image) and bound its size. The
+    // stored MIME is the detected one, not the client-claimed `mimeType`.
+    const fileCheck = decodeBase64File(fileData, { allowed: DOCUMENT_MIMES });
+    if (!fileCheck.ok) {
+      return NextResponse.json({ error: fileCheck.error }, { status: 400 });
+    }
 
     const document = await DocumentStorageService.uploadDocument({
       userId: user.id,
       profileId: profile.id,
       documentType: 'insurance',
-      fileBuffer,
+      fileBuffer: fileCheck.buffer,
       originalName: fileName,
-      mimeType: mimeType || 'application/pdf',
+      mimeType: fileCheck.mime,
       expiresAt: expiry,
       metadata: { policyExpiryDate: expiryDate },
     });
