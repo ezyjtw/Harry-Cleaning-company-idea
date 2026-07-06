@@ -274,7 +274,11 @@ export async function PUT(request: NextRequest) {
   // the DB transaction. Content-verify (JPEG/PNG/WebP) and cap at 5 MB.
   let imageObjectKey: string | null = null;
   if (typeof image === 'string' && image.startsWith('data:image/')) {
-    const check = decodeBase64File(image, { allowed: IMAGE_MIMES, maxSize: 5 * 1024 * 1024 });
+    const check = decodeBase64File(image, {
+      allowed: IMAGE_MIMES,
+      maxSize: 5 * 1024 * 1024,
+      typeLabel: 'a JPG or PNG photo',
+    });
     if (!check.ok) {
       return NextResponse.json({ error: check.error }, { status: 400 });
     }

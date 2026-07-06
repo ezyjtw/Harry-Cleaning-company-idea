@@ -109,7 +109,10 @@ export async function POST(request: NextRequest) {
 
     // Content-verify the certificate (PDF or image) and bound its size. The
     // stored MIME is the detected one, not the client-claimed `mimeType`.
-    const fileCheck = decodeBase64File(fileData, { allowed: DOCUMENT_MIMES });
+    const fileCheck = decodeBase64File(fileData, {
+      allowed: DOCUMENT_MIMES,
+      typeLabel: 'a PDF, JPG, or PNG file',
+    });
     if (!fileCheck.ok) {
       return NextResponse.json({ error: fileCheck.error }, { status: 400 });
     }
