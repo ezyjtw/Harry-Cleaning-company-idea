@@ -117,6 +117,12 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     description:
       'Groq API key powering the AI support chat widget (/api/chat). Unset ⇒ chat returns "not configured"; the rest of the app is unaffected.',
   },
+  {
+    name: 'EXPO_ACCESS_TOKEN',
+    required: false,
+    description:
+      'Optional Expo access token for native (Rena Pro) push. Only needed if the Expo project enforces enhanced push security; unset ⇒ Expo push still sends.',
+  },
 ];
 
 export interface ValidationResult {

@@ -9,7 +9,7 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────
 
-export type NotificationChannel = 'EMAIL' | 'SMS' | 'PUSH' | 'IN_APP';
+export type NotificationChannel = 'EMAIL' | 'SMS' | 'PUSH' | 'IN_APP' | 'EXPO_PUSH';
 
 export interface NotificationPayload {
   userId: string;
@@ -59,10 +59,15 @@ export class EnhancedNotificationService {
     // A11: every outbound channel consults the preference gate. Essential
     // transactional messages pass through unconditionally; toggleable/marketing
     // respect the user's choice (and channel master switches).
-    const [allowPush, allowEmail, allowSms] = await Promise.all([
+    const [allowPush, allowEmail, allowSms, allowExpo] = await Promise.all([
       channels.includes('PUSH') ? shouldSend(payload.userId, category, 'PUSH') : false,
       channels.includes('EMAIL') ? shouldSend(payload.userId, category, 'EMAIL') : false,
       channels.includes('SMS') ? shouldSend(payload.userId, category, 'SMS') : false,
+      // EXPO_PUSH is opt-in per call (never in the default channels), so existing
+      // web sends are unaffected. Gated on the push master switch (ESSENTIAL
+      // always passes). Even when allowed, queueExpoPush is a no-op when the user
+      // has no registered device tokens.
+      channels.includes('EXPO_PUSH') ? shouldSend(payload.userId, category, 'EXPO_PUSH') : false,
     ]);
 
     // Deliver to each permitted channel
@@ -76,6 +81,9 @@ export class EnhancedNotificationService {
     }
     if (allowSms) {
       deliveryPromises.push(this.queueSMSNotification(payload));
+    }
+    if (allowExpo) {
+      deliveryPromises.push(this.queueExpoPush(payload));
     }
 
     await Promise.allSettled(deliveryPromises);
@@ -109,6 +117,30 @@ export class EnhancedNotificationService {
       title: 'New Booking Confirmed',
       body: `You have a new ${booking.serviceType} booking on ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}.`,
       data: { bookingId },
+    });
+  }
+
+  /**
+   * Send the Rena Pro NEW-OFFER push to a cleaner. Category ESSENTIAL — never
+   * suppressible by preference toggles (standing ruling); only logout stops it.
+   * Delivers IN_APP + EXPO_PUSH; the payload deep-links to /app/offer/[id].
+   *
+   * ⚠️ DORMANT — not called anywhere yet. Wiring the cascade offer to call this
+   * is HELD until the P1 build is signed off (so no offer push can fire before
+   * the app exists to receive it).
+   */
+  static async sendNewOfferPush(bookingId: string, cleanerId: string) {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) return;
+
+    await this.send({
+      userId: cleanerId,
+      type: 'BOOKING_REQUEST',
+      title: 'New job offer',
+      body: `${booking.serviceType} · £${Number(booking.cleanerEarnings).toFixed(2)} · ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}`,
+      data: { bookingId, url: `/app/offer/${bookingId}` },
+      category: 'ESSENTIAL',
+      channels: ['IN_APP', 'EXPO_PUSH'],
     });
   }
 
@@ -279,6 +311,38 @@ export class EnhancedNotificationService {
     } catch {
       // eslint-disable-next-line no-console
       console.error('[Notification] Failed to queue push notification');
+    }
+  }
+
+  /**
+   * Queue a native (Rena Pro / Expo) push. NO-OP when the user has no registered
+   * device tokens — so this changes nothing for web-only users. Enqueues one
+   * EXPO_PUSH background job carrying the user's tokens; the job handler sends via
+   * the Expo push API.
+   */
+  private static async queueExpoPush(payload: NotificationPayload) {
+    try {
+      const tokens = await prisma.deviceToken.findMany({
+        where: { userId: payload.userId },
+        select: { expoPushToken: true },
+      });
+      if (tokens.length === 0) return; // no devices → nothing to do
+
+      await prisma.backgroundJob.create({
+        data: {
+          type: 'EXPO_PUSH',
+          payload: {
+            tokens: tokens.map((t) => t.expoPushToken),
+            title: payload.title,
+            body: payload.body,
+            data: payload.data,
+          } as Prisma.InputJsonValue,
+          scheduledAt: new Date(),
+        },
+      });
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('[Notification] Failed to queue Expo push');
     }
   }
 
