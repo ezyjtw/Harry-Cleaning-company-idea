@@ -159,6 +159,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // SECURITY (S1): /admin requires the ADMIN role, not merely a session. Without
+  // this, any logged-in CLIENT/CLEANER could load the server-rendered admin pages
+  // (customer PII, revenue, disputes) — the admin APIs were gated but the SSR data
+  // was not. Non-admins are sent to /dashboard (the role router). The admin layout
+  // enforces the same check server-side as belt-and-braces.
+  if (
+    pathnameWithoutLocale.startsWith('/admin') &&
+    isAuthenticated &&
+    (token as { role?: string }).role !== 'ADMIN'
+  ) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   // Redirect authenticated users away from auth routes
   const isAuthRoute = authRoutes.some((route) => pathnameWithoutLocale.startsWith(route));
 
