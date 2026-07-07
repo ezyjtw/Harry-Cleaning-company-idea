@@ -21,10 +21,11 @@ const COMMISSION_RATES: Record<ServiceSlug, number> = {
 
 const PLATFORM_FEE_RATE = 0.06;
 
-// James-ruled policy (final): "cleaner brings products" is a REAL £5 flat
-// add-on. The customer pays exactly +£5 (the 6% service fee is NOT applied to
-// it). The £5 CARRIES 10% COMMISSION: Rena takes £0.50, the cleaner receives
-// £4.50. Code-level (not a DB ServiceAddon row) so the policy cannot drift.
+// James-ruled policy (final, amended): "cleaner brings products" is a REAL £5
+// add-on. The 6% customer service fee applies to it (fee base = full subtotal
+// including products — consistent with addons, no exemptions). The £5 CARRIES
+// 10% COMMISSION: Rena takes £0.50, the cleaner receives £4.50. Code-level
+// (not a DB ServiceAddon row) so the policy cannot drift.
 export const PRODUCTS_ADDON_ID = 'products';
 export const PRODUCTS_FEE = 5;
 export const PRODUCTS_FEE_COMMISSION_RATE = 0.1;
@@ -185,6 +186,7 @@ export class PricingService {
 
     const customerPlatformFee = new Decimal(cleanerListedPrice)
       .plus(addonTotal)
+      .plus(productsFee) // fee base = full subtotal incl. products (James-ruled)
       .mul(PLATFORM_FEE_RATE)
       .toDecimalPlaces(2)
       .toNumber();
@@ -273,6 +275,7 @@ export class PricingService {
 
     const customerPlatformFee = new Decimal(cleanerListedPrice)
       .plus(addonTotal)
+      .plus(productsFee) // fee base = full subtotal incl. products (James-ruled)
       .mul(PLATFORM_FEE_RATE)
       .toDecimalPlaces(2)
       .toNumber();

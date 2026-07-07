@@ -1150,8 +1150,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   Cleaner brings products (+&pound;5)
                 </span>
                 <span className="block font-jost text-[12px] font-light text-ink-3">
-                  A flat &pound;5 covers your cleaner&apos;s supplies. Untick if you&apos;ll
-                  provide your own.
+                  +&pound;5 for your cleaner&apos;s supplies. Untick if you&apos;ll provide
+                  your own.
                 </span>
               </span>
             </label>
