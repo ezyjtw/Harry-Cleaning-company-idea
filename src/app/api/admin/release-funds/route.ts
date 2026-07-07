@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'bookingId is required' }, { status: 400 });
   }
 
-  const result = await releaseBookingFunds(bookingId);
+  // S5: the manual admin release explicitly logs the acting admin — the transfer
+  // service writes the FUNDS_RELEASED audit entry with this actor + trigger.
+  const result = await releaseBookingFunds(bookingId, { trigger: 'ADMIN', actorId: admin.id });
   return NextResponse.json(result);
 }

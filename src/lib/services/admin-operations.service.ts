@@ -662,7 +662,10 @@ export class AdminOperationsService {
       // (writeRefundSuccess: partial pre-release → PENDING). Call release
       // directly — resumePausedRelease would find PENDING, not PAUSED.
       if (result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED') {
-        const release = await releaseBookingFunds(bookingId).catch(() => ({
+        const release = await releaseBookingFunds(bookingId, {
+          trigger: 'DISPUTE_RESOLUTION',
+          actorId: adminId,
+        }).catch(() => ({
           status: 'FAILED' as const,
           reason: 'Release after split refund failed — admin retry needed',
         }));
@@ -670,7 +673,10 @@ export class AdminOperationsService {
       }
     } else {
       // release-to-cleaner: un-pause and release full earnings.
-      const release = await resumePausedRelease(bookingId);
+      const release = await resumePausedRelease(bookingId, {
+        trigger: 'DISPUTE_RESOLUTION',
+        actorId: adminId,
+      });
       releaseStatus = release.status;
     }
 

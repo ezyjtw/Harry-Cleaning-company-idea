@@ -249,24 +249,28 @@ const VALID_CASCADE_PHASES = [
   'CASCADE_EXHAUSTED',
   'PROVISIONAL_APPROVAL',
   'PHASE2_RESERVE',
+  'RENA_FIND',
+  'RENA_FIND_ADMIN_REVIEW',
 ];
 
 function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
   const [status, setStatus] = useState(booking.status);
   const [cascadePhase, setCascadePhase] = useState(booking.cascadePhase ?? '');
   const [confirmId, setConfirmId] = useState('');
+  const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const expectedPrefix = booking.id.substring(0, 8).toUpperCase();
   const hasChanges = status !== booking.status || (cascadePhase || null) !== booking.cascadePhase;
-  const confirmed = confirmId.toUpperCase() === expectedPrefix;
+  // S3c: the API now requires a reason (min 5 chars) on every override.
+  const confirmed = confirmId.toUpperCase() === expectedPrefix && reason.trim().length >= 5;
 
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
     setResult(null);
     try {
-      const payload: Record<string, unknown> = { bookingId: booking.id };
+      const payload: Record<string, unknown> = { bookingId: booking.id, reason: reason.trim() };
       if (status !== booking.status) payload.status = status;
       if ((cascadePhase || null) !== booking.cascadePhase) {
         payload.cascadePhase = cascadePhase || null;
@@ -287,7 +291,7 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
     } finally {
       setSubmitting(false);
     }
-  }, [booking.id, booking.status, booking.cascadePhase, status, cascadePhase]);
+  }, [booking.id, booking.status, booking.cascadePhase, status, cascadePhase, reason]);
 
   return (
     <Section title="Status Override (Dev Only)">
@@ -326,8 +330,16 @@ function StatusOverridePanel({ booking }: { booking: BookingDetail }) {
         {hasChanges && (
           <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
             <p className="text-xs text-warning font-medium mb-2">
-              Raw status override — bypasses all service guards. Type booking ID prefix to confirm.
+              Status override — transitions are validated and money-moved states are blocked
+              server-side. A reason is required; type the booking ID prefix to confirm.
             </p>
+            <textarea
+              placeholder="Reason for this override (required, min 5 characters — goes to the audit log)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              className="w-full rounded border border-line px-2 py-1 text-sm mb-2"
+            />
             <input
               type="text"
               placeholder={expectedPrefix}
