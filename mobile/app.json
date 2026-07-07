@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#16296b"
+      "backgroundColor": "#FAFBFC"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -24,7 +24,7 @@
       "package": "uk.co.renacleaning.pro",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#16296b"
+        "backgroundColor": "#FAFBFC"
       }
     },
     "plugins": ["expo-secure-store", "expo-local-authentication"],

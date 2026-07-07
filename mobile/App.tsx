@@ -25,10 +25,11 @@ import {
 } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
-// The real Etna wordmark, exported from the site's OTF (never faked in another
-// font). White for navy grounds, navy for light grounds.
-const wordmarkWhite = require('./assets/wordmark-white.png');
-const wordmarkNavy = require('./assets/wordmark-navy.png');
+// James's official "RENA Cleaner" logo lockup, extracted from the supplied asset
+// with its exact colours untouched (navy RENA in Etna + teal "Cleaner"), on a
+// transparent ground so it sits on the app's light surfaces. Used on every native
+// surface — no recoloured variant exists (the whole shell is light).
+const logoLockup = require('./assets/logo-lockup.png');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BASE_URL: string =
@@ -44,6 +45,11 @@ const SURFACE = '#ffffff';
 const LINE = '#E4E9F0';
 const INK2 = '#3D5170';
 const MUTED = '#7A8A9E';
+// DELIBERATE DECISION (James-ruled): the teal in "Cleaner" is a brand colour that
+// appears in EXACTLY ONE place — the logo lockup. It is intentionally NOT a UI
+// accent: no teal buttons, links, chips, or highlights anywhere in the app. Do
+// not introduce a teal token unless James rules otherwise. Primary UI accent is
+// INK (#16296b).
 
 // Brand typography — the real Newsreader (serif) + Jost (UI), loaded from the
 // committed OFL TTFs so native text matches the web exactly (no system-font
@@ -104,8 +110,10 @@ function RootView() {
   const [bridgeUrl, setBridgeUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('today');
 
-  // ── Arrival overlay: a navy full-bleed cover with the wordmark that continues
-  // the OS splash seamlessly, then fades to reveal content (no white flash). ──
+  // ── Arrival overlay: a LIGHT full-bleed cover with the logo that continues the
+  // (now light) OS splash seamlessly, then fades to reveal content. Everything —
+  // OS splash, this overlay, and the Start screen — is #FAFBFC, so the whole
+  // arrival is light→light→light with no navy flash and an invisible seam. ──
   const overlay = useRef(new Animated.Value(1)).current;
   const [overlayMounted, setOverlayMounted] = useState(true);
   const reveal = useCallback(() => {
@@ -189,7 +197,7 @@ function RootView() {
 
       {overlayMounted && (
         <Animated.View style={[styles.arrival, { opacity: overlay }]} pointerEvents="none">
-          <Image source={wordmarkWhite} style={styles.arrivalWordmark} resizeMode="contain" />
+          <Image source={logoLockup} style={styles.arrivalWordmark} resizeMode="contain" />
         </Animated.View>
       )}
     </View>
@@ -202,7 +210,7 @@ function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => v
   return (
     <View style={[styles.startWrap, { paddingTop: insets.top + 24 }]}>
       <View style={styles.startHero}>
-        <Image source={wordmarkNavy} style={styles.startWordmark} resizeMode="contain" />
+        <Image source={logoLockup} style={styles.startWordmark} resizeMode="contain" />
         <Text style={styles.startTitle}>Earn on your terms</Text>
         <Text style={styles.startSub}>
           Real cleaning jobs near you. Your rates, your hours, paid fast.
@@ -277,7 +285,7 @@ function LoginScreen({
         <Text style={styles.backText}>Back</Text>
       </Pressable>
       <View style={styles.loginBody}>
-        <Image source={wordmarkNavy} style={styles.loginWordmark} resizeMode="contain" />
+        <Image source={logoLockup} style={styles.loginWordmark} resizeMode="contain" />
         <Text style={styles.loginSub}>Sign in to your cleaner account</Text>
         <TextInput
           style={styles.input}
@@ -504,7 +512,7 @@ function SeamlessWebView({
           pointerEvents="none"
         >
           <Image
-            source={loaderTone === 'navy' ? wordmarkWhite : wordmarkNavy}
+            source={logoLockup}
             style={styles.loaderWordmark}
             resizeMode="contain"
           />
@@ -550,19 +558,20 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
   mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13 },
 
-  // Arrival overlay
+  // Arrival overlay (light, matches the OS splash + Start screen)
   arrival: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: INK,
+    backgroundColor: PAGE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  arrivalWordmark: { width: 200, height: 64 },
+  // Logo lockup is ~1.85:1 (two lines: RENA / Cleaner) — box sized to that ratio.
+  arrivalWordmark: { width: 230, height: 124 },
 
   // Start screen
   startWrap: { flex: 1, backgroundColor: PAGE, paddingHorizontal: 28, justifyContent: 'space-between' },
   startHero: { flex: 1, justifyContent: 'center' },
-  startWordmark: { width: 176, height: 52, marginBottom: 28 },
+  startWordmark: { width: 244, height: 132, marginBottom: 26 },
   startTitle: { fontFamily: SERIF_SEMI, fontSize: 34, color: INK, lineHeight: 40 },
   startSub: { fontFamily: SANS, marginTop: 12, fontSize: 16, lineHeight: 23, color: INK2, maxWidth: 300 },
   startActions: { gap: 12 },
@@ -573,12 +582,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loaderWordmark: { width: 150, height: 44 },
+  loaderWordmark: { width: 168, height: 91 },
 
   // Login
   loginWrap: { backgroundColor: PAGE, paddingHorizontal: 24 },
   loginBody: { flex: 1, justifyContent: 'center', paddingBottom: 48 },
-  loginWordmark: { width: 168, height: 50, alignSelf: 'center', marginBottom: 6 },
+  loginWordmark: { width: 196, height: 106, alignSelf: 'center', marginBottom: 4 },
   loginSub: { fontFamily: SANS, textAlign: 'center', color: INK2, marginTop: 4, marginBottom: 24, fontSize: 15 },
   input: {
     borderWidth: 1,
