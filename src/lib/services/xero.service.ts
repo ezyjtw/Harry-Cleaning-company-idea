@@ -35,19 +35,26 @@ export interface XeroAccount {
 //                             NO code). OPTIONAL to save; chunk-c bank-transaction
 //                             pushes will need it (the transaction posts to it).
 export interface XeroMapping {
-  bankAccountCode: string | null; // holds the bank AccountID (see note above)
+  bankAccountCode: string | null; // Stripe-balance bank AccountID (see note above)
   commissionAccountCode: string | null;
   feeAccountCode: string | null;
   clearingAccountCode: string | null;
+  stripeFeeAccountCode: string | null; // Stripe processing fee → expense (CODE)
+  settlementBankAccountCode: string | null; // real bank AccountID (payout target)
   pushEnabled: boolean;
 }
 
-// Bank is intentionally NOT required — the three coded accounts are the minimum
-// to save + enable a mapping; the bank account is optional here.
+// The full set required before pushes can be enabled. As of the reconciliation
+// fix ALL money-flow accounts are required — including the Stripe-balance bank,
+// the Stripe-fee expense, and the settlement bank — so a "complete" mapping is
+// genuinely push-ready and no push can silently skip at runtime.
 export const REQUIRED_MAPPING_KEYS = [
   'commissionAccountCode',
   'feeAccountCode',
   'clearingAccountCode',
+  'stripeFeeAccountCode',
+  'bankAccountCode',
+  'settlementBankAccountCode',
 ] as const;
 
 export function isMappingComplete(m: Partial<XeroMapping>): boolean {
@@ -121,6 +128,8 @@ export async function getMapping(): Promise<XeroMapping | null> {
     commissionAccountCode: conn.commissionAccountCode,
     feeAccountCode: conn.feeAccountCode,
     clearingAccountCode: conn.clearingAccountCode,
+    stripeFeeAccountCode: conn.stripeFeeAccountCode,
+    settlementBankAccountCode: conn.settlementBankAccountCode,
     pushEnabled: conn.pushEnabled,
   };
 }
@@ -141,6 +150,9 @@ export async function saveMapping(input: Partial<XeroMapping>): Promise<XeroMapp
     commissionAccountCode: input.commissionAccountCode ?? conn.commissionAccountCode,
     feeAccountCode: input.feeAccountCode ?? conn.feeAccountCode,
     clearingAccountCode: input.clearingAccountCode ?? conn.clearingAccountCode,
+    stripeFeeAccountCode: input.stripeFeeAccountCode ?? conn.stripeFeeAccountCode,
+    settlementBankAccountCode:
+      input.settlementBankAccountCode ?? conn.settlementBankAccountCode,
     pushEnabled: input.pushEnabled ?? conn.pushEnabled,
   };
 
@@ -156,6 +168,8 @@ export async function saveMapping(input: Partial<XeroMapping>): Promise<XeroMapp
       commissionAccountCode: merged.commissionAccountCode,
       feeAccountCode: merged.feeAccountCode,
       clearingAccountCode: merged.clearingAccountCode,
+      stripeFeeAccountCode: merged.stripeFeeAccountCode,
+      settlementBankAccountCode: merged.settlementBankAccountCode,
       pushEnabled: merged.pushEnabled,
     },
   });

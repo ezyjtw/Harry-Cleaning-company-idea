@@ -1443,6 +1443,16 @@ model XeroConnection {
   commissionAccountCode String?
   feeAccountCode        String?
   clearingAccountCode   String?
+  // A13-Xero reconciliation:
+  //   stripeFeeAccountCode      — Stripe's processing fee → EXPENSE (account CODE).
+  //                               Booked as a negative line on PAYMENT_RECEIVED so
+  //                               the receive nets to what Stripe actually credited.
+  //   settlementBankAccountCode — the REAL bank Stripe pays out to (a BANK account,
+  //                               so this holds the Xero AccountID). payout.paid is
+  //                               booked as a bank transfer FROM the Stripe-balance
+  //                               account TO this one.
+  stripeFeeAccountCode      String?
+  settlementBankAccountCode String?
 
   // A13-Xero-b: feature flag. Pushes stay OFF until connected + mapped + enabled.
   pushEnabled Boolean @default(false)
@@ -1465,12 +1475,19 @@ model XeroConnection {
 // otherwise let two identical payment pushes both insert.
 model XeroPushLog {
   id          String   @id @default(cuid())
-  bookingId   String
-  event       String // PAYMENT_RECEIVED | PAYOUT | REFUND
+  bookingId   String // for STRIPE_PAYOUT this holds the Stripe payout id
+  event       String // PAYMENT_RECEIVED | PAYOUT | REFUND | STRIPE_PAYOUT
   externalRef String   @default("") // stripeRefundId for REFUND; "" otherwise
-  xeroId      String? // returned Xero BankTransactionID(s), comma-joined
+  xeroId      String? // returned Xero BankTransactionID(s)/BankTransferID, comma-joined
   status      String   @default("PENDING") // PENDING | COMPLETED | FAILED
   lastError   String?  @db.Text
+  // STRIPE_PAYOUT: JSON summary of the balance-transaction bundle the deposit
+  // settles (payout id + constituent transaction ids) — the audit trail tying a
+  // bank deposit to the individual charges/refunds/transfers it bundles.
+  detail         String?  @db.Text
+  // Stamped from the runtime Stripe key at push time (always true — pushes are
+  // hard-blocked in test mode — but recorded so a stray test entry is auditable).
+  stripeLivemode Boolean?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

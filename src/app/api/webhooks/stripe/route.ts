@@ -11,7 +11,7 @@ import {
   sendPaymentFailureNotification,
 } from '@/lib/services/email.service';
 import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
-import { enqueueXeroPush } from '@/lib/services/xero-push.service';
+import { enqueueStripePayout, enqueueXeroPush } from '@/lib/services/xero-push.service';
 import stripe from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
@@ -215,12 +215,31 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // A13-Xero: pull the ACTUAL Stripe processing fee from the charge's balance
+      // transaction so the Xero receive nets to what Stripe truly credited. Captured
+      // HERE (enqueue time) — the balance transaction is settled once the charge
+      // succeeds. Best-effort: if unavailable the push simply omits the fee line.
+      let stripeFeeAmount: number | undefined;
+      if (chargeId) {
+        try {
+          const ch = await stripe.charges.retrieve(chargeId, {
+            expand: ['balance_transaction'],
+          });
+          const bt = ch.balance_transaction;
+          if (bt && typeof bt !== 'string') stripeFeeAmount = bt.fee / 100;
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('[xero] could not read Stripe fee for charge', chargeId, e);
+        }
+      }
+
       // A13-Xero-c: mirror the gross customer payment into Xero as Receive Money
       // (gated — no-op unless connected + mapped + flag on). Never blocks the webhook.
       await enqueueXeroPush({
         bookingId,
         event: 'PAYMENT_RECEIVED',
         occurredAt: new Date(pi.created * 1000).toISOString(),
+        stripeFeeAmount,
       }).catch(() => {});
 
       // Confirmation + cleaner-offer emails fire HERE, on payment success — not at
@@ -403,6 +422,41 @@ export async function POST(request: NextRequest) {
           .catch(() => {});
       }
     }
+  }
+
+  // A13-Xero reconciliation: the actual Stripe→bank deposit. Book it as a Xero bank
+  // transfer (Stripe-balance → settlement bank) and record the balance-transaction
+  // bundle it settles for the audit trail. PLATFORM payouts only — connected-account
+  // payout events carry event.account and are ignored (cleaner transfers are booked
+  // separately as PAYOUT). Gated + test-mode-blocked inside enqueueStripePayout.
+  if (event.type === 'payout.paid' && !event.account) {
+    const payout = event.data.object as Stripe.Payout;
+    const occurredAt = new Date((payout.arrival_date ?? payout.created) * 1000).toISOString();
+
+    // The balance transactions this payout bundles — the tie between the lump
+    // deposit and its constituent charges/refunds/transfers.
+    const items: { id: string; type: string; amount: number }[] = [];
+    let bundleUnavailable = false;
+    try {
+      for await (const bt of stripe.balanceTransactions.list({ payout: payout.id, limit: 100 })) {
+        items.push({ id: bt.id, type: bt.type, amount: bt.amount });
+        if (items.length >= 2000) break; // safety cap on unusually large payouts
+      }
+    } catch {
+      bundleUnavailable = true;
+    }
+    const bundle = JSON.stringify(
+      bundleUnavailable
+        ? { payoutId: payout.id, bundleUnavailable: true }
+        : { payoutId: payout.id, count: items.length, items }
+    );
+
+    await enqueueStripePayout({
+      payoutId: payout.id,
+      amount: payout.amount / 100,
+      occurredAt,
+      bundle,
+    }).catch(() => {});
   }
 
   return NextResponse.json({ received: true });

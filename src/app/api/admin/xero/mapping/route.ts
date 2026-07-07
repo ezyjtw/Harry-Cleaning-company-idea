@@ -16,6 +16,8 @@ const STRING_KEYS = [
   'commissionAccountCode',
   'feeAccountCode',
   'clearingAccountCode',
+  'stripeFeeAccountCode',
+  'settlementBankAccountCode',
 ] as const;
 
 export async function GET() {

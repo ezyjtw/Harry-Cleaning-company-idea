@@ -28,10 +28,10 @@ import {
 //   payout SPEND       = getTransferAmountPence(cleanerEarnings)
 // The snapshot fields are used solely to divide the commission-vs-fee remainder.
 
-export type XeroPushEvent = 'PAYMENT_RECEIVED' | 'PAYOUT' | 'REFUND';
+export type XeroPushEvent = 'PAYMENT_RECEIVED' | 'PAYOUT' | 'REFUND' | 'STRIPE_PAYOUT';
 
 export interface XeroPushPayload {
-  bookingId: string;
+  bookingId: string; // for STRIPE_PAYOUT this carries the Stripe payout id
   event: XeroPushEvent;
   externalRef?: string; // stripeRefundId for REFUND; "" otherwise
   occurredAt?: string; // ISO — the Stripe event time → transaction date
@@ -41,17 +41,57 @@ export interface XeroPushPayload {
   isPostRelease?: boolean;
   refundAmount?: number; // £ — RefundRecord.amount
   cleanerRefundPortion?: number; // £ — cleaner's proportional share of this refund
+  // PAYMENT_RECEIVED only. The ACTUAL Stripe processing fee for this charge, read
+  // from the charge's balance transaction and captured at enqueue time, so the
+  // receive nets down to what Stripe truly credited to the balance.
+  stripeFeeAmount?: number; // £
+  // STRIPE_PAYOUT only.
+  payoutAmount?: number; // £ — the deposit landing in the real bank
+  payoutBundle?: string; // JSON audit summary of the balance-transaction bundle
 }
 
 const money = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * Enqueue a XERO_PUSH job — but only when pushing is actually enabled, so a
- * disabled integration queues nothing at all (zero footprint).
+ * TEST-MODE GUARD. Xero pushes are REAL money in James's live books, so they
+ * must NEVER fire while Stripe is in test mode. Live only when the secret key is
+ * a live (sk_live_/rk_live_) key. Enforced at BOTH enqueue and run time.
+ */
+function stripeIsLive(): boolean {
+  return /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? '');
+}
+
+/**
+ * Enqueue a XERO_PUSH job — but only when pushing is enabled AND Stripe is live,
+ * so a disabled integration (or any test-mode activity) queues nothing at all.
  */
 export async function enqueueXeroPush(payload: XeroPushPayload): Promise<void> {
+  if (!stripeIsLive()) return;
   if (!(await isPushEnabled())) return;
   await JobQueueService.enqueue('XERO_PUSH', payload as unknown as Record<string, unknown>);
+}
+
+/**
+ * Enqueue the Stripe→bank payout as a Xero bank transfer (Stripe-balance account
+ * → settlement bank). The payout id occupies the bookingId slot so XeroPushLog's
+ * unique key de-dupes per payout. Gated identically (live + push enabled).
+ */
+export async function enqueueStripePayout(input: {
+  payoutId: string;
+  amount: number; // £
+  occurredAt: string; // ISO (arrival date)
+  bundle: string; // JSON audit summary
+}): Promise<void> {
+  if (!stripeIsLive()) return;
+  if (!(await isPushEnabled())) return;
+  await JobQueueService.enqueue('XERO_PUSH', {
+    bookingId: input.payoutId,
+    event: 'STRIPE_PAYOUT',
+    externalRef: '',
+    occurredAt: input.occurredAt,
+    payoutAmount: input.amount,
+    payoutBundle: input.bundle,
+  } as unknown as Record<string, unknown>);
 }
 
 /** Job handler: build + post the bank transaction(s) for one booking event. */
@@ -59,15 +99,25 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
   const { bookingId, event } = payload;
   const externalRef = payload.externalRef ?? '';
 
+  // TEST-MODE GUARD (defence-in-depth alongside the enqueue check): never post to
+  // James's live books while Stripe is in test mode.
+  if (!stripeIsLive()) return;
+
   // Runtime re-check: the flag may have flipped off between enqueue and drain.
   if (!(await isPushEnabled())) return;
 
   const mapping = await getMapping();
   if (!mapping) return;
-  // Bank is OPTIONAL to save but REQUIRED to push — transactions post to it.
+  // The Stripe-balance bank is required to post — every transaction/transfer uses it.
   if (!mapping.bankAccountCode) {
     // eslint-disable-next-line no-console
-    console.warn(`[xero-push] bank account unmapped — skipping ${event} for ${bookingId}`);
+    console.warn(`[xero-push] Stripe-balance bank unmapped — skipping ${event} for ${bookingId}`);
+    return;
+  }
+  // STRIPE_PAYOUT transfers INTO the settlement bank — it must be mapped too.
+  if (event === 'STRIPE_PAYOUT' && !mapping.settlementBankAccountCode) {
+    // eslint-disable-next-line no-console
+    console.warn(`[xero-push] settlement bank unmapped — skipping payout ${bookingId}`);
     return;
   }
 
@@ -77,20 +127,43 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
   });
   if (existing?.status === 'COMPLETED') return;
 
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!booking) return;
+  // Booking events need a booking; STRIPE_PAYOUT (payout id in bookingId) does not.
+  let booking: Awaited<ReturnType<typeof prisma.booking.findUnique>> = null;
+  if (event !== 'STRIPE_PAYOUT') {
+    booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) return;
+  }
 
-  // Claim (or reuse) a PENDING log row.
+  // Claim (or reuse) a PENDING log row. stripeLivemode is stamped true (we only
+  // reach here when live) as a permanent audit marker.
   const log =
     existing ??
     (await prisma.xeroPushLog.create({
-      data: { bookingId, event, externalRef, status: 'PENDING' },
+      data: { bookingId, event, externalRef, status: 'PENDING', stripeLivemode: true },
     }));
 
   try {
     const authed = await getAuthedClient();
     if (!authed) throw new Error('Xero not connected at push time');
 
+    // ── STRIPE_PAYOUT: book the bank deposit as a Xero bank transfer ──
+    if (event === 'STRIPE_PAYOUT') {
+      const transferId = await postStripePayout(authed, mapping, payload);
+      await prisma.xeroPushLog.update({
+        where: { id: log.id },
+        data: {
+          status: 'COMPLETED',
+          xeroId: transferId,
+          detail: payload.payoutBundle ?? null,
+          lastError: null,
+        },
+      });
+      return;
+    }
+
+    // Unreachable (non-payout events returned above if the booking was missing);
+    // the guard narrows the type for buildBankTransactions.
+    if (!booking) throw new Error('Xero push: booking missing for a booking-scoped event');
     const contactID = await findOrCreatePlatformContact(authed);
     const txns = buildBankTransactions(event, booking, mapping, contactID, payload);
     if (txns.length === 0) {
@@ -185,6 +258,47 @@ async function findOrCreatePlatformContact(authed: {
   return contactID;
 }
 
+/**
+ * STRIPE_PAYOUT: book the Stripe→bank deposit as a Xero bank transfer from the
+ * Stripe-balance account to the settlement (real bank) account. The payout id is
+ * the transfer reference; the balance-transaction bundle is recorded on the
+ * XeroPushLog (detail) by the caller. Returns the Xero BankTransferID(s).
+ */
+async function postStripePayout(
+  authed: { client: XeroClient; tenantId: string },
+  mapping: XeroMapping,
+  payload: XeroPushPayload
+): Promise<string | null> {
+  const amount = money(payload.payoutAmount ?? 0);
+  if (amount <= 0) return null;
+  const date = (payload.occurredAt ? new Date(payload.occurredAt) : new Date())
+    .toISOString()
+    .slice(0, 10);
+
+  const res = await authed.client.accountingApi.createBankTransfer(
+    authed.tenantId,
+    {
+      bankTransfers: [
+        {
+          fromBankAccount: { accountID: mapping.bankAccountCode as string },
+          toBankAccount: { accountID: mapping.settlementBankAccountCode as string },
+          amount,
+          date,
+          reference: `Stripe payout ${payload.bookingId}`,
+        },
+      ],
+    },
+    `payout:${payload.bookingId}` // Idempotency-Key
+  );
+
+  return (
+    (res.body.bankTransfers ?? [])
+      .map((t) => t.bankTransferID)
+      .filter(Boolean)
+      .join(',') || null
+  );
+}
+
 /** Build the 1–2 bank transactions for an event. Lines reconcile to the gross. */
 function buildBankTransactions(
   event: XeroPushEvent,
@@ -236,6 +350,13 @@ function buildBankTransactions(
       line(fee, mapping.feeAccountCode, 'Platform service fee'),
       line(cleanerNet, mapping.clearingAccountCode, 'Cleaner net (held on their behalf)'),
     ]);
+    // Stripe's processing fee as a NEGATIVE line coded to the expense account, so
+    // the receive total = gross − stripeFee = what Stripe actually credited to the
+    // balance. Appended AFTER nonZero() (which strips ≤ 0 and would drop it).
+    const stripeFee = money(payload.stripeFeeAmount ?? 0);
+    if (stripeFee > 0 && mapping.stripeFeeAccountCode) {
+      lineItems.push(line(-stripeFee, mapping.stripeFeeAccountCode, 'Stripe processing fee'));
+    }
     return lineItems.length === 0
       ? []
       : [

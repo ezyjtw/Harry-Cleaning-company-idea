@@ -23,6 +23,8 @@ interface XeroMapping {
   commissionAccountCode: string | null;
   feeAccountCode: string | null;
   clearingAccountCode: string | null;
+  stripeFeeAccountCode: string | null;
+  settlementBankAccountCode: string | null;
   pushEnabled: boolean;
 }
 
@@ -65,10 +67,26 @@ const ROLES: Role[] = [
     only: (a) => !!a.code,
   },
   {
+    key: 'stripeFeeAccountCode',
+    label: 'Stripe fees',
+    hint: "Stripe's processing fee → expense",
+    required: true,
+    idKey: 'code',
+    only: (a) => !!a.code,
+  },
+  {
     key: 'bankAccountCode',
-    label: 'Bank account (optional)',
-    hint: 'The account mirroring your Stripe balance — needed for pushing',
-    required: false,
+    label: 'Stripe balance account',
+    hint: 'The bank account mirroring your Stripe balance — payments land here',
+    required: true,
+    idKey: 'accountID',
+    only: (a) => a.type === 'BANK',
+  },
+  {
+    key: 'settlementBankAccountCode',
+    label: 'Settlement bank account',
+    hint: 'Your real bank — where Stripe pays out (payouts transfer here)',
+    required: true,
     idKey: 'accountID',
     only: (a) => a.type === 'BANK',
   },
@@ -79,6 +97,8 @@ const emptyMapping: XeroMapping = {
   commissionAccountCode: null,
   feeAccountCode: null,
   clearingAccountCode: null,
+  stripeFeeAccountCode: null,
+  settlementBankAccountCode: null,
   pushEnabled: false,
 };
 
@@ -221,6 +241,23 @@ export default function AdminXeroPage() {
             </div>
           </div>
 
+          {/* Push-paused banner: pushing was ON but the mapping is now incomplete
+              (e.g. after the reconciliation update added required accounts). Loud
+              so it can never pause silently. */}
+          {status.connected && mapping.pushEnabled && !complete && (
+            <div className="rounded border-2 border-danger/40 bg-danger/10 px-4 py-3">
+              <p className="text-sm font-semibold text-danger">
+                Push paused: mapping incomplete
+              </p>
+              <p className="mt-1 text-sm text-ink-2">
+                Pushing is switched on but Rena is <strong>not</strong> sending anything to Xero
+                until every required account is mapped below — including the two new ones,{' '}
+                <strong>Stripe fees</strong> and <strong>Settlement bank account</strong>. Map them
+                and Save to resume.
+              </p>
+            </div>
+          )}
+
           {/* Account mapping */}
           {status.connected && (
             <div className="rounded border border-line bg-surface p-5">
@@ -280,6 +317,8 @@ export default function AdminXeroPage() {
                     commissionAccountCode: mapping.commissionAccountCode,
                     feeAccountCode: mapping.feeAccountCode,
                     clearingAccountCode: mapping.clearingAccountCode,
+                    stripeFeeAccountCode: mapping.stripeFeeAccountCode,
+                    settlementBankAccountCode: mapping.settlementBankAccountCode,
                   })
                 }
                 disabled={busy}
