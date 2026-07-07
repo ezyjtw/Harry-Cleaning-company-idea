@@ -328,15 +328,42 @@ export async function sendVerificationDecision(data: {
 
 export async function sendTopupApprovalRequest(data: {
   bookingId: string;
-  customerEmail: string;
-  customerName: string;
+  customerEmail?: string | null;
+  customerName?: string | null;
   originalPrice: number;
   newPrice: number;
   topupAmount: number;
   expiresAt: Date;
 }): Promise<boolean> {
-  const { subject, html } = buildTopupApprovalRequest(data);
-  return sendEmail(data.customerEmail, subject, html);
+  // F5 guest parity: resolve the recipient from the booking — registered
+  // customers get the plain link, guests get the SAME email with their
+  // capability token in the approval link. Call sites no longer need
+  // client-only gates.
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: data.bookingId },
+    select: {
+      clientId: true,
+      guestToken: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { email: true, name: true } },
+    },
+  });
+  const email = data.customerEmail ?? b?.client?.email ?? b?.guestEmail ?? null;
+  const name = data.customerName ?? b?.client?.name ?? b?.guestName ?? 'there';
+  const guestToken = b && !b.clientId ? b.guestToken : null;
+  if (!email) return false;
+  const { subject, html } = buildTopupApprovalRequest({
+    bookingId: data.bookingId,
+    customerName: name,
+    originalPrice: data.originalPrice,
+    newPrice: data.newPrice,
+    topupAmount: data.topupAmount,
+    expiresAt: data.expiresAt,
+    guestToken,
+  });
+  return sendEmail(email, subject, html);
 }
 
 // ─── M3 rescue: cleaner cancelled ──────────────────────────
@@ -355,6 +382,85 @@ export async function sendCleanerCancelledRescue(data: {
   const { buildCleanerCancelledRescue } = await import('./email-templates');
   const { subject, html } = buildCleanerCancelledRescue(data);
   return sendEmail(data.customerEmail, subject, html);
+}
+
+// ─── X1 cascade milestone emails ───────────────────────────
+
+async function resolveBookingRecipient(bookingId: string): Promise<{
+  email: string;
+  name: string;
+  guestToken: string | null;
+  serviceType: string;
+  date: Date;
+} | null> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      clientId: true,
+      guestToken: true,
+      guestEmail: true,
+      guestName: true,
+      serviceType: true,
+      date: true,
+      client: { select: { email: true, name: true } },
+    },
+  });
+  if (!b) return null;
+  const email = b.client?.email ?? b.guestEmail;
+  if (!email) return null;
+  return {
+    email,
+    name: b.client?.name ?? b.guestName ?? 'there',
+    guestToken: b.clientId ? null : b.guestToken,
+    serviceType: b.serviceType,
+    date: b.date,
+  };
+}
+
+/** X1: chosen cleaner → searching. NEVER silent — both audiences. */
+export async function sendCascadeSearchingUpdate(bookingId: string): Promise<boolean> {
+  const r = await resolveBookingRecipient(bookingId);
+  if (!r) return false;
+  const { buildCascadeSearchingUpdate } = await import('./email-templates');
+  const { subject, html } = buildCascadeSearchingUpdate({
+    bookingId,
+    customerName: r.name,
+    serviceType: r.serviceType,
+    date: r.date,
+    guestToken: r.guestToken,
+  });
+  return sendEmail(r.email, subject, html);
+}
+
+/** X1: searching → Rena-Find. The concierge reassurance — both audiences. */
+export async function sendRenaFindConcierge(bookingId: string): Promise<boolean> {
+  const r = await resolveBookingRecipient(bookingId);
+  if (!r) return false;
+  const { buildRenaFindConcierge } = await import('./email-templates');
+  const { subject, html } = buildRenaFindConcierge({
+    bookingId,
+    customerName: r.name,
+    serviceType: r.serviceType,
+    date: r.date,
+    guestToken: r.guestToken,
+  });
+  return sendEmail(r.email, subject, html);
+}
+
+/** X1: exhausted → full auto-refund. Both audiences. */
+export async function sendCascadeExhaustedRefund(bookingId: string): Promise<boolean> {
+  const r = await resolveBookingRecipient(bookingId);
+  if (!r) return false;
+  const { buildCascadeExhaustedRefund } = await import('./email-templates');
+  const { subject, html } = buildCascadeExhaustedRefund({
+    bookingId,
+    customerName: r.name,
+    serviceType: r.serviceType,
+    date: r.date,
+    guestToken: r.guestToken,
+  });
+  return sendEmail(r.email, subject, html);
 }
 
 // ─── Signup Notification Email ─────────────────────────────

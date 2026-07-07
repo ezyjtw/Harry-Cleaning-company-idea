@@ -14,7 +14,12 @@ import prisma from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
 import { BookingReminderService } from './booking-reminder.service';
-import { sendTopupApprovalRequest } from './email.service';
+import {
+  sendCascadeExhaustedRefund,
+  sendCascadeSearchingUpdate,
+  sendRenaFindConcierge,
+  sendTopupApprovalRequest,
+} from './email.service';
 import { MatchingService } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
@@ -179,6 +184,9 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
       })
       .catch(() => {});
   }
+  // X1: chosen-cleaner → searching is NEVER silent — email BOTH audiences
+  // (registered + guest; the sender resolves the recipient + tokened link).
+  await sendCascadeSearchingUpdate(bookingId).catch(() => {});
 }
 
 // ─── Decline ───────────────────────────────────────────────────
@@ -813,6 +821,8 @@ async function reopenToBackups(
       })
       .catch(() => {});
   }
+  // X1: back to searching — email both audiences.
+  await sendCascadeSearchingUpdate(bookingId).catch(() => {});
 }
 
 export async function promoteReserves(bookingId: string): Promise<boolean> {
@@ -912,17 +922,14 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
     metadata: { cleanerId: winner.cleanerId, price: winner.total, topupAmount, remaining },
   }).catch(() => {});
 
-  if (booking.client?.email) {
-    await sendTopupApprovalRequest({
-      bookingId,
-      customerEmail: booking.client.email,
-      customerName: booking.client.name || 'Customer',
-      originalPrice: Number(booking.totalPrice),
-      newPrice: winner.total,
-      topupAmount,
-      expiresAt: approvalExpiresAt,
-    }).catch(() => {});
-  }
+  // F5: sender resolves registered vs guest recipient (guests get tokened links).
+  await sendTopupApprovalRequest({
+    bookingId,
+    originalPrice: Number(booking.totalPrice),
+    newPrice: winner.total,
+    topupAmount,
+    expiresAt: approvalExpiresAt,
+  }).catch(() => {});
   return true;
 }
 
@@ -1010,17 +1017,16 @@ export async function enterAdminReassignProvisional(args: {
     },
   }).catch(() => {});
 
-  if (args.customerEmail) {
-    await sendTopupApprovalRequest({
-      bookingId: args.bookingId,
-      customerEmail: args.customerEmail,
-      customerName: args.customerName || 'Customer',
-      originalPrice: args.originalPrice,
-      newPrice: args.provisionalPrice,
-      topupAmount: args.topupAmount,
-      expiresAt: approvalExpiresAt,
-    }).catch(() => {});
-  }
+  // F5: sender resolves registered vs guest recipient (guests get tokened links).
+  await sendTopupApprovalRequest({
+    bookingId: args.bookingId,
+    customerEmail: args.customerEmail || undefined,
+    customerName: args.customerName || undefined,
+    originalPrice: args.originalPrice,
+    newPrice: args.provisionalPrice,
+    topupAmount: args.topupAmount,
+    expiresAt: approvalExpiresAt,
+  }).catch(() => {});
 
   return { success: true, approvalExpiresAt };
 }
@@ -1224,6 +1230,7 @@ async function cascadeExhaust(bookingId: string, expectedPhase: CascadePhase): P
     const refunded = await autoRefundExhausted(bookingId);
     if (!refunded) {
       await notifyCustomerExhausted(bookingId);
+      await emailCustomerExhausted(bookingId);
     }
     return true;
   }
@@ -1343,6 +1350,8 @@ async function enterRenaFind(
       })
       .catch(() => {});
   }
+  // X1: searching → Rena-Find sends the concierge reassurance — both audiences.
+  await sendRenaFindConcierge(bookingId).catch(() => {});
 
   await AuditService.log({
     action: 'RENA_FIND_ENTERED',
@@ -1372,6 +1381,7 @@ export async function expireRenaFind(bookingId: string): Promise<boolean> {
     const refunded = await autoRefundExhausted(bookingId);
     if (!refunded) {
       await notifyCustomerExhausted(bookingId);
+      await emailCustomerExhausted(bookingId);
     }
     return true;
   }
@@ -1526,6 +1536,7 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
         const refunded = await autoRefundExhausted(booking.id);
         if (!refunded) {
           await notifyCustomerExhausted(booking.id);
+          await emailCustomerExhausted(booking.id);
         }
         processed++;
       }
@@ -1588,4 +1599,10 @@ async function notifyCustomerExhausted(bookingId: string): Promise<void> {
       },
     })
     .catch(() => {});
+}
+
+// X1: the exhausted email goes to BOTH audiences (the in-app row above is
+// registered-only by nature). Called alongside notifyCustomerExhausted.
+export async function emailCustomerExhausted(bookingId: string): Promise<void> {
+  await sendCascadeExhaustedRefund(bookingId).catch(() => {});
 }

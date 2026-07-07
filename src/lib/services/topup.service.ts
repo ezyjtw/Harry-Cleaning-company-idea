@@ -82,10 +82,10 @@ export async function executeTopup(bookingId: string): Promise<TopupResult> {
     return { outcome: 'FAILED', reason: 'No original payment intent' };
   }
 
-  const stripeCustomerId = booking.client?.stripeCustomerId;
-  if (!stripeCustomerId) {
-    return { outcome: 'FAILED', reason: 'No Stripe customer — cannot charge' };
-  }
+  // F5: guests have no Stripe customer — they take the ON-SESSION path below
+  // (a fresh PI without `customer`; the tokened approval page collects the card
+  // for the difference). Registered customers keep the saved-card fast path.
+  const stripeCustomerId = booking.client?.stripeCustomerId ?? null;
 
   const topupAmountPounds = Number(booking.topupAmount);
   const topupAmountPence = Math.round(topupAmountPounds * 100);
@@ -107,7 +107,7 @@ export async function executeTopup(bookingId: string): Promise<TopupResult> {
       : originalPi.payment_method?.id;
 
   let methodIsReusable = false;
-  if (savedMethodId) {
+  if (savedMethodId && stripeCustomerId) {
     try {
       const method = await stripe.paymentMethods.retrieve(savedMethodId);
       methodIsReusable = method.customer === stripeCustomerId;
@@ -121,7 +121,7 @@ export async function executeTopup(bookingId: string): Promise<TopupResult> {
   const idempotencyKey = `topup_${topupRecord.id}_v${attempt}`;
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- savedMethodId is set when methodIsReusable is true
-  if (methodIsReusable && savedMethodId) {
+  if (methodIsReusable && savedMethodId && stripeCustomerId) {
     return executeOffSessionTopup(
       booking,
       topupRecord,
@@ -267,7 +267,7 @@ async function createOnSessionTopup(
   topupRecord: { id: string; attempt: number },
   amountPence: number,
   _amountPounds: number,
-  stripeCustomerId: string,
+  stripeCustomerId: string | null, // null for guests (F5) — PI created without customer
   idempotencyKey: string,
   attempt: number
 ): Promise<TopupResult> {
@@ -276,7 +276,7 @@ async function createOnSessionTopup(
       {
         amount: amountPence,
         currency: 'gbp',
-        customer: stripeCustomerId,
+        ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
         metadata: {
           bookingId: booking.id,
           topupRecordId: topupRecord.id,

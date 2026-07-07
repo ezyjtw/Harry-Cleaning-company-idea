@@ -522,8 +522,13 @@ export function buildTopupApprovalRequest(data: {
   newPrice: number;
   topupAmount: number;
   expiresAt: Date;
+  guestToken?: string | null; // F5: guests approve via their capability token
 }): EmailContent {
-  const approvalLink = `${appUrl()}/en/bookings/${data.bookingId}/approve-topup`;
+  // Path fix: the approval page lives at /booking/[id]/approve-topup — the old
+  // link ("/en/bookings/…") 404'd for every registered customer.
+  const approvalLink = data.guestToken
+    ? `${appUrl()}/booking/${data.bookingId}/approve-topup?token=${encodeURIComponent(data.guestToken)}`
+    : `${appUrl()}/booking/${data.bookingId}/approve-topup`;
   const hoursLeft = Math.max(
     1,
     Math.round((data.expiresAt.getTime() - Date.now()) / (60 * 60 * 1000))
@@ -602,6 +607,98 @@ export function buildCleanerCancelledRescue(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// ─── X1 cascade milestone emails (both audiences; guests get tokened links) ──
+
+function bookingTrackLink(bookingId: string, guestToken?: string | null): string {
+  return guestToken
+    ? `${appUrl()}/booking/guest?token=${encodeURIComponent(guestToken)}`
+    : `${appUrl()}/booking/${bookingId}`;
+}
+
+export function buildCascadeSearchingUpdate(data: {
+  bookingId: string;
+  customerName: string;
+  serviceType: string;
+  date: Date;
+  guestToken?: string | null;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const subject = "We're finding your cleaner — your booking is safe";
+  const contentHtml =
+    h('We&rsquo;re finding your cleaner') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `Your chosen cleaner couldn&rsquo;t confirm your ${data.serviceType} booking on <strong>${dateStr}</strong> &mdash; we&rsquo;re sorry about that. The good news: <strong>your booking and payment are unchanged</strong>, and we&rsquo;re already contacting great alternative cleaners at or below your original price.`
+    ) +
+    p(
+      'You don&rsquo;t need to do anything. We&rsquo;ll email you the moment a cleaner confirms &mdash; and if we can&rsquo;t find anyone in time, you&rsquo;ll get a full refund automatically.'
+    ) +
+    button(bookingTrackLink(data.bookingId, data.guestToken), 'View your booking') +
+    p('Thank you for your patience,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+export function buildRenaFindConcierge(data: {
+  bookingId: string;
+  customerName: string;
+  serviceType: string;
+  date: Date;
+  guestToken?: string | null;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const subject = 'Our team is personally finding your cleaner';
+  const contentHtml =
+    h('Our team is on it') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `Finding the right cleaner for your ${data.serviceType} booking on <strong>${dateStr}</strong> is taking longer than we&rsquo;d like &mdash; so our team is now <strong>personally</strong> searching our wider network for you.`
+    ) +
+    p(
+      'Your booking and payment are unchanged. We&rsquo;ll email you as soon as a cleaner is confirmed &mdash; and if we can&rsquo;t find the right person in time, you&rsquo;ll receive a full refund automatically. You never pay for a clean that doesn&rsquo;t happen.'
+    ) +
+    button(bookingTrackLink(data.bookingId, data.guestToken), 'View your booking') +
+    p('Thank you for bearing with us,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+export function buildCascadeExhaustedRefund(data: {
+  bookingId: string;
+  customerName: string;
+  serviceType: string;
+  date: Date;
+  guestToken?: string | null;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const subject = "We couldn't find a cleaner this time — your full refund is on its way";
+  const contentHtml =
+    h('We&rsquo;re sorry &mdash; and you&rsquo;re fully refunded') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `Despite our best efforts, we couldn&rsquo;t find an available cleaner for your ${data.serviceType} booking on <strong>${dateStr}</strong>. We&rsquo;re really sorry to let you down.`
+    ) +
+    p(
+      '<strong>Your full refund is already being processed</strong> &mdash; it will arrive back on your original payment method within 5&ndash;10 business days. There is nothing you need to do.'
+    ) +
+    p(
+      'If you&rsquo;d like to try a different date or time (availability changes daily), we&rsquo;d love another chance:'
+    ) +
+    button(`${appUrl()}/services`, 'Book another clean') +
+    p('With apologies,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildSignupNotification(data: {
   name: string;
   email: string;
@@ -629,17 +726,19 @@ export function buildPaymentFailureNotification(data: {
   customerName: string;
   reason: string;
 }): EmailContent {
-  const retryLink = `${appUrl()}/booking/retry?id=${data.bookingId}`;
-  const subject = 'Payment unsuccessful - action required';
+  // The old "/booking/retry" page never existed (dead link) — the honest CTA is
+  // a fresh booking, since a failed payment cancels the pending booking.
+  const retryLink = `${appUrl()}/services`;
+  const subject = 'Payment unsuccessful — you have not been charged';
   const contentHtml =
     h('Payment unsuccessful') +
     p(`Hi ${data.customerName},`) +
     p(
-      `Unfortunately, the payment for your booking <strong>#${data.bookingId}</strong> could not be processed.`
+      `Unfortunately, the payment for your booking <strong>#${data.bookingId}</strong> could not be processed. <strong>You have NOT been charged</strong> and the booking was not confirmed.`
     ) +
     p(`<strong>Reason:</strong> ${data.reason}`) +
-    p('You can try again with a different payment method:') +
-    button(retryLink, 'Retry Payment') +
+    p('You can book again with a different payment method whenever you like:') +
+    button(retryLink, 'Book again') +
     p('If you continue to experience issues, please contact our support team.') +
     p('Best regards,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };

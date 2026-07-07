@@ -214,13 +214,9 @@ export async function rescueRebook(params: {
   } catch {
     return { ok: false, status: 422, error: 'Could not price this cleaner for your booking' };
   }
-  if (params.isGuest && priceDelta > 0.01) {
-    return {
-      ok: false,
-      status: 422,
-      error: 'This cleaner costs more than you paid — guest rebookings must be the same price or less. Choose another cleaner or take the full refund.',
-    };
-  }
+  // F5: guests may now pick pricier cleaners — the approval email carries their
+  // token and the difference is collected on the tokened approval page after
+  // the cleaner accepts. (The old refusal predates guest top-up support.)
 
   // Re-enter matching: SAME booking row, SAME captured charge — no Stripe call
   // here at all ("the money simply moves"). The chosen cleaner gets a normal

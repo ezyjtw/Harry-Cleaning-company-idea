@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import BookingStatusChip from '@/components/BookingStatusChip';
+import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -286,6 +286,12 @@ export default function AccountHome() {
                       <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
                         {booking.cleaner.name || 'Cleaner being assigned'}
                       </p>
+                      {booking.status === 'AWAITING_CLEANER' &&
+                        cascadeSentence(booking.cascadePhase, booking.cleaner.name) && (
+                          <p className="mt-1 font-jost text-[13px] text-primary">
+                            {cascadeSentence(booking.cascadePhase, booking.cleaner.name)}
+                          </p>
+                        )}
                       <div className="mt-1 flex items-center gap-3 font-jost text-sm font-light text-ink-3">
                         <span>{formatDate(booking.date)}</span>
                         <span className="h-1 w-1 rounded-full bg-ink-3/40" />

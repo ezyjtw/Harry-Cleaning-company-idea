@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       // A12: guests see their own address (read from booking columns, guest-safe).
       address: bookingFullAddress(booking),
       status: booking.status,
+      cascadePhase: booking.cascadePhase,
       paymentStatus: booking.paymentStatus,
       // M3 rescue: the tokened tracking page renders the refund/rebook panel.
       rescueDeadline: booking.rescueDeadline ? booking.rescueDeadline.toISOString() : null,

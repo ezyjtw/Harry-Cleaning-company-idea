@@ -342,7 +342,7 @@ export default function RescuePanel(props: RescuePanelProps) {
             refund the difference automatically; if more, we&rsquo;ll ask you to approve it before
             anything is charged.
             {props.guestToken
-              ? ' As a guest booking, only cleaners at your original price or less can be chosen.'
+              ? " If they cost more, we'll email you a secure link to approve the difference — nothing is charged until you do."
               : ''}
           </p>
 

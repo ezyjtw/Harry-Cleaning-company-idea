@@ -8,11 +8,27 @@ import { executeTopup } from '@/lib/services/topup.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: NextRequest, context: RouteContext) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// F5: guests approve top-ups too. Authorization = the booking's registered
+// owner (session) OR its guest token (query/body) — the same capability-token
+// model as the tracking page and the rescue route (F5/F3 pattern: every guest
+// action works tokened, end to end).
+function isAuthorized(
+  booking: { clientId: string | null; guestToken: string | null },
+  user: { id: string } | null,
+  token: string | null
+): boolean {
+  if (user && booking.clientId && user.id === booking.clientId) return true;
+  if (!booking.clientId && token && UUID_RE.test(token) && booking.guestToken === token) {
+    return true;
   }
+  return false;
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const user = await getSessionUser();
+  const token = new URL(request.url).searchParams.get('token');
 
   const { id } = await context.params;
 
@@ -21,6 +37,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     select: {
       id: true,
       clientId: true,
+      guestToken: true,
       totalPrice: true,
       provisionalPrice: true,
       topupAmount: true,
@@ -41,8 +58,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  if (booking.clientId !== user.id) {
-    return NextResponse.json({ error: 'Not your booking' }, { status: 403 });
+  if (!isAuthorized(booking, user, token)) {
+    return NextResponse.json({ error: 'Not authorised for this booking' }, { status: 403 });
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {
@@ -65,19 +82,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   const { id } = await context.params;
   const body = await request.json();
   const { action } = body;
+  const token = typeof body.guestToken === 'string' ? body.guestToken : null;
 
   const booking = await prisma.booking.findUnique({
     where: { id },
     select: {
       id: true,
       clientId: true,
+      guestToken: true,
       cascadePhase: true,
       approvalExpiresAt: true,
     },
@@ -87,8 +103,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  if (booking.clientId !== user.id) {
-    return NextResponse.json({ error: 'Not your booking' }, { status: 403 });
+  if (!isAuthorized(booking, user, token)) {
+    return NextResponse.json({ error: 'Not authorised for this booking' }, { status: 403 });
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {

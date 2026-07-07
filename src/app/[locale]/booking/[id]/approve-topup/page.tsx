@@ -1,7 +1,7 @@
 'use client';
 
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
@@ -22,14 +22,21 @@ type PageState = 'loading' | 'loaded' | 'processing' | 'success' | 'declined' | 
 
 export default function ApproveTopupPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const bookingId = params.id as string;
+  // F5: guests arrive from the tokened approval email — every call (GET, POST,
+  // and the Stripe return_url) carries the token so the whole flow works
+  // without an account.
+  const guestToken = searchParams.get('token');
   const [data, setData] = useState<TopupData | null>(null);
   const [state, setState] = useState<PageState>('loading');
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/bookings/${bookingId}/approve-topup`)
+    fetch(
+      `/api/bookings/${bookingId}/approve-topup${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`
+    )
       .then((r) => r.json())
       .then((d) => {
         if (d.error) {
@@ -47,7 +54,7 @@ export default function ApproveTopupPage() {
         setError('Failed to load booking details');
         setState('error');
       });
-  }, [bookingId]);
+  }, [bookingId, guestToken]);
 
   const handleApprove = useCallback(async () => {
     setState('processing');
@@ -56,7 +63,7 @@ export default function ApproveTopupPage() {
       const res = await fetch(`/api/bookings/${bookingId}/approve-topup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve' }),
+        body: JSON.stringify({ action: 'approve', ...(guestToken ? { guestToken } : {}) }),
       });
       const result = await res.json();
 
@@ -73,7 +80,7 @@ export default function ApproveTopupPage() {
       setError('Network error — please try again');
       setState('loaded');
     }
-  }, [bookingId]);
+  }, [bookingId, guestToken]);
 
   const handleDecline = useCallback(async () => {
     setState('processing');
@@ -82,14 +89,14 @@ export default function ApproveTopupPage() {
       await fetch(`/api/bookings/${bookingId}/approve-topup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'decline' }),
+        body: JSON.stringify({ action: 'decline', ...(guestToken ? { guestToken } : {}) }),
       });
       setState('declined');
     } catch {
       setError('Network error — please try again');
       setState('loaded');
     }
-  }, [bookingId]);
+  }, [bookingId, guestToken]);
 
   if (state === 'loading') {
     return (
@@ -161,6 +168,7 @@ export default function ApproveTopupPage() {
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
             <TopupPaymentForm
               bookingId={bookingId}
+              guestToken={guestToken}
               onSuccess={() => setState('success')}
               onError={(msg) => {
                 setError(msg);
@@ -251,10 +259,12 @@ export default function ApproveTopupPage() {
 
 function TopupPaymentForm({
   bookingId,
+  guestToken,
   onSuccess,
   onError,
 }: {
   bookingId: string;
+  guestToken: string | null;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
@@ -272,7 +282,7 @@ function TopupPaymentForm({
     const result = await stripeHook.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${appUrl}/en/booking/${bookingId}/approve-topup`,
+        return_url: `${appUrl}/booking/${bookingId}/approve-topup${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`,
       },
     });
 
