@@ -216,11 +216,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
+  // Products fee (James-ruled real addon): server-priced via addons:['products'].
+  const [bringsProducts, setBringsProducts] = useState(false);
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [serverQuote, setServerQuote] = useState<{
     cleanerListedPrice: number;
     customerPlatformFee: number;
     customerTotal: number;
+    productsFee: number;
   } | null>(null);
   const { trackStep, trackConversion } = useAnalytics('booking');
 
@@ -266,6 +269,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         serviceSlug,
         hours: form.duration,
         propertySize: propertySize || undefined,
+        addons: bringsProducts ? ['products'] : undefined,
       }),
       signal: controller.signal,
     })
@@ -276,6 +280,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             cleanerListedPrice: data.cleanerListedPrice,
             customerPlatformFee: data.customerPlatformFee,
             customerTotal: data.customerTotal,
+            productsFee: data.productsFee ?? 0,
           });
         } else {
           setServerQuote(null);
@@ -283,7 +288,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [params.id, form.serviceType, form.duration, form.bedrooms]);
+  }, [params.id, form.serviceType, form.duration, form.bedrooms, bringsProducts]);
 
   if (!cleaner) {
     return (
@@ -300,9 +305,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     ? {
         listedSubtotal: serverQuote.cleanerListedPrice,
         serviceFee: serverQuote.customerPlatformFee,
+        productsFee: serverQuote.productsFee,
         total: serverQuote.customerTotal,
       }
-    : { listedSubtotal: 0, serviceFee: 0, total: 0 };
+    : { listedSubtotal: 0, serviceFee: 0, productsFee: 0, total: 0 };
 
   // Booking Summary cleaner-rate line. Fixed-price services (EoT / Airbnb) don't
   // have an hourly rate — read the cleaner's per-size fixed price instead of
@@ -446,6 +452,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({
           cleanerId: cleaner.id,
           ...form,
+          addons: bringsProducts ? ['products'] : undefined,
           propertySize,
           totalPrice: priceBreakdown.total,
           isLastMinute,
@@ -529,6 +536,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 &pound;{priceBreakdown.serviceFee.toFixed(2)}
               </span>
             </div>
+            {priceBreakdown.productsFee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-ink-3">Cleaning products</span>
+                <span className="font-normal text-ink">
+                  &pound;{priceBreakdown.productsFee.toFixed(2)}
+                </span>
+              </div>
+            )}
             <div
               className="flex justify-between pt-2 mt-2"
               style={{ borderTop: '0.5px solid #E4E9F0' }}
@@ -1119,6 +1134,28 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            {/* Products fee toggle (James-ruled £5 real addon) */}
+            <label
+              className="flex cursor-pointer items-start gap-3 p-3"
+              style={{ border: '0.5px solid #E4E9F0' }}
+            >
+              <input
+                type="checkbox"
+                checked={bringsProducts}
+                onChange={(e) => setBringsProducts(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <span className="block font-jost text-sm text-ink">
+                  Cleaner brings products (+&pound;5)
+                </span>
+                <span className="block font-jost text-[12px] font-light text-ink-3">
+                  A flat &pound;5 covers your cleaner&apos;s supplies. Untick if you&apos;ll
+                  provide your own.
+                </span>
+              </span>
+            </label>
+
             {/* Notes */}
             <div>
               <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -1216,6 +1253,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       &pound;{priceBreakdown.serviceFee.toFixed(2)}
                     </span>
                   </div>
+                  {priceBreakdown.productsFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-ink-3">Cleaning products</span>
+                      <span className="font-normal text-ink">
+                        &pound;{priceBreakdown.productsFee.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   <div
                     className="flex justify-between pt-2"
                     style={{ borderTop: '0.5px solid #E4E9F0' }}
@@ -1317,6 +1362,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     &pound;{priceBreakdown.serviceFee.toFixed(2)}
                   </span>
                 </div>
+                {priceBreakdown.productsFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-ink-3">Cleaning products</span>
+                    <span className="font-normal text-ink">
+                      &pound;{priceBreakdown.productsFee.toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div
                   className="flex justify-between pt-3 mt-2"
                   style={{ borderTop: '0.5px solid #E4E9F0' }}
