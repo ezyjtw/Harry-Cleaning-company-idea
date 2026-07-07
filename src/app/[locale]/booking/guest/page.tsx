@@ -303,7 +303,7 @@ function GuestBookingContent() {
                 <p className="font-semibold text-trust">Booking Cancelled</p>
                 <p className="text-sm text-trust">
                   Your booking has been cancelled. Any refund due under the cancellation policy is
-                  on its way back to your original payment method (3&ndash;5 business days) &mdash;
+                  on its way back to your original payment method (5&ndash;10 business days) &mdash;
                   the confirmation email shows the exact amount.
                 </p>
               </div>
