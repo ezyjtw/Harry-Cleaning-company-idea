@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
@@ -43,7 +44,22 @@ const SURFACE = '#ffffff';
 const LINE = '#E4E9F0';
 const INK2 = '#3D5170';
 const MUTED = '#7A8A9E';
-const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+
+// Brand typography — the real Newsreader (serif) + Jost (UI), loaded from the
+// committed OFL TTFs so native text matches the web exactly (no system-font
+// stand-in). Keys match the file family names registered via useFonts().
+const FONTS = {
+  'Newsreader-Regular': require('./assets/fonts/Newsreader-Regular.ttf'),
+  'Newsreader-Medium': require('./assets/fonts/Newsreader-Medium.ttf'),
+  'Newsreader-SemiBold': require('./assets/fonts/Newsreader-SemiBold.ttf'),
+  'Jost-Regular': require('./assets/fonts/Jost-Regular.ttf'),
+  'Jost-Medium': require('./assets/fonts/Jost-Medium.ttf'),
+  'Jost-SemiBold': require('./assets/fonts/Jost-SemiBold.ttf'),
+};
+const SERIF_SEMI = 'Newsreader-SemiBold';
+const SANS = 'Jost-Regular';
+const SANS_MEDIUM = 'Jost-Medium';
+const SANS_SEMI = 'Jost-SemiBold';
 
 // Keep the native splash up until the JS arrival overlay has taken over, so there
 // is never a white frame between the OS splash and our first paint.
@@ -81,6 +97,7 @@ export default function App() {
 }
 
 function RootView() {
+  const [fontsLoaded] = useFonts(FONTS);
   const [phase, setPhase] = useState<Phase>('boot');
   // The URL the first WebView loads after login: the session-bridge, which sets
   // the WebView session cookie and redirects into the app. Null once bridged.
@@ -126,12 +143,13 @@ function RootView() {
     if (phase === 'locked') unlock();
   }, [phase, unlock]);
 
-  // Reveal the content the moment we land on a real screen (Start / shell). For a
-  // returning session we hold the navy overlay across the Face ID prompt, then
-  // fade straight into the tabs.
+  // Reveal the content the moment we land on a real screen (Start / shell) AND the
+  // brand fonts are ready — so no system-font text ever flashes behind the fade.
+  // For a returning session we hold the navy overlay across the Face ID prompt,
+  // then fade straight into the tabs.
   useEffect(() => {
-    if (phase === 'start' || phase === 'shell') reveal();
-  }, [phase, reveal]);
+    if ((phase === 'start' || phase === 'shell') && fontsLoaded) reveal();
+  }, [phase, fontsLoaded, reveal]);
 
   const onLoggedIn = useCallback(async (token: string, bridgeCode: string) => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -530,7 +548,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   pressed: { opacity: 0.85 },
-  mutedSmall: { marginTop: 10, color: INK2, fontSize: 13 },
+  mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13 },
 
   // Arrival overlay
   arrival: {
@@ -545,8 +563,8 @@ const styles = StyleSheet.create({
   startWrap: { flex: 1, backgroundColor: PAGE, paddingHorizontal: 28, justifyContent: 'space-between' },
   startHero: { flex: 1, justifyContent: 'center' },
   startWordmark: { width: 176, height: 52, marginBottom: 28 },
-  startTitle: { fontFamily: SERIF, fontSize: 34, color: INK, lineHeight: 40 },
-  startSub: { marginTop: 12, fontSize: 16, lineHeight: 23, color: INK2, maxWidth: 300 },
+  startTitle: { fontFamily: SERIF_SEMI, fontSize: 34, color: INK, lineHeight: 40 },
+  startSub: { fontFamily: SANS, marginTop: 12, fontSize: 16, lineHeight: 23, color: INK2, maxWidth: 300 },
   startActions: { gap: 12 },
 
   // WebView seam-kill loader
@@ -561,24 +579,25 @@ const styles = StyleSheet.create({
   loginWrap: { backgroundColor: PAGE, paddingHorizontal: 24 },
   loginBody: { flex: 1, justifyContent: 'center', paddingBottom: 48 },
   loginWordmark: { width: 168, height: 50, alignSelf: 'center', marginBottom: 6 },
-  loginSub: { textAlign: 'center', color: INK2, marginTop: 4, marginBottom: 24, fontSize: 15 },
+  loginSub: { fontFamily: SANS, textAlign: 'center', color: INK2, marginTop: 4, marginBottom: 24, fontSize: 15 },
   input: {
     borderWidth: 1,
     borderColor: LINE,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
+    fontFamily: SANS,
     fontSize: 16,
     color: INK,
     marginBottom: 12,
     backgroundColor: SURFACE,
   },
-  error: { color: '#dc2626', marginBottom: 12, fontSize: 13 },
+  error: { fontFamily: SANS, color: '#dc2626', marginBottom: 12, fontSize: 13 },
 
   // Join header
   joinHeader: { backgroundColor: PAGE, paddingHorizontal: 16, paddingBottom: 8 },
   backRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-  backText: { color: INK2, fontSize: 16, marginLeft: 2 },
+  backText: { fontFamily: SANS, color: INK2, fontSize: 16, marginLeft: 2 },
 
   // Buttons
   primaryBtn: {
@@ -587,7 +606,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  primaryBtnText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 16 },
   secondaryBtn: {
     backgroundColor: SURFACE,
     borderWidth: 1,
@@ -596,10 +615,10 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
   },
-  secondaryBtnText: { color: INK, fontSize: 16, fontWeight: '600' },
+  secondaryBtnText: { fontFamily: SANS_SEMI, color: INK, fontSize: 16 },
   retryBtn: { marginTop: 18, paddingHorizontal: 28 },
 
-  offlineTitle: { fontSize: 20, fontWeight: '600', color: INK, marginBottom: 6 },
+  offlineTitle: { fontFamily: SERIF_SEMI, fontSize: 20, color: INK, marginBottom: 6 },
 
   // Tab bar
   tabBar: {
@@ -610,6 +629,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
-  tabText: { fontSize: 10.5, color: MUTED },
-  tabTextActive: { color: INK, fontWeight: '700' },
+  tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, color: MUTED },
+  tabTextActive: { fontFamily: SANS_SEMI, color: INK },
 });
