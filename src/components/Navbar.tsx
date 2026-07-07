@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useState, useRef, useEffect } from 'react';
 
+import NotificationBell from '@/components/layout/NotificationBell';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
@@ -45,6 +46,10 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-3">
+          {/* F10: the real bell — visible to every logged-in user (customer
+              account shell + marketing pages); the cleaner portal mounts its
+              own dark-tone instance. */}
+          {isAuthenticated && <NotificationBell role={user?.role} tone="light" />}
           {/* Hamburger icon */}
           <button
             onClick={() => setOpen(!open)}
