@@ -252,11 +252,18 @@ export default function HeroQuoteWidget() {
     setHours(Math.max(minHours, Math.round(suggested)));
   }, [bedrooms, bathrooms, serviceSlug, isFixed]);
 
-  // Update addons when service changes
+  // Update addons when service changes.
+  // James-ruled: the EoT/Airbnb add-ons (oven/carpet/windows/fridge/turnaround/
+  // post-party) are NOT customer-selectable until deliberately launched — the
+  // addon-payout ruling happens first. Rows stay seeded and the pricing engine
+  // still prices them (dormant plumbing); this is the ONLY surface that offered
+  // them, and it now offers none. Flip ADDONS_SELECTABLE to relaunch.
+  const ADDONS_SELECTABLE = false;
   useEffect(() => {
     const svc = services.find((s) => s.slug === serviceSlug);
-    setAvailableAddons(svc?.addons ?? []);
+    setAvailableAddons(ADDONS_SELECTABLE ? (svc?.addons ?? []) : []);
     setSelectedAddons([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceSlug, services]);
 
   const fetchQuote = useCallback(
