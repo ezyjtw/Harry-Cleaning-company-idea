@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, Suspense } from 'react';
 
+import RescuePanel from '@/components/RescuePanel';
+
 interface Booking {
   id: string;
   guestToken: string;
@@ -15,6 +17,9 @@ interface Booking {
   address: string;
   totalPrice: number;
   status: string;
+  rescueDeadline?: string | null;
+  backupCleanerIds?: string[];
+  postcode?: string;
   guestEmail: string;
   guestName: string;
   notes: string;
@@ -32,6 +37,16 @@ const STATUS_STEPS = [
 ];
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
+  if (currentStatus === 'CLEANER_CANCELLED') {
+    return (
+      <div className="rounded-lg border border-danger/30 bg-red-50 p-4 text-center">
+        <p className="text-lg font-semibold text-danger">Your cleaner has had to cancel</p>
+        <p className="mt-1 text-sm text-danger">
+          Choose a full refund or a rebooking below — your payment is safe either way.
+        </p>
+      </div>
+    );
+  }
   if (currentStatus === 'CANCELLED') {
     return (
       <div className="rounded-lg border border-danger/30 bg-red-50 p-4 text-center">
@@ -257,11 +272,32 @@ function GuestBookingContent() {
               <div>
                 <p className="font-semibold text-trust">Booking Cancelled</p>
                 <p className="text-sm text-trust">
-                  Your booking has been successfully cancelled. If you were charged, a refund will
-                  be processed within 3-5 business days.
+                  Your booking has been cancelled. Any refund due under the cancellation policy is
+                  on its way back to your original payment method (3&ndash;5 business days) &mdash;
+                  the confirmation email shows the exact amount.
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* M3 rescue: cleaner cancelled — the tokened choice panel (F5 pattern) */}
+        {booking.status === 'CLEANER_CANCELLED' && token && (
+          <div className="mb-6">
+            <RescuePanel
+              bookingId={booking.id}
+              guestToken={token}
+              serviceType={booking.serviceType}
+              date={booking.date}
+              time={booking.time}
+              duration={booking.duration}
+              postcode={booking.postcode || ''}
+              totalPrice={booking.totalPrice}
+              backupCleanerIds={booking.backupCleanerIds}
+              rescueDeadline={booking.rescueDeadline}
+              initialAction={searchParams.get('rescue')}
+              onResolved={() => fetchBooking()}
+            />
           </div>
         )}
 

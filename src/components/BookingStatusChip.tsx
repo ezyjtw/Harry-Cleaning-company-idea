@@ -12,7 +12,8 @@ export type BookingStatus =
   | 'Completed'
   | 'Cancelled'
   | 'Disputed'
-  | 'No cleaner available';
+  | 'No cleaner available'
+  | 'Cleaner cancelled — action needed';
 
 export const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-warning/10 text-warning border-warning/20',
@@ -23,6 +24,7 @@ export const statusStyles: Record<BookingStatus, string> = {
   Cancelled: 'bg-page text-ink-3 border-line',
   Disputed: 'bg-danger/10 text-danger border-danger/20',
   'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
+  'Cleaner cancelled — action needed': 'bg-danger/10 text-danger border-danger/20',
 };
 
 /** Collapse a raw API status (+ cascade phase) into the customer-facing label. */
@@ -52,6 +54,8 @@ export function mapStatus(apiStatus: string, cascadePhase?: string | null): Book
       return 'Disputed';
     case 'CASCADE_EXHAUSTED':
       return 'No cleaner available';
+    case 'CLEANER_CANCELLED':
+      return 'Cleaner cancelled — action needed';
     default:
       return 'Pending';
   }

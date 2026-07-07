@@ -339,6 +339,24 @@ export async function sendTopupApprovalRequest(data: {
   return sendEmail(data.customerEmail, subject, html);
 }
 
+// ─── M3 rescue: cleaner cancelled ──────────────────────────
+
+export async function sendCleanerCancelledRescue(data: {
+  bookingId: string;
+  customerName: string;
+  customerEmail: string | null;
+  guestToken: string | null;
+  serviceType: string;
+  date: Date;
+  startTime: string;
+  deadline: Date;
+}): Promise<boolean> {
+  if (!data.customerEmail) return false; // no reachable customer — sweep still protects them
+  const { buildCleanerCancelledRescue } = await import('./email-templates');
+  const { subject, html } = buildCleanerCancelledRescue(data);
+  return sendEmail(data.customerEmail, subject, html);
+}
+
 // ─── Signup Notification Email ─────────────────────────────
 
 export async function sendSignupNotification(data: {

@@ -551,6 +551,57 @@ export function buildTopupApprovalRequest(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// ─── M3 rescue: cleaner cancelled — customer chooses refund or rebook ────────
+
+export function buildCleanerCancelledRescue(data: {
+  bookingId: string;
+  customerName: string;
+  guestToken: string | null; // null => registered customer
+  serviceType: string;
+  date: Date;
+  startTime: string;
+  deadline: Date;
+}): EmailContent {
+  // Both choices are made ON the booking page — registered customers land on
+  // /booking/[id]; guests land on the tokened tracking page (the F5 pattern:
+  // every link a guest receives must carry their token, end to end).
+  const base = data.guestToken
+    ? `${appUrl()}/booking/guest?token=${encodeURIComponent(data.guestToken)}`
+    : `${appUrl()}/booking/${data.bookingId}`;
+  const sep = data.guestToken ? '&' : '?';
+  const refundLink = `${base}${sep}rescue=refund`;
+  const rebookLink = `${base}${sep}rescue=rebook`;
+
+  const hoursLeft = Math.max(1, Math.round((data.deadline.getTime() - Date.now()) / 3_600_000));
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  const subject = 'Your cleaner has had to cancel — your payment is safe';
+  const contentHtml =
+    h('Your cleaner has had to cancel') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `We're really sorry — your cleaner has had to cancel your ${data.serviceType} booking on <strong>${dateStr} at ${data.startTime}</strong>. We know how inconvenient this is.`
+    ) +
+    p(
+      '<strong>Your payment is completely safe.</strong> You choose what happens next:'
+    ) +
+    button(rebookLink, 'Help me rebook') +
+    p(
+      'We&rsquo;ll show you cleaners who are genuinely available &mdash; your details are already filled in, and the money you&rsquo;ve paid simply moves to the new booking. If the new cleaner costs less, we refund the difference automatically; if more, we&rsquo;ll ask before charging a penny.'
+    ) +
+    button(refundLink, 'Refund me in full') +
+    p('One tap, and the full amount goes back to your original payment method.') +
+    p(
+      `If we don&rsquo;t hear from you within <strong>${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}</strong> (or by the booking&rsquo;s start time), we&rsquo;ll automatically refund you in full &mdash; you won&rsquo;t lose a penny either way.`
+    ) +
+    p('Again, we&rsquo;re sorry for the disruption.<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildSignupNotification(data: {
   name: string;
   email: string;

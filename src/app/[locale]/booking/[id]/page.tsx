@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
+import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { formatDate } from '@/lib/utils/formatting';
 
@@ -27,6 +28,8 @@ interface BookingDetail {
   addressCity?: string | null;
   addressPostcode?: string | null;
   address?: { line1?: string; line2?: string; city?: string; postcode?: string } | null;
+  rescueDeadline?: string | null;
+  backupCleanerIds?: string[];
   notes?: string | null;
   cleaner: {
     id: string;
@@ -40,6 +43,7 @@ type LoadState = 'loading' | 'ok' | 'unauth' | 'forbidden' | 'notfound' | 'error
 
 export default function BookingDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = String(params?.id || '');
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [state, setState] = useState<LoadState>('loading');
@@ -122,6 +126,25 @@ export default function BookingDetailPage() {
       >
         ← Back to dashboard
       </Link>
+
+      {/* M3 rescue: cleaner cancelled — the customer's refund/rebook choice */}
+      {booking.status === 'CLEANER_CANCELLED' && (
+        <div className="mt-4">
+          <RescuePanel
+            bookingId={booking.id}
+            serviceType={booking.serviceType}
+            date={booking.date.split('T')[0]}
+            time={booking.startTime}
+            duration={Number(booking.duration)}
+            postcode={booking.addressPostcode || booking.address?.postcode || ''}
+            totalPrice={Number(booking.totalPrice)}
+            backupCleanerIds={booking.backupCleanerIds}
+            rescueDeadline={booking.rescueDeadline}
+            initialAction={searchParams.get('rescue')}
+            onResolved={() => window.location.reload()}
+          />
+        </div>
+      )}
 
       <div className="mt-4 rounded-2xl border border-line bg-surface p-6">
         {/* Cleaner */}

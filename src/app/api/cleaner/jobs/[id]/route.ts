@@ -157,6 +157,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // M3 RESCUE: a cleaner cancelling a PAID job routes through the rescue flow —
+  // the booking enters CLEANER_CANCELLED (holding state), the customer is
+  // notified immediately with refund/rebook choices, and the timeout sweep
+  // auto-refunds. The old path here flipped status to CANCELLED with no refund,
+  // no email, and no re-offer — a paid customer was silently stranded.
+  // Unpaid bookings keep the plain cancel below (nothing captured to protect).
+  if (
+    status === 'CANCELLED' &&
+    (booking.paymentStatus === 'SUCCEEDED' || booking.paymentStatus === 'PARTIALLY_REFUNDED')
+  ) {
+    const { initiateCleanerCancelRescue } = await import('@/lib/services/rescue.service');
+    const rescue = await initiateCleanerCancelRescue({
+      bookingId: id,
+      cleanerId: user.id,
+      reason: cancellationReason,
+    });
+    if (!rescue.ok) {
+      return NextResponse.json({ error: rescue.reason }, { status: 409 });
+    }
+    return NextResponse.json({
+      success: true,
+      job: { id, status: 'CLEANER_CANCELLED' },
+      message:
+        'Job cancelled. The customer has been offered a full refund or help rebooking — their payment stays protected.',
+    });
+  }
+
   // Superseded by POST /api/cleaner/jobs/[id]/accept — kept as fallback for direct PATCH callers
   // For ACCEPTED, use the atomic cascade-aware accept
   if (status === 'ACCEPTED') {
