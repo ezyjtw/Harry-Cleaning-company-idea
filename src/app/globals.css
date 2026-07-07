@@ -251,3 +251,24 @@
     display: none;
   }
 }
+
+/* ─── Rena Pro shell-skin (item 6) ────────────────────────────────────────────
+   Renders the Jobs + Earnings portal pages app-fit when viewed INSIDE the native
+   shell. Unlayered (not inside @layer) so it out-ranks Tailwind's utilities
+   without !important. Every rule is scoped to body.rena-shell.rena-page-<page>,
+   and that body class is added by the cleaner layout ONLY when the RenaPro/ UA is
+   present — a normal browser never matches, so the web portal is pixel-identical.
+   Same markup, same handlers — this is a skin. Jobs + Earnings only for now. */
+body.rena-shell.rena-page-jobs main > div,
+body.rena-shell.rena-page-earnings main > div {
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-top: 16px;
+  padding-bottom: 40px;
+}
+
+/* Comfortable, thumb-sized touch targets on the page's own action buttons. */
+body.rena-shell.rena-page-jobs main button,
+body.rena-shell.rena-page-earnings main button {
+  min-height: 44px;
+}

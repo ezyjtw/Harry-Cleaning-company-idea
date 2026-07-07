@@ -24,6 +24,14 @@ const LIFECYCLE_ACTION: Record<string, { label: string; next: string } | undefin
   in_progress: { label: 'Complete', next: 'COMPLETED' },
 };
 
+// Native-shell haptic bridge. No-op in a normal browser (ReactNativeWebView is
+// undefined) — so this changes nothing on the website.
+function haptic(style: 'light' | 'medium' | 'success' | 'error') {
+  (
+    window as unknown as { ReactNativeWebView?: { postMessage: (s: string) => void } }
+  ).ReactNativeWebView?.postMessage(JSON.stringify({ type: 'haptic', style }));
+}
+
 function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -45,6 +53,11 @@ function startsInLabel(dateIso: string, time: string): string | null {
 }
 function serviceLabel(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+function dateEyebrow(): string {
+  return new Date()
+    .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+    .toUpperCase();
 }
 
 export default function TodayPage() {
@@ -153,6 +166,7 @@ export default function TodayPage() {
   const advance = async (job: Job) => {
     const action = LIFECYCLE_ACTION[job.status];
     if (!action) return;
+    haptic('medium');
     setProcessingId(job.id);
     setActionError('');
     try {
@@ -162,8 +176,13 @@ export default function TodayPage() {
         body: JSON.stringify({ status: action.next }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok) await fetchJobs();
-      else setActionError(data?.error || 'Could not update the job.');
+      if (res.ok) {
+        haptic('success');
+        await fetchJobs();
+      } else {
+        haptic('error');
+        setActionError(data?.error || 'Could not update the job.');
+      }
     } catch {
       setActionError('Network error — please try again.');
     } finally {
@@ -201,20 +220,23 @@ export default function TodayPage() {
 
   return (
     <div>
-      <header className="mb-4">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="font-newsreader text-2xl font-semibold text-ink">
+      <header className="mb-5">
+        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+          {dateEyebrow()}
+        </p>
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
             {loading
               ? 'Your day'
               : todayJobs.length === 0
                 ? 'No jobs today'
-                : `You have ${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
+                : `${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
           </h1>
           <button
             type="button"
             onClick={() => fetchJobs()}
             aria-label="Refresh"
-            className="mt-1 shrink-0 rounded-full border border-line bg-surface px-3 py-1 font-jost text-[12px] font-medium text-ink-2"
+            className="mt-1 shrink-0 rounded-full border border-line bg-surface px-3 py-1 font-jost text-[12px] font-medium text-ink-2 active:bg-page"
           >
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -224,7 +246,10 @@ export default function TodayPage() {
             <button
               key={v}
               type="button"
-              onClick={() => setView(v)}
+              onClick={() => {
+                haptic('light');
+                setView(v);
+              }}
               className={`rounded-full px-4 py-1.5 font-jost text-sm font-medium transition-colors ${
                 view === v ? 'bg-primary text-white' : 'text-ink-2'
               }`}
@@ -243,26 +268,34 @@ export default function TodayPage() {
 
       {loading ? (
         <div className="space-y-3">
-          {[0, 1].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-xl bg-line" />
-          ))}
+          <div className="h-44 animate-pulse rounded-2xl bg-line" />
+          <div className="h-28 animate-pulse rounded-2xl bg-line" />
         </div>
       ) : view === 'today' ? (
         todayJobs.length > 0 ? (
           <div className="space-y-3">
-            {todayJobs.map((job, i) => (
-              <JobRow
-                key={job.id}
-                job={job}
-                highlightCountdown={i === 0}
-                now={now}
-                processing={processingId === job.id}
-                onAdvance={() => advance(job)}
-              />
-            ))}
+            {todayJobs.map((job, i) =>
+              i === 0 ? (
+                <HeroJob
+                  key={job.id}
+                  job={job}
+                  now={now}
+                  processing={processingId === job.id}
+                  onAdvance={() => advance(job)}
+                />
+              ) : (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  now={now}
+                  processing={processingId === job.id}
+                  onAdvance={() => advance(job)}
+                />
+              )
+            )}
           </div>
         ) : (
-          <div className="rounded-xl border border-line bg-surface p-6 text-center">
+          <div className="rounded-2xl border border-line bg-surface p-6 text-center">
             <p className="font-jost text-sm text-ink-2">No jobs scheduled for today.</p>
             <Link
               href="/cleaner/availability"
@@ -293,7 +326,7 @@ export default function TodayPage() {
               ) : (
                 <div className="space-y-3">
                   {d.jobs.map((job) => (
-                    <JobRow key={job.id} job={job} now={now} processing={false} onAdvance={() => {}} />
+                    <JobCard key={job.id} job={job} now={now} processing={false} onAdvance={() => {}} />
                   ))}
                 </div>
               )}
@@ -303,38 +336,105 @@ export default function TodayPage() {
       )}
 
       {!loading && (
-        <div className="mt-6 rounded-xl bg-primary-soft px-5 py-3 text-center">
-          <p className="font-jost text-sm text-ink-2">
-            This week:{' '}
-            <span className="font-medium text-ink">£{weekSummary.earned.toFixed(2)} earned</span> ·{' '}
-            {weekSummary.count} job{weekSummary.count === 1 ? '' : 's'}
-          </p>
+        <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3.5 text-center">
+          <span className="font-jost text-[12px] uppercase tracking-[0.12em] text-ink-3">This week</span>
+          <span className="font-newsreader text-xl font-medium text-ink">
+            £{weekSummary.earned.toFixed(2)}
+          </span>
+          <span className="font-jost text-[13px] text-ink-3">
+            · {weekSummary.count} job{weekSummary.count === 1 ? '' : 's'}
+          </span>
         </div>
       )}
     </div>
   );
 }
 
-function JobRow({
+// ── NEXT job: navy ink hero card ──
+function HeroJob({
   job,
-  highlightCountdown,
   now,
   processing,
   onAdvance,
 }: {
   job: Job;
-  highlightCountdown?: boolean;
   now: number;
   processing: boolean;
   onAdvance: () => void;
 }) {
   const action = LIFECYCLE_ACTION[job.status];
-  void now; // referenced so the row re-renders on the countdown tick
-  const countdown = highlightCountdown ? startsInLabel(job.date, job.time) : null;
+  void now; // referenced so the hero re-renders on the countdown tick
+  const countdown = startsInLabel(job.date, job.time);
   const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+    <div className="rounded-2xl bg-primary p-5 text-white shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
+          Next · {job.status.replace(/_/g, ' ')}
+        </p>
+        {countdown && (
+          <p className="font-jost text-[12px] font-semibold text-white/90">{countdown}</p>
+        )}
+      </div>
+
+      <div className="mt-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-newsreader text-[22px] font-semibold leading-tight">
+            {job.time} · {job.clientName}
+          </p>
+          <a href={mapsHref} className="mt-1 block truncate font-jost text-sm text-white/85 underline">
+            {job.address}
+          </a>
+          <p className="mt-1 font-jost text-[13px] text-white/60">
+            {serviceLabel(job.serviceType)} · {job.duration}h
+          </p>
+        </div>
+        <p className="shrink-0 font-newsreader text-[28px] font-medium leading-none">
+          £{pay(job).toFixed(2)}
+        </p>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        {action && (
+          <button
+            type="button"
+            onClick={onAdvance}
+            disabled={processing}
+            className="flex-1 rounded-[10px] bg-white px-4 py-3 font-jost text-sm font-semibold text-primary transition-opacity active:opacity-80 disabled:opacity-50"
+          >
+            {processing ? 'Updating…' : action.label}
+          </button>
+        )}
+        <Link
+          href={`/messages?bookingId=${job.id}`}
+          className="rounded-[10px] border border-white/25 px-4 py-3 font-jost text-sm font-medium text-white active:bg-white/10"
+        >
+          Message
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ── Later / week job: white surface card with hairline ──
+function JobCard({
+  job,
+  now,
+  processing,
+  onAdvance,
+}: {
+  job: Job;
+  now: number;
+  processing: boolean;
+  onAdvance: () => void;
+}) {
+  const action = LIFECYCLE_ACTION[job.status];
+  void now;
+  const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-newsreader text-lg font-semibold text-ink">
@@ -355,22 +455,20 @@ function JobRow({
         </div>
       </div>
 
-      {countdown && <p className="mt-2 font-jost text-[12px] font-medium text-primary">{countdown}</p>}
-
       <div className="mt-3 flex items-center gap-2">
         {action && (
           <button
             type="button"
             onClick={onAdvance}
             disabled={processing}
-            className="flex-1 rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+            className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
           >
             {processing ? 'Updating…' : action.label}
           </button>
         )}
         <Link
           href={`/messages?bookingId=${job.id}`}
-          className="rounded-[10px] border border-line px-4 py-2 font-jost text-sm font-medium text-ink-2"
+          className="rounded-[10px] border border-line px-4 py-2.5 font-jost text-sm font-medium text-ink-2 active:bg-page"
         >
           Message
         </Link>

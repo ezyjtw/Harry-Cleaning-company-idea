@@ -22,6 +22,13 @@ interface Offer {
 
 type Tier = 'normal' | 'amber' | 'danger' | 'expired';
 
+// Native-shell haptic bridge. No-op in a normal browser — changes nothing on web.
+function haptic(style: 'light' | 'medium' | 'success' | 'error') {
+  (
+    window as unknown as { ReactNativeWebView?: { postMessage: (s: string) => void } }
+  ).ReactNativeWebView?.postMessage(JSON.stringify({ type: 'haptic', style }));
+}
+
 function serviceLabel(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -100,6 +107,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
 
   const respond = async (action: 'accept' | 'decline') => {
     if (!offer) return;
+    haptic('medium');
     setProcessing(action);
     setTransientError(null);
     const endpoint =
@@ -113,6 +121,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success !== false) {
         if (action === 'accept') {
+          haptic('success');
           setAccepted(true);
           setTimeout(() => router.push('/app/today'), 900);
         } else {
@@ -122,6 +131,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         // The server rejected it — the offer was taken or its window closed while
         // we were deciding (last-second race). Show the SAME expired treatment,
         // never a raw error.
+        haptic('error');
         setExpired(true);
       }
     } catch {
@@ -137,7 +147,8 @@ export default function OfferPage({ params }: { params: { id: string } }) {
     return (
       <div className="space-y-4">
         <div className="h-10 animate-pulse rounded-xl bg-line" />
-        <div className="h-64 animate-pulse rounded-2xl bg-line" />
+        <div className="h-40 animate-pulse rounded-2xl bg-line" />
+        <div className="h-48 animate-pulse rounded-2xl bg-line" />
         <div className="grid grid-cols-2 gap-3">
           <div className="h-12 animate-pulse rounded-xl bg-line" />
           <div className="h-12 animate-pulse rounded-xl bg-line" />
@@ -196,28 +207,34 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   return (
     <div>
       {wl && tier !== 'expired' && (
-        <div className={`mb-4 rounded-xl px-4 py-2.5 text-center font-jost text-sm font-semibold ${TIER_STYLE[tier]}`}>
+        <div
+          className={`mb-4 rounded-xl px-4 py-2.5 text-center font-jost text-sm font-semibold ${TIER_STYLE[tier]}`}
+        >
           {wl}
         </div>
       )}
 
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+      {/* Navy pay-prominent hero */}
+      <div className="rounded-2xl bg-primary p-5 text-white shadow-sm">
+        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
           New job offer
         </p>
-        <h1 className="mt-1 font-newsreader text-2xl font-semibold text-ink">
-          {serviceLabel(offer.serviceType)}
-        </h1>
-
-        <div className="mt-4 flex items-baseline justify-between">
-          <span className="font-jost text-sm text-ink-3">You&apos;ll earn</span>
-          <span className="font-newsreader text-3xl font-medium text-ink">
+        <h1 className="mt-1 font-newsreader text-2xl font-semibold">{serviceLabel(offer.serviceType)}</h1>
+        <div className="mt-4 flex items-baseline justify-between border-t border-white/15 pt-4">
+          <span className="font-jost text-sm text-white/70">You&apos;ll earn</span>
+          <span className="font-newsreader text-4xl font-medium leading-none">
             £{offer.cleanerEarnings.toFixed(2)}
           </span>
         </div>
+      </div>
 
-        <div className="mt-4 space-y-2 border-t border-line pt-4 font-jost text-sm">
-          <Row label="When" value={`${new Date(`${offer.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${offer.time}`} />
+      {/* Details */}
+      <div className="mt-3 rounded-2xl border border-line bg-surface p-5">
+        <div className="space-y-2 font-jost text-sm">
+          <Row
+            label="When"
+            value={`${new Date(`${offer.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${offer.time}`}
+          />
           <Row label="Duration" value={`${offer.duration} hours`} />
           <Row label="Area" value={offer.postcode || offer.address} />
           {typeof offer.bedrooms === 'number' && <Row label="Property" value={`${offer.bedrooms} bed`} />}
@@ -251,7 +268,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
             type="button"
             onClick={() => respond('decline')}
             disabled={!!processing}
-            className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-base font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+            className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-base font-medium text-ink-2 transition-colors hover:bg-page active:opacity-80 disabled:opacity-50"
           >
             {processing === 'decline' ? 'Declining…' : 'Decline'}
           </button>
@@ -259,7 +276,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
             type="button"
             onClick={() => respond('accept')}
             disabled={!!processing}
-            className="rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+            className="rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
           >
             {processing === 'accept' ? 'Accepting…' : 'Accept'}
           </button>

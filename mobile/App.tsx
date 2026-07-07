@@ -1,10 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,8 +17,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
+
+// The real Etna wordmark, exported from the site's OTF (never faked in another
+// font). White for navy grounds, navy for light grounds.
+const wordmarkWhite = require('./assets/wordmark-white.png');
+const wordmarkNavy = require('./assets/wordmark-navy.png');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BASE_URL: string =
@@ -22,38 +36,72 @@ const SHELL_HEADER = { 'x-rena-shell': `pro-${Platform.OS}/${Constants.expoConfi
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
 const TOKEN_KEY = 'rena.pro.bearer';
 
+// Design tokens (light theme, mirrors the web).
 const INK = '#16296b';
 const PAGE = '#FAFBFC';
+const SURFACE = '#ffffff';
 const LINE = '#E4E9F0';
 const INK2 = '#3D5170';
+const MUTED = '#7A8A9E';
+const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+
+// Keep the native splash up until the JS arrival overlay has taken over, so there
+// is never a white frame between the OS splash and our first paint.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Tab bar: first tab = the purpose-built Today screen; the rest are portal routes.
 const TABS = [
-  { key: 'today', label: 'Today', path: '/en/app/today' },
-  { key: 'jobs', label: 'Jobs', path: '/en/cleaner/jobs' },
-  { key: 'availability', label: 'Availability', path: '/en/cleaner/availability' },
-  { key: 'earnings', label: 'Earnings', path: '/en/cleaner/earnings' },
-  { key: 'messages', label: 'Messages', path: '/en/messages' },
+  { key: 'today', label: 'Today', path: '/en/app/today', icon: 'today' },
+  { key: 'jobs', label: 'Jobs', path: '/en/cleaner/jobs', icon: 'briefcase' },
+  { key: 'availability', label: 'Availability', path: '/en/cleaner/availability', icon: 'calendar' },
+  { key: 'earnings', label: 'Earnings', path: '/en/cleaner/earnings', icon: 'wallet' },
+  { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
-type Phase = 'loading' | 'locked' | 'login' | 'shell';
+type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'shell';
+
+function fireHaptic(style: string) {
+  try {
+    if (style === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    else if (style === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    else if (style === 'error') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    else if (style === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch {
+    /* haptics unavailable (e.g. simulator) — ignore */
+  }
+}
 
 export default function App() {
-  const [phase, setPhase] = useState<Phase>('loading');
+  return (
+    <SafeAreaProvider>
+      <RootView />
+    </SafeAreaProvider>
+  );
+}
+
+function RootView() {
+  const [phase, setPhase] = useState<Phase>('boot');
   // The URL the first WebView loads after login: the session-bridge, which sets
   // the WebView session cookie and redirects into the app. Null once bridged.
   const [bridgeUrl, setBridgeUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('today');
 
-  // On cold start: if we have a stored token, require Face ID, then show the
-  // shell (the WebView cookie persists across restarts). Otherwise, login.
+  // ── Arrival overlay: a navy full-bleed cover with the wordmark that continues
+  // the OS splash seamlessly, then fades to reveal content (no white flash). ──
+  const overlay = useRef(new Animated.Value(1)).current;
+  const [overlayMounted, setOverlayMounted] = useState(true);
+  const reveal = useCallback(() => {
+    Animated.timing(overlay, { toValue: 0, duration: 450, useNativeDriver: true }).start(() =>
+      setOverlayMounted(false)
+    );
+  }, [overlay]);
+
   const boot = useCallback(async () => {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
-    if (!token) {
-      setPhase('login');
-      return;
-    }
-    setPhase('locked');
+    // Hand off from the OS splash to our identical JS overlay before deciding.
+    await SplashScreen.hideAsync().catch(() => {});
+    setPhase(token ? 'locked' : 'start');
   }, []);
 
   useEffect(() => {
@@ -64,7 +112,6 @@ export default function App() {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     if (!hasHardware || !enrolled) {
-      // No biometrics configured — fall through (the session cookie still gates).
       setPhase('shell');
       return;
     }
@@ -78,6 +125,13 @@ export default function App() {
   useEffect(() => {
     if (phase === 'locked') unlock();
   }, [phase, unlock]);
+
+  // Reveal the content the moment we land on a real screen (Start / shell). For a
+  // returning session we hold the navy overlay across the Face ID prompt, then
+  // fade straight into the tabs.
+  useEffect(() => {
+    if (phase === 'start' || phase === 'shell') reveal();
+  }, [phase, reveal]);
 
   const onLoggedIn = useCallback(async (token: string, bridgeCode: string) => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -95,109 +149,80 @@ export default function App() {
     setPhase('login');
   }, []);
 
-  if (phase === 'loading' || phase === 'locked') {
-    return (
-      <SafeAreaProvider>
-        <View style={styles.center}>
-          <ActivityIndicator color={INK} />
-          {phase === 'locked' && <Text style={styles.mutedSmall}>Unlock to continue</Text>}
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
-  if (phase === 'login') {
-    return (
-      <SafeAreaProvider>
-        <LoginScreen onLoggedIn={onLoggedIn} />
-      </SafeAreaProvider>
-    );
-  }
-
   return (
-    <SafeAreaProvider>
+    <View style={styles.root}>
       <StatusBar style="dark" />
-      <SafeAreaView style={styles.flex} edges={['top']}>
-        <View style={styles.flex}>
-          {TABS.map((tab) => {
-            const isActive = tab.key === activeTab;
-            // The Today tab loads the bridge URL first (sets the cookie); once
-            // bridged it and every other tab load their route directly (shared
-            // cookie jar). Keep tabs mounted to preserve scroll/state.
-            const uri =
-              tab.key === 'today' && bridgeUrl ? bridgeUrl : `${BASE_URL}${tab.path}`;
-            return (
-              <View
-                key={tab.key}
-                style={[styles.flex, { display: isActive ? 'flex' : 'none' }]}
-              >
-                <ShellWebView uri={uri} onSessionLost={logout} />
-              </View>
-            );
-          })}
-        </View>
-        <TabBar active={activeTab} onSelect={setActiveTab} />
-      </SafeAreaView>
-    </SafeAreaProvider>
+
+      {phase === 'start' && (
+        <StartScreen onLogin={() => setPhase('login')} onJoin={() => setPhase('join')} />
+      )}
+      {phase === 'login' && (
+        <LoginScreen onLoggedIn={onLoggedIn} onBack={() => setPhase('start')} />
+      )}
+      {phase === 'join' && <JoinScreen onBack={() => setPhase('start')} />}
+      {phase === 'shell' && (
+        <ShellScreen
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          bridgeUrl={bridgeUrl}
+          onSessionLost={logout}
+        />
+      )}
+
+      {overlayMounted && (
+        <Animated.View style={[styles.arrival, { opacity: overlay }]} pointerEvents="none">
+          <Image source={wordmarkWhite} style={styles.arrivalWordmark} resizeMode="contain" />
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
-// ─── WebView wrapper (shared cookies, shell headers, offline state) ───────────
-function ShellWebView({ uri, onSessionLost }: { uri: string; onSessionLost: () => void }) {
-  const [offline, setOffline] = useState(false);
-  const ref = useRef<WebView>(null);
-
-  // If the web session expires, the portal redirects to /login — bounce back to
-  // the native login screen instead of showing the web form inside the shell.
-  const onNav = (nav: WebViewNavigation) => {
-    if (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url)) {
-      onSessionLost();
-    }
-  };
-
-  if (offline) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.offlineTitle}>You&apos;re offline</Text>
-        <Text style={styles.mutedSmall}>Check your connection and try again.</Text>
+// ─── Arrival Start screen ─────────────────────────────────────────────────────
+function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => void }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.startWrap, { paddingTop: insets.top + 24 }]}>
+      <View style={styles.startHero}>
+        <Image source={wordmarkNavy} style={styles.startWordmark} resizeMode="contain" />
+        <Text style={styles.startTitle}>Earn on your terms</Text>
+        <Text style={styles.startSub}>
+          Real cleaning jobs near you. Your rates, your hours, paid fast.
+        </Text>
+      </View>
+      <View style={[styles.startActions, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
-          style={styles.primaryBtn}
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
           onPress={() => {
-            setOffline(false);
-            ref.current?.reload();
+            fireHaptic('light');
+            onLogin();
           }}
         >
-          <Text style={styles.primaryBtnText}>Retry</Text>
+          <Text style={styles.primaryBtnText}>Log in</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+          onPress={() => {
+            fireHaptic('light');
+            onJoin();
+          }}
+        >
+          <Text style={styles.secondaryBtnText}>Become a cleaner</Text>
         </Pressable>
       </View>
-    );
-  }
-
-  return (
-    <WebView
-      ref={ref}
-      source={{ uri, headers: SHELL_HEADER }}
-      applicationNameForUserAgent={UA_SUFFIX}
-      sharedCookiesEnabled
-      thirdPartyCookiesEnabled
-      pullToRefreshEnabled
-      allowsBackForwardNavigationGestures
-      onNavigationStateChange={onNav}
-      onError={() => setOffline(true)}
-      onHttpError={() => {
-        /* leave HTTP errors to the web pages' own states */
-      }}
-      style={styles.flex}
-    />
+    </View>
   );
 }
 
 // ─── Native login ─────────────────────────────────────────────────────────────
 function LoginScreen({
   onLoggedIn,
+  onBack,
 }: {
   onLoggedIn: (token: string, bridgeCode: string) => void;
+  onBack: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -214,8 +239,10 @@ function LoginScreen({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.token && data?.bridgeCode) {
+        fireHaptic('success');
         onLoggedIn(data.token, data.bridgeCode);
       } else {
+        fireHaptic('error');
         setError(data?.error || 'Could not sign in. Check your details and try again.');
       }
     } catch {
@@ -226,84 +253,363 @@ function LoginScreen({
   };
 
   return (
-    <SafeAreaView style={[styles.flex, styles.loginWrap]}>
-      <Text style={styles.brand}>RENA PRO</Text>
-      <Text style={styles.loginSub}>Sign in to your cleaner account</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-        placeholderTextColor="#7A8A9E"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        placeholderTextColor="#7A8A9E"
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <Pressable style={styles.primaryBtn} onPress={submit} disabled={busy}>
-        <Text style={styles.primaryBtnText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+    <View style={[styles.flex, styles.loginWrap, { paddingTop: insets.top + 8 }]}>
+      <Pressable style={styles.backRow} onPress={onBack} hitSlop={12}>
+        <Ionicons name="chevron-back" size={22} color={INK2} />
+        <Text style={styles.backText}>Back</Text>
       </Pressable>
+      <View style={styles.loginBody}>
+        <Image source={wordmarkNavy} style={styles.loginWordmark} resizeMode="contain" />
+        <Text style={styles.loginSub}>Sign in to your cleaner account</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+          placeholderTextColor={MUTED}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          placeholderTextColor={MUTED}
+        />
+        {error && <Text style={styles.error}>{error}</Text>}
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          onPress={submit}
+          disabled={busy}
+        >
+          <Text style={styles.primaryBtnText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// ─── Become a cleaner (in-shell /join, chrome hidden via injected CSS) ─────────
+// The marketing nav/footer are stripped by native-injected CSS — zero web change,
+// so nothing here can affect the website.
+const HIDE_CHROME_JS = `
+  (function(){
+    var s=document.createElement('style');
+    s.innerHTML='#layout-nav,#layout-footer{display:none!important}';
+    document.documentElement.appendChild(s);
+  })(); true;
+`;
+
+function JoinScreen({ onBack }: { onBack: () => void }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.flex}>
+      <View style={[styles.joinHeader, { paddingTop: insets.top + 6 }]}>
+        <Pressable style={styles.backRow} onPress={onBack} hitSlop={12}>
+          <Ionicons name="chevron-back" size={22} color={INK2} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+      </View>
+      <SeamlessWebView
+        uri={`${BASE_URL}/en/join`}
+        injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
+        loaderTone="light"
+      />
+    </View>
+  );
+}
+
+// ─── Shell (tabbed WebViews) ──────────────────────────────────────────────────
+function ShellScreen({
+  activeTab,
+  setActiveTab,
+  bridgeUrl,
+  onSessionLost,
+}: {
+  activeTab: string;
+  setActiveTab: (k: string) => void;
+  bridgeUrl: string | null;
+  onSessionLost: () => void;
+}) {
+  const selectTab = useCallback(
+    (k: string) => {
+      fireHaptic('light');
+      setActiveTab(k);
+    },
+    [setActiveTab]
+  );
+
+  return (
+    <SafeAreaView style={styles.flex} edges={['top']}>
+      <View style={styles.flex}>
+        {TABS.map((tab) => {
+          const isActive = tab.key === activeTab;
+          // The Today tab loads the bridge URL first (sets the cookie); once
+          // bridged it and every other tab load their route directly (shared
+          // cookie jar). Keep tabs mounted to preserve scroll/state.
+          const uri = tab.key === 'today' && bridgeUrl ? bridgeUrl : `${BASE_URL}${tab.path}`;
+          return (
+            <View key={tab.key} style={[styles.flex, { display: isActive ? 'flex' : 'none' }]}>
+              <SeamlessWebView uri={uri} injectBefore={SEAM_KILL_JS} onSessionLost={onSessionLost} />
+            </View>
+          );
+        })}
+      </View>
+      <TabBar active={activeTab} onSelect={selectTab} />
     </SafeAreaView>
+  );
+}
+
+// ─── WebView wrapper: seam-kill loader, shell headers, haptics + PTR bridge ────
+// injectedJavaScriptBeforeContentLoaded runs before first paint: it kills the
+// tap-callout / long-press / pinch-zoom seams and installs a pull-to-refresh that
+// prefers window.__renaRefresh (soft refetch) over a hard reload.
+const SEAM_KILL_JS = `
+  (function(){
+    var s=document.createElement('style');
+    s.innerHTML='*{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}'
+      + 'input,textarea,select,[contenteditable]{-webkit-user-select:text!important;user-select:text!important;}'
+      + 'html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain;}';
+    document.documentElement.appendChild(s);
+    var m=document.querySelector('meta[name=viewport]');
+    if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}
+    m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  })();
+  (function(){
+    var startY=0,pulling=false,TH=72;
+    var el=document.createElement('div');
+    el.style.cssText='position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;padding-top:12px;transform:translateY(-46px);transition:transform .18s ease;z-index:99999;pointer-events:none;';
+    el.innerHTML='<div id="__rspin" style="width:26px;height:26px;border-radius:50%;border:2px solid #E4E9F0;border-top-color:#16296b;box-sizing:border-box;"></div>';
+    var sty=document.createElement('style');sty.innerHTML='@keyframes __rspin{to{transform:rotate(360deg)}}';document.documentElement.appendChild(sty);
+    function mount(){if(document.body&&!el.parentNode)document.body.appendChild(el);}
+    document.addEventListener('DOMContentLoaded',mount);mount();
+    function top(){return (document.scrollingElement||document.documentElement||document.body).scrollTop;}
+    window.addEventListener('touchstart',function(e){if(top()<=0){startY=e.touches[0].clientY;pulling=true;}},{passive:true});
+    window.addEventListener('touchmove',function(e){if(!pulling)return;var d=e.touches[0].clientY-startY;if(d>0){el.style.transform='translateY('+Math.min(d*0.5-46,26)+'px)';}},{passive:true});
+    window.addEventListener('touchend',function(e){if(!pulling)return;pulling=false;var d=e.changedTouches[0].clientY-startY;if(d>TH){document.getElementById('__rspin').style.animation='__rspin .6s linear infinite';el.style.transform='translateY(20px)';setTimeout(function(){el.style.transform='translateY(-46px)';document.getElementById('__rspin').style.animation='';},650);if(typeof window.__renaRefresh==='function'){window.__renaRefresh();}else{location.reload();}}else{el.style.transform='translateY(-46px)';}},{passive:true});
+  })();
+  true;
+`;
+
+function SeamlessWebView({
+  uri,
+  injectBefore,
+  onSessionLost,
+  loaderTone = 'light',
+}: {
+  uri: string;
+  injectBefore: string;
+  onSessionLost?: () => void;
+  loaderTone?: 'light' | 'navy';
+}) {
+  const [offline, setOffline] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const fade = useRef(new Animated.Value(1)).current;
+  const ref = useRef<WebView>(null);
+
+  useEffect(() => {
+    if (loaded) {
+      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+    }
+  }, [loaded, fade]);
+
+  // If the web session expires, the portal redirects to /login — bounce back to
+  // the native login screen instead of showing the web form inside the shell.
+  const onNav = (nav: WebViewNavigation) => {
+    if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
+      onSessionLost();
+    }
+  };
+
+  const onMessage = (e: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data);
+      if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
+    } catch {
+      /* ignore non-JSON messages */
+    }
+  };
+
+  if (offline) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.offlineTitle}>You&apos;re offline</Text>
+        <Text style={styles.mutedSmall}>Check your connection and try again.</Text>
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
+          onPress={() => {
+            setOffline(false);
+            setLoaded(false);
+            fade.setValue(1);
+            ref.current?.reload();
+          }}
+        >
+          <Text style={styles.primaryBtnText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.flex}>
+      <WebView
+        ref={ref}
+        source={{ uri, headers: SHELL_HEADER }}
+        applicationNameForUserAgent={UA_SUFFIX}
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        // Native pull-to-refresh is OFF — the injected PTR routes to __renaRefresh.
+        pullToRefreshEnabled={false}
+        bounces
+        decelerationRate="normal"
+        allowsBackForwardNavigationGestures
+        allowsLinkPreview={false}
+        injectedJavaScriptBeforeContentLoaded={injectBefore}
+        onNavigationStateChange={onNav}
+        onMessage={onMessage}
+        onLoadEnd={() => setLoaded(true)}
+        onError={() => setOffline(true)}
+        onHttpError={() => {
+          /* leave HTTP errors to the web pages' own states */
+        }}
+        // A non-white base colour under the page means no stark flash before paint.
+        style={[styles.flex, { backgroundColor: loaderTone === 'navy' ? INK : PAGE }]}
+      />
+      {!loaded && (
+        <Animated.View
+          style={[
+            styles.webLoader,
+            { opacity: fade, backgroundColor: loaderTone === 'navy' ? INK : PAGE },
+          ]}
+          pointerEvents="none"
+        >
+          <Image
+            source={loaderTone === 'navy' ? wordmarkWhite : wordmarkNavy}
+            style={styles.loaderWordmark}
+            resizeMode="contain"
+          />
+          <ActivityIndicator color={loaderTone === 'navy' ? '#fff' : INK} style={{ marginTop: 18 }} />
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
 // ─── Tab bar ─────────────────────────────────────────────────────────────────
 function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) => void }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.tabBar}>
-      {TABS.map((t) => (
-        <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)}>
-          <Text style={[styles.tabText, active === t.key && styles.tabTextActive]}>{t.label}</Text>
-        </Pressable>
-      ))}
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      {TABS.map((t) => {
+        const on = active === t.key;
+        return (
+          <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
+            <Ionicons
+              name={(on ? t.icon : `${t.icon}-outline`) as keyof typeof Ionicons.glyphMap}
+              size={23}
+              color={on ? INK : MUTED}
+            />
+            <Text style={[styles.tabText, on && styles.tabTextActive]}>{t.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: PAGE },
   flex: { flex: 1, backgroundColor: PAGE },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: PAGE, padding: 24 },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PAGE,
+    padding: 24,
+  },
+  pressed: { opacity: 0.85 },
   mutedSmall: { marginTop: 10, color: INK2, fontSize: 13 },
-  offlineTitle: { fontSize: 20, fontWeight: '600', color: INK, marginBottom: 6 },
-  loginWrap: { padding: 24, justifyContent: 'center' },
-  brand: { fontSize: 28, fontWeight: '700', color: INK, letterSpacing: 2, textAlign: 'center' },
-  loginSub: { textAlign: 'center', color: INK2, marginTop: 6, marginBottom: 24 },
+
+  // Arrival overlay
+  arrival: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: INK,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrivalWordmark: { width: 200, height: 64 },
+
+  // Start screen
+  startWrap: { flex: 1, backgroundColor: PAGE, paddingHorizontal: 28, justifyContent: 'space-between' },
+  startHero: { flex: 1, justifyContent: 'center' },
+  startWordmark: { width: 176, height: 52, marginBottom: 28 },
+  startTitle: { fontFamily: SERIF, fontSize: 34, color: INK, lineHeight: 40 },
+  startSub: { marginTop: 12, fontSize: 16, lineHeight: 23, color: INK2, maxWidth: 300 },
+  startActions: { gap: 12 },
+
+  // WebView seam-kill loader
+  webLoader: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loaderWordmark: { width: 150, height: 44 },
+
+  // Login
+  loginWrap: { backgroundColor: PAGE, paddingHorizontal: 24 },
+  loginBody: { flex: 1, justifyContent: 'center', paddingBottom: 48 },
+  loginWordmark: { width: 168, height: 50, alignSelf: 'center', marginBottom: 6 },
+  loginSub: { textAlign: 'center', color: INK2, marginTop: 4, marginBottom: 24, fontSize: 15 },
   input: {
     borderWidth: 1,
     borderColor: LINE,
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 16,
     color: INK,
     marginBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE,
   },
   error: { color: '#dc2626', marginBottom: 12, fontSize: 13 },
+
+  // Join header
+  joinHeader: { backgroundColor: PAGE, paddingHorizontal: 16, paddingBottom: 8 },
+  backRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+  backText: { color: INK2, fontSize: 16, marginLeft: 2 },
+
+  // Buttons
   primaryBtn: {
     backgroundColor: INK,
     borderRadius: 10,
-    paddingVertical: 14,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 4,
   },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  secondaryBtn: {
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: LINE,
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  secondaryBtnText: { color: INK, fontSize: 16, fontWeight: '600' },
+  retryBtn: { marginTop: 18, paddingHorizontal: 28 },
+
+  offlineTitle: { fontSize: 20, fontWeight: '600', color: INK, marginBottom: 6 },
+
+  // Tab bar
   tabBar: {
     flexDirection: 'row',
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: LINE,
-    backgroundColor: '#fff',
-    paddingBottom: 18,
+    backgroundColor: SURFACE,
     paddingTop: 8,
   },
-  tab: { flex: 1, alignItems: 'center' },
-  tabText: { fontSize: 11, color: INK2 },
+  tab: { flex: 1, alignItems: 'center', gap: 3 },
+  tabText: { fontSize: 10.5, color: MUTED },
   tabTextActive: { color: INK, fontWeight: '700' },
 });

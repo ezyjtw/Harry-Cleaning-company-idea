@@ -78,6 +78,25 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const [imageFailed, setImageFailed] = useState(false);
   const [initials, setInitials] = useState('');
 
+  // Rena Pro shell-skin (item 6): when the portal is viewed INSIDE the native
+  // shell, tag <body> so globals.css renders this page app-fit. GATED on the
+  // RenaPro/ UA suffix (set by the shell's WebView, persists across in-app
+  // navigation) — a normal browser NEVER matches, so the web portal is byte-
+  // identical. Nothing here runs unless the UA test passes.
+  const [shellSeg, setShellSeg] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !/RenaPro\//i.test(navigator.userAgent)) return;
+    const parts = pathname.split('/').filter(Boolean);
+    const ci = parts.indexOf('cleaner');
+    setShellSeg(ci >= 0 ? parts[ci + 1] || 'root' : 'root');
+  }, [pathname]);
+  useEffect(() => {
+    if (!shellSeg) return;
+    const classes = ['rena-shell', `rena-page-${shellSeg}`];
+    document.body.classList.add(...classes);
+    return () => document.body.classList.remove(...classes);
+  }, [shellSeg]);
+
   useEffect(() => {
     fetch('/api/cleaner/profile')
       .then((res) => {
