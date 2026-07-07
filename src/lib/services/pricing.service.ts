@@ -21,13 +21,13 @@ const COMMISSION_RATES: Record<ServiceSlug, number> = {
 
 const PLATFORM_FEE_RATE = 0.06;
 
-// James-ruled policy: "cleaner brings products" is a REAL £5 flat add-on.
-// It is a REIMBURSEMENT, not earnings: the full £5 passes to the cleaner —
-// commission-exempt, and the 6% customer service fee is NOT applied to it
-// (the customer pays exactly +£5). Code-level (not a DB ServiceAddon row) so
-// the policy amount cannot drift per service type.
+// James-ruled policy (final): "cleaner brings products" is a REAL £5 flat
+// add-on. The customer pays exactly +£5 (the 6% service fee is NOT applied to
+// it). The £5 CARRIES 10% COMMISSION: Rena takes £0.50, the cleaner receives
+// £4.50. Code-level (not a DB ServiceAddon row) so the policy cannot drift.
 export const PRODUCTS_ADDON_ID = 'products';
 export const PRODUCTS_FEE = 5;
+export const PRODUCTS_FEE_COMMISSION_RATE = 0.1;
 
 export const PRICE_ABSORPTION_THRESHOLD = 3.0;
 
@@ -169,10 +169,15 @@ export class PricingService {
       .toNumber();
 
     const productsFee = (input.addons ?? []).includes(PRODUCTS_ADDON_ID) ? PRODUCTS_FEE : 0;
+    const productsFeeCommission = new Decimal(productsFee)
+      .mul(PRODUCTS_FEE_COMMISSION_RATE)
+      .toDecimalPlaces(2)
+      .toNumber();
 
     const cleanerPayout = new Decimal(cleanerListedPrice)
       .minus(cleanerCommission)
-      .plus(productsFee) // reimbursement passes through in full
+      .plus(productsFee)
+      .minus(productsFeeCommission) // James-ruled: the £5 carries 10% commission
       .toDecimalPlaces(2)
       .toNumber();
 
@@ -198,7 +203,10 @@ export class PricingService {
       propertySize: null,
       commissionRate,
       cleanerListedPrice,
-      cleanerCommission,
+      cleanerCommission: new Decimal(cleanerCommission)
+        .plus(productsFeeCommission)
+        .toDecimalPlaces(2)
+        .toNumber(),
       cleanerPayout,
       customerPlatformFee,
       customerTotal,
@@ -249,10 +257,15 @@ export class PricingService {
       .toNumber();
 
     const productsFee = (input.addons ?? []).includes(PRODUCTS_ADDON_ID) ? PRODUCTS_FEE : 0;
+    const productsFeeCommission = new Decimal(productsFee)
+      .mul(PRODUCTS_FEE_COMMISSION_RATE)
+      .toDecimalPlaces(2)
+      .toNumber();
 
     const cleanerPayout = new Decimal(cleanerListedPrice)
       .minus(cleanerCommission)
-      .plus(productsFee) // reimbursement passes through in full
+      .plus(productsFee)
+      .minus(productsFeeCommission) // James-ruled: the £5 carries 10% commission
       .toDecimalPlaces(2)
       .toNumber();
 
@@ -278,7 +291,10 @@ export class PricingService {
       propertySize: input.propertySize,
       commissionRate,
       cleanerListedPrice,
-      cleanerCommission,
+      cleanerCommission: new Decimal(cleanerCommission)
+        .plus(productsFeeCommission)
+        .toDecimalPlaces(2)
+        .toNumber(),
       cleanerPayout,
       customerPlatformFee,
       customerTotal,
