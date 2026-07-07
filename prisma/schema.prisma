@@ -35,6 +35,11 @@ enum BookingStatus {
   CANCELLED
   DISPUTED
   CASCADE_EXHAUSTED
+  // M3 rescue: a paid booking whose cleaner cancelled — held awaiting the
+  // customer's choice (full refund / rebook) until rescueDeadline, then
+  // auto-refunded by the scheduler sweep. Excluded from every cleaner-facing
+  // job/availability query (the slot frees immediately).
+  CLEANER_CANCELLED
 }
 
 enum CascadePhase {
@@ -455,6 +460,11 @@ model Booking {
   completedAt        DateTime?
   cancelledAt        DateTime?
   cancellationReason String?       @db.Text
+  // M3 rescue flow (cleaner-cancel): the choice deadline (min(cancel+48h, start))
+  // and a PERSISTENT stamp of who cancelled — survives rebooking (when cleanerId
+  // is replaced) so reliability stats count every cleaner cancellation.
+  rescueDeadline       DateTime?
+  cancelledByCleanerId String?
   cleanerNotes       String?       @db.Text
   adminNotes         String?       @db.Text
   checklistCompleted Boolean       @default(false)

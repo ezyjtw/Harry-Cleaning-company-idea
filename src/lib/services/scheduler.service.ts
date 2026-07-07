@@ -18,6 +18,7 @@ export interface SchedulerSummary {
   timestamp: string;
   cascadeWindows: HandlerResult;
   strandedPayments: HandlerResult;
+  rescueTimeouts: HandlerResult;
   releases: HandlerResult;
   exhaustedRefunds: HandlerResult;
   backgroundJobs: HandlerResult;
@@ -195,9 +196,23 @@ async function processStrandedPayments(): Promise<HandlerResult> {
   }
 }
 
+// M3 rescue: auto-refund cleaner-cancelled bookings whose choice window closed.
+async function processRescueTimeouts(): Promise<HandlerResult> {
+  try {
+    const { sweepRescueTimeouts } = await import('./rescue.service');
+    const r = await sweepRescueTimeouts();
+    return { processed: r.refunded };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[RESCUE-SWEEP] sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
+  const rescueTimeouts = await processRescueTimeouts();
   const releases = await processDueReleases();
   const exhaustedRefunds = await processExhaustedRefunds();
   const backgroundJobs = await processBackgroundJobs();
@@ -208,6 +223,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     timestamp: new Date().toISOString(),
     cascadeWindows,
     strandedPayments,
+    rescueTimeouts,
     releases,
     exhaustedRefunds,
     backgroundJobs,

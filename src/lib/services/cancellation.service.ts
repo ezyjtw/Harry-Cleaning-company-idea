@@ -32,6 +32,9 @@ export const CANCELLABLE_STATUS: BookingStatus[] = [
   'CONFIRMED',
   'ACCEPTED',
   'CASCADE_EXHAUSTED',
+  // M3 rescue: the customer's "full refund" choice (and the timeout sweep)
+  // cancel a cleaner-cancelled booking through this same proven path.
+  'CLEANER_CANCELLED',
 ];
 
 // Transfer states where money is in flight or already released — cancel is

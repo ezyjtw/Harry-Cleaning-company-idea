@@ -25,6 +25,7 @@ const VALID_STATUSES = [
   'CANCELLED',
   'DISPUTED',
   'CASCADE_EXHAUSTED',
+  'CLEANER_CANCELLED',
 ] as const;
 
 type Status = (typeof VALID_STATUSES)[number];
@@ -62,6 +63,10 @@ const LEGAL_TRANSITIONS: Record<Status, Status[]> = {
   DISPUTED: ['COMPLETED', 'CANCELLED'],
   CANCELLED: [], // terminal — no override resurrects a cancelled booking
   CASCADE_EXHAUSTED: ['AWAITING_CLEANER', 'CANCELLED'],
+  // M3 rescue holding state: admin can hand it back to matching or cancel it
+  // (cancel via override skips the refund — use the cancel tools for money);
+  // nothing transitions INTO it manually — only a cleaner's cancel creates it.
+  CLEANER_CANCELLED: ['AWAITING_CLEANER', 'CANCELLED'],
 };
 
 // S3b: transfer states in which money is IN FLIGHT — no override may touch the

@@ -35,8 +35,24 @@ export class CleanerAnalyticsService {
         where: { cleanerId: userId, status: 'COMPLETED', date: { gte: startDate } },
         orderBy: { date: 'asc' },
       }),
+      // M3: cancellationRate counts CLEANER-FAULT cancellations via the
+      // persistent cancelledByCleanerId stamp (survives rescue rebooking, where
+      // cleanerId is replaced by the new cleaner). Legacy rows predating the
+      // stamp are matched by the old path's reason string. The previous query
+      // (cleanerId + status CANCELLED) also blamed cleaners for CUSTOMER
+      // cancellations — fixed as part of this change.
       prisma.booking.count({
-        where: { cleanerId: userId, status: 'CANCELLED', date: { gte: startDate } },
+        where: {
+          date: { gte: startDate },
+          OR: [
+            { cancelledByCleanerId: userId },
+            {
+              cleanerId: userId,
+              status: 'CANCELLED',
+              cancellationReason: 'Cancelled by cleaner',
+            },
+          ],
+        },
       }),
       prisma.review.aggregate({
         where: { cleanerId: userId, visibility: 'VISIBLE' },

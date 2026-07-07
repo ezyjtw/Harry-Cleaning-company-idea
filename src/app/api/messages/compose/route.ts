@@ -56,7 +56,10 @@ export async function GET(request: NextRequest) {
 
   // Same release-gate predicate as the gated sendMessage.
   const isSettled = booking.transferStatus === 'RELEASED' || booking.transferStatus === 'REFUNDED';
-  const isDead = booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED';
+  const isDead =
+    booking.status === 'CANCELLED' ||
+    booking.status === 'CASCADE_EXHAUSTED' ||
+    booking.status === 'CLEANER_CANCELLED'; // M3: the cleaner has left the booking
   const eitherBlocked = !!block;
 
   return NextResponse.json({

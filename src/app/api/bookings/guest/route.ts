@@ -46,6 +46,10 @@ export async function GET(request: NextRequest) {
       address: bookingFullAddress(booking),
       status: booking.status,
       paymentStatus: booking.paymentStatus,
+      // M3 rescue: the tokened tracking page renders the refund/rebook panel.
+      rescueDeadline: booking.rescueDeadline ? booking.rescueDeadline.toISOString() : null,
+      backupCleanerIds: booking.backupCleanerIds,
+      postcode: booking.addressPostcode || '',
       guestEmail: booking.guestEmail || '',
       guestName: booking.guestName || '',
       notes: booking.notes || '',
