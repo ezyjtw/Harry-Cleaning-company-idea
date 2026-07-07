@@ -61,12 +61,16 @@ export async function refundBooking(
 ): Promise<RefundResult> {
   const { triggeredBy, adjustEarnings = true, bookingDataOverride } = options;
 
-  // 1. Load booking
+  // 1. Load booking (+ succeeded top-up charges for LIFO allocation, M5)
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
       payment: true,
       refundRecords: { where: { status: 'SUCCEEDED' } },
+      topupRecords: {
+        where: { status: 'SUCCEEDED', stripePaymentIntentId: { not: null } },
+        orderBy: { createdAt: 'desc' }, // newest first — LIFO
+      },
       client: { select: { id: true } },
     },
   });
@@ -94,12 +98,11 @@ export async function refundBooking(
     };
   }
 
-  // 3. Amount guards — anchor the refund ceiling to the ORIGINAL charge, the only
-  //    payment intent refundBooking refunds against (see stripe.refunds.create
-  //    below, which uses booking.stripePaymentIntentId). totalPrice can drift above
-  //    the original charge after a top-up (writeTopupSuccess raises it) or below it
-  //    after a cheaper reassign — neither reflects what this PI can actually refund.
-  //    Top-up PIs are a separate (deferred) refund action and must NOT inflate this.
+  // 3. Amount guards — M5: the ceiling is ALL captured charges for the booking
+  //    (original PI + succeeded top-up PIs). totalAmountCharged is maintained as
+  //    exactly that sum (money-snapshot helper adds each top-up), and refunds are
+  //    allocated LIFO across the underlying charges below — top-up charge first,
+  //    then the original.
   const totalPaid = Number(booking.totalAmountCharged ?? booking.totalPrice);
   const alreadyRefunded = booking.refundRecords.reduce((sum, r) => sum + Number(r.amount), 0);
   const refundable = totalPaid - alreadyRefunded;
@@ -179,10 +182,33 @@ export async function refundBooking(
   const attempt = refundRecord.attempt + 1;
   const idempotencyKey = `refund_${refundRecord.id}_v${attempt}`;
 
+  // M5: allocate the refund LIFO across the booking's captured charges —
+  // top-up PI(s) newest-first, then the original PI. For bookings with no
+  // top-ups this yields a single slice on the original PI and the code path
+  // below is byte-identical to the pre-M5 behaviour (same idempotency key).
+  const slices = buildRefundAllocation(booking, amountPence, totalPaid);
+
+  if (slices.length > 1) {
+    return executeMultiSliceRefund({
+      booking,
+      refundRecord,
+      slices,
+      amountPounds,
+      isFullRefund,
+      isPostRelease,
+      prevTransferStatus,
+      attempt,
+      adjustEarnings,
+      bookingDataOverride,
+      reason,
+      triggeredBy,
+    });
+  }
+
   try {
     const stripeRefund = await stripe.refunds.create(
       {
-        payment_intent: booking.stripePaymentIntentId,
+        payment_intent: slices[0]?.pi ?? booking.stripePaymentIntentId,
         amount: amountPence,
         metadata: { bookingId, refundRecordId: refundRecord.id },
       },
@@ -200,6 +226,13 @@ export async function refundBooking(
       attempt,
       adjustEarnings,
       bookingDataOverride,
+      allocation: [
+        {
+          pi: slices[0]?.pi ?? booking.stripePaymentIntentId,
+          refundId: stripeRefund.id,
+          amountPence,
+        },
+      ],
     });
 
     await notifyRefundSuccess(booking, amountPounds, reason, isFullRefund).catch(() => {});
@@ -422,12 +455,238 @@ async function handleUnknownRefund(
 
 function calculateCleanerSharePence(
   refundAmountPounds: number,
-  booking: { totalPrice: unknown; cleanerEarnings: unknown }
+  booking: { totalPrice: unknown; totalAmountCharged?: unknown; cleanerEarnings: unknown }
 ): number {
-  const totalPrice = Number(booking.totalPrice);
-  if (totalPrice === 0) return 0;
-  const ratio = refundAmountPounds / totalPrice;
+  // M5: the reversal ratio anchors to the TRUE captured total (original +
+  // top-ups), not totalPrice — after a top-up the two can differ and the share
+  // must be proportional to what the customer actually paid.
+  const trueTotal = Number(booking.totalAmountCharged ?? booking.totalPrice);
+  if (trueTotal === 0) return 0;
+  const ratio = refundAmountPounds / trueTotal;
   return Math.round(Number(booking.cleanerEarnings) * ratio * 100);
+}
+
+// ─── M5: LIFO refund allocation across captured charges ──────────────────────
+
+interface RefundSlice {
+  pi: string;
+  amountPence: number;
+}
+interface ExecutedSlice extends RefundSlice {
+  refundId: string;
+}
+
+/**
+ * Split a refund across the booking's captured charges, LIFO: top-up PI(s)
+ * newest-first, then the original PI. Per-PI headroom = captured − already
+ * refunded against that PI (from prior records' allocation JSON; records
+ * predating allocation tracking were all against the original PI).
+ */
+function buildRefundAllocation(
+  booking: {
+    stripePaymentIntentId: string | null;
+    topupRecords: { stripePaymentIntentId: string | null; amount: unknown }[];
+    refundRecords: { amount: unknown; allocation: unknown }[];
+  },
+  amountPence: number,
+  totalPaidPounds: number
+): RefundSlice[] {
+  const originalPi = booking.stripePaymentIntentId as string;
+  const topups = booking.topupRecords
+    .filter((t) => t.stripePaymentIntentId)
+    .map((t) => ({
+      pi: t.stripePaymentIntentId as string,
+      capturedPence: Math.round(Number(t.amount) * 100),
+    }));
+  const totalPaidPence = Math.round(totalPaidPounds * 100);
+  const originalCapturedPence =
+    totalPaidPence - topups.reduce((s, t) => s + t.capturedPence, 0);
+
+  // Already refunded per PI.
+  const refundedByPi = new Map<string, number>();
+  for (const r of booking.refundRecords) {
+    const alloc = r.allocation as { pi?: string; amountPence?: number }[] | null;
+    if (Array.isArray(alloc) && alloc.length > 0) {
+      for (const a of alloc) {
+        if (a.pi && typeof a.amountPence === 'number') {
+          refundedByPi.set(a.pi, (refundedByPi.get(a.pi) ?? 0) + a.amountPence);
+        }
+      }
+    } else {
+      // Legacy record — was refunded against the original PI.
+      refundedByPi.set(
+        originalPi,
+        (refundedByPi.get(originalPi) ?? 0) + Math.round(Number(r.amount) * 100)
+      );
+    }
+  }
+
+  // LIFO stack: top-ups (already newest-first from the query), then original.
+  const stack = [...topups, { pi: originalPi, capturedPence: originalCapturedPence }];
+  const slices: RefundSlice[] = [];
+  let remaining = amountPence;
+  for (const charge of stack) {
+    if (remaining <= 0) break;
+    const headroom = charge.capturedPence - (refundedByPi.get(charge.pi) ?? 0);
+    if (headroom <= 0) continue;
+    const take = Math.min(remaining, headroom);
+    slices.push({ pi: charge.pi, amountPence: take });
+    remaining -= take;
+  }
+  // remaining > 0 can't happen — the caller's refundable cap already bounds
+  // amountPence to totalPaid − alreadyRefunded. Guard anyway: put the tail on
+  // the original PI so Stripe (not silence) rejects a genuine over-ask.
+  if (remaining > 0) slices.push({ pi: originalPi, amountPence: remaining });
+  return slices;
+}
+
+/**
+ * Execute a multi-charge (topped-up booking) refund, slice by slice.
+ * Mid-sequence failure records exactly what executed (allocation) so a retry
+ * refunds only the remainder; an unknown-outcome slice marks the record
+ * UNKNOWN for admin verification (mirrors the single-PI unknown semantics).
+ */
+async function executeMultiSliceRefund(params: {
+  booking: Parameters<typeof writeRefundSuccess>[0]['booking'] & {
+    id: string;
+    stripePaymentIntentId: string | null;
+  };
+  refundRecord: { id: string; attempt: number };
+  slices: RefundSlice[];
+  amountPounds: number;
+  isFullRefund: boolean;
+  isPostRelease: boolean;
+  prevTransferStatus: string;
+  attempt: number;
+  adjustEarnings: boolean;
+  bookingDataOverride?: Record<string, unknown>;
+  reason: string;
+  triggeredBy?: string;
+}): Promise<RefundResult> {
+  const {
+    booking,
+    refundRecord,
+    slices,
+    amountPounds,
+    isFullRefund,
+    isPostRelease,
+    prevTransferStatus,
+    attempt,
+    adjustEarnings,
+    bookingDataOverride,
+    reason,
+    triggeredBy,
+  } = params;
+
+  const executed: ExecutedSlice[] = [];
+  for (let i = 0; i < slices.length; i++) {
+    const slice = slices[i];
+    try {
+      const r = await stripe.refunds.create(
+        {
+          payment_intent: slice.pi,
+          amount: slice.amountPence,
+          metadata: { bookingId: booking.id, refundRecordId: refundRecord.id },
+        },
+        { idempotencyKey: `refund_${refundRecord.id}_v${attempt}_s${i}` }
+      );
+      executed.push({ ...slice, refundId: r.id });
+    } catch (err: unknown) {
+      const executedPounds =
+        Math.round(executed.reduce((s, e) => s + e.amountPence, 0)) / 100;
+      const detail = err instanceof Error ? err.message : 'Stripe error';
+
+      if (executed.length === 0) {
+        // Nothing moved — mirror the single-PI failure semantics.
+        if (isUnknownOutcome(err)) {
+          await prisma.refundRecord.update({
+            where: { id: refundRecord.id },
+            data: {
+              status: 'UNKNOWN',
+              attempt,
+              failureReason: 'First slice outcome unknown — verify in Stripe (claim held)',
+            },
+          });
+          return { status: 'FAILED', refundRecordId: refundRecord.id, reason: 'Outcome unknown' };
+        }
+        await prisma.$transaction([
+          prisma.refundRecord.update({
+            where: { id: refundRecord.id },
+            data: { status: 'FAILED', attempt, failureReason: detail },
+          }),
+          prisma.booking.update({
+            where: { id: booking.id },
+            data: { transferStatus: prevTransferStatus },
+          }),
+        ]);
+        return { status: 'FAILED', refundRecordId: refundRecord.id, reason: detail };
+      }
+
+      // Partial execution: record the truth for what moved so a retry refunds
+      // only the remainder, then surface the shortfall loudly.
+      await writeRefundSuccess({
+        booking,
+        refundRecord,
+        stripeRefundId: executed[0].refundId,
+        amountPounds: executedPounds,
+        isFullRefund: false,
+        isPostRelease,
+        prevTransferStatus,
+        attempt,
+        adjustEarnings,
+        bookingDataOverride,
+        allocation: executed,
+      });
+      await prisma.refundRecord.update({
+        where: { id: refundRecord.id },
+        data: {
+          status: isUnknownOutcome(err) ? 'UNKNOWN' : 'SUCCEEDED',
+          failureReason: `Partial: £${executedPounds.toFixed(2)} of £${amountPounds.toFixed(
+            2
+          )} executed; slice ${i} (${slice.pi}) ${
+            isUnknownOutcome(err) ? 'outcome UNKNOWN — verify in Stripe' : `failed: ${detail}`
+          } — retry the remainder`,
+        },
+      });
+      return {
+        status: 'FAILED',
+        refundRecordId: refundRecord.id,
+        amountRefunded: executedPounds,
+        reason: `Partially executed (£${executedPounds.toFixed(2)}) — retry remainder`,
+      };
+    }
+  }
+
+  await writeRefundSuccess({
+    booking,
+    refundRecord,
+    stripeRefundId: executed[0].refundId,
+    amountPounds,
+    isFullRefund,
+    isPostRelease,
+    prevTransferStatus,
+    attempt,
+    adjustEarnings,
+    bookingDataOverride,
+    allocation: executed,
+  });
+  await notifyRefundSuccess(booking, amountPounds, reason, isFullRefund).catch(() => {});
+  await logRefundAudit(
+    booking.id,
+    amountPounds,
+    reason,
+    executed.map((e) => e.refundId).join(','),
+    isFullRefund,
+    isPostRelease,
+    triggeredBy
+  ).catch(() => {});
+
+  return {
+    status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+    refundRecordId: refundRecord.id,
+    stripeRefundId: executed.map((e) => e.refundId).join(','),
+    amountRefunded: amountPounds,
+  };
 }
 
 interface WriteSuccessParams {
@@ -446,6 +705,8 @@ interface WriteSuccessParams {
   isPostRelease: boolean;
   prevTransferStatus: string;
   attempt: number;
+  /** M5: which charge(s) this refund hit — persisted on the RefundRecord. */
+  allocation?: { pi: string; refundId: string; amountPence: number }[];
   adjustEarnings: boolean;
   bookingDataOverride?: Record<string, unknown>;
 }
@@ -462,6 +723,7 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
     attempt,
     adjustEarnings,
     bookingDataOverride,
+    allocation,
   } = params;
 
   const isFullPreRelease = isFullRefund && !isPostRelease;
@@ -517,7 +779,13 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
     prisma.booking.update({ where: { id: booking.id }, data: bookingUpdate }),
     prisma.refundRecord.update({
       where: { id: refundRecord.id },
-      data: { stripeRefundId, status: 'SUCCEEDED', attempt, failureReason: null },
+      data: {
+        stripeRefundId,
+        status: 'SUCCEEDED',
+        attempt,
+        failureReason: null,
+        allocation: allocation ?? undefined,
+      },
     }),
   ];
 

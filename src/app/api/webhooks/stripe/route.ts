@@ -3,15 +3,10 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 
 import prisma from '@/lib/db/prisma';
-import { computeCascadeWindows } from '@/lib/services/cascade.service';
-import {
-  sendBookingConfirmation,
-  sendCleanerAssignment,
-  sendGuestBookingConfirmation,
-  sendPaymentFailureNotification,
-} from '@/lib/services/email.service';
+import { sendPaymentFailureNotification } from '@/lib/services/email.service';
+import { processPaymentSuccess } from '@/lib/services/payment-success.service';
 import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
-import { enqueueStripePayout, enqueueXeroPush } from '@/lib/services/xero-push.service';
+import { enqueueStripePayout } from '@/lib/services/xero-push.service';
 import stripe from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
@@ -49,21 +44,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
+  // M4 TWO-PHASE idempotency: the row records RECEIPT (processed=false); only
+  // after every handler below completes is it marked processed=true. A retry of
+  // a received-but-unprocessed event RE-RUNS the handlers (all verified
+  // re-run-safe — see per-event notes at each block) instead of being swallowed
+  // by a short-circuit, so a mid-handler crash can no longer strand a paid
+  // booking behind a poisoned idempotency row.
   const existing = await prisma.stripeWebhookEvent.findUnique({
     where: { id: event.id },
   });
 
-  if (existing) {
+  if (existing?.processed) {
     return NextResponse.json({ received: true });
   }
 
-  await prisma.stripeWebhookEvent.create({
-    data: {
-      id: event.id,
-      type: event.type,
-      payload: JSON.parse(rawBody),
-    },
-  });
+  if (!existing) {
+    await prisma.stripeWebhookEvent.create({
+      data: {
+        id: event.id,
+        type: event.type,
+        payload: JSON.parse(rawBody),
+        processed: false,
+      },
+    });
+  }
+
+  const markProcessed = async () => {
+    await prisma.stripeWebhookEvent
+      .update({ where: { id: event.id }, data: { processed: true } })
+      .catch((e) => {
+        // Non-fatal: the event simply re-runs on the next retry (handlers are
+        // re-run-safe); log so a stuck-unprocessed event is visible.
+        // eslint-disable-next-line no-console
+        console.warn('[Stripe Webhook] could not mark processed', event.id, e);
+      });
+  };
 
   // ── Topup PI guard (A5.3) ──────────────────────────────────────
   // Topup PIs carry metadata.type = 'price_reconciliation_topup'.
@@ -87,6 +102,7 @@ export async function POST(request: NextRequest) {
     }
     // requires_action and canceled: no action needed for topup PIs
 
+    await markProcessed();
     return NextResponse.json({ received: true });
   }
 
@@ -140,183 +156,26 @@ export async function POST(request: NextRequest) {
     const bookingId = pi.metadata?.bookingId;
 
     if (bookingId) {
+      // M4: all processing lives in processPaymentSuccess — the SAME path the
+      // scheduler's stranded-payment sweep uses. Re-run safe: the status flip is
+      // an atomic claim (only one caller ever runs the side-effects), so a
+      // webhook retry after a mid-handler crash re-runs to completion instead of
+      // stranding the booking. A throw here leaves the event unprocessed → 500 →
+      // Stripe retries.
       const chargeId =
         typeof pi.latest_charge === 'string'
           ? pi.latest_charge
           : (pi.latest_charge as Stripe.Charge)?.id;
-
-      // Read booking FIRST for cascade window computation + emails
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: {
-          client: { select: { name: true, email: true } },
-          cleaner: { select: { name: true, email: true } },
-        },
-      });
-
-      // SECURITY (defence-in-depth): confirm this PaymentIntent actually belongs to
-      // the booking before marking it paid. A validly-signed succeeded event whose
-      // metadata.bookingId points at a booking it didn't pay for must NOT flip that
-      // booking to paid. Gated on stripePaymentIntentId being present to avoid
-      // stranding a legitimate payment if the id wasn't persisted yet.
-      if (booking) {
-        if (booking.stripePaymentIntentId && pi.id !== booking.stripePaymentIntentId) {
-          // eslint-disable-next-line no-console
-          console.error('[stripe webhook] payment_intent.succeeded PI/booking mismatch', {
-            bookingId,
-            piId: pi.id,
-            expectedPiId: booking.stripePaymentIntentId,
-          });
-          return NextResponse.json({ received: true, ignored: 'pi_mismatch' });
-        }
-        if (pi.currency && pi.currency.toLowerCase() !== 'gbp') {
-          // eslint-disable-next-line no-console
-          console.error('[stripe webhook] payment_intent.succeeded unexpected currency', {
-            bookingId,
-            currency: pi.currency,
-          });
-          return NextResponse.json({ received: true, ignored: 'currency' });
-        }
-        // Amount check is alert-only (not blocking) so top-up/rounding edge cases
-        // can't strand a real payment; a shortfall here signals a bug or tampering.
-        const expectedPence = Math.round(
-          Number(booking.totalAmountCharged ?? booking.totalPrice) * 100
-        );
-        if (typeof pi.amount_received === 'number' && pi.amount_received < expectedPence) {
-          // eslint-disable-next-line no-console
-          console.error('[stripe webhook] payment_intent.succeeded amount below booking total', {
-            bookingId,
-            amountReceived: pi.amount_received,
-            expectedPence,
-          });
-        }
-      }
-
-      // Compute cascade windows (safe — falls back to COMBINED_OFFER on parse failure)
-      const now = new Date();
-      const cascadeData = booking
-        ? computeCascadeWindows(booking.date, booking.startTime, now)
-        : null;
-
-      // Single update: payment + status + cascade fields (#2)
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          paymentStatus: 'SUCCEEDED',
-          status: 'AWAITING_CLEANER',
-          ...(chargeId ? { stripeChargeId: chargeId } : {}),
-          ...(cascadeData
-            ? {
-                cascadePhase: cascadeData.initialPhase,
-                cascadeExpiresAt: cascadeData.cascadeExpiresAt,
-                cascadeBackupExpiresAt: cascadeData.cascadeBackupExpiresAt,
-              }
-            : {}),
-        },
-      });
-
-      // A13-Xero: pull the ACTUAL Stripe processing fee from the charge's balance
-      // transaction so the Xero receive nets to what Stripe truly credited. Captured
-      // HERE (enqueue time) — the balance transaction is settled once the charge
-      // succeeds. Best-effort: if unavailable the push simply omits the fee line.
-      let stripeFeeAmount: number | undefined;
-      if (chargeId) {
-        try {
-          const ch = await stripe.charges.retrieve(chargeId, {
-            expand: ['balance_transaction'],
-          });
-          const bt = ch.balance_transaction;
-          if (bt && typeof bt !== 'string') stripeFeeAmount = bt.fee / 100;
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.warn('[xero] could not read Stripe fee for charge', chargeId, e);
-        }
-      }
-
-      // A13-Xero-c: mirror the gross customer payment into Xero as Receive Money
-      // (gated — no-op unless connected + mapped + flag on). Never blocks the webhook.
-      await enqueueXeroPush({
+      await processPaymentSuccess({
         bookingId,
-        event: 'PAYMENT_RECEIVED',
-        occurredAt: new Date(pi.created * 1000).toISOString(),
-        stripeFeeAmount,
-      }).catch(() => {});
-
-      // Confirmation + cleaner-offer emails fire HERE, on payment success — not at
-      // booking creation — so an abandoned/unpaid booking never triggers a
-      // "you're booked" email. (Resequenced from POST /api/bookings; also kills
-      // the previous double-fire for registered users.)
-      if (booking) {
-        const emailData = {
-          id: booking.id,
-          customerName: booking.client?.name || booking.guestName || 'Customer',
-          cleanerName: booking.cleaner?.name || 'Your cleaner',
-          date: booking.date.toISOString().split('T')[0],
-          time: booking.startTime,
-          address: [
-            booking.addressLine1,
-            booking.addressLine2,
-            booking.addressCity,
-            booking.addressPostcode,
-          ]
-            .filter(Boolean)
-            .join(', '),
-          serviceType: booking.serviceType,
-          totalPrice: Number(booking.totalPrice),
-        };
-
-        if (booking.client) {
-          await sendBookingConfirmation(emailData, {
-            name: booking.client.name || 'Customer',
-            email: booking.client.email,
-          }).catch(() => {});
-        } else if (booking.guestEmail) {
-          await sendGuestBookingConfirmation(
-            emailData,
-            booking.guestEmail,
-            booking.guestName || 'there',
-            booking.guestToken || ''
-          ).catch(() => {});
-        }
-
-        if (booking.cleaner?.email) {
-          await sendCleanerAssignment(emailData, {
-            name: booking.cleaner.name || '',
-            email: booking.cleaner.email,
-          }).catch(() => {});
-        }
-      }
-
-      // Notify primary cleaner (and backups in COMBINED_OFFER)
-      if (booking?.cleaner) {
-        await prisma.notification
-          .create({
-            data: {
-              userId: booking.cleanerId,
-              type: 'BOOKING_REQUEST',
-              title: 'New booking request',
-              body: `New ${booking.serviceType} booking on ${booking.date.toISOString().split('T')[0]} — please accept or decline.`,
-              data: { bookingId },
-            },
-          })
-          .catch(() => {});
-      }
-
-      if (cascadeData?.initialPhase === 'COMBINED_OFFER' && booking) {
-        for (const backupId of booking.backupCleanerIds) {
-          await prisma.notification
-            .create({
-              data: {
-                userId: backupId,
-                type: 'BOOKING_REQUEST',
-                title: 'Cleaning job available',
-                body: `A ${booking.serviceType} job is available — first to accept gets it.`,
-                data: { bookingId },
-              },
-            })
-            .catch(() => {});
-        }
-      }
+        pi: {
+          id: pi.id,
+          created: pi.created,
+          currency: pi.currency,
+          amountReceived: pi.amount_received,
+          chargeId: chargeId ?? null,
+        },
+      });
     }
   }
 
@@ -459,5 +318,6 @@ export async function POST(request: NextRequest) {
     }).catch(() => {});
   }
 
+  await markProcessed();
   return NextResponse.json({ received: true });
 }

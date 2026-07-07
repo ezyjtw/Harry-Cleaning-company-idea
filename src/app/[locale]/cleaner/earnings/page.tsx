@@ -24,7 +24,6 @@ interface ServiceBreakdown {
 
 interface EarningsData {
   totalEarnings: number;
-  platformCommission: number;
   netEarnings: number;
   bookingCount: number;
   payouts: Payout[];

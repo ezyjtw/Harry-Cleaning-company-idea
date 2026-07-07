@@ -589,12 +589,20 @@ export async function POST(request: NextRequest) {
           platformFee,
           cleanerEarnings,
           cleanerPayoutAmount: quote.cleanerPayout,
-          platformCommissionAmount: quote.cleanerCommission,
+          // M2: promos are RENA-FUNDED. The discount comes entirely out of the
+          // platform commission (which may go NEGATIVE); cleaner earnings are
+          // sacred and never reduced by a promo. Statements/Xero therefore see
+          // Rena's true (possibly negative) take on discounted bookings.
+          platformCommissionAmount:
+            Math.round((quote.cleanerCommission - discountAmount) * 100) / 100,
           platformFeeAmount: quote.customerPlatformFee,
           totalAmountCharged: totalPrice,
           customerSubtotal: quote.cleanerListedPrice,
           customerServiceFee: quote.customerPlatformFee,
-          renaEarns: quote.cleanerCommission + quote.customerPlatformFee,
+          renaEarns:
+            Math.round(
+              (quote.cleanerCommission + quote.customerPlatformFee - discountAmount) * 100
+            ) / 100,
           propertySize: propertySizeSlugToEnum(body.propertySize),
           notes: body.notes || null,
           paymentStatus: 'PENDING',
