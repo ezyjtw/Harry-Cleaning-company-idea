@@ -52,13 +52,37 @@ export interface XeroPushPayload {
 
 const money = (n: number) => Math.round(n * 100) / 100;
 
-/**
- * TEST-MODE GUARD. Xero pushes are REAL money in James's live books, so they
- * must NEVER fire while Stripe is in test mode. Live only when the secret key is
- * a live (sk_live_/rk_live_) key. Enforced at BOTH enqueue and run time.
- */
+/** True when the runtime Stripe secret is a LIVE key (sk_live_/rk_live_). */
 function stripeIsLive(): boolean {
   return /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? '');
+}
+
+/**
+ * TEST-MODE GUARD — decides whether a Xero push may fire in the current mode.
+ * Xero pushes are REAL money in James's live books, so by default they only fire
+ * when Stripe is LIVE.
+ *
+ * The DEV-ONLY override XERO_ALLOW_TEST_PUSH=true lets pushes fire in Stripe TEST
+ * mode so the fee/payout logic can be proven against a Xero DEMO org before
+ * launch. Belt-and-braces BOTH directions:
+ *   • test key + override        → allowed (the intended dev harness).
+ *   • live key + override present → HARD REFUSED (loud) — the override must never
+ *                                   exist in a production/live environment.
+ *   • test key, no override      → refused (normal safety).
+ *   • live key, no override      → allowed (normal production).
+ * Enforced at BOTH enqueue and run time.
+ */
+function xeroPushAllowedInMode(): boolean {
+  const live = stripeIsLive();
+  const override = process.env.XERO_ALLOW_TEST_PUSH === 'true';
+  if (override && live) {
+    // eslint-disable-next-line no-console
+    console.error(
+      '[xero-push] REFUSED: XERO_ALLOW_TEST_PUSH must NEVER be set with a live Stripe key — remove it from this environment.'
+    );
+    return false;
+  }
+  return live || override;
 }
 
 /**
@@ -66,7 +90,7 @@ function stripeIsLive(): boolean {
  * so a disabled integration (or any test-mode activity) queues nothing at all.
  */
 export async function enqueueXeroPush(payload: XeroPushPayload): Promise<void> {
-  if (!stripeIsLive()) return;
+  if (!xeroPushAllowedInMode()) return;
   if (!(await isPushEnabled())) return;
   await JobQueueService.enqueue('XERO_PUSH', payload as unknown as Record<string, unknown>);
 }
@@ -82,7 +106,7 @@ export async function enqueueStripePayout(input: {
   occurredAt: string; // ISO (arrival date)
   bundle: string; // JSON audit summary
 }): Promise<void> {
-  if (!stripeIsLive()) return;
+  if (!xeroPushAllowedInMode()) return;
   if (!(await isPushEnabled())) return;
   await JobQueueService.enqueue('XERO_PUSH', {
     bookingId: input.payoutId,
@@ -99,9 +123,9 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
   const { bookingId, event } = payload;
   const externalRef = payload.externalRef ?? '';
 
-  // TEST-MODE GUARD (defence-in-depth alongside the enqueue check): never post to
-  // James's live books while Stripe is in test mode.
-  if (!stripeIsLive()) return;
+  // TEST-MODE GUARD (defence-in-depth alongside the enqueue check): never post
+  // unless the mode allows it (live, or test WITH the dev override — never both).
+  if (!xeroPushAllowedInMode()) return;
 
   // Runtime re-check: the flag may have flipped off between enqueue and drain.
   if (!(await isPushEnabled())) return;
@@ -134,12 +158,13 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
     if (!booking) return;
   }
 
-  // Claim (or reuse) a PENDING log row. stripeLivemode is stamped true (we only
-  // reach here when live) as a permanent audit marker.
+  // Claim (or reuse) a PENDING log row. stripeLivemode records the ACTUAL mode:
+  // true in production, false for dev-override test-harness pushes — so a stray
+  // test entry in live books is always identifiable.
   const log =
     existing ??
     (await prisma.xeroPushLog.create({
-      data: { bookingId, event, externalRef, status: 'PENDING', stripeLivemode: true },
+      data: { bookingId, event, externalRef, status: 'PENDING', stripeLivemode: stripeIsLive() },
     }));
 
   try {

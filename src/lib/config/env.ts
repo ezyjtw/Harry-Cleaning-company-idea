@@ -123,6 +123,15 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     description:
       'Optional Expo access token for native (Rena Pro) push. Only needed if the Expo project enforces enhanced push security; unset ⇒ Expo push still sends.',
   },
+  {
+    name: 'XERO_ALLOW_TEST_PUSH',
+    required: false,
+    description:
+      'DEV-ONLY. When "true", allows Xero pushes to fire in Stripe TEST mode so the ' +
+      'fee/payout logic can be proven against a Xero DEMO org before launch. NEVER set ' +
+      'this in production: the push layer HARD-REFUSES all pushes if this is set while ' +
+      'the Stripe key is live (sk_live_/rk_live_). Unset in prod.',
+  },
 ];
 
 export interface ValidationResult {
