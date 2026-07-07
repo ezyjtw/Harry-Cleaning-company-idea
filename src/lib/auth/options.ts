@@ -93,6 +93,9 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        // F6: issue-time marker — sessions minted before a later password
+        // change are invalidated in getSessionUser (DB comparison).
+        token.pwdAt = Math.floor(Date.now() / 1000);
       }
       return token;
     },
@@ -100,6 +103,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.role = token.role;
         session.user.id = token.id;
+        (session.user as { pwdAt?: number }).pwdAt = token.pwdAt as number | undefined;
       }
       return session;
     },

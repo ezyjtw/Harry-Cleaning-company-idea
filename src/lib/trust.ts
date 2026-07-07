@@ -168,6 +168,8 @@ export function getDisputeStatusLabel(status: DisputeStatus) {
       return { label: 'Resolved — Cleaner Paid', color: 'bg-trust/10 text-trust' };
     case 'resolved-split':
       return { label: 'Resolved — Split Payment', color: 'bg-ink/[0.06] text-ink' };
+    case 'dismissed':
+      return { label: 'Dismissed', color: 'bg-page text-ink-3' };
     case 'escalated':
       return { label: 'Escalated to Support', color: 'bg-danger/10 text-danger' };
     default:

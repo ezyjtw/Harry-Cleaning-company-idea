@@ -33,6 +33,9 @@ const evidenceChip: Record<string, string> = {
 
 export default function DisputesPage() {
   const [activeView, setActiveView] = useState<'list' | 'new'>('list');
+  // F9: cleaners view + evidence their disputes here, but only customers file
+  // (the API 403s cleaner filings) — hide the form for them.
+  const [role, setRole] = useState<string | null>(null);
   const [newDispute, setNewDispute] = useState({
     bookingId: '',
     reason: 'poor-quality' as DisputeReason,
@@ -64,6 +67,19 @@ export default function DisputesPage() {
       .then((data) => setDisputes(data.disputes || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+    // F9: role decides form visibility (cleaners view/evidence, customers file);
+    // ?bookingId deep-links straight into a prefilled report (account-bookings
+    // entry + emails).
+    fetch('/api/auth/profile')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setRole(d?.user?.role ?? d?.role ?? null))
+      .catch(() => {});
+    const params = new URLSearchParams(window.location.search);
+    const bid = params.get('bookingId');
+    if (bid) {
+      setNewDispute((prev) => ({ ...prev, bookingId: bid }));
+      setActiveView('new');
+    }
   }, []);
 
   const stageFiles = (list: FileList | null) => {
@@ -214,6 +230,7 @@ export default function DisputesPage() {
             within 24–48 hours.
           </p>
         </div>
+        {role !== 'CLEANER' && (
         <button
           onClick={() => setActiveView(activeView === 'new' ? 'list' : 'new')}
           className={`shrink-0 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors ${
@@ -224,6 +241,7 @@ export default function DisputesPage() {
         >
           {activeView === 'new' ? 'Back to Disputes' : 'File a Dispute'}
         </button>
+        )}
       </div>
 
       {/* Success message */}
@@ -246,7 +264,7 @@ export default function DisputesPage() {
       )}
 
       {/* ─── New Dispute Form ─── */}
-      {activeView === 'new' && (
+      {activeView === 'new' && role !== 'CLEANER' && (
         <form onSubmit={handleSubmitDispute} className="mt-8">
           <AccountSection title="File a New Dispute">
             <p className="mt-1 text-sm text-ink-3">

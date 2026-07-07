@@ -33,9 +33,12 @@ export async function GET() {
  * POST /api/verification/dbs — Submit a DBS verification action.
  *
  * Body must include an `action` field:
- *  - "verify_existing" — verify an existing DBS certificate
- *  - "apply_new" — initiate a new DBS application
  *  - "liveness_check" — perform identity/liveness verification
+ *
+ * F13: the previously-advertised "verify_existing" / "apply_new" actions were
+ * never implemented (they fell through to the invalid-action 400) and have no
+ * callers — the docstring no longer advertises capabilities that don't exist.
+ * GET (status) + liveness_check are the complete surface.
  */
 export async function POST(request: NextRequest) {
   try {

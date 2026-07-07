@@ -31,12 +31,22 @@ export async function POST(request: NextRequest) {
       reason,
     });
 
+    // F1: the account is DEACTIVATED the moment deletion is requested — login
+    // refuses non-ACTIVE accounts and getSessionUser's per-request DB check
+    // kills any live sessions immediately. Erasure itself stays behind the
+    // admin-approved workflow (irreversible, never unattended).
+    const { prisma } = await import('@/lib/db/prisma');
+    await prisma.user.update({
+      where: { id: userId },
+      data: { accountStatus: 'DEACTIVATED' },
+    });
+
     return NextResponse.json({
       success: true,
       requestId: deletionRequest.id,
       status: deletionRequest.status,
       message:
-        'Your data deletion request has been submitted. We will process it within 30 days as required by GDPR.',
+        'Your account has been deactivated. Your data will be erased within 30 days, except records we are legally required to keep (e.g. booking and tax records).',
     });
   } catch (error) {
     // eslint-disable-next-line no-console

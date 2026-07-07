@@ -42,7 +42,10 @@ const CANCELLABLE_RAW_STATUSES = [
   'CASCADE_EXHAUSTED',
 ];
 
-const DISPUTABLE_RAW_STATUSES = ['COMPLETED', 'IN_PROGRESS'];
+// F9: REVIEWED included — a problem can surface after the review; the service
+// accepts it. (X3 context: the 6h self-completion window makes the button on a
+// just-completed booking the critical path — it renders on every COMPLETED row.)
+const DISPUTABLE_RAW_STATUSES = ['COMPLETED', 'IN_PROGRESS', 'REVIEWED'];
 
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'All', value: 'All' },
@@ -238,6 +241,8 @@ export default function BookingsPage() {
         )
       );
       dismissDispute();
+      // F9: photos/evidence strengthen the claim — take them straight there.
+      window.location.href = '/disputes';
     } catch {
       setDisputeError('Network error. Please try again.');
     } finally {
