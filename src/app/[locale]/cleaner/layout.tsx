@@ -7,6 +7,7 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import ChromeHider from '@/components/ChromeHider';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 const navItems = [
   {
@@ -157,7 +158,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
             Cleaner
           </span>
         </div>
-        <div className="w-6" />
+        {/* F10: portal bell — offers surface mid-session (60s badge poll). */}
+        <NotificationBell role="CLEANER" tone="dark" />
       </div>
 
       <div className="flex">
@@ -180,7 +182,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           `}
         >
           {/* Brand */}
-          <div className="px-6 pt-6 pb-2">
+          <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <Link href="/" className="flex items-center gap-2">
               <span className="font-etna text-xl font-semibold tracking-widest text-white">
                 RENA
@@ -189,6 +191,10 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                 Cleaner Portal
               </span>
             </Link>
+            {/* F10: portal bell (desktop) — prominent, dark tone. */}
+            <div className="hidden lg:block">
+              <NotificationBell role="CLEANER" tone="dark" />
+            </div>
           </div>
 
           {/* Cleaner info */}
