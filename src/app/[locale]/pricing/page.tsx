@@ -39,9 +39,9 @@ const serviceRates = [
   },
   {
     type: 'Same-Day Cleaning',
-    description: 'Urgent booking for same-day service',
-    rate: '\u00A318 \u2013 \u00A346/hr',
-    typical: '2\u20134 hours',
+    description: 'Coming soon — not yet bookable, pricing to be announced',
+    rate: 'Coming soon',
+    typical: '\u2014',
     comingSoon: true,
   },
 ];
@@ -124,12 +124,26 @@ export default function PricingPage() {
             <p className="mt-1 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               3-hour regular clean at &pound;16.50/hr
             </p>
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between pt-1">
+            {/* C3: the second sanctioned home of the 6% breakdown — the example
+                shows its working. 3 × £16.50 = £49.50; 6% service fee £2.97;
+                total £52.47 (the previous £52.66 was arithmetically wrong). */}
+            <div className="mt-6 space-y-2">
+              <div className="flex items-center justify-between font-jost text-sm text-ink-2">
+                <span>Cleaner&apos;s rate &times; hours (&pound;16.50 &times; 3)</span>
+                <span>&pound;49.50</span>
+              </div>
+              <div className="flex items-center justify-between font-jost text-sm text-ink-2">
+                <span>Service fee (6%)</span>
+                <span>&pound;2.97</span>
+              </div>
+              <div
+                className="flex items-center justify-between pt-3"
+                style={{ borderTop: '0.5px solid rgba(14,14,12,0.15)' }}
+              >
                 <span className="text-lg font-medium text-ink font-newsreader">
                   All-inclusive total
                 </span>
-                <span className="text-lg font-medium text-gold font-newsreader">&pound;52.66</span>
+                <span className="text-lg font-medium text-gold font-newsreader">&pound;52.47</span>
               </div>
             </div>
             <p className="mt-6 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">

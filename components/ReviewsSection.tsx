@@ -1,151 +1,103 @@
-'use client';
+// C2: REAL social proof. The five hardcoded testimonials (invented names,
+// postcodes and quotes — including one selling the not-yet-launched same-day
+// service) are gone. This server component pulls the real pool:
+//   • native Reviews (visibility VISIBLE, with text) — labelled "Rena customer"
+//   • verified ImportedReviews (admin-VERIFIED, with text) — labelled by source
+// Selection: best-first (rating desc), newest as the tie-break, capped at 6.
+// INTERIM RULE: the section renders ONLY when ≥3 real reviews exist — a
+// homepage without a reviews section beats one with fakes.
 
-import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { getTranslations } from 'next-intl/server';
 
-const reviews = [
-  {
-    text: 'I browsed through about six cleaners before choosing Maria. Being able to read her reviews and message her beforehand made all the difference. She understood exactly how I like things done.',
-    name: 'Amira J.',
-    location: 'Walthamstow, E17',
-    highlight: 'Chose the perfect cleaner',
-    stars: 5,
-  },
-  {
-    text: 'Moved out of my flat last month and needed an end-of-tenancy clean. Booked through Rena on a Tuesday, had it done by Thursday. Landlord returned my full deposit without a single complaint.',
-    name: 'Daniel R.',
-    location: 'Hackney, E8',
-    highlight: 'Full deposit returned',
-    stars: 5,
-  },
-  {
-    text: 'As a single mum working full-time, I needed someone reliable. My cleaner has come every fortnight for five months now and has never cancelled once. It is one less thing to worry about.',
-    name: 'Sophie L.',
-    location: 'Leyton, E10',
-    highlight: 'Consistent and reliable',
-    stars: 5,
-  },
-  {
-    text: 'I run three Airbnb properties and the turnaround cleaning was always stressful. Now I have a dedicated cleaner for each one through Rena. Guests consistently mention how spotless the place is.',
-    name: 'Marcus T.',
-    location: 'Stratford, E15',
-    highlight: 'Airbnb host',
-    stars: 5,
-  },
-  {
-    text: 'Had guests arriving in four hours and my flat was a state. Booked a same-day clean and someone turned up within 45 minutes. Absolute lifesaver. The place looked incredible.',
-    name: 'James W.',
-    location: 'Tottenham, N17',
-    highlight: 'Same-day save',
-    stars: 4,
-  },
-];
+import { prisma } from '@/lib/db/prisma';
 
-export default function ReviewsSection() {
-  const [current, setCurrent] = useState(0);
-  const t = useTranslations('Reviews');
+import ReviewsCarousel, { type HomepageReview } from './ReviewsCarousel';
 
-  const prev = () => setCurrent((c) => (c === 0 ? reviews.length - 1 : c - 1));
-  const next = () => setCurrent((c) => (c === reviews.length - 1 ? 0 : c + 1));
+const MIN_REVIEWS_TO_RENDER = 3;
+const MAX_REVIEWS = 6;
 
+function firstNameLastInitial(name: string | null): string {
+  if (!name?.trim()) return 'Rena customer';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
+export default async function ReviewsSection() {
+  let pool: HomepageReview[] = [];
+  try {
+    const [native, imported] = await Promise.all([
+      prisma.review.findMany({
+        where: { visibility: 'VISIBLE', text: { not: null } },
+        orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+        take: MAX_REVIEWS,
+        select: {
+          id: true,
+          rating: true,
+          text: true,
+          createdAt: true,
+          client: { select: { name: true } },
+        },
+      }),
+      prisma.importedReview.findMany({
+        where: { verificationStatus: 'VERIFIED', text: { not: null } },
+        orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+        take: MAX_REVIEWS,
+        select: {
+          id: true,
+          rating: true,
+          text: true,
+          createdAt: true,
+          reviewerName: true,
+          source: true,
+        },
+      }),
+    ]);
+
+    const combined = [
+      ...native.map((r) => ({
+        id: `n-${r.id}`,
+        text: r.text as string,
+        name: firstNameLastInitial(r.client?.name ?? null),
+        sourceLabel: 'Rena customer',
+        stars: Math.round(Number(r.rating)),
+        rating: Number(r.rating),
+        createdAt: r.createdAt,
+      })),
+      ...imported.map((r) => ({
+        id: `i-${r.id}`,
+        text: r.text as string,
+        name: r.reviewerName?.trim() || 'Verified customer',
+        sourceLabel: `Verified · via ${r.source}`,
+        stars: Math.round(Number(r.rating)),
+        rating: Number(r.rating),
+        createdAt: r.createdAt,
+      })),
+    ]
+      .filter((r) => r.text.trim().length > 0)
+      .sort((a, b) => b.rating - a.rating || b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, MAX_REVIEWS);
+
+    pool = combined.map(({ id, text, name, sourceLabel, stars }) => ({
+      id,
+      text,
+      name,
+      sourceLabel,
+      stars: Math.min(5, Math.max(1, stars)),
+    }));
+  } catch {
+    // DB unavailable at render — skip the section rather than error the homepage.
+    pool = [];
+  }
+
+  if (pool.length < MIN_REVIEWS_TO_RENDER) return null;
+
+  const t = await getTranslations('Reviews');
   return (
-    <section className="bg-ink">
-      <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-14 md:py-20">
-        <p className="mb-2 font-jost text-[12px] uppercase tracking-[0.16em] text-white/70">
-          {t('sectionTitle')}
-        </p>
-        <h2 className="mb-10 font-newsreader text-[32px] font-semibold leading-tight text-white md:mb-14 md:text-[42px]">
-          {t('sectionSubtitle')}
-        </h2>
-
-        {/* Slider */}
-        <div className="relative">
-          <div className="overflow-hidden">
-            <div
-              className="flex transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${current * 100}%)` }}
-            >
-              {reviews.map((review) => (
-                <div key={review.name} className="w-full flex-shrink-0 px-1">
-                  <div
-                    className="rounded-lg p-8 md:p-12"
-                    style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-                  >
-                    <div className="mb-4 flex items-center justify-between">
-                      <span className="rounded-full bg-white/5 px-3 py-1 font-jost text-[11px] uppercase tracking-wider text-white/80">
-                        {review.highlight}
-                      </span>
-                      <span className="font-jost text-[13px] tracking-[3px] text-white">
-                        {'★'.repeat(review.stars)}
-                        {'☆'.repeat(5 - review.stars)}
-                      </span>
-                    </div>
-                    <p className="mb-6 font-jost text-[16px] font-light leading-[1.9] text-white/70 md:text-[18px]">
-                      &ldquo;{review.text}&rdquo;
-                    </p>
-                    <div>
-                      <span className="font-jost text-[14px] font-medium text-white">
-                        {review.name}
-                      </span>
-                      <span className="font-jost text-[13px] text-white/50">
-                        {' '}
-                        · {review.location}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <div className="mt-8 flex items-center justify-between">
-            <div className="flex gap-2">
-              {reviews.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrent(i)}
-                  className={`h-[6px] rounded-full transition-all ${
-                    i === current ? 'w-6 bg-white' : 'w-[6px] bg-white/20'
-                  }`}
-                />
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={prev}
-                className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-                style={{ border: '1px solid rgba(255,255,255,0.15)' }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M10 4L6 8L10 12"
-                    stroke="white"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={next}
-                className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-                style={{ border: '1px solid rgba(255,255,255,0.15)' }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M6 4L10 8L6 12"
-                    stroke="white"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <ReviewsCarousel
+      reviews={pool}
+      sectionTitle={t('sectionTitle')}
+      sectionSubtitle={t('sectionSubtitle')}
+    />
   );
 }

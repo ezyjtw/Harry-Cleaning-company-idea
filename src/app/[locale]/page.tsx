@@ -1,5 +1,9 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+// C2: the reviews section reads live data — revalidate hourly so real reviews
+// appear as the pool grows without forcing a full-dynamic homepage.
+export const revalidate = 3600;
+
 import JsonLd from '@/components/JsonLd';
 import { generateLocalBusinessSchema, generateServiceSchema } from '@/lib/seo/structured-data';
 

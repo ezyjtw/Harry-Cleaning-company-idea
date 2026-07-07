@@ -33,7 +33,7 @@ const faqCategories = [
       },
       {
         q: 'Can I book a same-day clean?',
-        a: 'Yes! Same-day bookings are available if requested before 12pm midday, subject to cleaner availability in your area. Look for cleaners with the "Available Now" badge.',
+        a: "Not yet — same-day booking is coming soon. For now, the earliest you can book is the next day, and we recommend 48 hours' notice for the best choice of cleaners.",
       },
       {
         q: 'Can I request a specific cleaner for recurring bookings?',
@@ -41,7 +41,7 @@ const faqCategories = [
       },
       {
         q: 'How far in advance should I book?',
-        a: 'We recommend booking at least 48 hours in advance for the best availability. However, same-day bookings are available depending on cleaner availability in your area.',
+        a: "We recommend booking at least 48 hours in advance for the best availability. Same-day booking isn't available yet — it's coming soon.",
       },
     ],
   },

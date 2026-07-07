@@ -384,7 +384,7 @@ export default function AboutPage() {
             Ready to experience the difference?
           </h2>
           <p className="mt-3 font-jost font-light text-cream/70">
-            Join thousands of customers and cleaners who trust Rena.
+            Join a growing community of customers and cleaners building something fairer, one clean at a time.
           </p>
           <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
