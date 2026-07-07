@@ -43,6 +43,7 @@ const statusLabels: Record<DisputeStatus, string> = {
   'resolved-customer': 'Resolved (Customer)',
   'resolved-cleaner': 'Resolved (Cleaner)',
   'resolved-split': 'Resolved (Split)',
+  dismissed: 'Dismissed',
   escalated: 'Escalated',
 };
 
@@ -52,6 +53,7 @@ const statusStyles: Record<DisputeStatus, string> = {
   'resolved-customer': 'bg-trust/10 text-trust',
   'resolved-cleaner': 'bg-trust/10 text-trust',
   'resolved-split': 'bg-primary-soft text-primary',
+  dismissed: 'bg-page text-ink-3',
   escalated: 'bg-purple-100 text-purple-700',
 };
 

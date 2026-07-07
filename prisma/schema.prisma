@@ -241,6 +241,9 @@ model User {
   lastLoginAt      DateTime?
   emailVerifiedAt  DateTime?
   failedLoginCount Int           @default(0)
+  // F6: bumped on every password change — sessions/tokens issued before this
+  // moment are invalidated (checked in getSessionUser / verifyBearerToken).
+  passwordChangedAt DateTime?
   isSuspended      Boolean       @default(false)
   lockedUntil      DateTime?
 

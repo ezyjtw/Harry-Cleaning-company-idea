@@ -18,7 +18,9 @@ function mapPrismaStatus(status: string, resolution: string | null): DisputeStat
       return 'resolved-customer';
     }
     case 'DISMISSED':
-      return 'resolved-cleaner';
+      // F9: a dismissed claim is NOT "resolved in the cleaner's favour" — it
+      // renders as its own honest state.
+      return 'dismissed';
     case 'OPEN':
     default:
       return 'open';

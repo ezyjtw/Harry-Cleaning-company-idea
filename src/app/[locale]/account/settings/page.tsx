@@ -1,5 +1,6 @@
 'use client';
 
+import { signIn, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
@@ -23,7 +24,7 @@ interface Address {
 
 export default function SettingsPage() {
   // Profile state
-  const [profile, setProfile] = useState({ name: '', email: '', phone: '' });
+  const [profile, setProfile] = useState({ id: '', name: '', email: '', phone: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '' });
   const [profileSaved, setProfileSaved] = useState(false);
@@ -48,6 +49,9 @@ export default function SettingsPage() {
   // Delete account state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   // Fetch profile and addresses on mount
   useEffect(() => {
@@ -58,6 +62,7 @@ export default function SettingsPage() {
       .then(([userData, addressData]) => {
         if (userData) {
           const p = {
+            id: userData.id || '',
             name: userData.name || '',
             email: userData.email || '',
             phone: userData.phone || '',
@@ -92,7 +97,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone }),
       });
       if (res.ok) {
-        setProfile(profileForm);
+        setProfile({ ...profileForm, id: profile.id });
         setIsEditingProfile(false);
         setProfileSaved(true);
         setTimeout(() => setProfileSaved(false), 3000);
@@ -182,6 +187,15 @@ export default function SettingsPage() {
         }),
       });
       if (res.ok) {
+        // Every session issued before the change is now invalid (that's the
+        // point) — including this one. Silently re-sign-in with the new
+        // password so the user stays logged in HERE while every other device
+        // is signed out.
+        await signIn('credentials', {
+          email: profile.email,
+          password: passwordForm.new,
+          redirect: false,
+        }).catch(() => {});
         setPasswordSuccess(true);
         setPasswordForm({ current: '', new: '', confirm: '' });
         setTimeout(() => setPasswordSuccess(false), 3000);
@@ -194,15 +208,52 @@ export default function SettingsPage() {
     }
   };
 
+  // F1: submits a real DataDeletionRequest into the admin-approved erasure
+  // workflow. The account is deactivated IMMEDIATELY server-side; erasure runs
+  // within 30 days (legally-required records excepted). The old code here
+  // called a DELETE endpoint that never existed (405) and pretended success.
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') return;
+    setDeleteSubmitting(true);
+    setDeleteError('');
     try {
-      await fetch('/api/auth/profile', {
-        method: 'DELETE',
+      const res = await fetch('/api/gdpr/deletion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: profile.id, email: profile.email }),
       });
-      window.location.href = '/';
-    } catch {}
-    setShowDeleteModal(false);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setDeleteError(data?.error || 'Could not submit the deletion request — please try again.');
+        setDeleteSubmitting(false);
+        return;
+      }
+      await signOut({ callbackUrl: '/' });
+    } catch {
+      setDeleteError('Network error — please try again.');
+      setDeleteSubmitting(false);
+    }
+  };
+
+  // F8: one-click copy of everything we hold (GDPR Article 20 export).
+  const handleDownloadData = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/gdpr/export');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rena-my-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setDeleteError('Could not prepare your data export — please try again.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (profileLoading) {
@@ -457,28 +508,42 @@ export default function SettingsPage() {
         </form>
       </AccountSection>
 
-      {/* Delete Account Section */}
-      <AccountSection title="Danger Zone" tone="danger">
+      {/* Privacy & data (F1 + F8) */}
+      <AccountSection title="Your data" tone="danger">
         <p className="mt-1 text-sm text-ink-2">
-          Once you delete your account, all your data will be permanently removed. This action
-          cannot be undone.
+          Download a copy of everything we hold about you, or delete your account.
         </p>
-        <button
-          onClick={() => setShowDeleteModal(true)}
-          className="mt-4 rounded-[10px] border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-red-50"
-        >
-          Delete My Account
-        </button>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={handleDownloadData}
+            disabled={exporting}
+            className="rounded-[10px] border border-line px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+          >
+            {exporting ? 'Preparing…' : 'Download my data'}
+          </button>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="rounded-[10px] border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-red-50"
+          >
+            Delete my account
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-ink-3">
+          Deleting your account deactivates it immediately. Your data is erased within 30 days,
+          except records we&rsquo;re legally required to keep (e.g. booking and tax records).
+        </p>
       </AccountSection>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl">
-            <h3 className="font-newsreader text-xl font-semibold text-danger">Delete Account</h3>
+            <h3 className="font-newsreader text-xl font-semibold text-danger">Delete account</h3>
             <p className="mt-2 text-sm text-ink-2">
-              This will permanently delete your account and all associated data including bookings,
-              reviews, and payment history.
+              Your account will be <strong>deactivated immediately</strong> and you&rsquo;ll be
+              signed out everywhere. Your personal data will be erased within 30 days &mdash;
+              except records we&rsquo;re legally required to keep, such as booking and tax records.
+              This cannot be undone.
             </p>
             <p className="mt-3 text-sm text-ink-2">
               Type <span className="font-mono font-bold text-danger">DELETE</span> to confirm:
@@ -490,13 +555,14 @@ export default function SettingsPage() {
               placeholder="Type DELETE"
               className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
             />
+            {deleteError && <p className="mt-2 text-sm text-danger">{deleteError}</p>}
             <div className="mt-4 flex gap-3">
               <button
                 onClick={handleDeleteAccount}
-                disabled={deleteConfirmText !== 'DELETE'}
+                disabled={deleteConfirmText !== 'DELETE' || deleteSubmitting}
                 className="rounded-[10px] bg-danger px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Permanently Delete
+                {deleteSubmitting ? 'Submitting…' : 'Deactivate & request erasure'}
               </button>
               <button
                 onClick={() => {

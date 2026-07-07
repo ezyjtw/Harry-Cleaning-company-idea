@@ -21,7 +21,9 @@ import { prisma } from '@/lib/db/prisma';
 import { AuditService } from './audit.service';
 
 // A dispute may be filed only when the work has happened or is happening.
-export const DISPUTABLE_STATUS: BookingStatus[] = ['COMPLETED', 'IN_PROGRESS'];
+// F9: REVIEWED included — problems can surface after the customer reviews
+// (money-state guards below still block filing once funds are settled).
+export const DISPUTABLE_STATUS: BookingStatus[] = ['COMPLETED', 'IN_PROGRESS', 'REVIEWED'];
 
 // Transfer states where the cleaner's money is already gone or in flight —
 // pausing is impossible or pointless, so filing is blocked. Only PENDING /

@@ -103,6 +103,7 @@ async function verifyBearerToken(token: string): Promise<SessionUser | null> {
       email: string;
       name: string;
       role: string;
+      iat?: number;
     };
 
     // Verify the user still exists and is active
@@ -115,10 +116,18 @@ async function verifyBearerToken(token: string): Promise<SessionUser | null> {
         role: true,
         accountStatus: true,
         isSuspended: true,
+        passwordChangedAt: true,
       },
     });
 
     if (!user || user.accountStatus !== 'ACTIVE' || user.isSuspended) {
+      return null;
+    }
+    // F6: Bearer tokens issued before a password change are dead too.
+    if (
+      user.passwordChangedAt &&
+      (!payload.iat || user.passwordChangedAt.getTime() > payload.iat * 1000)
+    ) {
       return null;
     }
 
@@ -138,7 +147,26 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await getServerSession(authOptions);
   if (session?.user) {
     const user = session.user as SessionUser;
-    if (user.id) return user;
+    if (user.id) {
+      // F6/F1: JWT sessions can't be revoked server-side, so EVERY API call
+      // re-checks the DB: dead if the account is no longer ACTIVE (immediate
+      // deactivation on deletion requests / suspensions) or if the password
+      // changed after this session was issued (change-password invalidates
+      // every other session). One indexed point-read per request.
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { accountStatus: true, isSuspended: true, passwordChangedAt: true },
+      });
+      if (!dbUser || dbUser.accountStatus !== 'ACTIVE' || dbUser.isSuspended) return null;
+      const issuedAt = (session.user as { pwdAt?: number }).pwdAt;
+      if (
+        dbUser.passwordChangedAt &&
+        (!issuedAt || dbUser.passwordChangedAt.getTime() > issuedAt * 1000)
+      ) {
+        return null;
+      }
+      return user;
+    }
   }
 
   // 2. Fall back to Bearer token (mobile/API clients)

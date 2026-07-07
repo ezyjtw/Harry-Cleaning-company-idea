@@ -153,6 +153,7 @@ export type DisputeStatus =
   | 'resolved-customer'
   | 'resolved-cleaner'
   | 'resolved-split'
+  | 'dismissed'
   | 'escalated';
 
 export interface Dispute {
