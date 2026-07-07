@@ -21,6 +21,14 @@ const COMMISSION_RATES: Record<ServiceSlug, number> = {
 
 const PLATFORM_FEE_RATE = 0.06;
 
+// James-ruled policy (final): "cleaner brings products" is a REAL £5 flat
+// add-on. The customer pays exactly +£5 (the 6% service fee is NOT applied to
+// it). The £5 CARRIES 10% COMMISSION: Rena takes £0.50, the cleaner receives
+// £4.50. Code-level (not a DB ServiceAddon row) so the policy cannot drift.
+export const PRODUCTS_ADDON_ID = 'products';
+export const PRODUCTS_FEE = 5;
+export const PRODUCTS_FEE_COMMISSION_RATE = 0.1;
+
 export const PRICE_ABSORPTION_THRESHOLD = 3.0;
 
 export const EOT_PRICE_FLOORS: Record<EotPropertySize, number> = {
@@ -82,6 +90,9 @@ export interface QuoteResult {
   customerTotal: number;
 
   addonTotal: number;
+  /** £5 "cleaner brings products" reimbursement — included in customerTotal
+   *  AND cleanerPayout, exempt from commission and the 6% fee. */
+  productsFee: number;
   breakdown: string;
 }
 
@@ -157,8 +168,16 @@ export class PricingService {
       .toDecimalPlaces(2)
       .toNumber();
 
+    const productsFee = (input.addons ?? []).includes(PRODUCTS_ADDON_ID) ? PRODUCTS_FEE : 0;
+    const productsFeeCommission = new Decimal(productsFee)
+      .mul(PRODUCTS_FEE_COMMISSION_RATE)
+      .toDecimalPlaces(2)
+      .toNumber();
+
     const cleanerPayout = new Decimal(cleanerListedPrice)
       .minus(cleanerCommission)
+      .plus(productsFee)
+      .minus(productsFeeCommission) // James-ruled: the £5 carries 10% commission
       .toDecimalPlaces(2)
       .toNumber();
 
@@ -173,6 +192,7 @@ export class PricingService {
     const customerTotal = new Decimal(cleanerListedPrice)
       .plus(customerPlatformFee)
       .plus(addonTotal)
+      .plus(productsFee)
       .toDecimalPlaces(2)
       .toNumber();
 
@@ -183,11 +203,15 @@ export class PricingService {
       propertySize: null,
       commissionRate,
       cleanerListedPrice,
-      cleanerCommission,
+      cleanerCommission: new Decimal(cleanerCommission)
+        .plus(productsFeeCommission)
+        .toDecimalPlaces(2)
+        .toNumber(),
       cleanerPayout,
       customerPlatformFee,
       customerTotal,
       addonTotal,
+      productsFee,
       breakdown: `${hours} hrs × £${hourlyRate}/hr = £${cleanerListedPrice}. Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
     };
   }
@@ -232,8 +256,16 @@ export class PricingService {
       .toDecimalPlaces(2)
       .toNumber();
 
+    const productsFee = (input.addons ?? []).includes(PRODUCTS_ADDON_ID) ? PRODUCTS_FEE : 0;
+    const productsFeeCommission = new Decimal(productsFee)
+      .mul(PRODUCTS_FEE_COMMISSION_RATE)
+      .toDecimalPlaces(2)
+      .toNumber();
+
     const cleanerPayout = new Decimal(cleanerListedPrice)
       .minus(cleanerCommission)
+      .plus(productsFee)
+      .minus(productsFeeCommission) // James-ruled: the £5 carries 10% commission
       .toDecimalPlaces(2)
       .toNumber();
 
@@ -248,6 +280,7 @@ export class PricingService {
     const customerTotal = new Decimal(cleanerListedPrice)
       .plus(customerPlatformFee)
       .plus(addonTotal)
+      .plus(productsFee)
       .toDecimalPlaces(2)
       .toNumber();
 
@@ -258,11 +291,15 @@ export class PricingService {
       propertySize: input.propertySize,
       commissionRate,
       cleanerListedPrice,
-      cleanerCommission,
+      cleanerCommission: new Decimal(cleanerCommission)
+        .plus(productsFeeCommission)
+        .toDecimalPlaces(2)
+        .toNumber(),
       cleanerPayout,
       customerPlatformFee,
       customerTotal,
       addonTotal,
+      productsFee,
       breakdown: `Fixed price £${cleanerListedPrice} (${input.propertySize}). Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
     };
   }

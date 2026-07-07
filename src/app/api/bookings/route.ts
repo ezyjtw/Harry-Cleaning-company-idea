@@ -583,7 +583,10 @@ export async function POST(request: NextRequest) {
           startTime: body.time,
           duration: body.duration,
           rooms: body.rooms || null,
-          extras: body.extras || [],
+          // Persist the SAME addon ids the quote priced — reconciliation and the
+          // money-snapshot helper re-quote from booking.extras, so an
+          // addons-only client (e.g. the products toggle) must round-trip.
+          extras: body.extras?.length ? body.extras : body.addons || [],
           frequency: 'one_off',
           totalPrice,
           platformFee,
