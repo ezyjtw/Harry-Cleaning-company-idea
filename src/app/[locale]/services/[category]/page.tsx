@@ -609,13 +609,21 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     setBookingSubmitting(true);
     setBookingError(null);
     try {
+      // Products fee (James-ruled): a REAL charged addon. The server prices it
+      // via addons:['products'] — the client total must include it or the
+      // price-drift check (>£1) rejects the booking. Previously the £5 was
+      // DISPLAYED but never sent, so customers were shown one total and
+      // charged another.
       const totalPrice =
-        priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
+        (priceBreakdown.discountedTotal ||
+          (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
+          0) + productCost;
 
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          addons: cleanerBringsProducts ? ['products'] : undefined,
           cleanerId: selectedCleaner?.id || 'auto-assign',
           name: isGuest ? email.split('@')[0] : user?.name,
           email: isGuest ? email : user?.email,
