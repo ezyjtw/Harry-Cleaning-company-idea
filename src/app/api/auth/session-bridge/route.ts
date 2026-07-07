@@ -43,9 +43,28 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
-  // Only allow same-origin relative callbacks (never an open redirect).
+  // SECURITY (S2): only a same-origin RELATIVE callback is honoured. A bare
+  // startsWith('/') check admits protocol-relative '//evil.com' (and backslash
+  // variants '/\evil.com' that browsers normalise to '//') — an open redirect on
+  // an auth endpoint. Reject '//' and any backslash outright, then resolve and
+  // require the resolved origin to equal ours. Any failure falls back to
+  // /app/today — never an error, never an off-site redirect.
   const rawCallback = url.searchParams.get('callbackUrl') || '/app/today';
-  const callbackUrl = rawCallback.startsWith('/') ? rawCallback : '/app/today';
+  let callbackUrl = '/app/today';
+  if (
+    rawCallback.startsWith('/') &&
+    !rawCallback.startsWith('//') &&
+    !rawCallback.includes('\\')
+  ) {
+    try {
+      const resolved = new URL(rawCallback, url.origin);
+      if (resolved.origin === url.origin) {
+        callbackUrl = resolved.pathname + resolved.search + resolved.hash;
+      }
+    } catch {
+      // keep the safe default
+    }
+  }
 
   // Refuse a long-lived Bearer outright — only the single-use code is accepted.
   if (url.searchParams.get('token') || request.headers.get('authorization')) {

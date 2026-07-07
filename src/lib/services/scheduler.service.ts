@@ -111,7 +111,7 @@ async function processDueReleases(): Promise<HandlerResult> {
 
   for (const booking of due) {
     try {
-      const result = await releaseBookingFunds(booking.id);
+      const result = await releaseBookingFunds(booking.id, { trigger: 'SCHEDULER' });
       if (result.status === 'RELEASED' || result.status === 'ALREADY_RELEASED') {
         processed++;
       } else {

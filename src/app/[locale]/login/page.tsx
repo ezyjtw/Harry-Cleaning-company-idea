@@ -8,7 +8,18 @@ import { Suspense, useState } from 'react';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl');
+  // SECURITY (S2 class): only honour a same-origin RELATIVE callback — a raw
+  // router.push of '?callbackUrl=//evil.com' (or a backslash variant) would
+  // navigate off-site after login. Anything suspect falls back to the
+  // role-based redirect below.
+  const rawCallback = searchParams.get('callbackUrl');
+  const callbackUrl =
+    rawCallback &&
+    rawCallback.startsWith('/') &&
+    !rawCallback.startsWith('//') &&
+    !rawCallback.includes('\\')
+      ? rawCallback
+      : null;
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

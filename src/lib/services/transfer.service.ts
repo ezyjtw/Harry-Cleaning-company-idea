@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 
+import { AuditService } from './audit.service';
 import {
   findMatchingTransfer,
   getTransferAmountPence,
@@ -14,6 +15,37 @@ export interface ReleaseResult {
   status: 'RELEASED' | 'FAILED' | 'UNKNOWN' | 'ALREADY_RELEASED' | 'SKIPPED';
   transferId?: string;
   reason?: string;
+}
+
+// SECURITY (S5): who/what asked for this release — recorded on every executed
+// transfer (mirrors the refund audit pattern). `actorId` is the acting admin on
+// manual/dispute paths; scheduler runs have no actor.
+export interface ReleaseAudit {
+  trigger: 'SCHEDULER' | 'ADMIN' | 'DISPUTE_RESOLUTION' | 'SYSTEM';
+  actorId?: string;
+}
+
+/** Audit an EXECUTED transfer (money moved). Never throws — audit failure must
+ *  not fail a release that already happened on Stripe. */
+async function auditFundsReleased(
+  bookingId: string,
+  transferId: string,
+  amountPence: number,
+  audit: ReleaseAudit,
+  adoptedFromReconciliation = false
+): Promise<void> {
+  await AuditService.log({
+    userId: audit.actorId,
+    action: 'FUNDS_RELEASED',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata: {
+      transferId,
+      amountPence,
+      trigger: audit.trigger,
+      ...(adoptedFromReconciliation ? { adoptedFromReconciliation: true } : {}),
+    },
+  }).catch(() => {});
 }
 
 // ─── Error Classification ─────────────────────────────────
@@ -57,7 +89,10 @@ async function reconcileExistingTransfer(
 
 // ─── Service ───────────────────────────────────────────────
 
-export async function releaseBookingFunds(bookingId: string): Promise<ReleaseResult> {
+export async function releaseBookingFunds(
+  bookingId: string,
+  audit: ReleaseAudit = { trigger: 'SYSTEM' }
+): Promise<ReleaseResult> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
@@ -168,6 +203,7 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
         event: 'PAYOUT',
         occurredAt: new Date().toISOString(),
       }).catch(() => {});
+      await auditFundsReleased(bookingId, existingId, transferPence, audit, true);
       return { status: 'RELEASED', transferId: existingId };
     }
   }
@@ -204,6 +240,7 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
       event: 'PAYOUT',
       occurredAt: new Date(transfer.created * 1000).toISOString(),
     }).catch(() => {});
+    await auditFundsReleased(bookingId, transfer.id, transferPence, audit);
     return { status: 'RELEASED', transferId: transfer.id };
   } catch (err: unknown) {
     if (isUnknownOutcome(err)) {
@@ -237,6 +274,7 @@ export async function releaseBookingFunds(bookingId: string): Promise<ReleaseRes
           event: 'PAYOUT',
           occurredAt: new Date(retryTransfer.created * 1000).toISOString(),
         }).catch(() => {});
+        await auditFundsReleased(bookingId, retryTransfer.id, transferPence, audit);
         return { status: 'RELEASED', transferId: retryTransfer.id };
       } catch (retryErr: unknown) {
         // Still unknown — set UNKNOWN, do NOT bump transferAttempt.
@@ -287,7 +325,10 @@ async function setUnknown(bookingId: string, reason: string): Promise<ReleaseRes
  * releaseBookingFunds which handles PENDING → RELEASING → RELEASED.
  * Used by dispute resolution (release-to-cleaner / split outcomes).
  */
-export async function resumePausedRelease(bookingId: string): Promise<ReleaseResult> {
+export async function resumePausedRelease(
+  bookingId: string,
+  audit: ReleaseAudit = { trigger: 'SYSTEM' }
+): Promise<ReleaseResult> {
   const claimed = await prisma.booking.updateMany({
     where: { id: bookingId, transferStatus: 'PAUSED' },
     data: { transferStatus: 'PENDING' },
@@ -295,7 +336,7 @@ export async function resumePausedRelease(bookingId: string): Promise<ReleaseRes
   if (claimed.count === 0) {
     return { status: 'SKIPPED', reason: 'Transfer is not PAUSED — cannot resume' };
   }
-  return releaseBookingFunds(bookingId);
+  return releaseBookingFunds(bookingId, audit);
 }
 
 export { getTransferAmountPence } from './transfer-amount';
