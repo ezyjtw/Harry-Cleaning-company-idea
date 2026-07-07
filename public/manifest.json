@@ -5,7 +5,11 @@
   "start_url": "/",
   "id": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "background_color": "#ffffff",
   "theme_color": "#16296b",
   "orientation": "portrait-primary",
@@ -60,46 +64,49 @@
       "purpose": "maskable any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshots/home-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Homepage - Find trusted cleaners"
-    },
-    {
-      "src": "/screenshots/home-narrow.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Homepage - Mobile view"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Book a Cleaner",
       "short_name": "Book",
       "description": "Start a new cleaning booking",
       "url": "/cleaners",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "My Bookings",
       "short_name": "Bookings",
       "description": "View your upcoming bookings",
       "url": "/account/bookings",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Messages",
       "short_name": "Messages",
       "description": "View your messages",
       "url": "/messages",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
-  "categories": ["lifestyle", "utilities", "business"],
+  "categories": [
+    "lifestyle",
+    "utilities",
+    "business"
+  ],
   "lang": "en-GB",
   "dir": "ltr",
   "prefer_related_applications": false,

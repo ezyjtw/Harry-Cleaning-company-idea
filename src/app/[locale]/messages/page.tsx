@@ -73,6 +73,9 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  // F16: loud failure feedback (send/block/report) + block pending state.
+  const [sendError, setSendError] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<'customer' | 'cleaner'>('customer');
 
@@ -224,15 +227,20 @@ export default function MessagesPage() {
         const data = await res.json();
         setMessages((prev) => [...prev, data.message]);
         setMessageInput('');
+        setSendError(false);
         // Refresh conversation list to update last message
         const convRes = await fetch('/api/messages');
         if (convRes.ok) {
           const convData = await convRes.json();
           setConversations(convData.conversations || []);
         }
+      } else {
+        // F16 (R-Messages): failed sends are LOUD — toast + the draft stays in
+        // the composer so "Try again" is one tap.
+        setSendError(true);
       }
     } catch {
-      // Silently fail - user can retry
+      setSendError(true);
     } finally {
       setSending(false);
     }
@@ -253,6 +261,7 @@ export default function MessagesPage() {
   async function handleToggleBlock() {
     const conv = conversations.find((c) => c.id === activeConversationId);
     if (!conv) return;
+    setBlockBusy(true);
     try {
       const res = await fetch('/api/messages/block', {
         method: conv.blockedByMe ? 'DELETE' : 'POST',
@@ -268,7 +277,9 @@ export default function MessagesPage() {
         }
       }
     } catch {
-      // ignore — user can retry
+      setSendError(true); // reuse the toast — the action didn't go through
+    } finally {
+      setBlockBusy(false);
     }
   }
 
@@ -288,9 +299,11 @@ export default function MessagesPage() {
         setReportedIds((prev) => new Set(prev).add(messageId));
         setReportingId(null);
         setReportDetails('');
+      } else {
+        setSendError(true);
       }
     } catch {
-      // ignore — user can retry
+      setSendError(true);
     } finally {
       setReportBusy(false);
     }
@@ -299,9 +312,14 @@ export default function MessagesPage() {
   // ─── Loading State ──────────────────────────────────────
 
   if (loading) {
+    // F16: branded skeleton, not bare text.
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-sm text-ink-3">Loading messages...</div>
+        <div className="w-full max-w-md space-y-3 px-6">
+          <div className="h-14 animate-pulse rounded-xl bg-line" />
+          <div className="h-14 animate-pulse rounded-xl bg-line" />
+          <div className="h-14 animate-pulse rounded-xl bg-line" />
+        </div>
       </div>
     );
   }
@@ -431,9 +449,10 @@ export default function MessagesPage() {
 
               <button
                 onClick={handleToggleBlock}
-                className="ml-auto rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition hover:bg-page"
+                disabled={blockBusy}
+                className="ml-auto rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition hover:bg-page disabled:opacity-60"
               >
-                {activeConversation.blockedByMe ? 'Unblock' : 'Block'}
+                {blockBusy ? 'Working…' : activeConversation.blockedByMe ? 'Unblock' : 'Block'}
               </button>
             </div>
 
@@ -553,6 +572,21 @@ export default function MessagesPage() {
                   </div>
                 )}
                 <div className="flex items-end gap-2">
+                  {sendError && (
+                    <div className="mb-2 flex items-center justify-between rounded-lg bg-danger/10 px-3 py-2 font-jost text-[13px] text-danger">
+                      <span>Message didn&apos;t send — your draft is still here.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSendError(false);
+                          handleSendMessage();
+                        }}
+                        className="ml-3 font-semibold underline"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}

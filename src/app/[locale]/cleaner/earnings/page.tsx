@@ -41,17 +41,25 @@ export default function EarningsPage() {
   const [period, setPeriod] = useState<Period>('month');
   const [data, setData] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchEarnings = useCallback(
     async (p: Period) => {
       setLoading(true);
-      const res = await fetch(`/api/cleaner/earnings?period=${p}`);
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (res.ok) {
-        setData(await res.json());
+      setLoadError(false);
+      try {
+        const res = await fetch(`/api/cleaner/earnings?period=${p}`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
+        if (res.ok) {
+          setData(await res.json());
+        } else {
+          setLoadError(true);
+        }
+      } catch {
+        setLoadError(true);
       }
       setLoading(false);
     },
@@ -103,6 +111,22 @@ export default function EarningsPage() {
           ))}
         </div>
       </div>
+
+      {!loading && loadError && (
+        <div className="rounded-xl border border-line bg-surface p-8 text-center">
+          <h2 className="font-newsreader text-lg font-semibold text-ink">
+            Couldn&apos;t load your earnings
+          </h2>
+          <p className="mt-1 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => fetchEarnings(period)}
+            className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading && (
         <div className="animate-pulse space-y-4">
@@ -170,7 +194,33 @@ export default function EarningsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                {/* X7: stacked cards on mobile — the 5-column table survives
+                    only from sm: up (horizontal-scroll tables are unusable on
+                    a phone). Same data, same order. */}
+                <div className="sm:hidden">
+                  {data.payouts.map((payout) => (
+                    <div
+                      key={payout.id}
+                      className="border-t border-line px-4 py-3 first:border-t-0"
+                    >
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-newsreader text-lg font-medium text-ink">
+                          £{payout.amount.toFixed(2)}
+                        </span>
+                        {getStatusBadge(payout.status)}
+                      </div>
+                      <div className="mt-1 flex items-center justify-between font-jost text-[13px] text-ink-3">
+                        <span>
+                          {payout.date} · {payout.bookingCount} job
+                          {payout.bookingCount === 1 ? '' : 's'}
+                        </span>
+                        <span className="font-mono text-[11px]">{payout.reference}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto sm:block">
                   <table className="w-full">
                     <thead>
                       <tr style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}>
@@ -216,6 +266,7 @@ export default function EarningsPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
 

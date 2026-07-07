@@ -67,6 +67,11 @@ export class ErrorMonitor {
   ): void {
     // eslint-disable-next-line no-console
     console.log(`[ErrorMonitor] [${level}] ${message}`, context);
+    if (process.env.SENTRY_DSN) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Sentry = require('@sentry/nextjs');
+      Sentry.captureMessage(message, level);
+    }
   }
 
   /**
@@ -101,7 +106,13 @@ export class ErrorMonitor {
   }
 
   private static reportToSentry(error: MonitoredError): void {
-    // Placeholder: In production, use @sentry/nextjs
+    // F15: real forwarding. Sentry.init runs in instrumentation.ts (gated on
+    // SENTRY_DSN); captureException is a safe no-op when uninitialised.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Sentry = require('@sentry/nextjs');
+    Sentry.captureException(error.error, {
+      extra: { ...error.context, errorId: error.id },
+    });
     error.reported = true;
   }
 }

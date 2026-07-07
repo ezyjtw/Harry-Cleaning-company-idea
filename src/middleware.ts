@@ -76,7 +76,9 @@ if (typeof setInterval !== 'undefined') {
 
 // ─── Protected Routes ───────────────────────────────────────────────────────
 
-const protectedRoutes = ['/dashboard', '/account', '/admin'];
+// X5: cleaner portal + messages join the server-side auth gate (they were
+// client-fetch-gated only — page shells rendered for logged-out users).
+const protectedRoutes = ['/dashboard', '/account', '/admin', '/cleaner', '/messages'];
 const authRoutes = ['/login', '/register', '/forgot-password'];
 
 const intlMiddleware = createIntlMiddleware(routing);

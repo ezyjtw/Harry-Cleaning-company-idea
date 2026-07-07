@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 
+import SentryInit from '@/components/SentryInit';
+
 // Fonts (Newsreader + Jost via next/font) are defined in src/lib/fonts.ts — NOT
 // here. A Next layout may only export its reserved fields (metadata, viewport,
 // default…); an extra `fontVariables` export breaks the layout type contract.
@@ -29,5 +31,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      {/* F15: browser error reporting — no-op without NEXT_PUBLIC_SENTRY_DSN. */}
+      <SentryInit />
+      {children}
+    </>
+  );
 }
