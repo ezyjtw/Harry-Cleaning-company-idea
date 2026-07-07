@@ -162,10 +162,11 @@ export async function acceptWithReconciliation(
   // Pricier by more than threshold
   const topupAmount = Math.round(diff * 100) / 100;
 
-  // Guest → never offer pricier
-  if (!booking.clientId) {
-    return { outcome: 'REJECTED', reason: 'Guest bookings cannot accept pricier cleaners' };
-  }
+  // F5: guests take the SAME provisional/top-up path as registered customers —
+  // the approval email carries their capability token and the top-up charge is
+  // collected on-session on the tokened approval page (guests have no saved
+  // card, so executeTopup routes them to REQUIRES_CARD). The old hard REJECT
+  // ("guests cannot accept pricier cleaners") is gone.
 
   // Phase 2 (price-filtered): a pricier cleaner is HELD in reserve, not
   // provisionally accepted. Promotion happens cheapest-first only if no
@@ -192,18 +193,17 @@ export async function acceptWithReconciliation(
     return { outcome: 'FAILED', reason: provResult.reason };
   }
 
-  // Send approval request email (best-effort)
-  if (booking.clientEmail) {
-    await sendTopupApprovalRequest({
-      bookingId,
-      customerEmail: booking.clientEmail,
-      customerName: booking.clientName || 'Customer',
-      originalPrice: originalTotal,
-      newPrice: winnerTotal,
-      topupAmount,
-      expiresAt: provResult.approvalExpiresAt ?? new Date(Date.now() + 12 * 60 * 60 * 1000),
-    }).catch(() => {});
-  }
+  // Send approval request email (best-effort). F5: the sender resolves the
+  // recipient — registered customers OR guests (tokened link).
+  await sendTopupApprovalRequest({
+    bookingId,
+    customerEmail: booking.clientEmail || undefined,
+    customerName: booking.clientName || undefined,
+    originalPrice: originalTotal,
+    newPrice: winnerTotal,
+    topupAmount,
+    expiresAt: provResult.approvalExpiresAt ?? new Date(Date.now() + 12 * 60 * 60 * 1000),
+  }).catch(() => {});
 
   return { outcome: 'PROVISIONAL' };
 }

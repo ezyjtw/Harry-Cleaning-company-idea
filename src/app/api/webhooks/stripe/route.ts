@@ -203,8 +203,20 @@ export async function POST(request: NextRequest) {
         include: { client: { select: { name: true, email: true } } },
       });
 
+      // F5: guests hear about failed payments too — same email, guest recipient
+      // ("you have NOT been charged" is in the template for both audiences).
+      const failureMessage = pi.last_payment_error?.message || 'Payment could not be processed';
+      if (booking && !booking.client && booking.guestEmail) {
+        await sendPaymentFailureNotification(
+          {
+            bookingId,
+            customerName: booking.guestName || 'there',
+            reason: failureMessage,
+          },
+          { name: booking.guestName || 'there', email: booking.guestEmail }
+        ).catch(() => {});
+      }
       if (booking?.client) {
-        const failureMessage = pi.last_payment_error?.message || 'Payment could not be processed';
         await sendPaymentFailureNotification(
           {
             bookingId,

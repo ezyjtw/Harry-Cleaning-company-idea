@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import BookingStatusChip from '@/components/BookingStatusChip';
+import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { formatDate } from '@/lib/utils/formatting';
@@ -179,6 +179,12 @@ export default function BookingDetailPage() {
             label="Status"
             value={<BookingStatusChip rawStatus={booking.status} cascadePhase={booking.cascadePhase} />}
           />
+          {booking.status === 'AWAITING_CLEANER' &&
+            cascadeSentence(booking.cascadePhase, cleaner?.name) && (
+              <p className="py-2 font-jost text-[13px] text-primary">
+                {cascadeSentence(booking.cascadePhase, cleaner?.name)}
+              </p>
+            )}
           <Row label="Date" value={formatDate(booking.date, 'full')} />
           <Row label="Time" value={`${booking.startTime} · ${Number(booking.duration)}h`} />
           {address && <Row label="Address" value={address} />}

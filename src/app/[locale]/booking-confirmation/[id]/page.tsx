@@ -36,6 +36,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
   // which used to leave a paid guest stuck on the spinner forever).
   const searchParams = useSearchParams();
   const guestToken = searchParams.get('gt');
+  // F3: every guest link to the tracking page must CARRY the token — the page
+  // hard-requires it, so an untokened link dead-ends at "No booking token".
+  const guestTrackUrl = guestToken
+    ? `/booking/guest?token=${encodeURIComponent(guestToken)}`
+    : '/booking/guest';
   // Stripe appends redirect_status to the return_url — the client-side truth
   // about whether the payment actually went through, independent of our own
   // (possibly-failing) status fetch. We NEVER tell a customer their booking is
@@ -230,7 +235,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           ) : (
             // Guests can't message (account-only) — route to the existing guest
             // tracking surface instead. No new capability.
-            <Link href="/booking/guest" className={outlineBtn}>
+            <Link href={guestTrackUrl} className={outlineBtn}>
               Track your booking
             </Link>
           )}
@@ -268,8 +273,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           This booking has been refunded. The funds will appear in your account within 5–10 business
           days.
         </p>
-        <Link href="/dashboard" className={`mt-8 ${primaryBtn}`}>
-          Go to dashboard
+        <Link
+          href={guestToken ? guestTrackUrl : '/dashboard'}
+          className={`mt-8 ${primaryBtn}`}
+        >
+          {guestToken ? 'View your booking' : 'Go to dashboard'}
         </Link>
       </div>
     );
@@ -299,7 +307,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
             with reference {params.id}.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href={guestToken ? '/booking/guest' : '/dashboard'} className={primaryBtn}>
+            <Link href={guestToken ? guestTrackUrl : '/dashboard'} className={primaryBtn}>
               {guestToken ? 'Track your booking' : 'Go to dashboard'}
             </Link>
           </div>
@@ -341,7 +349,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           : "This usually takes a few seconds. Please don't close this page."}
       </p>
       {pollCount >= maxPolls && (
-        <Link href={guestToken ? '/booking/guest' : '/dashboard'} className={`mt-8 ${primaryBtn}`}>
+        <Link href={guestToken ? guestTrackUrl : '/dashboard'} className={`mt-8 ${primaryBtn}`}>
           {guestToken ? 'Track your booking' : 'Go to dashboard'}
         </Link>
       )}

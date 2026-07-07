@@ -6,9 +6,13 @@
 
 export type BookingStatus =
   | 'Pending'
-  | 'Finding a cleaner'
+  | 'Waiting for cleaner to confirm'
+  | 'Finding your cleaner'
+  | 'Our team is on it'
   | 'Price approval needed'
   | 'Confirmed'
+  | 'On the way'
+  | 'In progress'
   | 'Completed'
   | 'Cancelled'
   | 'Disputed'
@@ -17,9 +21,13 @@ export type BookingStatus =
 
 export const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-warning/10 text-warning border-warning/20',
-  'Finding a cleaner': 'bg-warning/10 text-warning border-warning/20',
+  'Waiting for cleaner to confirm': 'bg-warning/10 text-warning border-warning/20',
+  'Finding your cleaner': 'bg-warning/10 text-warning border-warning/20',
+  'Our team is on it': 'bg-primary-soft text-primary border-primary/15',
   'Price approval needed': 'bg-warning/10 text-warning border-warning/20',
   Confirmed: 'bg-trust/10 text-trust border-trust/20',
+  'On the way': 'bg-trust/10 text-trust border-trust/20',
+  'In progress': 'bg-trust/10 text-trust border-trust/20',
   Completed: 'bg-primary-soft text-primary border-primary/15',
   Cancelled: 'bg-page text-ink-3 border-line',
   Disputed: 'bg-danger/10 text-danger border-danger/20',
@@ -27,24 +35,40 @@ export const statusStyles: Record<BookingStatus, string> = {
   'Cleaner cancelled — action needed': 'bg-danger/10 text-danger border-danger/20',
 };
 
-/** Collapse a raw API status (+ cascade phase) into the customer-facing label. */
+/** Collapse a raw API status (+ cascade phase) into the customer-facing label.
+ *  X1: the cascade phases collapse into three HONEST states — waiting on the
+ *  chosen cleaner / actively finding alternatives / our team personally on it —
+ *  never a bare "Pending" while Rena is actively working the booking. */
 export function mapStatus(apiStatus: string, cascadePhase?: string | null): BookingStatus {
   const s = apiStatus.toUpperCase();
-  if (s === 'AWAITING_CLEANER' && cascadePhase === 'PROVISIONAL_APPROVAL') {
-    return 'Price approval needed';
-  }
-  if (s === 'AWAITING_CLEANER' && cascadePhase === 'BACKUP_OFFER') {
-    return 'Finding a cleaner';
+  if (s === 'AWAITING_CLEANER') {
+    switch (cascadePhase) {
+      case 'PRIMARY_OFFER':
+        return 'Waiting for cleaner to confirm';
+      case 'BACKUP_OFFER':
+      case 'COMBINED_OFFER':
+      case 'PHASE2_RESERVE':
+        return 'Finding your cleaner';
+      case 'RENA_FIND':
+      case 'RENA_FIND_ADMIN_REVIEW':
+        return 'Our team is on it';
+      case 'PROVISIONAL_APPROVAL':
+        return 'Price approval needed';
+      default:
+        return 'Pending';
+    }
   }
   switch (s) {
     case 'PENDING':
-    case 'AWAITING_CLEANER':
       return 'Pending';
     case 'CONFIRMED':
     case 'ACCEPTED':
-    case 'EN_ROUTE':
-    case 'IN_PROGRESS':
       return 'Confirmed';
+    // X2: day-of states rendered honestly (parity with the guest timeline).
+    case 'EN_ROUTE':
+      return 'On the way';
+    case 'IN_PROGRESS':
+      return 'In progress';
     case 'COMPLETED':
     case 'REVIEWED':
       return 'Completed';
@@ -79,4 +103,26 @@ export default function BookingStatusChip({
       {status}
     </span>
   );
+}
+
+/** X1: the named, full-sentence version for detail surfaces (booking page,
+ *  guest timeline, account home card). Copy is James-signed — keep in sync
+ *  with mapStatus above. */
+export function cascadeSentence(
+  cascadePhase: string | null | undefined,
+  cleanerName?: string | null
+): string | null {
+  switch (cascadePhase) {
+    case 'PRIMARY_OFFER':
+      return `Waiting for ${cleanerName || 'your cleaner'} to confirm — we'll let you know the moment they do.`;
+    case 'BACKUP_OFFER':
+    case 'COMBINED_OFFER':
+    case 'PHASE2_RESERVE':
+      return "Finding your cleaner — we're contacting great alternatives now. Your booking and payment are unchanged.";
+    case 'RENA_FIND':
+    case 'RENA_FIND_ADMIN_REVIEW':
+      return "Our team is personally finding you a cleaner. If we can't find the right person in time, you'll be refunded in full automatically.";
+    default:
+      return null;
+  }
 }

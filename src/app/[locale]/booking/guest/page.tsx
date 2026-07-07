@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, Suspense } from 'react';
 
+import { cascadeSentence } from '@/components/BookingStatusChip';
 import RescuePanel from '@/components/RescuePanel';
 
 interface Booking {
@@ -17,6 +18,7 @@ interface Booking {
   address: string;
   totalPrice: number;
   status: string;
+  cascadePhase?: string | null;
   rescueDeadline?: string | null;
   backupCleanerIds?: string[];
   postcode?: string;
@@ -37,6 +39,28 @@ const STATUS_STEPS = [
 ];
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
+  if (currentStatus === 'CASCADE_EXHAUSTED') {
+    return (
+      <div className="rounded-lg border border-danger/30 bg-red-50 p-4 text-center">
+        <p className="text-lg font-semibold text-danger">No cleaner available</p>
+        <p className="mt-1 text-sm text-danger">
+          We couldn&rsquo;t find an available cleaner this time — your full refund is being
+          processed automatically. We&rsquo;ve emailed you the details.
+        </p>
+      </div>
+    );
+  }
+  if (currentStatus === 'DISPUTED') {
+    return (
+      <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-center">
+        <p className="text-lg font-semibold text-warning">Being reviewed</p>
+        <p className="mt-1 text-sm text-ink-2">
+          A problem was reported on this booking and our team is reviewing it. Payment is on hold
+          while we do — we&rsquo;ll email you the outcome.
+        </p>
+      </div>
+    );
+  }
   if (currentStatus === 'CLEANER_CANCELLED') {
     return (
       <div className="rounded-lg border border-danger/30 bg-red-50 p-4 text-center">
@@ -234,11 +258,17 @@ function GuestBookingContent() {
     );
   }
 
+  // F14: mirrors cancellation.service CANCELLABLE_STATUS — ACCEPTED and
+  // CASCADE_EXHAUSTED are genuinely cancellable (the old list hid the button
+  // and stranded guests with accepted bookings). CLEANER_CANCELLED is handled
+  // by the rescue panel, not this button.
   const canCancel =
     !cancelled &&
     (booking.status === 'PENDING' ||
       booking.status === 'AWAITING_CLEANER' ||
-      booking.status === 'CONFIRMED');
+      booking.status === 'CONFIRMED' ||
+      booking.status === 'ACCEPTED' ||
+      booking.status === 'CASCADE_EXHAUSTED');
 
   const formattedDate = new Date(booking.date).toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -273,7 +303,7 @@ function GuestBookingContent() {
                 <p className="font-semibold text-trust">Booking Cancelled</p>
                 <p className="text-sm text-trust">
                   Your booking has been cancelled. Any refund due under the cancellation policy is
-                  on its way back to your original payment method (3&ndash;5 business days) &mdash;
+                  on its way back to your original payment method (5&ndash;10 business days) &mdash;
                   the confirmation email shows the exact amount.
                 </p>
               </div>
@@ -307,6 +337,12 @@ function GuestBookingContent() {
             Booking Status
           </h2>
           <StatusTimeline currentStatus={booking.status} />
+          {booking.status === 'AWAITING_CLEANER' &&
+            cascadeSentence(booking.cascadePhase, booking.cleanerName) && (
+              <p className="mt-3 rounded-lg bg-primary-soft px-4 py-3 text-center font-jost text-sm text-primary">
+                {cascadeSentence(booking.cascadePhase, booking.cleanerName)}
+              </p>
+            )}
         </div>
 
         {/* Booking Details */}
