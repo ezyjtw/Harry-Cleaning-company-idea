@@ -128,6 +128,8 @@ type Tab = 'week' | 'recurring';
 export default function AvailabilityPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [tab, setTab] = useState<Tab>('week');
 
   // Recurring weekly template
@@ -175,13 +177,18 @@ export default function AvailabilityPage() {
   const [lockInResult, setLockInResult] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoadError(false);
     fetch('/api/cleaner/availability')
       .then((res) => {
         if (res.status === 401) {
           router.push('/login');
           return null;
         }
-        return res.ok ? res.json() : null;
+        if (!res.ok) {
+          setLoadError(true);
+          return null;
+        }
+        return res.json();
       })
       .then((data) => {
         if (!data) return;
@@ -201,9 +208,9 @@ export default function AvailabilityPage() {
         );
         setAlwaysAvailable(allDaysHaveSlots);
       })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, reloadKey]);
 
   // Week days for the current view
   const weekDays = useMemo(() => {
@@ -540,6 +547,29 @@ export default function AvailabilityPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-12">
+        <div className="rounded-xl border border-line bg-surface p-8 text-center">
+          <h2 className="font-newsreader text-lg font-semibold text-ink">
+            Couldn&apos;t load your availability
+          </h2>
+          <p className="mt-1 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              setReloadKey((k) => k + 1);
+            }}
+            className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-6">
@@ -767,11 +797,11 @@ export default function AvailabilityPage() {
                         <span className="font-jost text-xs font-light text-ink-3">{dayHours}h</span>
                       )}
                       {!isPast && !isEditing && (
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1.5">
+                          {/* X7: 44px labelled touch targets — hover tooltips die. */}
                           <button
                             onClick={() => openDayEditor(dateStr, dayName)}
-                            className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-page transition"
-                            title="Edit this day"
+                            className="flex min-h-[44px] items-center gap-1.5 rounded-[10px] border border-line px-3 font-jost text-[12px] font-medium text-ink-2 hover:bg-page transition"
                           >
                             <svg
                               className="w-4 h-4"
@@ -786,12 +816,12 @@ export default function AvailabilityPage() {
                                 d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                               />
                             </svg>
+                            Edit
                           </button>
                           {blocked ? (
                             <button
                               onClick={() => unblockDate(dateStr)}
-                              className="p-1.5 rounded-lg text-red-400 hover:text-danger hover:bg-danger/10 transition"
-                              title="Unblock this date"
+                              className="flex min-h-[44px] items-center gap-1.5 rounded-[10px] border border-danger/30 px-3 font-jost text-[12px] font-medium text-danger hover:bg-danger/10 transition"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -806,12 +836,12 @@ export default function AvailabilityPage() {
                                   d="M6 18L18 6M6 6l12 12"
                                 />
                               </svg>
+                              Unblock
                             </button>
                           ) : (
                             <button
                               onClick={() => blockDate(dateStr)}
-                              className="p-1.5 rounded-lg text-ink-3 hover:text-danger hover:bg-danger/10 transition"
-                              title="Block this date"
+                              className="flex min-h-[44px] items-center gap-1.5 rounded-[10px] border border-line px-3 font-jost text-[12px] font-medium text-ink-2 hover:bg-danger/10 hover:text-danger transition"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -826,13 +856,13 @@ export default function AvailabilityPage() {
                                   d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
                                 />
                               </svg>
+                              Block
                             </button>
                           )}
                           {isDateSpecific && (
                             <button
                               onClick={() => revertToRecurring(dateStr)}
-                              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-page transition"
-                              title="Revert to recurring schedule"
+                              className="flex min-h-[44px] items-center gap-1.5 rounded-[10px] border border-line px-3 font-jost text-[12px] font-medium text-ink-2 hover:bg-page transition"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -847,6 +877,7 @@ export default function AvailabilityPage() {
                                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                                 />
                               </svg>
+                              Revert
                             </button>
                           )}
                         </div>

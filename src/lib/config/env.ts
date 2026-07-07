@@ -65,7 +65,18 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     required: true,
     description: 'Founder email address for signup notification alerts',
   },
-  { name: 'SENTRY_DSN', required: false, description: 'Sentry error tracking DSN' },
+  {
+    name: 'SENTRY_DSN',
+    required: false,
+    description:
+      'Sentry DSN (server + edge). Unset ⇒ error reporting dormant. Create a free Sentry project and paste its DSN into Railway to activate.',
+  },
+  {
+    name: 'NEXT_PUBLIC_SENTRY_DSN',
+    required: false,
+    description:
+      'Sentry DSN for the BROWSER (usually the same value as SENTRY_DSN). Must be set at build/deploy time to be inlined into the client bundle.',
+  },
   { name: 'REDIS_URL', required: false, description: 'Redis connection string for caching' },
   {
     name: 'XERO_CLIENT_ID',

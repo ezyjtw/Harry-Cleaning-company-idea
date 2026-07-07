@@ -115,23 +115,34 @@ export default function CleanerJobsPage() {
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [showNotesFor, setShowNotesFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // F16: honest load failure (was a silent blank) + per-action pending.
+  const [loadError, setLoadError] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const fetchJobs = useCallback(
     async (tab: JobStatus) => {
       const statuses = toApiStatuses(tab).join(',');
-      const res = await fetch(`/api/cleaner/jobs?status=${statuses}&limit=50`);
-      if (res.status === 401) {
-        router.push('/login');
-        return;
+      setLoadError(false);
+      try {
+        const res = await fetch(`/api/cleaner/jobs?status=${statuses}&limit=50`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
+        if (!res.ok) {
+          setLoadError(true);
+          return;
+        }
+        const data = await res.json();
+        setJobList(
+          data.jobs.map((j: Job) => ({
+            ...j,
+            status: j.status,
+          }))
+        );
+      } catch {
+        setLoadError(true);
       }
-      if (!res.ok) return;
-      const data = await res.json();
-      setJobList(
-        data.jobs.map((j: Job) => ({
-          ...j,
-          status: j.status,
-        }))
-      );
     },
     [router]
   );
@@ -171,6 +182,8 @@ export default function CleanerJobsPage() {
 
   const transitionJob = useCallback(
     async (id: string, newDisplayStatus: JobStatus) => {
+      setBusyId(id);
+      try {
       setError(null);
       const apiStatus = transitionMap[activeTab];
       if (!apiStatus) return;
@@ -194,9 +207,14 @@ export default function CleanerJobsPage() {
           [newDisplayStatus]: prev[newDisplayStatus] + 1,
         }));
         setShowNotesFor(null);
-      } else {
-        const data = await res.json().catch(() => null);
-        setError(data?.error || 'Failed to update job status');
+        } else {
+          const data = await res.json().catch(() => null);
+          setError(data?.error || 'Failed to update job status');
+        }
+      } catch {
+        setError('Network error — please try again.');
+      } finally {
+        setBusyId(null);
       }
     },
     [activeTab, completionNotes]
@@ -205,9 +223,10 @@ export default function CleanerJobsPage() {
   const handleDecline = useCallback(
     async (id: string) => {
       setError(null);
+      setBusyId(id);
       const res = await fetch(`/api/cleaner/jobs/${id}/decline`, {
         method: 'POST',
-      });
+      }).finally(() => setBusyId(null));
       if (res.ok) {
         setJobList((prev) => prev.filter((j) => j.id !== id));
         setCounts((prev) => ({
@@ -225,9 +244,10 @@ export default function CleanerJobsPage() {
   const handleAccept = useCallback(
     async (id: string) => {
       setError(null);
+      setBusyId(id);
       const res = await fetch(`/api/cleaner/jobs/${id}/accept`, {
         method: 'POST',
-      });
+      }).finally(() => setBusyId(null));
       if (res.ok) {
         const data = await res.json().catch(() => null);
         // PROVISIONAL (awaiting approval) and RESERVED (held) stay in the
@@ -276,7 +296,9 @@ export default function CleanerJobsPage() {
 
       {/* Tabs */}
       <div className="mb-6 border-b border-line">
-        <nav className="flex gap-6 -mb-px overflow-x-auto">
+        {/* X7: all five tabs VISIBLE on a phone — wrap into rows (the old
+            overflow-x-auto strip hid tabs off-screen with no affordance). */}
+        <nav className="flex flex-wrap gap-x-5 gap-y-1 -mb-px sm:gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -326,8 +348,28 @@ export default function CleanerJobsPage() {
         </div>
       )}
 
+      {/* F16: honest load failure with Retry (was a silent blank). */}
+      {!loading && loadError && (
+        <div className="rounded-xl border border-line bg-surface p-8 text-center">
+          <h2 className="font-newsreader text-lg font-semibold text-ink">
+            Couldn&apos;t load your jobs
+          </h2>
+          <p className="mt-1 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              fetchJobs(activeTab).finally(() => setLoading(false));
+            }}
+            className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Job list */}
-      {!loading && jobList.length === 0 && (
+      {!loading && !loadError && jobList.length === 0 && (
         <div className="text-center py-16">
           <svg
             className="mx-auto w-12 h-12 text-ink-3"
@@ -467,32 +509,36 @@ export default function CleanerJobsPage() {
                         <>
                           <button
                             onClick={() => handleAccept(job.id)}
-                            className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+                            disabled={busyId === job.id}
+                            className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
                           >
-                            Accept
+                            {busyId === job.id ? 'Accepting…' : 'Accept'}
                           </button>
                           <button
                             onClick={() => handleDecline(job.id)}
-                            className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-sm font-medium text-ink-2 transition-colors hover:bg-page"
+                            disabled={busyId === job.id}
+                            className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-sm font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-60"
                           >
-                            Decline
+                            {busyId === job.id ? 'Working…' : 'Decline'}
                           </button>
                         </>
                       )}
                       {ds === 'upcoming' && (
                         <button
                           onClick={() => transitionJob(job.id, 'en-route')}
-                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+                          disabled={busyId === job.id}
+                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
                         >
-                          I&apos;m On My Way
+                          {busyId === job.id ? 'Updating…' : "I'm On My Way"}
                         </button>
                       )}
                       {ds === 'en-route' && (
                         <button
                           onClick={() => transitionJob(job.id, 'in-progress')}
-                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+                          disabled={busyId === job.id}
+                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
                         >
-                          Start Cleaning
+                          {busyId === job.id ? 'Updating…' : 'Start Cleaning'}
                         </button>
                       )}
                       {ds === 'in-progress' && (
@@ -513,9 +559,10 @@ export default function CleanerJobsPage() {
                               />
                               <button
                                 onClick={() => transitionJob(job.id, 'completed')}
-                                className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+                                disabled={busyId === job.id}
+                                className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
                               >
-                                Confirm Complete
+                                {busyId === job.id ? 'Completing…' : 'Confirm Complete'}
                               </button>
                             </div>
                           ) : (
