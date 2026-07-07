@@ -209,7 +209,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         id: { not: id },
       },
     });
-    const holdHours = priorCompleted > 0 ? 2 : 24;
+    // X3 (James-ruled): repeat-customer self-completion hold is 6h (was 2h) —
+    // widens the customer's dispute window. First booking stays 24h; instant
+    // release on customer confirm / review is unchanged (those set releaseDueAt
+    // to now directly in their own routes).
+    const holdHours = priorCompleted > 0 ? 6 : 24;
     updateData.releaseDueAt = new Date(Date.now() + holdHours * 3600_000);
   }
   if (status === 'CANCELLED') {

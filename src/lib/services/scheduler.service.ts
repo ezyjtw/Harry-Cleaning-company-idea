@@ -17,6 +17,7 @@ export interface HandlerResult {
 export interface SchedulerSummary {
   timestamp: string;
   cascadeWindows: HandlerResult;
+  strandedPayments: HandlerResult;
   releases: HandlerResult;
   exhaustedRefunds: HandlerResult;
   backgroundJobs: HandlerResult;
@@ -179,8 +180,24 @@ async function processComplianceJobsDaily(): Promise<HandlerResult> {
   return { processed: results.length };
 }
 
+// M4 safety net: stranded PAID bookings (webhook received but crashed before
+// completing). Same processing path as the webhook; loud [PAYMENT-SWEEP] log
+// per catch. Never throws — a sweep failure must not block the other jobs.
+async function processStrandedPayments(): Promise<HandlerResult> {
+  try {
+    const { sweepStrandedPayments } = await import('./payment-success.service');
+    const result = await sweepStrandedPayments();
+    return { processed: result.processed };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[PAYMENT-SWEEP] sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
+  const strandedPayments = await processStrandedPayments();
   const releases = await processDueReleases();
   const exhaustedRefunds = await processExhaustedRefunds();
   const backgroundJobs = await processBackgroundJobs();
@@ -190,6 +207,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   return {
     timestamp: new Date().toISOString(),
     cascadeWindows,
+    strandedPayments,
     releases,
     exhaustedRefunds,
     backgroundJobs,

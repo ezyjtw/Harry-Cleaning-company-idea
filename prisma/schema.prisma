@@ -755,6 +755,10 @@ model RefundRecord {
   status         String   @default("PENDING")
   attempt        Int      @default(0)
   failureReason  String?
+  // M5: which Stripe charge(s) this refund actually hit — LIFO allocation slices
+  // [{ pi, refundId, amountPence }]. Null on records predating top-up-aware
+  // refunds (those were all against the original PI).
+  allocation     Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1411,6 +1415,11 @@ model StripeWebhookEvent {
   id          String   @id
   type        String
   payload     Json
+  // M4 two-phase: the row is written on RECEIPT (processed=false); handlers run;
+  // processed flips true only after ALL side-effects complete. A Stripe retry
+  // re-runs any received-but-unprocessed event instead of short-circuiting.
+  // (processedAt is historic naming — it records receipt time.)
+  processed   Boolean  @default(false)
   processedAt DateTime @default(now())
 }
 

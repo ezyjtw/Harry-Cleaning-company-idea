@@ -16,6 +16,7 @@ import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/
 
 import { addToReserve, atomicAccept, atomicProvisionalAccept } from './cascade.service';
 import { sendTopupApprovalRequest } from './email.service';
+import { computeMoneySnapshot } from './money-snapshot.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
 import { refundBooking } from './refund.service';
@@ -119,17 +120,33 @@ export async function acceptWithReconciliation(
     if (!result.success) return { outcome: 'FAILED', reason: result.reason };
 
     const refundAmount = Math.round(Math.abs(diff) * 100) / 100;
+    // M1: rewrite the FULL money snapshot for the cheaper winner via the shared
+    // helper (this branch previously wrote only totalPrice/cleanerEarnings/
+    // platformFee inline, leaving commission/payout/subtotal snapshots showing
+    // the ORIGINAL cleaner's figures on statements). totalAmountCharged stays
+    // at the captured original charge — the refund nets against it via
+    // RefundRecords, it is never reduced.
+    const snapshot = await computeMoneySnapshot({
+      cleanerId,
+      serviceType: booking.serviceType,
+      propertySize: booking.propertySize,
+      duration: booking.duration,
+      extras: booking.extras,
+      // 0 because a reassignment re-anchors the booking to the winner's full
+      // quote: the refund is (discounted original − winner total), so the
+      // customer nets to the winner's FULL price and the promo benefit is
+      // consumed — commission must not be reduced by a discount that no longer
+      // exists. (Same reasoning as the pricier/top-up path.)
+      discountAmount: 0,
+      capturedTotal: booking.totalPrice, // original captured charge (pre-refund)
+    });
     const refundResult = await refundBooking(
       bookingId,
       refundAmount,
       'Price reconciliation: cheaper backup cleaner',
       {
         adjustEarnings: false,
-        bookingDataOverride: {
-          totalPrice: winnerTotal,
-          cleanerEarnings: winnerQuote.cleanerPayout,
-          platformFee: winnerQuote.customerPlatformFee,
-        },
+        bookingDataOverride: { ...snapshot, totalAmountCharged: undefined },
       }
     );
 

@@ -14,6 +14,7 @@ import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
 import { handleProvisionalFailure } from './cascade.service';
+import { computeMoneySnapshot } from './money-snapshot.service';
 
 // ─── Error Classification (mirrors refund.service.ts) ─────────
 
@@ -333,15 +334,61 @@ async function writeTopupSuccess(
   attempt: number,
   paymentMethodType: 'off_session' | 'on_session' = 'off_session'
 ): Promise<void> {
+  // M1: the booking is being reassigned to the PRICIER cleaner — every money
+  // snapshot field must be recomputed against THAT cleaner's real rates via the
+  // shared helper (previously only price+cleaner were rewritten, so the new
+  // cleaner inherited the old cleaner's earnings/commission and their statement
+  // showed the old figures). The full booking is re-read here because both the
+  // direct path and the webhook path pass a slim booking object.
+  const full = await prisma.booking.findUnique({
+    where: { id: booking.id },
+    select: {
+      serviceType: true,
+      propertySize: true,
+      duration: true,
+      extras: true,
+      totalAmountCharged: true,
+      totalPrice: true,
+    },
+  });
+  if (!full) throw new Error(`writeTopupSuccess: booking ${booking.id} vanished`);
+  if (!booking.provisionalCleanerId) {
+    throw new Error(`writeTopupSuccess: booking ${booking.id} has no provisional cleaner`);
+  }
+
+  const capturedSoFar = Number(full.totalAmountCharged ?? full.totalPrice);
+  // Captured total = everything actually charged: original PI + this top-up.
+  // Because topupAmount was computed as (winnerTotal − discounted original),
+  // the captured total equals the FULL winner price — any promo discount is
+  // consumed by the reassignment, so discountAmount is 0 here (Rena no longer
+  // funds it; the commission must not be reduced twice).
+  const capturedTotal = Math.round((capturedSoFar + amountPounds) * 100) / 100;
+  const snapshot = await computeMoneySnapshot({
+    cleanerId: booking.provisionalCleanerId,
+    serviceType: full.serviceType,
+    propertySize: full.propertySize,
+    duration: Number(full.duration),
+    extras: full.extras,
+    discountAmount: 0,
+    capturedTotal,
+  });
+  // Anchor the price fields to the CHARGED truth (approved provisional price =
+  // captured total), not the fresh quote — if the cleaner edited rates between
+  // offer and approval, the quote could drift from what the customer actually
+  // approved and paid. Earnings/commission/fee stay quote-derived.
+  snapshot.totalPrice = capturedTotal;
+
   await prisma.$transaction([
     prisma.booking.update({
       where: { id: booking.id },
       data: {
         status: 'ACCEPTED',
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        cleanerId: booking.provisionalCleanerId!,
-        totalPrice: Number(booking.provisionalPrice),
+        cleanerId: booking.provisionalCleanerId,
         acceptedAt: new Date(),
+        // Full money snapshot for the NEW cleaner (M1). Note totalPrice comes
+        // from the helper's fresh quote — same source the provisionalPrice was
+        // derived from at offer time.
+        ...snapshot,
         cascadePhase: null,
         cascadeExpiresAt: null,
         cascadeBackupExpiresAt: null,
@@ -372,7 +419,11 @@ async function writeTopupSuccess(
     action: 'TOPUP_SUCCEEDED',
     entityType: 'Booking',
     entityId: booking.id,
-    metadata: { amount: amountPounds, topupRecordId: topupRecord.id },
+    metadata: {
+      amount: amountPounds,
+      topupRecordId: topupRecord.id,
+      snapshot: JSON.stringify(snapshot),
+    },
   }).catch(() => {});
 }
 

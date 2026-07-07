@@ -51,12 +51,14 @@ export async function GET(request: NextRequest) {
     orderBy: { completedAt: 'desc' },
   });
 
-  // Summary
+  // Summary — M6: this endpoint reports the cleaner's NET earnings only. The
+  // customer's 6% service fee was previously summed here and returned mislabeled
+  // as "platformCommission"; the field is REMOVED (not relabeled) — commission
+  // figures live on the statement (statement.service), which uses the true
+  // platformCommissionAmount snapshot.
   let totalEarnings = 0;
-  let totalFees = 0;
   for (const b of completedBookings) {
     totalEarnings += Number(b.cleanerEarnings);
-    totalFees += Number(b.platformFee);
   }
 
   // Group by service type
@@ -96,7 +98,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     totalEarnings: Math.round(totalEarnings * 100) / 100,
-    platformCommission: Math.round(totalFees * 100) / 100,
     netEarnings: Math.round(totalEarnings * 100) / 100,
     bookingCount: completedBookings.length,
     payouts,

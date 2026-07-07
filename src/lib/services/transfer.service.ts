@@ -2,11 +2,7 @@ import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
-import {
-  findMatchingTransfer,
-  getTransferAmountPence,
-  needsReconciliation,
-} from './transfer-amount';
+import { getTransferAmountPence } from './transfer-amount';
 import { enqueueXeroPush } from './xero-push.service';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -70,23 +66,6 @@ function isUnknownOutcome(err: unknown): boolean {
   return false;
 }
 
-// ─── Reconciliation ───────────────────────────────────────
-// After a non-clean prior state (UNKNOWN or RELEASING), the transfer may
-// already exist on Stripe. We must check before creating to prevent double-pay.
-// Uses transfer_group=bookingId for a deterministic lookup that cannot miss
-// regardless of how many transfers the cleaner has.
-
-async function reconcileExistingTransfer(
-  bookingId: string,
-  chargeId: string
-): Promise<string | null> {
-  const existing = await stripe.transfers.list({
-    transfer_group: bookingId,
-    limit: 100,
-  });
-  return findMatchingTransfer(existing.data, chargeId);
-}
-
 // ─── Service ───────────────────────────────────────────────
 
 export async function releaseBookingFunds(
@@ -138,8 +117,6 @@ export async function releaseBookingFunds(
     return { status: 'SKIPPED', reason: 'Another worker is already processing this transfer' };
   }
 
-  const previousStatus = booking.transferStatus;
-
   // ── Validation (under our ownership) ───────────────────
   if (!booking.stripeChargeId) {
     return setFailed(
@@ -170,124 +147,142 @@ export async function releaseBookingFunds(
     );
   }
 
-  // source_transaction (below) is the original charge — the transfer cannot exceed
-  // it. Anchor the sanity check to the original charged amount, not totalPrice
-  // (which drifts after top-up / cheaper reassign).
+  // M2: cleaner earnings are SACRED — a promo discount never reduces them, so
+  // on deeply-discounted bookings the transfer can legitimately EXCEED the
+  // captured charge (Rena funds the gap from its own balance). Stripe hard-caps
+  // source_transaction transfers at the charge amount, so the release is
+  // planned as up to TWO slices:
+  //   anchored = min(remaining, charge headroom) — funded by the charge
+  //              (source_transaction, settles even before payout availability)
+  //   excess   = the rest — a SEPARATE transfer funded from the platform's
+  //              available balance (no source_transaction). Mechanism chosen:
+  //              split transfer (not "top up the charge") — see gate notes.
+  // NOTE: the excess slice requires available platform balance; if the balance
+  // is short Stripe rejects it, the release goes FAILED with a clear reason,
+  // and the standard retry path (scheduler / admin release-funds) picks it up.
   const chargePence = Math.round(Number(booking.totalAmountCharged ?? booking.totalPrice) * 100);
-  if (transferPence > chargePence) {
-    return setFailed(
-      bookingId,
-      booking.transferAttempt,
-      `Transfer ${transferPence}p exceeds charge ${chargePence}p`
-    );
-  }
 
-  // ── Reconciliation (after non-clean prior state) ───────
-  // UNKNOWN: network error — transfer may or may not exist.
-  // RELEASING: crash after stripe.transfers.create succeeded but before DB write.
-  // Both require checking Stripe before creating to prevent double-pay.
-  if (needsReconciliation(previousStatus)) {
-    const existingId = await reconcileExistingTransfer(bookingId, booking.stripeChargeId);
-    if (existingId) {
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          stripeTransferId: existingId,
-          transferStatus: 'RELEASED',
-          transferFailureReason: null,
-        },
-      });
-      // A13-Xero-c: record the cleaner payout as Spend Money (gated + idempotent).
-      await enqueueXeroPush({
-        bookingId,
-        event: 'PAYOUT',
-        occurredAt: new Date().toISOString(),
-      }).catch(() => {});
-      await auditFundsReleased(bookingId, existingId, transferPence, audit, true);
-      return { status: 'RELEASED', transferId: existingId };
-    }
-  }
-
-  // ── Create transfer ────────────────────────────────────
-  const attempt = booking.transferAttempt + 1;
-  const idempotencyKey = `release_${bookingId}_v${attempt}`;
-
+  // ── Reconcile FIRST, always ─────────────────────────────
+  // Previously gated on UNKNOWN/RELEASING; now unconditional because a split
+  // release can partially succeed (slice A on Stripe, slice B failed) from a
+  // FAILED state too. Listing the transfer_group and planning only the
+  // SHORTFALL makes every retry convergent and double-pay impossible.
+  let alreadyPence = 0;
+  let anchoredAlreadyPence = 0;
+  const existingIds: string[] = [];
   try {
-    const transfer = await stripe.transfers.create(
-      {
-        amount: transferPence,
-        currency: 'gbp',
-        destination: profile.stripeAccountId,
-        source_transaction: booking.stripeChargeId,
-        transfer_group: bookingId,
-        metadata: { bookingId },
-      },
-      { idempotencyKey }
-    );
+    const existing = await stripe.transfers.list({ transfer_group: bookingId, limit: 100 });
+    for (const t of existing.data) {
+      alreadyPence += t.amount;
+      existingIds.push(t.id);
+      const src = typeof t.source_transaction === 'string' ? t.source_transaction : t.source_transaction?.id;
+      if (src && src === booking.stripeChargeId) anchoredAlreadyPence += t.amount;
+    }
+  } catch (err) {
+    // Can't see Stripe — do NOT create blind. Leave claim for a clean retry.
+    const reason = err instanceof Error ? err.message : 'transfer list failed';
+    return setUnknown(bookingId, `Reconciliation list failed: ${reason}`);
+  }
 
+  if (alreadyPence >= transferPence) {
+    // Fully covered by existing transfer(s) — adopt them.
+    const joined = existingIds.join(',');
     await prisma.booking.update({
       where: { id: bookingId },
-      data: {
-        stripeTransferId: transfer.id,
-        transferStatus: 'RELEASED',
-        transferAttempt: attempt,
-        transferFailureReason: null,
-      },
+      data: { stripeTransferId: joined, transferStatus: 'RELEASED', transferFailureReason: null },
     });
-
     await enqueueXeroPush({
       bookingId,
       event: 'PAYOUT',
-      occurredAt: new Date(transfer.created * 1000).toISOString(),
+      occurredAt: new Date().toISOString(),
     }).catch(() => {});
-    await auditFundsReleased(bookingId, transfer.id, transferPence, audit);
-    return { status: 'RELEASED', transferId: transfer.id };
-  } catch (err: unknown) {
-    if (isUnknownOutcome(err)) {
-      // Unknown outcome — retry with the SAME idempotency key. Stripe returns
-      // the original response if it went through, or processes fresh if it didn't.
-      try {
-        const retryTransfer = await stripe.transfers.create(
-          {
-            amount: transferPence,
-            currency: 'gbp',
-            destination: profile.stripeAccountId,
-            source_transaction: booking.stripeChargeId,
-            transfer_group: bookingId,
-            metadata: { bookingId },
-          },
-          { idempotencyKey }
-        );
-
-        await prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            stripeTransferId: retryTransfer.id,
-            transferStatus: 'RELEASED',
-            transferAttempt: attempt,
-            transferFailureReason: null,
-          },
-        });
-
-        await enqueueXeroPush({
-          bookingId,
-          event: 'PAYOUT',
-          occurredAt: new Date(retryTransfer.created * 1000).toISOString(),
-        }).catch(() => {});
-        await auditFundsReleased(bookingId, retryTransfer.id, transferPence, audit);
-        return { status: 'RELEASED', transferId: retryTransfer.id };
-      } catch (retryErr: unknown) {
-        // Still unknown — set UNKNOWN, do NOT bump transferAttempt.
-        // Next retry will use the same idempotency key AND reconcile first.
-        const reason = retryErr instanceof Error ? retryErr.message : 'Network retry failed';
-        return setUnknown(bookingId, `Network error + retry failed: ${reason}`);
-      }
-    }
-
-    // Definitive Stripe error — safe to bump attempt (new idempotency key next time)
-    const reason = err instanceof Error ? err.message : 'Unknown Stripe error';
-    return setFailed(bookingId, attempt, reason);
+    await auditFundsReleased(bookingId, joined, transferPence, audit, true);
+    return { status: 'RELEASED', transferId: joined };
   }
+
+  // ── Plan the shortfall as slices ────────────────────────
+  const remainingPence = transferPence - alreadyPence;
+  const anchoredHeadroom = Math.max(0, chargePence - anchoredAlreadyPence);
+  const anchoredPence = Math.min(remainingPence, anchoredHeadroom);
+  const excessPence = remainingPence - anchoredPence;
+
+  const attempt = booking.transferAttempt + 1;
+  const slices: { amountPence: number; anchored: boolean; idempotencyKey: string }[] = [];
+  if (anchoredPence > 0) {
+    // Legacy key format for the anchored slice — in-flight retries from before
+    // the split mechanism keep their idempotency.
+    slices.push({
+      amountPence: anchoredPence,
+      anchored: true,
+      idempotencyKey: `release_${bookingId}_v${attempt}`,
+    });
+  }
+  if (excessPence > 0) {
+    slices.push({
+      amountPence: excessPence,
+      anchored: false,
+      idempotencyKey: `release_${bookingId}_v${attempt}_x`,
+    });
+  }
+
+  // ── Execute slices ──────────────────────────────────────
+  const createdIds: string[] = [];
+  for (const slice of slices) {
+    const params = {
+      amount: slice.amountPence,
+      currency: 'gbp' as const,
+      destination: profile.stripeAccountId,
+      ...(slice.anchored ? { source_transaction: booking.stripeChargeId } : {}),
+      transfer_group: bookingId,
+      metadata: { bookingId, renaFunded: slice.anchored ? 'false' : 'true' },
+    };
+    try {
+      const t = await stripe.transfers.create(params, { idempotencyKey: slice.idempotencyKey });
+      createdIds.push(t.id);
+    } catch (err: unknown) {
+      if (isUnknownOutcome(err)) {
+        // One same-key retry; Stripe returns the original if it went through.
+        try {
+          const t = await stripe.transfers.create(params, {
+            idempotencyKey: slice.idempotencyKey,
+          });
+          createdIds.push(t.id);
+          continue;
+        } catch (retryErr: unknown) {
+          // Still unknown — do NOT bump attempt; next run reconciles first and
+          // creates only whatever genuinely didn't land.
+          const reason = retryErr instanceof Error ? retryErr.message : 'Network retry failed';
+          return setUnknown(bookingId, `Network error + retry failed: ${reason}`);
+        }
+      }
+      // Definitive error. Anything already created this run is safe: the next
+      // retry reconciles the group and plans only the shortfall.
+      const reason = err instanceof Error ? err.message : 'Unknown Stripe error';
+      const context = slice.anchored
+        ? reason
+        : `Rena-funded excess slice failed (platform balance?): ${reason}`;
+      return setFailed(bookingId, attempt, context);
+    }
+  }
+
+  const allIds = [...existingIds, ...createdIds].join(',');
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      stripeTransferId: allIds,
+      transferStatus: 'RELEASED',
+      transferAttempt: attempt,
+      transferFailureReason: null,
+    },
+  });
+
+  await enqueueXeroPush({
+    bookingId,
+    event: 'PAYOUT',
+    occurredAt: new Date().toISOString(),
+  }).catch(() => {});
+  await auditFundsReleased(bookingId, allIds, transferPence, audit, existingIds.length > 0);
+  return { status: 'RELEASED', transferId: allIds };
 }
 
 // Definitive failure: bump transferAttempt so next retry gets a new idempotency key.
