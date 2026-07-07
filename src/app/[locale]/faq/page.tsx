@@ -58,7 +58,7 @@ const faqCategories = [
       },
       {
         q: 'Do regular bookings cost less?',
-        a: "Many cleaners offer discounted rates for recurring bookings (weekly or fortnightly). The discount is shown on each cleaner's profile so you can compare before booking.",
+        a: "Every cleaner sets their own hourly rate, and the price you see at checkout is the full all-inclusive price. Recurring-booking discounts aren't available yet — if a cleaner's rate changes, you'll always see it before you book.",
       },
     ],
   },

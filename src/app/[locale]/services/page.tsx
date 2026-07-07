@@ -33,7 +33,7 @@ const services: {
       'Beds made and light tidying',
     ],
     price: 'From £14/hr',
-    priceNote: 'Save up to 10% with a recurring schedule',
+    priceNote: 'Book the same cleaner again and again — same trusted face every time',
     badge: 'Most Popular',
     idealFor: 'Busy households wanting a reliable, ongoing clean',
     image: '/images/Regular cleaning.webp',
