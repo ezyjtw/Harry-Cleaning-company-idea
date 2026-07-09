@@ -1,3 +1,4 @@
+// Called by the RENA Cleaners shell / external flows — no web importers by design. Do not flag as dead.
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';

@@ -254,33 +254,3 @@ export async function requireAuth(): Promise<SessionUser> {
   }
   return user;
 }
-
-/**
- * Check if the authenticated user owns or is a team member of the given company.
- * Returns the user if authorized, null otherwise.
- */
-export async function getCompanyMemberSession(companyId: string): Promise<SessionUser | null> {
-  const user = await getSessionUser();
-  if (!user) return null;
-
-  // Admins can access any company
-  if (user.role === 'ADMIN') return user;
-
-  // Check if user is the company owner
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { ownerId: true },
-  });
-
-  if (company?.ownerId === user.id) return user;
-
-  // Check if user is a team member
-  const membership = await prisma.teamMember.findUnique({
-    where: { companyId_userId: { companyId, userId: user.id } },
-    select: { isActive: true },
-  });
-
-  if (membership?.isActive) return user;
-
-  return null;
-}

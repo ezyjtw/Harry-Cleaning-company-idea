@@ -74,3 +74,11 @@ request is rejected with 400.
 Apple Pay via Stripe requires a domain verification file at
 `/.well-known/apple-developer-merchantid-domain-association`. After deploy, register the domain
 in Stripe dashboard, get the file content, and place it in `public/.well-known/`.
+
+## Repo layout gotcha
+
+Homepage section components (HowItWorks, ReviewsSection, HeroSection, StatsBar,
+GuaranteeSection, ServicesSection, CleanerCTA, FooterCTA, …) live in the
+root-level `components/` directory, NOT `src/components/`. Any dead-code, orphan
+or unreferenced-asset sweep must search BOTH — a `src/`-scoped grep misses them
+(this once nearly condemned the live how-step-1/how-step-3 homepage images).

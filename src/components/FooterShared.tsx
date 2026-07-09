@@ -1,6 +1,5 @@
-// Shared footer building blocks used by BOTH the homepage footer
-// (components/HomeFooter.tsx) and the global footer (src/components/Footer.tsx)
-// so the two stay in visual parity. Pure presentational components — no hooks,
+// Shared footer building blocks used by the global footer
+// (src/components/Footer.tsx). Pure presentational components — no hooks,
 // safe to render in either a server or client component.
 
 // ─── Payment method card icons ──────────────────────────────────

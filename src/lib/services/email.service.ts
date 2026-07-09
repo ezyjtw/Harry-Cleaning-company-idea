@@ -21,7 +21,6 @@ import {
   buildTopupApprovalRequest,
   buildSignupNotification,
   buildPaymentFailureNotification,
-  buildTeamInvite,
   type BookingEmailData,
   type UserEmailData,
   type CleanerEmailData,
@@ -487,15 +486,4 @@ export async function sendPaymentFailureNotification(
 ): Promise<boolean> {
   const { subject, html } = buildPaymentFailureNotification(data);
   return sendEmail(user.email, subject, html);
-}
-
-// ─── Team Invite Email ──────────────────────────────────────
-
-export async function sendTeamInvite(
-  email: string,
-  companyName: string,
-  inviteToken: string
-): Promise<boolean> {
-  const { subject, html } = buildTeamInvite(companyName, inviteToken);
-  return sendEmail(email, subject, html);
 }

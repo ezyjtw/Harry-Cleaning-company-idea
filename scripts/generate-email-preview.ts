@@ -31,7 +31,6 @@ import {
   buildTopupApprovalRequest,
   buildSignupNotification,
   buildPaymentFailureNotification,
-  buildTeamInvite,
   type EmailContent,
 } from '../src/lib/services/email-templates';
 
@@ -58,28 +57,28 @@ const unsubscribeUrl = 'https://www.renacleaning.co.uk/unsubscribe?token=sample-
 
 // [number label, EmailContent, optional reviewer note]
 const sections: Array<[string, EmailContent, string?]> = [
-  ['1/19 — bookingConfirmation', buildBookingConfirmation(booking, user)],
-  ['2/19 — bookingReminder', buildBookingReminder(booking, user)],
+  ['1/18 — bookingConfirmation', buildBookingConfirmation(booking, user)],
+  ['2/18 — bookingReminder', buildBookingReminder(booking, user)],
   [
-    '3/19 — bookingCancellation',
+    '3/18 — bookingCancellation',
     buildBookingCancellation(booking, user, { refundAmount: 96, refundPercent: 100 }),
     'Shown with a full-refund sample; the refund sentence has 4 variants (full / partial / none / unknown) — all flow through the same paragraph slot.',
   ],
-  ['4/19 — refundConfirmation', buildRefundConfirmation(booking, user, 96, true)],
-  ['5/19 — cleanerAssignment', buildCleanerAssignment(booking, cleaner)],
+  ['4/18 — refundConfirmation', buildRefundConfirmation(booking, user, 96, true)],
+  ['5/18 — cleanerAssignment', buildCleanerAssignment(booking, cleaner)],
   [
-    '6/19 — passwordReset',
+    '6/18 — passwordReset',
     buildPasswordReset('sample-token'),
     'Body copy still says "Click the link below"; the anchor is now rendered as the E1 button (copy unchanged, styling re-skinned).',
   ],
-  ['7/19 — emailVerification', buildEmailVerification('sample-token')],
-  ['8/19 — paymentReceipt', buildPaymentReceipt(payment, user)],
+  ['7/18 — emailVerification', buildEmailVerification('sample-token')],
+  ['8/18 — paymentReceipt', buildPaymentReceipt(payment, user)],
   [
-    '9/19 — contactConfirmation',
+    '9/18 — contactConfirmation',
     buildContactConfirmation('Sarah Thompson', 'Rescheduling my booking'),
   ],
   [
-    '10/19 — supportAlert (internal)',
+    '10/18 — supportAlert (internal)',
     buildSupportAlert({
       name: 'Sarah Thompson',
       email: 'sarah@example.com',
@@ -90,18 +89,18 @@ const sections: Array<[string, EmailContent, string?]> = [
     }),
     'Internal alert to support; detail fields moved from a <ul> into the info-block.',
   ],
-  ['11/19 — reviewRequest', buildReviewRequest(booking, user)],
+  ['11/18 — reviewRequest', buildReviewRequest(booking, user)],
   [
-    '12/19 — newMessage',
+    '12/18 — newMessage',
     buildNewMessageEmail('Sarah Thompson', 'Maria Santos'),
     'Preference-governed (NEW_MESSAGE) → footer carries a "Manage email preferences" link to /account/notifications. This footer line is wrapper-added (the original had none).',
   ],
   [
-    '13/19 — guestBookingConfirmation',
+    '13/18 — guestBookingConfirmation',
     buildGuestBookingConfirmation(booking, 'sarah@example.com', 'Sarah Thompson', 'guest-token'),
   ],
   [
-    '14/19 — abandonment',
+    '14/18 — abandonment',
     buildAbandonmentEmail(
       {
         cleanerName: 'Maria Santos',
@@ -114,12 +113,12 @@ const sections: Array<[string, EmailContent, string?]> = [
     'MARKETING → footer carries the PECR Unsubscribe link (same wording as before, moved into the wrapper footer).',
   ],
   [
-    '15/19 — verificationDecision (approved)',
+    '15/18 — verificationDecision (approved)',
     buildVerificationDecision({ cleanerName: 'Maria Santos', approved: true }),
     'Single template, two bodies (approved + rejected). Approved keeps the two-CTA + hairline + muted-note structure.',
   ],
   [
-    '15/19 — verificationDecision (rejected)',
+    '15/18 — verificationDecision (rejected)',
     buildVerificationDecision({
       cleanerName: 'Maria Santos',
       approved: false,
@@ -127,7 +126,7 @@ const sections: Array<[string, EmailContent, string?]> = [
     }),
   ],
   [
-    '16/19 — topupApprovalRequest',
+    '16/18 — topupApprovalRequest',
     buildTopupApprovalRequest({
       bookingId: '10482',
       customerName: 'Sarah Thompson',
@@ -138,7 +137,7 @@ const sections: Array<[string, EmailContent, string?]> = [
     }),
   ],
   [
-    '17/19 — signupNotification (internal)',
+    '17/18 — signupNotification (internal)',
     buildSignupNotification({
       name: 'Maria Santos',
       email: 'maria@example.com',
@@ -148,14 +147,13 @@ const sections: Array<[string, EmailContent, string?]> = [
     }),
   ],
   [
-    '18/19 — paymentFailureNotification',
+    '18/18 — paymentFailureNotification',
     buildPaymentFailureNotification({
       bookingId: '10482',
       customerName: 'Sarah Thompson',
       reason: 'Your card was declined (insufficient funds).',
     }),
   ],
-  ['19/19 — teamInvite', buildTeamInvite('Bright Homes Cleaning', 'invite-token')],
 ];
 
 const blocks = sections
