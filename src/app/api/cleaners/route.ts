@@ -112,6 +112,10 @@ export async function GET(request: NextRequest) {
 
   let cleaners = await prisma.cleanerProfile.findMany({
     where,
+    // Coverage needs the stored isochrone ONLY when filtering by a customer
+    // point; without a postcode (homepage carousel, plain directory) the
+    // global omit keeps the heavy polygons out of the query entirely.
+    ...(customerGeo ? { omit: { catchmentPolygon: false } } : {}),
     include: {
       user: {
         select: {
