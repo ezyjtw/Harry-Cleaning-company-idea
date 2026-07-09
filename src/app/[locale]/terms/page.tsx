@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
+
 export const metadata: Metadata = {
+  alternates: { canonical: `${BASE_URL}/terms` },
   title: 'Terms of Service',
   description:
     'Read the Rena terms of service governing your use of the Rena cleaning marketplace platform.',

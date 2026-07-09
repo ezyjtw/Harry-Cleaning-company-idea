@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
+
 export const metadata: Metadata = {
+  alternates: { canonical: `${BASE_URL}/how-it-works` },
   title: 'How It Works',
   description:
     'Learn how Rena connects you with trusted, vetted cleaners. Simple booking, secure payments, and quality guaranteed.',

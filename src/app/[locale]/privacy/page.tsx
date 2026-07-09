@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
+
 export const metadata: Metadata = {
+  alternates: { canonical: `${BASE_URL}/privacy` },
   title: 'Privacy Policy',
   description:
     'Read the Rena privacy policy to understand how we collect, use, and protect your personal data.',

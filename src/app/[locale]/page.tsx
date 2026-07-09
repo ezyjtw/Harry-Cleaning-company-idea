@@ -24,13 +24,18 @@ export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Metadata' });
 
+  // A1-P2: canonical + OG image were missing on the highest-value page.
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
   return {
     title: t('title'),
     description: t('description'),
+    alternates: { canonical: baseUrl },
     openGraph: {
       title: t('title'),
       description: t('ogDescription'),
       type: 'website',
+      url: baseUrl,
+      images: [{ url: `${baseUrl}/og-image.png`, width: 1200, height: 630, alt: t('title') }],
     },
   };
 }

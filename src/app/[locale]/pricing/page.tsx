@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
+
 export const metadata: Metadata = {
+  alternates: { canonical: `${BASE_URL}/pricing` },
   title: 'Pricing — Transparent Cleaning Rates',
   description:
     'See exactly what you pay with Rena. Cleaner rates are listed upfront and the price you see at checkout is the price you pay. No hidden fees, no surprises.',
