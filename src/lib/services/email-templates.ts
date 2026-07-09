@@ -743,14 +743,3 @@ export function buildPaymentFailureNotification(data: {
     p('Best regards,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };
 }
-
-export function buildTeamInvite(companyName: string, inviteToken: string): EmailContent {
-  const inviteLink = `${appUrl()}/company/join?token=${inviteToken}`;
-  const subject = `You've been invited to join ${companyName} on Rena`;
-  const contentHtml =
-    h("You've been invited!") +
-    p(`${companyName} has invited you to join their team on Rena Cleaning Network.`) +
-    button(inviteLink, 'Accept Invitation') +
-    p('This invitation will expire in 7 days.');
-  return { subject, html: renderEmail({ contentHtml }) };
-}
