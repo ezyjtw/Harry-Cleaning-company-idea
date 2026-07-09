@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Pricing — Transparent Cleaning Rates | Rena',
+  title: 'Pricing — Transparent Cleaning Rates',
   description:
     'See exactly what you pay with Rena. Cleaner rates are listed upfront and the price you see at checkout is the price you pay. No hidden fees, no surprises.',
   openGraph: {

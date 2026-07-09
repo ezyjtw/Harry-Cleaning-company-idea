@@ -132,9 +132,13 @@ export default function Footer() {
             </Link>
             <FooterSocialLinks />
             <span className="font-jost text-[12px] tracking-wide text-white/25">
-              &copy; {new Date().getFullYear()} Rena
+              &copy; {new Date().getFullYear()} Rena Cleaning Network
             </span>
           </div>
+          <p className="mt-4 text-center font-jost text-[11px] tracking-wide text-white/25">
+            Rena Cleaning Network · 66 Paul Street, London EC2A 4NA · Proudly serving north-east
+            London and surrounding areas of Essex
+          </p>
           <FooterPaymentMethods />
         </div>
       </div>

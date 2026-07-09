@@ -15,8 +15,8 @@ const faqCategories = [
         a: 'Unlike traditional cleaning agencies, Rena lets you choose your cleaner based on real reviews, ratings, and availability. You pay one all-inclusive price — far less than the 20-30% markups charged by traditional agencies — which means better rates for you and higher earnings for cleaners.',
       },
       {
-        q: 'What areas does Rena cover?',
-        a: "We currently serve north-east London and Essex, with plans to expand across the UK. We only recruit cleaners who are reliable, vetted, and consistently deliver a high standard of service. Enter your postcode on the homepage to check availability. If we're not in your area yet, leave your email and we'll notify you as soon as we launch near you.",
+        q: 'Where does Rena operate?',
+        a: "We proudly serve north-east London and the surrounding areas of Essex — we're local, and so are our cleaners. Enter your postcode on the homepage to see the vetted cleaners near you. We're growing: if we haven't reached your area yet, leave your email and you'll be the first to know when we do.",
       },
       {
         q: 'Do I need to create an account to book?',

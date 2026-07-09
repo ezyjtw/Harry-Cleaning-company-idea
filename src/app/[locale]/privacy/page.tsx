@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Rena',
+  title: 'Privacy Policy',
   description:
     'Read the Rena privacy policy to understand how we collect, use, and protect your personal data.',
 };
@@ -18,7 +18,8 @@ export default function PrivacyPage() {
         <section className="mt-8 border-b border-line pb-8">
           <h2 className="font-newsreader text-2xl font-semibold text-ink">1. Introduction</h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
-            Rena (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting
+            Rena Cleaning Network (&quot;Rena&quot;, &quot;we&quot;, &quot;our&quot;, or
+            &quot;us&quot;) is committed to protecting
             your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard
             your information when you use our website, mobile application, and services
             (collectively, the &quot;Platform&quot;). Please read this policy carefully. By using
@@ -391,7 +392,7 @@ export default function PrivacyPage() {
                 legal@renacleaning.co.uk
               </a>
             </p>
-            <p className="mt-1">Address: London, United Kingdom</p>
+            <p className="mt-1">Registered office: 66 Paul Street, London EC2A 4NA, United Kingdom</p>
           </div>
         </section>
       </div>

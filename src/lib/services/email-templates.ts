@@ -150,7 +150,7 @@ export function renderEmail(opts: { contentHtml: string; footerNote?: string }):
           <tr>
             <td style="padding:6px 32px 28px;">
               <div style="border-top:1px solid #E4E9F0;padding-top:16px;">
-                <p style="margin:0;${FONT_BODY}font-size:11px;line-height:1.6;color:#7A8A9E;text-align:center;">Rena Cleaning Network &middot; <a href="mailto:${SUPPORT_EMAIL}" style="color:#7A8A9E;text-decoration:underline;">${SUPPORT_EMAIL}</a>${footerNote ? `<br/>${footerNote}` : ''}</p>
+                <p style="margin:0;${FONT_BODY}font-size:11px;line-height:1.6;color:#7A8A9E;text-align:center;">Rena Cleaning Network &middot; <a href="mailto:${SUPPORT_EMAIL}" style="color:#7A8A9E;text-decoration:underline;">${SUPPORT_EMAIL}</a><br/>66 Paul Street, London EC2A 4NA${footerNote ? `<br/>${footerNote}` : ''}</p>
               </div>
             </td>
           </tr>

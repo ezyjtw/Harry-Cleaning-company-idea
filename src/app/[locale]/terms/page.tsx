@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | Rena',
+  title: 'Terms of Service',
   description:
     'Read the Rena terms of service governing your use of the Rena cleaning marketplace platform.',
 };
@@ -298,7 +298,7 @@ export default function TermsPage() {
                 legal@renacleaning.co.uk
               </a>
             </p>
-            <p className="mt-1">Address: London, United Kingdom</p>
+            <p className="mt-1">Registered office: 66 Paul Street, London EC2A 4NA, United Kingdom</p>
           </div>
         </section>
       </div>
