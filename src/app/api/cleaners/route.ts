@@ -6,13 +6,15 @@ import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
+import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
+import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
-import { haversineDistance, isWithinTravelRange, lookupPostcode } from '@/lib/utils/postcode';
+import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -57,19 +59,9 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20));
 
   const now = new Date();
-  const where: Record<string, unknown> = {
-    verified: true,
-    stripeChargesEnabled: true,
-    stripePayoutsEnabled: true,
-    user: { accountStatus: 'ACTIVE', isDeleted: false },
-    OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
-    // Coverage gate: a cleaner with no geocoded location or no travel radius can't be
-    // matched to any customer, so exclude them everywhere (national grid included), not
-    // just from area search — no "shown in the grid but findable nowhere" cleaners.
-    latitude: { not: null },
-    longitude: { not: null },
-    maxTravelMinutes: { not: null },
-  };
+  // A2: the base eligibility filter is shared with the location pages
+  // (area-search.service) so "who is bookable" can never fork between them.
+  const where: Record<string, unknown> = eligibleCleanerWhere(now);
 
   if (availableNow === 'true') {
     where.availableNow = true;
@@ -118,7 +110,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const cleaners = await prisma.cleanerProfile.findMany({
+  let cleaners = await prisma.cleanerProfile.findMany({
     where,
     include: {
       user: {
@@ -136,7 +128,19 @@ export async function GET(request: NextRequest) {
     orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
   });
 
-  let results = await Promise.all(
+  // B: coverage filter runs on the RAW rows (polygon-first predicate; the
+  // stored isochrone never enters the JSON response). Sorting by distance
+  // still happens after mapping.
+  if (customerGeo) {
+    const geo = customerGeo;
+    cleaners = cleaners.filter((c) => {
+      if (c.latitude === null || c.longitude === null) return false;
+      const d = haversineDistance(geo.latitude, geo.longitude, c.latitude, c.longitude);
+      return cleanerCoversPoint(c, geo.latitude, geo.longitude, d);
+    });
+  }
+
+  const results = await Promise.all(
     cleaners.map(async (c) => {
       let distance: number | null = null;
       if (customerGeo && c.latitude !== null && c.longitude !== null) {
@@ -187,10 +191,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (customerGeo) {
-    results = results.filter((r) => {
-      if (r.distance === null) return false;
-      return isWithinTravelRange(r.distance, r.maxTravelMinutes, r.radius);
-    });
+    // Coverage already decided on the raw rows above — just order by distance.
     results.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   }
 

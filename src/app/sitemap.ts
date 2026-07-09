@@ -1,38 +1,17 @@
 import type { MetadataRoute } from 'next';
 
+import { SERVICE_AREAS } from '@/lib/areas';
+import { countCoveringPoint, eligibleCleanerGeos } from '@/lib/services/area-search.service';
+import { lookupOutcode } from '@/lib/utils/postcode';
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
-// London areas for location-specific pages
-const _LONDON_AREAS = [
-  'central-london',
-  'north-london',
-  'south-london',
-  'east-london',
-  'west-london',
-  'chelsea',
-  'kensington',
-  'fulham',
-  'wimbledon',
-  'richmond',
-  'hackney',
-  'islington',
-  'camden',
-  'brixton',
-  'greenwich',
-  'canary-wharf',
-];
+// A1-P1: service slugs must match the REAL /services/[category] routes
+// (ServiceCategory in lib/types.ts) — the previous list advertised six
+// fictional URLs (regular-cleaning, office-cleaning, …) that soft-404'd.
+const SERVICES = ['regular', 'same-day', 'deep', 'airbnb', 'end-of-tenancy'];
 
-// Service categories
-const SERVICES = [
-  'regular-cleaning',
-  'deep-cleaning',
-  'end-of-tenancy',
-  'move-in-cleaning',
-  'airbnb-turnover',
-  'office-cleaning',
-];
-
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   // Core pages
@@ -49,6 +28,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     { url: `${BASE_URL}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/faq`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/guarantees`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/join`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/login`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
@@ -65,5 +45,35 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...corePages, ...servicePages];
+  // A3: location pages — only areas that pass the ruled 0-cleaner prune (the
+  // same coverage decision the pages themselves make; an area page that would
+  // 404 never enters the sitemap). Any failure (DB or geocode) omits the
+  // area pages rather than advertising possibly-404 URLs.
+  let areaPages: MetadataRoute.Sitemap = [];
+  try {
+    const geos = await eligibleCleanerGeos();
+    const shipped = await Promise.all(
+      SERVICE_AREAS.map(async (area) => {
+        const centroid = await lookupOutcode(area.outcode);
+        if (!centroid) return null; // lookup failure → page renders (fail-open) but sitemap skips
+        return countCoveringPoint(geos, centroid.latitude, centroid.longitude) > 0 ? area : null;
+      })
+    );
+    const live = shipped.filter((a): a is NonNullable<typeof a> => a !== null);
+    areaPages = [
+      ...(live.length > 0
+        ? [{ url: `${BASE_URL}/cleaning`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 }]
+        : []),
+      ...live.map((area) => ({
+        url: `${BASE_URL}/cleaning/${area.slug}`,
+        lastModified: now,
+        changeFrequency: 'weekly' as const,
+        priority: 0.8,
+      })),
+    ];
+  } catch {
+    areaPages = [];
+  }
+
+  return [...corePages, ...servicePages, ...areaPages];
 }

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import CleanerProfileView, {
@@ -10,8 +11,38 @@ import {
   isServiceTypeSlug,
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
+import JsonLd from '@/components/JsonLd';
 import prisma from '@/lib/db/prisma';
 import { computeCleanerRating } from '@/lib/services/rating.service';
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
+
+// A1-P1: per-cleaner metadata — every profile page previously shared the
+// directory layout's generic title. Canonical + OG per cleaner.
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const profile = await prisma.cleanerProfile.findFirst({
+    where: { userId: params.id },
+    select: { location: true, bio: true, user: { select: { name: true } } },
+  });
+  if (!profile) return {};
+  const name = profile.user?.name || 'Cleaner';
+  const area = profile.location || 'north-east London';
+  const title = `${name} — Cleaner in ${area}`;
+  const description = profile.bio
+    ? profile.bio.slice(0, 155)
+    : `Book ${name}, a vetted independent cleaner serving ${area}. Real profile, real reviews, transparent rates.`;
+  const url = `${BASE_URL}/cleaners/${params.id}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, type: 'profile' },
+  };
+}
 
 function minPrice(map: Record<string, number> | null | undefined): number | null {
   if (!map) return null;
@@ -172,8 +203,44 @@ export default async function CleanerProfilePage({
     endTime: s.endTime,
   }));
 
+  // A1-P1: honest structured data. Person markup always; the Service node with
+  // AggregateRating renders ONLY from real review data (native VISIBLE +
+  // imported VERIFIED). Self-entered testimonials are deliberately excluded.
+  const realReviewCount = reviewCount + importedReviews.length;
+  const ratingValue = Number(profile.rating);
+  const personNode = {
+    '@type': 'Person',
+    name: data.name,
+    jobTitle: 'Professional cleaner',
+    ...(data.location ? { address: { '@type': 'PostalAddress', addressLocality: data.location } } : {}),
+    worksFor: { '@type': 'Organization', name: 'Rena Cleaning Network' },
+  };
+  const profileJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    url: `${BASE_URL}/cleaners/${profile.user.id}`,
+    mainEntity:
+      realReviewCount > 0 && ratingValue > 0
+        ? {
+            '@context': 'https://schema.org',
+            '@type': 'Service',
+            name: `Home cleaning by ${data.name}`,
+            provider: personNode,
+            areaServed: data.location || 'North-east London and surrounding areas of Essex',
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: ratingValue.toFixed(2),
+              reviewCount: realReviewCount,
+              bestRating: 5,
+              worstRating: 1,
+            },
+          }
+        : personNode,
+  };
+
   return (
     <div className="min-h-screen bg-page">
+      <JsonLd data={profileJsonLd} />
       <div className="mx-auto max-w-3xl sm:px-6 sm:py-10">
         <div className="bg-surface sm:overflow-hidden sm:rounded-[16px] sm:border sm:border-line">
           <CleanerProfileView

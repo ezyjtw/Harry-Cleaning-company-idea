@@ -2,7 +2,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
-import { haversineDistance, isValidPostcode, isWithinTravelRange, lookupPostcode } from '@/lib/utils/postcode';
+import { cleanerCoversPoint } from '@/lib/services/coverage.service';
+import { haversineDistance, isValidPostcode, lookupPostcode } from '@/lib/utils/postcode';
 
 // GET /api/cleaners/[id]/covers?postcode=E4 7AP
 //
@@ -23,7 +24,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: params.id },
-    select: { latitude: true, longitude: true, maxTravelMinutes: true, radius: true },
+    select: {
+      latitude: true,
+      longitude: true,
+      maxTravelMinutes: true,
+      radius: true,
+      catchmentPolygon: true,
+    },
   });
 
   if (!profile || profile.latitude === null || profile.longitude === null) {
@@ -41,7 +48,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     profile.latitude,
     profile.longitude
   );
-  const covers = isWithinTravelRange(distanceMiles, profile.maxTravelMinutes, profile.radius);
+  // B: polygon-first (stored isochrone), crow-flies fallback inside.
+  const covers = cleanerCoversPoint(profile, geo.latitude, geo.longitude, distanceMiles);
 
   return NextResponse.json({ covers });
 }

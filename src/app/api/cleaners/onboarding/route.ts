@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
 import { rateLimit } from '@/lib/rate-limit';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
+import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -251,6 +252,10 @@ export async function POST(request: NextRequest) {
         `[CleanerOnboarding] ${failedUploads.length} document(s) failed to upload for user ${result.user.id}`
       );
     }
+
+    // B: generate the new cleaner's travel-time isochrone (fire-and-forget;
+    // dormant without ORS_API_KEY — the crow-flies fallback covers them).
+    triggerCatchmentRefresh(result.user.id);
 
     return NextResponse.json(
       {

@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
+
 export const metadata: Metadata = {
+  alternates: { canonical: `${BASE_URL}/guarantees` },
   title: 'Service Guarantees — Your Protection with Rena',
   description:
     'Rena protects every booking with a satisfaction guarantee, secure held payments, insurance coverage, and a fair cancellation policy. Book with confidence.',

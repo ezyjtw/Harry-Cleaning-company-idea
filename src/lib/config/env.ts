@@ -129,6 +129,14 @@ const ENV_SCHEMA: EnvVarConfig[] = [
       'Groq API key powering the AI support chat widget (/api/chat). Unset ⇒ chat returns "not configured"; the rest of the app is unaffected.',
   },
   {
+    name: 'ORS_API_KEY',
+    required: false,
+    description:
+      'OpenRouteService API key for travel-time catchment isochrones (B). Unset ⇒ ' +
+      'catchment generation dormant; coverage falls back to the crow-flies travel-time ' +
+      'logic. Free tier ~500 req/day — the migration batch throttles itself accordingly.',
+  },
+  {
     name: 'EXPO_ACCESS_TOKEN',
     required: false,
     description:

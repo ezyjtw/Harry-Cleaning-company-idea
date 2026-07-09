@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import HeroQuoteWidget from '../src/components/HeroQuoteWidget';
@@ -55,7 +56,9 @@ export default function HeroSection() {
             </p>
 
             <p className="mb-8 font-jost text-[13px] font-medium uppercase tracking-[0.14em] text-white/70 md:mb-10">
-              {t('coverage')}
+              <Link href="/cleaning" className="transition-colors hover:text-white">
+                {t('coverage')}
+              </Link>
             </p>
 
             <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">

@@ -372,6 +372,15 @@ model CleanerProfile {
   homeGeocodedAt       DateTime?
   maxTravelMinutes     Int?
 
+  // B (travel-time catchment): real road-network isochrone stored as raw
+  // GeoJSON exactly as the provider returned it (provider-swappable by
+  // construction — catchmentSource names the generator, e.g.
+  // 'ors-isochrone-v1'). Nullable: absent ⇒ the predicate falls back to the
+  // crow-flies travel-time logic. The hot path NEVER calls a provider.
+  catchmentPolygon     Json?
+  catchmentGeneratedAt DateTime?
+  catchmentSource      String?
+
   providerId String?
 
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
