@@ -81,11 +81,9 @@ components/
 ├── Footer.tsx             # Site footer
 ├── CleanerCard.tsx        # Cleaner listing card
 ├── StarRating.tsx         # Star rating display
-├── CategoryRatingBar.tsx  # Detailed rating breakdown
 ├── CleaningEstimator.tsx  # Room-based price estimator
 ├── VerificationBadge.tsx  # Verified cleaner badge
-├── AvailableNowBadge.tsx  # Real-time availability indicator
-└── EscrowBanner.tsx       # Escrow payment info banner
+└── AvailableNowBadge.tsx  # Real-time availability indicator
 ```
 
 ## Backend Architecture
