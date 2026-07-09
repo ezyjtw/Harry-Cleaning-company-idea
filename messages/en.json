@@ -319,10 +319,5 @@
     "loading": "Loading...",
     "error": "Something went wrong",
     "retry": "Try again"
-  },
-  "LanguageSwitcher": {
-    "label": "Language",
-    "en": "English",
-    "pl": "Polski"
   }
 }
