@@ -33,7 +33,12 @@ async function main() {
     where: {
       user: { isDeleted: false, accountStatus: 'ACTIVE' },
       OR: [{ homePostcode: { not: null } }, { postcode: { not: null } }],
-      ...(force ? {} : { catchmentPolygon: { equals: null } }),
+      // "No stored catchment" = generation never completed. Filtered on the
+      // DateTime column, NOT the Json one: Prisma Json filters split SQL NULL
+      // (DbNull) from JSON null (JsonNull), and `equals: null` silently meant
+      // JsonNull — matching zero rows on freshly-added SQL-NULL columns. The
+      // first dry-run's "0 cleaners" was THIS bug, not an empty roster.
+      ...(force ? {} : { catchmentGeneratedAt: null }),
     },
     select: {
       userId: true,
