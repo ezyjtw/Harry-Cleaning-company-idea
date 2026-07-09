@@ -339,10 +339,12 @@ export default function HeroQuoteWidget() {
 
     // #3: real "N cleaners nearby" — the count of cleaners actually serving this
     // postcode (same distance/travel-time filter the cleaner grid uses). Fire-and-
-    // forget; graceful on error/0. `total` is the full count, independent of limit.
+    // forget; graceful on error/0. `count` is the full total, independent of limit.
+    // (James-ruled fix: the API field is `count` — reading `total` meant the
+    // nearby-count never displayed.)
     fetch(`/api/cleaners?postcode=${encodeURIComponent(trimmed)}&limit=1`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCleanerCount(typeof d?.total === 'number' ? d.total : null))
+      .then((d) => setCleanerCount(typeof d?.count === 'number' ? d.count : null))
       .catch(() => setCleanerCount(null));
   };
 
