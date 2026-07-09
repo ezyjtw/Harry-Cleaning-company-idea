@@ -100,7 +100,6 @@ All API routes are in `src/app/api/` and follow RESTful conventions.
 | `/api/cleaners`           | `GET, POST` | List cleaners / register new cleaner |
 | `/api/cleaners/[id]`      | `GET`       | Get individual cleaner details       |
 | `/api/bookings`           | `POST`      | Create a new booking                 |
-| `/api/estimate`           | `POST`      | Calculate price estimate             |
 
 ### Service Layer
 
