@@ -58,6 +58,9 @@ export async function findCleanersNearPoint(
   const now = new Date();
   const rows = await prisma.cleanerProfile.findMany({
     where: eligibleCleanerWhere(now),
+    // Area pages are a coverage consumer — re-enable the globally-omitted
+    // isochrone for cleanerCoversPoint.
+    omit: { catchmentPolygon: false },
     include: {
       user: {
         select: { id: true, name: true, image: true, reviewsReceived: { select: { id: true } } },

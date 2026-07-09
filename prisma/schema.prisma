@@ -1,5 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // omitApi: lets the client GLOBALLY exclude heavy/server-only columns
+  // (catchmentPolygon) from every query unless explicitly re-enabled.
+  previewFeatures = ["omitApi"]
 }
 
 datasource db {

@@ -83,6 +83,9 @@ export class MatchingService {
         acknowledgmentVersion: CURRENT_AGREEMENT_VERSION,
         user: { isDeleted: false, accountStatus: 'ACTIVE' },
       },
+      // Matching is a coverage consumer — re-enable the globally-omitted
+      // isochrone for cleanerCoversPoint.
+      omit: { catchmentPolygon: false },
       include: {
         user: true,
         availabilitySlots: true,

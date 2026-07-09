@@ -1,8 +1,8 @@
-import type { PrismaClient } from '@prisma/client';
-
 import { prisma } from '@/lib/db/prisma';
 
-type PrismaLike = Pick<PrismaClient, 'review' | 'importedReview' | 'cleanerProfile'>;
+// Derived from the app's actual client (which globally omits catchmentPolygon)
+// so transaction clients and the singleton both satisfy it.
+type PrismaLike = Pick<typeof prisma, 'review' | 'importedReview' | 'cleanerProfile'>;
 
 export interface CleanerRating {
   overall: number | null;
