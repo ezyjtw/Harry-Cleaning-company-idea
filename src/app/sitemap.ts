@@ -1,5 +1,9 @@
 import type { MetadataRoute } from 'next';
 
+import { SERVICE_AREAS } from '@/lib/areas';
+import { countCoveringPoint, eligibleCleanerGeos } from '@/lib/services/area-search.service';
+import { lookupOutcode } from '@/lib/utils/postcode';
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
 // A1-P1: service slugs must match the REAL /services/[category] routes
@@ -7,7 +11,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co
 // fictional URLs (regular-cleaning, office-cleaning, …) that soft-404'd.
 const SERVICES = ['regular', 'same-day', 'deep', 'airbnb', 'end-of-tenancy'];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   // Core pages
@@ -41,5 +45,35 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...corePages, ...servicePages];
+  // A3: location pages — only areas that pass the ruled 0-cleaner prune (the
+  // same coverage decision the pages themselves make; an area page that would
+  // 404 never enters the sitemap). Any failure (DB or geocode) omits the
+  // area pages rather than advertising possibly-404 URLs.
+  let areaPages: MetadataRoute.Sitemap = [];
+  try {
+    const geos = await eligibleCleanerGeos();
+    const shipped = await Promise.all(
+      SERVICE_AREAS.map(async (area) => {
+        const centroid = await lookupOutcode(area.outcode);
+        if (!centroid) return null; // lookup failure → page renders (fail-open) but sitemap skips
+        return countCoveringPoint(geos, centroid.latitude, centroid.longitude) > 0 ? area : null;
+      })
+    );
+    const live = shipped.filter((a): a is NonNullable<typeof a> => a !== null);
+    areaPages = [
+      ...(live.length > 0
+        ? [{ url: `${BASE_URL}/cleaning`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 }]
+        : []),
+      ...live.map((area) => ({
+        url: `${BASE_URL}/cleaning/${area.slug}`,
+        lastModified: now,
+        changeFrequency: 'weekly' as const,
+        priority: 0.8,
+      })),
+    ];
+  } catch {
+    areaPages = [];
+  }
+
+  return [...corePages, ...servicePages, ...areaPages];
 }

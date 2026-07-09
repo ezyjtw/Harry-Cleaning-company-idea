@@ -6,6 +6,7 @@ import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
+import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
@@ -57,19 +58,9 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20));
 
   const now = new Date();
-  const where: Record<string, unknown> = {
-    verified: true,
-    stripeChargesEnabled: true,
-    stripePayoutsEnabled: true,
-    user: { accountStatus: 'ACTIVE', isDeleted: false },
-    OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
-    // Coverage gate: a cleaner with no geocoded location or no travel radius can't be
-    // matched to any customer, so exclude them everywhere (national grid included), not
-    // just from area search — no "shown in the grid but findable nowhere" cleaners.
-    latitude: { not: null },
-    longitude: { not: null },
-    maxTravelMinutes: { not: null },
-  };
+  // A2: the base eligibility filter is shared with the location pages
+  // (area-search.service) so "who is bookable" can never fork between them.
+  const where: Record<string, unknown> = eligibleCleanerWhere(now);
 
   if (availableNow === 'true') {
     where.availableNow = true;

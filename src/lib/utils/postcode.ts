@@ -53,6 +53,29 @@ export async function lookupPostcode(postcode: string): Promise<PostcodeResult |
 }
 
 /**
+ * A2: look up an OUTWARD code centroid (e.g. "E4", "IG10") via postcodes.io.
+ * Used by the location pages to anchor an area without inventing a street
+ * address. Same fail-soft contract as lookupPostcode: null on any failure.
+ */
+export async function lookupOutcode(
+  outcode: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  if (!PARTIAL_POSTCODE_REGEX.test(outcode.trim())) return null;
+  try {
+    const res = await fetch(
+      `https://api.postcodes.io/outcodes/${encodeURIComponent(outcode.trim().toUpperCase())}`,
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status !== 200 || !data.result?.latitude) return null;
+    return { latitude: data.result.latitude, longitude: data.result.longitude };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Autocomplete partial postcode.
  */
 export async function autocompletePostcode(partial: string): Promise<string[]> {

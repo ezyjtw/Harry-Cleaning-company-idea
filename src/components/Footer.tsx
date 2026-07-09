@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { SERVICE_AREAS } from '@/lib/areas';
+
 import { FooterPaymentMethods, FooterSocialLinks } from './FooterShared';
 
 export default function Footer() {
@@ -117,6 +119,28 @@ export default function Footer() {
               ))}
             </ul>
           </div>
+        </div>
+
+        {/* A3: Areas we serve — internal links into the location pages */}
+        <div className="mt-10 border-t border-white/5 pt-8">
+          <h3 className="font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-white/70">
+            <Link href="/cleaning" className="transition-colors hover:text-white">
+              Areas we serve
+            </Link>
+          </h3>
+          <p className="mt-4 font-jost text-[13px] font-light leading-[2] text-white/50">
+            {SERVICE_AREAS.map((area, i) => (
+              <span key={area.slug}>
+                {i > 0 && <span className="text-white/25"> · </span>}
+                <Link
+                  href={`/cleaning/${area.slug}`}
+                  className="transition-colors hover:text-white/80"
+                >
+                  Cleaners in {area.name}
+                </Link>
+              </span>
+            ))}
+          </p>
         </div>
       </div>
 
