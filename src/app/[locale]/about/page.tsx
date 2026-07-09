@@ -115,7 +115,7 @@ export default function AboutPage() {
             value quality.
           </p>
           <p className="mx-auto mt-4 max-w-2xl font-jost text-[14px] font-light tracking-wide text-cream/60">
-            Proudly serving north-east London and surrounding areas of Essex.
+            Proudly serving north-east London and surrounding areas of Essex — and growing.
           </p>
         </div>
       </section>
