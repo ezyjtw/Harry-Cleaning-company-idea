@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  let results = await Promise.all(
+  const results = await Promise.all(
     cleaners.map(async (c) => {
       let distance: number | null = null;
       if (customerGeo && c.latitude !== null && c.longitude !== null) {
