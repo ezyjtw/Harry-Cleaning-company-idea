@@ -8,8 +8,9 @@
 // and the covers endpoint.
 
 import prisma from '@/lib/db/prisma';
+import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
-import { haversineDistance, isWithinTravelRange } from '@/lib/utils/postcode';
+import { haversineDistance } from '@/lib/utils/postcode';
 
 /** The base "this cleaner is live and bookable" filter. */
 export function eligibleCleanerWhere(now: Date): Record<string, unknown> {
@@ -75,7 +76,7 @@ export async function findCleanersNearPoint(
     }))
     .filter(
       (r): r is { c: (typeof rows)[number]; distance: number } =>
-        r.distance !== null && isWithinTravelRange(r.distance, r.c.maxTravelMinutes, r.c.radius)
+        r.distance !== null && cleanerCoversPoint(r.c, latitude, longitude, r.distance)
     )
     .sort((a, b) => a.distance - b.distance);
 
@@ -113,12 +114,24 @@ export async function findCleanersNearPoint(
  * areas with ONE query and no image resolution.
  */
 export async function eligibleCleanerGeos(): Promise<
-  { latitude: number; longitude: number; maxTravelMinutes: number | null; radius: number }[]
+  {
+    latitude: number;
+    longitude: number;
+    maxTravelMinutes: number | null;
+    radius: number;
+    catchmentPolygon: unknown;
+  }[]
 > {
   const now = new Date();
   const rows = await prisma.cleanerProfile.findMany({
     where: eligibleCleanerWhere(now),
-    select: { latitude: true, longitude: true, maxTravelMinutes: true, radius: true },
+    select: {
+      latitude: true,
+      longitude: true,
+      maxTravelMinutes: true,
+      radius: true,
+      catchmentPolygon: true,
+    },
   });
   return rows.filter(
     (r): r is (typeof rows)[number] & { latitude: number; longitude: number } =>
@@ -133,11 +146,7 @@ export function countCoveringPoint(
   longitude: number
 ): number {
   return geos.filter((g) =>
-    isWithinTravelRange(
-      haversineDistance(latitude, longitude, g.latitude, g.longitude),
-      g.maxTravelMinutes,
-      g.radius
-    )
+    cleanerCoversPoint(g, latitude, longitude, haversineDistance(latitude, longitude, g.latitude, g.longitude))
   ).length;
 }
 

@@ -40,6 +40,8 @@
     "@sentry/nextjs": "^10.64.0",
     "@stripe/react-stripe-js": "^6.6.0",
     "@stripe/stripe-js": "^9.7.0",
+    "@turf/boolean-point-in-polygon": "^7.3.5",
+    "@turf/helpers": "^7.3.5",
     "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^3.0.3",
     "decimal.js": "^10.6.0",

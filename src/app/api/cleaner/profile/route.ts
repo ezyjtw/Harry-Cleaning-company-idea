@@ -10,6 +10,7 @@ import { AuditService } from '@/lib/services/audit.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
+import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET() {
@@ -325,6 +326,12 @@ export async function PUT(request: NextRequest) {
       ],
     },
   });
+
+  // B: home point or travel time changed → refresh the stored isochrone.
+  // Fire-and-forget (dormant without ORS_API_KEY); never blocks the save.
+  if (profileUpdate.homePostcode !== undefined || profileUpdate.maxTravelMinutes !== undefined) {
+    triggerCatchmentRefresh(user.id);
+  }
 
   return NextResponse.json({ success: true });
 }

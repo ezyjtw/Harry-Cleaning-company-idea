@@ -632,20 +632,27 @@ export default function CleanerProfilePage() {
               Maximum travel time to jobs (minutes)
             </p>
             <div className="flex items-center gap-3">
-              <input
-                type="number"
+              {/* B (James-ruled): snapped choices — each change regenerates the
+                  cleaner's travel-time catchment, so free-typing is out. A
+                  legacy non-snapped value stays selectable until changed. */}
+              <select
                 value={maxTravelMinutes}
                 onChange={(e) => {
                   setMaxTravelMinutes(e.target.value);
                   markDirty();
                 }}
-                min="5"
-                max="120"
-                step="5"
-                placeholder="e.g. 30"
                 className="w-32 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
                 style={{ border: '1px solid rgb(var(--color-border))' }}
-              />
+              >
+                {![10, 15, 20, 30, 45, 60].includes(Number(maxTravelMinutes)) && (
+                  <option value={maxTravelMinutes}>{maxTravelMinutes} (current)</option>
+                )}
+                {[10, 15, 20, 30, 45, 60].map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
               <span className="font-jost text-sm font-light text-ink-2">minutes</span>
             </div>
             <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-2">

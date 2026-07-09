@@ -7,13 +7,14 @@ import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowled
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
 import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
+import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
-import { haversineDistance, isWithinTravelRange, lookupPostcode } from '@/lib/utils/postcode';
+import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const cleaners = await prisma.cleanerProfile.findMany({
+  let cleaners = await prisma.cleanerProfile.findMany({
     where,
     include: {
       user: {
@@ -126,6 +127,18 @@ export async function GET(request: NextRequest) {
     },
     orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
   });
+
+  // B: coverage filter runs on the RAW rows (polygon-first predicate; the
+  // stored isochrone never enters the JSON response). Sorting by distance
+  // still happens after mapping.
+  if (customerGeo) {
+    const geo = customerGeo;
+    cleaners = cleaners.filter((c) => {
+      if (c.latitude === null || c.longitude === null) return false;
+      const d = haversineDistance(geo.latitude, geo.longitude, c.latitude, c.longitude);
+      return cleanerCoversPoint(c, geo.latitude, geo.longitude, d);
+    });
+  }
 
   let results = await Promise.all(
     cleaners.map(async (c) => {
@@ -178,10 +191,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (customerGeo) {
-    results = results.filter((r) => {
-      if (r.distance === null) return false;
-      return isWithinTravelRange(r.distance, r.maxTravelMinutes, r.radius);
-    });
+    // Coverage already decided on the raw rows above — just order by distance.
     results.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   }
 

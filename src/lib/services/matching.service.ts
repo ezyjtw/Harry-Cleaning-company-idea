@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
-import { haversineDistance, isWithinTravelRange, lookupPostcode } from '@/lib/utils/postcode';
+import { cleanerCoversPoint } from '@/lib/services/coverage.service';
+import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 import { TravelTimeService } from './travel-time.service';
 import type { LocationCoords } from './travel-time.service';
@@ -124,7 +125,14 @@ export class MatchingService {
             cleaner.latitude,
             cleaner.longitude
           );
-          return isWithinTravelRange(distanceMiles, cleaner.maxTravelMinutes, cleaner.radius);
+          // B: polygon-first coverage (stored isochrone → point-in-polygon),
+          // crow-flies fallback inside — same predicate as search/covers.
+          return cleanerCoversPoint(
+            cleaner,
+            customerGeo.latitude,
+            customerGeo.longitude,
+            distanceMiles
+          );
         })
       : // Geocode unavailable (unresolvable postcode / lookup outage) — fall back to the
         // legacy outward-code match so discovery degrades gracefully instead of empty.
