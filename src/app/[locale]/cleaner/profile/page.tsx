@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useRef, useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
@@ -32,7 +32,6 @@ function capitalise(name: string) {
 }
 
 export default function CleanerProfilePage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -84,7 +83,9 @@ export default function CleanerProfilePage() {
     fetch('/api/cleaner/profile')
       .then((res) => {
         if (res.status === 401) {
-          router.push('/login');
+          // R3: signOut (not router.push) — clears the stale cookie so /login
+          // renders instead of middleware bouncing back to /dashboard.
+          signOut({ callbackUrl: '/login' });
           return null;
         }
         if (!res.ok) throw new Error('Failed to load profile');
@@ -121,7 +122,7 @@ export default function CleanerProfilePage() {
         if (data) setInsuranceStatus(data);
       })
       .catch(() => {});
-  }, [router]);
+  }, []);
 
   // Warn on browser close/refresh with unsaved changes
   useEffect(() => {

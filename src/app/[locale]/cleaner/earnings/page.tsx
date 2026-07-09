@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import CleanerStatements from '@/components/cleaner/CleanerStatements';
@@ -37,7 +37,6 @@ const periodLabels: Record<Period, string> = {
 };
 
 export default function EarningsPage() {
-  const router = useRouter();
   const [period, setPeriod] = useState<Period>('month');
   const [data, setData] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +49,9 @@ export default function EarningsPage() {
       try {
         const res = await fetch(`/api/cleaner/earnings?period=${p}`);
         if (res.status === 401) {
-          router.push('/login');
+          // R3: signOut (not router.push) — clears the stale cookie so /login
+          // renders instead of middleware bouncing back to /dashboard.
+          signOut({ callbackUrl: '/login' });
           return;
         }
         if (res.ok) {
@@ -63,7 +64,7 @@ export default function EarningsPage() {
       }
       setLoading(false);
     },
-    [router]
+    []
   );
 
   useEffect(() => {

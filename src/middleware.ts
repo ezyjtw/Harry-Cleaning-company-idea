@@ -78,8 +78,17 @@ if (typeof setInterval !== 'undefined') {
 
 // X5: cleaner portal + messages join the server-side auth gate (they were
 // client-fetch-gated only — page shells rendered for logged-out users).
-const protectedRoutes = ['/dashboard', '/account', '/admin', '/cleaner', '/messages'];
+// R-batch: /notifications added for parity with /account (was client-gated only).
+const protectedRoutes = ['/dashboard', '/account', '/admin', '/cleaner', '/messages', '/notifications'];
 const authRoutes = ['/login', '/register', '/forgot-password'];
+
+// R1: segment-boundary matching. Plain startsWith over-matched sibling routes —
+// '/cleaners' (the PUBLIC directory) begins with '/cleaner' (the protected
+// portal), so guests hit a login wall on find-a-cleaner. A route matches only
+// as an exact segment or a parent of deeper segments.
+function matchesRoute(path: string, route: string): boolean {
+  return path === route || path.startsWith(`${route}/`);
+}
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -153,7 +162,9 @@ export async function middleware(request: NextRequest) {
   const isAuthenticated = !!token;
 
   // Redirect unauthenticated users from protected routes
-  const isProtectedRoute = protectedRoutes.some((route) => pathnameWithoutLocale.startsWith(route));
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    matchesRoute(pathnameWithoutLocale, route)
+  );
 
   if (isProtectedRoute && !isAuthenticated) {
     const loginUrl = new URL('/login', request.url);
@@ -175,7 +186,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users away from auth routes
-  const isAuthRoute = authRoutes.some((route) => pathnameWithoutLocale.startsWith(route));
+  const isAuthRoute = authRoutes.some((route) => matchesRoute(pathnameWithoutLocale, route));
 
   if (isAuthRoute && isAuthenticated) {
     return NextResponse.redirect(new URL('/dashboard', request.url));

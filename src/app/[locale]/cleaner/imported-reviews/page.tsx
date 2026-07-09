@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import StarRating from '@/components/StarRating';
@@ -54,7 +54,6 @@ function StatusBadge({ status }: { status: ImportedReviewItem['verificationStatu
 }
 
 export default function CleanerImportedReviewsPage() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [data, setData] = useState<ListResponse | null>(null);
@@ -76,7 +75,9 @@ export default function CleanerImportedReviewsPage() {
     try {
       const res = await fetch('/api/cleaner/imported-reviews');
       if (res.status === 401) {
-        router.push('/login');
+        // R3: signOut (not router.push) — clears the stale cookie so /login
+        // renders instead of middleware bouncing back to /dashboard.
+        signOut({ callbackUrl: '/login' });
         return;
       }
       if (res.ok) {
@@ -87,7 +88,7 @@ export default function CleanerImportedReviewsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     fetchList();
@@ -133,7 +134,7 @@ export default function CleanerImportedReviewsPage() {
           body: fd,
         });
         if (upRes.status === 401) {
-          router.push('/login');
+          signOut({ callbackUrl: '/login' });
           return;
         }
         const upJson = await upRes.json().catch(() => null);
@@ -159,7 +160,7 @@ export default function CleanerImportedReviewsPage() {
         }),
       });
       if (res.status === 401) {
-        router.push('/login');
+        signOut({ callbackUrl: '/login' });
         return;
       }
       const json = await res.json().catch(() => null);
