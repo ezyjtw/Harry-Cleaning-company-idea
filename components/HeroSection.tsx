@@ -50,8 +50,12 @@ export default function HeroSection() {
               {t('subtitle')}
             </p>
 
-            <p className="mb-8 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:mb-10 md:text-[16px]">
+            <p className="mb-3 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:text-[16px]">
               {t('description')}
+            </p>
+
+            <p className="mb-8 font-jost text-[13px] font-medium uppercase tracking-[0.14em] text-white/70 md:mb-10">
+              {t('coverage')}
             </p>
 
             <div className="mb-8 flex flex-col gap-3 sm:flex-row md:mb-10">

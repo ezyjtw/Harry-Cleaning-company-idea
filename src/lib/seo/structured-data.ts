@@ -14,9 +14,12 @@ export function generateOrganizationSchema() {
       'Book trusted, vetted cleaners in your area. Fair, all-inclusive pricing — the price you see is the price you pay.',
     address: {
       '@type': 'PostalAddress',
-      addressLocality: 'North-East London and Essex',
+      streetAddress: '66 Paul Street',
+      addressLocality: 'London',
+      postalCode: 'EC2A 4NA',
       addressCountry: 'GB',
     },
+    areaServed: 'North-east London and surrounding areas of Essex',
     sameAs: [],
     contactPoint: {
       '@type': 'ContactPoint',

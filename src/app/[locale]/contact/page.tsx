@@ -163,6 +163,9 @@ export default function ContactPage() {
             Have a question or need help? Send us a message and we will get back to you within 24
             hours.
           </p>
+          <p className="mt-2 font-jost text-[13px] font-light tracking-wide text-ink-3">
+            Proudly serving north-east London and surrounding areas of Essex.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-6" noValidate>
@@ -322,6 +325,24 @@ export default function ContactPage() {
             {submitting ? 'Sending...' : 'Send Message'}
           </button>
         </form>
+
+        {/* Registered office */}
+        <div
+          className="mt-12 bg-cream p-6 text-center"
+          style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
+          <p className="font-jost text-[11px] uppercase tracking-[0.14em] text-ink-3">
+            Registered office
+          </p>
+          <p className="mt-2 font-jost font-light text-ink">Rena Cleaning Network</p>
+          <p className="font-jost font-light text-ink-2">66 Paul Street, London EC2A 4NA</p>
+          <p className="mt-2 font-jost text-sm font-light text-ink-2">
+            Email:{' '}
+            <a href="mailto:support@renacleaning.co.uk" className="text-primary underline">
+              support@renacleaning.co.uk
+            </a>
+          </p>
+        </div>
       </div>
     </main>
   );

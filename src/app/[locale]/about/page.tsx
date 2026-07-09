@@ -114,6 +114,9 @@ export default function AboutPage() {
             customers deserve transparency. We connect trusted professionals with homeowners who
             value quality.
           </p>
+          <p className="mx-auto mt-4 max-w-2xl font-jost text-[14px] font-light tracking-wide text-cream/60">
+            Proudly serving north-east London and surrounding areas of Essex — and growing.
+          </p>
         </div>
       </section>
 
