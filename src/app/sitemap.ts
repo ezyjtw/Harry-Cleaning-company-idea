@@ -2,35 +2,10 @@ import type { MetadataRoute } from 'next';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
-// London areas for location-specific pages
-const _LONDON_AREAS = [
-  'central-london',
-  'north-london',
-  'south-london',
-  'east-london',
-  'west-london',
-  'chelsea',
-  'kensington',
-  'fulham',
-  'wimbledon',
-  'richmond',
-  'hackney',
-  'islington',
-  'camden',
-  'brixton',
-  'greenwich',
-  'canary-wharf',
-];
-
-// Service categories
-const SERVICES = [
-  'regular-cleaning',
-  'deep-cleaning',
-  'end-of-tenancy',
-  'move-in-cleaning',
-  'airbnb-turnover',
-  'office-cleaning',
-];
+// A1-P1: service slugs must match the REAL /services/[category] routes
+// (ServiceCategory in lib/types.ts) — the previous list advertised six
+// fictional URLs (regular-cleaning, office-cleaning, …) that soft-404'd.
+const SERVICES = ['regular', 'same-day', 'deep', 'airbnb', 'end-of-tenancy'];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -49,6 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     { url: `${BASE_URL}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/faq`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/guarantees`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/join`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/login`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
