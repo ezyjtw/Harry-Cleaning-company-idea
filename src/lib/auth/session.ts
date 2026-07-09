@@ -20,6 +20,12 @@ if (!process.env.NEXTAUTH_SECRET) {
 }
 const JWT_SECRET: string = process.env.NEXTAUTH_SECRET;
 
+// R2: tolerance for the password-change/issue-time comparison. JWT issue times
+// (NextAuth pwdAt, jsonwebtoken iat) are floored to whole seconds; the DB's
+// passwordChangedAt keeps milliseconds — so a session minted in the same second
+// as the change compared as "older" and was wrongly killed.
+const PASSWORD_CHANGE_GRACE_MS = 2000;
+
 /**
  * Generate a signed JWT token for mobile/API clients.
  */
@@ -124,9 +130,17 @@ async function verifyBearerToken(token: string): Promise<SessionUser | null> {
       return null;
     }
     // F6: Bearer tokens issued before a password change are dead too.
+    // R2: issue-time stamps are floored to the second while passwordChangedAt
+    // has ms precision — a token minted in the same second as the change lost
+    // the comparison and a VALID fresh token was rejected. 2s of grace kills
+    // the race (the only sessions inside the window belong to the device that
+    // just set the new password). Tokens without iat predate the F6 deploy and
+    // are accepted rather than rejected: they can't be password-revoked, but
+    // they age out naturally and every new token carries the stamp.
     if (
       user.passwordChangedAt &&
-      (!payload.iat || user.passwordChangedAt.getTime() > payload.iat * 1000)
+      payload.iat &&
+      user.passwordChangedAt.getTime() > payload.iat * 1000 + PASSWORD_CHANGE_GRACE_MS
     ) {
       return null;
     }
@@ -158,10 +172,18 @@ export async function getSessionUser(): Promise<SessionUser | null> {
         select: { accountStatus: true, isSuspended: true, passwordChangedAt: true },
       });
       if (!dbUser || dbUser.accountStatus !== 'ACTIVE' || dbUser.isSuspended) return null;
+      // R2: pwdAt is floored to the second while passwordChangedAt keeps ms —
+      // the settings page's silent re-sign-in after a password change could
+      // mint a session in the same second and be rejected as "issued before
+      // the change" (login didn't stick). 2s grace closes the race. Sessions
+      // WITHOUT pwdAt predate the F6 deploy and are accepted, not rejected:
+      // rejecting them permanently bounced valid 30-day sessions for anyone
+      // who had ever changed their password.
       const issuedAt = (session.user as { pwdAt?: number }).pwdAt;
       if (
         dbUser.passwordChangedAt &&
-        (!issuedAt || dbUser.passwordChangedAt.getTime() > issuedAt * 1000)
+        issuedAt &&
+        dbUser.passwordChangedAt.getTime() > issuedAt * 1000 + PASSWORD_CHANGE_GRACE_MS
       ) {
         return null;
       }

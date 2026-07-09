@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
@@ -126,7 +126,6 @@ function getDayName(d: Date): DayOfWeek {
 type Tab = 'week' | 'recurring';
 
 export default function AvailabilityPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -181,7 +180,9 @@ export default function AvailabilityPage() {
     fetch('/api/cleaner/availability')
       .then((res) => {
         if (res.status === 401) {
-          router.push('/login');
+          // R3: signOut (not router.push) — clears the stale cookie so /login
+          // renders instead of middleware bouncing back to /dashboard.
+          signOut({ callbackUrl: '/login' });
           return null;
         }
         if (!res.ok) {
@@ -210,7 +211,7 @@ export default function AvailabilityPage() {
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [router, reloadKey]);
+  }, [reloadKey]);
 
   // Week days for the current view
   const weekDays = useMemo(() => {

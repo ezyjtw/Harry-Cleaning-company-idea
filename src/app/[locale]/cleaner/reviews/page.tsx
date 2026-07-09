@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 interface ReviewItem {
@@ -32,7 +32,6 @@ interface ReviewsData {
 const ratingFilters = [0, 5, 4, 3, 2, 1];
 
 export default function ReviewsPage() {
-  const router = useRouter();
   const [filter, setFilter] = useState(0);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -45,7 +44,9 @@ export default function ReviewsPage() {
       const params = ratingFilter > 0 ? `?rating=${ratingFilter}` : '';
       const res = await fetch(`/api/cleaner/reviews${params}`);
       if (res.status === 401) {
-        router.push('/login');
+        // R3: signOut (not router.push) — clears the stale cookie so /login
+        // renders instead of middleware bouncing back to /dashboard.
+        signOut({ callbackUrl: '/login' });
         return;
       }
       if (res.ok) {
@@ -53,7 +54,7 @@ export default function ReviewsPage() {
       }
       setLoading(false);
     },
-    [router]
+    []
   );
 
   useEffect(() => {

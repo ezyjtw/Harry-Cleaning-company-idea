@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
@@ -16,7 +16,6 @@ import {
 } from '@/lib/constants/services';
 
 export default function CleanerPricingPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -34,7 +33,9 @@ export default function CleanerPricingPage() {
     fetch('/api/cleaner/profile')
       .then((res) => {
         if (res.status === 401) {
-          router.push('/login');
+          // R3: signOut (not router.push) — clears the stale cookie so /login
+          // renders instead of middleware bouncing back to /dashboard.
+          signOut({ callbackUrl: '/login' });
           return null;
         }
         if (!res.ok) throw new Error('Failed to load');
@@ -64,7 +65,7 @@ export default function CleanerPricingPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [router]);
+  }, []);
 
   const markDirty = useCallback(() => {
     setDirty(true);

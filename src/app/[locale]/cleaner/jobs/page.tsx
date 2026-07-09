@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
@@ -126,7 +127,9 @@ export default function CleanerJobsPage() {
       try {
         const res = await fetch(`/api/cleaner/jobs?status=${statuses}&limit=50`);
         if (res.status === 401) {
-          router.push('/login');
+          // R3: signOut (not router.push) — clears the stale cookie so /login
+          // renders instead of middleware bouncing back to /dashboard.
+          signOut({ callbackUrl: '/login' });
           return;
         }
         if (!res.ok) {
@@ -144,7 +147,7 @@ export default function CleanerJobsPage() {
         setLoadError(true);
       }
     },
-    [router]
+    []
   );
 
   // Fetch counts for all tabs on mount
@@ -154,7 +157,7 @@ export default function CleanerJobsPage() {
         'PENDING,AWAITING_CLEANER,CONFIRMED,ACCEPTED,EN_ROUTE,IN_PROGRESS,COMPLETED,REVIEWED';
       const res = await fetch(`/api/cleaner/jobs?status=${allStatuses}&limit=200`);
       if (res.status === 401) {
-        router.push('/login');
+        signOut({ callbackUrl: '/login' });
         return;
       }
       if (!res.ok) return;

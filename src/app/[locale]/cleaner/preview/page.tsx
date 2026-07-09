@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import CleanerProfileView, {
@@ -35,7 +35,6 @@ function minPrice(map: Record<string, number> | null | undefined): number | null
 }
 
 export default function ProfilePreviewPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -54,7 +53,9 @@ export default function ProfilePreviewPage() {
     Promise.all([
       fetch('/api/cleaner/profile').then((res) => {
         if (res.status === 401) {
-          router.push('/login');
+          // R3: signOut (not router.push) — clears the stale cookie so /login
+          // renders instead of middleware bouncing back to /dashboard.
+          signOut({ callbackUrl: '/login' });
           return null;
         }
         return res.ok ? res.json() : null;
@@ -78,7 +79,7 @@ export default function ProfilePreviewPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [router]);
+  }, []);
 
   if (loading) {
     return (

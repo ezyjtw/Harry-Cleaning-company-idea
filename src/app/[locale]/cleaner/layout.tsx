@@ -107,7 +107,11 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     fetch('/api/cleaner/profile')
       .then((res) => {
         if (res.status === 401) {
-          router.push('/login');
+          // R3: a 401 here means the server rejected a session the JWT still
+          // considers valid — pushing to /login just bounced back (middleware
+          // sees the live cookie and redirects to /dashboard: infinite loop).
+          // signOut destroys the stale cookie first, so /login actually renders.
+          signOut({ callbackUrl: '/login' });
           return null;
         }
         return res.ok ? res.json() : null;
