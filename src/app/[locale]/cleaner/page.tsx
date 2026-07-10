@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
@@ -83,33 +84,79 @@ export default function CleanerDashboard() {
   // #1: no 401→/login here. A transient 401 while the session is still valid must
   // NOT log the user out. Genuine unauthentication is handled by the guard effect
   // below (via useAuth status); a 401 here just surfaces as a retryable load error.
+  // Landing-race hardening: the fetch is TIME-BOXED. Post-login is the app's
+  // busiest instant (layout profile + this 8-query burst + notifications all at
+  // once); under contention the proxy can hold this request for ~30s+ before
+  // 503ing — without a timeout the skeleton sat on screen the whole time (the
+  // reported "white screen": the error card existed but was never reached).
   const loadDashboard = useCallback(async () => {
-    const res = await fetch('/api/cleaner/dashboard');
-    if (!res.ok) throw new Error('Failed to load dashboard');
-    const d = await res.json();
-    setData(d);
-    setAvailableNow(d.profile.availableNow);
-    setJobs(d.upcomingJobs);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const res = await fetch('/api/cleaner/dashboard', { signal: controller.signal });
+      if (!res.ok) throw new Error('Failed to load dashboard');
+      const d = await res.json();
+      setData(d);
+      setAvailableNow(d.profile.availableNow);
+      setJobs(d.upcomingJobs);
+    } catch (e) {
+      throw e instanceof DOMException && e.name === 'AbortError'
+        ? new Error('The dashboard is taking too long to load.')
+        : e;
+    } finally {
+      clearTimeout(timer);
+    }
   }, []);
 
   // #1: redirect ONLY on a definitive auth verdict — never while the session is
   // still loading. Prevents the spurious "log back in" bounce on navigation.
+  // Landing-race hardening: signIn({redirect:false}) resolves BEFORE the
+  // SessionProvider context updates, so arrival straight from the login page
+  // can briefly read as 'unauthenticated' with authLoading=false. Confirm with
+  // a real session fetch before bouncing — a genuine sign-out still redirects,
+  // a lost race self-corrects when the provider catches up.
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) return undefined;
     if (!isAuthenticated) {
-      router.push('/login?callbackUrl=/cleaner');
-    } else if (!isCleaner) {
+      let cancelled = false;
+      getSession().then((session) => {
+        if (cancelled) return;
+        if (!session) router.push('/login?callbackUrl=/cleaner');
+        // Session exists → the provider is about to catch up; the effect
+        // re-runs with isAuthenticated=true and the fetch effect takes over.
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (!isCleaner) {
       router.push('/dashboard');
     }
+    return undefined;
   }, [authLoading, isAuthenticated, isCleaner, router]);
 
   useEffect(() => {
     // Wait for a definitive, correct-role session before fetching; the guard
     // effect above handles the redirect for the other cases.
     if (authLoading || !isAuthenticated || !isCleaner) return;
+    let cancelled = false;
+    // Landing-race hardening: the first load after login is the burst moment —
+    // one automatic retry after a short beat before surfacing the error card,
+    // so transient first-load contention self-heals without a manual reload.
     loadDashboard()
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
-      .finally(() => setLoading(false));
+      .catch(async () => {
+        await new Promise((r) => setTimeout(r, 1500));
+        if (cancelled) return;
+        return loadDashboard().catch((e) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [authLoading, isAuthenticated, isCleaner, loadDashboard]);
 
   const toggleAvailable = useCallback(async () => {
@@ -187,7 +234,17 @@ export default function CleanerDashboard() {
             {error || 'Failed to load dashboard. Please try again.'}
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              // In-place retry — no full reload needed; the fetch is time-boxed
+              // so a hung request comes back to this card, not a blank screen.
+              setError(null);
+              setLoading(true);
+              loadDashboard()
+                .catch((e) =>
+                  setError(e instanceof Error ? e.message : 'Failed to load dashboard')
+                )
+                .finally(() => setLoading(false));
+            }}
             className="mt-4 rounded-[10px] px-6 py-2.5 bg-primary text-white font-jost text-[13px] font-light hover:bg-primary-hover transition"
           >
             Retry
