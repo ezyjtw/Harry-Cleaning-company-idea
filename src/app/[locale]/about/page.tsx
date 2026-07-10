@@ -129,29 +129,27 @@ export default function AboutPage() {
           <h2 className="text-3xl font-semibold text-ink font-newsreader">Our Story</h2>
           <div className="mt-4 w-8 h-px bg-gold" />
           <div className="mt-6 space-y-4 text-lg font-jost font-light text-ink-2 leading-relaxed">
+            <p>We&rsquo;re James and Harry Wright, brothers and the founders of Rena.</p>
             <p>
-              We are James and Harry Wright, the founders of Rena. We grew up in a family of five,
-              and our mum always wanted a tidy house. She would always be telling us off about the
-              mess, and we would always say that we needed to get a cleaner in.
+              We grew up in a busy family of five, and our mum kept the house running — working all
+              day, then coming home and cleaning all evening. Whenever we suggested she just get a
+              cleaner, she had a famous line ready: &ldquo;A cleaner cleans but doesn&rsquo;t tidy
+              — they&rsquo;d be no good for our mess.&rdquo;
             </p>
             <p>
-              She would always come back with the famous line: &ldquo;A cleaner cleans but
-              doesn&rsquo;t tidy, so they would be no good for our mess.&rdquo;
+              As we got older, we realised the line was cover for the real reason:{' '}
+              <strong>TRUST</strong>. She&rsquo;d tried cleaning companies before, and she never
+              knew who was actually going to turn up at her door. A stranger in your home
+              isn&rsquo;t a small thing. So she just carried it all herself — the way millions of
+              people quietly do.
             </p>
             <p>
-              But as we grew older, we kept asking the question — why does she work all day and then
-              come home and kill herself cleaning instead of getting a cleaner? The answer was
-              always the same: <strong>TRUST</strong>. She never felt like she could trust who was
-              coming into her house. She never had that peace of mind. She had booked cleaning
-              companies before but never knew who was actually turning up at her door.
+              Rena is what we built for her, and for everyone like her. You choose your own cleaner
+              — a real person with a real profile, real reviews, and rates they set themselves. You
+              can talk to them before they ever arrive. Every cleaner is properly vetted, and your
+              payment is held securely until the work is done. All of it in a few taps.
             </p>
-            <p>
-              At Rena, we have changed that. You get to choose a cleaner that fits your needs, talk
-              to them before they arrive, and have the trust that they have been correctly vetted —
-              all with the ease of ordering with a few touches of an app or clicks on a website.
-              Payment is held securely on your first clean so you have that peace of mind that our
-              mum never had.
-            </p>
+            <p>The peace of mind our mum never had — that&rsquo;s the product.</p>
           </div>
         </div>
       </section>
