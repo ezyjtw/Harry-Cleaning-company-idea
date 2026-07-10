@@ -297,6 +297,15 @@ export default function AIChatWidget() {
               </svg>
             </button>
           </div>
+          {/* Honest handoff: chats are AI-only and not seen by the team — the
+              human path is always one tap away. */}
+          <p className="mt-2 text-center font-jost text-[11px] font-light text-ink-3">
+            Need a person?{' '}
+            <a href="mailto:support@renacleaning.co.uk" className="text-primary underline">
+              Email our team
+            </a>{' '}
+            — replies within 24h.
+          </p>
         </div>
       </div>
 

@@ -51,10 +51,7 @@
   "Hero": {
     "trustedHome": "Trusted home cleaning",
     "joinThe": "Join the cleaning",
-    "revolutionPrefix": "RENA-",
-    "revolutionSuffix": "LUTION",
     "subtitle": "Choose your cleaner. Compare reviews. Book in minutes.",
-    "description": "Browse real local cleaners, compare their reviews and rates, and choose who comes to your door.",
     "coverage": "Proudly serving north-east London and surrounding areas of Essex — and growing.",
     "bookCleaner": "Book a cleaner",
     "howItWorks": "How it works",
@@ -65,7 +62,7 @@
   },
   "HowItWorks": {
     "sectionTitle": "How it works",
-    "sectionSubtitle": "does it differently — Choose the cleaner that is perfect for you in minutes.",
+    "sectionSubtitle": "does it differently. Choose the cleaner that is perfect for you in minutes.",
     "step1Title": "Enter your postcode",
     "step1Description": "Tell us how many rooms you have, what area you live, we will give you an estimated clean time then show you available, vetted cleaners nearby with real ratings and reviews.",
     "step2Title": "Choose someone you trust",
@@ -143,7 +140,7 @@
   "CleanerCTA": {
     "sectionTitle": "Join our network",
     "sectionSubtitle": "Earn on your terms as a Rena cleaner",
-    "description": "Set your own hours, choose your rates, and build your client base. Rena handles the bookings, payments, and insurance — you focus on what you do best.",
+    "description": "Set your own hours, choose your rates, and build your client base. Rena handles the bookings, payments, and insurance, so you can focus on what you do best.",
     "ownRates": "Set your own rates",
     "flexSchedule": "Flexible schedule",
     "weeklyPayouts": "Fast, secure payouts",
@@ -153,7 +150,7 @@
   },
   "FooterCTA": {
     "title": "Your home, properly clean",
-    "subtitle": "Find a trusted cleaner near you — book in under two minutes.",
+    "subtitle": "Find a trusted cleaner near you. Book in under two minutes.",
     "findCleaners": "Find cleaners near me",
     "howItWorks": "How it works",
     "areYouCleaner": "Are you a cleaner?",
@@ -285,7 +282,7 @@
     "weekly": "Weekly",
     "fortnightly": "Fortnightly",
     "priceRange": "Prices from £{low} – £{high}",
-    "priceNote": "depending on your cleaner. All-inclusive — no hidden fees.",
+    "priceNote": "depending on your cleaner. All-inclusive, no hidden fees.",
     "seePrices": "See prices",
     "getEstimate": "Get estimate",
     "calculating": "Calculating your quote...",

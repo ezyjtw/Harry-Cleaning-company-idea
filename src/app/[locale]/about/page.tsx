@@ -336,7 +336,7 @@ export default function AboutPage() {
               {
                 step: '4',
                 title: 'Insurance Coverage',
-                desc: 'Rena provides insurance coverage so both cleaners and customers are protected on every booking.',
+                desc: 'Every cleaner must hold their own public liability insurance, verified before they can take bookings — and Rena carries its own cover on top.',
               },
               {
                 step: '5',

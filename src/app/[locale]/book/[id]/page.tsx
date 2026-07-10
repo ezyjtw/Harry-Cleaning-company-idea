@@ -25,7 +25,7 @@ import {
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
-import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
+import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 import type { ServiceCategory } from '@/lib/types';
 import { formatDate } from '@/lib/utils/formatting';
 
@@ -557,7 +557,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Stripe Payment Element */}
-        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
+        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}>
           <StripeCheckoutForm
             total={priceBreakdown.total}
             bookingId={bookingData?.id || ''}

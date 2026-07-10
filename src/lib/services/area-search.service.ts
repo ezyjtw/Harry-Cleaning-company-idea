@@ -111,6 +111,97 @@ export async function findCleanersNearPoint(
   };
 }
 
+const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/** Expand weekly availability rows into the UI's day/half-hour-slot shape. */
+export function expandSlots(slots: { dayOfWeek: number; startTime: string; endTime: string }[]) {
+  const timeSlots: Record<string, string[]> = {};
+  for (const slot of slots) {
+    const day = DAY_ABBR[slot.dayOfWeek];
+    if (!timeSlots[day]) timeSlots[day] = [];
+    const [startH, startM] = slot.startTime.split(':').map(Number);
+    const [endH, endM] = slot.endTime.split(':').map(Number);
+    let mins = startH * 60 + startM;
+    const endMins = endH * 60 + endM;
+    while (mins < endMins) {
+      const h24 = Math.floor(mins / 60);
+      const m = mins % 60;
+      const period = h24 >= 12 ? 'PM' : 'AM';
+      const h12 = h24 % 12 || 12;
+      timeSlots[day].push(`${h12}:${m.toString().padStart(2, '0')} ${period}`);
+      mins += 30;
+    }
+  }
+  for (const day of Object.keys(timeSlots)) {
+    timeSlots[day] = Array.from(new Set(timeSlots[day])).sort((a, b) => {
+      const toMin = (t: string) => {
+        const [time, period] = t.split(' ');
+        const [h, mn] = time.split(':').map(Number);
+        return ((h % 12) + (period === 'PM' ? 12 : 0)) * 60 + mn;
+      };
+      return toMin(a) - toMin(b);
+    });
+  }
+  return { availability: Object.keys(timeSlots), timeSlots };
+}
+
+/**
+ * AI-crawler visibility: the unfiltered first page of the /cleaners directory,
+ * server-rendered so the list exists in the HTML (the client page previously
+ * fetched everything via JS — empty to non-JS crawlers). Returns the SAME card
+ * shape as /api/cleaners' no-postcode response so the client mapping is shared.
+ */
+export async function listDirectoryCleaners(limit = 50) {
+  const now = new Date();
+  const rows = await prisma.cleanerProfile.findMany({
+    where: eligibleCleanerWhere(now),
+    include: {
+      user: {
+        select: { id: true, name: true, image: true, reviewsReceived: { select: { id: true } } },
+      },
+      availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
+    },
+    orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
+    take: limit,
+  });
+
+  return Promise.all(
+    rows.map(async (c) => {
+      const photoUrl = await resolveProfileImageUrl(c.user.image);
+      return {
+        id: c.user.id,
+        name: c.user.name,
+        photo: photoUrl || '',
+        image: photoUrl,
+        rating: Number(c.rating),
+        reviewCount: c.user.reviewsReceived.length,
+        completedJobs: c.completedJobs,
+        yearsExperience: c.yearsExperience ?? 0,
+        languages: c.languages || [],
+        hourlyRateRegular: c.hourlyRateRegular ? Number(c.hourlyRateRegular) : null,
+        hourlyRateDeep: c.hourlyRateDeep ? Number(c.hourlyRateDeep) : null,
+        hourlyRateSameDay: c.hourlyRateSameDay ? Number(c.hourlyRateSameDay) : null,
+        eotPrices: c.eotPrices || null,
+        airbnbPrices: c.airbnbPrices || null,
+        serviceTypes: c.serviceTypes || [],
+        bio: c.bio,
+        specialties: c.specialties,
+        location: c.location || '',
+        postcode: c.postcode,
+        availableNow: c.availableNow,
+        tier: c.tier.toLowerCase(),
+        verified: c.verified,
+        identityVerified: c.verificationStatus === 'VERIFIED',
+        insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
+        backgroundChecked: c.backgroundCheckPassed,
+        responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
+        distance: null as number | null,
+        ...expandSlots(c.availabilitySlots),
+      };
+    })
+  );
+}
+
 /**
  * A3 (sitemap prune): lightweight geometry-only fetch of every eligible
  * cleaner, so the sitemap can apply the ruled 0-cleaner prune across all nine

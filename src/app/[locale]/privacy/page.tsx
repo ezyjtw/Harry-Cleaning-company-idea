@@ -179,7 +179,7 @@ export default function PrivacyPage() {
               <strong className="font-normal text-ink">DBS certificates:</strong> Used only for
               verification purposes. The certificate itself is securely destroyed within 6 months of
               verification. We retain only the date of issue, certificate number, and verification
-              outcome — not the certificate content.
+              outcome, not the certificate content.
             </li>
             <li>
               <strong className="font-normal text-ink">Identity documents (Photo ID):</strong>{' '}

@@ -36,7 +36,7 @@ export const SERVICE_AREAS: ServiceArea[] = [
     outcode: 'E17',
     outcodeLabel: 'E17',
     intro:
-      'Walthamstow keeps busy — and E17 homes deserve better than agency roulette. Browse the vetted local cleaners serving Walthamstow, from the Village to Higham Hill, compare their reviews and rates, and choose who comes to your door.',
+      'Walthamstow keeps busy, and E17 homes deserve better than agency roulette. Browse the vetted local cleaners serving Walthamstow, from the Village to Higham Hill, compare their reviews and rates, and choose who comes to your door.',
     coversAnswer:
       'Yes: Walthamstow Village, Higham Hill, Wood Street and the rest of E17. Enter your postcode to see exactly who covers your street.',
     neighbors: ['chingford', 'leyton', 'leytonstone', 'south-woodford'],
@@ -49,7 +49,7 @@ export const SERVICE_AREAS: ServiceArea[] = [
     intro:
       'From the Francis Road end to the marshes, Leyton sits squarely inside our patch. See the vetted cleaners serving E10, compare real reviews and rates, and pick the one that fits your home and your routine.',
     coversAnswer:
-      'Yes — all of E10, from Francis Road to Lea Bridge. Enter your postcode to see exactly who covers your street.',
+      'Yes: all of E10, from Francis Road to Lea Bridge. Enter your postcode to see exactly who covers your street.',
     neighbors: ['walthamstow', 'leytonstone', 'wanstead'],
   },
   {
@@ -58,9 +58,9 @@ export const SERVICE_AREAS: ServiceArea[] = [
     outcode: 'E11',
     outcodeLabel: 'E11',
     intro:
-      'Leytonstone sits right at the heart of our north-east London coverage. Browse vetted local cleaners serving E11, read genuine reviews, and choose exactly who you let through the door — with the full price shown before you book.',
+      'Leytonstone sits right at the heart of our north-east London coverage. Browse vetted local cleaners serving E11, read genuine reviews, and choose exactly who you let through the door, with the full price shown before you book.',
     coversAnswer:
-      'Yes — Leytonstone and the E11 streets around it (Wanstead has its own page). Enter your postcode to see exactly who covers your street.',
+      'Yes: Leytonstone and the E11 streets around it (Wanstead has its own page). Enter your postcode to see exactly who covers your street.',
     neighbors: ['leyton', 'wanstead', 'walthamstow', 'south-woodford'],
   },
   {
@@ -69,9 +69,9 @@ export const SERVICE_AREAS: ServiceArea[] = [
     outcode: 'E11',
     outcodeLabel: 'E11',
     intro:
-      "Wanstead's period homes and flats take proper care. Browse the vetted cleaners covering E11, compare their reviews and rates, and choose someone you trust — the price you see is the price you pay.",
+      "Wanstead's period homes and flats take proper care. Browse the vetted cleaners covering E11, compare their reviews and rates, and choose someone you trust. The price you see is the price you pay.",
     coversAnswer:
-      'Yes — Wanstead from the High Street up to Snaresbrook. Enter your postcode to see exactly who covers your street.',
+      'Yes: Wanstead from the High Street up to Snaresbrook. Enter your postcode to see exactly who covers your street.',
     neighbors: ['leytonstone', 'south-woodford', 'woodford-green'],
   },
   {
@@ -80,9 +80,9 @@ export const SERVICE_AREAS: ServiceArea[] = [
     outcode: 'E18',
     outcodeLabel: 'E18',
     intro:
-      'South Woodford is home ground for our cleaners. See who covers E18, compare genuine reviews and transparent rates, and book in minutes — the full price is always shown before you confirm.',
+      'South Woodford is home ground for our cleaners. See who covers E18, compare genuine reviews and transparent rates, and book in minutes. The full price is always shown before you confirm.',
     coversAnswer:
-      'Yes — all of E18, both sides of George Lane. Enter your postcode to see exactly who covers your street.',
+      'Yes: all of E18, both sides of George Lane. Enter your postcode to see exactly who covers your street.',
     neighbors: ['wanstead', 'woodford-green', 'walthamstow'],
   },
   {
@@ -93,7 +93,7 @@ export const SERVICE_AREAS: ServiceArea[] = [
     intro:
       'On the edge of Epping Forest, Woodford Green sits comfortably inside our Essex-side coverage. Browse vetted cleaners serving IG8, compare reviews and rates, and choose who comes to your door.',
     coversAnswer:
-      'Yes — Woodford Green and the wider IG8, including Woodford Bridge. Enter your postcode to see exactly who covers your street.',
+      'Yes: Woodford Green and the wider IG8, including Woodford Bridge. Enter your postcode to see exactly who covers your street.',
     neighbors: ['south-woodford', 'chingford', 'buckhurst-hill'],
   },
   {
@@ -102,9 +102,9 @@ export const SERVICE_AREAS: ServiceArea[] = [
     outcode: 'IG9',
     outcodeLabel: 'IG9',
     intro:
-      'Buckhurst Hill sits on the Essex side of our patch, minutes from our east-London heartland. See the vetted cleaners covering IG9 — real profiles, genuine reviews, upfront rates.',
+      'Buckhurst Hill sits on the Essex side of our patch, minutes from our east-London heartland. See the vetted cleaners covering IG9: real profiles, genuine reviews, upfront rates.',
     coversAnswer:
-      'Yes — all of IG9, from Queens Road to the Roding Valley end. Enter your postcode to see exactly who covers your street.',
+      'Yes: all of IG9, from Queens Road to the Roding Valley end. Enter your postcode to see exactly who covers your street.',
     neighbors: ['woodford-green', 'loughton', 'chingford'],
   },
   {
@@ -113,9 +113,9 @@ export const SERVICE_AREAS: ServiceArea[] = [
     outcode: 'IG10',
     outcodeLabel: 'IG10',
     intro:
-      'Loughton marks the Essex edge of our coverage — and our cleaners are happy to make the trip. Browse who serves IG10, compare genuine reviews and rates, and book with the full price shown upfront.',
+      'Loughton marks the Essex edge of our coverage, and our cleaners are happy to make the trip. Browse who serves IG10, compare genuine reviews and rates, and book with the full price shown upfront.',
     coversAnswer:
-      'Yes — Loughton and IG10, up to the Debden end. Enter your postcode to see exactly who covers your street.',
+      'Yes: Loughton and IG10, up to the Debden end. Enter your postcode to see exactly who covers your street.',
     neighbors: ['buckhurst-hill', 'woodford-green', 'chingford'],
   },
 ];

@@ -39,20 +39,22 @@ export default function HeroSection() {
               {t('trustedHome')}
             </p>
 
-            <h1 className="mb-2 font-newsreader text-[34px] font-semibold leading-[1.1] text-white sm:text-[44px] md:mb-3 md:text-[60px]">
-              {t('joinThe')}
-            </h1>
-            <p className="mb-5 font-etna text-[34px] tracking-wider text-white sm:text-[44px] md:mb-7 md:text-[60px] md:tracking-widest">
-              {t('revolutionPrefix')}
-              <span className="italic">{t('revolutionSuffix')}</span>
-            </p>
-
-            <p className="mb-3 font-newsreader text-[24px] font-semibold leading-[1.2] text-white/90 md:text-[34px]">
+            {/* James-ruled hero restructure (amended): the choice promise IS
+                the headline; RENA-lution is the signature line beneath it —
+                "RENA" in the Etna wordmark, "-lution" in Etna LOWERCASE (the
+                font file carries all 26 true lowercase glyphs — verified;
+                Courier is out, brand fonts only). Colour untouched per the
+                amendment. The old third line is gone. */}
+            <h1 className="mb-4 font-newsreader text-[32px] font-semibold leading-[1.15] text-white sm:text-[40px] md:mb-5 md:text-[52px]">
               {t('subtitle')}
-            </p>
+            </h1>
 
-            <p className="mb-3 max-w-[420px] font-jost text-[15px] font-light leading-[1.8] text-white/90 md:text-[16px]">
-              {t('description')}
+            <p className="mb-5 font-jost text-[17px] font-light text-white/90 md:mb-7 md:text-[21px]">
+              {t('joinThe')}{' '}
+              <span className="whitespace-nowrap">
+                <span className="font-etna text-[19px] tracking-wider md:text-[24px]">RENA</span>
+                <span className="font-etna lowercase text-[18px] tracking-wide md:text-[22px]">-lution</span>
+              </span>
             </p>
 
             <p className="mb-8 font-jost text-[13px] font-medium uppercase tracking-[0.14em] text-white/70 md:mb-10">

@@ -190,9 +190,11 @@ export default function GuaranteesPage() {
               <h2 className="font-newsreader text-3xl font-semibold text-ink">Insurance Coverage</h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
-                  All cleaners on the Rena platform are required to hold valid public liability
-                  insurance. This protects you in the unlikely event of accidental damage to your
-                  property during a clean.
+                  Every clean is protected by two layers of cover. All cleaners on the Rena
+                  platform are required to hold their own valid public liability insurance,
+                  verified before they can take bookings and tracked for expiry. On top of that,
+                  Rena carries its own insurance cover, so you are never relying on a single
+                  policy.
                 </p>
                 <div
                   className="bg-cream-2 p-6"
@@ -255,8 +257,8 @@ export default function GuaranteesPage() {
                 </div>
                 <p>
                   In the event of damage, report it through your booking page within 48 hours. Our
-                  team will coordinate with the cleaner and their insurance provider to resolve the
-                  claim.
+                  team will coordinate the claim: with the cleaner and their insurer in the first
+                  instance, backed by Rena&apos;s own cover.
                 </p>
               </div>
             </div>
