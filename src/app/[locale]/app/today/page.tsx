@@ -232,14 +232,8 @@ export default function TodayPage() {
                 ? 'No jobs today'
                 : `${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
           </h1>
-          <button
-            type="button"
-            onClick={() => fetchJobs()}
-            aria-label="Refresh"
-            className="mt-1 shrink-0 rounded-full border border-line bg-surface px-3 py-1 font-jost text-[12px] font-medium text-ink-2 active:bg-page"
-          >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+          {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
+              the focus/visibility refetch make it redundant. */}
         </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (

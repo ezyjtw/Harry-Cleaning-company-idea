@@ -80,7 +80,7 @@ const TABS = [
   { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
-type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'shell';
+type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'shell';
 
 function fireHaptic(style: string) {
   try {
@@ -133,6 +133,9 @@ function RootView() {
     boot();
   }, [boot]);
 
+  // A3: a failed/cancelled Face ID no longer strands the user on the overlay -
+  // lockFailed reveals a designed card with Retry + a password fallback.
+  const [lockFailed, setLockFailed] = useState(false);
   const unlock = useCallback(async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
@@ -144,7 +147,12 @@ function RootView() {
       promptMessage: 'Unlock Rena Pro',
       fallbackLabel: 'Use passcode',
     });
-    if (res.success) setPhase('shell');
+    if (res.success) {
+      setLockFailed(false);
+      setPhase('shell');
+    } else {
+      setLockFailed(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -157,7 +165,9 @@ function RootView() {
   // then fade straight into the tabs.
   useEffect(() => {
     if ((phase === 'start' || phase === 'shell') && fontsLoaded) reveal();
-  }, [phase, fontsLoaded, reveal]);
+    // A3: if Face ID failed, drop the overlay so the retry card is visible.
+    if (phase === 'locked' && lockFailed && fontsLoaded) reveal();
+  }, [phase, fontsLoaded, lockFailed, reveal]);
 
   const onLoggedIn = useCallback(async (token: string, bridgeCode: string) => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -179,13 +189,43 @@ function RootView() {
     <View style={styles.root}>
       <StatusBar style="dark" />
 
+      {phase === 'locked' && lockFailed && (
+        <View style={styles.center}>
+          <Image source={logoLockup} style={styles.loaderWordmark} resizeMode="contain" />
+          <Text style={[styles.offlineTitle, { marginTop: 22 }]}>Unlock Rena Pro</Text>
+          <Text style={styles.mutedSmall}>Face ID didn&apos;t complete.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
+            onPress={() => {
+              fireHaptic('light');
+              unlock();
+            }}
+          >
+            <Text style={styles.primaryBtnText}>Try again</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.secondaryBtn, styles.retryBtn, pressed && styles.pressed]}
+            onPress={() => {
+              fireHaptic('light');
+              logout();
+            }}
+          >
+            <Text style={styles.secondaryBtnText}>Use password instead</Text>
+          </Pressable>
+        </View>
+      )}
       {phase === 'start' && (
         <StartScreen onLogin={() => setPhase('login')} onJoin={() => setPhase('join')} />
       )}
       {phase === 'login' && (
-        <LoginScreen onLoggedIn={onLoggedIn} onBack={() => setPhase('start')} />
+        <LoginScreen
+          onLoggedIn={onLoggedIn}
+          onBack={() => setPhase('start')}
+          onForgot={() => setPhase('forgot')}
+        />
       )}
       {phase === 'join' && <JoinScreen onBack={() => setPhase('start')} />}
+      {phase === 'forgot' && <ForgotScreen onBack={() => setPhase('login')} />}
       {phase === 'shell' && (
         <ShellScreen
           activeTab={activeTab}
@@ -244,13 +284,16 @@ function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => v
 function LoginScreen({
   onLoggedIn,
   onBack,
+  onForgot,
 }: {
   onLoggedIn: (token: string, bridgeCode: string) => void;
   onBack: () => void;
+  onForgot: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -296,14 +339,20 @@ function LoginScreen({
           onChangeText={setEmail}
           placeholderTextColor={MUTED}
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          placeholderTextColor={MUTED}
-        />
+        {/* A4: show-password toggle */}
+        <View style={styles.pwRow}>
+          <TextInput
+            style={[styles.input, styles.pwInput]}
+            placeholder="Password"
+            secureTextEntry={!showPw}
+            value={password}
+            onChangeText={setPassword}
+            placeholderTextColor={MUTED}
+          />
+          <Pressable style={styles.pwEye} onPress={() => setShowPw((v) => !v)} hitSlop={10}>
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={INK2} />
+          </Pressable>
+        </View>
         {error && <Text style={styles.error}>{error}</Text>}
         <Pressable
           style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
@@ -312,7 +361,33 @@ function LoginScreen({
         >
           <Text style={styles.primaryBtnText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
         </Pressable>
+        {/* A4: in-shell forgot-password (chrome hidden, same as /join) */}
+        <Pressable onPress={onForgot} hitSlop={8} style={{ marginTop: 16, alignSelf: 'center' }}>
+          <Text style={{ fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14 }}>
+            Forgot password?
+          </Text>
+        </Pressable>
       </View>
+    </View>
+  );
+}
+
+// ─── A4: Forgot password, in-shell (marketing chrome hidden) ─────────────────
+function ForgotScreen({ onBack }: { onBack: () => void }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.flex}>
+      <View style={[styles.joinHeader, { paddingTop: insets.top + 6 }]}>
+        <Pressable style={styles.backRow} onPress={onBack} hitSlop={12}>
+          <Ionicons name="chevron-back" size={22} color={INK2} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+      </View>
+      <SeamlessWebView
+        uri={`${BASE_URL}/en/forgot-password`}
+        injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
+        loaderTone="light"
+      />
     </View>
   );
 }
@@ -367,6 +442,39 @@ function ShellScreen({
     [setActiveTab]
   );
 
+  // A7: tab badges — the web bell's countOnly pattern, natively: one cheap
+  // Bearer-authed poll of /api/cleaner/badges every 60 seconds (offers +
+  // unread messages). Fail-soft: any error clears nothing and retries next tick.
+  const [badges, setBadges] = useState<{ offers: number; messages: number }>({
+    offers: 0,
+    messages: 0,
+  });
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      try {
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (!token) return;
+        const res = await fetch(`${BASE_URL}/api/cleaner/badges`, {
+          headers: { Authorization: `Bearer ${token}`, ...SHELL_HEADER },
+        });
+        if (!res.ok) return;
+        const d = await res.json().catch(() => null);
+        if (alive && d && typeof d.offers === 'number') {
+          setBadges({ offers: d.offers, messages: d.messages ?? 0 });
+        }
+      } catch {
+        /* fail-soft */
+      }
+    };
+    poll();
+    const t = setInterval(poll, 60000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.flex} edges={['top']}>
       <View style={styles.flex}>
@@ -378,12 +486,18 @@ function ShellScreen({
           const uri = tab.key === 'today' && bridgeUrl ? bridgeUrl : `${BASE_URL}${tab.path}`;
           return (
             <View key={tab.key} style={[styles.flex, { display: isActive ? 'flex' : 'none' }]}>
-              <SeamlessWebView uri={uri} injectBefore={SEAM_KILL_JS} onSessionLost={onSessionLost} />
+              {/* A1: portal tabs hide the marketing nav/footer via native-injected
+                  CSS (same mechanism as /join) - the tab bar owns the chrome. */}
+              <SeamlessWebView
+                uri={uri}
+                injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
+                onSessionLost={onSessionLost}
+              />
             </View>
           );
         })}
       </View>
-      <TabBar active={activeTab} onSelect={selectTab} />
+      <TabBar active={activeTab} onSelect={selectTab} badges={badges} />
     </SafeAreaView>
   );
 }
@@ -431,6 +545,8 @@ function SeamlessWebView({
   loaderTone?: 'light' | 'navy';
 }) {
   const [offline, setOffline] = useState(false);
+  // A9: designed 5xx interstitial (main-document server errors only).
+  const [serverError, setServerError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
   const ref = useRef<WebView>(null);
@@ -457,6 +573,29 @@ function SeamlessWebView({
       /* ignore non-JSON messages */
     }
   };
+
+  if (serverError) {
+    return (
+      <View style={styles.center}>
+        <Image source={logoLockup} style={styles.loaderWordmark} resizeMode="contain" />
+        <Text style={[styles.offlineTitle, { marginTop: 22 }]}>We&apos;re having a moment</Text>
+        <Text style={styles.mutedSmall}>
+          Something went wrong on our side. Your jobs and earnings are safe.
+        </Text>
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
+          onPress={() => {
+            setServerError(false);
+            setLoaded(false);
+            fade.setValue(1);
+            ref.current?.reload();
+          }}
+        >
+          <Text style={styles.primaryBtnText}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (offline) {
     return (
@@ -497,8 +636,13 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => setLoaded(true)}
         onError={() => setOffline(true)}
-        onHttpError={() => {
-          /* leave HTTP errors to the web pages' own states */
+        onHttpError={(e) => {
+          // A9: a 5xx on OUR origin gets the designed interstitial; sub-resource
+          // and third-party errors stay with the web pages' own states.
+          const { statusCode, url } = e.nativeEvent;
+          if (statusCode >= 500 && typeof url === 'string' && url.startsWith(BASE_URL)) {
+            setServerError(true);
+          }
         }}
         // A non-white base colour under the page means no stark flash before paint.
         style={[styles.flex, { backgroundColor: loaderTone === 'navy' ? INK : PAGE }]}
@@ -524,19 +668,41 @@ function SeamlessWebView({
 }
 
 // ─── Tab bar ─────────────────────────────────────────────────────────────────
-function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) => void }) {
+function TabBar({
+  active,
+  onSelect,
+  badges,
+}: {
+  active: string;
+  onSelect: (k: string) => void;
+  badges?: { offers: number; messages: number };
+}) {
   const insets = useSafeAreaInsets();
+  const badgeFor = (key: string): number => {
+    if (!badges) return 0;
+    if (key === 'jobs') return badges.offers;
+    if (key === 'messages') return badges.messages;
+    return 0;
+  };
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {TABS.map((t) => {
         const on = active === t.key;
+        const count = badgeFor(t.key);
         return (
           <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
-            <Ionicons
-              name={(on ? t.icon : `${t.icon}-outline`) as keyof typeof Ionicons.glyphMap}
-              size={23}
-              color={on ? INK : MUTED}
-            />
+            <View>
+              <Ionicons
+                name={(on ? t.icon : `${t.icon}-outline`) as keyof typeof Ionicons.glyphMap}
+                size={23}
+                color={on ? INK : MUTED}
+              />
+              {count > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>{count > 9 ? '9+' : count}</Text>
+                </View>
+              )}
+            </View>
             <Text style={[styles.tabText, on && styles.tabTextActive]}>{t.label}</Text>
           </Pressable>
         );
@@ -602,6 +768,9 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE,
   },
   error: { fontFamily: SANS, color: '#dc2626', marginBottom: 12, fontSize: 13 },
+  pwRow: { position: 'relative' },
+  pwInput: { paddingRight: 44 },
+  pwEye: { position: 'absolute', right: 14, top: 15 },
 
   // Join header
   joinHeader: { backgroundColor: PAGE, paddingHorizontal: 16, paddingBottom: 8 },
@@ -639,5 +808,18 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
   tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, color: MUTED },
+  tabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#dc2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  tabBadgeText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 9.5 },
   tabTextActive: { fontFamily: SANS_SEMI, color: INK },
 });

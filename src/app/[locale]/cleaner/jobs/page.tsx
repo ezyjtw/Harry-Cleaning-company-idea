@@ -150,6 +150,17 @@ export default function CleanerJobsPage() {
     []
   );
 
+  // A8 (shell only): native pull-to-refresh hook. RenaPro-UA-gated — inert in
+  // a normal browser.
+  useEffect(() => {
+    if (!/RenaPro/.test(navigator.userAgent)) return;
+    const w = window as unknown as { __renaRefresh?: () => void };
+    w.__renaRefresh = () => fetchJobs(activeTab);
+    return () => {
+      delete w.__renaRefresh;
+    };
+  }, [fetchJobs, activeTab]);
+
   // Fetch counts for all tabs on mount
   useEffect(() => {
     async function fetchCounts() {

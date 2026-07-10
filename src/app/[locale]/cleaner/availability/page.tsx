@@ -213,6 +213,16 @@ export default function AvailabilityPage() {
       .finally(() => setLoading(false));
   }, [reloadKey]);
 
+  // A8 (shell only): native pull-to-refresh hook — bumps reloadKey to refetch.
+  useEffect(() => {
+    if (!/RenaPro/.test(navigator.userAgent)) return;
+    const w = window as unknown as { __renaRefresh?: () => void };
+    w.__renaRefresh = () => setReloadKey((k) => k + 1);
+    return () => {
+      delete w.__renaRefresh;
+    };
+  }, []);
+
   // Week days for the current view
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {

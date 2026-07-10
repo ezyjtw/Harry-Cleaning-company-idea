@@ -102,9 +102,9 @@ export default function MessagesPage() {
       .catch(() => {});
   }, []);
 
-  // Fetch conversations
-  useEffect(() => {
-    setLoading(true);
+  // Fetch conversations (extracted so the shell's pull-to-refresh can call it)
+  const refreshConversations = useCallback((withSpinner = true) => {
+    if (withSpinner) setLoading(true);
     fetch('/api/messages')
       .then((res) => (res.ok ? res.json() : { conversations: [] }))
       .then((data) => {
@@ -115,6 +115,21 @@ export default function MessagesPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    refreshConversations();
+  }, [refreshConversations]);
+
+  // A2 (shell only): the native pull-to-refresh calls window.__renaRefresh.
+  // Gated on the RenaPro UA so nothing changes in a normal browser.
+  useEffect(() => {
+    if (!/RenaPro/.test(navigator.userAgent)) return;
+    const w = window as unknown as { __renaRefresh?: () => void };
+    w.__renaRefresh = () => refreshConversations(false);
+    return () => {
+      delete w.__renaRefresh;
+    };
+  }, [refreshConversations]);
 
   // A10 B3: compose-from-booking. If arrived via /messages?bookingId=<id>, derive
   // the partner + send-eligibility server-side and open (or synthesize) the pane so
