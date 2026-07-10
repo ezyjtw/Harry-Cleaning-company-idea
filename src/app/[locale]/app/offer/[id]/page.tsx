@@ -242,10 +242,10 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         {/* B3: context line — travel half from home-point→postcode crow-flies
             maths (server-computed), schedule half from their other active jobs
             on that date. Either half omits itself if unavailable. */}
-        {(offer.context?.travelMinutes != null || offer.context) && (
+        {(offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined || offer.context) && (
           <p className="mt-3 font-jost text-[13px] text-white/70">
             {[
-              offer.context?.travelMinutes != null
+              offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined
                 ? `~${offer.context.travelMinutes} min from home`
                 : null,
               offer.context

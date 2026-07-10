@@ -90,7 +90,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         }),
       ]);
       sameDayJobs = dayCount;
-      if (profile?.latitude != null && profile?.longitude != null && geo) {
+      if (profile?.latitude !== null && profile?.latitude !== undefined && profile?.longitude !== null && profile?.longitude !== undefined && geo) {
         const miles = haversineDistance(profile.latitude, profile.longitude, geo.latitude, geo.longitude);
         travelMinutes = Math.max(5, Math.round((miles / 25) * 60));
       }
