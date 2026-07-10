@@ -74,9 +74,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Tab bar: first tab = the purpose-built Today screen; the rest are portal routes.
 const TABS = [
   { key: 'today', label: 'Today', path: '/en/app/today', icon: 'today' },
-  { key: 'jobs', label: 'Jobs', path: '/en/cleaner/jobs', icon: 'briefcase' },
+  { key: 'jobs', label: 'Jobs', path: '/en/app/jobs', icon: 'briefcase' },
   { key: 'availability', label: 'Availability', path: '/en/cleaner/availability', icon: 'calendar' },
-  { key: 'earnings', label: 'Earnings', path: '/en/cleaner/earnings', icon: 'wallet' },
+  { key: 'earnings', label: 'Earnings', path: '/en/app/earnings', icon: 'wallet' },
   { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
