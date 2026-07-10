@@ -103,10 +103,25 @@ export class BookingLifecycleService {
     return VALID_TRANSITIONS[currentStatus] ?? [];
   }
 
+  /**
+   * James-ruled short-notice grace (polish batch): 6 hours of free
+   * cancellation from BOOKING time, even inside the 48h ladder, hard-capped
+   * at 3 hours before start — whichever comes first ends the grace. A booking
+   * made 3 hours or less before start gets no grace at all (the cap is
+   * already in the past at booking time). The grace can only ever IMPROVE
+   * the ladder outcome, never worsen it.
+   */
+  static graceDeadline(bookedAt: Date, bookingDate: Date): Date {
+    const sixHoursAfterBooking = bookedAt.getTime() + 6 * 60 * 60 * 1000;
+    const threeHoursBeforeStart = bookingDate.getTime() - 3 * 60 * 60 * 1000;
+    return new Date(Math.min(sixHoursAfterBooking, threeHoursBeforeStart));
+  }
+
   static canCancel(
     bookingDate: Date,
-    status: string
-  ): { canCancel: boolean; refundPercent: number; reason?: string } {
+    status: string,
+    bookedAt?: Date | null
+  ): { canCancel: boolean; refundPercent: number; reason?: string; graceUntil?: Date } {
     const CANCELLABLE = [
       'PENDING',
       'AWAITING_CLEANER',
@@ -126,6 +141,14 @@ export class BookingLifecycleService {
     const UNACCEPTED = ['PENDING', 'AWAITING_CLEANER', 'CASCADE_EXHAUSTED'];
     if (UNACCEPTED.includes(status)) {
       return { canCancel: true, refundPercent: 100 };
+    }
+
+    // Short-notice grace: inside the window → 100% regardless of the ladder.
+    if (bookedAt) {
+      const graceUntil = this.graceDeadline(bookedAt, bookingDate);
+      if (Date.now() < graceUntil.getTime()) {
+        return { canCancel: true, refundPercent: 100, graceUntil };
+      }
     }
 
     const hoursUntilBooking = (bookingDate.getTime() - Date.now()) / (1000 * 60 * 60);

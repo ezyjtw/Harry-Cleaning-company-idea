@@ -60,6 +60,8 @@ interface CancelPreview {
   refundPercent: number;
   refundAmount: number;
   reason?: string;
+  /** Short-notice grace deadline (ISO) — present while the grace window is live. */
+  graceUntil?: string;
 }
 
 function refundMessage(p: CancelPreview): string {
@@ -69,6 +71,16 @@ function refundMessage(p: CancelPreview): string {
       : 'No payment was captured, so there is nothing to refund.';
   }
   if (p.refundPercent >= 100) {
+    // James-ruled short-notice grace: while it's live, say so and show the
+    // real deadline so the customer knows how long the free window lasts.
+    if (p.graceUntil) {
+      const until = new Date(p.graceUntil).toLocaleString('en-GB', {
+        hour: 'numeric',
+        minute: '2-digit',
+        weekday: 'short',
+      });
+      return `You'll receive a full refund of £${p.refundAmount.toFixed(2)} — you're inside your free-cancellation window (ends ${until}).`;
+    }
     return `You'll receive a full refund of £${p.refundAmount.toFixed(2)}.`;
   }
   return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;

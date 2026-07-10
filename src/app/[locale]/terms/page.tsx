@@ -156,6 +156,11 @@ export default function TermsPage() {
           </p>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-normal text-ink-2">
             <li>
+              <strong className="font-normal text-ink">Free-cancellation window:</strong> every
+              booking may be cancelled for a full refund within 6 hours of being placed, ending no
+              later than 3 hours before the scheduled start time, whichever comes first.
+            </li>
+            <li>
               <strong className="font-normal text-ink">48+ hours notice:</strong> Full refund to the
               customer.
             </li>
