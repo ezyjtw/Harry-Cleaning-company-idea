@@ -189,7 +189,22 @@ export default function TodayPage() {
                 : `${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
           </h1>
           {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
-              the focus/visibility refetch make it redundant. */}
+              the focus/visibility refetch make it redundant. B4: the bell
+              (→ /app/inbox) takes its place, top-right of the Today header. */}
+          <Link
+            href="/app/inbox"
+            aria-label="Inbox"
+            onClick={() => haptic('light')}
+            className="mt-1 shrink-0 rounded-full border border-line bg-surface p-2 text-ink-2 active:bg-page"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+              />
+            </svg>
+          </Link>
         </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (

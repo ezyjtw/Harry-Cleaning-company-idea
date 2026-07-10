@@ -18,6 +18,9 @@ interface Offer {
   cleanerEarnings: number;
   notes: string | null;
   bedrooms?: number;
+  // B3: offer context — travelMinutes from the cleaner's home point (crow-flies
+  // 25 mph convention) + their other active jobs on that date.
+  context?: { travelMinutes: number | null; sameDayJobs: number };
 }
 
 type Tier = 'normal' | 'amber' | 'danger' | 'expired';
@@ -65,6 +68,8 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   const [processing, setProcessing] = useState<'accept' | 'decline' | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [transientError, setTransientError] = useState<string | null>(null);
+  // B3: decline-reason bottom sheet (one tap declines with the reason).
+  const [showDeclineSheet, setShowDeclineSheet] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const fetchOffer = useCallback(async () => {
@@ -105,7 +110,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
     }
   }, [offer, now]);
 
-  const respond = async (action: 'accept' | 'decline') => {
+  const respond = async (action: 'accept' | 'decline', reason?: string) => {
     if (!offer) return;
     haptic('medium');
     setProcessing(action);
@@ -117,7 +122,15 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           ? `/api/cleaner/jobs/${offer.id}/rena-find-accept`
           : `/api/cleaner/jobs/${offer.id}/accept`;
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        ...(action === 'decline' && reason
+          ? {
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reason }),
+            }
+          : {}),
+      });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success !== false) {
         if (action === 'accept') {
@@ -226,6 +239,25 @@ export default function OfferPage({ params }: { params: { id: string } }) {
             £{offer.cleanerEarnings.toFixed(2)}
           </span>
         </div>
+        {/* B3: context line — travel half from home-point→postcode crow-flies
+            maths (server-computed), schedule half from their other active jobs
+            on that date. Either half omits itself if unavailable. */}
+        {(offer.context?.travelMinutes != null || offer.context) && (
+          <p className="mt-3 font-jost text-[13px] text-white/70">
+            {[
+              offer.context?.travelMinutes != null
+                ? `~${offer.context.travelMinutes} min from home`
+                : null,
+              offer.context
+                ? offer.context.sameDayJobs === 0
+                  ? `your ${new Date(`${offer.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long' })} is free`
+                  : `${offer.context.sameDayJobs} other job${offer.context.sameDayJobs === 1 ? '' : 's'} that day`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        )}
       </div>
 
       {/* Details */}
@@ -262,11 +294,57 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* B3: decline-reason bottom sheet — one tap declines with the reason
+          (stored on Booking.declineReasons for cascade analytics). */}
+      {showDeclineSheet && !accepted && (
+        <div className="fixed inset-0 z-50 flex items-end bg-ink/40" role="dialog" aria-modal="true">
+          <div className="w-full rounded-t-2xl bg-surface p-5 pb-8">
+            <p className="font-newsreader text-lg font-semibold text-ink">Why not this one?</p>
+            <p className="mt-0.5 font-jost text-[13px] text-ink-3">
+              One tap — this declines the offer.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {(
+                [
+                  ['too_far', 'Too far'],
+                  ['bad_time', 'Bad time'],
+                  ['pay_too_low', 'Pay too low'],
+                  ['other', 'Other'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={!!processing}
+                  onClick={() => {
+                    setShowDeclineSheet(false);
+                    respond('decline', value);
+                  }}
+                  className="rounded-[12px] border border-line bg-page px-4 py-3 font-jost text-sm font-medium text-ink-2 active:bg-line disabled:opacity-50"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeclineSheet(false)}
+              className="mt-3 w-full rounded-[12px] px-4 py-3 font-jost text-sm font-medium text-ink-3"
+            >
+              Keep the offer
+            </button>
+          </div>
+        </div>
+      )}
+
       {!accepted && (
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => respond('decline')}
+            onClick={() => {
+              haptic('light');
+              setShowDeclineSheet(true);
+            }}
             disabled={!!processing}
             className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-base font-medium text-ink-2 transition-colors hover:bg-page active:opacity-80 disabled:opacity-50"
           >

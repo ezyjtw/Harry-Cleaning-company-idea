@@ -6,6 +6,7 @@ import prisma from '@/lib/db/prisma';
 import { atomicAccept } from '@/lib/services/cascade.service';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
+import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 type BookingStatus =
   | 'PENDING'
@@ -64,6 +65,40 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   }
 
+  // B3: offer context — "~25 min from home · your Tuesday is free".
+  // Half 1: viewer's home point (CleanerProfile.latitude/longitude, dual-written
+  // from homePostcode) → job postcode centroid (postcodes.io, 24h-cached) →
+  // haversine miles at the crow-flies 25 mph convention → minutes. Null if
+  // either point is unavailable (the UI simply omits that half).
+  // Half 2: the viewer's other ACTIVE jobs on the offer's date (count).
+  let travelMinutes: number | null = null;
+  let sameDayJobs = 0;
+  if (booking.status === 'AWAITING_CLEANER') {
+    try {
+      const [profile, geo, dayCount] = await Promise.all([
+        prisma.cleanerProfile.findFirst({
+          where: { userId: user.id },
+          select: { latitude: true, longitude: true },
+        }),
+        lookupPostcode(bookingPostcode(booking) || ''),
+        prisma.booking.count({
+          where: {
+            cleanerId: user.id,
+            date: booking.date,
+            status: { in: ['ACCEPTED', 'CONFIRMED', 'EN_ROUTE', 'IN_PROGRESS'] },
+          },
+        }),
+      ]);
+      sameDayJobs = dayCount;
+      if (profile?.latitude != null && profile?.longitude != null && geo) {
+        const miles = haversineDistance(profile.latitude, profile.longitude, geo.latitude, geo.longitude);
+        travelMinutes = Math.max(5, Math.round((miles / 25) * 60));
+      }
+    } catch {
+      /* context is decorative — never block the offer on it */
+    }
+  }
+
   return NextResponse.json({
     job: {
       id: booking.id,
@@ -98,6 +133,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       bedrooms: (booking.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
       extras: booking.extras,
       createdAt: booking.createdAt.toISOString(),
+      context: { travelMinutes, sameDayJobs },
     },
   });
 }

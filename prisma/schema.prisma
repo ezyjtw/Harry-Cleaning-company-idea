@@ -541,6 +541,10 @@ model Booking {
   cascadeExpiresAt        DateTime?
   cascadeBackupExpiresAt  DateTime?
   declinedCleanerIds      String[]     @default([])
+  // B3: one entry per decline — [{ cleanerId, reason, at }]. Reasons come from
+  // the shell's decline sheet (too_far | bad_time | pay_too_low | other) and
+  // feed future cascade analytics. Additive, nullable.
+  declineReasons          Json?
 
   // ─── Price reconciliation (A5.3) ─────
   provisionalCleanerId   String?
