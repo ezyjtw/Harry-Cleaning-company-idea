@@ -68,11 +68,9 @@ export default function TodayPage() {
   const [view, setView] = useState<'today' | 'week'>('today');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const fetchJobs = useCallback(async () => {
-    setRefreshing(true);
     try {
       const res = await fetch(
         '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS,COMPLETED&limit=50'
@@ -92,7 +90,6 @@ export default function TodayPage() {
       setLoadError(true);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
