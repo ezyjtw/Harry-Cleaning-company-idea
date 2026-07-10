@@ -71,7 +71,7 @@ interface DashboardData {
 
 export default function CleanerDashboard() {
   const router = useRouter();
-  const { isLoading: authLoading, isAuthenticated, isCleaner } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, isCleaner, isAdmin } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,10 +130,11 @@ export default function CleanerDashboard() {
       };
     }
     if (!isCleaner) {
-      router.push('/dashboard');
+      // Role home directly — the /dashboard junction serves legacy links only.
+      router.push(isAdmin ? '/admin' : '/account');
     }
     return undefined;
-  }, [authLoading, isAuthenticated, isCleaner, router]);
+  }, [authLoading, isAuthenticated, isCleaner, isAdmin, router]);
 
   useEffect(() => {
     // Wait for a definitive, correct-role session before fetching; the guard
