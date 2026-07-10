@@ -51,8 +51,8 @@ export default async function AreaPage({ params }: { params: { area: string } })
 
   const ratesAnswer = result?.rateRange
     ? result.rateRange.min === result.rateRange.max
-      ? `Cleaners set their own hourly rates and you see them upfront on every profile — ${area.name} cleaners currently charge £${result.rateRange.min.toFixed(2)}/hr for regular cleaning. Your checkout price is all-inclusive.`
-      : `Cleaners set their own hourly rates and you see them upfront on every profile — most ${area.name} cleaners charge £${result.rateRange.min.toFixed(2)}–£${result.rateRange.max.toFixed(2)}/hr for regular cleaning. Your checkout price is all-inclusive.`
+      ? `Cleaners set their own hourly rates and you see them upfront on every profile. ${area.name} cleaners currently charge £${result.rateRange.min.toFixed(2)}/hr for regular cleaning. Your checkout price is all-inclusive.`
+      : `Cleaners set their own hourly rates and you see them upfront on every profile. Most ${area.name} cleaners charge £${result.rateRange.min.toFixed(2)}–£${result.rateRange.max.toFixed(2)}/hr for regular cleaning. Your checkout price is all-inclusive.`
     : 'Cleaners set their own hourly rates and you see them upfront on every profile. Your checkout price is all-inclusive.';
 
   const faq = [
@@ -181,7 +181,7 @@ export default async function AreaPage({ params }: { params: { area: string } })
         <ul className="mt-4 space-y-2 font-jost font-light text-ink-2">
           <li>· Choose your cleaner from real profiles</li>
           <li>· Book online in two minutes</li>
-          <li>· Pay securely — one all-inclusive price</li>
+          <li>· Pay securely, one all-inclusive price</li>
         </ul>
         <Link
           href={`/cleaners?postcode=${encodeURIComponent(area.outcode)}`}

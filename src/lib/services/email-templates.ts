@@ -391,7 +391,7 @@ export function buildNewMessageEmail(recipientName: string, senderName: string):
     p(`Hi ${recipientName || 'there'},`) +
     p(`${senderName} sent you a new message on Rena. Open the app to read it and reply.`) +
     p(
-      'For your safety, please keep all conversation and payments on Rena — never share contact details or pay off-platform.'
+      'For your safety, please keep all conversation and payments on Rena. Never share contact details or pay off-platform.'
     ) +
     button(link, 'Read your message') +
     p('Thank you for using Rena!');
@@ -421,9 +421,9 @@ export function buildGuestBookingConfirmation(
     ]) +
     p('You can manage your booking using this link:') +
     button(manageLink, 'Manage Booking') +
-    p("This link is personal to you — please don't share it.") +
+    p("This link is personal to you, so please don't share it.") +
     p(
-      `Want to message your cleaner or leave a review afterwards? ${inlineLink(signupLink, 'Create a free account')} with this email — your booking will be linked to it automatically.`
+      `Want to message your cleaner or leave a review afterwards? ${inlineLink(signupLink, 'Create a free account')} with this email and your booking will be linked to it automatically.`
     ) +
     p('Thank you for choosing Rena Cleaning Network!');
   return { subject, html: renderEmail({ contentHtml }) };
@@ -449,7 +449,7 @@ export function buildGuestBookingReminder(
     infoBlock(rows) +
     p('You can view, reschedule, or cancel your booking here:') +
     button(manageLink, 'Manage Booking') +
-    p("This link is personal to you — please don't share it.");
+    p("This link is personal to you, so please don't share it.");
   // Transactional service message for a booking the guest placed (not marketing).
   // The manage-booking link above is the opt-out: cancelling stops any further
   // reminders. Footer states why they received it, per PECR good practice.
@@ -485,7 +485,7 @@ export function buildVerificationDecision(data: {
       h('You&rsquo;re verified!') +
       p(`Hi ${data.cleanerName},`) +
       p(
-        'Great news — your Rena application has been approved. You can now start receiving bookings from customers in your area.'
+        'Great news: your Rena application has been approved. You can now start receiving bookings from customers in your area.'
       ) +
       button(`${base}/cleaner`, 'Go to your dashboard') +
       hr() +

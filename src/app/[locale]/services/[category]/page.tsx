@@ -25,7 +25,7 @@ import {
 } from '@/lib/constants/services';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
-import stripePromise, { stripeAppearance } from '@/lib/stripe-client';
+import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner } from '@/lib/types';
 import { isValidPostcode } from '@/lib/utils/postcode';
 
@@ -901,7 +901,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         </div>
 
-        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
+        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}>
           <StripeCheckoutForm
             total={totalPrice}
             bookingId={confirmedBookingId}

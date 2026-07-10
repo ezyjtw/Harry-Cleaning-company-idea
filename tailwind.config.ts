@@ -81,6 +81,8 @@ const config: Config = {
         // Cormorant RETIRED and PURGED — the alias is gone; all usages are now
         // font-newsreader. Do not reintroduce a cormorant key.
         etna: ['"Etna Sans Serif"', 'sans-serif'],
+        // Courier Prime via next/font (--font-courier) — hero RENA-lution only.
+        courier: ['var(--font-courier)', '"Courier New"', 'monospace'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],

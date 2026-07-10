@@ -8,15 +8,15 @@ const faqCategories = [
     questions: [
       {
         q: 'What is Rena?',
-        a: 'Rena is a cleaning marketplace that connects you with trusted, vetted independent cleaners in your area. We make it easy to find, book, and pay for professional cleaning services — all in one place.',
+        a: 'Rena is a cleaning marketplace that connects you with trusted, vetted independent cleaners in your area. We make it easy to find, book, and pay for professional cleaning services, all in one place.',
       },
       {
         q: 'How is Rena different from other cleaning services?',
-        a: 'Unlike traditional cleaning agencies, Rena lets you choose your cleaner based on real reviews, ratings, and availability. You pay one all-inclusive price — far less than the 20-30% markups charged by traditional agencies — which means better rates for you and higher earnings for cleaners.',
+        a: 'Unlike traditional cleaning agencies, Rena lets you choose your cleaner based on real reviews, ratings, and availability. You pay one all-inclusive price, far less than the 20-30% markups charged by traditional agencies, which means better rates for you and higher earnings for cleaners.',
       },
       {
         q: 'Where does Rena operate?',
-        a: "We proudly serve north-east London and the surrounding areas of Essex — we're local, and so are our cleaners. Enter your postcode on the homepage to see the vetted cleaners near you. We're growing: if we haven't reached your area yet, leave your email and you'll be the first to know when we do.",
+        a: "We proudly serve north-east London and the surrounding areas of Essex. We're local, and so are our cleaners. Enter your postcode on the homepage to see the vetted cleaners near you. We're growing: if we haven't reached your area yet, leave your email and you'll be the first to know when we do.",
       },
       {
         q: 'Do I need to create an account to book?',
@@ -33,7 +33,7 @@ const faqCategories = [
       },
       {
         q: 'Can I book a same-day clean?',
-        a: "Not yet — same-day booking is coming soon. For now, the earliest you can book is the next day, and we recommend 48 hours' notice for the best choice of cleaners.",
+        a: "Not yet: same-day booking is coming soon. For now, the earliest you can book is the next day, and we recommend 48 hours' notice for the best choice of cleaners.",
       },
       {
         q: 'Can I request a specific cleaner for recurring bookings?',
@@ -41,7 +41,7 @@ const faqCategories = [
       },
       {
         q: 'How far in advance should I book?',
-        a: "We recommend booking at least 48 hours in advance for the best availability. Same-day booking isn't available yet — it's coming soon.",
+        a: "We recommend booking at least 48 hours in advance for the best availability. Same-day booking isn't available yet, but it's coming soon.",
       },
     ],
   },
@@ -54,11 +54,11 @@ const faqCategories = [
       },
       {
         q: 'Are there any hidden fees?',
-        a: 'No. Rena has a transparent pricing model. The price shown at checkout is the price you pay — one all-inclusive total, always shown in full before you confirm. There are no surprise charges.',
+        a: 'No. Rena has a transparent pricing model. The price shown at checkout is the price you pay: one all-inclusive total, always shown in full before you confirm. There are no surprise charges.',
       },
       {
         q: 'Do regular bookings cost less?',
-        a: "Every cleaner sets their own hourly rate, and the price you see at checkout is the full all-inclusive price. Recurring-booking discounts aren't available yet — if a cleaner's rate changes, you'll always see it before you book.",
+        a: "Every cleaner sets their own hourly rate, and the price you see at checkout is the full all-inclusive price. Recurring-booking discounts aren't available yet. If a cleaner's rate changes, you'll always see it before you book.",
       },
     ],
   },
@@ -109,7 +109,7 @@ const faqCategories = [
       },
       {
         q: 'Are cleaners insured?',
-        a: 'Yes. All cleaners on the Rena platform are required to have public liability insurance. In the unlikely event of accidental damage, you are covered. See our Guarantees page for full details.',
+        a: 'Yes, twice over: every cleaner on the Rena platform must hold their own public liability insurance, and Rena carries its own cover on top. In the unlikely event of accidental damage, you are covered. See our Guarantees page for full details.',
       },
       {
         q: 'How do I report a problem?',

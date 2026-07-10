@@ -49,7 +49,7 @@ export default function AreasIndexPage() {
           ))}
         </div>
         <p className="mt-10 text-center font-jost text-sm font-light text-ink-2">
-          Not listed? We may still cover you —{' '}
+          Not listed? We may still cover you,{' '}
           <Link href="/cleaners" className="text-primary underline">
             enter your postcode
           </Link>{' '}

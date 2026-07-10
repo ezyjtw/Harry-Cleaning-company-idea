@@ -6,48 +6,15 @@ import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
-import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
-import { cleanerCoversPoint } from '@/lib/services/coverage.service';
+import { eligibleCleanerWhere, expandSlots } from '@/lib/services/area-search.service';
 import { AuditService } from '@/lib/services/audit.service';
+import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
-
-const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-
-function expandSlots(slots: { dayOfWeek: number; startTime: string; endTime: string }[]) {
-  const timeSlots: Record<string, string[]> = {};
-  for (const slot of slots) {
-    const day = DAY_ABBR[slot.dayOfWeek];
-    if (!timeSlots[day]) timeSlots[day] = [];
-    const [startH, startM] = slot.startTime.split(':').map(Number);
-    const [endH, endM] = slot.endTime.split(':').map(Number);
-    let mins = startH * 60 + startM;
-    const endMins = endH * 60 + endM;
-    while (mins < endMins) {
-      const h24 = Math.floor(mins / 60);
-      const m = mins % 60;
-      const period = h24 >= 12 ? 'PM' : 'AM';
-      const h12 = h24 % 12 || 12;
-      timeSlots[day].push(`${h12}:${m.toString().padStart(2, '0')} ${period}`);
-      mins += 30;
-    }
-  }
-  for (const day of Object.keys(timeSlots)) {
-    timeSlots[day] = Array.from(new Set(timeSlots[day])).sort((a, b) => {
-      const toMin = (t: string) => {
-        const [time, period] = t.split(' ');
-        const [h, mn] = time.split(':').map(Number);
-        return ((h % 12) + (period === 'PM' ? 12 : 0)) * 60 + mn;
-      };
-      return toMin(a) - toMin(b);
-    });
-  }
-  return { availability: Object.keys(timeSlots), timeSlots };
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

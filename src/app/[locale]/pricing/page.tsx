@@ -42,7 +42,7 @@ const serviceRates = [
   },
   {
     type: 'Same-Day Cleaning',
-    description: 'Coming soon — not yet bookable, pricing to be announced',
+    description: 'Coming soon: not yet bookable, pricing to be announced',
     rate: 'Coming soon',
     typical: '\u2014',
     comingSoon: true,
@@ -71,7 +71,7 @@ export default function PricingPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80">
             No hidden fees, no subscription traps. Each cleaner sets their own rate and you see the
-            full, all-inclusive price before you book — the price you see at checkout is the price
+            full, all-inclusive price before you book. The price you see at checkout is the price
             you pay.
           </p>
         </div>
@@ -112,7 +112,7 @@ export default function PricingPage() {
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
                   Your price covers the clean plus customer support, our satisfaction guarantee,
                   held-payment protection, and platform maintenance. The full total is always shown
-                  before you confirm your booking — no surprises.
+                  before you confirm your booking, with no surprises.
                 </p>
               </div>
             </div>
@@ -426,7 +426,7 @@ export default function PricingPage() {
               </h2>
               <div className="mx-auto mt-4 w-8 h-px bg-gold" />
               <p className="mx-auto mt-4 max-w-2xl text-lg font-jost font-light text-ink-2">
-                The price you see at checkout is the price you pay — one all-inclusive total, always
+                The price you see at checkout is the price you pay: one all-inclusive total, always
                 shown in full before you confirm a booking. No hidden charges, ever.
               </p>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
