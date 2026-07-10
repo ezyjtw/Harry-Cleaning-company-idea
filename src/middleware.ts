@@ -172,24 +172,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Role home — the token carries the role, so the middleware can route
+  // directly instead of bouncing through the /dashboard junction (which is
+  // demoted to a legacy-link fallback, outside every login path).
+  const roleHome =
+    (token as { role?: string } | null)?.role === 'CLEANER'
+      ? '/cleaner'
+      : (token as { role?: string } | null)?.role === 'ADMIN'
+        ? '/admin'
+        : '/account';
+
   // SECURITY (S1): /admin requires the ADMIN role, not merely a session. Without
   // this, any logged-in CLIENT/CLEANER could load the server-rendered admin pages
   // (customer PII, revenue, disputes) — the admin APIs were gated but the SSR data
-  // was not. Non-admins are sent to /dashboard (the role router). The admin layout
-  // enforces the same check server-side as belt-and-braces.
+  // was not. Non-admins are sent to their role home. The admin layout enforces
+  // the same check server-side as belt-and-braces.
   if (
     pathnameWithoutLocale.startsWith('/admin') &&
     isAuthenticated &&
     (token as { role?: string }).role !== 'ADMIN'
   ) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL(roleHome, request.url));
   }
 
-  // Redirect authenticated users away from auth routes
+  // Redirect authenticated users away from auth routes — straight to the role
+  // home, not via /dashboard.
   const isAuthRoute = authRoutes.some((route) => matchesRoute(pathnameWithoutLocale, route));
 
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL(roleHome, request.url));
   }
 
   // Run next-intl middleware for locale detection and routing

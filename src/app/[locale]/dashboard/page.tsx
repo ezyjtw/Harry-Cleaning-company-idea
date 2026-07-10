@@ -3,26 +3,29 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/options';
 
-// The customer dashboard content lives inside the account shell as the "Home"
-// tab (/account). This route is kept as a role-aware redirect so every existing
-// landing link — post-login/signup, booking confirmation, booking back-links,
-// the navbar — keeps working. Customers land on /account; cleaners and admins
-// are sent to their own dashboards.
+// /dashboard is a pure junction — it must be INCAPABLE of dying. Logins now
+// navigate straight to the role home (login page + middleware both role-route),
+// so this page only serves legacy links/bookmarks and post-login fallbacks.
 //
-// R4: this was a client component that rendered null while useSession resolved,
-// then hopped — a blank white frame on every post-login landing and navbar
-// "Dashboard" click. Now a server component issuing a real redirect(): no
-// flash, one hop. It deliberately reads the JWT session (getServerSession),
-// NOT the DB-checked getSessionUser — the middleware that routed the user here
-// trusts the JWT too, and disagreeing with it is exactly what produced the
-// /login ↔ /dashboard bounce loops (R3).
+// Robustness rules:
+// - never render anything: every path ends in redirect()
+// - redirect() throws NEXT_REDIRECT BY DESIGN, so it must sit OUTSIDE the
+//   try/catch — catching it turns a redirect into a 500 (the classic mistake)
+// - ANY session-read failure falls back to /login, never an error page
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardRedirect() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    redirect('/login?callbackUrl=/account');
+  let target = '/login?callbackUrl=/account';
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user) {
+      const role = session.user.role;
+      target = role === 'CLEANER' ? '/cleaner' : role === 'ADMIN' ? '/admin' : '/account';
+    }
+  } catch {
+    // Session unreadable (malformed cookie, secret mismatch, anything) —
+    // treat as signed out rather than surfacing a server error.
+    target = '/login?callbackUrl=/account';
   }
-  const role = session.user.role;
-  if (role === 'CLEANER') redirect('/cleaner');
-  if (role === 'ADMIN') redirect('/admin');
-  redirect('/account');
+  redirect(target);
 }

@@ -41,16 +41,18 @@ function LoginForm() {
       } else if (callbackUrl) {
         router.push(callbackUrl);
       } else {
-        // Fetch session to determine role-based redirect
+        // Fetch session to determine role-based redirect. Logins go STRAIGHT
+        // to the role home — /dashboard is demoted to a legacy-link fallback
+        // junction, never part of the login path.
         try {
           const sessionRes = await fetch('/api/auth/session');
           const session = await sessionRes.json();
           const role = session?.user?.role;
           if (role === 'CLEANER') router.push('/cleaner');
           else if (role === 'ADMIN') router.push('/admin');
-          else router.push('/dashboard');
+          else router.push('/account');
         } catch {
-          router.push('/dashboard');
+          router.push('/account');
         }
       }
     } catch {
