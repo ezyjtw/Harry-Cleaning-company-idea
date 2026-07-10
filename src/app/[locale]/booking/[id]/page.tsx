@@ -121,10 +121,10 @@ export default function BookingDetailPage() {
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
       <Link
-        href="/dashboard"
+        href="/account"
         className="font-jost text-[12px] uppercase tracking-[0.1em] text-primary hover:underline"
       >
-        ← Back to dashboard
+        ← Back to my account
       </Link>
 
       {/* M3 rescue: cleaner cancelled — the customer's refund/rebook choice */}

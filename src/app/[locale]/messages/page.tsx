@@ -362,8 +362,10 @@ export default function MessagesPage() {
       >
         {/* Header */}
         <div className="border-b border-line px-4 py-4">
+          {/* Role home DIRECTLY — never via the /dashboard junction (legacy
+              links only since the junction batch). */}
           <Link
-            href={currentUserRole === 'cleaner' ? '/cleaner' : '/dashboard'}
+            href={currentUserRole === 'cleaner' ? '/cleaner' : '/account'}
             className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
           >
             <svg
@@ -375,7 +377,7 @@ export default function MessagesPage() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
             </svg>
-            Back to dashboard
+            {currentUserRole === 'cleaner' ? 'Back to dashboard' : 'Back to my account'}
           </Link>
           <h1 className="font-newsreader text-xl font-semibold text-ink">Messages</h1>
         </div>

@@ -77,7 +77,8 @@ export default function SignupPage() {
         // Registration succeeded but auto-login failed — redirect to login
         router.push('/login');
       } else {
-        router.push('/dashboard');
+        // Customers land on their role home directly (signup is customer-only).
+        router.push('/account');
       }
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' });

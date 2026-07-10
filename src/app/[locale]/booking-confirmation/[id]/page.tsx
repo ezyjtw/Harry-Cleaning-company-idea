@@ -274,7 +274,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           days.
         </p>
         <Link
-          href={guestToken ? guestTrackUrl : '/dashboard'}
+          href={guestToken ? guestTrackUrl : '/account'}
           className={`mt-8 ${primaryBtn}`}
         >
           {guestToken ? 'View your booking' : 'Go to dashboard'}
@@ -307,7 +307,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
             with reference {params.id}.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href={guestToken ? guestTrackUrl : '/dashboard'} className={primaryBtn}>
+            <Link href={guestToken ? guestTrackUrl : '/account'} className={primaryBtn}>
               {guestToken ? 'Track your booking' : 'Go to dashboard'}
             </Link>
           </div>
@@ -349,7 +349,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           : "This usually takes a few seconds. Please don't close this page."}
       </p>
       {pollCount >= maxPolls && (
-        <Link href={guestToken ? guestTrackUrl : '/dashboard'} className={`mt-8 ${primaryBtn}`}>
+        <Link href={guestToken ? guestTrackUrl : '/account'} className={`mt-8 ${primaryBtn}`}>
           {guestToken ? 'Track your booking' : 'Go to dashboard'}
         </Link>
       )}

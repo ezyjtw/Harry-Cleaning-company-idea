@@ -215,7 +215,7 @@ export default function VerifyPage() {
         </h1>
         <UnlockedList />
         <button
-          onClick={() => (window.location.href = '/dashboard')}
+          onClick={() => (window.location.href = '/cleaner')}
           className={`${BTN_PRIMARY} mt-8 px-8 py-3`}
         >
           Go to Dashboard
@@ -559,7 +559,7 @@ export default function VerifyPage() {
             you the result.
           </p>
           <button
-            onClick={() => (window.location.href = '/dashboard')}
+            onClick={() => (window.location.href = '/cleaner')}
             className={`${BTN_PRIMARY} mt-8 px-8 py-3`}
           >
             Go to Dashboard
@@ -615,7 +615,7 @@ export default function VerifyPage() {
           </div>
 
           <button
-            onClick={() => (window.location.href = '/dashboard')}
+            onClick={() => (window.location.href = '/cleaner')}
             className={`${BTN_PRIMARY} mt-8 px-8 py-3`}
           >
             Go to Dashboard
