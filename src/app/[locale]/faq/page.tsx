@@ -40,6 +40,10 @@ const faqCategories = [
         a: 'Absolutely. Once you have found a cleaner you love, you can book them on a recurring weekly, fortnightly, or monthly schedule. Regular bookings often come at a discounted rate.',
       },
       {
+        q: 'What is the cancellation policy?',
+        a: "Every booking starts with a free-cancellation window: 6 hours from the moment you book, ending no later than 3 hours before your clean starts (whichever comes first). After that, cancelling more than 48 hours before the start refunds 100%, 24-48 hours refunds 50%, and inside 24 hours there is no refund. If your booking hasn't been accepted by a cleaner yet, you can always cancel for a full refund. And if your cleaner cancels, or we can't find you a cleaner, you're refunded in full automatically.",
+      },
+      {
         q: 'How far in advance should I book?',
         a: "We recommend booking at least 48 hours in advance for the best availability. Same-day booking isn't available yet, but it's coming soon.",
       },

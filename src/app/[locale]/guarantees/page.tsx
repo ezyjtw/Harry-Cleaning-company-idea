@@ -351,6 +351,17 @@ export default function GuaranteesPage() {
                   We understand plans change. Our cancellation policy is designed to be fair to both
                   customers and cleaners.
                 </p>
+                <p>
+                  Every booking starts with a free-cancellation window: 6 hours from the moment you
+                  book, ending no later than 3 hours before your clean starts (whichever comes
+                  first). Your exact deadline is shown when you book and again if you go to cancel.
+                  After the window, the table below applies.
+                </p>
+                <p>
+                  And if it goes wrong on our side: if your cleaner cancels, or we can&apos;t find
+                  you a cleaner at all, you&apos;re refunded in full — automatically, without
+                  having to ask.
+                </p>
                 <div
                   className="overflow-hidden"
                   style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}

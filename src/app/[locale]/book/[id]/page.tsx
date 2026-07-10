@@ -100,6 +100,36 @@ const BEDROOM_OPTIONS = [
   { value: 5, label: '5+ Bedrooms' },
 ];
 
+
+// James-ruled short-notice grace, shown BEFORE payment with the customer's
+// ACTUAL deadline: 6h from booking time, hard-capped at 3h before start —
+// whichever comes first. Mirrors BookingLifecycleService.graceDeadline.
+function CancellationNotice({ dateStr, timeStr }: { dateStr: string; timeStr: string }) {
+  if (!dateStr || !timeStr) return null;
+  const m = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (!m) return null;
+  let hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  const period = m[3]?.toUpperCase();
+  if (period === 'PM' && hours < 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  const start = new Date(`${dateStr}T00:00:00`);
+  start.setHours(hours, minutes, 0, 0);
+  if (isNaN(start.getTime())) return null;
+
+  const now = Date.now();
+  const graceEnd = Math.min(now + 6 * 60 * 60 * 1000, start.getTime() - 3 * 60 * 60 * 1000);
+  const body =
+    graceEnd <= now
+      ? "Heads up: your start time is under 3 hours away, so the free-cancellation window won't apply. Cancellations after booking aren't refunded this close to the start."
+      : `Free cancellation until ${new Date(graceEnd).toLocaleString('en-GB', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}. After that: full refund up to 48 hours before your clean, 50% up to 24 hours, none inside 24 hours.`;
+  return (
+    <p className="rounded bg-cream-2 p-3 font-jost text-[12px] font-light leading-relaxed text-ink-2">
+      {body}
+    </p>
+  );
+}
+
 export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1277,6 +1307,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            <CancellationNotice dateStr={form.date} timeStr={form.time} />
+
             {bookingError && (
               <div className="p-3 rounded bg-danger/10 font-jost text-sm text-danger">
                 {bookingError}
@@ -1402,6 +1434,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            <div className="mb-3">
+              <CancellationNotice dateStr={form.date} timeStr={form.time} />
+            </div>
             <button
               type="button"
               onClick={() => {

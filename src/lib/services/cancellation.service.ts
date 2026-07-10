@@ -61,6 +61,8 @@ export interface CancellationPreview {
   refundPercent: number;
   refundAmount: number;
   reason?: string;
+  /** Short-notice grace deadline (ISO) — present while the grace window is live. */
+  graceUntil?: string;
 }
 
 // Refundable remainder = what's left of the captured charge after any prior
@@ -90,6 +92,7 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
       transferStatus: true,
       paymentStatus: true,
       date: true,
+      createdAt: true,
       totalAmountCharged: true,
       totalPrice: true,
       refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
@@ -116,7 +119,7 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
     };
   }
 
-  const policy = BookingLifecycleService.canCancel(booking.date, booking.status);
+  const policy = BookingLifecycleService.canCancel(booking.date, booking.status, booking.createdAt);
   if (!policy.canCancel) {
     return { canCancel: false, refundPercent: 0, refundAmount: 0, reason: policy.reason };
   }
@@ -134,6 +137,7 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
     refundPercent: policy.refundPercent,
     refundAmount,
     reason: policy.reason,
+    graceUntil: policy.graceUntil?.toISOString(),
   };
 }
 
@@ -190,7 +194,7 @@ export async function executeCancellation(params: {
   let refundPercent: number;
   let plannedRefund: number;
   if (directive.kind === 'policy') {
-    const policy = BookingLifecycleService.canCancel(booking.date, booking.status);
+    const policy = BookingLifecycleService.canCancel(booking.date, booking.status, booking.createdAt);
     if (!policy.canCancel) {
       return {
         ok: false,
