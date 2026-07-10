@@ -39,12 +39,12 @@ export default function HeroSection() {
               {t('trustedHome')}
             </p>
 
-            {/* James-ruled hero restructure: the choice promise IS the headline;
-                RENA-lution demotes to the signature line beneath it (option 3:
-                Etna wordmark + lowercase Courier Prime for "-lution"). The old
-                third line is gone. NOTE: rendered white-on-ink like all hero
-                type — the "brand navy" of the ruling reads as the mock's
-                light-ground colour; flagged at the gate. */}
+            {/* James-ruled hero restructure (amended): the choice promise IS
+                the headline; RENA-lution is the signature line beneath it —
+                "RENA" in the Etna wordmark, "-lution" in Etna LOWERCASE (the
+                font file carries all 26 true lowercase glyphs — verified;
+                Courier is out, brand fonts only). Colour untouched per the
+                amendment. The old third line is gone. */}
             <h1 className="mb-4 font-newsreader text-[32px] font-semibold leading-[1.15] text-white sm:text-[40px] md:mb-5 md:text-[52px]">
               {t('subtitle')}
             </h1>
@@ -53,7 +53,7 @@ export default function HeroSection() {
               {t('joinThe')}{' '}
               <span className="whitespace-nowrap">
                 <span className="font-etna text-[19px] tracking-wider md:text-[24px]">RENA</span>
-                <span className="font-courier lowercase text-[18px] md:text-[22px]">-lution</span>
+                <span className="font-etna lowercase text-[18px] tracking-wide md:text-[22px]">-lution</span>
               </span>
             </p>
 

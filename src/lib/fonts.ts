@@ -1,4 +1,4 @@
-import { Courier_Prime, Newsreader, Jost } from 'next/font/google';
+import { Newsreader, Jost } from 'next/font/google';
 
 // next/font setup lives here (not in a layout file) — a Next layout may only
 // export the reserved fields (metadata, viewport, default, etc.), so a
@@ -30,17 +30,5 @@ const jost = Jost({
   fallback: ['system-ui', 'Arial', 'sans-serif'],
 });
 
-// Courier Prime: the "-lution" half of the hero's RENA-lution line (James-ruled
-// option 3 — Etna wordmark + lowercase typewriter). Chosen over other monos for
-// its true typewriter cut: it matches Etna's visual weight without the coder
-// connotations of JetBrains/Fira. One weight — it renders exactly one word.
-const courierPrime = Courier_Prime({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-courier',
-  display: 'swap',
-  fallback: ['Courier New', 'monospace'],
-});
-
 /** Font CSS-variable classes, applied to <html> by the locale layout. */
-export const fontVariables = `${newsreader.variable} ${jost.variable} ${courierPrime.variable}`;
+export const fontVariables = `${newsreader.variable} ${jost.variable}`;
