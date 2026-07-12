@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { parseFutureDate } from '@/lib/validation/inputs';
 import prisma from '@/lib/db/prisma';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { decodeBase64File, DOCUMENT_MIMES } from '@/lib/utils/file-validation';
@@ -99,10 +100,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Policy expiry date is required' }, { status: 400 });
     }
 
-    const expiry = new Date(expiryDate);
-    if (expiry <= new Date()) {
+    // Validation sweep (James): a real future date bounded to ≤10 years —
+    // year-3000 / 19999 garbage previously passed the bare `<= now` check.
+    const expiry = parseFutureDate(String(expiryDate), 10);
+    if (!expiry) {
       return NextResponse.json(
-        { error: 'Policy expiry date must be in the future' },
+        { error: 'Enter a real expiry date in the future (within 10 years).' },
         { status: 400 }
       );
     }

@@ -9,6 +9,7 @@ import { DocumentStorageService } from '@/lib/services/document-storage.service'
 import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { putObject } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
+import { isSaneHoursPerWeek, isValidPhone, isValidUkPostcode } from '@/lib/validation/inputs';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -71,6 +72,16 @@ export async function POST(request: NextRequest) {
         { error: 'name, email, phone, and postcode are required' },
         { status: 400 }
       );
+    }
+    // Validation sweep (James): format-check phone + postcode before storing.
+    if (!isValidPhone(phone)) {
+      return NextResponse.json(
+        { error: 'Enter a valid phone number (7–15 digits, UK or international).' },
+        { status: 400 }
+      );
+    }
+    if (!isValidUkPostcode(postcode)) {
+      return NextResponse.json({ error: 'Enter a valid UK postcode.' }, { status: 400 });
     }
 
     // Check email uniqueness
@@ -150,7 +161,7 @@ export async function POST(request: NextRequest) {
             serviceTypes,
             languages,
             dateOfBirth: dateOfBirth || null,
-            hoursPerWeek: Number(hoursPerWeekStr) || 0,
+            hoursPerWeek: isSaneHoursPerWeek(Number(hoursPerWeekStr)) ? Number(hoursPerWeekStr) : 0,
           },
         },
       });

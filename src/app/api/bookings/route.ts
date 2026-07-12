@@ -14,6 +14,7 @@ import { pricingService } from '@/lib/services/pricing.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import stripe from '@/lib/stripe';
 import { isValidPostcode } from '@/lib/utils/postcode';
+import { isSaneDurationHours } from '@/lib/validation/inputs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -100,6 +101,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    if (body.duration !== undefined) {
+      const dur = Number(body.duration);
+      if (!isSaneDurationHours(dur)) {
+        return NextResponse.json(
+          { error: 'Duration must be between 1 and 12 hours.' },
+          { status: 400 }
+        );
+      }
+    }
 
     // A16b-1: buildReplay returns an already-created booking + its live
     // clientSecret (re-fetched from Stripe) so a double-submit / retry keeps
