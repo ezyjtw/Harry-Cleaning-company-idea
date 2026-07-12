@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSession } from 'next-auth/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
@@ -340,20 +340,14 @@ export default function CleanerDashboard() {
                 todoLabel="Set up"
                 href="/cleaner/stripe/connect"
               />
-              <GoLiveCard
-                title="Upload your insurance"
-                description="Public liability insurance — we review it quickly once it's in."
-                state={
+              <InlineInsuranceCard
+                initialState={
                   data.profile.insuranceVerified
                     ? 'done'
                     : data.profile.insuranceSubmitted
                       ? 'waiting'
                       : 'todo'
                 }
-                doneLabel="Approved"
-                waitingLabel="Awaiting approval"
-                todoLabel="Upload"
-                href="/cleaner/profile"
               />
             </div>
           </div>
@@ -500,21 +494,15 @@ export default function CleanerDashboard() {
             todoLabel="Set up"
             href="/cleaner/stripe/connect"
           />
-          <GoLiveCard
-            title="Upload your insurance"
-            description="Public liability insurance — we review it quickly once it's in."
-            state={
-              data.profile.insuranceVerified
-                ? 'done'
-                : data.profile.insuranceSubmitted
-                  ? 'waiting'
-                  : 'todo'
-            }
-            doneLabel="Approved"
-            waitingLabel="Awaiting approval"
-            todoLabel="Upload"
-            href="/cleaner/profile"
-          />
+          <InlineInsuranceCard
+                initialState={
+                  data.profile.insuranceVerified
+                    ? 'done'
+                    : data.profile.insuranceSubmitted
+                      ? 'waiting'
+                      : 'todo'
+                }
+              />
         </div>
         <p className="mt-8 text-center font-jost text-xs font-light text-ink-3">
           Need help?{' '}
@@ -943,3 +931,151 @@ function GoLiveCard({
     </div>
   );
 }
+
+// Addendum (James): inline insurance upload on the status screen — the go-live
+// journey never sends the cleaner hunting through profile subsections. Tap the
+// card → file pick + expiry right here → the existing validated + secured
+// /api/cleaner/insurance route → the card flips to "Awaiting approval" in place.
+// (The buried profile-section upload stays for later renewals.)
+function InlineInsuranceCard({ initialState }: { initialState: 'done' | 'waiting' | 'todo' }) {
+  const [state, setState] = useState<'done' | 'waiting' | 'todo'>(initialState);
+  const [open, setOpen] = useState(false);
+  const [fileData, setFileData] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (file: File | undefined) => {
+    setError(null);
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File too large. Maximum size is 10MB.');
+      return;
+    }
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => setFileData(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const submit = async () => {
+    setError(null);
+    if (!fileData || !fileName) return setError('Choose your insurance certificate.');
+    if (!expiry) return setError('Enter the policy expiry date.');
+    setBusy(true);
+    try {
+      const res = await fetch('/api/cleaner/insurance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileData, fileName, expiryDate: expiry }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.ok) {
+        setState('waiting');
+        setOpen(false);
+      } else {
+        setError(body?.error || 'Upload failed. Please try again.');
+      }
+    } catch {
+      setError('Network error — please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Approved / awaiting states reuse the shared card presentation.
+  if (state !== 'todo') {
+    return (
+      <GoLiveCard
+        title="Upload your insurance"
+        description="Public liability insurance — we review it quickly once it's in."
+        state={state}
+        doneLabel="Approved"
+        waitingLabel="Awaiting approval"
+        todoLabel="Upload"
+        href="/cleaner/profile"
+      />
+    );
+  }
+
+  return (
+    <div
+      className="rounded-xl bg-page px-5 py-4"
+      style={{ border: '0.5px solid rgb(var(--color-border))' }}
+    >
+      <div className="flex items-center gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink-3">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-jost text-[14px] font-medium text-ink">Upload your insurance</p>
+          <p className="font-jost text-[12px] font-light text-ink-3">
+            Public liability insurance — we review it quickly once it&apos;s in.
+          </p>
+        </div>
+        {!open && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
+          >
+            Upload
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-4 space-y-3">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={(e) => pickFile(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="w-full rounded-[10px] border border-line bg-surface px-4 py-2.5 text-left font-jost text-sm text-ink-2 hover:bg-page"
+          >
+            {fileName || 'Choose certificate (PDF, JPG, PNG)'}
+          </button>
+          <div>
+            <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              Policy expiry date
+            </label>
+            <input
+              type="date"
+              value={expiry}
+              onChange={(e) => setExpiry(e.target.value)}
+              className="mt-1 w-full rounded-[10px] border border-line bg-surface px-4 py-2.5 font-jost text-sm text-ink"
+            />
+          </div>
+          {error && <p className="font-jost text-sm text-danger">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy}
+              className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 font-jost text-sm font-medium text-white disabled:opacity-50"
+            >
+              {busy ? 'Uploading…' : 'Submit for review'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-[10px] border border-line px-4 py-2.5 font-jost text-sm text-ink-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
