@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 import type { DisputeStatus, DisputeReason } from '@/lib/types';
 
@@ -59,30 +60,14 @@ const statusStyles: Record<DisputeStatus, string> = {
 
 interface DisputesListProps {
   initialDisputes: AdminDispute[];
-  resolveAction: (disputeId: string, resolution: DisputeStatus) => Promise<void>;
 }
 
-export default function DisputesList({ initialDisputes, resolveAction }: DisputesListProps) {
+export default function DisputesList({ initialDisputes }: DisputesListProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [disputes, setDisputes] = useState(initialDisputes);
-  const [isPending, startTransition] = useTransition();
+  const [disputes] = useState(initialDisputes);
 
   const filtered =
     statusFilter === 'all' ? disputes : disputes.filter((d) => d.status === statusFilter);
-
-  const handleResolve = (id: string, resolution: DisputeStatus) => {
-    // Optimistically update the UI
-    setDisputes((prev) => prev.map((d) => (d.id === id ? { ...d, status: resolution } : d)));
-
-    startTransition(async () => {
-      try {
-        await resolveAction(id, resolution);
-      } catch {
-        // Revert on error
-        setDisputes(initialDisputes);
-      }
-    });
-  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -199,47 +184,16 @@ export default function DisputesList({ initialDisputes, resolveAction }: Dispute
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2 sm:flex-col">
-                  {(dispute.status === 'open' || dispute.status === 'under-review') && (
-                    <>
-                      <button
-                        onClick={() => handleResolve(dispute.id, 'under-review')}
-                        disabled={isPending}
-                        className="px-3 py-1.5 bg-warning/10 text-warning border border-warning/20 text-sm font-medium rounded-lg hover:bg-warning/10 transition-colors disabled:opacity-50"
-                      >
-                        Review
-                      </button>
-                      <button
-                        onClick={() => handleResolve(dispute.id, 'resolved-customer')}
-                        disabled={isPending}
-                        className="px-3 py-1.5 bg-trust/10 text-trust border border-trust/20 text-sm font-medium rounded-lg hover:bg-trust/10 transition-colors disabled:opacity-50"
-                      >
-                        For Customer
-                      </button>
-                      <button
-                        onClick={() => handleResolve(dispute.id, 'resolved-cleaner')}
-                        disabled={isPending}
-                        className="px-3 py-1.5 bg-primary-soft text-primary border border-primary/20 text-sm font-medium rounded-lg hover:bg-primary-soft transition-colors disabled:opacity-50"
-                      >
-                        For Cleaner
-                      </button>
-                      <button
-                        onClick={() => handleResolve(dispute.id, 'resolved-split')}
-                        disabled={isPending}
-                        className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm font-medium rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-50"
-                      >
-                        Split
-                      </button>
-                    </>
-                  )}
-                  {dispute.status === 'open' && (
-                    <button
-                      onClick={() => handleResolve(dispute.id, 'escalated')}
-                      disabled={isPending}
-                      className="px-3 py-1.5 bg-danger/10 text-danger border border-danger/20 text-sm font-medium rounded-lg hover:bg-danger/10 transition-colors disabled:opacity-50"
-                    >
-                      Escalate
-                    </button>
-                  )}
+                  {/* James-ruled: the money-blind status buttons are gone. The
+                      case opens the full investigation view (evidence, thread,
+                      money context) where the REAL money-aware resolution lives
+                      (release / refund / split with server-side guards). */}
+                  <Link
+                    href={`/admin/disputes/${dispute.id.toLowerCase()}`}
+                    className="rounded-lg border border-warning/20 bg-warning/10 px-3 py-1.5 text-center text-sm font-medium text-warning transition-colors hover:bg-warning/20"
+                  >
+                    {dispute.status === 'open' ? 'Review case' : 'Open case'}
+                  </Link>
                 </div>
               </div>
             </div>
