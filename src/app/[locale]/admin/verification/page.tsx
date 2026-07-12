@@ -32,6 +32,8 @@ interface QueueCleaner {
   missing: string[];
   pendingReview: number;
   readyForReview: boolean;
+  // Stage 2 rollup — never blocks identity verification.
+  goLive: { insurance: 'approved' | 'submitted' | 'missing'; stripe: boolean; live: boolean };
 }
 
 interface RtwAlert {
@@ -173,7 +175,7 @@ export default function VerificationPage() {
       });
       const data = await res.json().catch(() => null);
       if (res.ok) {
-        setStatusMessage('Cleaner verified and activated.');
+        setStatusMessage('Identity verified. The cleaner goes live once insurance and payouts are green.');
         setSelectedId(null);
         await fetchQueue();
       } else {
@@ -390,35 +392,70 @@ export default function VerificationPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                        {(['photo_id', 'right_to_work', 'insurance', 'dbs_certificate'] as const).map(
-                          (t) => {
-                            const st = c.docStates[t];
-                            if (!st && t === 'dbs_certificate') return null; // optional — only show when present
-                            const cls = st?.verified
-                              ? 'bg-trust/10 text-trust'
-                              : st?.submitted
-                                ? 'bg-orange-100 text-orange-700'
-                                : 'border border-line bg-page text-ink-3';
-                            const suffix = st?.verified ? ' ✓' : st?.submitted ? ' · review' : ' · missing';
-                            return (
-                              <span
-                                key={t}
-                                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}
-                              >
-                                {docTypeLabel[t]}
-                                {suffix}
-                              </span>
-                            );
-                          }
-                        )}
+                        {/* Stage 1 — identity chips (ID + RTW; DBS optional) */}
+                        {(['photo_id', 'right_to_work', 'dbs_certificate'] as const).map((t) => {
+                          const st = c.docStates[t];
+                          if (!st && t === 'dbs_certificate') return null; // optional — only show when present
+                          const cls = st?.verified
+                            ? 'bg-trust/10 text-trust'
+                            : st?.submitted
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'border border-line bg-page text-ink-3';
+                          const suffix = st?.verified ? ' ✓' : st?.submitted ? ' · review' : ' · missing';
+                          return (
+                            <span
+                              key={t}
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}
+                            >
+                              {docTypeLabel[t]}
+                              {suffix}
+                            </span>
+                          );
+                        })}
+                        {/* Stage 2 — GO-LIVE chips (visible, never block verification) */}
                         <span
-                          className={`ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                            c.readyForReview
-                              ? 'bg-primary text-white'
-                              : 'bg-page text-ink-3'
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                            c.goLive.insurance === 'approved'
+                              ? 'border-trust/30 bg-trust/5 text-trust'
+                              : c.goLive.insurance === 'submitted'
+                                ? 'border-orange-200 bg-orange-50 text-orange-700'
+                                : 'border-line bg-page text-ink-3'
                           }`}
                         >
-                          {c.readyForReview ? 'Ready for review' : 'Waiting on cleaner'}
+                          Go-live: Insurance
+                          {c.goLive.insurance === 'approved'
+                            ? ' ✓'
+                            : c.goLive.insurance === 'submitted'
+                              ? ' · review'
+                              : ' · missing'}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                            c.goLive.stripe
+                              ? 'border-trust/30 bg-trust/5 text-trust'
+                              : 'border-line bg-page text-ink-3'
+                          }`}
+                        >
+                          Go-live: Payouts{c.goLive.stripe ? ' ✓' : ' · not set up'}
+                        </span>
+                        <span
+                          className={`ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                            c.goLive.live
+                              ? 'bg-trust text-white'
+                              : c.verified
+                                ? 'bg-primary-soft text-primary'
+                                : c.readyForReview
+                                  ? 'bg-primary text-white'
+                                  : 'bg-page text-ink-3'
+                          }`}
+                        >
+                          {c.goLive.live
+                            ? 'Live'
+                            : c.verified
+                              ? 'Verified — go-live pending'
+                              : c.readyForReview
+                                ? 'Ready for review'
+                                : 'Waiting on cleaner'}
                         </span>
                       </div>
                     </button>
@@ -507,29 +544,43 @@ export default function VerificationPage() {
                           </div>
                         )}
 
-                        {/* Overall action — right here when everything passes */}
+                        {/* Stage 1 action — identity only (ID + RTW verified).
+                            Insurance NEVER blocks this; it's a go-live item. */}
                         <div className="mt-4 flex items-center justify-between gap-3">
                           <p className="text-xs text-ink-3">
                             {c.missing.length > 0
-                              ? `Waiting on: ${c.missing.map((m) => docTypeLabel[m] || m).join(', ')}`
-                              : c.pendingReview > 0
-                                ? `${c.pendingReview} document${c.pendingReview === 1 ? '' : 's'} awaiting your review`
-                                : 'All documents verified'}
+                              ? `Identity — waiting on: ${c.missing.map((m) => docTypeLabel[m] || m).join(', ')}`
+                              : !(c.docStates['photo_id']?.verified && c.docStates['right_to_work']?.verified)
+                                ? 'Identity documents awaiting your review'
+                                : c.verified
+                                  ? c.goLive.live
+                                    ? 'Live — identity, insurance and payouts all green'
+                                    : `Verified — go-live waiting on: ${[
+                                        c.goLive.insurance !== 'approved'
+                                          ? c.goLive.insurance === 'submitted'
+                                            ? 'insurance approval (in your dossier below)'
+                                            : 'insurance upload'
+                                          : null,
+                                        !c.goLive.stripe ? 'Stripe payouts' : null,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' + ')}`
+                                  : 'Identity verified documents — ready to verify'}
                           </p>
                           {!c.verified && (
                             <button
                               disabled={
-                                activating || c.missing.length > 0 || c.pendingReview > 0
+                                activating ||
+                                !(
+                                  c.docStates['photo_id']?.verified &&
+                                  c.docStates['right_to_work']?.verified
+                                )
                               }
                               onClick={() => handleActivate(c.userId)}
                               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                              title={
-                                c.missing.length > 0 || c.pendingReview > 0
-                                  ? 'Every required document must be verified first'
-                                  : 'Verify and activate this cleaner'
-                              }
+                              title="Enabled once Photo ID and Right to Work are both approved — insurance never blocks identity verification"
                             >
-                              {activating ? 'Activating…' : 'Verify & activate cleaner'}
+                              {activating ? 'Verifying…' : 'Verify identity'}
                             </button>
                           )}
                         </div>

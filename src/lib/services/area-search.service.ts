@@ -12,10 +12,17 @@ import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { haversineDistance } from '@/lib/utils/postcode';
 
-/** The base "this cleaner is live and bookable" filter. */
+/**
+ * The base "this cleaner is LIVE and bookable" filter — the go-live gate
+ * (James-ruled two-stage flow): identity verified AND insurance approved
+ * (and unexpired) AND Stripe payout onboarding complete. Shared by search,
+ * the directory, area pages, the sitemap prune, and matching — who can
+ * receive work is decided in exactly one place.
+ */
 export function eligibleCleanerWhere(now: Date): Record<string, unknown> {
   return {
     verified: true,
+    insuranceVerified: true,
     stripeChargesEnabled: true,
     stripePayoutsEnabled: true,
     user: { accountStatus: 'ACTIVE', isDeleted: false },

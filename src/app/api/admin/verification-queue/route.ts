@@ -10,9 +10,10 @@ import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 
-// The onboarding upload set. photo_id + right_to_work + insurance are required
-// for activation; DBS is optional (shown when present).
-const REQUIRED_DOC_TYPES = ['photo_id', 'right_to_work', 'insurance'] as const;
+// Two-stage flow (James-ruled): identity verification requires Photo ID +
+// Right to Work ONLY. Insurance is a GO-LIVE item (visible on the card, never
+// blocking verification); DBS is optional.
+const REQUIRED_DOC_TYPES = ['photo_id', 'right_to_work'] as const;
 
 export async function GET() {
   const admin = await getAdminSession();
@@ -34,6 +35,10 @@ export async function GET() {
         createdAt: true,
         verified: true,
         verificationStatus: true,
+        insuranceVerified: true,
+        insuranceExpiresAt: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
         user: { select: { id: true, name: true, email: true } },
       },
     }),
@@ -57,6 +62,10 @@ export async function GET() {
           createdAt: true,
           verified: true,
           verificationStatus: true,
+          insuranceVerified: true,
+          insuranceExpiresAt: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
           user: { select: { id: true, name: true, email: true } },
         },
       })
@@ -92,6 +101,15 @@ export async function GET() {
         byType[d.documentType] = cur;
       }
       const missing = REQUIRED_DOC_TYPES.filter((t) => !byType[t]?.submitted);
+      // Go-live rollup (stage 2): insurance + Stripe, in any order.
+      const insuranceApproved =
+        p.insuranceVerified && (!p.insuranceExpiresAt || p.insuranceExpiresAt > new Date());
+      const insuranceState: 'approved' | 'submitted' | 'missing' = insuranceApproved
+        ? 'approved'
+        : byType['insurance']?.submitted
+          ? 'submitted'
+          : 'missing';
+      const stripeComplete = p.stripeChargesEnabled && p.stripePayoutsEnabled;
       return {
         profileId: p.id,
         userId: p.user.id,
@@ -104,8 +122,13 @@ export async function GET() {
         docStates: byType,
         missing,
         pendingReview: mine.filter((d) => !d.isVerified).length,
-        // Ready for review = everything required is submitted.
+        // Ready for review = the IDENTITY set (ID + RTW) is submitted.
         readyForReview: missing.length === 0,
+        goLive: {
+          insurance: insuranceState,
+          stripe: stripeComplete,
+          live: p.verified && insuranceApproved && stripeComplete,
+        },
       };
     })
     .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt));

@@ -305,6 +305,19 @@ export class DocumentStorageService {
               rightToWorkVerifiedAt: new Date(),
             },
           });
+        } else if (doc.documentType === 'insurance') {
+          // Two-stage flow: insurance approval is a GO-LIVE item. This was the
+          // missing write — nothing ever set insuranceVerified before.
+          await prisma.cleanerProfile.update({
+            where: { id: doc.profileId },
+            data: {
+              insuranceVerified: true,
+              insuranceVerifiedAt: new Date(),
+              ...(doc.expiresAt ? { insuranceExpiresAt: doc.expiresAt } : {}),
+            },
+          });
+          const { maybeMarkLive } = await import('./go-live.service');
+          void maybeMarkLive(doc.userId);
         }
       }
     }

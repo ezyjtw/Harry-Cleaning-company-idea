@@ -28,6 +28,7 @@ export async function GET() {
     thirtyDayBookings,
     backupBookingCount,
     importedReviewCount,
+    insuranceDocCount,
   ] = await Promise.all([
     // Cleaner profile
     prisma.cleanerProfile.findUnique({
@@ -151,6 +152,12 @@ export async function GET() {
 
     // Setup-checklist: how many reviews the cleaner has imported (any status).
     prisma.importedReview.count({ where: { cleanerId: user.id } }),
+
+    // Two-stage go-live: has an insurance document been uploaded at all
+    // (approved or awaiting review)? Drives the waiting screen's card state.
+    prisma.documentUpload.count({
+      where: { userId: user.id, documentType: 'insurance', isDestroyed: false },
+    }),
   ]);
 
   if (!profile) {
@@ -205,6 +212,7 @@ export async function GET() {
       // Setup-checklist derived state
       availabilitySlotsCount: profile._count.availabilitySlots,
       importedReviewCount,
+      insuranceSubmitted: insuranceDocCount > 0,
     },
     stats: {
       todaysJobs,

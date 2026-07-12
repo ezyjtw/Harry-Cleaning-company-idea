@@ -384,6 +384,11 @@ model CleanerProfile {
   catchmentGeneratedAt DateTime?
   catchmentSource      String?
 
+  // Two-stage verification (James-ruled): identity verification (verified) and
+  // go-live (insurance approved + Stripe complete) are distinct moments. The
+  // "you're live" email sends exactly once — stamped here by maybeMarkLive().
+  liveNotifiedAt       DateTime?
+
   providerId String?
 
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
