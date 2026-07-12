@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { displayName } from '@/lib/utils/name';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -15,7 +16,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const updateData: Record<string, unknown> = {};
 
-    if (body.name !== undefined) updateData.name = body.name;
+    // Name casing heals on save (shared helper).
+    if (body.name !== undefined) updateData.name = displayName(String(body.name));
     if (body.phone !== undefined) updateData.phone = body.phone;
 
     const user = await prisma.user.update({

@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { displayName } from '@/lib/utils/name';
 
 // Two-stage flow (James-ruled): identity verification requires Photo ID +
 // Right to Work ONLY. Insurance is a GO-LIVE item (visible on the card, never
@@ -113,7 +114,7 @@ export async function GET() {
       return {
         profileId: p.id,
         userId: p.user.id,
-        name: p.user.name || 'Cleaner',
+        name: displayName(p.user.name) || 'Cleaner',
         email: p.user.email,
         appliedAt: p.createdAt.toISOString(),
         verified: p.verified,

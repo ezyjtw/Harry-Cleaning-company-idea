@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
+import { displayName } from '@/lib/utils/name';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
@@ -191,7 +192,7 @@ export async function GET() {
 
   return NextResponse.json({
     profile: {
-      name: user.name,
+      name: displayName(user.name),
       rating: Number(profile.rating),
       tier: profile.tier,
       completedJobs: profile.completedJobs,
