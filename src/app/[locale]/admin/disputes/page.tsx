@@ -1,5 +1,3 @@
-import { revalidatePath } from 'next/cache';
-
 import { prisma } from '@/lib/db/prisma';
 import type { DisputeStatus } from '@/lib/types';
 
@@ -21,26 +19,6 @@ function mapPrismaStatus(prismaStatus: string): DisputeStatus {
       return 'resolved-cleaner'; // Dismissed maps to resolved for cleaner
     default:
       return 'open';
-  }
-}
-
-// Map UI status strings back to Prisma DisputeStatus enum values
-function mapUiStatusToPrisma(uiStatus: DisputeStatus): string {
-  switch (uiStatus) {
-    case 'open':
-      return 'OPEN';
-    case 'under-review':
-      return 'UNDER_REVIEW';
-    case 'escalated':
-      return 'UNDER_REVIEW'; // Escalated maps to UNDER_REVIEW in Prisma
-    case 'resolved-customer':
-      return 'RESOLVED';
-    case 'resolved-cleaner':
-      return 'DISMISSED';
-    case 'resolved-split':
-      return 'RESOLVED';
-    default:
-      return 'OPEN';
   }
 }
 
@@ -103,35 +81,5 @@ async function getDisputes(): Promise<AdminDispute[]> {
 export default async function AdminDisputesPage() {
   const disputes = await getDisputes();
 
-  async function resolveDispute(disputeId: string, resolution: DisputeStatus) {
-    'use server';
-
-    // The disputeId from the client is the truncated uppercase ID,
-    // so we need to find the dispute by prefix match
-    const dispute = await prisma.dispute.findFirst({
-      where: {
-        id: { startsWith: disputeId.toLowerCase() },
-      },
-    });
-
-    if (!dispute) {
-      throw new Error('Dispute not found');
-    }
-
-    const prismaStatus = mapUiStatusToPrisma(resolution);
-    const isResolved = ['RESOLVED', 'DISMISSED'].includes(prismaStatus);
-
-    await prisma.dispute.update({
-      where: { id: dispute.id },
-      data: {
-        status: prismaStatus as 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED',
-        resolution: isResolved ? `Resolved: ${resolution}` : undefined,
-        resolvedAt: isResolved ? new Date() : undefined,
-      },
-    });
-
-    revalidatePath('/admin/disputes');
-  }
-
-  return <DisputesList initialDisputes={disputes} resolveAction={resolveDispute} />;
+    return <DisputesList initialDisputes={disputes} />;
 }

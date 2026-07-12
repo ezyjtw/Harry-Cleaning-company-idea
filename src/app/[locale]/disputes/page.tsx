@@ -550,16 +550,29 @@ export default function DisputesPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-3">
                               {ev.url && (
-                                <a
-                                  href={ev.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs font-medium text-primary hover:text-primary-hover"
-                                >
-                                  View
-                                </a>
+                                <>
+                                  <a
+                                    href={ev.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs font-medium text-primary hover:text-primary-hover"
+                                  >
+                                    View
+                                  </a>
+                                  <a
+                                    href={`${ev.url}?download=1`}
+                                    className="text-xs font-medium text-ink-2 hover:text-ink"
+                                  >
+                                    Download
+                                  </a>
+                                </>
                               )}
-                              <span className="text-xs text-ink-3">by {ev.uploadedBy}</span>
+                              <span className="text-xs text-ink-3">
+                                by {ev.uploadedBy}
+                                {ev.uploadedAt
+                                  ? ` · ${new Date(ev.uploadedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                                  : ''}
+                              </span>
                             </div>
                           </div>
                         ))}

@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const { id: disputeId, evidenceId } = await context.params;
+  const download = new URL(request.url).searchParams.get('download') === '1';
 
   const rl = checkRateLimit(`dispute-evidence-view:${user.id}`, 120, 60 * 60 * 1000);
   if (!rl.allowed) {
@@ -93,7 +94,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       headers: {
         'Content-Type': inferMime(evidence.url),
         'Content-Length': String(decrypted.length),
-        'Content-Disposition': 'inline',
+        'Content-Disposition': download
+          ? `attachment; filename="${(evidence.fileName || 'evidence').replace(/[^\w.\-]/g, '_')}"`
+          : 'inline',
         'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',
       },
