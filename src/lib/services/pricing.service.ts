@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 
 import { prisma } from '@/lib/db/prisma';
+import { MAX_HOURLY_RATE, MAX_FIXED_PRICE } from '@/lib/validation/inputs';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -534,17 +535,31 @@ export function validatePriceFloors(
 
   for (const field of hourlyFields) {
     if (serviceTypes && !serviceTypes.includes(field.service)) continue;
-    if (field.value !== null && field.value !== undefined && field.value < MIN_HOURLY_RATE) {
-      return {
-        valid: false,
-        error: `${field.label} must be at least £${MIN_HOURLY_RATE}/hr.`,
-      };
+    const v = field.value;
+    if (v === null || v === undefined) continue;
+    // Validation sweep (James): reject NaN/±Infinity (a non-numeric input
+    // Number()-coerced to NaN slipped past `< MIN` before) and cap the ceiling
+    // — a £9999/hr or 12-digit rate must reject, not just a sub-floor one.
+    if (!Number.isFinite(v)) {
+      return { valid: false, error: `${field.label} must be a valid number.` };
+    }
+    if (v < MIN_HOURLY_RATE) {
+      return { valid: false, error: `${field.label} must be at least £${MIN_HOURLY_RATE}/hr.` };
+    }
+    if (v > MAX_HOURLY_RATE) {
+      return { valid: false, error: `${field.label} can't exceed £${MAX_HOURLY_RATE}/hr.` };
     }
   }
 
   if (data.eotPrices) {
     for (const [size, price] of Object.entries(data.eotPrices)) {
+      if (!Number.isFinite(price)) {
+        return { valid: false, error: `End of Tenancy price for ${size} must be a valid number.` };
+      }
       if (price <= 0) continue;
+      if (price > MAX_FIXED_PRICE) {
+        return { valid: false, error: `End of Tenancy price for ${size} can't exceed £${MAX_FIXED_PRICE}.` };
+      }
       const floor = EOT_PRICE_FLOORS[size as EotPropertySize];
       if (floor && price < floor) {
         return {
@@ -557,7 +572,13 @@ export function validatePriceFloors(
 
   if (data.airbnbPrices) {
     for (const [size, price] of Object.entries(data.airbnbPrices)) {
+      if (!Number.isFinite(price)) {
+        return { valid: false, error: `Airbnb price for ${size} must be a valid number.` };
+      }
       if (price <= 0) continue;
+      if (price > MAX_FIXED_PRICE) {
+        return { valid: false, error: `Airbnb price for ${size} can't exceed £${MAX_FIXED_PRICE}.` };
+      }
       const floor = AIRBNB_PRICE_FLOORS[size as AirbnbPropertySize];
       if (floor && price < floor) {
         return {

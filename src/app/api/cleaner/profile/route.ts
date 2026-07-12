@@ -7,11 +7,12 @@ import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
+import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
-import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { lookupPostcode } from '@/lib/utils/postcode';
+import { isValidUkPostcode } from '@/lib/validation/inputs';
 
 export async function GET() {
   const user = await getCleanerSession();
@@ -255,6 +256,11 @@ export async function PUT(request: NextRequest) {
     profileUpdate.maxTravelMinutes = mtm;
   }
   if (postcode !== undefined && homePostcode === undefined) {
+    // Validation sweep: this branch stored the postcode unvalidated (the
+    // homePostcode branch above already format-checks).
+    if (!isValidUkPostcode(postcode)) {
+      return NextResponse.json({ error: 'Please enter a valid UK postcode' }, { status: 400 });
+    }
     profileUpdate.postcode = postcode.trim();
     profileUpdate.location = postcode.trim();
     const geo = await lookupPostcode(postcode.trim());

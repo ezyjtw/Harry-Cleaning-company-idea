@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { RightToWorkService } from '@/lib/services/right-to-work.service';
+import { isValidShareCode } from '@/lib/validation/inputs';
 
 /**
  * GET /api/admin/rtw — Get RTW expiry alerts and status
@@ -63,6 +64,14 @@ export async function POST(request: NextRequest) {
       if (!shareCode || !dateOfBirth) {
         return NextResponse.json(
           { error: 'shareCode and dateOfBirth are required' },
+          { status: 400 }
+        );
+      }
+      // Validation sweep: format-check the share code before the Home Office
+      // call (9 alphanumeric, XXX-XXX-XXX). Rejects obvious garbage up front.
+      if (!isValidShareCode(String(shareCode))) {
+        return NextResponse.json(
+          { error: 'Enter a valid share code (9 characters, e.g. ABC-DEF-GHI).' },
           { status: 400 }
         );
       }

@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { registerUser } from '@/lib/services/auth.service';
 import { displayName } from '@/lib/utils/name';
+import { isValidPhone } from '@/lib/validation/inputs';
 
 const MAX_SIGNUP_ATTEMPTS = 3;
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
     if (!email || !password || !name) {
       return NextResponse.json(
         { error: 'Email, password, and name are required.' },
+        { status: 400 }
+      );
+    }
+    // Validation sweep: if a phone is supplied it must be well-formed.
+    if (phone && !isValidPhone(String(phone))) {
+      return NextResponse.json(
+        { error: 'Enter a valid phone number, or leave it blank.' },
         { status: 400 }
       );
     }
