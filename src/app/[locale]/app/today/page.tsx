@@ -3,57 +3,16 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-interface Job {
-  id: string;
-  clientName: string;
-  address: string;
-  fullAddress?: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  serviceType: string;
-  cleanerEarnings: number;
-  viewerEarnings: number | null;
-  status: string; // lowercase
-  duration: number;
-}
+import {
+  type AppJob as Job,
+  HeroJob,
+  JobCard,
+  LIFECYCLE_ACTION,
+  haptic,
+  isoOf,
+  pay,
+} from '@/components/app/job-cards';
 
-const LIFECYCLE_ACTION: Record<string, { label: string; next: string } | undefined> = {
-  accepted: { label: "I'm on my way", next: 'EN_ROUTE' },
-  confirmed: { label: "I'm on my way", next: 'EN_ROUTE' },
-  en_route: { label: 'Start', next: 'IN_PROGRESS' },
-  in_progress: { label: 'Complete', next: 'COMPLETED' },
-};
-
-// Native-shell haptic bridge. No-op in a normal browser (ReactNativeWebView is
-// undefined) — so this changes nothing on the website.
-function haptic(style: 'light' | 'medium' | 'success' | 'error') {
-  (
-    window as unknown as { ReactNativeWebView?: { postMessage: (s: string) => void } }
-  ).ReactNativeWebView?.postMessage(JSON.stringify({ type: 'haptic', style }));
-}
-
-function isoOf(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function todayIso(): string {
-  return isoOf(new Date());
-}
-function pay(job: Job): number {
-  return job.viewerEarnings ?? job.cleanerEarnings;
-}
-function startsInLabel(dateIso: string, time: string): string | null {
-  const [h, m] = time.split(':').map(Number);
-  const start = new Date(`${dateIso}T00:00:00`);
-  start.setHours(h || 0, m || 0, 0, 0);
-  const diffMs = start.getTime() - Date.now();
-  if (diffMs <= 0) return null;
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 60) return `Starts in ${mins} min`;
-  return `Starts in ${Math.floor(mins / 60)}h ${mins % 60}m`;
-}
-function serviceLabel(slug: string): string {
-  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 function dateEyebrow(): string {
   return new Date()
     .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -68,11 +27,9 @@ export default function TodayPage() {
   const [view, setView] = useState<'today' | 'week'>('today');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const fetchJobs = useCallback(async () => {
-    setRefreshing(true);
     try {
       const res = await fetch(
         '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS,COMPLETED&limit=50'
@@ -92,7 +49,6 @@ export default function TodayPage() {
       setLoadError(true);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -124,7 +80,7 @@ export default function TodayPage() {
     return () => clearInterval(t);
   }, []);
 
-  const today = todayIso();
+  const today = isoOf(new Date());
   const todayJobs = useMemo(
     () => jobs.filter((j) => j.date === today).sort((a, b) => a.time.localeCompare(b.time)),
     [jobs, today]
@@ -232,14 +188,23 @@ export default function TodayPage() {
                 ? 'No jobs today'
                 : `${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
           </h1>
-          <button
-            type="button"
-            onClick={() => fetchJobs()}
-            aria-label="Refresh"
-            className="mt-1 shrink-0 rounded-full border border-line bg-surface px-3 py-1 font-jost text-[12px] font-medium text-ink-2 active:bg-page"
+          {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
+              the focus/visibility refetch make it redundant. B4: the bell
+              (→ /app/inbox) takes its place, top-right of the Today header. */}
+          <Link
+            href="/app/inbox"
+            aria-label="Inbox"
+            onClick={() => haptic('light')}
+            className="mt-1 shrink-0 rounded-full border border-line bg-surface p-2 text-ink-2 active:bg-page"
           >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+              />
+            </svg>
+          </Link>
         </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (
@@ -346,133 +311,6 @@ export default function TodayPage() {
           </span>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── NEXT job: navy ink hero card ──
-function HeroJob({
-  job,
-  now,
-  processing,
-  onAdvance,
-}: {
-  job: Job;
-  now: number;
-  processing: boolean;
-  onAdvance: () => void;
-}) {
-  const action = LIFECYCLE_ACTION[job.status];
-  void now; // referenced so the hero re-renders on the countdown tick
-  const countdown = startsInLabel(job.date, job.time);
-  const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
-
-  return (
-    <div className="rounded-2xl bg-primary p-5 text-white shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
-          Next · {job.status.replace(/_/g, ' ')}
-        </p>
-        {countdown && (
-          <p className="font-jost text-[12px] font-semibold text-white/90">{countdown}</p>
-        )}
-      </div>
-
-      <div className="mt-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-newsreader text-[22px] font-semibold leading-tight">
-            {job.time} · {job.clientName}
-          </p>
-          <a href={mapsHref} className="mt-1 block truncate font-jost text-sm text-white/85 underline">
-            {job.address}
-          </a>
-          <p className="mt-1 font-jost text-[13px] text-white/60">
-            {serviceLabel(job.serviceType)} · {job.duration}h
-          </p>
-        </div>
-        <p className="shrink-0 font-newsreader text-[28px] font-medium leading-none">
-          £{pay(job).toFixed(2)}
-        </p>
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        {action && (
-          <button
-            type="button"
-            onClick={onAdvance}
-            disabled={processing}
-            className="flex-1 rounded-[10px] bg-white px-4 py-3 font-jost text-sm font-semibold text-primary transition-opacity active:opacity-80 disabled:opacity-50"
-          >
-            {processing ? 'Updating…' : action.label}
-          </button>
-        )}
-        <Link
-          href={`/messages?bookingId=${job.id}`}
-          className="rounded-[10px] border border-white/25 px-4 py-3 font-jost text-sm font-medium text-white active:bg-white/10"
-        >
-          Message
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ── Later / week job: white surface card with hairline ──
-function JobCard({
-  job,
-  now,
-  processing,
-  onAdvance,
-}: {
-  job: Job;
-  now: number;
-  processing: boolean;
-  onAdvance: () => void;
-}) {
-  const action = LIFECYCLE_ACTION[job.status];
-  void now;
-  const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
-
-  return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-newsreader text-lg font-semibold text-ink">
-            {job.time} · {job.clientName}
-          </p>
-          <a href={mapsHref} className="mt-0.5 block truncate font-jost text-sm text-primary underline">
-            {job.address}
-          </a>
-          <p className="mt-1 font-jost text-[13px] text-ink-3">
-            {serviceLabel(job.serviceType)} · {job.duration}h
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="font-newsreader text-lg font-medium text-ink">£{pay(job).toFixed(2)}</p>
-          <span className="mt-1 inline-block rounded-full bg-primary-soft px-2 py-0.5 font-jost text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
-            {job.status.replace(/_/g, ' ')}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center gap-2">
-        {action && (
-          <button
-            type="button"
-            onClick={onAdvance}
-            disabled={processing}
-            className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
-          >
-            {processing ? 'Updating…' : action.label}
-          </button>
-        )}
-        <Link
-          href={`/messages?bookingId=${job.id}`}
-          className="rounded-[10px] border border-line px-4 py-2.5 font-jost text-sm font-medium text-ink-2 active:bg-page"
-        >
-          Message
-        </Link>
-      </div>
     </div>
   );
 }

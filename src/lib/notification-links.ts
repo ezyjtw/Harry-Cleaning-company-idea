@@ -48,3 +48,27 @@ export function notificationHref(n: NotificationLike, role: string | null | unde
 export function isOfferNotification(n: NotificationLike): boolean {
   return n.type === 'BOOKING_REQUEST';
 }
+
+// B4: the SAME mapping, app-shaped — inside the shell, /app/* URLs are native
+// (the web-fallback inversion flips: an offer goes to /app/offer/[id], job
+// notifications to the /app/jobs agenda). Everything else keeps its portal
+// path, which the shell renders in-tab.
+export function appNotificationHref(n: NotificationLike, role: string | null | undefined): string {
+  const data = n.data ?? {};
+  if (data.url && data.url.startsWith('/app/')) return data.url;
+  if (role === 'CLEANER') {
+    if (n.type === 'BOOKING_REQUEST') {
+      return data.bookingId ? `/app/offer/${data.bookingId}` : '/app/jobs';
+    }
+    if (
+      n.type === 'BOOKING_CONFIRMED' ||
+      n.type === 'BOOKING_CANCELLED' ||
+      n.type === 'BOOKING_COMPLETED' ||
+      n.type === 'PAYMENT_RECEIVED' ||
+      n.type === 'PAYMENT_SENT'
+    ) {
+      return '/app/jobs';
+    }
+  }
+  return notificationHref(n, role);
+}
