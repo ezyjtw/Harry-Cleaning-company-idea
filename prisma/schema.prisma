@@ -1306,6 +1306,11 @@ model DocumentUpload {
   isVerified      Boolean   @default(false)
   verifiedBy      String? // admin userId
   verifiedAt      DateTime?
+  // Admin reject (James, live testing): a rejected doc must be distinct from a
+  // never-reviewed one — else the queue chip can't change and the cleaner never
+  // learns why. Nullable; set when an admin rejects, cleared on re-upload.
+  rejectedAt      DateTime?
+  rejectionReason String?
   isDestroyed     Boolean   @default(false)
   destroyedAt     DateTime?
   destroyedReason String? // "retention_policy", "user_request", "admin_action"

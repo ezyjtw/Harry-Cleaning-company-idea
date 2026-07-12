@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
-import { displayName } from '@/lib/utils/name';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
+import { displayName } from '@/lib/utils/name';
 
 export async function GET() {
   const user = await getCleanerSession();
@@ -30,6 +30,7 @@ export async function GET() {
     backupBookingCount,
     importedReviewCount,
     insuranceDocCount,
+    rejectedDocs,
   ] = await Promise.all([
     // Cleaner profile
     prisma.cleanerProfile.findUnique({
@@ -42,6 +43,7 @@ export async function GET() {
         verified: true,
         verificationStatus: true,
         insuranceVerified: true,
+        insuranceExpiresAt: true,
         bio: true,
         postcode: true,
         specialties: true,
@@ -159,6 +161,14 @@ export async function GET() {
     prisma.documentUpload.count({
       where: { userId: user.id, documentType: 'insurance', isDestroyed: false },
     }),
+
+    // Admin-reject surface (James): the cleaner must see what was rejected +
+    // why, so they can re-upload. Newest rejected doc per type.
+    prisma.documentUpload.findMany({
+      where: { userId: user.id, isDestroyed: false, rejectedAt: { not: null }, isVerified: false },
+      select: { documentType: true, rejectionReason: true, rejectedAt: true },
+      orderBy: { rejectedAt: 'desc' },
+    }),
   ]);
 
   if (!profile) {
@@ -200,6 +210,7 @@ export async function GET() {
       verified: profile.verified,
       verificationStatus: profile.verificationStatus,
       insuranceVerified: profile.insuranceVerified,
+      insuranceExpiresAt: profile.insuranceExpiresAt ? profile.insuranceExpiresAt.toISOString() : null,
       profileComplete: isProfileComplete(profile),
       acknowledgmentComplete: profile.acknowledgmentVersion === CURRENT_AGREEMENT_VERSION,
       serviceTypes: profile.serviceTypes,
@@ -214,6 +225,12 @@ export async function GET() {
       availabilitySlotsCount: profile._count.availabilitySlots,
       importedReviewCount,
       insuranceSubmitted: insuranceDocCount > 0,
+      // Dedup to newest reason per type for the cleaner-side rejection notice.
+      rejectedDocuments: Array.from(
+        rejectedDocs
+          .reduce((m, d) => (m.has(d.documentType) ? m : m.set(d.documentType, d)), new Map())
+          .values()
+      ).map((d) => ({ type: d.documentType, reason: d.rejectionReason })),
     },
     stats: {
       todaysJobs,

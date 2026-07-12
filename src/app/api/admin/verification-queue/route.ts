@@ -84,6 +84,8 @@ export async function GET() {
           mimeType: true,
           fileSize: true,
           isVerified: true,
+          rejectedAt: true,
+          rejectionReason: true,
           expiresAt: true,
           createdAt: true,
         },
@@ -94,22 +96,30 @@ export async function GET() {
   const cleaners = profiles
     .map((p) => {
       const mine = docs.filter((d) => d.profileId === p.id);
-      const byType: Record<string, { submitted: boolean; verified: boolean }> = {};
+      const byType: Record<string, { submitted: boolean; verified: boolean; rejected: boolean }> = {};
       for (const d of mine) {
-        const cur = byType[d.documentType] ?? { submitted: false, verified: false };
+        const cur = byType[d.documentType] ?? { submitted: false, verified: false, rejected: false };
+        // A verified doc of this type wins; else the NEWEST (docs are desc) sets
+        // the rejected flag. A fresh re-upload (newer, not rejected) clears it.
+        if (!cur.submitted) cur.rejected = !!d.rejectedAt && !d.isVerified;
         cur.submitted = true;
         cur.verified = cur.verified || d.isVerified;
         byType[d.documentType] = cur;
       }
-      const missing = REQUIRED_DOC_TYPES.filter((t) => !byType[t]?.submitted);
+      // A rejected required doc counts as MISSING (the cleaner must re-upload).
+      const missing = REQUIRED_DOC_TYPES.filter(
+        (t) => !byType[t]?.submitted || (byType[t]?.rejected && !byType[t]?.verified)
+      );
       // Go-live rollup (stage 2): insurance + Stripe, in any order.
       const insuranceApproved =
         p.insuranceVerified && (!p.insuranceExpiresAt || p.insuranceExpiresAt > new Date());
-      const insuranceState: 'approved' | 'submitted' | 'missing' = insuranceApproved
+      const insuranceState: 'approved' | 'submitted' | 'rejected' | 'missing' = insuranceApproved
         ? 'approved'
-        : byType['insurance']?.submitted
-          ? 'submitted'
-          : 'missing';
+        : byType['insurance']?.rejected
+          ? 'rejected'
+          : byType['insurance']?.submitted
+            ? 'submitted'
+            : 'missing';
       const stripeComplete = p.stripeChargesEnabled && p.stripePayoutsEnabled;
       return {
         profileId: p.id,

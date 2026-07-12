@@ -376,27 +376,43 @@ function StepHeader({ step }: { step: number }) {
 }
 
 /* ---- Desktop 7-node stepper — echoes the tokenised /verify node grammar ---- */
-function DesktopStepper({ currentStep }: { currentStep: number }) {
+function DesktopStepper({
+  currentStep,
+  maxReached,
+  onJump,
+}: {
+  currentStep: number;
+  maxReached: number;
+  onJump: (i: number) => void;
+}) {
   return (
     <nav className="mt-8 hidden sm:block" aria-label="Progress">
       <ol className="flex items-start">
         {STEPS.map((s, i) => {
           const isComplete = i < currentStep;
           const isActive = i === currentStep;
+          const unlocked = i <= maxReached;
           return (
             <li key={s.label} className="flex flex-1 items-start last:flex-none">
               <div className="flex flex-col items-center gap-1.5">
-                <div
+                <button
+                  type="button"
+                  onClick={() => unlocked && onJump(i)}
+                  disabled={!unlocked}
+                  aria-current={isActive ? 'step' : undefined}
+                  title={unlocked ? `Go to ${s.label}` : `${s.label} — complete earlier steps first`}
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                     isComplete
-                      ? 'bg-primary text-white'
+                      ? 'bg-primary text-white hover:bg-primary-hover'
                       : isActive
                         ? 'bg-primary text-white ring-4 ring-primary-soft'
-                        : 'border border-line bg-surface text-ink-3'
+                        : unlocked
+                          ? 'border border-line bg-surface text-ink-2 hover:bg-page'
+                          : 'cursor-not-allowed border border-line bg-surface text-ink-3/50'
                   }`}
                 >
                   {isComplete ? '✓' : i + 1}
-                </div>
+                </button>
                 <span
                   className={`whitespace-nowrap text-[11px] ${
                     isActive ? 'font-medium text-ink' : 'text-ink-3'
@@ -835,6 +851,9 @@ export default function JoinAsCleanerPage() {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
+  // Wizard step nav (James): furthest step the user has validated into — steps
+  // 0..maxReachedStep are tappable; beyond is locked (no skipping required steps).
+  const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -876,7 +895,9 @@ export default function JoinAsCleanerPage() {
         }
         if (typeof parsed.currentStep === 'number') {
           // Clamp to the valid range — the step count can change across deploys.
-          setCurrentStep(Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1)));
+          const restored = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
+          setCurrentStep(restored);
+          setMaxReachedStep(restored);
         }
       }
     } catch {
@@ -1058,6 +1079,7 @@ export default function JoinAsCleanerPage() {
     // Map wizard step (0-6) to funnel step: personal, experience, pricing, identity, dbs, terms, review
     trackStep(nextStep + 2, STEPS[nextStep]?.label?.toLowerCase() ?? `step_${nextStep}`);
     setCurrentStep(nextStep);
+    setMaxReachedStep((m) => Math.max(m, nextStep));
     setErrors({});
   }
 
@@ -1263,7 +1285,16 @@ export default function JoinAsCleanerPage() {
       </div>
 
       {/* ---------- Step indicator ---------- */}
-      <DesktopStepper currentStep={currentStep} />
+      <DesktopStepper
+        currentStep={currentStep}
+        maxReached={maxReachedStep}
+        onJump={(i) => {
+          if (i <= maxReachedStep) {
+            setCurrentStep(i);
+            setErrors({});
+          }
+        }}
+      />
       <MobileStepper currentStep={currentStep} />
 
       {/* ---------- Step content card ---------- */}
