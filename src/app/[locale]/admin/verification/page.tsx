@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 type Tab = 'queue' | 'expiring_rtw' | 'expired_rtw' | 'share_code';
-type QueueFilter = 'all' | 'ready' | 'waiting';
+type QueueFilter = 'all' | 'review' | 'insurance' | 'waiting';
 
 interface QueueDocument {
   id: string;
@@ -32,6 +32,9 @@ interface QueueCleaner {
   missing: string[];
   pendingReview: number;
   readyForReview: boolean;
+  identityReview: boolean;
+  insuranceReview: boolean;
+  needsReview: boolean;
   // Stage 2 rollup — never blocks identity verification.
   goLive: { insurance: 'approved' | 'submitted' | 'missing'; stripe: boolean; live: boolean };
 }
@@ -337,7 +340,8 @@ export default function VerificationPage() {
             {(
               [
                 ['all', 'All'],
-                ['ready', 'Ready for review'],
+                ['review', 'Needs review'],
+                ['insurance', 'Insurance review'],
                 ['waiting', 'Waiting on cleaner'],
               ] as const
             ).map(([value, label]) => (
@@ -365,11 +369,13 @@ export default function VerificationPage() {
           <div className="space-y-3">
             {queue
               .filter((c) =>
-                queueFilter === 'ready'
-                  ? c.readyForReview
-                  : queueFilter === 'waiting'
-                    ? !c.readyForReview
-                    : true
+                queueFilter === 'review'
+                  ? c.needsReview
+                  : queueFilter === 'insurance'
+                    ? c.insuranceReview
+                    : queueFilter === 'waiting'
+                      ? !c.needsReview && !c.goLive.live
+                      : true
               )
               .map((c) => {
                 const isOpen = selectedId === c.profileId;
@@ -442,20 +448,24 @@ export default function VerificationPage() {
                           className={`ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                             c.goLive.live
                               ? 'bg-trust text-white'
-                              : c.verified
-                                ? 'bg-primary-soft text-primary'
-                                : c.readyForReview
-                                  ? 'bg-primary text-white'
-                                  : 'bg-page text-ink-3'
+                              : c.insuranceReview
+                                ? 'bg-primary text-white'
+                                : c.verified
+                                  ? 'bg-primary-soft text-primary'
+                                  : c.readyForReview
+                                    ? 'bg-primary text-white'
+                                    : 'bg-page text-ink-3'
                           }`}
                         >
                           {c.goLive.live
                             ? 'Live'
-                            : c.verified
-                              ? 'Verified — go-live pending'
-                              : c.readyForReview
-                                ? 'Ready for review'
-                                : 'Waiting on cleaner'}
+                            : c.insuranceReview
+                              ? 'Insurance to review'
+                              : c.verified
+                                ? 'Verified — go-live pending'
+                                : c.readyForReview
+                                  ? 'Ready for review'
+                                  : 'Waiting on cleaner'}
                         </span>
                       </div>
                     </button>

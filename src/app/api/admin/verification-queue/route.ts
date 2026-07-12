@@ -123,8 +123,18 @@ export async function GET() {
         docStates: byType,
         missing,
         pendingReview: mine.filter((d) => !d.isVerified).length,
-        // Ready for review = the IDENTITY set (ID + RTW) is submitted.
+        // Stage-aware review flags (James, insurance follow-through):
+        //  • identityReview  — not yet verified AND ID+RTW both submitted
+        //  • insuranceReview — verified AND an insurance doc is awaiting approval
+        // needsReview = either stage is waiting on the ADMIN. The default queue
+        // view surfaces both; a dedicated 'Insurance review' filter isolates
+        // stage 2. 'readyForReview' kept for back-compat (= identity stage).
         readyForReview: missing.length === 0,
+        identityReview: !p.verified && missing.length === 0,
+        insuranceReview: p.verified && insuranceState === 'submitted',
+        needsReview:
+          (!p.verified && missing.length === 0) ||
+          (p.verified && insuranceState === 'submitted'),
         goLive: {
           insurance: insuranceState,
           stripe: stripeComplete,

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const profile = await prisma.cleanerProfile.findUnique({
       where: { userId: user.id },
-      select: { id: true },
+      select: { id: true, verified: true },
     });
 
     if (!profile) {
@@ -134,6 +134,31 @@ export async function POST(request: NextRequest) {
         insuranceExpiresAt: expiry,
       },
     });
+
+    // Insurance follow-through (James): when insurance lands on an ALREADY
+    // VERIFIED cleaner it's a go-live review the admin must action — surface it
+    // in the admin bell so the queue isn't relying on someone wandering in.
+    if (profile.verified) {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      });
+      await Promise.all(
+        admins.map((admin) =>
+          prisma.notification
+            .create({
+              data: {
+                userId: admin.id,
+                type: 'ACCOUNT_UPDATE',
+                title: 'Insurance to review',
+                body: `${user.name || 'A verified cleaner'} uploaded insurance for go-live review.`,
+                data: { url: '/admin/verification' },
+              },
+            })
+            .catch(() => null)
+        )
+      );
+    }
 
     return NextResponse.json(
       {
