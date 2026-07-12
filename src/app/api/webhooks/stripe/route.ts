@@ -133,6 +133,13 @@ export async function POST(request: NextRequest) {
         where: { stripeAccountId: account.id },
         data: updateData,
       });
+
+      // Two-stage flow: Stripe completion may be the LAST go-live input —
+      // fire the exactly-once live email check (fire-and-forget).
+      if (account.charges_enabled && account.payouts_enabled) {
+        const { maybeMarkLive } = await import('@/lib/services/go-live.service');
+        void maybeMarkLive(profile.userId);
+      }
     }
   }
 

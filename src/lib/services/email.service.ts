@@ -21,6 +21,7 @@ import {
   buildTopupApprovalRequest,
   buildSignupNotification,
   buildPaymentFailureNotification,
+  buildGoLive,
   type BookingEmailData,
   type UserEmailData,
   type CleanerEmailData,
@@ -485,5 +486,12 @@ export async function sendPaymentFailureNotification(
   user: UserEmailData
 ): Promise<boolean> {
   const { subject, html } = buildPaymentFailureNotification(data);
+  return sendEmail(user.email, subject, html);
+}
+
+// ─── Go-live (two-stage flow) ───────────────────────────────
+
+export async function sendGoLive(user: { name: string; email: string }): Promise<boolean> {
+  const { subject, html } = buildGoLive({ name: user.name });
   return sendEmail(user.email, subject, html);
 }

@@ -9,6 +9,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       where: {
         userId: params.id,
         verified: true,
+        insuranceVerified: true,
         stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
       },

@@ -5,6 +5,7 @@ import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { sendVerificationDecision } from '@/lib/services/email.service';
+import { maybeMarkLive } from '@/lib/services/go-live.service';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const admin = await getAdminSession();
@@ -109,6 +110,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       approved: isVerify,
       reason: isVerify ? undefined : reason?.trim(),
     }).catch(() => {});
+
+    // Two-stage flow: if insurance + Stripe were already green, this verify
+    // completes go-live — fire the exactly-once live email.
+    if (isVerify) void maybeMarkLive(profile.user.id);
 
     const updated = await prisma.cleanerProfile.findUnique({
       where: { id: profile.id },

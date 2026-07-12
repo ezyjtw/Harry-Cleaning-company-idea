@@ -43,6 +43,7 @@ interface DashboardData {
     verified: boolean;
     verificationStatus: string;
     insuranceVerified: boolean;
+    insuranceSubmitted?: boolean;
     profileComplete: boolean;
     acknowledgmentComplete: boolean;
     serviceTypes: string[];
@@ -312,12 +313,51 @@ export default function CleanerDashboard() {
 
           <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2 leading-relaxed">
             {isPending
-              ? "We're reviewing your documents and background check. This usually takes 24–48 hours. We'll notify you by email once approved."
+              ? "We're verifying your identity — usually within one working day. You'll get an email the moment it's done."
               : isRejected
                 ? 'There was an issue with your application. Please update your documents and resubmit.'
                 : 'Complete the steps below to get verified and start receiving bookings.'}
           </p>
         </div>
+
+        {/* Two-stage flow: the wait works for you — go-live prep runs in
+            parallel with identity verification (James-ruled copy). */}
+        {isPending && (
+          <div className="mt-8">
+            <h2 className="font-newsreader text-lg font-semibold text-ink">
+              While we verify your identity, get ready to go live:
+            </h2>
+            <div className="mt-3 space-y-3">
+              <GoLiveCard
+                title="Set up payouts"
+                description="Connect your bank securely via Stripe — about 5 minutes."
+                state={
+                  data.profile.stripeChargesEnabled && data.profile.stripePayoutsEnabled
+                    ? 'done'
+                    : 'todo'
+                }
+                doneLabel="Connected"
+                todoLabel="Set up"
+                href="/cleaner/stripe/connect"
+              />
+              <GoLiveCard
+                title="Upload your insurance"
+                description="Public liability insurance — we review it quickly once it's in."
+                state={
+                  data.profile.insuranceVerified
+                    ? 'done'
+                    : data.profile.insuranceSubmitted
+                      ? 'waiting'
+                      : 'todo'
+                }
+                doneLabel="Approved"
+                waitingLabel="Awaiting approval"
+                todoLabel="Upload"
+                href="/cleaner/profile"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 space-y-3">
           {[
@@ -332,12 +372,6 @@ export default function CleanerDashboard() {
               description: 'Photo ID and proof you can legally work in the UK',
               done: isPending || data.profile.verified,
               href: '/verify',
-            },
-            {
-              label: 'Proof of insurance',
-              description: 'Upload your public liability insurance',
-              done: data.profile.insuranceVerified || isPending || data.profile.verified,
-              href: '/cleaner/profile',
             },
             {
               label: 'Identity verification',
@@ -420,6 +454,68 @@ export default function CleanerDashboard() {
           <CleanerSetupChecklist profile={data.profile} />
         </div>
 
+        <p className="mt-8 text-center font-jost text-xs font-light text-ink-3">
+          Need help?{' '}
+          <Link href="/contact" className="text-primary hover:text-primary/80 transition">
+            Contact support
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
+  // Two-stage flow: verified but not yet LIVE (insurance approval and/or
+  // Stripe payouts outstanding) — celebrate stage 1 and show what's left.
+  const goLiveReady =
+    data.profile.insuranceVerified &&
+    data.profile.stripeChargesEnabled &&
+    data.profile.stripePayoutsEnabled;
+  if (!goLiveReady) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+        <div className="text-center py-10">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-trust/10">
+            <svg className="h-10 w-10 text-trust" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
+            Your identity is verified!
+          </h1>
+          <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2 leading-relaxed">
+            Nearly there, {data.profile.name?.split(' ')[0] || 'cleaner'} — finish these and your
+            profile goes live to customers automatically.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <GoLiveCard
+            title="Set up payouts"
+            description="Connect your bank securely via Stripe — about 5 minutes."
+            state={
+              data.profile.stripeChargesEnabled && data.profile.stripePayoutsEnabled
+                ? 'done'
+                : 'todo'
+            }
+            doneLabel="Connected"
+            todoLabel="Set up"
+            href="/cleaner/stripe/connect"
+          />
+          <GoLiveCard
+            title="Upload your insurance"
+            description="Public liability insurance — we review it quickly once it's in."
+            state={
+              data.profile.insuranceVerified
+                ? 'done'
+                : data.profile.insuranceSubmitted
+                  ? 'waiting'
+                  : 'todo'
+            }
+            doneLabel="Approved"
+            waitingLabel="Awaiting approval"
+            todoLabel="Upload"
+            href="/cleaner/profile"
+          />
+        </div>
         <p className="mt-8 text-center font-jost text-xs font-light text-ink-3">
           Need help?{' '}
           <Link href="/contact" className="text-primary hover:text-primary/80 transition">
@@ -770,6 +866,80 @@ export default function CleanerDashboard() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Two-stage go-live action card (waiting screen + verified-not-live screen).
+function GoLiveCard({
+  title,
+  description,
+  state,
+  doneLabel,
+  waitingLabel,
+  todoLabel,
+  href,
+}: {
+  title: string;
+  description: string;
+  state: 'done' | 'waiting' | 'todo';
+  doneLabel: string;
+  waitingLabel?: string;
+  todoLabel: string;
+  href: string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-4 rounded-xl bg-page px-5 py-4"
+      style={{ border: '0.5px solid rgb(var(--color-border))' }}
+    >
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          state === 'done'
+            ? 'bg-trust/10 text-trust'
+            : state === 'waiting'
+              ? 'bg-primary/10 text-primary'
+              : 'bg-ink/5 text-ink-3'
+        }`}
+      >
+        {state === 'done' ? (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : state === 'waiting' ? (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+          </svg>
+        ) : (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`font-jost text-[14px] ${state === 'done' ? 'text-ink-3' : 'font-medium text-ink'}`}>
+          {title}
+        </p>
+        <p className="font-jost text-[12px] font-light text-ink-3">
+          {state === 'waiting' && waitingLabel ? waitingLabel : description}
+        </p>
+      </div>
+      {state === 'done' ? (
+        <span className="shrink-0 rounded-full bg-trust/10 px-3 py-1 font-jost text-[11px] font-semibold uppercase tracking-[0.08em] text-trust">
+          {doneLabel}
+        </span>
+      ) : state === 'waiting' ? (
+        <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-jost text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+          {waitingLabel || 'Pending'}
+        </span>
+      ) : (
+        <Link
+          href={href}
+          className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
+        >
+          {todoLabel}
+        </Link>
+      )}
     </div>
   );
 }

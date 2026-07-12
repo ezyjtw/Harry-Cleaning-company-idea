@@ -480,12 +480,14 @@ export function buildVerificationDecision(data: {
 }): EmailContent {
   const base = appUrl();
   if (data.approved) {
-    const subject = "You're verified — start receiving bookings on Rena";
+    // Two-stage flow: identity verification is NOT go-live. This email must
+    // never claim bookings are flowing — that's buildGoLive's moment.
+    const subject = 'Identity verified — two steps to go live on Rena';
     const contentHtml =
-      h('You&rsquo;re verified!') +
+      h('Your identity is verified!') +
       p(`Hi ${data.cleanerName},`) +
       p(
-        'Great news: your Rena application has been approved. You can now start receiving bookings from customers in your area.'
+        'Great news: we&rsquo;ve verified your identity and right to work. Two quick steps remain before you go live and start receiving bookings: connect your payouts and upload your public liability insurance. You can do them in any order.'
       ) +
       button(`${base}/cleaner`, 'Go to your dashboard') +
       hr() +
@@ -512,6 +514,25 @@ export function buildVerificationDecision(data: {
       `If you have questions or believe this was made in error, please contact us at ${inlineLink('mailto:support@renacleaning.co.uk', 'support@renacleaning.co.uk')}.`
     ) +
     p('Best regards,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// Two-stage flow: the go-live celebration — sent exactly once by
+// maybeMarkLive() when identity + insurance + Stripe are ALL green.
+export function buildGoLive(data: { name: string }): EmailContent {
+  const base = appUrl();
+  const subject = "You're live on Rena — customers can now book you";
+  const contentHtml =
+    h('You&rsquo;re live!') +
+    p(`Hi ${data.name},`) +
+    p(
+      'Everything checks out: identity verified, insurance approved, and payouts connected. Your profile is now visible to customers in your area and you can start receiving bookings.'
+    ) +
+    button(`${base}/cleaner`, 'Open your dashboard') +
+    p(
+      'Keep your availability up to date so offers reach you at the right times, and respond quickly to your first offers to build your rating early.'
+    ) +
+    p('Welcome aboard — go get that first booking.');
   return { subject, html: renderEmail({ contentHtml }) };
 }
 

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
+import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
@@ -78,10 +79,12 @@ export class MatchingService {
     //    self-employment version (A14 gate — un-acknowledged or out-of-date
     //    cleaners aren't offered jobs until they (re-)acknowledge).
     const allCleaners = await prisma.cleanerProfile.findMany({
+      // Two-stage flow: offer eligibility now uses the SAME go-live gate as
+      // search (it previously checked verified only — a verified cleaner with
+      // no insurance approval or Stripe onboarding could receive offers).
       where: {
-        verified: true,
+        ...eligibleCleanerWhere(new Date()),
         acknowledgmentVersion: CURRENT_AGREEMENT_VERSION,
-        user: { isDeleted: false, accountStatus: 'ACTIVE' },
       },
       // Matching is a coverage consumer — re-enable the globally-omitted
       // isochrone for cleanerCoversPoint.
