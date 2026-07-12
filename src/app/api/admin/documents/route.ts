@@ -49,6 +49,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { documentId, approved } = body;
+    // Optional per-document reject reason (admin queue restructure) — audited.
+    const reason =
+      typeof body.reason === 'string' && body.reason.trim()
+        ? body.reason.trim().slice(0, 500)
+        : undefined;
     // Use verified admin ID from session, not untrusted body
     const adminId = admin.id;
 
@@ -62,12 +67,7 @@ export async function PATCH(request: NextRequest) {
     const ipAddress =
       request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
 
-    await DocumentStorageService.verifyDocument(
-      documentId,
-      adminId,
-      approved,
-      ipAddress || undefined
-    );
+    await DocumentStorageService.verifyDocument(documentId, adminId, approved, ipAddress || undefined, reason);
 
     return NextResponse.json({
       message: approved ? 'Document verified successfully' : 'Document rejected',

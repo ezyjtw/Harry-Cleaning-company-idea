@@ -2,20 +2,36 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-type DocumentType = 'all' | 'dbs_certificate' | 'right_to_work' | 'photo_id';
-type Tab = 'pending' | 'expiring_rtw' | 'expired_rtw' | 'share_code';
+type Tab = 'queue' | 'expiring_rtw' | 'expired_rtw' | 'share_code';
+type QueueFilter = 'all' | 'ready' | 'waiting';
 
-interface PendingDocument {
+interface QueueDocument {
   id: string;
-  userId: string;
-  profileId: string;
+  profileId: string | null;
   documentType: string;
   originalName: string;
   mimeType: string;
   fileSize: number;
+  isVerified: boolean;
   expiresAt: string | null;
-  metadata: Record<string, unknown> | null;
   createdAt: string;
+}
+
+// The queue's unit is the CLEANER (James, from live testing) — documents roll
+// up under each cleaner with outstanding-vs-submitted visible at a glance.
+interface QueueCleaner {
+  profileId: string;
+  userId: string;
+  name: string;
+  email: string;
+  appliedAt: string;
+  verified: boolean;
+  verificationStatus: string;
+  documents: QueueDocument[];
+  docStates: Record<string, { submitted: boolean; verified: boolean }>;
+  missing: string[];
+  pendingReview: number;
+  readyForReview: boolean;
 }
 
 interface RtwAlert {
@@ -39,8 +55,12 @@ interface ShareCodeResult {
 }
 
 export default function VerificationPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('pending');
-  const [filterType, setFilterType] = useState<DocumentType>('all');
+  const [activeTab, setActiveTab] = useState<Tab>('queue');
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rejectingDocId, setRejectingDocId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [activating, setActivating] = useState(false);
   const [shareCode, setShareCode] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [shareCodeResult, setShareCodeResult] = useState<ShareCodeResult | null>(null);
@@ -49,24 +69,23 @@ export default function VerificationPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Live data from API
-  const [pendingDocs, setPendingDocs] = useState<PendingDocument[]>([]);
+  const [queue, setQueue] = useState<QueueCleaner[]>([]);
   const [expiringRtw, setExpiringRtw] = useState<RtwAlert[]>([]);
   const [expiredRtw, setExpiredRtw] = useState<RtwAlert[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchPendingDocs = useCallback(async () => {
+  const fetchQueue = useCallback(async () => {
     try {
-      const typeParam = filterType !== 'all' ? `?type=${filterType}` : '';
-      const res = await fetch(`/api/admin/documents${typeParam}`);
+      const res = await fetch('/api/admin/verification-queue');
       if (res.ok) {
         const data = await res.json();
-        setPendingDocs(data.documents || []);
+        setQueue(data.cleaners || []);
       }
     } catch {
       // eslint-disable-next-line no-console
-      console.error('Failed to fetch pending documents');
+      console.error('Failed to fetch verification queue');
     }
-  }, [filterType]);
+  }, []);
 
   const fetchRtwData = useCallback(async () => {
     try {
@@ -116,26 +135,22 @@ export default function VerificationPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchPendingDocs(), fetchRtwData()]).finally(() => setLoading(false));
-  }, [fetchPendingDocs, fetchRtwData]);
+    Promise.all([fetchQueue(), fetchRtwData()]).finally(() => setLoading(false));
+  }, [fetchQueue, fetchRtwData]);
 
-  // Refetch pending docs when filter changes
-  useEffect(() => {
-    fetchPendingDocs();
-  }, [filterType, fetchPendingDocs]);
-
-  const handleVerify = async (docId: string, approved: boolean) => {
+  const handleVerify = async (docId: string, approved: boolean, reason?: string) => {
     setVerifyingDoc(docId);
     try {
       const res = await fetch('/api/admin/documents', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: docId, adminId: 'admin-001', approved }),
+        body: JSON.stringify({ documentId: docId, approved, ...(reason ? { reason } : {}) }),
       });
       if (res.ok) {
         setStatusMessage(`Document ${approved ? 'approved' : 'rejected'} successfully`);
-        // Remove from list
-        setPendingDocs((prev) => prev.filter((d) => d.id !== docId));
+        setRejectingDocId(null);
+        setRejectReason('');
+        await fetchQueue();
       } else {
         const data = await res.json();
         setStatusMessage(`Error: ${data.error || 'Failed to process document'}`);
@@ -144,6 +159,30 @@ export default function VerificationPage() {
       setStatusMessage('Network error — could not reach the server');
     } finally {
       setVerifyingDoc(null);
+    }
+  };
+
+  // Overall verify/activate — the existing admin route, unchanged machinery.
+  const handleActivate = async (userId: string) => {
+    setActivating(true);
+    try {
+      const res = await fetch(`/api/admin/cleaners/${userId}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'VERIFY' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        setStatusMessage('Cleaner verified and activated.');
+        setSelectedId(null);
+        await fetchQueue();
+      } else {
+        setStatusMessage(`Error: ${data?.error || 'Failed to verify cleaner'}`);
+      }
+    } catch {
+      setStatusMessage('Network error — could not reach the server');
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -221,7 +260,7 @@ export default function VerificationPage() {
   };
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'pending', label: 'Pending Verification', count: pendingDocs.length },
+    { id: 'queue', label: 'Verification Queue', count: queue.length },
     { id: 'expiring_rtw', label: 'Expiring RTW', count: expiringRtw.length },
     { id: 'expired_rtw', label: 'Expired RTW', count: expiredRtw.length },
     { id: 'share_code', label: 'Share Code Check' },
@@ -232,13 +271,6 @@ export default function VerificationPage() {
     right_to_work: 'Right to Work',
     photo_id: 'Photo ID',
     insurance: 'Insurance',
-  };
-
-  const docTypeBadge: Record<string, string> = {
-    dbs_certificate: 'bg-purple-100 text-purple-700',
-    right_to_work: 'bg-primary-soft text-primary',
-    photo_id: 'bg-trust/10 text-trust',
-    insurance: 'bg-orange-100 text-orange-700',
   };
 
   return (
@@ -295,158 +327,234 @@ export default function VerificationPage() {
         </div>
       )}
 
-      {/* Pending Verification Tab */}
-      {!loading && activeTab === 'pending' && (
+      {/* Verification Queue — per-cleaner (James-ruled restructure) */}
+      {!loading && activeTab === 'queue' && (
         <div>
-          {/* Filter */}
-          <div className="mb-4 flex items-center gap-3">
-            <label className="text-sm font-medium text-ink-2">Filter:</label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as DocumentType)}
-              className="rounded-lg border border-line px-3 py-2 text-sm"
-            >
-              <option value="all">All Documents</option>
-              <option value="dbs_certificate">DBS Certificates</option>
-              <option value="right_to_work">Right to Work</option>
-              <option value="photo_id">Photo ID</option>
-            </select>
+          {/* Filter chips */}
+          <div className="mb-4 flex items-center gap-2">
+            {(
+              [
+                ['all', 'All'],
+                ['ready', 'Ready for review'],
+                ['waiting', 'Waiting on cleaner'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setQueueFilter(value)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  queueFilter === value
+                    ? 'bg-primary text-white'
+                    : 'border border-line bg-surface text-ink-2 hover:bg-page'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
             <button
-              onClick={() => fetchPendingDocs()}
-              className="rounded-lg border border-line px-3 py-2 text-sm text-ink-2 hover:bg-page"
+              onClick={() => fetchQueue()}
+              className="ml-auto rounded-lg border border-line px-3 py-2 text-sm text-ink-2 hover:bg-page"
             >
               Refresh
             </button>
           </div>
 
-          {/* Documents table */}
-          <div className="bg-surface rounded-xl border border-line overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-line bg-page">
-                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase">
-                    Document
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase hidden md:table-cell">
-                    Type
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase hidden lg:table-cell">
-                    Details
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-ink-3 uppercase hidden sm:table-cell">
-                    Uploaded
-                  </th>
-                  <th className="text-right px-6 py-3 text-xs font-medium text-ink-3 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {pendingDocs.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-page transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-page flex items-center justify-center">
-                          <svg
-                            className="w-5 h-5 text-ink-3"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-ink">{doc.originalName}</p>
-                          <p className="text-xs text-ink-3">
-                            {(doc.fileSize / 1024).toFixed(0)} KB &middot; {doc.mimeType}
-                          </p>
-                        </div>
+          {/* Cleaner cards, newest first */}
+          <div className="space-y-3">
+            {queue
+              .filter((c) =>
+                queueFilter === 'ready'
+                  ? c.readyForReview
+                  : queueFilter === 'waiting'
+                    ? !c.readyForReview
+                    : true
+              )
+              .map((c) => {
+                const isOpen = selectedId === c.profileId;
+                return (
+                  <div key={c.profileId} className="rounded-xl border border-line bg-surface">
+                    {/* Card row */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(isOpen ? null : c.profileId)}
+                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-page"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{c.name}</p>
+                        <p className="text-xs text-ink-3">
+                          {c.email} · applied{' '}
+                          {new Date(c.appliedAt).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 hidden md:table-cell">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${docTypeBadge[doc.documentType] || ''}`}
-                      >
-                        {docTypeLabel[doc.documentType] || doc.documentType}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-ink-2 hidden lg:table-cell">
-                      {doc.metadata &&
-                        Object.entries(doc.metadata).map(([key, value]) => (
-                          <span key={key} className="block text-xs">
-                            <span className="text-ink-3">{key}:</span> {String(value)}
-                          </span>
-                        ))}
-                      {doc.expiresAt && (
-                        <span className="block text-xs text-orange-600">
-                          Expires: {new Date(doc.expiresAt).toLocaleDateString('en-GB')}
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                        {(['photo_id', 'right_to_work', 'insurance', 'dbs_certificate'] as const).map(
+                          (t) => {
+                            const st = c.docStates[t];
+                            if (!st && t === 'dbs_certificate') return null; // optional — only show when present
+                            const cls = st?.verified
+                              ? 'bg-trust/10 text-trust'
+                              : st?.submitted
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'border border-line bg-page text-ink-3';
+                            const suffix = st?.verified ? ' ✓' : st?.submitted ? ' · review' : ' · missing';
+                            return (
+                              <span
+                                key={t}
+                                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}
+                              >
+                                {docTypeLabel[t]}
+                                {suffix}
+                              </span>
+                            );
+                          }
+                        )}
+                        <span
+                          className={`ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                            c.readyForReview
+                              ? 'bg-primary text-white'
+                              : 'bg-page text-ink-3'
+                          }`}
+                        >
+                          {c.readyForReview ? 'Ready for review' : 'Waiting on cleaner'}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-ink-3 hidden sm:table-cell">
-                      {new Date(doc.createdAt).toLocaleDateString('en-GB')}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          disabled={verifyingDoc === doc.id}
-                          onClick={() => handleVerify(doc.id, true)}
-                          className="inline-flex items-center rounded-lg bg-trust px-3 py-1.5 text-xs font-medium text-white hover:bg-trust disabled:opacity-50"
-                        >
-                          {verifyingDoc === doc.id ? 'Processing...' : 'Approve'}
-                        </button>
-                        <button
-                          disabled={verifyingDoc === doc.id}
-                          onClick={() => handleVerify(doc.id, false)}
-                          className="inline-flex items-center rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white hover:bg-danger disabled:opacity-50"
-                        >
-                          Reject
-                        </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {pendingDocs.length === 0 && (
-              <div className="text-center py-12 text-ink-3">
-                <p>No documents pending verification</p>
-              </div>
-            )}
+                    </button>
+
+                    {/* Dossier — all documents together, per-doc actions, overall activate */}
+                    {isOpen && (
+                      <div className="border-t border-line px-5 py-4">
+                        {c.documents.length === 0 ? (
+                          <p className="py-2 text-sm text-ink-3">No documents uploaded yet.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {c.documents.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className="flex flex-col gap-2 rounded-lg border border-line bg-page px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-ink">
+                                    {docTypeLabel[doc.documentType] || doc.documentType}
+                                    {doc.isVerified && <span className="ml-2 text-trust">✓ verified</span>}
+                                  </p>
+                                  <p className="text-xs text-ink-3">
+                                    {doc.originalName} · {(doc.fileSize / 1024).toFixed(0)} KB ·{' '}
+                                    {new Date(doc.createdAt).toLocaleDateString('en-GB')}
+                                    {doc.expiresAt &&
+                                      ` · expires ${new Date(doc.expiresAt).toLocaleDateString('en-GB')}`}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <a
+                                    href={`/api/admin/documents/${doc.id}/download`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 hover:bg-page"
+                                  >
+                                    View
+                                  </a>
+                                  {!doc.isVerified && (
+                                    <>
+                                      <button
+                                        disabled={verifyingDoc === doc.id}
+                                        onClick={() => handleVerify(doc.id, true)}
+                                        className="rounded-lg bg-trust px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                                      >
+                                        {verifyingDoc === doc.id ? 'Processing…' : 'Approve'}
+                                      </button>
+                                      <button
+                                        disabled={verifyingDoc === doc.id}
+                                        onClick={() => {
+                                          setRejectingDocId(doc.id);
+                                          setRejectReason('');
+                                        }}
+                                        className="rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                                {rejectingDocId === doc.id && (
+                                  <div className="flex w-full items-center gap-2 sm:basis-full">
+                                    <input
+                                      autoFocus
+                                      value={rejectReason}
+                                      onChange={(e) => setRejectReason(e.target.value)}
+                                      placeholder="Reason (sent to the audit log)"
+                                      className="flex-1 rounded-lg border border-line px-3 py-2 text-sm"
+                                    />
+                                    <button
+                                      disabled={!rejectReason.trim() || verifyingDoc === doc.id}
+                                      onClick={() => handleVerify(doc.id, false, rejectReason.trim())}
+                                      className="rounded-lg bg-danger px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
+                                    >
+                                      Confirm reject
+                                    </button>
+                                    <button
+                                      onClick={() => setRejectingDocId(null)}
+                                      className="rounded-lg border border-line px-3 py-2 text-xs text-ink-2"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Overall action — right here when everything passes */}
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <p className="text-xs text-ink-3">
+                            {c.missing.length > 0
+                              ? `Waiting on: ${c.missing.map((m) => docTypeLabel[m] || m).join(', ')}`
+                              : c.pendingReview > 0
+                                ? `${c.pendingReview} document${c.pendingReview === 1 ? '' : 's'} awaiting your review`
+                                : 'All documents verified'}
+                          </p>
+                          {!c.verified && (
+                            <button
+                              disabled={
+                                activating || c.missing.length > 0 || c.pendingReview > 0
+                              }
+                              onClick={() => handleActivate(c.userId)}
+                              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                              title={
+                                c.missing.length > 0 || c.pendingReview > 0
+                                  ? 'Every required document must be verified first'
+                                  : 'Verify and activate this cleaner'
+                              }
+                            >
+                              {activating ? 'Activating…' : 'Verify & activate cleaner'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
 
-          {/* Encryption notice */}
-          <div className="mt-4 rounded-lg bg-primary-soft border border-primary/20 p-4">
-            <div className="flex items-start gap-3">
-              <svg
-                className="w-5 h-5 text-primary mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-primary">Documents are encrypted at rest</p>
-                <p className="text-xs text-primary mt-1">
-                  All documents are encrypted using AES-256-GCM with unique per-document keys.
-                  Access is logged in the audit trail. DBS certificates are automatically destroyed
-                  6 months after verification. RTW documents are retained per Home Office guidance
-                  (engagement + 2 years).
-                </p>
-              </div>
+          {queue.length === 0 && (
+            <div className="rounded-xl border border-line bg-surface py-12 text-center text-ink-3">
+              <p>No cleaners awaiting verification</p>
             </div>
+          )}
+
+          {/* Encryption notice (unchanged) */}
+          <div className="mt-4 rounded-lg bg-primary-soft border border-primary/20 p-4">
+            <p className="text-sm font-medium text-primary">Documents are encrypted at rest</p>
+            <p className="text-xs text-primary mt-1">
+              All documents are encrypted using AES-256-GCM with unique per-document keys. Access
+              is logged in the audit trail. DBS certificates are automatically destroyed 6 months
+              after verification. RTW documents are retained per Home Office guidance (engagement
+              + 2 years).
+            </p>
           </div>
         </div>
       )}

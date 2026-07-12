@@ -15,8 +15,15 @@ export async function GET() {
   }
 
   const [verificationPending, renaFindQueue] = await Promise.all([
-    // Documents awaiting admin review (uploaded, not yet verified, not destroyed).
-    prisma.documentUpload.count({ where: { isVerified: false, isDestroyed: false } }),
+    // Queue restructure: the unit is CLEANERS awaiting action (distinct
+    // profiles with unverified docs), matching the per-cleaner queue page.
+    prisma.documentUpload
+      .findMany({
+        where: { isVerified: false, isDestroyed: false, profileId: { not: null } },
+        select: { profileId: true },
+        distinct: ['profileId'],
+      })
+      .then((rows) => rows.length),
     // Mirrors the Rena-Find queue page's list.
     prisma.booking.count({ where: { cascadePhase: 'RENA_FIND_ADMIN_REVIEW' } }),
   ]);

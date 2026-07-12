@@ -269,7 +269,8 @@ export class DocumentStorageService {
     documentId: string,
     adminId: string,
     approved: boolean,
-    ipAddress?: string
+    ipAddress?: string,
+    reason?: string
   ): Promise<void> {
     const doc = await prisma.documentUpload.findUnique({
       where: { id: documentId },
@@ -328,6 +329,7 @@ export class DocumentStorageService {
         approved,
         documentType: doc.documentType,
         cleanerUserId: doc.userId,
+        ...(reason ? { reason } : {}),
       },
       ipAddress,
     });
