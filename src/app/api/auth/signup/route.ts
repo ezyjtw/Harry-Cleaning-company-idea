@@ -4,6 +4,7 @@ import { generateApiToken, generateBridgeCode } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { registerUser } from '@/lib/services/auth.service';
+import { displayName } from '@/lib/utils/name';
 
 const MAX_SIGNUP_ATTEMPTS = 3;
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
       );
     }
     const body = await request.json();
-    const { email, password, name, phone, role } = body;
+    const { email, password, name: rawName, phone, role } = body;
+    // Name casing heals on save (shared helper — 'james wright' → 'James Wright').
+    const name = typeof rawName === 'string' ? displayName(rawName) : rawName;
 
     if (!email || !password || !name) {
       return NextResponse.json(

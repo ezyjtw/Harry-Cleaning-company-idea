@@ -10,6 +10,7 @@
 import prisma from '@/lib/db/prisma';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { displayName } from '@/lib/utils/name';
 import { haversineDistance } from '@/lib/utils/postcode';
 
 /**
@@ -97,7 +98,7 @@ export async function findCleanersNearPoint(
   const shown = await Promise.all(
     inArea.slice(0, limit).map(async ({ c, distance }) => ({
       id: c.user.id,
-      name: c.user.name || 'Cleaner',
+      name: displayName(c.user.name) || 'Cleaner',
       photo: (await resolveProfileImageUrl(c.user.image)) || null,
       rating: Number(c.rating),
       reviewCount: c.user.reviewsReceived.length,
@@ -177,7 +178,7 @@ export async function listDirectoryCleaners(limit = 50) {
       const photoUrl = await resolveProfileImageUrl(c.user.image);
       return {
         id: c.user.id,
-        name: c.user.name,
+        name: displayName(c.user.name),
         photo: photoUrl || '',
         image: photoUrl,
         rating: Number(c.rating),
@@ -273,7 +274,7 @@ export async function findReviewsForCleaners(cleanerIds: string[], limit = 3) {
     id: r.id,
     rating: Math.round(Number(r.rating)),
     text: r.text as string,
-    clientName: r.client?.name?.split(/\s+/)[0] || 'Rena customer',
-    cleanerName: r.cleaner?.name || 'their cleaner',
+    clientName: displayName(r.client?.name?.split(/\s+/)[0]) || 'Rena customer',
+    cleanerName: displayName(r.cleaner?.name) || 'their cleaner',
   }));
 }

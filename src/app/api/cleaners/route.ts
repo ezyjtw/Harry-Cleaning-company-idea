@@ -14,6 +14,7 @@ import { sendSignupNotification } from '@/lib/services/email.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
+import { displayName } from '@/lib/utils/name';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
 export async function GET(request: NextRequest) {
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
 
       return {
         id: c.user.id,
-        name: c.user.name,
+        name: displayName(c.user.name),
         photo: photoUrl || '',
         image: photoUrl,
         rating: Number(c.rating),

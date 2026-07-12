@@ -14,6 +14,7 @@ import {
 import JsonLd from '@/components/JsonLd';
 import prisma from '@/lib/db/prisma';
 import { computeCleanerRating } from '@/lib/services/rating.service';
+import { displayName } from '@/lib/utils/name';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
@@ -29,7 +30,7 @@ export async function generateMetadata({
     select: { location: true, bio: true, user: { select: { name: true } } },
   });
   if (!profile) return {};
-  const name = profile.user?.name || 'Cleaner';
+  const name = displayName(profile.user?.name) || 'Cleaner';
   const area = profile.location || 'north-east London';
   const title = `${name} — Cleaner in ${area}`;
   const description = profile.bio
@@ -161,7 +162,7 @@ export default async function CleanerProfilePage({
   const now = new Date();
   const data = {
     id: profile.user.id,
-    name: profile.user.name || 'Cleaner',
+    name: displayName(profile.user.name) || 'Cleaner',
     photo: profile.user.image || null,
     location: profile.location || '',
     rating: Number(profile.rating),

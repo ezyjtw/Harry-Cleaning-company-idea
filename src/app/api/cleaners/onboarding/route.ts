@@ -7,6 +7,8 @@ import prisma from '@/lib/db/prisma';
 import { rateLimit } from '@/lib/rate-limit';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
+import { putObject } from '@/lib/storage/r2-client';
+import { displayName } from '@/lib/utils/name';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
       const user = await tx.user.create({
         data: {
           email: email.toLowerCase().trim(),
-          name: name.trim(),
+          name: displayName(name),
           phone: phone.trim(),
           role: 'CLEANER',
           passwordHash: password ? await bcrypt.hash(password, 12) : null,
@@ -161,18 +163,20 @@ export async function POST(request: NextRequest) {
 
     if (profilePhoto) {
       const buffer = Buffer.from(await profilePhoto.arrayBuffer());
-      // Store profile photo path on user record
+      // Carry-through fix (James, live testing): the profile photo previously
+      // went into the ENCRYPTED document store (as a photo_id doc!) — a field
+      // no avatar surface reads, so cleaners were made to re-upload on the
+      // profile page (and the wizard photo chipped as "Photo ID · review" in
+      // the admin queue). It now lands exactly where the profile page writes:
+      // an R2 object at profile-photos/{userId} + User.image — one photo,
+      // uploaded once, rendered everywhere.
+      const mime = profilePhoto.type || 'image/jpeg';
+      const ext = mime === 'image/jpeg' ? 'jpg' : mime.split('/')[1] || 'jpg';
+      const imageKey = `profile-photos/${result.user.id}.${ext}`;
       uploadPromises.push(
-        DocumentStorageService.uploadDocument({
-          userId: result.user.id,
-          profileId: result.profile.id,
-          documentType: 'photo_id',
-          fileBuffer: buffer,
-          originalName: profilePhoto.name || 'profile_photo.jpg',
-          mimeType: profilePhoto.type || 'image/jpeg',
-          metadata: { subType: 'profile_photo' },
-          ipAddress,
-        })
+        putObject(imageKey, buffer, mime).then(() =>
+          prisma.user.update({ where: { id: result.user.id }, data: { image: imageKey } })
+        )
       );
     }
 
