@@ -21,6 +21,45 @@ export function isValidPostcode(postcode: string): boolean {
   return UK_POSTCODE_REGEX.test(cleaned) || PARTIAL_POSTCODE_REGEX.test(cleaned);
 }
 
+// F6: save-time verification needs to tell "that postcode doesn't exist"
+// (reject the save) apart from "postcodes.io is down" (fail open, flag for
+// lazy retry). lookupPostcode keeps its null-on-anything contract for the
+// existing read paths.
+export type PostcodeLookupOutcome =
+  | { status: 'found'; result: PostcodeResult }
+  | { status: 'not_found' }
+  | { status: 'unavailable' };
+
+export async function lookupPostcodeOutcome(postcode: string): Promise<PostcodeLookupOutcome> {
+  if (!isValidPostcode(postcode)) return { status: 'not_found' };
+
+  const cleaned = encodeURIComponent(postcode.trim().replace(/\s+/g, ''));
+  try {
+    const res = await fetch(`https://api.postcodes.io/postcodes/${cleaned}`, {
+      next: { revalidate: 86400 },
+    });
+    if (res.status === 404) return { status: 'not_found' };
+    if (!res.ok) return { status: 'unavailable' };
+
+    const data = await res.json();
+    if (data.status === 404) return { status: 'not_found' };
+    if (data.status !== 200 || !data.result) return { status: 'unavailable' };
+
+    return {
+      status: 'found',
+      result: {
+        postcode: data.result.postcode,
+        latitude: data.result.latitude,
+        longitude: data.result.longitude,
+        region: data.result.region || '',
+        admin_district: data.result.admin_district || '',
+      },
+    };
+  } catch {
+    return { status: 'unavailable' };
+  }
+}
+
 /**
  * Look up a full UK postcode via postcodes.io.
  * Returns lat/lng or null if invalid.

@@ -15,7 +15,8 @@ import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { displayName } from '@/lib/utils/name';
-import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
+import { haversineDistance, lookupPostcode, lookupPostcodeOutcome } from '@/lib/utils/postcode';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -279,17 +280,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const geo = await lookupPostcode(body.postcode.trim());
-
-    // Geocode hard gate: a cleaner with no resolvable coordinates can't be matched
-    // to any customer by area (they'd be invisible to every postcode search). Refuse
-    // to persist a coverage-less profile rather than storing null lat/lng silently.
-    if (!geo) {
+    // F6: the home postcode must be a COMPLETE postcode in canonical form —
+    // a polygon can't anchor on half a postcode, and the normalised form is
+    // what's stored, displayed, and fed to the catchment generator.
+    const homePostcodeNorm = normalizeUkPostcode(String(body.postcode));
+    if (!homePostcodeNorm) {
       return NextResponse.json(
-        { error: "We couldn't locate that postcode — please check and re-enter." },
+        {
+          error:
+            'Enter your full postcode (e.g. E4 7AP) — we need it to match you with nearby customers.',
+        },
         { status: 400 }
       );
     }
+
+    // F6 strong version: verified against postcodes.io at save time. A postcode
+    // that doesn't exist is rejected here, not stored to silently fail polygon
+    // generation later. Fail-open ONLY on a provider outage: the save proceeds
+    // ungeocoded (homeGeocodedAt stays null — the lazy-retry flag) and the
+    // catchment generator re-looks it up on its next refresh.
+    const lookup = await lookupPostcodeOutcome(homePostcodeNorm);
+    if (lookup.status === 'not_found') {
+      return NextResponse.json(
+        { error: "We can't find that postcode — check and try again." },
+        { status: 400 }
+      );
+    }
+    const geo = lookup.status === 'found' ? lookup.result : null;
 
     // Check if email already exists
     const existing = await prisma.user.findUnique({
@@ -343,14 +360,14 @@ export async function POST(request: NextRequest) {
             serviceTypes: body.serviceTypes || [],
             hoursPerWeek: body.hoursPerWeek ? Number(body.hoursPerWeek) : null,
             yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
-            location: body.postcode?.trim() || null,
-            postcode: body.postcode?.trim() || null,
-            latitude: geo.latitude,
-            longitude: geo.longitude,
-            homePostcode: body.postcode.trim().toUpperCase(),
-            homeLatitude: geo.latitude,
-            homeLongitude: geo.longitude,
-            homeGeocodedAt: new Date(),
+            location: homePostcodeNorm,
+            postcode: homePostcodeNorm,
+            latitude: geo?.latitude ?? null,
+            longitude: geo?.longitude ?? null,
+            homePostcode: homePostcodeNorm,
+            homeLatitude: geo?.latitude ?? null,
+            homeLongitude: geo?.longitude ?? null,
+            homeGeocodedAt: geo ? new Date() : null,
             maxTravelMinutes,
             radius: 10,
             travelMode: body.travelMode || 'public_transport',
@@ -481,14 +498,14 @@ export async function POST(request: NextRequest) {
           serviceTypes: body.serviceTypes || [],
           hoursPerWeek: body.hoursPerWeek ? Number(body.hoursPerWeek) : null,
           yearsExperience: body.yearsExperience ? Number(body.yearsExperience) : null,
-          location: body.postcode?.trim() || null,
-          postcode: body.postcode?.trim() || null,
-          latitude: geo.latitude,
-          longitude: geo.longitude,
-          homePostcode: body.postcode.trim().toUpperCase(),
-          homeLatitude: geo.latitude,
-          homeLongitude: geo.longitude,
-          homeGeocodedAt: new Date(),
+          location: homePostcodeNorm,
+          postcode: homePostcodeNorm,
+          latitude: geo?.latitude ?? null,
+          longitude: geo?.longitude ?? null,
+          homePostcode: homePostcodeNorm,
+          homeLatitude: geo?.latitude ?? null,
+          homeLongitude: geo?.longitude ?? null,
+          homeGeocodedAt: geo ? new Date() : null,
           maxTravelMinutes,
           radius: 10,
           travelMode: body.travelMode || 'public_transport',

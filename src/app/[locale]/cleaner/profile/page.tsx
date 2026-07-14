@@ -5,6 +5,8 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
+
 // Matches the customer wizard's specialty set. Existing stored specialties on
 // a profile are left untouched — only the selectable options shown here change.
 const specialtyOptions = ['Pet-Friendly', 'Eco-Friendly', 'Elderly-Friendly'];
@@ -595,6 +597,12 @@ export default function CleanerProfilePage() {
               onChange={(e) => {
                 setHomePostcode(e.target.value);
                 markDirty();
+              }}
+              onBlur={() => {
+                // F6: normalise on entry — canonical "E4 7AP" form is what's
+                // displayed, submitted, and stored.
+                const norm = normalizeUkPostcode(homePostcode);
+                if (norm && norm !== homePostcode) setHomePostcode(norm);
               }}
               placeholder="e.g. SW1A 1AA"
               className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition uppercase"
