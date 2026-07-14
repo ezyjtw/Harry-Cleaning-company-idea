@@ -163,11 +163,19 @@ export async function GET() {
     }),
 
     // Admin-reject surface (James): the cleaner must see what was rejected +
-    // why, so they can re-upload. Newest rejected doc per type.
+    // why, so they can re-upload. F8: fetch ALL docs and judge by the NEWEST of
+    // each type (same supersession rule as the admin queue) — a fresh re-upload
+    // must clear the rejection notice here, not leave it stuck forever.
     prisma.documentUpload.findMany({
-      where: { userId: user.id, isDestroyed: false, rejectedAt: { not: null }, isVerified: false },
-      select: { documentType: true, rejectionReason: true, rejectedAt: true },
-      orderBy: { rejectedAt: 'desc' },
+      where: { userId: user.id, isDestroyed: false },
+      select: {
+        documentType: true,
+        rejectionReason: true,
+        rejectedAt: true,
+        isVerified: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
     }),
   ]);
 
@@ -210,7 +218,9 @@ export async function GET() {
       verified: profile.verified,
       verificationStatus: profile.verificationStatus,
       insuranceVerified: profile.insuranceVerified,
-      insuranceExpiresAt: profile.insuranceExpiresAt ? profile.insuranceExpiresAt.toISOString() : null,
+      insuranceExpiresAt: profile.insuranceExpiresAt
+        ? profile.insuranceExpiresAt.toISOString()
+        : null,
       profileComplete: isProfileComplete(profile),
       acknowledgmentComplete: profile.acknowledgmentVersion === CURRENT_AGREEMENT_VERSION,
       serviceTypes: profile.serviceTypes,
@@ -225,12 +235,16 @@ export async function GET() {
       availabilitySlotsCount: profile._count.availabilitySlots,
       importedReviewCount,
       insuranceSubmitted: insuranceDocCount > 0,
-      // Dedup to newest reason per type for the cleaner-side rejection notice.
+      // F8: the NEWEST doc of each type decides (docs arrive createdAt desc) —
+      // rejected only if that newest doc is rejected-and-unverified. A re-upload
+      // (newer row, not rejected) supersedes and the notice clears.
       rejectedDocuments: Array.from(
         rejectedDocs
           .reduce((m, d) => (m.has(d.documentType) ? m : m.set(d.documentType, d)), new Map())
           .values()
-      ).map((d) => ({ type: d.documentType, reason: d.rejectionReason })),
+      )
+        .filter((d) => d.rejectedAt && !d.isVerified)
+        .map((d) => ({ type: d.documentType, reason: d.rejectionReason })),
     },
     stats: {
       todaysJobs,

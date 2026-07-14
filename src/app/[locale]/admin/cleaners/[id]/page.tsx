@@ -17,6 +17,8 @@ export interface CleanerDocument {
   isVerified: boolean;
   verifiedAt: string | null;
   createdAt: string;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
 }
 
 export interface CleanerDetail {
@@ -89,6 +91,9 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
       isVerified: true,
       verifiedAt: true,
       createdAt: true,
+      // F7: rejection is part of the row's story, not just the audit log.
+      rejectedAt: true,
+      rejectionReason: true,
     },
   });
 
@@ -137,6 +142,8 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
       isVerified: d.isVerified,
       verifiedAt: d.verifiedAt?.toISOString() || null,
       createdAt: d.createdAt.toISOString(),
+      rejectedAt: d.rejectedAt?.toISOString() || null,
+      rejectionReason: d.rejectionReason,
     })),
   };
 }
