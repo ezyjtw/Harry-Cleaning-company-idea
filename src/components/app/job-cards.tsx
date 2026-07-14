@@ -44,13 +44,18 @@ export function pay(job: AppJob): number {
   return job.viewerEarnings ?? job.cleanerEarnings;
 }
 
-export function startsInLabel(dateIso: string, time: string): string | null {
+export function minutesUntilStart(dateIso: string, time: string): number | null {
   const [h, m] = time.split(':').map(Number);
   const start = new Date(`${dateIso}T00:00:00`);
   start.setHours(h || 0, m || 0, 0, 0);
   const diffMs = start.getTime() - Date.now();
   if (diffMs <= 0) return null;
-  const mins = Math.round(diffMs / 60000);
+  return Math.round(diffMs / 60000);
+}
+
+export function startsInLabel(dateIso: string, time: string): string | null {
+  const mins = minutesUntilStart(dateIso, time);
+  if (mins === null) return null;
   if (mins < 60) return `Starts in ${mins} min`;
   return `Starts in ${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
@@ -74,17 +79,32 @@ export function HeroJob({
   const action = LIFECYCLE_ACTION[job.status];
   void now; // referenced so the hero re-renders on the countdown tick
   const countdown = startsInLabel(job.date, job.time);
+  // C3: T-30 warm state — inside half an hour of the start the hero warms up
+  // (amber ring + amber countdown chip) so "you should be moving" reads at a
+  // glance. Only before the job starts; once it's underway the state chip is
+  // the story.
+  const minsToStart = minutesUntilStart(job.date, job.time);
+  const warm = minsToStart !== null && minsToStart <= 30;
   const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
 
   return (
-    <div className="rounded-2xl bg-primary p-5 text-white shadow-sm">
+    <div
+      className={`rounded-2xl bg-primary p-5 text-white shadow-sm ${
+        warm ? 'ring-2 ring-warning/80' : ''
+      }`}
+    >
       <div className="flex items-center justify-between">
         <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
           Next · {job.status.replace(/_/g, ' ')}
         </p>
-        {countdown && (
-          <p className="font-jost text-[12px] font-semibold text-white/90">{countdown}</p>
-        )}
+        {countdown &&
+          (warm ? (
+            <p className="rounded-full bg-warning px-2.5 py-0.5 font-jost text-[12px] font-semibold text-white">
+              {countdown}
+            </p>
+          ) : (
+            <p className="font-jost text-[12px] font-semibold text-white/90">{countdown}</p>
+          ))}
       </div>
 
       <div className="mt-2 flex items-start justify-between gap-3">
@@ -92,7 +112,10 @@ export function HeroJob({
           <p className="font-newsreader text-[22px] font-semibold leading-tight">
             {job.time} · {job.clientName}
           </p>
-          <a href={mapsHref} className="mt-1 block truncate font-jost text-sm text-white/85 underline">
+          <a
+            href={mapsHref}
+            className="mt-1 block truncate font-jost text-sm text-white/85 underline"
+          >
             {job.address}
           </a>
           <p className="mt-1 font-jost text-[13px] text-white/60">
@@ -149,7 +172,10 @@ export function JobCard({
           <p className="font-newsreader text-lg font-semibold text-ink">
             {job.time} · {job.clientName}
           </p>
-          <a href={mapsHref} className="mt-0.5 block truncate font-jost text-sm text-primary underline">
+          <a
+            href={mapsHref}
+            className="mt-0.5 block truncate font-jost text-sm text-primary underline"
+          >
             {job.address}
           </a>
           <p className="mt-1 font-jost text-[13px] text-ink-3">
@@ -182,6 +208,31 @@ export function JobCard({
           Message
         </Link>
       </div>
+    </div>
+  );
+}
+
+// ── C3: completed job as a single-line receipt ──
+export function ReceiptRow({ job }: { job: AppJob }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-line/60 py-2.5 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <svg
+          className="h-4 w-4 shrink-0 text-trust"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2.2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+        <p className="truncate font-jost text-sm text-ink-2">
+          {job.time} · {job.clientName}
+        </p>
+      </div>
+      <p className="shrink-0 font-newsreader text-base font-medium text-ink">
+        £{pay(job).toFixed(2)}
+      </p>
     </div>
   );
 }

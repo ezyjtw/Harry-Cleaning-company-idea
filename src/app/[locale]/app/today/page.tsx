@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   type AppJob as Job,
   HeroJob,
   JobCard,
   LIFECYCLE_ACTION,
+  ReceiptRow,
   haptic,
   isoOf,
   pay,
@@ -17,6 +18,49 @@ function dateEyebrow(): string {
   return new Date()
     .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
     .toUpperCase();
+}
+
+// C3: "Day off — next job Thu 10:00" living empty state.
+function nextJobLabel(j: Job): string {
+  const d = new Date(`${j.date}T00:00:00`);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const day =
+    j.date === isoOf(tomorrow) ? 'tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short' });
+  return `${day} ${j.time}`;
+}
+
+// C3: the earned-today serif ticker — counts up to the day's completed total,
+// and counts on from there when another job completes.
+function EarnedTicker({ amount }: { amount: number }) {
+  const [display, setDisplay] = useState(0);
+  const fromRef = useRef(0);
+  useEffect(() => {
+    const from = fromRef.current;
+    const delta = amount - from;
+    if (delta === 0) return;
+    const t0 = performance.now();
+    const DURATION = 700;
+    let raf: number;
+    const step = (t: number) => {
+      const p = Math.min((t - t0) / DURATION, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(from + delta * eased);
+      if (p < 1) {
+        raf = requestAnimationFrame(step);
+      } else {
+        fromRef.current = amount;
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [amount]);
+  return (
+    <p className="mt-1.5 font-newsreader text-lg font-medium text-ink">
+      £{display.toFixed(2)}{' '}
+      <span className="font-jost text-[13px] font-normal text-ink-3">earned today</span>
+    </p>
+  );
 }
 
 export default function TodayPage() {
@@ -85,6 +129,20 @@ export default function TodayPage() {
     () => jobs.filter((j) => j.date === today).sort((a, b) => a.time.localeCompare(b.time)),
     [jobs, today]
   );
+  // C3: the day splits into what's still to do and the receipts of what's done.
+  const activeToday = useMemo(
+    () => todayJobs.filter((j) => j.status !== 'completed' && j.status !== 'cancelled'),
+    [todayJobs]
+  );
+  const doneToday = useMemo(() => todayJobs.filter((j) => j.status === 'completed'), [todayJobs]);
+  const earnedToday = useMemo(() => doneToday.reduce((s, j) => s + pay(j), 0), [doneToday]);
+  const nextUpcoming = useMemo(() => {
+    return jobs
+      .filter((j) => j.status !== 'completed' && j.status !== 'cancelled')
+      .map((j) => ({ j, start: new Date(`${j.date}T${j.time}:00`).getTime() }))
+      .filter((x) => !Number.isNaN(x.start) && x.start > now)
+      .sort((a, b) => a.start - b.start)[0]?.j;
+  }, [jobs, now]);
 
   const weekByDay = useMemo(() => {
     const days: { iso: string; label: string; isToday: boolean; jobs: Job[] }[] = [];
@@ -158,7 +216,9 @@ export default function TodayPage() {
   if (!loading && loadError && jobs.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">Couldn&apos;t load your jobs</h1>
+        <h1 className="font-newsreader text-xl font-semibold text-ink">
+          Couldn&apos;t load your jobs
+        </h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -185,8 +245,10 @@ export default function TodayPage() {
             {loading
               ? 'Your day'
               : todayJobs.length === 0
-                ? 'No jobs today'
-                : `${todayJobs.length} job${todayJobs.length === 1 ? '' : 's'} today`}
+                ? 'Day off'
+                : activeToday.length === 0
+                  ? 'All done today'
+                  : `${activeToday.length} job${activeToday.length === 1 ? '' : 's'} today`}
           </h1>
           {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
               the focus/visibility refetch make it redundant. B4: the bell
@@ -197,7 +259,13 @@ export default function TodayPage() {
             onClick={() => haptic('light')}
             className="mt-1 shrink-0 rounded-full border border-line bg-surface p-2 text-ink-2 active:bg-page"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -206,6 +274,7 @@ export default function TodayPage() {
             </svg>
           </Link>
         </div>
+        {!loading && earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (
             <button
@@ -238,33 +307,57 @@ export default function TodayPage() {
         </div>
       ) : view === 'today' ? (
         todayJobs.length > 0 ? (
-          <div className="space-y-3">
-            {todayJobs.map((job, i) =>
-              i === 0 ? (
-                <HeroJob
-                  key={job.id}
-                  job={job}
-                  now={now}
-                  processing={processingId === job.id}
-                  onAdvance={() => advance(job)}
-                />
-              ) : (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  now={now}
-                  processing={processingId === job.id}
-                  onAdvance={() => advance(job)}
-                />
-              )
+          <div>
+            <div className="space-y-3">
+              {activeToday.map((job, i) =>
+                i === 0 ? (
+                  <HeroJob
+                    key={job.id}
+                    job={job}
+                    now={now}
+                    processing={processingId === job.id}
+                    onAdvance={() => advance(job)}
+                  />
+                ) : (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    now={now}
+                    processing={processingId === job.id}
+                    onAdvance={() => advance(job)}
+                  />
+                )
+              )}
+            </div>
+            {/* C3: completed jobs collapse to single-line receipts */}
+            {doneToday.length > 0 && (
+              <div className={activeToday.length > 0 ? 'mt-5' : ''}>
+                <p className="mb-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+                  Done today
+                </p>
+                <div className="rounded-2xl border border-line bg-surface px-4 py-1">
+                  {doneToday.map((job) => (
+                    <ReceiptRow key={job.id} job={job} />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         ) : (
+          /* C3: living empty state — the day off still tells you what's next */
           <div className="rounded-2xl border border-line bg-surface p-6 text-center">
-            <p className="font-jost text-sm text-ink-2">No jobs scheduled for today.</p>
+            <p className="font-newsreader text-lg font-semibold text-ink">
+              {nextUpcoming ? `Next job ${nextJobLabel(nextUpcoming)}` : 'Nothing booked yet'}
+            </p>
+            <p className="mt-1 font-jost text-sm text-ink-2">
+              {nextUpcoming
+                ? `${nextUpcoming.clientName} · ${nextUpcoming.address}`
+                : 'Keep your availability fresh so offers can find you.'}
+            </p>
             <Link
-              href="/cleaner/availability"
-              className="mt-3 inline-block rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white"
+              href="/app/availability"
+              onClick={() => haptic('light')}
+              className="mt-4 inline-block rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white"
             >
               Update your availability
             </Link>
@@ -290,9 +383,26 @@ export default function TodayPage() {
                 <p className="font-jost text-sm font-light text-ink-3/70">No jobs</p>
               ) : (
                 <div className="space-y-3">
-                  {d.jobs.map((job) => (
-                    <JobCard key={job.id} job={job} now={now} processing={false} onAdvance={() => {}} />
-                  ))}
+                  {d.jobs
+                    .filter((job) => job.status !== 'completed')
+                    .map((job) => (
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        now={now}
+                        processing={false}
+                        onAdvance={() => {}}
+                      />
+                    ))}
+                  {d.jobs.some((job) => job.status === 'completed') && (
+                    <div className="rounded-2xl border border-line bg-surface px-4 py-1">
+                      {d.jobs
+                        .filter((job) => job.status === 'completed')
+                        .map((job) => (
+                          <ReceiptRow key={job.id} job={job} />
+                        ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -302,7 +412,9 @@ export default function TodayPage() {
 
       {!loading && (
         <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3.5 text-center">
-          <span className="font-jost text-[12px] uppercase tracking-[0.12em] text-ink-3">This week</span>
+          <span className="font-jost text-[12px] uppercase tracking-[0.12em] text-ink-3">
+            This week
+          </span>
           <span className="font-newsreader text-xl font-medium text-ink">
             £{weekSummary.earned.toFixed(2)}
           </span>
