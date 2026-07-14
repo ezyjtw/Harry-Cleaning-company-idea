@@ -1,5 +1,56 @@
 The default branch is main. Always target main for branches and pull requests.
 
+## The gate workflow (binding)
+
+Every piece of work follows: **build on a session branch → plain-text checklist
+report → WAIT for James's explicit word → merge to main.** No merge on inference,
+silence, or "looks done" — the word must be explicit.
+
+- **Money-touching or data-deleting code** (payments, payouts, refunds, cascade,
+  fees, anything that deletes or overwrites records): James gets a **full diff
+  review** before the word, not just a checklist.
+- **Visual changes**: before/after screenshots accompany the checklist.
+- Checklists are plain text, per item, and state what changed, how to test it,
+  and whether verifying needs a WEB-refresh or a TUNNEL-restart.
+- Ambiguities are **parked with a note, never guessed**. The parked list ships
+  with every gate report.
+
+## App leak-proofing law (binding)
+
+The native app effort may only touch: **`mobile/`**, **`/app` routes**, and
+**shell-gated skins** of shared components. **Zero unconditional changes to
+shared web pages.** Any change a shared page needs for the app must be gated on
+the app shell (UA/shell detection), so the public site is untouched.
+
+Acceptance test: **incognito diff** — a logged-out browser on the public site
+must show identical behaviour and markup before/after the change. Every gate
+report on app work includes the sweep: shared files touched → proof of the
+shell gate → the incognito-diff statement.
+
+## Three-layer app model
+
+- **L1 — native shell**: the Expo app in `mobile/` (tabs, auth, push, haptics).
+- **L2 — `/app` routes**: screens purpose-built for the shell, served into its
+  WebView (e.g. `/app/jobs`, `/app/earnings`, `/app/inbox`).
+- **L3 — wrapped portal**: existing portal pages rendered inside the shell,
+  possibly with a shell-gated skin, until an L2 replacement earns its place.
+
+## Settled rulings (James — do not relitigate)
+
+- **Net-first earnings**: everywhere cleaner-facing, show net figures first.
+- **6% service fee appears only at checkout** plus the pricing-example box —
+  nowhere else on the site or app.
+- **Cleaner-set rates** — no multipliers, anywhere.
+- **Same-day cleaning = "coming soon"**, no price shown.
+- **Light app theme**; **option-B logo untouched** (the lockup on light stays
+  exactly as designed).
+- **Brand fonts only**: Etna (logo), Newsreader (serif), Jost (sans). No
+  system-font stand-ins on shipped surfaces.
+- **Guest parity via tokened email links** — guests get the same flows through
+  tokens, not accounts.
+- **Catchment check fails open** — if the check errors, let the booking proceed.
+- **"Rena Cleaning Network"** is the formal name; **"Rena"** is the brand.
+
 ## UAT after deployment
 
 After every change that gets committed/pushed for deployment, provide a UAT
