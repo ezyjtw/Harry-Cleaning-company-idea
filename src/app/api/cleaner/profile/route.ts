@@ -12,8 +12,8 @@ import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { displayName } from '@/lib/utils/name';
-import { lookupPostcode } from '@/lib/utils/postcode';
-import { isValidUkPostcode } from '@/lib/validation/inputs';
+import { lookupPostcodeOutcome } from '@/lib/utils/postcode';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 export async function GET() {
   const user = await getCleanerSession();
@@ -231,21 +231,37 @@ export async function PUT(request: NextRequest) {
     }
   }
   if (homePostcode !== undefined) {
-    const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
-    const trimmedPostcode = homePostcode.trim();
-    if (!UK_POSTCODE_RE.test(trimmedPostcode)) {
-      return NextResponse.json({ error: 'Please enter a valid UK postcode' }, { status: 400 });
+    // F6: complete postcode only, stored in canonical form.
+    const norm = normalizeUkPostcode(String(homePostcode));
+    if (!norm) {
+      return NextResponse.json(
+        { error: 'Enter your full UK postcode (e.g. E4 7AP)' },
+        { status: 400 }
+      );
     }
-    profileUpdate.homePostcode = trimmedPostcode.toUpperCase();
-    profileUpdate.postcode = trimmedPostcode.toUpperCase();
-    profileUpdate.location = trimmedPostcode.toUpperCase();
-    const geo = await lookupPostcode(trimmedPostcode);
-    if (geo) {
-      profileUpdate.homeLatitude = geo.latitude;
-      profileUpdate.homeLongitude = geo.longitude;
+    // F6 strong version: a postcode that doesn't geocode is rejected at save —
+    // previously it was stored silently (with stale coordinates) and polygon
+    // generation failed later. Fail-open only on a postcodes.io outage: the
+    // save proceeds ungeocoded and homeGeocodedAt null flags the lazy retry
+    // (the catchment generator re-looks the postcode up on its next refresh).
+    const lookup = await lookupPostcodeOutcome(norm);
+    if (lookup.status === 'not_found') {
+      return NextResponse.json(
+        { error: "We can't find that postcode — check and try again." },
+        { status: 400 }
+      );
+    }
+    profileUpdate.homePostcode = norm;
+    profileUpdate.postcode = norm;
+    profileUpdate.location = norm;
+    if (lookup.status === 'found') {
+      profileUpdate.homeLatitude = lookup.result.latitude;
+      profileUpdate.homeLongitude = lookup.result.longitude;
       profileUpdate.homeGeocodedAt = new Date();
-      profileUpdate.latitude = geo.latitude;
-      profileUpdate.longitude = geo.longitude;
+      profileUpdate.latitude = lookup.result.latitude;
+      profileUpdate.longitude = lookup.result.longitude;
+    } else {
+      profileUpdate.homeGeocodedAt = null;
     }
   }
   if (maxTravelMinutes !== undefined) {
@@ -259,17 +275,27 @@ export async function PUT(request: NextRequest) {
     profileUpdate.maxTravelMinutes = mtm;
   }
   if (postcode !== undefined && homePostcode === undefined) {
-    // Validation sweep: this branch stored the postcode unvalidated (the
-    // homePostcode branch above already format-checks).
-    if (!isValidUkPostcode(postcode)) {
-      return NextResponse.json({ error: 'Please enter a valid UK postcode' }, { status: 400 });
+    // F6: same complete-form + save-time verification as the homePostcode
+    // branch (was: format check + silent-null geocode).
+    const norm = normalizeUkPostcode(String(postcode));
+    if (!norm) {
+      return NextResponse.json(
+        { error: 'Enter your full UK postcode (e.g. E4 7AP)' },
+        { status: 400 }
+      );
     }
-    profileUpdate.postcode = postcode.trim();
-    profileUpdate.location = postcode.trim();
-    const geo = await lookupPostcode(postcode.trim());
-    if (geo) {
-      profileUpdate.latitude = geo.latitude;
-      profileUpdate.longitude = geo.longitude;
+    const lookup = await lookupPostcodeOutcome(norm);
+    if (lookup.status === 'not_found') {
+      return NextResponse.json(
+        { error: "We can't find that postcode — check and try again." },
+        { status: 400 }
+      );
+    }
+    profileUpdate.postcode = norm;
+    profileUpdate.location = norm;
+    if (lookup.status === 'found') {
+      profileUpdate.latitude = lookup.result.latitude;
+      profileUpdate.longitude = lookup.result.longitude;
     }
   }
   if (testimonials !== undefined) {

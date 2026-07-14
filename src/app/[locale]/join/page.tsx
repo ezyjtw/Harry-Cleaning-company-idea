@@ -18,6 +18,7 @@ import {
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -400,7 +401,9 @@ function DesktopStepper({
                   onClick={() => unlocked && onJump(i)}
                   disabled={!unlocked}
                   aria-current={isActive ? 'step' : undefined}
-                  title={unlocked ? `Go to ${s.label}` : `${s.label} — complete earlier steps first`}
+                  title={
+                    unlocked ? `Go to ${s.label}` : `${s.label} — complete earlier steps first`
+                  }
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                     isComplete
                       ? 'bg-primary text-white hover:bg-primary-hover'
@@ -1343,6 +1346,13 @@ export default function JoinAsCleanerPage() {
                   placeholder="e.g. SW1A 1AA"
                   value={form.postcode}
                   onChange={(e) => set('postcode', e.target.value)}
+                  onBlur={() => {
+                    // F6: normalise on entry — "e47ap" becomes "E4 7AP" the
+                    // moment the field is left; the canonical form is what
+                    // validates, submits, and gets stored.
+                    const norm = normalizeUkPostcode(form.postcode);
+                    if (norm) set('postcode', norm);
+                  }}
                 />
                 <FieldError message={errors.postcode} />
               </div>

@@ -27,6 +27,19 @@ const UK_POSTCODE_RE = /^([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}|GIR\s?0AA)$/i;
 export function isValidUkPostcode(raw: string): boolean {
   return UK_POSTCODE_RE.test(raw.trim());
 }
+
+// F6: canonical form for storage/display/catchment generation. Accepts any
+// spacing/casing of a COMPLETE postcode ("e47ap", "E4  7AP") and returns
+// "E4 7AP" (inward = final 3 characters). Returns null for anything that is
+// not a full postcode — outward-only ("E4") can't anchor a polygon.
+export function normalizeUkPostcode(raw: string): string | null {
+  const compact = String(raw ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+  if (!/^([A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|GIR0AA)$/.test(compact)) return null;
+  return `${compact.slice(0, -3)} ${compact.slice(-3)}`;
+}
 export const postcodeSchema = z
   .string()
   .trim()
@@ -40,7 +53,13 @@ export const MAX_HOURLY_RATE = 200;
 export const MAX_FIXED_PRICE = 2000;
 
 export function isSaneMoney(n: unknown, max: number): n is number {
-  return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= max && Math.round(n * 100) === n * 100;
+  return (
+    typeof n === 'number' &&
+    Number.isFinite(n) &&
+    n >= 0 &&
+    n <= max &&
+    Math.round(n * 100) === n * 100
+  );
 }
 /** A finite rate within [0, MAX_HOURLY_RATE]; the £14 floor stays in pricing.service. */
 export function isSaneHourlyRate(n: unknown): n is number {
