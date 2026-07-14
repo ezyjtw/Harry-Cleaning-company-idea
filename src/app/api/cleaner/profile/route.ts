@@ -11,6 +11,7 @@ import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.ser
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
+import { displayName } from '@/lib/utils/name';
 import { lookupPostcode } from '@/lib/utils/postcode';
 import { isValidUkPostcode } from '@/lib/validation/inputs';
 
@@ -48,7 +49,9 @@ export async function GET() {
   const imageUrl = await resolveProfileImageUrl(profile.user.image);
 
   return NextResponse.json({
-    name: profile.user.name,
+    // F5: display-normalised like every other cleaner-facing serializer, so
+    // pre-heal lowercase rows still render properly cased in the portal shell.
+    name: displayName(profile.user.name),
     email: profile.user.email,
     phone: profile.user.phone,
     image: imageUrl,

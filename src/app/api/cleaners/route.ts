@@ -309,7 +309,11 @@ export async function POST(request: NextRequest) {
       // Existing client — upgrade to cleaner
       let upgradePhotoKey: string | null = null;
       if (photoUpload) {
-        upgradePhotoKey = await uploadProfilePhoto(existing.id, photoUpload.buffer, photoUpload.mime);
+        upgradePhotoKey = await uploadProfilePhoto(
+          existing.id,
+          photoUpload.buffer,
+          photoUpload.mime
+        );
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -452,7 +456,10 @@ export async function POST(request: NextRequest) {
       const user = await tx.user.create({
         data: {
           email: body.email.toLowerCase().trim(),
-          name: body.name.trim(),
+          // F5: save-side casing normalisation on the route the WEB WIZARD posts
+          // to. The earlier fix landed on signup/profile/mobile-onboarding — this
+          // create was still writing the raw lowercase input.
+          name: displayName(body.name),
           phone: body.phone.trim(),
           role: 'CLEANER',
           passwordHash: body.password ? await bcrypt.hash(body.password, 12) : null,

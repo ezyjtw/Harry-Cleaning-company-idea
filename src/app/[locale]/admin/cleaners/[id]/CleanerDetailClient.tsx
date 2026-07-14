@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import CleanerAvatar from '@/components/CleanerAvatar';
+
 import type { CleanerDetail, CleanerDocument } from './page';
 
 const docTypeLabel: Record<string, string> = {
@@ -183,10 +185,15 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
 
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{cleaner.name}</h1>
-          <p className="text-ink-3">{cleaner.email}</p>
-          {cleaner.phone && <p className="text-ink-3 text-sm">{cleaner.phone}</p>}
+        <div className="flex items-start gap-4">
+          {/* F4 addendum: the server component resolved the photo URL but nothing
+              here ever rendered it — the dossier had NO avatar element at all. */}
+          <CleanerAvatar photo={cleaner.image} name={cleaner.name} size={56} />
+          <div>
+            <h1 className="text-2xl font-bold text-ink">{cleaner.name}</h1>
+            <p className="text-ink-3">{cleaner.email}</p>
+            {cleaner.phone && <p className="text-ink-3 text-sm">{cleaner.phone}</p>}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {verificationBadge()}

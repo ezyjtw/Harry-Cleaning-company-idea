@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { prisma } from '@/lib/db/prisma';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { displayName } from '@/lib/utils/name';
 
 import CleanerDetailClient from './CleanerDetailClient';
 
@@ -94,7 +95,7 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
   return {
     userId: profile.user.id,
     profileId: profile.id,
-    name: profile.user.name || 'Unknown',
+    name: displayName(profile.user.name) || 'Unknown',
     email: profile.user.email,
     phone: profile.user.phone,
     createdAt: profile.user.createdAt.toISOString(),

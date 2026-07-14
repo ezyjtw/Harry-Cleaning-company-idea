@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -206,7 +205,12 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {cleanerImage && !imageFailed ? (
-                  <Image
+                  /* F4: plain <img>, NOT next/image. The avatar is a 24h presigned
+                     R2 URL — its host isn't (and shouldn't be) in next.config
+                     images, so next/image throws/400s and the fallback initials
+                     shown forever. Same pattern as CleanerAvatar everywhere else. */
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={cleanerImage}
                     alt=""
                     width={40}

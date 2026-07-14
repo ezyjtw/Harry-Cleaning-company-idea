@@ -17,9 +17,14 @@ function getR2Client(): S3Client {
     );
   }
 
+  // R2_ENDPOINT is a test-only override (local S3 stand-ins for end-to-end
+  // verification). Unset in production, where the Cloudflare endpoint and
+  // virtual-host addressing are used exactly as before.
+  const endpoint = process.env.R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`;
   return new S3Client({
     region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    endpoint,
+    forcePathStyle: Boolean(process.env.R2_ENDPOINT),
     credentials: { accessKeyId, secretAccessKey },
   });
 }

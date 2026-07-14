@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
@@ -101,7 +100,6 @@ export default function CleanerProfilePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-
   }, []);
 
   // Warn on browser close/refresh with unsaved changes
@@ -293,13 +291,10 @@ export default function CleanerProfilePage() {
           <div className="flex items-center gap-6">
             <div className="w-24 h-24 rounded-full bg-primary-soft border-2 border-dashed border-ink-3/30 flex items-center justify-center overflow-hidden flex-shrink-0">
               {photo ? (
-                <Image
-                  src={photo}
-                  alt="Profile"
-                  width={96}
-                  height={96}
-                  className="w-full h-full object-cover"
-                />
+                /* F4: plain <img> — `photo` is a presigned R2 URL (or a fresh
+                   data-URL preview); next/image rejects both hosts. */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photo} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <svg
                   className="w-8 h-8 text-ink-3"
