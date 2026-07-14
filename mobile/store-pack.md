@@ -10,13 +10,15 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 ## 1. Store listing copy (James's voice — edit freely)
 
 ### App name / subtitle
+
 - **App name:** `RENA Cleaners` — **WORKING PLACEHOLDER, NOT LOCKED.**
 - **App Store subtitle** (≤30 chars): `Cleaning jobs, on your terms`
 - **Play short description** (≤80 chars): `Get cleaning jobs near you, set your own rates, and earn on your terms.`
 
 > **⚠️ App-name decision (final call at the P4 gate, before submission)**
 > James's logo draft says "RENA Cleaners", but he's weighing a
-> customer-confusion risk: a *customer* downloading the cleaner app by mistake.
+> customer-confusion risk: a _customer_ downloading the cleaner app by mistake.
+>
 > - **Candidates:** `RENA Cleaners` (current logo draft) · `Rena Pro` · open to
 >   alternatives.
 > - **Mitigations if we keep "RENA Cleaners":** the App Store **subtitle**
@@ -28,6 +30,7 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 >   `app.json` `expo.name`.
 
 ### Full description ("earn on your terms" positioning)
+
 > **Your cleaning work, your way.**
 >
 > RENA Cleaners is the app for independent cleaners on the Rena network. Get matched
@@ -35,6 +38,7 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 > earn — you set your own rates and hours.
 >
 > **Built for your workday**
+>
 > - **Today** — every job for the day at a glance: time, customer, area, pay, and
 >   one-tap "I'm on my way → Start → Complete" as you work.
 > - **Job offers** — when a new job comes in, you get a notification with the pay,
@@ -46,6 +50,7 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 >   availability, all in the app.
 >
 > **Why cleaners choose Rena**
+>
 > - Keep 90% of your earnings — one of the lowest platform fees around.
 > - Choose your own customers, rates, and hours.
 > - Every customer is verified; payments are handled securely.
@@ -55,6 +60,7 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 > Rena? Apply at renacleaning.co.uk/join.
 
 ### Keywords
+
 - **App Store** (single field, ≤100 chars, comma-separated, no spaces needed):
   `cleaner,cleaning jobs,housekeeping,self employed,gig,domestic cleaner,earnings,rota,house cleaning`
 - **Play** (woven into the description — Play has no keyword field): cleaner jobs,
@@ -62,24 +68,27 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
   flexible work, get paid.
 
 ### Category
-- **Primary:** Business *(or Productivity)* · **Secondary:** Lifestyle.
+
+- **Primary:** Business _(or Productivity)_ · **Secondary:** Lifestyle.
 
 ---
 
 ## 2. Privacy — derived honestly from the code
 
 ### What data the app actually touches
-| Data | Where it's used | Notes |
-|---|---|---|
-| **Account identity** — name, email, phone | Login; shown in profile/portal | Stored server-side (User). Login sends email+password to `/api/auth/login`. |
-| **Bookings** — customer name, address, date/time, service, pay | Today + Offer + portal | The cleaner sees the jobs assigned/offered to them. |
-| **Messages** — cleaner ↔ customer | Messages tab (portal) | First-party, between the two parties to a booking. |
-| **Push token** — Expo device token | Registered on login to send job offers | Stored (DeviceToken); deleted on logout. |
-| **Session cookie** — NextAuth session | Kept in the WebView to stay signed in | HttpOnly; on-device only. Bearer token in the Keychain for native calls. |
-| **Home postcode + travel time** | Entered by the cleaner (text) to define their service area | **User-typed text, not device location.** |
-| **First-party analytics** — funnel/usage events | Product analytics on the web app | First-party only; no third-party ad/tracking SDKs. |
+
+| Data                                                           | Where it's used                                            | Notes                                                                       |
+| -------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Account identity** — name, email, phone                      | Login; shown in profile/portal                             | Stored server-side (User). Login sends email+password to `/api/auth/login`. |
+| **Bookings** — customer name, address, date/time, service, pay | Today + Offer + portal                                     | The cleaner sees the jobs assigned/offered to them.                         |
+| **Messages** — cleaner ↔ customer                              | Messages tab (portal)                                      | First-party, between the two parties to a booking.                          |
+| **Push token** — Expo device token                             | Registered on login to send job offers                     | Stored (DeviceToken); deleted on logout.                                    |
+| **Session cookie** — NextAuth session                          | Kept in the WebView to stay signed in                      | HttpOnly; on-device only. Bearer token in the Keychain for native calls.    |
+| **Home postcode + travel time**                                | Entered by the cleaner (text) to define their service area | **User-typed text, not device location.**                                   |
+| **First-party analytics** — funnel/usage events                | Product analytics on the web app                           | First-party only; no third-party ad/tracking SDKs.                          |
 
 ### Does any of it constitute "tracking" (Apple's definition)? **No.**
+
 Apple defines tracking as linking user/device data with **third-party** data for
 targeted advertising or measurement, or sharing with a **data broker**. RENA
 Cleaners does **none** of that: no ad SDKs, no third-party analytics/attribution
@@ -88,7 +97,8 @@ web); the app processes no card data natively. **No device location** is accesse
 (the service-area postcode is typed text). Therefore **"Data Used to Track You: None."**
 
 ### Apple App Privacy labels (App Store Connect → App Privacy)
-- **Data Used to Track You:** *None.*
+
+- **Data Used to Track You:** _None._
 - **Data Linked to You** (collected + tied to identity):
   - **Contact Info** — name, email, phone.
   - **Financial Info** — **DECLARE YES.** The app surfaces the cleaner's
@@ -101,9 +111,10 @@ web); the app processes no card data natively. **No device location** is accesse
   - **Identifiers** — user ID; push token.
   - **Usage Data** — product interaction/analytics (first-party).
   - **Diagnostics** — crash/performance (if you enable any; otherwise omit).
-- **Data Not Linked to You:** *None* (or Diagnostics if anonymised).
+- **Data Not Linked to You:** _None_ (or Diagnostics if anonymised).
 
 ### Google Play Data Safety form
+
 - **Data collected:** Personal info (name, email, phone), **Financial info
   (earnings/payout amounts — collected, linked to the user, not for ads)**,
   Messages, App activity (usage), Device IDs (push token). **Location: No** (no
@@ -121,6 +132,7 @@ web); the app processes no card data natively. **No device location** is accesse
 ## 3. Apple review notes (App Store Connect → App Review Information → Notes)
 
 ### Reviewer paragraph
+
 > RENA Cleaners is the companion app for **verified, self-employed cleaners** on the
 > Rena Cleaning Network (a UK cleaning marketplace). Cleaners use it to see their
 > day's jobs, receive and accept/decline new job offers via push, manage their
@@ -132,14 +144,17 @@ web); the app processes no card data natively. **No device location** is accesse
 > and a pending offer is provided below so you can exercise the full flow.
 
 ### 4.2 positioning line (per the Phase-0 survival plan)
+
 > This is a native workday companion for self-employed cleaners — real-time job
 > offers via push, a purpose-built day view with inline job actions, and secure
 > biometric access — not a repackaged website. The Today and Offer screens and push
 > are the core native experience.
 
 ### Demo test-account plan (James creates this pre-submission)
-The reviewer must be able to *exercise* the flow, so a static empty account won't
+
+The reviewer must be able to _exercise_ the flow, so a static empty account won't
 pass. Provide a seeded demo cleaner that has, at review time:
+
 - A **verified, active, Stripe-enabled** cleaner profile (so it isn't gated out),
   with a home postcode + travel time set (coverage).
 - **At least 2 jobs dated "today"** in ACCEPTED/EN_ROUTE state → so **Today** shows
@@ -153,27 +168,33 @@ pass. Provide a seeded demo cleaner that has, at review time:
   second standing offer. Keep a couple of spare "today" jobs so the board isn't
   empty if one gets completed during review.
 
-*(How to seed: a small admin/seed script that creates the demo cleaner + these
+_(How to seed: a small admin/seed script that creates the demo cleaner + these
 bookings — James/dev sets it up on the environment the TestFlight/production build
-points at, i.e. production `baseUrl`.)*
+points at, i.e. production `baseUrl`.)_
 
 ---
 
 ## 4. Asset spec
 
 ### Icon
+
 - **1024×1024 PNG**, no alpha, no rounded corners (Apple rounds it).
-- **The Etna wordmark on ink-navy (`#16296b`)** — the Rena lockup, centered, with
-  comfortable padding. Android adaptive icon: same mark as the **foreground** on a
-  `#16296b` background layer (keep the mark within the safe center ~66%).
+- **The option-B RENA Cleaner lockup, untouched, on light (`#FAFBFC`)** — centered,
+  with comfortable padding (James-ruled: light ground, never navy). Android
+  adaptive icon: same mark as the **foreground** on a `#FAFBFC` background layer
+  (keep the mark within the safe center ~66%).
 
 ### Splash
-- Same Etna wordmark centered on `#16296b` (matches `app.json` splash background).
+
+- Same lockup centered on `#FAFBFC` (matches `app.json` splash background — the
+  arrival is light end-to-end).
 - Provide a high-res PNG (~1284×2778 covers the tallest iPhone); Expo scales with
   `resizeMode: contain`.
 
 ### Store screenshot shot-list (capture once P1 is walkable on-device)
+
 Take these on the demo account (real data):
+
 1. **Today — a full day** ("You have 3 jobs today") with the lifecycle buttons.
 2. **A job in progress** (Start/Complete visible) + the next-job countdown.
 3. **Offer screen** — pay prominent + the amber/danger countdown.
@@ -181,6 +202,7 @@ Take these on the demo account (real data):
 5. **Earnings** (portal) — the net-first "You'll receive £X".
 
 Device sizes required:
+
 - **iPhone 6.7"** (1290×2796) — required.
 - **iPhone 6.5"** (1242×2688) — required for older listings (or reuse 6.7").
 - **iPad** — only if you ship iPad support (currently `supportsTablet: false`, so
@@ -190,6 +212,7 @@ Device sizes required:
 ---
 
 ## Checklist before James submits
+
 - [ ] Finalise the app name (RENA Cleaners vs Rena Pro) — consistent both stores.
 - [ ] Edit the description + subtitle + keywords into James's voice.
 - [ ] Fill the Apple App Privacy + Play Data Safety forms from §2 (confirm the

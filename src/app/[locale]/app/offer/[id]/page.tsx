@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Offer {
   id: string;
@@ -52,11 +52,86 @@ function windowState(expiresAt: string | null, now: number): { text: string; tie
   return { text: clock, tier: 'normal' };
 }
 
-const TIER_STYLE: Record<Exclude<Tier, 'expired'>, string> = {
-  normal: 'bg-primary-soft text-primary',
-  amber: 'bg-warning/10 text-warning',
-  danger: 'bg-danger/10 text-danger',
+// C4: the pill timer is dead — the window now drains as a thin ring around the
+// pay figure. Navy while there's time, amber under 10 minutes, red under 3
+// (same thresholds as before, via windowState).
+const RING_TIER: Record<Exclude<Tier, 'expired'>, string> = {
+  normal: 'text-primary',
+  amber: 'text-warning',
+  danger: 'text-danger',
 };
+
+function PayRing({
+  amount,
+  remainingMs,
+  initialMs,
+  tier,
+}: {
+  amount: number;
+  remainingMs: number | null;
+  initialMs: number | null;
+  tier: Exclude<Tier, 'expired'>;
+}) {
+  const SIZE = 176;
+  const STROKE = 5;
+  const R = (SIZE - STROKE) / 2 - 1;
+  const C = 2 * Math.PI * R;
+  // The ring is full at the moment the offer is opened and drains to zero at
+  // the window's close (fraction of the remaining window, captured on load).
+  const fraction =
+    remainingMs !== null && initialMs && initialMs > 0
+      ? Math.max(0, Math.min(1, remainingMs / initialMs))
+      : 1;
+  let timeLabel: string | null = null;
+  if (remainingMs !== null) {
+    const mins = Math.floor(remainingMs / 60000);
+    const secs = Math.max(0, Math.floor((remainingMs % 60000) / 1000));
+    timeLabel =
+      mins >= 60
+        ? `${Math.floor(mins / 60)}h ${mins % 60}m left`
+        : `${mins}:${String(secs).padStart(2, '0')} left`;
+  }
+  return (
+    <div className="relative mx-auto" style={{ width: SIZE, height: SIZE }}>
+      <svg width={SIZE} height={SIZE} className="-rotate-90">
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={R}
+          fill="none"
+          strokeWidth={STROKE}
+          stroke="currentColor"
+          className="text-line"
+        />
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={R}
+          fill="none"
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          stroke="currentColor"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - fraction)}
+          className={`${RING_TIER[tier]} transition-[stroke-dashoffset] duration-1000 ease-linear`}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+          You&apos;ll earn
+        </p>
+        <p className="font-newsreader text-[34px] font-medium leading-tight text-ink">
+          £{amount.toFixed(2)}
+        </p>
+        {timeLabel && (
+          <p className={`mt-0.5 font-jost text-[12px] font-semibold ${RING_TIER[tier]}`}>
+            {timeLabel}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function OfferPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -97,6 +172,15 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     fetchOffer();
   }, [fetchOffer]);
+
+  // C4: the ring's 100% mark is the window remaining when the offer was first
+  // seen here — captured once, so the ring drains steadily from that moment.
+  const initialMsRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (offer?.cascadeExpiresAt && initialMsRef.current === null) {
+      initialMsRef.current = Math.max(0, new Date(offer.cascadeExpiresAt).getTime() - Date.now());
+    }
+  }, [offer]);
 
   // Tick the countdown every second; flip to the expired terminal state at zero.
   useEffect(() => {
@@ -174,7 +258,9 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   if (loadError) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">Couldn&apos;t load this offer</h1>
+        <h1 className="font-newsreader text-xl font-semibold text-ink">
+          Couldn&apos;t load this offer
+        </h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -197,7 +283,9 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-2xl text-ink-3">
           ⏱
         </div>
-        <h1 className="mt-4 font-newsreader text-xl font-semibold text-ink">This offer has expired</h1>
+        <h1 className="mt-4 font-newsreader text-xl font-semibold text-ink">
+          This offer has expired
+        </h1>
         <p className="mt-2 font-jost text-sm text-ink-2">
           It may have been passed to another cleaner. No action is needed — new offers will appear
           here and on Today.
@@ -215,34 +303,26 @@ export default function OfferPage({ params }: { params: { id: string } }) {
 
   if (!offer) return null;
 
-  const { text: wl, tier } = windowState(offer.cascadeExpiresAt, now);
+  const { tier } = windowState(offer.cascadeExpiresAt, now);
+  const remainingMs = offer.cascadeExpiresAt
+    ? Math.max(0, new Date(offer.cascadeExpiresAt).getTime() - now)
+    : null;
 
   return (
     <div>
-      {wl && tier !== 'expired' && (
-        <div
-          className={`mb-4 rounded-xl px-4 py-2.5 text-center font-jost text-sm font-semibold ${TIER_STYLE[tier]}`}
-        >
-          {wl}
-        </div>
-      )}
-
-      {/* Navy pay-prominent hero */}
+      {/* Navy hero — service + context; the pay figure moved into the ring */}
       <div className="rounded-2xl bg-primary p-5 text-white shadow-sm">
         <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
           New job offer
         </p>
-        <h1 className="mt-1 font-newsreader text-2xl font-semibold">{serviceLabel(offer.serviceType)}</h1>
-        <div className="mt-4 flex items-baseline justify-between border-t border-white/15 pt-4">
-          <span className="font-jost text-sm text-white/70">You&apos;ll earn</span>
-          <span className="font-newsreader text-4xl font-medium leading-none">
-            £{offer.cleanerEarnings.toFixed(2)}
-          </span>
-        </div>
+        <h1 className="mt-1 font-newsreader text-2xl font-semibold">
+          {serviceLabel(offer.serviceType)}
+        </h1>
         {/* B3: context line — travel half from home-point→postcode crow-flies
             maths (server-computed), schedule half from their other active jobs
             on that date. Either half omits itself if unavailable. */}
-        {(offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined || offer.context) && (
+        {((offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined) ||
+          offer.context) && (
           <p className="mt-3 font-jost text-[13px] text-white/70">
             {[
               offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined
@@ -260,6 +340,16 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         )}
       </div>
 
+      {/* C4: pay figure inside the draining countdown ring */}
+      <div className="mt-3 rounded-2xl border border-line bg-surface p-5">
+        <PayRing
+          amount={offer.cleanerEarnings}
+          remainingMs={remainingMs}
+          initialMs={initialMsRef.current}
+          tier={tier === 'expired' ? 'danger' : tier}
+        />
+      </div>
+
       {/* Details */}
       <div className="mt-3 rounded-2xl border border-line bg-surface p-5">
         <div className="space-y-2 font-jost text-sm">
@@ -269,7 +359,9 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           />
           <Row label="Duration" value={`${offer.duration} hours`} />
           <Row label="Area" value={offer.postcode || offer.address} />
-          {typeof offer.bedrooms === 'number' && <Row label="Property" value={`${offer.bedrooms} bed`} />}
+          {typeof offer.bedrooms === 'number' && (
+            <Row label="Property" value={`${offer.bedrooms} bed`} />
+          )}
           <Row label="Customer" value={offer.clientName} />
         </div>
 
@@ -297,7 +389,11 @@ export default function OfferPage({ params }: { params: { id: string } }) {
       {/* B3: decline-reason bottom sheet — one tap declines with the reason
           (stored on Booking.declineReasons for cascade analytics). */}
       {showDeclineSheet && !accepted && (
-        <div className="fixed inset-0 z-50 flex items-end bg-ink/40" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-ink/40"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full rounded-t-2xl bg-surface p-5 pb-8">
             <p className="font-newsreader text-lg font-semibold text-ink">Why not this one?</p>
             <p className="mt-0.5 font-jost text-[13px] text-ink-3">
