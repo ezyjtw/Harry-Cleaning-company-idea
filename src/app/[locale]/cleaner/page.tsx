@@ -244,9 +244,7 @@ export default function CleanerDashboard() {
               setError(null);
               setLoading(true);
               loadDashboard()
-                .catch((e) =>
-                  setError(e instanceof Error ? e.message : 'Failed to load dashboard')
-                )
+                .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
                 .finally(() => setLoading(false));
             }}
             className="mt-4 rounded-[10px] px-6 py-2.5 bg-primary text-white font-jost text-[13px] font-light hover:bg-primary-hover transition"
@@ -262,6 +260,9 @@ export default function CleanerDashboard() {
     const status = data.profile.verificationStatus;
     const isPending = status === 'PENDING';
     const isRejected = status === 'REJECTED';
+    // F8: a rejection outranks "under review" — the headline must be truthful.
+    const rejectedDocs = data.profile.rejectedDocuments ?? [];
+    const hasRejectedDocs = rejectedDocs.length > 0;
 
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
@@ -306,53 +307,35 @@ export default function CleanerDashboard() {
           </div>
 
           <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
-            {isPending
-              ? 'Your application is under review'
-              : isRejected
-                ? 'Application needs attention'
-                : `Welcome, ${data.profile.name?.split(' ')[0] || 'Cleaner'}`}
+            {hasRejectedDocs
+              ? `Action needed — ${rejectedDocs.length} document${rejectedDocs.length === 1 ? '' : 's'} rejected`
+              : isPending
+                ? 'Your application is under review'
+                : isRejected
+                  ? 'Application needs attention'
+                  : `Welcome, ${data.profile.name?.split(' ')[0] || 'Cleaner'}`}
           </h1>
 
           <p className="mt-3 max-w-md mx-auto font-jost text-[15px] font-light text-ink-2 leading-relaxed">
-            {isPending
-              ? "We're verifying your identity — usually within one working day. You'll get an email the moment it's done."
-              : isRejected
-                ? 'There was an issue with your application. Please update your documents and resubmit.'
-                : 'Complete the steps below to get verified and start receiving bookings.'}
+            {hasRejectedDocs
+              ? "A document didn't pass review. The reason and the re-upload are right below — fix it and you're straight back in the queue."
+              : isPending
+                ? "We're verifying your identity — usually within one working day. You'll get an email the moment it's done."
+                : isRejected
+                  ? 'There was an issue with your application. Please update your documents and resubmit.'
+                  : 'Complete the steps below to get verified and start receiving bookings.'}
           </p>
         </div>
 
-        {/* Admin-reject surface (James): if any document was rejected, tell the
-            cleaner what and why, and point them to re-upload. */}
-        {(data.profile.rejectedDocuments?.length ?? 0) > 0 && (
-          <div className="mt-6 rounded-xl border border-danger/30 bg-danger/5 p-4">
-            <p className="font-jost text-sm font-semibold text-danger">
-              Action needed: a document was rejected
-            </p>
-            <ul className="mt-2 space-y-1">
-              {data.profile.rejectedDocuments!.map((d) => (
-                <li key={d.type} className="font-jost text-[13px] text-ink-2">
-                  <span className="font-medium">
-                    {d.type === 'photo_id'
-                      ? 'Photo ID'
-                      : d.type === 'right_to_work'
-                        ? 'Right to Work'
-                        : d.type === 'insurance'
-                          ? 'Insurance'
-                          : d.type}
-                    :
-                  </span>{' '}
-                  {d.reason || 'Please re-upload a clearer copy.'}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 font-jost text-[12px] text-ink-3">
-              Re-upload below (insurance) or on your{' '}
-              <Link href="/verify" className="text-primary underline">
-                verification page
-              </Link>{' '}
-              (identity documents).
-            </p>
+        {/* F8: rejection → understanding why → re-uploading, one journey, no
+            navigation. Each rejected doc is a card: the admin's reason on top,
+            the re-upload control right under it (same mechanism as the inline
+            insurance uploader). */}
+        {hasRejectedDocs && (
+          <div className="mt-6 space-y-3 text-left">
+            {rejectedDocs.map((d) => (
+              <RejectedDocCard key={d.type} type={d.type} reason={d.reason} />
+            ))}
           </div>
         )}
 
@@ -505,8 +488,18 @@ export default function CleanerDashboard() {
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
         <div className="text-center py-10">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-trust/10">
-            <svg className="h-10 w-10 text-trust" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="h-10 w-10 text-trust"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
@@ -531,14 +524,14 @@ export default function CleanerDashboard() {
             href="/cleaner/stripe/connect"
           />
           <InlineInsuranceCard
-                initialState={
-                  data.profile.insuranceVerified
-                    ? 'done'
-                    : data.profile.insuranceSubmitted
-                      ? 'waiting'
-                      : 'todo'
-                }
-              />
+            initialState={
+              data.profile.insuranceVerified
+                ? 'done'
+                : data.profile.insuranceSubmitted
+                  ? 'waiting'
+                  : 'todo'
+            }
+          />
         </div>
         <p className="mt-8 text-center font-jost text-xs font-light text-ink-3">
           Need help?{' '}
@@ -932,21 +925,41 @@ function GoLiveCard({
         }`}
       >
         {state === 'done' ? (
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : state === 'waiting' ? (
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
           </svg>
         ) : (
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`font-jost text-[14px] ${state === 'done' ? 'text-ink-3' : 'font-medium text-ink'}`}>
+        <p
+          className={`font-jost text-[14px] ${state === 'done' ? 'text-ink-3' : 'font-medium text-ink'}`}
+        >
           {title}
         </p>
         <p className="font-jost text-[12px] font-light text-ink-3">
@@ -969,6 +982,130 @@ function GoLiveCard({
           {todoLabel}
         </Link>
       )}
+    </div>
+  );
+}
+
+// F8: inline re-upload AT the rejected document — the admin's reason above the
+// control, the file pick right here, one journey without leaving the status
+// screen. Identity docs post to the session-authed /api/cleaners/documents;
+// insurance posts to /api/cleaner/insurance (needs the policy expiry too).
+// On success the card flips to "Back under review" in place — and admin-side
+// the newest-doc supersession flips their chip back to amber.
+function RejectedDocCard({ type, reason }: { type: string; reason: string | null }) {
+  const [state, setState] = useState<'todo' | 'busy' | 'done'>('todo');
+  const [fileData, setFileData] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const isInsurance = type === 'insurance';
+  const label =
+    type === 'photo_id'
+      ? 'Photo ID'
+      : type === 'right_to_work'
+        ? 'Right to Work'
+        : type === 'dbs_certificate'
+          ? 'DBS Certificate'
+          : type === 'insurance'
+            ? 'Insurance'
+            : type;
+
+  const pickFile = (file: File | undefined) => {
+    setError(null);
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File too large. Maximum size is 10MB.');
+      return;
+    }
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => setFileData(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const submit = async () => {
+    setError(null);
+    if (!fileData) return setError('Choose the replacement file first.');
+    if (isInsurance && !expiry) return setError('Enter the policy expiry date.');
+    setState('busy');
+    try {
+      const res = isInsurance
+        ? await fetch('/api/cleaner/insurance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileData, fileName, expiryDate: expiry }),
+          })
+        : await fetch('/api/cleaners/documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ documentType: type, fileData }),
+          });
+      const body = await res.json().catch(() => null);
+      if (res.ok) {
+        setState('done');
+      } else {
+        setState('todo');
+        setError(body?.error || 'Upload failed. Please try again.');
+      }
+    } catch {
+      setState('todo');
+      setError('Network error — please try again.');
+    }
+  };
+
+  if (state === 'done') {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-4">
+        <p className="font-jost text-sm font-medium text-ink">
+          {label}: <span className="text-trust">✓ re-uploaded — back under review</span>
+        </p>
+        <p className="mt-1 font-jost text-[12px] text-ink-3">
+          We&apos;ll check the new copy — usually within one working day.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-danger/30 bg-danger/5 p-4">
+      <p className="font-jost text-sm font-semibold text-danger">{label} — rejected</p>
+      <p className="mt-1 font-jost text-[13px] text-ink-2">
+        Rejected: {reason || 'please re-upload a clearer copy'}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-light text-white transition hover:bg-primary-hover">
+          {fileName ? 'Change file' : 'Choose replacement'}
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            onChange={(e) => pickFile(e.target.files?.[0])}
+          />
+        </label>
+        {fileName && (
+          <span className="max-w-[180px] truncate font-jost text-[12px] text-ink-2">
+            {fileName}
+          </span>
+        )}
+        {isInsurance && (
+          <input
+            type="date"
+            value={expiry}
+            onChange={(e) => setExpiry(e.target.value)}
+            aria-label="Policy expiry date"
+            className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-[13px] text-ink"
+          />
+        )}
+        <button
+          type="button"
+          onClick={submit}
+          disabled={state === 'busy' || !fileData}
+          className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink transition hover:bg-page disabled:opacity-50"
+        >
+          {state === 'busy' ? 'Uploading…' : 'Re-upload'}
+        </button>
+      </div>
+      {error && <p className="mt-2 font-jost text-[12px] text-danger">{error}</p>}
     </div>
   );
 }
@@ -1048,7 +1185,13 @@ function InlineInsuranceCard({ initialState }: { initialState: 'done' | 'waiting
     >
       <div className="flex items-center gap-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink-3">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
         </div>
@@ -1121,11 +1264,7 @@ function InlineInsuranceCard({ initialState }: { initialState: 'done' | 'waiting
 }
 
 // James-ruled: insurance status + inline upload/renewal on the live dashboard.
-function DashboardInsurance({
-  profile,
-}: {
-  profile: DashboardData['profile'];
-}) {
+function DashboardInsurance({ profile }: { profile: DashboardData['profile'] }) {
   const expiry = profile.insuranceExpiresAt ? new Date(profile.insuranceExpiresAt) : null;
   const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null;
   const expiringSoon = daysLeft !== null && daysLeft <= 30 && daysLeft > 0;
@@ -1145,7 +1284,12 @@ function DashboardInsurance({
           </span>
           {expiry && (
             <span className="font-jost text-[12px] font-light text-ink-3">
-              Expires {expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              Expires{' '}
+              {expiry.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
             </span>
           )}
         </div>
@@ -1172,4 +1316,3 @@ function DashboardInsurance({
     </div>
   );
 }
-

@@ -139,6 +139,16 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
           <span className="inline-flex rounded-full bg-trust/10 px-2 py-0.5 text-xs font-medium text-trust">
             Verified
           </span>
+        ) : doc.rejectedAt ? (
+          /* F7: the rejection reason lives on the row, not just the state. */
+          <div>
+            <span className="inline-flex rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
+              Rejected
+            </span>
+            <p className="mt-1 max-w-[220px] text-xs text-danger">
+              {doc.rejectionReason || 'No reason recorded'}
+            </p>
+          </div>
         ) : (
           <span className="inline-flex rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
             Pending

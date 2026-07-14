@@ -13,6 +13,8 @@ interface QueueDocument {
   mimeType: string;
   fileSize: number;
   isVerified: boolean;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
   expiresAt: string | null;
   createdAt: string;
 }
@@ -36,7 +38,11 @@ interface QueueCleaner {
   insuranceReview: boolean;
   needsReview: boolean;
   // Stage 2 rollup — never blocks identity verification.
-  goLive: { insurance: 'approved' | 'submitted' | 'rejected' | 'missing'; stripe: boolean; live: boolean };
+  goLive: {
+    insurance: 'approved' | 'submitted' | 'rejected' | 'missing';
+    stripe: boolean;
+    live: boolean;
+  };
 }
 
 interface RtwAlert {
@@ -178,7 +184,9 @@ export default function VerificationPage() {
       });
       const data = await res.json().catch(() => null);
       if (res.ok) {
-        setStatusMessage('Identity verified. The cleaner goes live once insurance and payouts are green.');
+        setStatusMessage(
+          'Identity verified. The cleaner goes live once insurance and payouts are green.'
+        );
         setSelectedId(null);
         await fetchQueue();
       } else {
@@ -368,19 +376,34 @@ export default function VerificationPage() {
           {/* Cleaner cards, newest first */}
           <div className="space-y-3">
             {queue
-              .filter((c) =>
-                queueFilter === 'review'
+              .filter((c) => {
+                // F7: a rejection is a waiting-on-cleaner state — the 'waiting'
+                // filter must include cleaners whose docs bounced, even if
+                // another document of theirs is simultaneously in review.
+                const anyRejected = Object.values(c.docStates).some(
+                  (s) => s.rejected && !s.verified
+                );
+                return queueFilter === 'review'
                   ? c.needsReview
                   : queueFilter === 'insurance'
                     ? c.insuranceReview
                     : queueFilter === 'waiting'
-                      ? !c.needsReview && !c.goLive.live
-                      : true
-              )
+                      ? (!c.needsReview && !c.goLive.live) || anyRejected
+                      : true;
+              })
               .map((c) => {
                 const isOpen = selectedId === c.profileId;
+                // F7: a rejected doc must be unmissable at card level.
+                const rejectedCount = Object.values(c.docStates).filter(
+                  (s) => s.rejected && !s.verified
+                ).length;
                 return (
-                  <div key={c.profileId} className="rounded-xl border border-line bg-surface">
+                  <div
+                    key={c.profileId}
+                    className={`rounded-xl border bg-surface ${
+                      rejectedCount > 0 ? 'border-danger/50 ring-1 ring-danger/20' : 'border-line'
+                    }`}
+                  >
                     {/* Card row */}
                     <button
                       type="button"
@@ -456,6 +479,12 @@ export default function VerificationPage() {
                         >
                           Go-live: Payouts{c.goLive.stripe ? ' ✓' : ' · not set up'}
                         </span>
+                        {/* F7: rejected count rides alongside the state chip */}
+                        {rejectedCount > 0 && (
+                          <span className="ml-1 rounded-full bg-danger px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                            {rejectedCount} rejected
+                          </span>
+                        )}
                         <span
                           className={`ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                             c.goLive.live
@@ -497,7 +526,12 @@ export default function VerificationPage() {
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-ink">
                                     {docTypeLabel[doc.documentType] || doc.documentType}
-                                    {doc.isVerified && <span className="ml-2 text-trust">✓ verified</span>}
+                                    {doc.isVerified && (
+                                      <span className="ml-2 text-trust">✓ verified</span>
+                                    )}
+                                    {!doc.isVerified && doc.rejectedAt && (
+                                      <span className="ml-2 text-danger">✕ rejected</span>
+                                    )}
                                   </p>
                                   <p className="text-xs text-ink-3">
                                     {doc.originalName} · {(doc.fileSize / 1024).toFixed(0)} KB ·{' '}
@@ -505,6 +539,12 @@ export default function VerificationPage() {
                                     {doc.expiresAt &&
                                       ` · expires ${new Date(doc.expiresAt).toLocaleDateString('en-GB')}`}
                                   </p>
+                                  {/* F7: the reason on the row itself */}
+                                  {!doc.isVerified && doc.rejectedAt && (
+                                    <p className="mt-0.5 text-xs font-medium text-danger">
+                                      Rejected: {doc.rejectionReason || 'no reason recorded'}
+                                    </p>
+                                  )}
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
                                   <a
@@ -548,7 +588,9 @@ export default function VerificationPage() {
                                     />
                                     <button
                                       disabled={!rejectReason.trim() || verifyingDoc === doc.id}
-                                      onClick={() => handleVerify(doc.id, false, rejectReason.trim())}
+                                      onClick={() =>
+                                        handleVerify(doc.id, false, rejectReason.trim())
+                                      }
                                       className="rounded-lg bg-danger px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
                                     >
                                       Confirm reject
@@ -572,7 +614,10 @@ export default function VerificationPage() {
                           <p className="text-xs text-ink-3">
                             {c.missing.length > 0
                               ? `Identity — waiting on: ${c.missing.map((m) => docTypeLabel[m] || m).join(', ')}`
-                              : !(c.docStates['photo_id']?.verified && c.docStates['right_to_work']?.verified)
+                              : !(
+                                    c.docStates['photo_id']?.verified &&
+                                    c.docStates['right_to_work']?.verified
+                                  )
                                 ? 'Identity documents awaiting your review'
                                 : c.verified
                                   ? c.goLive.live
@@ -623,10 +668,10 @@ export default function VerificationPage() {
           <div className="mt-4 rounded-lg bg-primary-soft border border-primary/20 p-4">
             <p className="text-sm font-medium text-primary">Documents are encrypted at rest</p>
             <p className="text-xs text-primary mt-1">
-              All documents are encrypted using AES-256-GCM with unique per-document keys. Access
-              is logged in the audit trail. DBS certificates are automatically destroyed 6 months
-              after verification. RTW documents are retained per Home Office guidance (engagement
-              + 2 years).
+              All documents are encrypted using AES-256-GCM with unique per-document keys. Access is
+              logged in the audit trail. DBS certificates are automatically destroyed 6 months after
+              verification. RTW documents are retained per Home Office guidance (engagement + 2
+              years).
             </p>
           </div>
         </div>
