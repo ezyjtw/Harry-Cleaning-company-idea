@@ -18,11 +18,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  SafeAreaProvider,
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 // James's official "RENA Cleaner" logo lockup, extracted from the supplied asset
@@ -34,7 +30,9 @@ const logoLockup = require('./assets/logo-lockup.png');
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BASE_URL: string =
   (Constants.expoConfig?.extra?.baseUrl as string) || 'https://www.renacleaning.co.uk';
-const SHELL_HEADER = { 'x-rena-shell': `pro-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}` };
+const SHELL_HEADER = {
+  'x-rena-shell': `pro-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}`,
+};
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
 const TOKEN_KEY = 'rena.pro.bearer';
 
@@ -75,17 +73,25 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const TABS = [
   { key: 'today', label: 'Today', path: '/en/app/today', icon: 'today' },
   { key: 'jobs', label: 'Jobs', path: '/en/app/jobs', icon: 'briefcase' },
-  { key: 'availability', label: 'Availability', path: '/en/cleaner/availability', icon: 'calendar' },
+  { key: 'availability', label: 'Availability', path: '/en/app/availability', icon: 'calendar' },
   { key: 'earnings', label: 'Earnings', path: '/en/app/earnings', icon: 'wallet' },
   { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'shell';
 
+// THE HAPTICS MAP (law — native and web bridge both follow it):
+//   light   → navigation taps: tabs, chips, steppers, opening sheets/links
+//   medium  → committing an action: lifecycle advance, accept/decline, copy-to-weekdays
+//   success → a commit confirmed by the server: job accepted, saved, signed in
+//   warning → cautionary states surfaced to the user
+//   error   → a commit failed or was rejected
+// Web pages fire these via window.ReactNativeWebView.postMessage({type:'haptic',style}).
 function fireHaptic(style: string) {
   try {
     if (style === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else if (style === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    else if (style === 'warning')
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     else if (style === 'error') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     else if (style === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,8 +139,11 @@ function RootView() {
     boot();
   }, [boot]);
 
-  // A3: a failed/cancelled Face ID no longer strands the user on the overlay -
-  // lockFailed reveals a designed card with Retry + a password fallback.
+  // C5: Face-ID-first. The lock screen (lockup + one Unlock button) is the
+  // returning-user arrival; Face ID fires immediately on top of it. A failed or
+  // cancelled prompt just settles onto the same screen with a quiet note (the
+  // old A3 retry card is folded in) — password and switch-account live behind
+  // text links.
   const [lockFailed, setLockFailed] = useState(false);
   const unlock = useCallback(async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -159,15 +168,13 @@ function RootView() {
     if (phase === 'locked') unlock();
   }, [phase, unlock]);
 
-  // Reveal the content the moment we land on a real screen (Start / shell) AND the
-  // brand fonts are ready — so no system-font text ever flashes behind the fade.
-  // For a returning session we hold the navy overlay across the Face ID prompt,
-  // then fade straight into the tabs.
+  // Reveal the content the moment we land on a real screen (Start / lock / shell)
+  // AND the brand fonts are ready — so no system-font text ever flashes behind
+  // the fade. C5: the lock screen reveals immediately so the Face ID prompt is
+  // seen firing over the designed screen, not over a blank overlay.
   useEffect(() => {
-    if ((phase === 'start' || phase === 'shell') && fontsLoaded) reveal();
-    // A3: if Face ID failed, drop the overlay so the retry card is visible.
-    if (phase === 'locked' && lockFailed && fontsLoaded) reveal();
-  }, [phase, fontsLoaded, lockFailed, reveal]);
+    if ((phase === 'start' || phase === 'shell' || phase === 'locked') && fontsLoaded) reveal();
+  }, [phase, fontsLoaded, reveal]);
 
   const onLoggedIn = useCallback(async (token: string, bridgeCode: string) => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -185,34 +192,41 @@ function RootView() {
     setPhase('login');
   }, []);
 
+  // C5: leaving the lock screen for the password form or another account clears
+  // the stored bearer either way; the destinations differ.
+  const goToPasswordLogin = useCallback(async () => {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setBridgeUrl(null);
+    setLockFailed(false);
+    setPhase('login');
+  }, []);
+  const switchAccount = useCallback(async () => {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setBridgeUrl(null);
+    setLockFailed(false);
+    setPhase('start');
+  }, []);
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {phase === 'locked' && lockFailed && (
-        <View style={styles.center}>
-          <Image source={logoLockup} style={styles.loaderWordmark} resizeMode="contain" />
-          <Text style={[styles.offlineTitle, { marginTop: 22 }]}>Unlock Rena Pro</Text>
-          <Text style={styles.mutedSmall}>Face ID didn&apos;t complete.</Text>
-          <Pressable
-            style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
-            onPress={() => {
-              fireHaptic('light');
-              unlock();
-            }}
-          >
-            <Text style={styles.primaryBtnText}>Try again</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.secondaryBtn, styles.retryBtn, pressed && styles.pressed]}
-            onPress={() => {
-              fireHaptic('light');
-              logout();
-            }}
-          >
-            <Text style={styles.secondaryBtnText}>Use password instead</Text>
-          </Pressable>
-        </View>
+      {phase === 'locked' && (
+        <LockScreen
+          failed={lockFailed}
+          onUnlock={() => {
+            fireHaptic('light');
+            unlock();
+          }}
+          onUsePassword={() => {
+            fireHaptic('light');
+            goToPasswordLogin();
+          }}
+          onSwitchAccount={() => {
+            fireHaptic('light');
+            switchAccount();
+          }}
+        />
       )}
       {phase === 'start' && (
         <StartScreen onLogin={() => setPhase('login')} onJoin={() => setPhase('join')} />
@@ -244,19 +258,46 @@ function RootView() {
   );
 }
 
+// ─── C6: the editorial settle — fade + 4px rise, ~300ms, staggered ~60ms ──────
+// One Animated.Value per step; step 0 leads (the lockup), each later step waits
+// another 60ms, buttons always last. Returns ready-to-spread animated styles.
+function useSettle(steps: number) {
+  const values = useRef(Array.from({ length: steps }, () => new Animated.Value(0))).current;
+  useEffect(() => {
+    Animated.parallel(
+      values.map((v, i) =>
+        Animated.timing(v, { toValue: 1, duration: 300, delay: i * 60, useNativeDriver: true })
+      )
+    ).start();
+  }, [values]);
+  return values.map((v) => ({
+    opacity: v,
+    transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }],
+  }));
+}
+
 // ─── Arrival Start screen ─────────────────────────────────────────────────────
 function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => void }) {
   const insets = useSafeAreaInsets();
+  const [lockupSettle, taglineSettle, actionsSettle] = useSettle(3);
   return (
     <View style={[styles.startWrap, { paddingTop: insets.top + 24 }]}>
       <View style={styles.startHero}>
-        <Image source={logoLockup} style={styles.startWordmark} resizeMode="contain" />
-        <Text style={styles.startTitle}>Earn on your terms</Text>
-        <Text style={styles.startSub}>
-          Real cleaning jobs near you. Your rates, your hours, paid fast.
-        </Text>
+        <Animated.Image
+          source={logoLockup}
+          style={[styles.startWordmark, lockupSettle]}
+          resizeMode="contain"
+        />
+        <Animated.View style={taglineSettle}>
+          <Text style={styles.startTitle}>Earn on your terms</Text>
+          <Text style={styles.startSub}>
+            Real cleaning jobs near you. Your rates, your hours, paid fast.
+          </Text>
+        </Animated.View>
       </View>
-      <View style={[styles.startActions, { paddingBottom: insets.bottom + 16 }]}>
+      <Animated.View
+        style={[styles.startActions, { paddingBottom: insets.bottom + 16 }, actionsSettle]}
+      >
         <Pressable
           style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
           onPress={() => {
@@ -275,7 +316,59 @@ function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => v
         >
           <Text style={styles.secondaryBtnText}>Become a cleaner</Text>
         </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
+
+// ─── C5: Face-ID-first lock screen (returning users) ──────────────────────────
+function LockScreen({
+  failed,
+  onUnlock,
+  onUsePassword,
+  onSwitchAccount,
+}: {
+  failed: boolean;
+  onUnlock: () => void;
+  onUsePassword: () => void;
+  onSwitchAccount: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [lockupSettle, bodySettle, actionsSettle] = useSettle(3);
+  return (
+    <View style={[styles.startWrap, { paddingTop: insets.top + 24 }]}>
+      <View style={[styles.startHero, styles.lockHero]}>
+        <Animated.Image
+          source={logoLockup}
+          style={[styles.startWordmark, lockupSettle]}
+          resizeMode="contain"
+        />
+        <Animated.View style={[{ alignItems: 'center' }, bodySettle]}>
+          <Text style={styles.lockTitle}>Welcome back</Text>
+          <Text style={styles.mutedSmall}>
+            {failed ? 'Face ID didn’t complete — try again.' : 'Unlock with Face ID to continue.'}
+          </Text>
+        </Animated.View>
       </View>
+      <Animated.View
+        style={[styles.startActions, { paddingBottom: insets.bottom + 16 }, actionsSettle]}
+      >
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          onPress={onUnlock}
+        >
+          <Text style={styles.primaryBtnText}>Unlock</Text>
+        </Pressable>
+        <View style={styles.lockLinksRow}>
+          <Pressable onPress={onUsePassword} hitSlop={10}>
+            <Text style={styles.lockLink}>Use password instead</Text>
+          </Pressable>
+          <Text style={styles.lockLinkDot}>·</Text>
+          <Pressable onPress={onSwitchAccount} hitSlop={10}>
+            <Text style={styles.lockLink}>Switch account</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -485,7 +578,7 @@ function ShellScreen({
           // cookie jar). Keep tabs mounted to preserve scroll/state.
           const uri = tab.key === 'today' && bridgeUrl ? bridgeUrl : `${BASE_URL}${tab.path}`;
           return (
-            <View key={tab.key} style={[styles.flex, { display: isActive ? 'flex' : 'none' }]}>
+            <TabPane key={tab.key} active={isActive}>
               {/* A1: portal tabs hide the marketing nav/footer via native-injected
                   CSS (same mechanism as /join) - the tab bar owns the chrome. */}
               <SeamlessWebView
@@ -493,12 +586,32 @@ function ShellScreen({
                 injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
                 onSessionLost={onSessionLost}
               />
-            </View>
+            </TabPane>
           );
         })}
       </View>
       <TabBar active={activeTab} onSelect={selectTab} badges={badges} />
     </SafeAreaView>
+  );
+}
+
+// ─── C6: tab cross-fade — the incoming pane fades in over 150ms ───────────────
+// Panes stay mounted (scroll/state preserved); only the newly-shown pane
+// animates. The tab bar itself is NEVER animated (law).
+function TabPane({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const fade = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (active && !wasActive.current) {
+      fade.setValue(0);
+      Animated.timing(fade, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    }
+    wasActive.current = active;
+  }, [active, fade]);
+  return (
+    <Animated.View style={[styles.flex, { display: active ? 'flex' : 'none', opacity: fade }]}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -655,12 +768,11 @@ function SeamlessWebView({
           ]}
           pointerEvents="none"
         >
-          <Image
-            source={logoLockup}
-            style={styles.loaderWordmark}
-            resizeMode="contain"
+          <Image source={logoLockup} style={styles.loaderWordmark} resizeMode="contain" />
+          <ActivityIndicator
+            color={loaderTone === 'navy' ? '#fff' : INK}
+            style={{ marginTop: 18 }}
           />
-          <ActivityIndicator color={loaderTone === 'navy' ? '#fff' : INK} style={{ marginTop: 18 }} />
         </Animated.View>
       )}
     </View>
@@ -735,12 +847,37 @@ const styles = StyleSheet.create({
   arrivalWordmark: { width: 230, height: 124 },
 
   // Start screen
-  startWrap: { flex: 1, backgroundColor: PAGE, paddingHorizontal: 28, justifyContent: 'space-between' },
+  startWrap: {
+    flex: 1,
+    backgroundColor: PAGE,
+    paddingHorizontal: 28,
+    justifyContent: 'space-between',
+  },
   startHero: { flex: 1, justifyContent: 'center' },
   startWordmark: { width: 244, height: 132, marginBottom: 26 },
   startTitle: { fontFamily: SERIF_SEMI, fontSize: 34, color: INK, lineHeight: 40 },
-  startSub: { fontFamily: SANS, marginTop: 12, fontSize: 16, lineHeight: 23, color: INK2, maxWidth: 300 },
+  startSub: {
+    fontFamily: SANS,
+    marginTop: 12,
+    fontSize: 16,
+    lineHeight: 23,
+    color: INK2,
+    maxWidth: 300,
+  },
   startActions: { gap: 12 },
+
+  // C5 lock screen
+  lockHero: { alignItems: 'center', justifyContent: 'center' },
+  lockTitle: { fontFamily: SERIF_SEMI, fontSize: 26, color: INK, marginTop: 18 },
+  lockLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 6,
+  },
+  lockLink: { fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14, paddingVertical: 6 },
+  lockLinkDot: { fontFamily: SANS, color: MUTED, fontSize: 14 },
 
   // WebView seam-kill loader
   webLoader: {
@@ -754,7 +891,14 @@ const styles = StyleSheet.create({
   loginWrap: { backgroundColor: PAGE, paddingHorizontal: 24 },
   loginBody: { flex: 1, justifyContent: 'center', paddingBottom: 48 },
   loginWordmark: { width: 196, height: 106, alignSelf: 'center', marginBottom: 4 },
-  loginSub: { fontFamily: SANS, textAlign: 'center', color: INK2, marginTop: 4, marginBottom: 24, fontSize: 15 },
+  loginSub: {
+    fontFamily: SANS,
+    textAlign: 'center',
+    color: INK2,
+    marginTop: 4,
+    marginBottom: 24,
+    fontSize: 15,
+  },
   input: {
     borderWidth: 1,
     borderColor: LINE,
