@@ -12,6 +12,9 @@ silence, or "looks done" — the word must be explicit.
 - **Visual changes**: before/after screenshots accompany the checklist.
 - Checklists are plain text, per item, and state what changed, how to test it,
   and whether verifying needs a WEB-refresh or a TUNNEL-restart.
+- **NO generated screenshots/images in gate reports by default** — they slow
+  relays badly. House style is **screenshot-by-description** (text). Attach
+  actual images ONLY when James explicitly asks for them on a specific item.
 - Ambiguities are **parked with a note, never guessed**. The parked list ships
   with every gate report.
 
