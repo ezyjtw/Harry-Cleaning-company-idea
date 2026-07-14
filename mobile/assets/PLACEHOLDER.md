@@ -1,6 +1,5 @@
-Drop the three PNGs here before the first build (see ../README.md):
-- icon.png            1024×1024  — Etna wordmark on ink-navy (#16296b)
-- splash.png          ~1284×2778 — same lockup, centered on #16296b
-- adaptive-icon.png   1024×1024  — Android foreground (transparent bg)
+The three PNGs are committed (option-B lockup on light, per James's ruling):
 
-Any 1024px placeholder works to get the first TestFlight build going.
+- icon.png 1024×1024 — RENA Cleaner lockup on light (#FAFBFC)
+- splash.png 1024×1024 — same lockup, centered on #FAFBFC (re-export ~1284×2778 pre-submission)
+- adaptive-icon.png 1024×1024 — Android foreground (transparent bg) on a #FAFBFC background layer
