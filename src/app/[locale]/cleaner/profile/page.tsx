@@ -1,8 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
 // Matches the customer wizard's specialty set. Existing stored specialties on
@@ -50,21 +51,6 @@ export default function CleanerProfilePage() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState('');
-
-  // Insurance state
-  const [insuranceStatus, setInsuranceStatus] = useState<{
-    insuranceVerified: boolean;
-    insuranceExpiresAt: string | null;
-    isExpired: boolean;
-    daysUntilExpiry: number | null;
-    document: { id: string; fileName: string; uploadedAt: string } | null;
-  } | null>(null);
-  const [insuranceFile, setInsuranceFile] = useState<string | null>(null);
-  const [insuranceFileName, setInsuranceFileName] = useState('');
-  const [insuranceExpiry, setInsuranceExpiry] = useState('');
-  const [insuranceUploading, setInsuranceUploading] = useState(false);
-  const [insuranceError, setInsuranceError] = useState('');
-  const insuranceInputRef = useRef<HTMLInputElement>(null);
 
   const [showWebcam, setShowWebcam] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -116,12 +102,6 @@ export default function CleanerProfilePage() {
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    fetch('/api/cleaner/insurance')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) setInsuranceStatus(data);
-      })
-      .catch(() => {});
   }, []);
 
   // Warn on browser close/refresh with unsaved changes
@@ -661,174 +641,19 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
-        {/* Insurance */}
+        {/* Insurance now lives on the dashboard (James-ruled — no duplicate
+            upload surface). This is a signpost, not a second uploader. */}
         <div className="rounded-2xl border border-line bg-surface p-6">
-          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-2">
             Public Liability Insurance
-            {insuranceStatus && !insuranceStatus.insuranceVerified && incompleteBadge}
           </h2>
-
-          {insuranceStatus?.insuranceVerified && !insuranceStatus.isExpired && (
-            <div
-              className="mb-4 flex items-center gap-2 rounded-lg bg-trust/10 px-4 py-3"
-              style={{ border: '1px solid rgba(34,197,94,0.2)' }}
-            >
-              <svg
-                className="w-5 h-5 text-trust"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
-              <div>
-                <p className="font-jost text-sm font-medium text-green-800">Insurance verified</p>
-                {insuranceStatus.daysUntilExpiry !== null && (
-                  <p className="font-jost text-[12px] text-green-700">
-                    Expires in {insuranceStatus.daysUntilExpiry} days
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {insuranceStatus?.isExpired && (
-            <div
-              className="mb-4 flex items-center gap-2 rounded-lg bg-danger/10 px-4 py-3"
-              style={{ border: '1px solid rgba(239,68,68,0.2)' }}
-            >
-              <svg
-                className="w-5 h-5 text-danger"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"
-                />
-              </svg>
-              <div>
-                <p className="font-jost text-sm font-medium text-danger">Insurance expired</p>
-                <p className="font-jost text-[12px] text-danger">
-                  Please upload a renewed policy to continue accepting bookings.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <p className="font-jost text-sm font-light text-ink-2 mb-4">
-            Upload proof of your public liability insurance policy. This is required to operate on
-            Rena.
+          <p className="font-jost text-sm font-light text-ink-2">
+            Manage your insurance — status, expiry and renewal — from your{' '}
+            <Link href="/cleaner" className="text-primary underline">
+              dashboard
+            </Link>
+            .
           </p>
-
-          {insuranceStatus?.document && !insuranceStatus.isExpired && (
-            <div
-              className="mb-4 rounded-lg bg-page px-4 py-3"
-              style={{ border: '1px solid rgb(var(--color-border))' }}
-            >
-              <p className="font-jost text-sm text-ink">{insuranceStatus.document.fileName}</p>
-              <p className="font-jost text-[11px] text-ink-3">
-                Uploaded {new Date(insuranceStatus.document.uploadedAt).toLocaleDateString('en-GB')}
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3 mb-1.5">
-                Policy expiry date
-              </label>
-              <input
-                type="date"
-                value={insuranceExpiry}
-                onChange={(e) => setInsuranceExpiry(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
-                style={{ border: '1px solid rgb(var(--color-border))' }}
-              />
-            </div>
-            <div>
-              <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3 mb-1.5">
-                Insurance document
-              </label>
-              <input
-                ref={insuranceInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setInsuranceFileName(file.name);
-                    const reader = new FileReader();
-                    reader.onloadend = () => setInsuranceFile(reader.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }}
-                className="hidden"
-              />
-              <button
-                onClick={() => insuranceInputRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 bg-page text-ink font-jost text-sm font-light cursor-pointer hover:bg-primary-soft transition-colors"
-                style={{ border: '0.5px solid rgb(var(--color-border))' }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                {insuranceFileName || 'Choose file'}
-              </button>
-              <p className="mt-1 font-jost text-[11px] text-ink-3">PDF, JPG, or PNG. Max 10MB.</p>
-            </div>
-            {insuranceError && (
-              <p className="font-jost text-[12px] text-danger">{insuranceError}</p>
-            )}
-            <button
-              disabled={insuranceUploading || !insuranceFile || !insuranceExpiry}
-              onClick={async () => {
-                setInsuranceUploading(true);
-                setInsuranceError('');
-                try {
-                  const res = await fetch('/api/cleaner/insurance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      fileData: insuranceFile,
-                      fileName: insuranceFileName,
-                      expiryDate: insuranceExpiry,
-                    }),
-                  });
-                  if (res.ok) {
-                    const refreshRes = await fetch('/api/cleaner/insurance');
-                    if (refreshRes.ok) setInsuranceStatus(await refreshRes.json());
-                    setInsuranceFile(null);
-                    setInsuranceFileName('');
-                    setInsuranceExpiry('');
-                  } else {
-                    const err = await res.json().catch(() => null);
-                    setInsuranceError(err?.error || 'Failed to upload');
-                  }
-                } catch {
-                  setInsuranceError('Network error');
-                }
-                setInsuranceUploading(false);
-              }}
-              className="rounded-[10px] px-6 py-2 bg-primary text-white font-jost text-[13px] font-light hover:bg-primary-hover transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {insuranceUploading ? 'Uploading...' : 'Upload Insurance'}
-            </button>
-          </div>
         </div>
 
         {/* Save button */}

@@ -14,6 +14,7 @@ import {
 import JsonLd from '@/components/JsonLd';
 import prisma from '@/lib/db/prisma';
 import { computeCleanerRating } from '@/lib/services/rating.service';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
@@ -160,10 +161,14 @@ export default async function CleanerProfilePage({
   ];
 
   const now = new Date();
+  // Photo carry-through fix (James, 2nd report): resolve the R2 key to a
+  // presigned URL — this server component was passing the raw key to <img src>,
+  // which 404s. Every other surface resolves; these two didn't.
+  const resolvedPhoto = await resolveProfileImageUrl(profile.user.image);
   const data = {
     id: profile.user.id,
     name: displayName(profile.user.name) || 'Cleaner',
-    photo: profile.user.image || null,
+    photo: resolvedPhoto,
     location: profile.location || '',
     rating: Number(profile.rating),
     reviewCount,

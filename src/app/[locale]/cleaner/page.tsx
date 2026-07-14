@@ -43,7 +43,9 @@ interface DashboardData {
     verified: boolean;
     verificationStatus: string;
     insuranceVerified: boolean;
+    insuranceExpiresAt?: string | null;
     insuranceSubmitted?: boolean;
+    rejectedDocuments?: { type: string; reason: string | null }[];
     profileComplete: boolean;
     acknowledgmentComplete: boolean;
     serviceTypes: string[];
@@ -319,6 +321,40 @@ export default function CleanerDashboard() {
                 : 'Complete the steps below to get verified and start receiving bookings.'}
           </p>
         </div>
+
+        {/* Admin-reject surface (James): if any document was rejected, tell the
+            cleaner what and why, and point them to re-upload. */}
+        {(data.profile.rejectedDocuments?.length ?? 0) > 0 && (
+          <div className="mt-6 rounded-xl border border-danger/30 bg-danger/5 p-4">
+            <p className="font-jost text-sm font-semibold text-danger">
+              Action needed: a document was rejected
+            </p>
+            <ul className="mt-2 space-y-1">
+              {data.profile.rejectedDocuments!.map((d) => (
+                <li key={d.type} className="font-jost text-[13px] text-ink-2">
+                  <span className="font-medium">
+                    {d.type === 'photo_id'
+                      ? 'Photo ID'
+                      : d.type === 'right_to_work'
+                        ? 'Right to Work'
+                        : d.type === 'insurance'
+                          ? 'Insurance'
+                          : d.type}
+                    :
+                  </span>{' '}
+                  {d.reason || 'Please re-upload a clearer copy.'}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 font-jost text-[12px] text-ink-3">
+              Re-upload below (insurance) or on your{' '}
+              <Link href="/verify" className="text-primary underline">
+                verification page
+              </Link>{' '}
+              (identity documents).
+            </p>
+          </div>
+        )}
 
         {/* Two-stage flow: the wait works for you — go-live prep runs in
             parallel with identity verification (James-ruled copy). */}
@@ -619,6 +655,11 @@ export default function CleanerDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Insurance on the dashboard (James-ruled): live cleaners manage their
+          policy here — status + expiry + inline upload/renewal — not in a buried
+          profile subsection. Rejections and expiring-soon surface prominently. */}
+      <DashboardInsurance profile={data.profile} />
 
       {data.stats.backupBookingCount > 0 && (
         <div
@@ -1075,6 +1116,59 @@ function InlineInsuranceCard({ initialState }: { initialState: 'done' | 'waiting
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// James-ruled: insurance status + inline upload/renewal on the live dashboard.
+function DashboardInsurance({
+  profile,
+}: {
+  profile: DashboardData['profile'];
+}) {
+  const expiry = profile.insuranceExpiresAt ? new Date(profile.insuranceExpiresAt) : null;
+  const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null;
+  const expiringSoon = daysLeft !== null && daysLeft <= 30 && daysLeft > 0;
+  const expired = daysLeft !== null && daysLeft <= 0;
+  const rejected = profile.rejectedDocuments?.some((d) => d.type === 'insurance');
+
+  // Approved + comfortably in-date → a quiet status line (no upload surface).
+  if (profile.insuranceVerified && !expiringSoon && !expired && !rejected) {
+    return (
+      <div
+        className="mb-6 flex items-center justify-between gap-3 rounded-xl bg-surface px-5 py-3.5"
+        style={{ border: '1px solid rgb(var(--color-border))' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-trust/10 px-2.5 py-0.5 font-jost text-[11px] font-semibold uppercase tracking-[0.08em] text-trust">
+            Insurance approved
+          </span>
+          {expiry && (
+            <span className="font-jost text-[12px] font-light text-ink-3">
+              Expires {expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Otherwise (missing / expiring / expired / rejected) → the inline uploader
+  // with a status headline, right on the dashboard.
+  const headline = rejected
+    ? 'Your insurance was rejected — please re-upload'
+    : expired
+      ? 'Your insurance has expired — upload a current policy'
+      : expiringSoon
+        ? `Your insurance expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — renew it`
+        : 'Add your public liability insurance';
+  const tone = rejected || expired ? 'text-danger' : expiringSoon ? 'text-warning' : 'text-ink';
+  return (
+    <div className="mb-6">
+      <p className={`mb-2 font-jost text-sm font-semibold ${tone}`}>{headline}</p>
+      <InlineInsuranceCard
+        initialState={profile.insuranceVerified && !expired && !rejected ? 'done' : 'todo'}
+      />
     </div>
   );
 }

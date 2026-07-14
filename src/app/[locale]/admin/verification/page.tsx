@@ -28,7 +28,7 @@ interface QueueCleaner {
   verified: boolean;
   verificationStatus: string;
   documents: QueueDocument[];
-  docStates: Record<string, { submitted: boolean; verified: boolean }>;
+  docStates: Record<string, { submitted: boolean; verified: boolean; rejected: boolean }>;
   missing: string[];
   pendingReview: number;
   readyForReview: boolean;
@@ -36,7 +36,7 @@ interface QueueCleaner {
   insuranceReview: boolean;
   needsReview: boolean;
   // Stage 2 rollup — never blocks identity verification.
-  goLive: { insurance: 'approved' | 'submitted' | 'missing'; stripe: boolean; live: boolean };
+  goLive: { insurance: 'approved' | 'submitted' | 'rejected' | 'missing'; stripe: boolean; live: boolean };
 }
 
 interface RtwAlert {
@@ -404,10 +404,18 @@ export default function VerificationPage() {
                           if (!st && t === 'dbs_certificate') return null; // optional — only show when present
                           const cls = st?.verified
                             ? 'bg-trust/10 text-trust'
-                            : st?.submitted
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'border border-line bg-page text-ink-3';
-                          const suffix = st?.verified ? ' ✓' : st?.submitted ? ' · review' : ' · missing';
+                            : st?.rejected
+                              ? 'bg-danger/10 text-danger'
+                              : st?.submitted
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'border border-line bg-page text-ink-3';
+                          const suffix = st?.verified
+                            ? ' ✓'
+                            : st?.rejected
+                              ? ' · rejected'
+                              : st?.submitted
+                                ? ' · review'
+                                : ' · missing';
                           return (
                             <span
                               key={t}
@@ -423,17 +431,21 @@ export default function VerificationPage() {
                           className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                             c.goLive.insurance === 'approved'
                               ? 'border-trust/30 bg-trust/5 text-trust'
-                              : c.goLive.insurance === 'submitted'
-                                ? 'border-orange-200 bg-orange-50 text-orange-700'
-                                : 'border-line bg-page text-ink-3'
+                              : c.goLive.insurance === 'rejected'
+                                ? 'border-danger/30 bg-danger/5 text-danger'
+                                : c.goLive.insurance === 'submitted'
+                                  ? 'border-orange-200 bg-orange-50 text-orange-700'
+                                  : 'border-line bg-page text-ink-3'
                           }`}
                         >
                           Go-live: Insurance
                           {c.goLive.insurance === 'approved'
                             ? ' ✓'
-                            : c.goLive.insurance === 'submitted'
-                              ? ' · review'
-                              : ' · missing'}
+                            : c.goLive.insurance === 'rejected'
+                              ? ' · rejected'
+                              : c.goLive.insurance === 'submitted'
+                                ? ' · review'
+                                : ' · missing'}
                         </span>
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${

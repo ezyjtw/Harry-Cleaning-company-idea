@@ -278,6 +278,18 @@ export class DocumentStorageService {
 
     if (!doc) throw new Error('Document not found');
 
+    if (!approved) {
+      // Persist the rejection so the queue chip flips and the cleaner sees why.
+      await prisma.documentUpload.update({
+        where: { id: documentId },
+        data: {
+          isVerified: false,
+          rejectedAt: new Date(),
+          rejectionReason: reason?.trim() || 'Document rejected — please re-upload.',
+        },
+      });
+    }
+
     if (approved) {
       await prisma.documentUpload.update({
         where: { id: documentId },
@@ -285,6 +297,8 @@ export class DocumentStorageService {
           isVerified: true,
           verifiedBy: adminId,
           verifiedAt: new Date(),
+          rejectedAt: null,
+          rejectionReason: null,
         },
       });
 

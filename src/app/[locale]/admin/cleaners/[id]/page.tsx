@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { prisma } from '@/lib/db/prisma';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 import CleanerDetailClient from './CleanerDetailClient';
 
@@ -97,7 +98,7 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
     email: profile.user.email,
     phone: profile.user.phone,
     createdAt: profile.user.createdAt.toISOString(),
-    image: profile.user.image,
+    image: await resolveProfileImageUrl(profile.user.image),
     bio: profile.bio,
     hourlyRateRegular: profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null,
     hourlyRateDeep: profile.hourlyRateDeep ? Number(profile.hourlyRateDeep) : null,
