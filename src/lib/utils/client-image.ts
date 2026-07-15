@@ -10,6 +10,24 @@
 export const PROFILE_PHOTO_MASTER_PX = 800;
 export const PROFILE_PHOTO_QUALITY = 0.85;
 
+// F12: when resizing fails, callers may fall back to the RAW file — but only
+// if the browser can actually display it. A raw HEIC/TIFF data URL renders as
+// a broken preview and then bounces off the server's JPG/PNG/WebP allowlist —
+// the exact "preview dead, save doesn't persist" failure. Undisplayable
+// formats must surface a clear message instead.
+const DISPLAYABLE_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+]);
+export function isBrowserDisplayableImage(mime: string): boolean {
+  return DISPLAYABLE_IMAGE_MIMES.has(mime.toLowerCase());
+}
+export const UNSUPPORTED_PHOTO_MESSAGE =
+  "That photo format isn't supported — please choose a JPG or PNG. (iPhone tip: HEIC photos need converting, or pick 'Most Compatible' in camera settings.)";
+
 async function loadBitmap(source: Blob | string): Promise<ImageBitmap | HTMLImageElement> {
   const blob = typeof source === 'string' ? await (await fetch(source)).blob() : source;
   if (typeof createImageBitmap === 'function') {

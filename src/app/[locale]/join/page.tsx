@@ -17,7 +17,11 @@ import {
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
-import { resizeProfilePhoto } from '@/lib/utils/client-image';
+import {
+  isBrowserDisplayableImage,
+  resizeProfilePhoto,
+  UNSUPPORTED_PHOTO_MESSAGE,
+} from '@/lib/utils/client-image';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -1533,8 +1537,24 @@ export default function JoinAsCleanerPage() {
                             // F11: resize to the 800px q85 master before it ever
                             // touches state — small on the wire, sharp everywhere.
                             resizeProfilePhoto(file)
-                              .then((d) => set('profilePhoto', d))
+                              .then((d) => {
+                                set('profilePhoto', d);
+                                setErrors((prev) => {
+                                  const n = { ...prev };
+                                  delete n.profilePhoto;
+                                  return n;
+                                });
+                              })
                               .catch(() => {
+                                // F12: only displayable formats may fall back raw — a HEIC/TIFF
+                                // data URL is a dead preview + a guaranteed server reject.
+                                if (!isBrowserDisplayableImage(file.type)) {
+                                  setErrors((prev) => ({
+                                    ...prev,
+                                    profilePhoto: UNSUPPORTED_PHOTO_MESSAGE,
+                                  }));
+                                  return;
+                                }
                                 const reader = new FileReader();
                                 reader.onload = () => {
                                   if (typeof reader.result === 'string') {
@@ -1606,8 +1626,24 @@ export default function JoinAsCleanerPage() {
                               // F11: resize to the 800px q85 master before it ever
                               // touches state — small on the wire, sharp everywhere.
                               resizeProfilePhoto(file)
-                                .then((d) => set('profilePhoto', d))
+                                .then((d) => {
+                                  set('profilePhoto', d);
+                                  setErrors((prev) => {
+                                    const n = { ...prev };
+                                    delete n.profilePhoto;
+                                    return n;
+                                  });
+                                })
                                 .catch(() => {
+                                  // F12: only displayable formats may fall back raw — a HEIC/TIFF
+                                  // data URL is a dead preview + a guaranteed server reject.
+                                  if (!isBrowserDisplayableImage(file.type)) {
+                                    setErrors((prev) => ({
+                                      ...prev,
+                                      profilePhoto: UNSUPPORTED_PHOTO_MESSAGE,
+                                    }));
+                                    return;
+                                  }
                                   const reader = new FileReader();
                                   reader.onload = () => {
                                     if (typeof reader.result === 'string') {
@@ -1633,6 +1669,7 @@ export default function JoinAsCleanerPage() {
                     <p className="mt-2 font-jost text-[11px] text-ink-3">
                       JPG, PNG or WebP. Max 5 MB. A clear headshot works best.
                     </p>
+                    <FieldError message={errors.profilePhoto} />
                   </div>
                 </div>
               </div>

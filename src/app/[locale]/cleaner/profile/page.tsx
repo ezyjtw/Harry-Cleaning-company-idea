@@ -5,7 +5,11 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
-import { resizeProfilePhoto } from '@/lib/utils/client-image';
+import {
+  isBrowserDisplayableImage,
+  resizeProfilePhoto,
+  UNSUPPORTED_PHOTO_MESSAGE,
+} from '@/lib/utils/client-image';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 // Matches the customer wizard's specialty set. Existing stored specialties on
@@ -152,10 +156,17 @@ export default function CleanerProfilePage() {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // F11: same 800px q85 master pipeline as the wizard.
+      // F11: same 800px q85 master pipeline as the wizard. F12: the raw-file
+      // fallback only applies to formats the browser can display — anything
+      // else (HEIC, TIFF…) gets a clear message instead of a dead preview and
+      // a save the server will reject.
       resizeProfilePhoto(file)
         .then((d) => setPhoto(d))
         .catch(() => {
+          if (!isBrowserDisplayableImage(file.type)) {
+            setSaveError(UNSUPPORTED_PHOTO_MESSAGE);
+            return;
+          }
           const reader = new FileReader();
           reader.onloadend = () => setPhoto(reader.result as string);
           reader.readAsDataURL(file);
@@ -177,7 +188,10 @@ export default function CleanerProfilePage() {
           languages: selectedLanguages,
           homePostcode,
           maxTravelMinutes: Number(maxTravelMinutes),
-          image: photo,
+          // F12: only send the photo when it's a NEW upload (data URL). The
+          // GET returns a presigned URL — echoing that back was overwriting
+          // the stored R2 key with a URL that expires in 24h.
+          ...(photo?.startsWith('data:') ? { image: photo } : {}),
           yearsExperience: yearsExperience ? Number(yearsExperience) : null,
         }),
       });
