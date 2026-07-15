@@ -17,6 +17,7 @@ import {
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
+import { resizeProfilePhoto } from '@/lib/utils/client-image';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -1529,13 +1530,19 @@ export default function JoinAsCleanerPage() {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              if (typeof reader.result === 'string') {
-                                set('profilePhoto', reader.result);
-                              }
-                            };
-                            reader.readAsDataURL(file);
+                            // F11: resize to the 800px q85 master before it ever
+                            // touches state — small on the wire, sharp everywhere.
+                            resizeProfilePhoto(file)
+                              .then((d) => set('profilePhoto', d))
+                              .catch(() => {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === 'string') {
+                                    set('profilePhoto', reader.result);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              });
                           }}
                         />
                       </label>
@@ -1596,13 +1603,19 @@ export default function JoinAsCleanerPage() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                if (typeof reader.result === 'string') {
-                                  set('profilePhoto', reader.result);
-                                }
-                              };
-                              reader.readAsDataURL(file);
+                              // F11: resize to the 800px q85 master before it ever
+                              // touches state — small on the wire, sharp everywhere.
+                              resizeProfilePhoto(file)
+                                .then((d) => set('profilePhoto', d))
+                                .catch(() => {
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    if (typeof reader.result === 'string') {
+                                      set('profilePhoto', reader.result);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                });
                             }}
                           />
                         </label>
@@ -2596,12 +2609,34 @@ export default function JoinAsCleanerPage() {
             </button>
           )}
         </div>
+
+        {/* F3 (other half): a visible progress state while the submit runs —
+            the application + documents upload in sequence, so even a few
+            seconds must never look like a hang. */}
+        {submitting && (
+          <div className="mt-4 rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
+            <p className="font-jost text-[13px] font-light text-ink-2">
+              Submitting your application — uploading your photo and documents securely. This can
+              take a few seconds; please keep this page open.
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
+              <div className="h-full w-full origin-left animate-pulse rounded-full bg-primary" />
+            </div>
+          </div>
+        )}
       </div>
 
       {webcamTarget && (
         <WebcamCaptureModal
           onCapture={(dataUrl) => {
-            set(webcamTarget, dataUrl);
+            if (webcamTarget === 'profilePhoto') {
+              // F11: webcam captures run through the same master pipeline.
+              resizeProfilePhoto(dataUrl)
+                .then((d) => set('profilePhoto', d))
+                .catch(() => set('profilePhoto', dataUrl));
+            } else {
+              set(webcamTarget, dataUrl);
+            }
             if (webcamTarget === 'selfiePhoto') {
               set('livenessComplete', true);
             }

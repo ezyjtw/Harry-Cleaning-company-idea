@@ -51,7 +51,9 @@
   "Hero": {
     "trustedHome": "Trusted home cleaning",
     "joinThe": "Join the cleaning",
-    "subtitle": "Choose your cleaner. Compare reviews. Book in minutes.",
+    "subtitleLine1": "Choose your cleaner.",
+    "subtitleLine2": "Compare reviews.",
+    "subtitleLine3": "Book in minutes.",
     "coverage": "Proudly serving north-east London and surrounding areas of Essex — and growing.",
     "bookCleaner": "Book a cleaner",
     "howItWorks": "How it works",
