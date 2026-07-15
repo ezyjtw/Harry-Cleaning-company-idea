@@ -49,7 +49,8 @@ export default function HeroSection() {
                 explicit block breaks, never wrap-luck, at every breakpoint. */}
             {/* Type ramp is sized so the LONGEST line fits its column at every
                 breakpoint: 1-col below md gets 32→40px; the 2-col grid narrows
-                the column at md (~330px), so md steps to 34px and scales back
+                the column at md (288px at 768w), so md steps to 33px (the
+                measured largest fit, still above the 32px base) and scales back
                 up as the column widens (lg ~420px, xl ~520px). The old md:52px
                 never fit that column — it wrapped mid-sentence. */}
             <h1 className="mb-4 font-newsreader text-[32px] font-semibold leading-[1.15] text-white sm:text-[40px] md:mb-5 md:text-[33px] lg:text-[44px] xl:text-[52px]">
