@@ -45,15 +45,27 @@ export default function HeroSection() {
                 font file carries all 26 true lowercase glyphs — verified;
                 Courier is out, brand fonts only). Colour untouched per the
                 amendment. The old third line is gone. */}
-            <h1 className="mb-4 font-newsreader text-[32px] font-semibold leading-[1.15] text-white sm:text-[40px] md:mb-5 md:text-[52px]">
-              {t('subtitle')}
+            {/* F10 (James-ruled): three stacked lines, one sentence each —
+                explicit block breaks, never wrap-luck, at every breakpoint. */}
+            {/* Type ramp is sized so the LONGEST line fits its column at every
+                breakpoint: 1-col below md gets 32→40px; the 2-col grid narrows
+                the column at md (288px at 768w), so md steps to 33px (the
+                measured largest fit, still above the 32px base) and scales back
+                up as the column widens (lg ~420px, xl ~520px). The old md:52px
+                never fit that column — it wrapped mid-sentence. */}
+            <h1 className="mb-4 font-newsreader text-[32px] font-semibold leading-[1.15] text-white sm:text-[40px] md:mb-5 md:text-[33px] lg:text-[44px] xl:text-[52px]">
+              <span className="block">{t('subtitleLine1')}</span>
+              <span className="block">{t('subtitleLine2')}</span>
+              <span className="block">{t('subtitleLine3')}</span>
             </h1>
 
             <p className="mb-5 font-jost text-[17px] font-light text-white/90 md:mb-7 md:text-[21px]">
               {t('joinThe')}{' '}
               <span className="whitespace-nowrap">
                 <span className="font-etna text-[19px] tracking-wider md:text-[24px]">RENA</span>
-                <span className="font-etna lowercase text-[18px] tracking-wide md:text-[22px]">-lution</span>
+                <span className="font-etna lowercase text-[18px] tracking-wide md:text-[22px]">
+                  -lution
+                </span>
               </span>
             </p>
 

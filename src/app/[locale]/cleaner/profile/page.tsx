@@ -5,6 +5,7 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
+import { resizeProfilePhoto } from '@/lib/utils/client-image';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 // Matches the customer wizard's specialty set. Existing stored specialties on
@@ -151,9 +152,14 @@ export default function CleanerProfilePage() {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhoto(reader.result as string);
-      reader.readAsDataURL(file);
+      // F11: same 800px q85 master pipeline as the wizard.
+      resizeProfilePhoto(file)
+        .then((d) => setPhoto(d))
+        .catch(() => {
+          const reader = new FileReader();
+          reader.onloadend = () => setPhoto(reader.result as string);
+          reader.readAsDataURL(file);
+        });
     }
     markDirty();
   };
@@ -687,7 +693,10 @@ export default function CleanerProfilePage() {
       {showWebcam && (
         <WebcamCaptureModal
           onCapture={(dataUrl) => {
-            setPhoto(dataUrl);
+            // F11: webcam capture through the same master pipeline.
+            resizeProfilePhoto(dataUrl)
+              .then((d) => setPhoto(d))
+              .catch(() => setPhoto(dataUrl));
             markDirty();
           }}
           onClose={() => setShowWebcam(false)}
