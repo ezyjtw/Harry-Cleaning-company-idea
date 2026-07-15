@@ -17,10 +17,19 @@ import prisma from '@/lib/db/prisma';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 const ORS_ISOCHRONE_URL = 'https://api.openrouteservice.org/v2/isochrones';
-export const CATCHMENT_SOURCE = 'ors-isochrone-v1';
+// F9: '-tf0.7' stamps traffic-calibrated polygons so they're distinguishable
+// from the old free-flow ones at a glance in the DB.
+export const CATCHMENT_SOURCE = 'ors-isochrone-v1-tf0.7';
 // Drive-only launch (James-ruled). catchmentSource future-proofs a mode swap.
 const ORS_PROFILE = 'driving-car';
 const DEFAULT_TRAVEL_MINUTES = 30; // James-ruled default
+// F9 (James-ruled ×0.7): ORS isochrones are FREE-FLOW driving time — far too
+// optimistic for London traffic (a free-flow 30-min polygon from E4 reached
+// Harlow). The minutes REQUESTED from ORS are discounted by this factor
+// (30 → 21) so the polygon approximates real-traffic reach. Only the ORS
+// request is discounted — the cleaner's stored and displayed maxTravelMinutes
+// stays their honest number everywhere else.
+export const TRAFFIC_FACTOR = 0.7;
 
 export type CatchmentResult =
   | { status: 'generated' }
@@ -58,7 +67,8 @@ export async function generateCatchmentForCleaner(userId: string): Promise<Catch
       },
       body: JSON.stringify({
         locations: [[geo.longitude, geo.latitude]],
-        range: [minutes * 60], // seconds
+        // F9: traffic-discounted request (see TRAFFIC_FACTOR above).
+        range: [Math.round(minutes * TRAFFIC_FACTOR * 60)], // seconds
       }),
     });
     if (!res.ok) {
@@ -66,7 +76,11 @@ export async function generateCatchmentForCleaner(userId: string): Promise<Catch
       return { status: 'failed', reason: `ORS ${res.status}: ${body.slice(0, 200)}` };
     }
     const geojson = await res.json();
-    if (geojson?.type !== 'FeatureCollection' || !Array.isArray(geojson.features) || geojson.features.length === 0) {
+    if (
+      geojson?.type !== 'FeatureCollection' ||
+      !Array.isArray(geojson.features) ||
+      geojson.features.length === 0
+    ) {
       return { status: 'failed', reason: 'ORS returned no isochrone features' };
     }
 
@@ -93,10 +107,12 @@ export function triggerCatchmentRefresh(userId: string): void {
   void generateCatchmentForCleaner(userId)
     .then((r) => {
       if (r.status === 'failed') {
+        // eslint-disable-next-line no-console
         console.warn(`[catchment] generation failed for ${userId}: ${r.reason}`);
       }
     })
     .catch((err) => {
+      // eslint-disable-next-line no-console
       console.warn(`[catchment] generation crashed for ${userId}:`, err);
     });
 }
