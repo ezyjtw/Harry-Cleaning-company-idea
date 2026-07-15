@@ -335,9 +335,11 @@ export async function PUT(request: NextRequest) {
     if (image !== undefined) {
       if (imageObjectKey) {
         userUpdate.image = imageObjectKey;
-      } else if (typeof image === 'string' && image.length > 0 && !image.startsWith('data:')) {
-        userUpdate.image = image;
       }
+      // F12: no passthrough branch. GET returns a PRESIGNED URL; clients echo
+      // it back on save, and the old passthrough overwrote the stored R2 key
+      // with a URL that dies in 24h. Only a freshly-uploaded photo (data URL →
+      // imageObjectKey above) may change User.image.
     }
     if (password !== undefined) userUpdate.passwordHash = await bcrypt.hash(password, 12);
     if (Object.keys(userUpdate).length > 0) {

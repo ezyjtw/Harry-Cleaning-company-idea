@@ -429,10 +429,14 @@ export async function POST(request: NextRequest) {
         typeof body.selfiePhoto === 'string' &&
         body.selfiePhoto.startsWith('data:image/')
       ) {
-        const match = body.selfiePhoto.match(/^data:image\/(\w+);base64,(.+)$/);
+        // F13: header-only regex — /(.+)$/ over a multi-MB selfie base64 string
+        // overflows the regex stack (RangeError) and 500s the whole signup.
+        const selfieComma = body.selfiePhoto.indexOf(',');
+        const selfieHeader = selfieComma > 0 ? body.selfiePhoto.slice(0, selfieComma) : '';
+        const match = selfieHeader.match(/^data:image\/(\w+);base64$/);
         if (match) {
           const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-          const buffer = Buffer.from(match[2], 'base64');
+          const buffer = Buffer.from(body.selfiePhoto.slice(selfieComma + 1), 'base64');
           await DocumentStorageService.uploadDocument({
             userId: result.user.id,
             profileId: result.profile.id,
@@ -583,10 +587,14 @@ export async function POST(request: NextRequest) {
       typeof body.selfiePhoto === 'string' &&
       body.selfiePhoto.startsWith('data:image/')
     ) {
-      const match = body.selfiePhoto.match(/^data:image\/(\w+);base64,(.+)$/);
+      // F13: header-only regex — /(.+)$/ over a multi-MB selfie base64 string
+      // overflows the regex stack (RangeError) and 500s the whole signup.
+      const selfieComma = body.selfiePhoto.indexOf(',');
+      const selfieHeader = selfieComma > 0 ? body.selfiePhoto.slice(0, selfieComma) : '';
+      const match = selfieHeader.match(/^data:image\/(\w+);base64$/);
       if (match) {
         const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-        const buffer = Buffer.from(match[2], 'base64');
+        const buffer = Buffer.from(body.selfiePhoto.slice(selfieComma + 1), 'base64');
         await DocumentStorageService.uploadDocument({
           userId: result.user.id,
           profileId: result.profile.id,

@@ -8,11 +8,16 @@ import { DocumentStorageService } from '@/lib/services/document-storage.service'
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB base64
 
 function base64ToBuffer(dataUrl: string): { buffer: Buffer; mimeType: string } {
-  const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
+  // F13: regex the tiny HEADER only. Running /(.+)$/ across the whole payload
+  // blows V8's regex stack on phone-sized photos (~7MB base64) — RangeError →
+  // 500 for every large upload, while small test files sailed through.
+  const comma = dataUrl.indexOf(',');
+  const header = comma > 0 ? dataUrl.slice(0, comma) : '';
+  const match = header.match(/^data:([^;]+);base64$/);
   if (!match) throw new Error('Invalid file format');
   return {
     mimeType: match[1],
-    buffer: Buffer.from(match[2], 'base64'),
+    buffer: Buffer.from(dataUrl.slice(comma + 1), 'base64'),
   };
 }
 
@@ -37,9 +42,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTypes = ['photo_id', 'right_to_work', 'dbs_certificate'];
+    // F13: 'selfie' included — the wizard stores selfies server-side, but the
+    // inline rejected-doc re-upload (F8) posts them here; without it, a selfie
+    // rejection was a dead end ('Invalid document type' regardless of file).
+    const validTypes = ['photo_id', 'right_to_work', 'dbs_certificate', 'selfie'];
     if (!validTypes.includes(documentType)) {
-      return NextResponse.json({ error: 'Invalid document type' }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: `Unknown document type "${documentType}" — expected one of: ${validTypes.join(', ')}.`,
+        },
+        { status: 400 }
+      );
     }
 
     if (typeof fileData !== 'string' || !fileData.startsWith('data:')) {
@@ -67,7 +80,7 @@ export async function POST(request: NextRequest) {
     const result = await DocumentStorageService.uploadDocument({
       userId: profile.userId,
       profileId: profile.id,
-      documentType: documentType as 'photo_id' | 'right_to_work' | 'dbs_certificate',
+      documentType: documentType as 'photo_id' | 'right_to_work' | 'dbs_certificate' | 'selfie',
       fileBuffer: buffer,
       originalName: `${documentType}-${profile.userId}`,
       mimeType,

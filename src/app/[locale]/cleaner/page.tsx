@@ -1008,7 +1008,9 @@ function RejectedDocCard({ type, reason }: { type: string; reason: string | null
           ? 'DBS Certificate'
           : type === 'insurance'
             ? 'Insurance'
-            : type;
+            : type === 'selfie'
+              ? 'Verification selfie'
+              : type;
 
   const pickFile = (file: File | undefined) => {
     setError(null);
