@@ -11,6 +11,7 @@
 // does nothing. This also prevents a hours-later retry from stomping a booking
 // a cleaner has since accepted — the status is no longer PENDING.
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import { computeCascadeWindows } from '@/lib/services/cascade.service';
 import {
@@ -186,7 +187,7 @@ export async function processPaymentSuccess(
           userId: booking.cleanerId,
           type: 'BOOKING_REQUEST',
           title: 'New booking request',
-          body: `New ${booking.serviceType} booking on ${booking.date.toISOString().split('T')[0]} — please accept or decline.`,
+          body: `New ${serviceLabelFromSlug(booking.serviceType)} booking on ${booking.date.toISOString().split('T')[0]} — please accept or decline.`,
           data: { bookingId },
         },
       })
@@ -201,7 +202,7 @@ export async function processPaymentSuccess(
             userId: backupId,
             type: 'BOOKING_REQUEST',
             title: 'Cleaning job available',
-            body: `A ${booking.serviceType} job is available — first to accept gets it.`,
+            body: `A ${serviceLabelFromSlug(booking.serviceType)} job is available — first to accept gets it.`,
             data: { bookingId },
           },
         })

@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 
 import { cascadeSentence } from '@/components/BookingStatusChip';
 import RescuePanel from '@/components/RescuePanel';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 
 interface Booking {
   id: string;
@@ -359,7 +360,7 @@ function GuestBookingContent() {
               </div>
               <div className="text-right">
                 <p className="text-sm text-ink-3">Service</p>
-                <p className="font-medium text-ink">{booking.serviceType}</p>
+                <p className="font-medium text-ink">{serviceLabelFromSlug(booking.serviceType)}</p>
               </div>
             </div>
 

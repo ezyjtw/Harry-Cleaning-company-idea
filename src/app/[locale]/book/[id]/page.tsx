@@ -21,6 +21,7 @@ import {
   BEDROOMS_TO_AIRBNB_SIZE,
   eotSizeLabel,
   airbnbSizeLabel,
+  serviceLabelFromSlug,
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
@@ -945,7 +946,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 >
                   <div className="flex justify-between">
                     <span className="font-jost text-sm font-normal text-ink">
-                      {booking.serviceType} with {booking.cleanerName}
+                      {serviceLabelFromSlug(booking.serviceType)} with {booking.cleanerName}
                     </span>
                     <span className="font-jost text-sm font-light text-ink-3">{booking.date}</span>
                   </div>

@@ -11,6 +11,8 @@
 // button so Outlook renders the click area, degrades sanely with images off.
 // ─────────────────────────────────────────────────────────────
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+
 // Absolute, production URLs (emails can't rely on relative paths or next/font).
 const SITE_URL = 'https://www.renacleaning.co.uk';
 // RENA wordmark rendered from the site's Etna brand font (scripts/generate-wordmark).
@@ -30,7 +32,7 @@ const FONT_HEAD = "font-family:Newsreader,Georgia,'Times New Roman',serif;";
 // mail client (NOT under the site CSP), so the Google Fonts import is fine here.
 // Non-supporting clients ignore it and fall back via FONT_HEAD / FONT_BODY.
 const BRAND_FONT_LINK =
-  '<style>@import url(\'https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Newsreader:wght@500;600&display=swap\');</style>';
+  "<style>@import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Newsreader:wght@500;600&display=swap');</style>";
 
 export interface EmailContent {
   subject: string;
@@ -167,21 +169,37 @@ function appUrl(): string {
 
 // ─── 19 template builders (copy byte-identical to pre-wrapper) ─
 
+// B5: the cleaner's name leads the confirmation — the customer booked a
+// person, not a slot. `cleanerName` may be the call site's "Your cleaner"
+// fallback (Rena-Find bookings have no assignee at payment time), so the
+// Cleaner row only renders for a real name.
+function hasRealCleanerName(booking: BookingEmailData): boolean {
+  return !!booking.cleanerName && booking.cleanerName !== 'Your cleaner';
+}
+
 export function buildBookingConfirmation(
   booking: BookingEmailData,
   user: UserEmailData
 ): EmailContent {
   const subject = `Booking confirmed - ${booking.date} at ${booking.time}`;
+  const named = hasRealCleanerName(booking);
+  const rows: Array<[string, string]> = [];
+  if (named) rows.push(['Cleaner', booking.cleanerName as string]);
+  rows.push(
+    ['Date', booking.date],
+    ['Time', booking.time],
+    ['Address', booking.address],
+    ['Total', `&pound;${booking.totalPrice.toFixed(2)}`]
+  );
   const contentHtml =
     h('Your booking is confirmed!') +
     p(`Hi ${user.name},`) +
-    p(`Your ${booking.serviceType} cleaning has been confirmed.`) +
-    infoBlock([
-      ['Date', booking.date],
-      ['Time', booking.time],
-      ['Address', booking.address],
-      ['Total', `&pound;${booking.totalPrice.toFixed(2)}`],
-    ]) +
+    p(
+      named
+        ? `Your ${serviceLabelFromSlug(booking.serviceType)} clean with <strong>${booking.cleanerName}</strong> has been confirmed.`
+        : `Your ${serviceLabelFromSlug(booking.serviceType)} clean has been confirmed.`
+    ) +
+    infoBlock(rows) +
     p('Your payment is held securely until the job is completed.') +
     p('Thank you for choosing Rena Cleaning Network!');
   return { subject, html: renderEmail({ contentHtml }) };
@@ -200,7 +218,9 @@ export function buildBookingReminder(booking: BookingEmailData, user: UserEmailD
     p(`Hi ${user.name},`) +
     p('This is a friendly reminder that your Rena cleaning is booked for tomorrow.') +
     infoBlock(rows) +
-    p(`Need to reschedule? You can manage your booking any time from ${inlineLink(`${appUrl()}/account/bookings`, 'your bookings')}, or let us know at least 4 hours in advance.`);
+    p(
+      `Need to reschedule? You can manage your booking any time from ${inlineLink(`${appUrl()}/account/bookings`, 'your bookings')}, or let us know at least 4 hours in advance.`
+    );
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
@@ -212,14 +232,18 @@ export function buildCleanerReminder(
   const contentHtml =
     h('You have a job tomorrow') +
     p(`Hi ${cleaner.name},`) +
-    p(`A reminder that you have a ${booking.serviceType} cleaning job tomorrow.`) +
+    p(
+      `A reminder that you have a ${serviceLabelFromSlug(booking.serviceType)} cleaning job tomorrow.`
+    ) +
     infoBlock([
       ['Date', booking.date],
       ['Time', booking.time],
       ['Address', booking.address],
       ['Customer', booking.customerName],
     ]) +
-    p(`Please arrive on time. You can view the job in ${inlineLink(`${appUrl()}/dashboard`, 'your dashboard')}, and message the customer there if anything changes.`);
+    p(
+      `Please arrive on time. You can view the job in ${inlineLink(`${appUrl()}/dashboard`, 'your dashboard')}, and message the customer there if anything changes.`
+    );
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
@@ -276,7 +300,7 @@ export function buildCleanerAssignment(
   const contentHtml =
     h('New assignment') +
     p(`Hi ${cleaner.name},`) +
-    p(`You have been assigned a new ${booking.serviceType} cleaning job.`) +
+    p(`You have been assigned a new ${serviceLabelFromSlug(booking.serviceType)} cleaning job.`) +
     infoBlock([
       ['Date', booking.date],
       ['Time', booking.time],
@@ -374,7 +398,7 @@ export function buildReviewRequest(booking: BookingEmailData, user: UserEmailDat
     h('How was your clean?') +
     p(`Hi ${user.name},`) +
     p(
-      `Your ${booking.serviceType} clean with ${booking.cleanerName} on ${booking.date} has been completed.`
+      `Your ${serviceLabelFromSlug(booking.serviceType)} clean with ${booking.cleanerName} on ${booking.date} has been completed.`
     ) +
     p("We'd love to hear how it went! Your review helps other customers find great cleaners.") +
     button(reviewLink, 'Leave a Review') +
@@ -409,16 +433,25 @@ export function buildGuestBookingConfirmation(
   const manageLink = `${base}/booking/guest?token=${guestToken}`;
   const signupLink = `${base}/signup?email=${encodeURIComponent(email)}`;
   const subject = `Booking confirmed - ${booking.date} at ${booking.time}`;
+  // B5: name the cleaner (guest parity with the account-holder confirmation).
+  const named = hasRealCleanerName(booking);
+  const rows: Array<[string, string]> = [];
+  if (named) rows.push(['Cleaner', booking.cleanerName as string]);
+  rows.push(
+    ['Date', booking.date],
+    ['Time', booking.time],
+    ['Address', booking.address],
+    ['Total', `&pound;${booking.totalPrice.toFixed(2)}`]
+  );
   const contentHtml =
     h('Your booking is confirmed!') +
     p(`Hi ${guestName},`) +
-    p(`Your ${booking.serviceType} cleaning has been confirmed.`) +
-    infoBlock([
-      ['Date', booking.date],
-      ['Time', booking.time],
-      ['Address', booking.address],
-      ['Total', `&pound;${booking.totalPrice.toFixed(2)}`],
-    ]) +
+    p(
+      named
+        ? `Your ${serviceLabelFromSlug(booking.serviceType)} clean with <strong>${booking.cleanerName}</strong> has been confirmed.`
+        : `Your ${serviceLabelFromSlug(booking.serviceType)} clean has been confirmed.`
+    ) +
+    infoBlock(rows) +
     p('You can manage your booking using this link:') +
     button(manageLink, 'Manage Booking') +
     p("This link is personal to you, so please don't share it.") +
@@ -610,11 +643,9 @@ export function buildCleanerCancelledRescue(data: {
     h('Your cleaner has had to cancel') +
     p(`Hi ${data.customerName},`) +
     p(
-      `We're really sorry — your cleaner has had to cancel your ${data.serviceType} booking on <strong>${dateStr} at ${data.startTime}</strong>. We know how inconvenient this is.`
+      `We're really sorry — your cleaner has had to cancel your ${serviceLabelFromSlug(data.serviceType)} booking on <strong>${dateStr} at ${data.startTime}</strong>. We know how inconvenient this is.`
     ) +
-    p(
-      '<strong>Your payment is completely safe.</strong> You choose what happens next:'
-    ) +
+    p('<strong>Your payment is completely safe.</strong> You choose what happens next:') +
     button(rebookLink, 'Help me rebook') +
     p(
       'We&rsquo;ll show you cleaners who are genuinely available &mdash; your details are already filled in, and the money you&rsquo;ve paid simply moves to the new booking. If the new cleaner costs less, we refund the difference automatically; if more, we&rsquo;ll ask before charging a penny.'
@@ -653,7 +684,7 @@ export function buildCascadeSearchingUpdate(data: {
     h('We&rsquo;re finding your cleaner') +
     p(`Hi ${data.customerName},`) +
     p(
-      `Your chosen cleaner couldn&rsquo;t confirm your ${data.serviceType} booking on <strong>${dateStr}</strong> &mdash; we&rsquo;re sorry about that. The good news: <strong>your booking and payment are unchanged</strong>, and we&rsquo;re already contacting great alternative cleaners at or below your original price.`
+      `Your chosen cleaner couldn&rsquo;t confirm your ${serviceLabelFromSlug(data.serviceType)} booking on <strong>${dateStr}</strong> &mdash; we&rsquo;re sorry about that. The good news: <strong>your booking and payment are unchanged</strong>, and we&rsquo;re already contacting great alternative cleaners at or below your original price.`
     ) +
     p(
       'You don&rsquo;t need to do anything. We&rsquo;ll email you the moment a cleaner confirms &mdash; and if we can&rsquo;t find anyone in time, you&rsquo;ll get a full refund automatically.'
@@ -680,7 +711,7 @@ export function buildRenaFindConcierge(data: {
     h('Our team is on it') +
     p(`Hi ${data.customerName},`) +
     p(
-      `Finding the right cleaner for your ${data.serviceType} booking on <strong>${dateStr}</strong> is taking longer than we&rsquo;d like &mdash; so our team is now <strong>personally</strong> searching our wider network for you.`
+      `Finding the right cleaner for your ${serviceLabelFromSlug(data.serviceType)} booking on <strong>${dateStr}</strong> is taking longer than we&rsquo;d like &mdash; so our team is now <strong>personally</strong> searching our wider network for you.`
     ) +
     p(
       'Your booking and payment are unchanged. We&rsquo;ll email you as soon as a cleaner is confirmed &mdash; and if we can&rsquo;t find the right person in time, you&rsquo;ll receive a full refund automatically. You never pay for a clean that doesn&rsquo;t happen.'
@@ -707,7 +738,7 @@ export function buildCascadeExhaustedRefund(data: {
     h('We&rsquo;re sorry &mdash; and you&rsquo;re fully refunded') +
     p(`Hi ${data.customerName},`) +
     p(
-      `Despite our best efforts, we couldn&rsquo;t find an available cleaner for your ${data.serviceType} booking on <strong>${dateStr}</strong>. We&rsquo;re really sorry to let you down.`
+      `Despite our best efforts, we couldn&rsquo;t find an available cleaner for your ${serviceLabelFromSlug(data.serviceType)} booking on <strong>${dateStr}</strong>. We&rsquo;re really sorry to let you down.`
     ) +
     p(
       '<strong>Your full refund is already being processed</strong> &mdash; it will arrive back on your original payment method within 5&ndash;10 business days. There is nothing you need to do.'

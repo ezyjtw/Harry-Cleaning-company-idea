@@ -9,7 +9,11 @@
 
 import type { Booking, BookingStatus, CascadePhase, PropertySize } from '@prisma/client';
 
-import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
+import {
+  normalizeToPricingSlug,
+  propertySizeEnumToSlug,
+  serviceLabelFromSlug,
+} from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
@@ -160,7 +164,7 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
           userId: backupId,
           type: 'BOOKING_REQUEST',
           title: 'Cleaning job available',
-          body: `A ${booking.serviceType} job is available — first to accept gets it.`,
+          body: `A ${serviceLabelFromSlug(booking.serviceType)} job is available — first to accept gets it.`,
           data: { bookingId },
         },
       })
@@ -801,7 +805,7 @@ async function reopenToBackups(
           userId: backupId,
           type: 'BOOKING_REQUEST',
           title: 'Cleaning job available',
-          body: `A ${booking.serviceType} job is available — accept if you can take it at or below the quoted price.`,
+          body: `A ${serviceLabelFromSlug(booking.serviceType)} job is available — accept if you can take it at or below the quoted price.`,
           data: { bookingId },
         },
       })
@@ -1330,7 +1334,7 @@ async function enterRenaFind(
           userId: cleanerId,
           type: 'BOOKING_REQUEST',
           title: 'Cleaning job available',
-          body: `A ${booking.serviceType} job is available for ${earnings} — first to accept gets it.`,
+          body: `A ${serviceLabelFromSlug(booking.serviceType)} job is available for ${earnings} — first to accept gets it.`,
           data: { bookingId },
         },
       })

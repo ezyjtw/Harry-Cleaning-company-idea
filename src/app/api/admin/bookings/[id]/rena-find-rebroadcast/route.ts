@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { MatchingService } from '@/lib/services/matching.service';
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           userId: cleanerId,
           type: 'BOOKING_REQUEST',
           title: 'Cleaning job available',
-          body: `A ${booking.serviceType} job is available for ${earnings} — first to accept gets it.`,
+          body: `A ${serviceLabelFromSlug(booking.serviceType)} job is available for ${earnings} — first to accept gets it.`,
           data: { bookingId: id },
         },
       })

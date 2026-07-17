@@ -22,6 +22,7 @@
 // Auto-rescue (system proactively finds a replacement) is explicitly OUT —
 // ledgered post-launch.
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 
 import { AuditService } from './audit.service';
@@ -29,7 +30,6 @@ import type { CancellationResult } from './cancellation.service';
 import { computeCascadeWindows } from './cascade.service';
 import { sendCleanerCancelledRescue } from './email.service';
 import { pricingService, type ServiceSlug } from './pricing.service';
-
 
 const RESCUE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
@@ -196,9 +196,8 @@ export async function rescueRebook(params: {
   // rebooking is refused for guests — the picker greys those cleaners out.
   let priceDelta = 0;
   try {
-    const { normalizeToPricingSlug, propertySizeEnumToSlug } = await import(
-      '@/lib/constants/services'
-    );
+    const { normalizeToPricingSlug, propertySizeEnumToSlug } =
+      await import('@/lib/constants/services');
     const quote = await pricingService.calculateQuote({
       cleanerId: newCleanerId,
       serviceSlug: normalizeToPricingSlug(booking.serviceType) as ServiceSlug,
@@ -268,13 +267,18 @@ export async function rescueRebook(params: {
         userId: newCleanerId,
         type: 'BOOKING_REQUEST',
         title: 'New booking request',
-        body: `New ${booking.serviceType} booking on ${params.date} — please accept or decline.`,
+        body: `New ${serviceLabelFromSlug(booking.serviceType)} booking on ${params.date} — please accept or decline.`,
         data: { bookingId },
       },
     })
     .catch(() => {});
 
-  return { ok: true, status: 200, newCleanerName: newCleaner.name || 'your new cleaner', priceDelta };
+  return {
+    ok: true,
+    status: 200,
+    newCleanerName: newCleaner.name || 'your new cleaner',
+    priceDelta,
+  };
 }
 
 // ─── Timeout sweep (scheduler) ───────────────────────────────────────────────
