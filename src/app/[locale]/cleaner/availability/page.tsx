@@ -142,6 +142,10 @@ export default function AvailabilityPage() {
   const [dateSlots, setDateSlots] = useState<Record<string, TimeSlot[]>>({});
 
   const [bookingBuffer, setBookingBuffer] = useState<30 | 60>(30);
+  // B1: the buffer saves itself on click. Its old save path was the Recurring
+  // tab's "Save Changes" button — invisible from the default Week tab, so the
+  // setting silently never persisted for anyone who didn't switch tabs.
+  const [bufferState, setBufferState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [sameDayBookings, setSameDayBookings] = useState(true);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -494,6 +498,30 @@ export default function AvailabilityPage() {
     setSaved(false);
   };
 
+  // ── Buffer: immediate partial save (B1) ────────────
+  const handleBufferChange = useCallback(
+    async (mins: 30 | 60) => {
+      const prev = bookingBuffer;
+      if (prev === mins) return;
+      setBookingBuffer(mins);
+      setBufferState('saving');
+      try {
+        const res = await fetch('/api/cleaner/availability', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingBufferMinutes: mins }),
+        });
+        if (!res.ok) throw new Error('save failed');
+        setBufferState('saved');
+        setTimeout(() => setBufferState('idle'), 3000);
+      } catch {
+        setBookingBuffer(prev);
+        setBufferState('error');
+      }
+    },
+    [bookingBuffer]
+  );
+
   // ── Save recurring schedule ────────────────────────
   const handleSave = useCallback(async () => {
     for (const day of daysOfWeek) {
@@ -671,11 +699,8 @@ export default function AvailabilityPage() {
               <button
                 key={mins}
                 type="button"
-                onClick={() => {
-                  setBookingBuffer(mins);
-                  setDirty(true);
-                  setSaved(false);
-                }}
+                onClick={() => handleBufferChange(mins)}
+                disabled={bufferState === 'saving'}
                 className={`rounded-full px-5 py-2.5 font-jost text-sm font-light ring-1 transition-all ${
                   bookingBuffer === mins
                     ? 'bg-primary/5 text-ink ring-2 ring-primary shadow-sm'
@@ -689,6 +714,11 @@ export default function AvailabilityPage() {
           <p className="mt-3 font-jost text-xs font-light text-ink-3">
             A {bookingBuffer}-minute buffer will be blocked before and after each booking so you
             have time to travel and prepare.
+            {bufferState === 'saving' && <span className="ml-2 text-ink-2">Saving…</span>}
+            {bufferState === 'saved' && <span className="ml-2 text-success">Saved</span>}
+            {bufferState === 'error' && (
+              <span className="ml-2 text-danger">Couldn&apos;t save — please try again.</span>
+            )}
           </p>
         </div>
       </div>
