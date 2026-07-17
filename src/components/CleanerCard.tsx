@@ -16,6 +16,21 @@ interface CleanerCardProps {
   /** Customer's search postcode — forwarded to /book so the address step
    *  auto-looks-up without re-entry. */
   postcode?: string;
+  /** Bedrooms from the quote widget / directory — forwarded to /book so the
+   *  property size is pre-selected (B3). */
+  bedrooms?: number | null;
+}
+
+export function buildBookUrl(
+  cleanerId: string,
+  postcode?: string,
+  bedrooms?: number | null
+): string {
+  const params = new URLSearchParams();
+  if (postcode) params.set('postcode', postcode);
+  if (bedrooms !== null && bedrooms !== undefined) params.set('bedrooms', String(bedrooms));
+  const qs = params.toString();
+  return qs ? `/book/${cleanerId}?${qs}` : `/book/${cleanerId}`;
 }
 
 export default function CleanerCard({
@@ -25,6 +40,7 @@ export default function CleanerCard({
   fixedServiceLabel,
   distance,
   postcode,
+  bedrooms,
 }: CleanerCardProps) {
   const isVerified = cleaner.identityVerified || cleaner.backgroundChecked;
   const hasFixed = fixedServicePrice !== null && fixedServicePrice !== undefined;
@@ -86,11 +102,7 @@ export default function CleanerCard({
       </p>
 
       <Link
-        href={
-          postcode
-            ? `/book/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
-            : `/book/${cleaner.id}`
-        }
+        href={buildBookUrl(cleaner.id, postcode, bedrooms)}
         onClick={(e) => e.stopPropagation()}
         className="mt-4 block rounded-[10px] bg-primary px-4 py-3 text-center font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
       >

@@ -38,7 +38,8 @@ function serviceHasUsablePrice(c: Cleaner, slug: string): boolean {
       );
     case 'airbnb':
       return (
-        !!c.airbnbPrices && Object.values(c.airbnbPrices).some((p) => typeof p === 'number' && p > 0)
+        !!c.airbnbPrices &&
+        Object.values(c.airbnbPrices).some((p) => typeof p === 'number' && p > 0)
       );
     default:
       return true;
@@ -211,6 +212,13 @@ function CleanersContent({
     setPostcode(trimmed.toUpperCase());
     setSort('distance');
   };
+
+  // B4: the book links must carry the customer's postcode even when they typed
+  // it but never pressed Search — a valid-but-unsubmitted entry previously fell
+  // through and the booking flow asked for the postcode again.
+  const typedValid = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(postcodeSearch.trim());
+  const effectivePostcode =
+    postcode || (typedValid ? postcodeSearch.trim().toUpperCase() : undefined);
 
   const filtered = allCleaners
     .filter((c) => {
@@ -455,7 +463,8 @@ function CleanersContent({
                       fixedServicePrice={fixedPrice}
                       fixedServiceLabel={fixedLabel}
                       distance={cleaner.distance}
-                      postcode={postcode || undefined}
+                      postcode={effectivePostcode}
+                      bedrooms={propertySize}
                     />
                   );
                 })}
@@ -478,7 +487,8 @@ function CleanersContent({
         <CleanerProfileModal
           cleaner={selectedCleaner}
           onClose={() => setSelectedCleaner(null)}
-          postcode={postcode || undefined}
+          postcode={effectivePostcode}
+          bedrooms={propertySize}
         />
       )}
     </div>

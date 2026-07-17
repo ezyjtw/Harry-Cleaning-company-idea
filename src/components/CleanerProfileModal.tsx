@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { serviceTypeLabel } from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
 
+import { buildBookUrl } from './CleanerCard';
 import CleanerProfileView, {
   type CleanerProfileData,
   type ProfileService,
@@ -33,6 +34,8 @@ interface CleanerProfileModalProps {
   /** Customer's search postcode — forwarded to /book so the address step
    *  auto-looks-up without re-entry. */
   postcode?: string;
+  /** Bedrooms from the quote widget / directory — forwarded to /book (B3). */
+  bedrooms?: number | null;
   /** Backup-picker context only: when provided, a "Select as backup" footer
    *  button renders, calling this (the same selection handler as the bench). */
   onSelectBackup?: () => void;
@@ -53,6 +56,7 @@ export default function CleanerProfileModal({
   cleaner,
   onClose,
   postcode,
+  bedrooms,
   onSelectBackup,
   isSelectedBackup,
   onBook,
@@ -164,9 +168,7 @@ export default function CleanerProfileModal({
     insured: cleaner.insured,
     backgroundChecked: cleaner.backgroundChecked,
     fromPrice: cleaner.hourlyRateRegular ?? cleaner.hourlyRateDeep ?? null,
-    bookHref: postcode
-      ? `/book/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
-      : `/book/${cleaner.id}`,
+    bookHref: buildBookUrl(cleaner.id, postcode, bedrooms),
     onBook,
     bookLabel,
     about: cleaner.bio,

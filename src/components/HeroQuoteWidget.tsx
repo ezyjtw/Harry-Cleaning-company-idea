@@ -857,8 +857,16 @@ export default function HeroQuoteWidget() {
           Book a clean
         </a>
 
+        {/* B3: carry the full property context the customer already entered —
+            /cleaners reads serviceType + bedrooms (filters, fixed-price
+            display); bathrooms rides along so the booking flow can seed it. */}
         <a
-          href={`/cleaners?postcode=${encodeURIComponent(confirmedPostcode)}`}
+          href={`/cleaners?${new URLSearchParams({
+            postcode: confirmedPostcode,
+            serviceType: serviceSlug,
+            bedrooms: String(bedrooms ?? ''),
+            bathrooms: String(bathrooms ?? ''),
+          }).toString()}`}
           className="mb-3 flex w-full items-center justify-center rounded-md py-3 font-jost text-[13px] tracking-[0.08em] text-ink transition hover:bg-page"
           style={{ border: '1px solid rgb(var(--color-border))' }}
         >
