@@ -427,11 +427,20 @@ export function buildGuestBookingConfirmation(
   booking: BookingEmailData,
   email: string,
   guestName: string,
-  guestToken: string
+  guestToken: string,
+  // H6: when this email address already belongs to a Rena account, the
+  // create-account CTA is a misfire ("create an account" to an existing
+  // customer). They get the useful equivalent instead: sign in and the booking
+  // appears in their account (claim-on-login, A16b-2b).
+  hasAccount = false
 ): EmailContent {
   const base = appUrl();
   const manageLink = `${base}/booking/guest?token=${guestToken}`;
   const signupLink = `${base}/signup?email=${encodeURIComponent(email)}`;
+  const signinLink = `${base}/login?callbackUrl=${encodeURIComponent('/account/bookings')}`;
+  const accountFooter = hasAccount
+    ? `This email address already has a Rena account &mdash; ${inlineLink(signinLink, 'sign in')} and this booking will appear in your account automatically.`
+    : `Want to message your cleaner or leave a review afterwards? ${inlineLink(signupLink, 'Create a free account')} with this email and your booking will be linked to it automatically.`;
   const subject = `Booking confirmed - ${booking.date} at ${booking.time}`;
   // B5: name the cleaner (guest parity with the account-holder confirmation).
   const named = hasRealCleanerName(booking);
@@ -455,9 +464,7 @@ export function buildGuestBookingConfirmation(
     p('You can manage your booking using this link:') +
     button(manageLink, 'Manage Booking') +
     p("This link is personal to you, so please don't share it.") +
-    p(
-      `Want to message your cleaner or leave a review afterwards? ${inlineLink(signupLink, 'Create a free account')} with this email and your booking will be linked to it automatically.`
-    ) +
+    p(accountFooter) +
     p('Thank you for choosing Rena Cleaning Network!');
   return { subject, html: renderEmail({ contentHtml }) };
 }
