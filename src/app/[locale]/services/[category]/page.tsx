@@ -1063,7 +1063,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                             fetch('/api/waitlist', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                              body: JSON.stringify({
+                                email: waitlistEmail.trim(),
+                                postcode,
+                                source: 'service-page',
+                              }),
                             })
                               .then(() => setWaitlistSubmitted(true))
                               .catch(() => {})
@@ -1082,7 +1086,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         fetch('/api/waitlist', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                          body: JSON.stringify({
+                            email: waitlistEmail.trim(),
+                            postcode,
+                            source: 'service-page',
+                          }),
                         })
                           .then(() => setWaitlistSubmitted(true))
                           .catch(() => {})

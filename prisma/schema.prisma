@@ -1137,6 +1137,20 @@ model PlatformConfig {
   updatedAt   DateTime @updatedAt
 }
 
+// F-A: out-of-area interest capture (quote widget + service pages). Before this
+// model existed the /api/waitlist route only console-logged entries — they
+// lived nowhere but Railway logs.
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String
+  postcode  String
+  source    String // capture point, e.g. "quote-widget" | "service-page"
+  createdAt DateTime @default(now())
+
+  @@unique([email, postcode])
+  @@index([createdAt])
+}
+
 model BookingAddon {
   id        String       @id @default(cuid())
   bookingId String

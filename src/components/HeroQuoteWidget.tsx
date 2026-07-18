@@ -355,7 +355,11 @@ export default function HeroQuoteWidget() {
       await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: waitlistEmail.trim(), postcode: confirmedPostcode }),
+        body: JSON.stringify({
+          email: waitlistEmail.trim(),
+          postcode: confirmedPostcode,
+          source: 'quote-widget',
+        }),
       });
       setWaitlistSubmitted(true);
     } catch {
