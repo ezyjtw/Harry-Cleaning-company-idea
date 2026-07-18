@@ -404,6 +404,29 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     setEmailError(ok ? null : 'Please enter a valid email address.');
     return ok;
   };
+  // H6 companion: on blur with a valid address, ask (best-effort) whether it
+  // already has a Rena account and show a NON-BLOCKING sign-in notice — guest
+  // continuation stays fully allowed; errors and rate limits just mean no notice.
+  const [emailHasAccount, setEmailHasAccount] = useState(false);
+  const checkGuestEmailAccount = async () => {
+    if (!validateGuestEmail()) return;
+    const trimmed = email.trim();
+    try {
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      setEmailHasAccount(!!data?.hasAccount);
+    } catch {
+      setEmailHasAccount(false);
+    }
+  };
+  const signinHref =
+    typeof window !== 'undefined'
+      ? `/login?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`
+      : '/login';
   const [joinMailingList, setJoinMailingList] = useState(false);
 
   // Postcode validation + out-of-area waitlist
@@ -1376,8 +1399,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   onChange={(e) => {
                     setEmail(e.target.value);
                     if (emailError) setEmailError(null);
+                    if (emailHasAccount) setEmailHasAccount(false);
                   }}
-                  onBlur={validateGuestEmail}
+                  onBlur={checkGuestEmailAccount}
                   aria-invalid={!!emailError}
                   placeholder="you@example.com"
                   className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 ${
@@ -1388,6 +1412,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 />
                 {emailError && (
                   <p className="mt-1.5 font-jost text-[12px] text-danger">{emailError}</p>
+                )}
+                {!emailError && emailHasAccount && (
+                  <p
+                    data-testid="guest-email-account-notice"
+                    className="mt-2 rounded-lg bg-primary-soft px-3 py-2 font-jost text-[12px] text-primary"
+                  >
+                    This email has a Rena account —{' '}
+                    <a href={signinHref} className="font-medium underline">
+                      sign in
+                    </a>{' '}
+                    and this booking will link automatically. Or just continue as a guest.
+                  </p>
                 )}
                 <label className="mt-4 flex cursor-pointer items-center gap-3">
                   <input
