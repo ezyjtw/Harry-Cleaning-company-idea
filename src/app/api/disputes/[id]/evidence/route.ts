@@ -76,7 +76,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const formData = await request.formData();
     const file = formData.get('file');
-    if (!file || !(file instanceof File)) {
+    // H23: duck-type, never `instanceof File` — the global's absence on the
+    // old Node 18 runtime made the instanceof itself throw (500 on every
+    // upload). Same fix as the imported-review evidence route.
+    if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
       return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     }
 
@@ -155,7 +158,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    // H23: no more silent 500s on this family of routes.
+    // eslint-disable-next-line no-console
+    console.error('[DisputeEvidence] Request failed:', error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

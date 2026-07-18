@@ -5,6 +5,7 @@ import {
   toDateString,
 } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import { getReviewCounts } from '@/lib/services/rating.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 import { MatchingService } from './matching.service';
@@ -132,7 +133,7 @@ export async function getAvailableCleanersForBand(
         verificationStatus: true,
         backgroundCheckPassed: true,
         availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
-        user: { select: { name: true, image: true, reviewsReceived: { select: { id: true } } } },
+        user: { select: { name: true, image: true } },
       },
     }),
     prisma.availabilityDateSlot.findMany({
@@ -156,6 +157,10 @@ export async function getAvailableCleanersForBand(
       select: { cleanerId: true, date: true, startTime: true, duration: true },
     }),
   ]);
+
+  // H23: blended review counts (native VISIBLE + imported VERIFIED) — the same
+  // population as the stored rating the card shows.
+  const reviewCounts = await getReviewCounts(userIds);
 
   // Group timesheet rows by cleaner (profileId for slots/overrides, userId for bookings).
   const profileById = new Map(profiles.map((p) => [p.id, p]));
@@ -199,7 +204,7 @@ export async function getAvailableCleanersForBand(
         photo: profile.user.image,
         tier: profile.tier.toLowerCase(),
         rating: Number(profile.rating),
-        reviewCount: profile.user.reviewsReceived.length,
+        reviewCount: reviewCounts.get(c.userId) ?? 0,
         bio: profile.bio ?? '',
         hourlyRateRegular:
           profile.hourlyRateRegular !== null ? Number(profile.hourlyRateRegular) : null,

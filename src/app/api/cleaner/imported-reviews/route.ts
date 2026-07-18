@@ -106,7 +106,10 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    // H23: no more silent 500s on this family of routes.
+    // eslint-disable-next-line no-console
+    console.error('[ImportedReviews] Request failed:', error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
@@ -141,7 +144,10 @@ export async function GET(_request: Request) {
         MAX_IMPORTED_REVIEWS - reviews.filter((r) => r.verificationStatus !== 'REJECTED').length
       ),
     });
-  } catch {
+  } catch (error) {
+    // H23: no more silent 500s on this family of routes.
+    // eslint-disable-next-line no-console
+    console.error('[ImportedReviews] Request failed:', error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
