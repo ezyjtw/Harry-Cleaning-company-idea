@@ -87,6 +87,10 @@ export default function RescuePanel(props: RescuePanelProps) {
   const [busy, setBusy] = useState(false);
   const [acting, setActing] = useState<'find' | 'refund' | null>(null);
   const [confirmingRefund, setConfirmingRefund] = useState(false);
+  // H12 (James-ruled, overrules the one-tap call): ① gets a deliberate commit
+  // moment — an inline confirm on the card, never a modal; ② and ③ stay
+  // visible throughout.
+  const [confirmingFind, setConfirmingFind] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultMsg, setResultMsg] = useState<string>('');
 
@@ -118,6 +122,7 @@ export default function RescuePanel(props: RescuePanelProps) {
   const chooseRefund = async () => {
     if (!confirmingRefund) {
       setConfirmingRefund(true);
+      setConfirmingFind(false);
       return;
     }
     setBusy(true);
@@ -354,38 +359,80 @@ export default function RescuePanel(props: RescuePanelProps) {
       {/* H9: all three choices stay visible until one is CONFIRMED — the
           active path highlights, the others remain clickable. */}
       <div className="mt-4 space-y-3">
-        {/* ① Same slot, different cleaner — with an honest preview of who
-            we'd offer it to (the exact broadcast set). */}
-        <button
-          type="button"
-          disabled={busy || sameSlotNames?.length === 0}
-          onClick={chooseFindAnother}
-          data-testid="rescue-find-another"
-          className={`block w-full rounded-[10px] px-4 py-3 text-left disabled:opacity-60 ${
-            busy && acting === 'find'
-              ? 'bg-primary ring-2 ring-primary ring-offset-2'
-              : 'bg-primary hover:bg-primary-hover'
-          }`}
-        >
-          <span className="block font-jost text-sm font-semibold text-white">
-            {busy && acting === 'find' ? 'Asking cleaners nearby…' : 'Find me another cleaner'}
-          </span>
-          <span className="mt-0.5 block font-jost text-[12px] text-white/80">
-            Keep {slotLabel} — first to accept takes it, at the price you&rsquo;ve already paid.
-          </span>
-          <span
-            className="mt-0.5 block font-jost text-[12px] text-white/80"
-            data-testid="same-slot-preview"
+        {/* ① Same slot, different cleaner — honest preview of the broadcast
+            set, and (H12) an inline are-you-sure beat before committing. */}
+        {!confirmingFind ? (
+          <button
+            type="button"
+            disabled={busy || sameSlotNames?.length === 0}
+            onClick={() => {
+              setConfirmingFind(true);
+              setConfirmingRefund(false);
+            }}
+            data-testid="rescue-find-another"
+            className="block w-full rounded-[10px] bg-primary px-4 py-3 text-left hover:bg-primary-hover disabled:opacity-60"
           >
-            {sameSlotNames === null
-              ? ''
-              : sameSlotNames.length === 0
-                ? 'No other cleaners are free for this exact slot right now — pick a new date below, or take the refund.'
-                : `We'd offer it to: ${sameSlotNames.slice(0, 3).join(', ')}${
+            <span className="block font-jost text-sm font-semibold text-white">
+              Find me another cleaner
+            </span>
+            <span className="mt-0.5 block font-jost text-[12px] text-white/80">
+              Keep {slotLabel} — first to accept takes it, at the price you&rsquo;ve already paid.
+            </span>
+            <span
+              className="mt-0.5 block font-jost text-[12px] text-white/80"
+              data-testid="same-slot-preview"
+            >
+              {sameSlotNames === null
+                ? ''
+                : sameSlotNames.length === 0
+                  ? 'No other cleaners are free for this exact slot right now — pick a new date below, or take the refund.'
+                  : `We'd offer it to: ${sameSlotNames.slice(0, 3).join(', ')}${
+                      sameSlotNames.length > 3 ? ` +${sameSlotNames.length - 3} more` : ''
+                    }.`}
+            </span>
+          </button>
+        ) : (
+          <div
+            className="rounded-[10px] bg-primary px-4 py-3 ring-2 ring-primary ring-offset-2"
+            data-testid="rescue-find-confirm"
+          >
+            <p className="font-jost text-sm font-semibold text-white">
+              {busy && acting === 'find'
+                ? 'Asking cleaners nearby…'
+                : 'Offer your slot to other cleaners?'}
+            </p>
+            <p className="mt-0.5 font-jost text-[12px] text-white/85">
+              We&rsquo;ll offer your {slotLabel} slot to{' '}
+              {sameSlotNames && sameSlotNames.length > 0
+                ? `${sameSlotNames.slice(0, 3).join(', ')}${
                     sameSlotNames.length > 3 ? ` +${sameSlotNames.length - 3} more` : ''
-                  }.`}
-          </span>
-        </button>
+                  }`
+                : 'trusted cleaners nearby'}{' '}
+              at the price you&rsquo;ve paid. First to accept takes it. If nobody&rsquo;s free in
+              time, you&rsquo;re refunded in full automatically.
+            </p>
+            <div className="mt-2.5 flex items-center gap-3">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={chooseFindAnother}
+                data-testid="rescue-find-confirm-yes"
+                className="rounded-[8px] bg-white px-4 py-2 font-jost text-[13px] font-semibold text-primary hover:bg-white/90 disabled:opacity-60"
+              >
+                {busy && acting === 'find' ? 'Asking…' : 'Yes — find me a cleaner'}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setConfirmingFind(false)}
+                data-testid="rescue-find-confirm-back"
+                className="font-jost text-[13px] text-white/85 underline disabled:opacity-60"
+              >
+                Go back
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ② Different date — same or any cleaner. Expands INLINE. */}
         <div
@@ -396,7 +443,10 @@ export default function RescuePanel(props: RescuePanelProps) {
           <button
             type="button"
             disabled={busy}
-            onClick={() => setRebookOpen((o) => !o)}
+            onClick={() => {
+              setRebookOpen((o) => !o);
+              setConfirmingFind(false);
+            }}
             data-testid="rescue-rebook"
             className="block w-full px-4 py-3 text-left hover:bg-page disabled:opacity-50"
           >
