@@ -1438,11 +1438,19 @@ async function enterRenaFind(
     });
   }
 
+  // H21 consent law, enforced AT THE WRITE: the exhaustion-side RENA_FIND
+  // broadcast may only ever fire for a booking whose customer opted in at
+  // booking time. handleCascadeExhaustion already routes flag-false bookings
+  // to cascadeExhaust, but this claim makes the law structural — no future
+  // caller can broadcast without consent. (The rescue-① writer in
+  // rescue.service.ts is deliberately NOT flag-gated: the customer's live
+  // panel choice IS the consent there.)
   const result = await prisma.booking.updateMany({
     where: {
       id: bookingId,
       status: 'AWAITING_CLEANER',
       cascadePhase: expectedPhase,
+      autoAssignBackup: true,
     },
     data: {
       cascadePhase: 'RENA_FIND',
@@ -1536,11 +1544,15 @@ async function enterRenaFindAdminReview(
     totalCandidates: number;
   }
 ): Promise<boolean> {
+  // H21: same consent-at-the-write guard as enterRenaFind — the admin-review
+  // queue is the Rena-Find waiting room, so a booking without the booking-time
+  // opt-in may never be parked in it either.
   const result = await prisma.booking.updateMany({
     where: {
       id: bookingId,
       status: 'AWAITING_CLEANER',
       cascadePhase: expectedPhase,
+      autoAssignBackup: true,
     },
     data: {
       cascadePhase: 'RENA_FIND_ADMIN_REVIEW',
