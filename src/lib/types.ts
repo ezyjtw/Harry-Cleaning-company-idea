@@ -27,6 +27,10 @@ export interface Cleaner {
   /** Specific time slots the cleaner is available per day. Key is day abbreviation (e.g. 'Mon'). */
   timeSlots: Record<string, string[]>;
   availableNow: boolean;
+  /** F-B: permanent founding-cohort badge. */
+  founding?: boolean;
+  /** F-B: "New to Rena" eligibility computed server-side (expires at 5 jobs / 60 days post-go-live). */
+  isNew?: boolean;
   categoryRatings: CategoryRatings;
   bringsProducts: boolean;
   productFee: number; // additional cost if cleaner brings products

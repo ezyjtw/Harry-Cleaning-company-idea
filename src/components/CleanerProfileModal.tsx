@@ -167,6 +167,7 @@ export default function CleanerProfileModal({
     backgroundChecked: cleaner.backgroundChecked,
     fromPrice: cleaner.hourlyRateRegular ?? cleaner.hourlyRateDeep ?? null,
     bookHref: buildBookUrl(cleaner.id, postcode, bedrooms),
+    founding: cleaner.founding,
     onBook,
     bookLabel,
     about: cleaner.bio,

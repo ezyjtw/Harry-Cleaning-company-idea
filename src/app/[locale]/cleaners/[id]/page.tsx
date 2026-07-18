@@ -172,6 +172,7 @@ export default async function CleanerProfilePage({
     backgroundChecked: profile.backgroundCheckPassed,
     fromPrice: hrReg ?? hrDeep ?? null,
     bookHref: `/book/${profile.user.id}${bookQuery}`,
+    founding: profile.foundingCleaner,
     about: profile.bio || '',
     ratings: hasNativeSubRatings
       ? [

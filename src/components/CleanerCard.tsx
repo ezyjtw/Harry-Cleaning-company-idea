@@ -59,6 +59,8 @@ export default function CleanerCard({
         verified={isVerified}
         rating={cleaner.rating}
         reviewCount={cleaner.reviewCount}
+        founding={cleaner.founding}
+        isNew={cleaner.isNew}
         meta={
           <>
             {cleaner.location}

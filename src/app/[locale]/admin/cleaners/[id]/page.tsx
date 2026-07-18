@@ -42,6 +42,7 @@ export interface CleanerDetail {
   travelMode: string | null;
   tier: string;
   verified: boolean;
+  foundingCleaner: boolean;
   verificationStatus: string;
   verificationMeta: Record<string, unknown> | null;
   completedJobs: number;
@@ -118,6 +119,7 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
     travelMode: profile.travelMode,
     tier: profile.tier,
     verified: profile.verified,
+    foundingCleaner: profile.foundingCleaner,
     verificationStatus: profile.verificationStatus,
     verificationMeta: (profile.verificationMeta as Record<string, unknown>) || null,
     completedJobs: profile.completedJobs,

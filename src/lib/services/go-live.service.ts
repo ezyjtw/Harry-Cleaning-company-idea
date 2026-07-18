@@ -11,6 +11,7 @@
 // it stamps liveNotifiedAt (exactly-once via an atomic guard) and sends the
 // celebration email.
 
+import { FOUNDING_CLEANER_DEFAULT_LIMIT, FOUNDING_CLEANER_LIMIT_KEY } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { sendGoLive } from '@/lib/services/email.service';
 
@@ -68,6 +69,27 @@ export async function maybeMarkLive(userId: string): Promise<void> {
       data: { liveNotifiedAt: new Date() },
     });
     if (claimed.count === 0) return;
+
+    // F-B: the first N cleaners to go live carry the permanent founding badge.
+    // N is admin-settable (PlatformConfig founding_cleaner_limit, default 30).
+    // Runs inside the exactly-once claim, so a cleaner is counted once.
+    try {
+      const limitRow = await prisma.platformConfig.findUnique({
+        where: { key: FOUNDING_CLEANER_LIMIT_KEY },
+      });
+      const limit = limitRow ? parseInt(limitRow.value, 10) : FOUNDING_CLEANER_DEFAULT_LIMIT;
+      const foundingCount = await prisma.cleanerProfile.count({
+        where: { foundingCleaner: true },
+      });
+      if (Number.isFinite(limit) && foundingCount < limit) {
+        await prisma.cleanerProfile.update({
+          where: { id: profile.id },
+          data: { foundingCleaner: true },
+        });
+      }
+    } catch {
+      // badge flagging must never block the go-live path
+    }
 
     await sendGoLive({
       name: profile.user.name || 'there',

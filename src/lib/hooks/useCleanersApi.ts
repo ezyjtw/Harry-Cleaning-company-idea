@@ -31,6 +31,8 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     availability: (c.availability as string[]) || [],
     timeSlots: (c.timeSlots as Record<string, string[]>) || {},
     availableNow: (c.availableNow as boolean) || false,
+    founding: (c.founding as boolean) || false,
+    isNew: c.isNew === undefined ? undefined : Boolean(c.isNew),
     categoryRatings: DEFAULT_CATEGORY_RATINGS,
     insured: (c.insured as boolean) || false,
     bringsProducts: false,

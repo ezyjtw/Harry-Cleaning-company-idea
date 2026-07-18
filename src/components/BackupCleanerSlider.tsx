@@ -148,7 +148,9 @@ export default function BackupCleanerSlider({
                           name={c.name}
                           size={56}
                           className={
-                            isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''
+                            isSelected
+                              ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface'
+                              : ''
                           }
                         />
                         {c.identityVerified && <VerifiedCheck />}
@@ -174,8 +176,11 @@ export default function BackupCleanerSlider({
                           <>
                             <span className="text-rating">&#9733;</span> {c.rating}
                           </>
-                        ) : (
+                        ) : (c.isNew ?? true) ? (
+                          // F-B: "New to Rena" expires (5 jobs / 60 days post-go-live)
                           'New to Rena'
+                        ) : (
+                          'No reviews yet'
                         )}
                       </span>
                       <span className="mt-0.5 block truncate font-jost text-[11px] font-medium text-ink-2">

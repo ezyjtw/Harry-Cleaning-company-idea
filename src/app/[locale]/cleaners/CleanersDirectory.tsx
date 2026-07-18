@@ -89,6 +89,8 @@ function mapApiCleaners(raw: Record<string, unknown>[]): Cleaner[] {
     availability: (c.availability as string[]) || [],
     timeSlots: (c.timeSlots as Record<string, string[]>) || {},
     availableNow: (c.availableNow as boolean) || false,
+    founding: (c.founding as boolean) || false,
+    isNew: c.isNew === undefined ? undefined : Boolean(c.isNew),
     categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0 },
     bringsProducts: false,
     productFee: 0,

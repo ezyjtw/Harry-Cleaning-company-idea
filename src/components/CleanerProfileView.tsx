@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import CleanerAvatar from './CleanerAvatar';
+import { FoundingBadge } from './CleanerIdentity';
 import StarRating from './StarRating';
 
 export interface ProfileService {
@@ -40,6 +41,8 @@ export interface CleanerProfileData {
   /** Headline £/hr (hourlyRateRegular or lowest offered). */
   fromPrice: number | null;
   bookHref: string;
+  /** F-B: permanent founding-cohort badge. */
+  founding?: boolean;
   /** In-flow context (e.g. the wizard browse step): when set, the book button
    *  calls this instead of navigating to bookHref. */
   onBook?: () => void;
@@ -150,9 +153,12 @@ export default function CleanerProfileView({
         <div className="flex items-start gap-5">
           <Avatar name={data.name} photo={data.photo} size={72} />
           <div className="min-w-0 flex-1">
-            <h2 className="font-newsreader text-[24px] font-semibold leading-tight text-ink">
-              {data.name}
-            </h2>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h2 className="font-newsreader text-[24px] font-semibold leading-tight text-ink">
+                {data.name}
+              </h2>
+              {data.founding && <FoundingBadge />}
+            </div>
             <div className="mt-1 flex items-center gap-2">
               <StarRating rating={data.rating} />
               <span className="font-jost text-[13px] font-light text-ink-2">
