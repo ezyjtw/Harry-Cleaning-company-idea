@@ -195,6 +195,16 @@ function GuestBookingContent() {
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelled, setCancelled] = useState(false);
+  // Guest cancel parity: read-only refund preview shown before confirming.
+  const [cancelPreview, setCancelPreview] = useState<{
+    canCancel: boolean;
+    refundPercent: number;
+    refundAmount: number;
+    reason?: string;
+    graceUntil?: string;
+  } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const fetchBooking = useCallback(async () => {
     if (!token) {
@@ -223,6 +233,60 @@ function GuestBookingContent() {
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
+
+  // Guest cancel parity (James-ruled): same refund preview + copy the
+  // account-holder dialog shows — refund %, amount, and the live grace
+  // deadline — BEFORE the guest confirms. Mirrors account/bookings.
+  const refundMessage = (p: {
+    refundAmount: number;
+    refundPercent: number;
+    graceUntil?: string;
+  }): string => {
+    if (p.refundAmount <= 0) {
+      return p.refundPercent <= 0
+        ? 'No refund — this booking is within 24 hours of the start time. Cancelling now forfeits payment.'
+        : 'No payment was captured, so there is nothing to refund.';
+    }
+    if (p.refundPercent >= 100) {
+      if (p.graceUntil) {
+        const until = new Date(p.graceUntil).toLocaleString('en-GB', {
+          hour: 'numeric',
+          minute: '2-digit',
+          weekday: 'short',
+        });
+        return `You'll receive a full refund of £${p.refundAmount.toFixed(2)} — you're inside your free-cancellation window (ends ${until}).`;
+      }
+      return `You'll receive a full refund of £${p.refundAmount.toFixed(2)}.`;
+    }
+    return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;
+  };
+
+  const startCancel = async () => {
+    if (!token || !booking) return;
+    setPreviewing(true);
+    setPreviewError(null);
+    try {
+      const res = await fetch('/api/bookings/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, dryRun: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.preview) {
+        setPreviewError(data.error || 'Could not check your refund — please try again.');
+        return;
+      }
+      if (!data.preview.canCancel) {
+        setPreviewError(data.preview.reason || 'This booking can no longer be cancelled.');
+        return;
+      }
+      setCancelPreview(data.preview);
+    } catch {
+      setPreviewError('Could not check your refund — please try again.');
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!token || !booking) return;
@@ -473,23 +537,53 @@ function GuestBookingContent() {
           </div>
         )}
 
-        {/* Cancel Button */}
+        {/* Cancel — two-step: preview (refund + grace copy) → confirm */}
         {canCancel && (
           <div className="mb-6">
-            <button
-              onClick={handleCancel}
-              disabled={cancelling}
-              className="w-full rounded-[10px] border border-danger/40 bg-surface px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {cancelling ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-danger/40 border-t-danger" />
-                  Cancelling...
-                </span>
-              ) : (
-                'Cancel Booking'
-              )}
-            </button>
+            {cancelPreview ? (
+              <div
+                className="rounded-[10px] border border-danger/25 bg-surface p-4"
+                data-testid="guest-cancel-confirm"
+              >
+                <p className="text-sm text-ink-2">
+                  Cancel this booking? {refundMessage(cancelPreview)}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="rounded-[10px] bg-danger px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                  </button>
+                  <button
+                    onClick={() => setCancelPreview(null)}
+                    disabled={cancelling}
+                    className="rounded-[10px] border border-line px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-page"
+                  >
+                    Keep booking
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={startCancel}
+                  disabled={previewing}
+                  className="w-full rounded-[10px] border border-danger/40 bg-surface px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {previewing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-danger/40 border-t-danger" />
+                      Checking your refund…
+                    </span>
+                  ) : (
+                    'Cancel Booking'
+                  )}
+                </button>
+                {previewError && <p className="mt-2 text-sm text-danger">{previewError}</p>}
+              </>
+            )}
           </div>
         )}
 
