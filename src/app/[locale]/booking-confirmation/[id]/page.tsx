@@ -216,7 +216,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
               <p className="mt-3 text-center font-jost text-[12px] text-ink-3">
                 {booking.backupCleanerNames.length > 0
                   ? `Backup: ${booking.backupCleanerNames.join(', ')}`
-                  : 'Rena will assign a backup cleaner if needed.'}
+                  : "We'll keep searching other vetted cleaners if your cleaner can't take it."}
               </p>
             )}
           </>

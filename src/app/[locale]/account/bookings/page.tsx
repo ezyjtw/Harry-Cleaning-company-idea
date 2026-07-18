@@ -583,7 +583,7 @@ export default function BookingsPage() {
                           {booking.backupCleanerNames.length > 0 && booking.autoAssignBackup
                             ? ' · '
                             : ''}
-                          {booking.autoAssignBackup ? 'Auto-assign enabled' : ''}
+                          {booking.autoAssignBackup ? 'Keep searching enabled' : ''}
                         </span>
                       </div>
                     )}
