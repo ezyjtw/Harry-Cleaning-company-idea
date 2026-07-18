@@ -23,7 +23,16 @@ import { AuditService } from './audit.service';
 // A dispute may be filed only when the work has happened or is happening.
 // F9: REVIEWED included — problems can surface after the customer reviews
 // (money-state guards below still block filing once funds are settled).
-export const DISPUTABLE_STATUS: BookingStatus[] = ['COMPLETED', 'IN_PROGRESS', 'REVIEWED'];
+// 4.6: EN_ROUTE included — with Start-job gone, a booking may go straight
+// EN_ROUTE→COMPLETED and would otherwise never be disputable mid-job (incl.
+// a no-show stuck "on the way"). The customer's report-a-problem window now
+// opens at the single "On the way" moment.
+export const DISPUTABLE_STATUS: BookingStatus[] = [
+  'COMPLETED',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+  'REVIEWED',
+];
 
 // Transfer states where the cleaner's money is already gone or in flight —
 // pausing is impossible or pointless, so filing is blocked. Only PENDING /

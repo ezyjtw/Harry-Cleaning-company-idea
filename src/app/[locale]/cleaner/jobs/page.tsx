@@ -7,7 +7,9 @@ import { useState, useEffect, useCallback } from 'react';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
-type JobStatus = 'pending' | 'upcoming' | 'en-route' | 'in-progress' | 'completed';
+// 4.6 (James-ruled): EN_ROUTE and IN_PROGRESS collapse to one cleaner-visible
+// "On the way" state; legacy in-flight rows render there too.
+type JobStatus = 'pending' | 'upcoming' | 'on-the-way' | 'completed';
 
 interface Job {
   id: string;
@@ -40,8 +42,8 @@ const statusMap: Record<string, JobStatus> = {
   awaiting_cleaner: 'pending',
   confirmed: 'pending',
   accepted: 'upcoming',
-  en_route: 'en-route',
-  in_progress: 'in-progress',
+  en_route: 'on-the-way',
+  in_progress: 'on-the-way',
   completed: 'completed',
   reviewed: 'completed',
 };
@@ -57,10 +59,8 @@ function toApiStatuses(displayStatus: JobStatus): string[] {
       return ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED'];
     case 'upcoming':
       return ['ACCEPTED'];
-    case 'en-route':
-      return ['EN_ROUTE'];
-    case 'in-progress':
-      return ['IN_PROGRESS'];
+    case 'on-the-way':
+      return ['EN_ROUTE', 'IN_PROGRESS'];
     case 'completed':
       return ['COMPLETED', 'REVIEWED'];
   }
@@ -69,25 +69,22 @@ function toApiStatuses(displayStatus: JobStatus): string[] {
 const tabs: { key: JobStatus; label: string }[] = [
   { key: 'pending', label: 'Pending' },
   { key: 'upcoming', label: 'Upcoming' },
-  { key: 'en-route', label: 'En Route' },
-  { key: 'in-progress', label: 'In Progress' },
+  { key: 'on-the-way', label: 'On the way' },
   { key: 'completed', label: 'Completed' },
 ];
 
 const LIFECYCLE_STEPS: { key: JobStatus; label: string }[] = [
   { key: 'upcoming', label: 'Accepted' },
-  { key: 'en-route', label: 'En Route' },
-  { key: 'in-progress', label: 'In Progress' },
+  { key: 'on-the-way', label: 'On the way' },
   { key: 'completed', label: 'Completed' },
 ];
 
 const emptyMessages: Record<JobStatus, { title: string; description: string }> = {
   pending: { title: 'No pending jobs', description: 'You have no jobs waiting for your response.' },
   upcoming: { title: 'No upcoming jobs', description: 'You have no confirmed upcoming jobs.' },
-  'en-route': { title: 'No en-route jobs', description: 'You are not en route to any jobs.' },
-  'in-progress': {
-    title: 'No jobs in progress',
-    description: 'You are not currently working on any jobs.',
+  'on-the-way': {
+    title: 'No jobs on the way',
+    description: 'Jobs appear here after you tap "On my way".',
   },
   completed: { title: 'No completed jobs', description: 'Your completed jobs will appear here.' },
 };
@@ -96,8 +93,7 @@ const emptyMessages: Record<JobStatus, { title: string; description: string }> =
 const transitionMap: Record<JobStatus, string> = {
   pending: 'ACCEPTED',
   upcoming: 'EN_ROUTE',
-  'en-route': 'IN_PROGRESS',
-  'in-progress': 'COMPLETED',
+  'on-the-way': 'COMPLETED',
   completed: '',
 };
 
@@ -109,46 +105,45 @@ export default function CleanerJobsPage() {
   const [counts, setCounts] = useState<Record<JobStatus, number>>({
     pending: 0,
     upcoming: 0,
-    'en-route': 0,
-    'in-progress': 0,
+    'on-the-way': 0,
     completed: 0,
   });
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [showNotesFor, setShowNotesFor] = useState<string | null>(null);
+  // H3: "Can't make this job?" — consequences-first confirm, ACCEPTED only.
+  const [cancelFor, setCancelFor] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   // F16: honest load failure (was a silent blank) + per-action pending.
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const fetchJobs = useCallback(
-    async (tab: JobStatus) => {
-      const statuses = toApiStatuses(tab).join(',');
-      setLoadError(false);
-      try {
-        const res = await fetch(`/api/cleaner/jobs?status=${statuses}&limit=50`);
-        if (res.status === 401) {
-          // R3: signOut (not router.push) — clears the stale cookie so /login
-          // renders instead of middleware bouncing back to /dashboard.
-          signOut({ callbackUrl: '/login' });
-          return;
-        }
-        if (!res.ok) {
-          setLoadError(true);
-          return;
-        }
-        const data = await res.json();
-        setJobList(
-          data.jobs.map((j: Job) => ({
-            ...j,
-            status: j.status,
-          }))
-        );
-      } catch {
-        setLoadError(true);
+  const fetchJobs = useCallback(async (tab: JobStatus) => {
+    const statuses = toApiStatuses(tab).join(',');
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/cleaner/jobs?status=${statuses}&limit=50`);
+      if (res.status === 401) {
+        // R3: signOut (not router.push) — clears the stale cookie so /login
+        // renders instead of middleware bouncing back to /dashboard.
+        signOut({ callbackUrl: '/login' });
+        return;
       }
-    },
-    []
-  );
+      if (!res.ok) {
+        setLoadError(true);
+        return;
+      }
+      const data = await res.json();
+      setJobList(
+        data.jobs.map((j: Job) => ({
+          ...j,
+          status: j.status,
+        }))
+      );
+    } catch {
+      setLoadError(true);
+    }
+  }, []);
 
   // A8 (shell only): native pull-to-refresh hook. RenaPro-UA-gated — inert in
   // a normal browser.
@@ -176,8 +171,7 @@ export default function CleanerJobsPage() {
       const c: Record<JobStatus, number> = {
         pending: 0,
         upcoming: 0,
-        'en-route': 0,
-        'in-progress': 0,
+        'on-the-way': 0,
         completed: 0,
       };
       for (const j of data.jobs) {
@@ -198,29 +192,29 @@ export default function CleanerJobsPage() {
     async (id: string, newDisplayStatus: JobStatus) => {
       setBusyId(id);
       try {
-      setError(null);
-      const apiStatus = transitionMap[activeTab];
-      if (!apiStatus) return;
+        setError(null);
+        const apiStatus = transitionMap[activeTab];
+        if (!apiStatus) return;
 
-      const body: Record<string, string> = { status: apiStatus };
-      if (newDisplayStatus === 'completed' && completionNotes[id]) {
-        body.notes = completionNotes[id];
-      }
+        const body: Record<string, string> = { status: apiStatus };
+        if (newDisplayStatus === 'completed' && completionNotes[id]) {
+          body.notes = completionNotes[id];
+        }
 
-      const res = await fetch(`/api/cleaner/jobs/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+        const res = await fetch(`/api/cleaner/jobs/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
 
-      if (res.ok) {
-        setJobList((prev) => prev.filter((j) => j.id !== id));
-        setCounts((prev) => ({
-          ...prev,
-          [activeTab]: Math.max(0, prev[activeTab] - 1),
-          [newDisplayStatus]: prev[newDisplayStatus] + 1,
-        }));
-        setShowNotesFor(null);
+        if (res.ok) {
+          setJobList((prev) => prev.filter((j) => j.id !== id));
+          setCounts((prev) => ({
+            ...prev,
+            [activeTab]: Math.max(0, prev[activeTab] - 1),
+            [newDisplayStatus]: prev[newDisplayStatus] + 1,
+          }));
+          setShowNotesFor(null);
         } else {
           const data = await res.json().catch(() => null);
           setError(data?.error || 'Failed to update job status');
@@ -232,6 +226,40 @@ export default function CleanerJobsPage() {
       }
     },
     [activeTab, completionNotes]
+  );
+
+  // H3: fires the existing cleaner-cancel path — paid bookings flip to
+  // CLEANER_CANCELLED and enter the M3 rescue (customer notified immediately,
+  // chooses full refund or free rebook).
+  const handleCleanerCancel = useCallback(
+    async (id: string) => {
+      setBusyId(id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/cleaner/jobs/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'CANCELLED',
+            cancellationReason: cancelReason.trim() || 'Cancelled by cleaner',
+          }),
+        });
+        if (res.ok) {
+          setJobList((prev) => prev.filter((j) => j.id !== id));
+          setCounts((prev) => ({ ...prev, [activeTab]: Math.max(0, prev[activeTab] - 1) }));
+          setCancelFor(null);
+          setCancelReason('');
+        } else {
+          const data = await res.json().catch(() => null);
+          setError(data?.error || 'Failed to cancel this job');
+        }
+      } catch {
+        setError('Network error — please try again.');
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [activeTab, cancelReason]
   );
 
   const handleDecline = useCallback(
@@ -427,6 +455,18 @@ export default function CleanerJobsPage() {
                     <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
                       {ds === 'pending' ? job.address : job.fullAddress || job.address}
                     </p>
+                    {/* 4.6 meta narration — the card states the consequence of
+                        the last tap (shared grammar with the app cards). */}
+                    {ds === 'on-the-way' && (
+                      <p className="mt-1 font-jost text-[12.5px] font-light text-ink-3">
+                        {job.clientName}&apos;s been told you&apos;re coming
+                      </p>
+                    )}
+                    {ds === 'completed' && (
+                      <p className="mt-1 font-jost text-[12.5px] font-light text-ink-3">
+                        £{job.cleanerEarnings.toFixed(2)} releasing to you after the review window
+                      </p>
+                    )}
                     {job.extras && job.extras.length > 0 && (
                       <p className="mt-1 font-jost text-xs font-light text-ink-3">
                         Add-ons: {job.extras.join(', ')}
@@ -539,23 +579,14 @@ export default function CleanerJobsPage() {
                       )}
                       {ds === 'upcoming' && (
                         <button
-                          onClick={() => transitionJob(job.id, 'en-route')}
+                          onClick={() => transitionJob(job.id, 'on-the-way')}
                           disabled={busyId === job.id}
                           className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
                         >
-                          {busyId === job.id ? 'Updating…' : "I'm On My Way"}
+                          {busyId === job.id ? 'Updating…' : 'On my way'}
                         </button>
                       )}
-                      {ds === 'en-route' && (
-                        <button
-                          onClick={() => transitionJob(job.id, 'in-progress')}
-                          disabled={busyId === job.id}
-                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
-                        >
-                          {busyId === job.id ? 'Updating…' : 'Start Cleaning'}
-                        </button>
-                      )}
-                      {ds === 'in-progress' && (
+                      {ds === 'on-the-way' && (
                         <>
                           {showNotesFor === job.id ? (
                             <div className="w-full flex flex-col gap-2">
@@ -593,11 +624,61 @@ export default function CleanerJobsPage() {
                   </div>
                 </div>
 
+                {/* H3: quiet exit — ACCEPTED state only, never competing with
+                    the primary. */}
+                {ds === 'upcoming' &&
+                  (cancelFor === job.id ? (
+                    <div
+                      className="mt-3 rounded-[10px] border border-danger/25 bg-surface p-3"
+                      data-testid="cant-make-it-confirm"
+                    >
+                      <p className="font-jost text-[13px] leading-relaxed text-ink-2">
+                        Cancel this job? {job.clientName} will be told straight away and offered a
+                        full refund or a free rebooking with another cleaner. This cancellation will
+                        affect your completion rate — only cancel if you genuinely can&apos;t make
+                        it.
+                      </p>
+                      <textarea
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        maxLength={300}
+                        rows={2}
+                        placeholder="Tell us why (optional — shared with Rena, not the customer)"
+                        className="mt-2 w-full rounded-[8px] border border-line bg-page px-3 py-2 font-jost text-[13px] text-ink placeholder:text-ink-3/60 focus:outline-none focus:ring-1 focus:ring-danger/40"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => handleCleanerCancel(job.id)}
+                          disabled={busyId === job.id}
+                          className="rounded-[10px] bg-danger px-3 py-2 font-jost text-[13px] font-medium text-white disabled:opacity-50"
+                        >
+                          {busyId === job.id ? 'Cancelling…' : 'Cancel this job'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCancelFor(null);
+                            setCancelReason('');
+                          }}
+                          disabled={busyId === job.id}
+                          className="rounded-[10px] border border-line px-3 py-2 font-jost text-[13px] font-medium text-ink-2"
+                        >
+                          I can make it
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-right">
+                      <button
+                        onClick={() => setCancelFor(job.id)}
+                        className="font-jost text-[12px] font-light text-ink-3 underline underline-offset-2 hover:text-ink-2"
+                      >
+                        Can&apos;t make this job?
+                      </button>
+                    </div>
+                  ))}
+
                 {/* Lifecycle status bar */}
-                {(ds === 'upcoming' ||
-                  ds === 'en-route' ||
-                  ds === 'in-progress' ||
-                  ds === 'completed') && (
+                {(ds === 'upcoming' || ds === 'on-the-way' || ds === 'completed') && (
                   <div className="mt-4 border-t border-line pt-4">
                     <div className="flex items-center justify-between">
                       {LIFECYCLE_STEPS.map((step, i) => {

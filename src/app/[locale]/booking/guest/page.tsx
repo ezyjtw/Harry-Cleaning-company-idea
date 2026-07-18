@@ -29,14 +29,16 @@ interface Booking {
   createdAt: string;
 }
 
+// 4.6 (James-ruled): EN_ROUTE and IN_PROGRESS are one customer-visible
+// "On the way" moment — the timeline shows the same three post-accept beats
+// the cleaner drives (Accepted → On the way → Completed).
 const STATUS_STEPS = [
-  { key: 'PENDING', label: 'Pending' },
-  { key: 'AWAITING_CLEANER', label: 'Awaiting Cleaner' },
-  { key: 'CONFIRMED', label: 'Confirmed' },
-  { key: 'ACCEPTED', label: 'Accepted' },
-  { key: 'EN_ROUTE', label: 'En Route' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'COMPLETED', label: 'Completed' },
+  { keys: ['PENDING'], label: 'Pending' },
+  { keys: ['AWAITING_CLEANER'], label: 'Awaiting Cleaner' },
+  { keys: ['CONFIRMED'], label: 'Confirmed' },
+  { keys: ['ACCEPTED'], label: 'Accepted' },
+  { keys: ['EN_ROUTE', 'IN_PROGRESS'], label: 'On the way' },
+  { keys: ['COMPLETED'], label: 'Completed' },
 ];
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
@@ -81,7 +83,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
     );
   }
 
-  const currentIndex = STATUS_STEPS.findIndex((s) => s.key === currentStatus);
+  const currentIndex = STATUS_STEPS.findIndex((s) => s.keys.includes(currentStatus));
 
   // U4: seven equal columns of two-word labels never fit a phone — the old
   // single horizontal row overlapped its own labels below ~500px. Mobile now
@@ -128,7 +130,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
           const isCompleted = index <= currentIndex;
           const isCurrent = index === currentIndex;
           return (
-            <li key={step.key} className="flex gap-3">
+            <li key={step.label} className="flex gap-3">
               <div className="flex flex-col items-center">
                 {node(index, isCompleted, isCurrent)}
                 {index < STATUS_STEPS.length - 1 && (
@@ -155,7 +157,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
           const isCompleted = index <= currentIndex;
           const isCurrent = index === currentIndex;
           return (
-            <div key={step.key} className="flex flex-1 flex-col items-center">
+            <div key={step.label} className="flex flex-1 flex-col items-center">
               <div className="relative flex w-full items-center justify-center">
                 {index > 0 && (
                   <div

@@ -90,15 +90,13 @@ export default function AppJobsPage() {
   }, []);
 
   // Offers (live AWAITING_CLEANER) float to the top; everything else groups by day.
-  const offers = useMemo(
-    () => jobs.filter((j) => j.status === 'awaiting_cleaner'),
-    [jobs]
-  );
+  const offers = useMemo(() => jobs.filter((j) => j.status === 'awaiting_cleaner'), [jobs]);
   const byDay = useMemo(() => {
     const rest = jobs
       .filter((j) => j.status !== 'awaiting_cleaner')
       .sort(
-        (a, b) => a.date.localeCompare(b.date) * (filter === 'done' ? -1 : 1) ||
+        (a, b) =>
+          a.date.localeCompare(b.date) * (filter === 'done' ? -1 : 1) ||
           a.time.localeCompare(b.time)
       );
     const groups: { iso: string; jobs: Job[] }[] = [];
@@ -140,7 +138,9 @@ export default function AppJobsPage() {
   if (!loading && loadError && jobs.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">Couldn&apos;t load your jobs</h1>
+        <h1 className="font-newsreader text-xl font-semibold text-ink">
+          Couldn&apos;t load your jobs
+        </h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -228,6 +228,7 @@ export default function AppJobsPage() {
                     now={now}
                     processing={processingId === job.id}
                     onAdvance={() => advance(job)}
+                    onCancelled={() => fetchJobs(filter)}
                   />
                 ))}
               </div>

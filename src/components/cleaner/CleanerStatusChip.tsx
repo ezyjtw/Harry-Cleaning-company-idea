@@ -42,15 +42,16 @@ export function cleanerJobChip(job: CleanerChipInput): CleanerChip {
     case 'PENDING':
     case 'CONFIRMED':
       return { label: 'Pending', className: NEUTRAL };
+    // 4.6 (James-ruled) chip grammar: Accepted navy → On the way amber →
+    // ✓ Complete green. EN_ROUTE and IN_PROGRESS are one cleaner-visible state.
     case 'ACCEPTED':
-      return { label: 'Accepted', className: TRUST };
+      return { label: 'Accepted', className: INFO };
     case 'EN_ROUTE':
-      return { label: 'En route', className: INFO };
     case 'IN_PROGRESS':
-      return { label: 'In progress', className: INFO };
+      return { label: 'On the way', className: WARNING };
     case 'COMPLETED':
     case 'REVIEWED':
-      return { label: 'Completed', className: INFO };
+      return { label: '✓ Complete', className: TRUST };
     default:
       return { label: 'Pending', className: NEUTRAL };
   }

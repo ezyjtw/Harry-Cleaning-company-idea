@@ -20,12 +20,16 @@ type BookingStatus =
   | 'CANCELLED'
   | 'DISPUTED';
 
+// 4.6 (James-ruled): the cleaner flow is Accept → EN_ROUTE ("On my way") →
+// COMPLETED ("Mark complete"). EN_ROUTE→COMPLETED is now legal; the
+// EN_ROUTE→IN_PROGRESS and IN_PROGRESS→COMPLETED legs stay legal so legacy
+// in-flight bookings (and the admin override) keep working.
 const VALID_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CANCELLED'],
   AWAITING_CLEANER: ['ACCEPTED', 'CANCELLED'],
   CONFIRMED: ['ACCEPTED', 'CANCELLED'],
   ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
-  EN_ROUTE: ['IN_PROGRESS', 'CANCELLED'],
+  EN_ROUTE: ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
   IN_PROGRESS: ['COMPLETED'],
   COMPLETED: [],
   REVIEWED: [],
@@ -90,8 +94,19 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         }),
       ]);
       sameDayJobs = dayCount;
-      if (profile?.latitude !== null && profile?.latitude !== undefined && profile?.longitude !== null && profile?.longitude !== undefined && geo) {
-        const miles = haversineDistance(profile.latitude, profile.longitude, geo.latitude, geo.longitude);
+      if (
+        profile?.latitude !== null &&
+        profile?.latitude !== undefined &&
+        profile?.longitude !== null &&
+        profile?.longitude !== undefined &&
+        geo
+      ) {
+        const miles = haversineDistance(
+          profile.latitude,
+          profile.longitude,
+          geo.latitude,
+          geo.longitude
+        );
         travelMinutes = Math.max(5, Math.round((miles / 25) * 60));
       }
     } catch {
