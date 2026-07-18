@@ -21,6 +21,7 @@ import {
   BEDROOMS_TO_AIRBNB_SIZE,
   eotSizeLabel,
   airbnbSizeLabel,
+  serviceLabelFromSlug,
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
@@ -100,7 +101,6 @@ const BEDROOM_OPTIONS = [
   { value: 5, label: '5+ Bedrooms' },
 ];
 
-
 // James-ruled short-notice grace, shown BEFORE payment with the customer's
 // ACTUAL deadline: 6h from booking time, hard-capped at 3h before start —
 // whichever comes first. Mirrors BookingLifecycleService.graceDeadline.
@@ -138,6 +138,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   // address step so it auto-looks-up on mount instead of a manual "Find address".
   // Captured once; empty when absent (direct nav) → the manual path is preserved.
   const seededPostcode = (searchParams.get('postcode') ?? '').trim().toUpperCase();
+  // B3: property context entered upstream (quote widget / directory) seeds the
+  // form so the customer never re-enters it. Clamped to the select's range.
+  const seededBedrooms = (() => {
+    const n = parseInt(searchParams.get('bedrooms') ?? '', 10);
+    return Number.isInteger(n) && n >= 0 && n <= 5 ? n : null;
+  })();
   const { cleaners: allCleaners, getCleanerById } = useCleanersApi();
   const cleaner = getCleanerById(params.id);
 
@@ -185,7 +191,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       })
       .catch(() => {});
 
-    fetch('/api/bookings?status=COMPLETED')
+    fetch('/api/bookings?status=COMPLETED,REVIEWED')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((result: { data: Array<Record<string, unknown>> }) => {
         setPastBookings(
@@ -223,7 +229,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     duration: 2,
     serviceType: isExpress ? 'regular' : 'regular',
     notes: '',
-    bedrooms: 2,
+    bedrooms: seededBedrooms ?? 2,
   });
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
@@ -432,9 +438,23 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   // the API validates again server-side.
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  // U1: validate at input — required + format, inline on the field. A typo'd
+  // or missing guest email orphans the whole booking (confirmation, reminders
+  // and the tokened manage link all go to it), so it must fail HERE, not at
+  // book-time. Empty in guest mode is an error with its own message; before
+  // this, an empty email blocked submit silently with no visible error.
   const validateEmail = (): boolean => {
-    const ok = EMAIL_RE.test(form.email.trim());
-    setEmailError(form.email.trim() && !ok ? 'Please enter a valid email address.' : null);
+    const trimmed = form.email.trim();
+    if (!trimmed) {
+      setEmailError(
+        bookingMode === 'guest'
+          ? 'Email is required — your confirmation and booking link go here.'
+          : null
+      );
+      return false;
+    }
+    const ok = EMAIL_RE.test(trimmed);
+    setEmailError(ok ? null : 'Please enter a valid email address.');
     return ok;
   };
 
@@ -463,6 +483,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
     // Guest checkout depends on a real email for confirmation + reminders.
     if (bookingMode === 'guest' && !validateEmail()) {
+      // U1: don't fail invisibly — bring the offending field into view.
+      const el = document.getElementById('booking-email-input');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (el as HTMLInputElement | null)?.focus({ preventScroll: true });
       return;
     }
 
@@ -495,9 +519,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       if (response.ok) {
         const data = await response.json();
         setBookingData(
-          data.booking
-            ? { id: data.booking.id, guestToken: data.booking.guestToken ?? null }
-            : null
+          data.booking ? { id: data.booking.id, guestToken: data.booking.guestToken ?? null } : null
         );
 
         trackConversion({
@@ -587,7 +609,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Stripe Payment Element */}
-        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}>
+        <Elements
+          stripe={stripePromise}
+          options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}
+        >
           <StripeCheckoutForm
             total={priceBreakdown.total}
             bookingId={bookingData?.id || ''}
@@ -618,10 +643,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <p className="mt-4 font-jost font-light text-ink-2">
           {isLastMinute ? (
             <>
-              Your last-minute booking request has been sent to {cleaner.name}. They typically
-              respond within{' '}
-              <strong className="font-normal text-ink">{cleaner.responseTime}</strong>. You&apos;ll
-              receive a confirmation at {form.email}.
+              Your last-minute booking request has been sent to {cleaner.name}. You&apos;ll receive
+              a confirmation at {form.email}.
             </>
           ) : (
             <>
@@ -687,8 +710,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   if (step === 'service') {
-    const hourly =
-      cleaner.hourlyRateRegular ?? cleaner.hourlyRateDeep ?? cleaner.hourlyRateSameDay;
+    const hourly = cleaner.hourlyRateRegular ?? cleaner.hourlyRateDeep ?? cleaner.hourlyRateSameDay;
     const fixedMin = minPrice(cleaner.eotPrices) ?? minPrice(cleaner.airbnbPrices);
     const headlineMeta =
       typeof hourly === 'number'
@@ -776,7 +798,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <button
               key={s.value}
               onClick={() => {
-                router.push(`/services/${s.value}?cleaner=${params.id}`);
+                // B3/B4: keep the property context on the hand-off — this push
+                // used to drop postcode + bedrooms, forcing re-entry.
+                const qs = new URLSearchParams({ cleaner: params.id });
+                if (seededPostcode) qs.set('postcode', seededPostcode);
+                if (seededBedrooms !== null) qs.set('bedrooms', String(seededBedrooms));
+                router.push(`/services/${s.value}?${qs.toString()}`);
               }}
               className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition hover:bg-page"
             >
@@ -788,7 +815,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               />
               <div className="min-w-0 flex-1">
                 <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
-                <p className="mt-0.5 font-jost text-[13px] font-light text-ink-2">{s.description}</p>
+                <p className="mt-0.5 font-jost text-[13px] font-light text-ink-2">
+                  {s.description}
+                </p>
               </div>
               {priceFor(s.value) && (
                 <span className="ml-3 shrink-0 font-newsreader text-[15px] font-semibold text-ink">
@@ -850,7 +879,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       {isExpress && cleaner.availableNow && (
         <div className="mt-4 bg-primary-soft p-4" style={{ border: '0.5px solid #E4E9F0' }}>
           <div className="flex items-center gap-3">
-            <AvailableNowBadge responseTime={cleaner.responseTime} />
+            <AvailableNowBadge />
             <span className="font-jost text-sm font-light text-ink-2">
               Same-day rate:{' '}
               <strong className="font-normal text-ink">
@@ -859,8 +888,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </span>
           </div>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
-            {cleaner.name} is available now and typically responds within {cleaner.responseTime}.
-            Your booking will be prioritized.
+            {cleaner.name} is available now. Your booking will be prioritized.
           </p>
         </div>
       )}
@@ -920,7 +948,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 >
                   <div className="flex justify-between">
                     <span className="font-jost text-sm font-normal text-ink">
-                      {booking.serviceType} with {booking.cleanerName}
+                      {serviceLabelFromSlug(booking.serviceType)} with {booking.cleanerName}
                     </span>
                     <span className="font-jost text-sm font-light text-ink-3">{booking.date}</span>
                   </div>
@@ -1001,6 +1029,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     Email
                   </label>
                   <input
+                    id="booking-email-input"
                     type="email"
                     required
                     value={form.email}
@@ -1013,9 +1042,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     className="mt-1 w-full px-3 py-2 font-jost font-light text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
                     style={{ border: emailError ? '1px solid #dc2626' : '0.5px solid #E4E9F0' }}
                   />
-                  {emailError && (
-                    <p className="mt-1 font-jost text-xs text-danger">{emailError}</p>
-                  )}
+                  {emailError && <p className="mt-1 font-jost text-xs text-danger">{emailError}</p>}
                 </div>
                 <div>
                   <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -1180,8 +1207,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   Cleaner brings products (+&pound;5)
                 </span>
                 <span className="block font-jost text-[12px] font-light text-ink-3">
-                  +&pound;5 for your cleaner&apos;s supplies. Untick if you&apos;ll provide
-                  your own.
+                  +&pound;5 for your cleaner&apos;s supplies. Untick if you&apos;ll provide your
+                  own.
                 </span>
               </span>
             </label>
@@ -1242,7 +1269,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </h4>
                 <div className="space-y-2 font-jost text-sm font-light">
                   {(form.addressLine1 || form.addressPostcode) && (
-                    <div className="flex justify-between gap-4 pb-2" style={{ borderBottom: '0.5px solid #E4E9F0' }}>
+                    <div
+                      className="flex justify-between gap-4 pb-2"
+                      style={{ borderBottom: '0.5px solid #E4E9F0' }}
+                    >
                       <span className="text-ink-3">Address</span>
                       <span className="text-right font-normal text-ink">
                         {[form.addressLine1, form.addressCity, form.addressPostcode]
@@ -1319,7 +1349,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               type="submit"
               disabled={paymentPending || (isFixedPriceService(form.serviceType) && !serverQuote)}
               className={`w-full py-3 font-jost text-lg font-normal text-white disabled:opacity-60 ${
-                isLastMinute ? 'bg-primary hover:bg-primary-hover' : 'bg-primary hover:bg-primary-hover'
+                isLastMinute
+                  ? 'bg-primary hover:bg-primary-hover'
+                  : 'bg-primary hover:bg-primary-hover'
               } lg:hidden`}
             >
               {paymentPending
@@ -1341,9 +1373,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </h4>
 
               {/* Cleaner info */}
-              <div
-                className="mb-4 flex items-center gap-3 border-b border-line pb-4"
-              >
+              <div className="mb-4 flex items-center gap-3 border-b border-line pb-4">
                 <CleanerAvatar photo={cleaner.photo} name={cleaner.name} size={40} />
                 <div>
                   <p className="font-jost text-sm font-medium text-ink">{cleaner.name}</p>
@@ -1449,7 +1479,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 (isFixedPriceService(form.serviceType) && !serverQuote)
               }
               className={`w-full py-3 font-jost text-lg font-normal text-white disabled:opacity-60 ${
-                isLastMinute ? 'bg-primary hover:bg-primary-hover' : 'bg-primary hover:bg-primary-hover'
+                isLastMinute
+                  ? 'bg-primary hover:bg-primary-hover'
+                  : 'bg-primary hover:bg-primary-hover'
               }`}
             >
               {paymentPending

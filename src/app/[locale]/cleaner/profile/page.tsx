@@ -44,7 +44,6 @@ export default function CleanerProfilePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [postcode, setPostcode] = useState(''); // personal info display — synced from homePostcode on save
   const [bio, setBio] = useState('');
   const [yearsExperience, setYearsExperience] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
@@ -88,7 +87,6 @@ export default function CleanerProfilePage() {
         setName(data.name || '');
         setEmail(data.email || '');
         setPhone(data.phone || '');
-        setPostcode(data.postcode || '');
         setBio(data.bio || '');
         setYearsExperience(
           data.yearsExperience !== null && data.yearsExperience !== undefined
@@ -218,7 +216,7 @@ export default function CleanerProfilePage() {
   ]);
 
   const isPhotoComplete = !!photo;
-  const isPostcodeComplete = !!postcode.trim();
+  const isPostcodeComplete = !!homePostcode.trim();
   const isBioComplete = !!bio.trim();
   const isSpecialtiesComplete = selectedSpecialties.length > 0;
   const isLanguagesComplete = selectedLanguages.length > 0;
@@ -431,17 +429,24 @@ export default function CleanerProfilePage() {
             </div>
             <div>
               <label className="block font-jost text-[11px] uppercase tracking-[0.12em] text-ink-3">
-                Postcode
+                Home postcode
               </label>
+              {/* B2: this IS the home postcode (single source — saves to
+                  homePostcode and regenerates the travel-time catchment). The
+                  old separate "postcode" input here was never sent on save. */}
               <input
                 type="text"
-                value={postcode}
+                value={homePostcode}
                 onChange={(e) => {
-                  setPostcode(e.target.value);
+                  setHomePostcode(e.target.value);
                   markDirty();
                 }}
+                onBlur={() => {
+                  const norm = normalizeUkPostcode(homePostcode);
+                  if (norm && norm !== homePostcode) setHomePostcode(norm);
+                }}
                 placeholder="e.g. SW1A 1AA"
-                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition uppercase"
                 style={{ border: '1px solid rgb(var(--color-border))' }}
               />
             </div>
@@ -608,26 +613,16 @@ export default function CleanerProfilePage() {
           <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">Service Area</h2>
 
           <div className="mb-5">
-            <p className="font-jost text-sm font-light text-ink-2 mb-3">
-              Your home postcode — we use this to match you with nearby customers.
+            {/* B2: the service area is derived from the home postcode + travel
+                time — no second editable postcode here (the old duplicate input
+                silently rewrote the home postcode too). */}
+            <p className="font-jost text-sm font-light text-ink-2 mb-1">
+              Your service area is centred on your home postcode
+              {homePostcode ? <span className="font-medium text-ink"> {homePostcode}</span> : null}.
             </p>
-            <input
-              type="text"
-              value={homePostcode}
-              onChange={(e) => {
-                setHomePostcode(e.target.value);
-                markDirty();
-              }}
-              onBlur={() => {
-                // F6: normalise on entry — canonical "E4 7AP" form is what's
-                // displayed, submitted, and stored.
-                const norm = normalizeUkPostcode(homePostcode);
-                if (norm && norm !== homePostcode) setHomePostcode(norm);
-              }}
-              placeholder="e.g. SW1A 1AA"
-              className="w-48 rounded-lg px-4 py-2.5 font-jost font-light text-sm text-ink bg-page focus:outline-none focus:ring-2 focus:ring-primary/30 transition uppercase"
-              style={{ border: '1px solid rgb(var(--color-border))' }}
-            />
+            <p className="font-jost text-[12px] text-ink-3">
+              To move it, edit your home postcode under Personal Information above.
+            </p>
           </div>
 
           <div>
@@ -664,20 +659,15 @@ export default function CleanerProfilePage() {
           </div>
         </div>
 
-        {/* Insurance now lives on the dashboard (James-ruled — no duplicate
-            upload surface). This is a signpost, not a second uploader. */}
-        <div className="rounded-2xl border border-line bg-surface p-6">
-          <h2 className="font-newsreader text-xl font-semibold text-ink mb-2">
-            Public Liability Insurance
-          </h2>
-          <p className="font-jost text-sm font-light text-ink-2">
-            Manage your insurance — status, expiry and renewal — from your{' '}
-            <Link href="/cleaner" className="text-primary underline">
-              dashboard
-            </Link>
-            .
-          </p>
-        </div>
+        {/* U2 (James-ruled): the dashboard is the ONLY insurance surface. No
+            insurance SECTION here — just this one-line signpost. */}
+        <p className="px-1 font-jost text-[13px] font-light text-ink-3">
+          Looking for insurance? Manage it from your{' '}
+          <Link href="/cleaner" className="text-primary underline">
+            dashboard
+          </Link>
+          .
+        </p>
 
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">

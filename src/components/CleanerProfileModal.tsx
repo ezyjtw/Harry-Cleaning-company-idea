@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { serviceTypeLabel } from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
 
+import { buildBookUrl } from './CleanerCard';
 import CleanerProfileView, {
   type CleanerProfileData,
   type ProfileService,
@@ -23,7 +24,6 @@ interface ReviewData {
     thoroughness: number;
     punctuality: number;
     communication: number;
-    value: number;
   };
 }
 
@@ -33,6 +33,8 @@ interface CleanerProfileModalProps {
   /** Customer's search postcode — forwarded to /book so the address step
    *  auto-looks-up without re-entry. */
   postcode?: string;
+  /** Bedrooms from the quote widget / directory — forwarded to /book (B3). */
+  bedrooms?: number | null;
   /** Backup-picker context only: when provided, a "Select as backup" footer
    *  button renders, calling this (the same selection handler as the bench). */
   onSelectBackup?: () => void;
@@ -53,6 +55,7 @@ export default function CleanerProfileModal({
   cleaner,
   onClose,
   postcode,
+  bedrooms,
   onSelectBackup,
   isSelectedBackup,
   onBook,
@@ -81,7 +84,6 @@ export default function CleanerProfileModal({
               thoroughness: Number(r.thoroughness || 0),
               punctuality: Number(r.punctuality || 0),
               communication: Number(r.communication || 0),
-              value: Number(r.rating),
             },
           }))
         );
@@ -110,7 +112,7 @@ export default function CleanerProfileModal({
         { label: 'Thoroughness', value: avg((r) => r.categoryRatings.thoroughness) },
         { label: 'Punctuality', value: avg((r) => r.categoryRatings.punctuality) },
         { label: 'Communication', value: avg((r) => r.categoryRatings.communication) },
-        { label: 'Value for money', value: avg((r) => r.categoryRatings.value) },
+        // B7 (James-ruled): no value-for-money row — not collected by the form.
       ]
     : null;
 
@@ -164,9 +166,8 @@ export default function CleanerProfileModal({
     insured: cleaner.insured,
     backgroundChecked: cleaner.backgroundChecked,
     fromPrice: cleaner.hourlyRateRegular ?? cleaner.hourlyRateDeep ?? null,
-    bookHref: postcode
-      ? `/book/${cleaner.id}?postcode=${encodeURIComponent(postcode)}`
-      : `/book/${cleaner.id}`,
+    bookHref: buildBookUrl(cleaner.id, postcode, bedrooms),
+    founding: cleaner.founding,
     onBook,
     bookLabel,
     about: cleaner.bio,
@@ -174,7 +175,6 @@ export default function CleanerProfileModal({
     experience: {
       years: cleaner.yearsExperience || null,
       jobs: cleaner.completedJobs,
-      response: cleaner.responseTime,
     },
     languages: cleaner.languages || [],
     services,

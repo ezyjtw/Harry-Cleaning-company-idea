@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import heroBanner from '../public/images/hero-banner.webp';
 import HeroQuoteWidget from '../src/components/HeroQuoteWidget';
 
 export default function HeroSection() {
@@ -20,13 +21,18 @@ export default function HeroSection() {
     <section className="relative overflow-hidden">
       {/* Background image */}
       <div className="absolute inset-0">
+        {/* PERF: static import → build-time blurDataURL, so the hero paints a
+            blurred stand-in instantly instead of a blank beat while the real
+            image arrives; fetchPriority pushes it to the front of the queue. */}
         <Image
-          src="/images/hero-banner.webp"
+          src={heroBanner}
           alt=""
           fill
           sizes="100vw"
           className="object-cover"
           priority
+          fetchPriority="high"
+          placeholder="blur"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/70 via-ink/50 to-ink/30" />
       </div>

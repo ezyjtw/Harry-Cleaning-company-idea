@@ -639,7 +639,7 @@ export default function MessagesPage() {
                 <p className="text-sm text-ink-3">
                   {activeConversation.blockedByMe
                     ? "You've blocked this person. Unblock to message them again."
-                    : 'This conversation is read-only — start a new booking to message again.'}
+                    : 'This conversation is read-only — messaging stays open for 48 hours after a job completes. Start a new booking to message again.'}
                 </p>
               </div>
             )}

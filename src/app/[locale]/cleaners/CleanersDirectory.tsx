@@ -38,7 +38,8 @@ function serviceHasUsablePrice(c: Cleaner, slug: string): boolean {
       );
     case 'airbnb':
       return (
-        !!c.airbnbPrices && Object.values(c.airbnbPrices).some((p) => typeof p === 'number' && p > 0)
+        !!c.airbnbPrices &&
+        Object.values(c.airbnbPrices).some((p) => typeof p === 'number' && p > 0)
       );
     default:
       return true;
@@ -88,8 +89,9 @@ function mapApiCleaners(raw: Record<string, unknown>[]): Cleaner[] {
     availability: (c.availability as string[]) || [],
     timeSlots: (c.timeSlots as Record<string, string[]>) || {},
     availableNow: (c.availableNow as boolean) || false,
-    responseTime: (c.responseTime as string) || '~15 min',
-    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+    founding: (c.founding as boolean) || false,
+    isNew: c.isNew === undefined ? undefined : Boolean(c.isNew),
+    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0 },
     bringsProducts: false,
     productFee: 0,
     eotPrices: (c.eotPrices as Record<string, number>) || undefined,
@@ -211,6 +213,13 @@ function CleanersContent({
     setPostcode(trimmed.toUpperCase());
     setSort('distance');
   };
+
+  // B4: the book links must carry the customer's postcode even when they typed
+  // it but never pressed Search — a valid-but-unsubmitted entry previously fell
+  // through and the booking flow asked for the postcode again.
+  const typedValid = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(postcodeSearch.trim());
+  const effectivePostcode =
+    postcode || (typedValid ? postcodeSearch.trim().toUpperCase() : undefined);
 
   const filtered = allCleaners
     .filter((c) => {
@@ -455,7 +464,8 @@ function CleanersContent({
                       fixedServicePrice={fixedPrice}
                       fixedServiceLabel={fixedLabel}
                       distance={cleaner.distance}
-                      postcode={postcode || undefined}
+                      postcode={effectivePostcode}
+                      bedrooms={propertySize}
                     />
                   );
                 })}
@@ -478,7 +488,8 @@ function CleanersContent({
         <CleanerProfileModal
           cleaner={selectedCleaner}
           onClose={() => setSelectedCleaner(null)}
-          postcode={postcode || undefined}
+          postcode={effectivePostcode}
+          bedrooms={propertySize}
         />
       )}
     </div>

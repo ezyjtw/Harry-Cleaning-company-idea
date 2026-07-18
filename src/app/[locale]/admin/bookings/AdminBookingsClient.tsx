@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+
 import type { BookingRow } from './page';
 
 const ITEMS_PER_PAGE = 8;
@@ -231,7 +233,7 @@ export default function AdminBookingsClient({
           <option value="all">All Services</option>
           {serviceTypes.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {serviceLabelFromSlug(s)}
             </option>
           ))}
         </select>
@@ -285,7 +287,7 @@ export default function AdminBookingsClient({
                     {booking.cleaner}
                   </td>
                   <td className="px-6 py-4 text-sm text-ink-2 hidden lg:table-cell">
-                    {booking.serviceType}
+                    {serviceLabelFromSlug(booking.serviceType)}
                   </td>
                   <td className="px-6 py-4 text-sm text-ink-2 hidden sm:table-cell">
                     {booking.date} {booking.time}

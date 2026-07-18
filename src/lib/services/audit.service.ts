@@ -61,6 +61,9 @@ export type AuditAction =
   // Cleaner verification actions
   | 'CLEANER_VERIFIED'
   | 'CLEANER_REJECTED'
+  // F-B founding badge
+  | 'CLEANER_FOUNDING_GRANTED'
+  | 'CLEANER_FOUNDING_REVOKED'
   // Compliance actions
   | 'DATA_BREACH_DETECTED'
   | 'DATA_BREACH_REPORTED_ICO'

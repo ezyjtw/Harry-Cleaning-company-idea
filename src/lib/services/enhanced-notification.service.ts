@@ -1,11 +1,13 @@
 import type { NotificationType, Prisma } from '@prisma/client';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import {
   categoryForType,
   shouldSend,
   type NotificationCategory,
 } from '@/lib/services/notification-preferences.service';
+import { deferToMorningLondon, isQuietHoursLondon } from '@/lib/utils/quiet-hours';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -106,7 +108,7 @@ export class EnhancedNotificationService {
       userId: booking.clientId,
       type: 'BOOKING_CONFIRMED',
       title: 'Booking Confirmed',
-      body: `Your ${booking.serviceType} cleaning on ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime} has been confirmed.`,
+      body: `Your ${serviceLabelFromSlug(booking.serviceType)} cleaning on ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime} has been confirmed.`,
       data: { bookingId },
     });
 
@@ -115,7 +117,7 @@ export class EnhancedNotificationService {
       userId: booking.cleanerId,
       type: 'BOOKING_CONFIRMED',
       title: 'New Booking Confirmed',
-      body: `You have a new ${booking.serviceType} booking on ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}.`,
+      body: `You have a new ${serviceLabelFromSlug(booking.serviceType)} booking on ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}.`,
       data: { bookingId },
     });
   }
@@ -137,7 +139,7 @@ export class EnhancedNotificationService {
       userId: cleanerId,
       type: 'BOOKING_REQUEST',
       title: 'New job offer',
-      body: `${booking.serviceType} · £${Number(booking.cleanerEarnings).toFixed(2)} · ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}`,
+      body: `${serviceLabelFromSlug(booking.serviceType)} · £${Number(booking.cleanerEarnings).toFixed(2)} · ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}`,
       data: { bookingId, url: `/app/offer/${bookingId}` },
       category: 'ESSENTIAL',
       channels: ['IN_APP', 'EXPO_PUSH'],
@@ -155,7 +157,7 @@ export class EnhancedNotificationService {
       userId: recipientId,
       type: 'BOOKING_REQUEST',
       title: 'Upcoming Booking Reminder',
-      body: `Reminder: You have a ${booking.serviceType} cleaning tomorrow at ${booking.startTime}.`,
+      body: `Reminder: You have a ${serviceLabelFromSlug(booking.serviceType)} cleaning tomorrow at ${booking.startTime}.`,
       data: { bookingId },
       // Toggleable: BOOKING_REQUEST would otherwise default to ESSENTIAL.
       category: 'REMINDER',
@@ -206,6 +208,25 @@ export class EnhancedNotificationService {
       include: { cleaner: true },
     });
     if (!booking || !booking.clientId) return;
+
+    // B8: a review nudge is non-critical — a job completed late in the evening
+    // must not ping the customer at night. Defer to the morning window via the
+    // scheduled-reminder path (same handler the time-based review request uses).
+    const now = new Date();
+    if (isQuietHoursLondon(now)) {
+      await prisma.backgroundJob.create({
+        data: {
+          type: 'SEND_REMINDER',
+          payload: {
+            bookingId,
+            reminderType: 'review_request',
+            recipientId: booking.clientId,
+          } as Prisma.InputJsonValue,
+          scheduledAt: deferToMorningLondon(now),
+        },
+      });
+      return;
+    }
 
     await this.send({
       userId: booking.clientId,

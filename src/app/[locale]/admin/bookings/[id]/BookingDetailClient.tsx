@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface BookingDetail {
   id: string;
@@ -1436,7 +1438,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
         {/* Booking Info */}
         <Section title="Booking">
           <dl className="grid grid-cols-2 gap-x-4">
-            <Field label="Service" value={b.serviceType} />
+            <Field label="Service" value={serviceLabelFromSlug(b.serviceType)} />
             <Field label="Property Size" value={b.propertySize} />
             <Field label="Date" value={b.date?.split('T')[0]} />
             <Field label="Time" value={b.startTime} />

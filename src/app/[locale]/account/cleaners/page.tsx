@@ -57,8 +57,9 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     availability: (c.availability as string[]) || [],
     timeSlots: (c.timeSlots as Record<string, string[]>) || {},
     availableNow: (c.availableNow as boolean) || false,
-    responseTime: (c.responseTime as string) || '~15 min',
-    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+    founding: (c.founding as boolean) || false,
+    isNew: c.isNew === undefined ? undefined : Boolean(c.isNew),
+    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0 },
     bringsProducts: false,
     productFee: 0,
     eotPrices: (c.eotPrices as Record<string, number>) || undefined,
@@ -87,8 +88,12 @@ export default function MyCleanersPage() {
 
     async function load() {
       try {
+        // B6: COMPLETED alone missed every reviewed booking (review flips the
+        // status to REVIEWED), and the default page size (10) hid older
+        // cleaners — a customer's cleaner vanished from here the moment they
+        // left a review.
         const [bookingsRes, cleanersRes] = await Promise.all([
-          fetch('/api/bookings?status=COMPLETED'),
+          fetch('/api/bookings?status=COMPLETED,REVIEWED&pageSize=100'),
           fetch('/api/cleaners?limit=50'),
         ]);
         const bookingsData = bookingsRes.ok ? await bookingsRes.json() : { data: [] };
@@ -101,7 +106,7 @@ export default function MyCleanersPage() {
         );
 
         // API orders completed bookings by createdAt desc, so first-seen per
-        // cleaner is their most recent clean. Uncapped.
+        // cleaner is their most recent clean (first 100 bookings).
         const seen = new Set<string>();
         const rows: MyCleaner[] = [];
         for (const b of (bookingsData.data as CompletedBooking[]) || []) {
@@ -198,9 +203,7 @@ export default function MyCleanersPage() {
         </div>
       )}
 
-      {selected && (
-        <CleanerProfileModal cleaner={selected} onClose={() => setSelected(null)} />
-      )}
+      {selected && <CleanerProfileModal cleaner={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

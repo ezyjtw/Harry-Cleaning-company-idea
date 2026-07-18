@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const page = Math.max(1, Number(searchParams.get('page')) || 1);
-    const pageSize = 10;
+    // B6: callers that aggregate over history (My Cleaners) can raise the page
+    // size — capped so the route can't be asked for unbounded rows.
+    const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize')) || 10));
 
     const where: Record<string, unknown> = {};
 
@@ -37,7 +39,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (status) {
-      where.status = status.toUpperCase();
+      // B6: comma-separated statuses ("COMPLETED,REVIEWED") filter as a set —
+      // reviewing a booking flips COMPLETED → REVIEWED, and single-status
+      // callers were silently losing every reviewed booking.
+      const statuses = status
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean);
+      where.status = statuses.length > 1 ? { in: statuses } : statuses[0];
     }
 
     const [bookings, total] = await Promise.all([

@@ -205,8 +205,16 @@ export async function GET() {
     },
   });
   const totalRecent = thirtyDayBookings + cancelledCount;
-  const responseRate =
+  // B7 honesty: this is a COMPLETION rate (non-cancelled share of recent
+  // bookings) — it was previously surfaced under a "Response Rate" label it
+  // never measured.
+  const completionRate =
     totalRecent > 0 ? Math.round(((totalRecent - cancelledCount) / totalRecent) * 100) : 100;
+
+  // B7 honesty: "N reviews" must count reviews, not completed jobs.
+  const visibleReviewCount = await prisma.review.count({
+    where: { cleanerId: user.id, visibility: 'VISIBLE' },
+  });
 
   return NextResponse.json({
     profile: {
@@ -250,8 +258,8 @@ export async function GET() {
       todaysJobs,
       weeklyEarnings: weeklyEarnings.toFixed(2),
       rating: Number(profile.rating).toFixed(1),
-      reviewCount: profile.completedJobs,
-      responseRate,
+      reviewCount: visibleReviewCount,
+      completionRate,
       backupBookingCount,
     },
     dailyPercents,

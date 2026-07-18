@@ -4,6 +4,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 
 interface TopupData {
@@ -165,7 +166,10 @@ export default function ApproveTopupPage() {
             Please complete the payment of &pound;{data?.topupAmount?.toFixed(2)} to confirm your
             booking.
           </p>
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}>
+          <Elements
+            stripe={stripePromise}
+            options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}
+          >
             <TopupPaymentForm
               bookingId={bookingId}
               guestToken={guestToken}
@@ -218,7 +222,7 @@ export default function ApproveTopupPage() {
         </div>
 
         <p className="mb-4 text-xs text-ink-3">
-          {data.serviceType} &middot; {data.date} at {data.time}
+          {serviceLabelFromSlug(data.serviceType)} &middot; {data.date} at {data.time}
           {hoursLeft !== null && hoursLeft > 0 && (
             <>
               {' '}

@@ -1,8 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import prisma from '@/lib/db/prisma';
 import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
+
+// F-A: known capture points; anything else is stored as 'unknown' rather than
+// trusting arbitrary client strings into the admin table.
+const VALID_SOURCES = new Set(['quote-widget', 'service-page']);
 
 const waitlistRateLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000,
@@ -29,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, postcode } = body;
+    const { email, postcode, source } = body;
 
     if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
@@ -39,9 +45,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Postcode is required.' }, { status: 400 });
     }
 
-    // Log to console for now — replace with database storage when ready
-    // eslint-disable-next-line no-console
-    console.log(`[WAITLIST] email=${email.trim()}, postcode=${postcode.trim()}, ip=${clientIP}`);
+    // F-A: persist (was console-log only — entries were unreachable). Upsert on
+    // (email, postcode) so double submits don't duplicate rows.
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPostcode = normalizeUkPostcode(postcode) ?? postcode.trim().toUpperCase();
+    const cleanSource =
+      typeof source === 'string' && VALID_SOURCES.has(source) ? source : 'unknown';
+    await prisma.waitlistEntry.upsert({
+      where: { email_postcode: { email: cleanEmail, postcode: cleanPostcode } },
+      create: { email: cleanEmail, postcode: cleanPostcode, source: cleanSource },
+      update: { source: cleanSource },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

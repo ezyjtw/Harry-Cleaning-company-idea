@@ -3,11 +3,13 @@
  * Processes jobs from the BackgroundJob table.
  * In production, this would run as a separate worker process.
  */
+import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
 import { BookingReminderService } from '@/lib/services/booking-reminder.service';
 import { shouldSend } from '@/lib/services/notification-preferences.service';
 import { processXeroPush, type XeroPushPayload } from '@/lib/services/xero-push.service';
+import { deferToMorningLondon, isQuietHoursLondon } from '@/lib/utils/quiet-hours';
 
 // Copy for each scheduled reminder type (title, body). Category is REMINDER for
 // all of them, so delivery honours the user's reminder + push preferences.
@@ -222,6 +224,22 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
     select: { status: true },
   });
   if (!booking || booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED') {
+    return;
+  }
+
+  // B8 fire-time guard: jobs scheduled before the quiet-hours rule existed (or
+  // delayed by an outage) must not go out at night. Everything this handler
+  // sends is non-critical except the arrival alert, which is push-only and
+  // tied to an imminent start — that one fires whenever it's due.
+  const now = new Date();
+  if (reminderType !== 'arrival_alert' && isQuietHoursLondon(now)) {
+    await prisma.backgroundJob.create({
+      data: {
+        type: 'SEND_REMINDER',
+        payload: { bookingId, reminderType, recipientId } as Prisma.InputJsonValue,
+        scheduledAt: deferToMorningLondon(now),
+      },
+    });
     return;
   }
 

@@ -52,7 +52,6 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       backgroundCheckPassed: profile.backgroundCheckPassed,
       location: profile.location,
       availableNow: profile.availableNow,
-      responseTime: profile.responseTime ? `~${profile.responseTime} min` : null,
       completedJobs: profile.completedJobs,
       rating: Number(profile.rating),
       availabilitySlots: profile.availabilitySlots,

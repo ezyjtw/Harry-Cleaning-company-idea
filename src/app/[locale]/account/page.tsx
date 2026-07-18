@@ -95,7 +95,7 @@ export default function AccountHome() {
       try {
         const [allRes, completedRes] = await Promise.all([
           fetch('/api/bookings'),
-          fetch('/api/bookings?status=COMPLETED'),
+          fetch('/api/bookings?status=COMPLETED,REVIEWED'),
         ]);
         // A transient 401 while still authenticated is a hiccup — surface it as a
         // retryable load error, not a spurious logout (the guard effect handles a
@@ -260,9 +260,7 @@ export default function AccountHome() {
                   <Link
                     key={booking.id}
                     href={
-                      isProvisional
-                        ? `/booking/${booking.id}/approve-topup`
-                        : '/account/bookings'
+                      isProvisional ? `/booking/${booking.id}/approve-topup` : '/account/bookings'
                     }
                     className={`flex flex-col gap-3 px-6 py-4 transition-colors hover:bg-page sm:flex-row sm:items-center ${
                       i > 0 ? 'border-t border-line' : ''

@@ -1,7 +1,26 @@
 import type { ReactNode } from 'react';
 
+import { FOUNDING_BADGE_LABEL } from '@/lib/constants/badges';
+
 import CleanerAvatar from './CleanerAvatar';
 import StarRating from './StarRating';
+
+/** F-B: permanent founding-cohort pill — distinct styling from "New to Rena"
+ *  (which is plain muted text and expires). Label is the placeholder constant
+ *  until James names it. */
+export function FoundingBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 font-jost text-[10.5px] font-medium uppercase tracking-[0.08em] text-gold"
+      style={{ border: '1px solid rgba(191,149,63,0.35)' }}
+    >
+      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+        <path d="M10 1.5l2.47 5.006 5.53.803-4 3.9.944 5.505L10 14.115l-4.944 2.6.944-5.506-4-3.899 5.53-.803L10 1.5z" />
+      </svg>
+      {FOUNDING_BADGE_LABEL}
+    </span>
+  );
+}
 
 /** Green circle-check, pinned to the headshot's bottom-right. */
 function VerifiedCheck() {
@@ -33,6 +52,8 @@ export default function CleanerIdentity({
   verified,
   rating,
   reviewCount,
+  founding,
+  isNew,
   meta,
   children,
 }: {
@@ -41,9 +62,16 @@ export default function CleanerIdentity({
   verified: boolean;
   rating: number;
   reviewCount: number;
+  /** F-B: permanent founding-cohort badge (renders a pill next to the name). */
+  founding?: boolean;
+  /** F-B: whether "New to Rena" may show. When the caller has the data it
+   *  passes the computed expiry (5 completed jobs or 60 days post-go-live);
+   *  when omitted, the legacy no-reviews behaviour stands. */
+  isNew?: boolean;
   meta?: ReactNode;
   children?: ReactNode;
 }) {
+  const showNew = reviewCount === 0 && (isNew ?? true);
   return (
     <div className="flex items-start gap-4">
       <div className="relative shrink-0">
@@ -52,7 +80,10 @@ export default function CleanerIdentity({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate font-newsreader text-[19px] font-semibold text-ink">{name}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="truncate font-newsreader text-[19px] font-semibold text-ink">{name}</h3>
+          {founding && <FoundingBadge />}
+        </div>
         <div className="mt-1 flex items-center gap-1.5">
           {reviewCount > 0 ? (
             <>
@@ -61,8 +92,10 @@ export default function CleanerIdentity({
                 {rating} ({reviewCount})
               </span>
             </>
-          ) : (
+          ) : showNew ? (
             <span className="font-jost text-[12px] font-light text-ink-3">New to Rena</span>
+          ) : (
+            <span className="font-jost text-[12px] font-light text-ink-3">No reviews yet</span>
           )}
         </div>
         {meta && <p className="mt-1 font-jost text-[12.5px] text-ink-3">{meta}</p>}

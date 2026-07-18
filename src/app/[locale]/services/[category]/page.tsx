@@ -307,8 +307,7 @@ function tfCleanerToCleaner(card: TfCleaner): Cleaner {
     availability: [],
     timeSlots: {},
     availableNow: false,
-    responseTime: '~15 min',
-    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0 },
     insured: false,
     bringsProducts: false,
     productFee: 0,
@@ -354,6 +353,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // straight into the flow so the "Your Postcode" field is pre-filled and the
   // address step auto-looks-up on mount — no re-entry. Empty when absent (direct nav).
   const seededPostcode = (searchParams.get('postcode') ?? '').trim().toUpperCase();
+  // B3: bedrooms/bathrooms entered upstream (quote widget / booking hand-off)
+  // seed the room config — they were previously dropped at this hop.
+  const seededBedrooms = (() => {
+    const n = parseInt(searchParams.get('bedrooms') ?? '', 10);
+    return Number.isInteger(n) && n >= 0 && n <= 5 ? n : null;
+  })();
+  const seededBathrooms = (() => {
+    const n = parseInt(searchParams.get('bathrooms') ?? '', 10);
+    return Number.isInteger(n) && n >= 1 && n <= 4 ? n : null;
+  })();
 
   // Phase: "quote" = first page (postcode, rooms, hours, products, email)
   // Phase: "cleaner" = second page (flexible/set time, cleaner selection, key, notes)
@@ -370,8 +379,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // A12: structured booking address (captured at the cleaner phase, seeded from postcode).
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', postcode: '' });
   const [rooms, setRooms] = useState<RoomConfig>({
-    bedrooms: 2,
-    bathrooms: 1,
+    bedrooms: seededBedrooms ?? 2,
+    bathrooms: seededBathrooms ?? 1,
     livingAreas: 1,
     kitchen: true,
     additionals: [],
@@ -385,6 +394,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
   const [email, setEmail] = useState('');
+  // U1: guest email validates AT INPUT (required + format) with an inline
+  // error — a typo'd guest email orphans the whole booking (confirmation,
+  // reminders and the tokened manage link all go to it).
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const validateGuestEmail = (): boolean => {
+    if (!isGuest) return true;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailError('Email is required — your confirmation and booking link go here.');
+      return false;
+    }
+    const ok = EMAIL_RE.test(trimmed);
+    setEmailError(ok ? null : 'Please enter a valid email address.');
+    return ok;
+  };
   const [joinMailingList, setJoinMailingList] = useState(false);
 
   // Postcode validation + out-of-area waitlist
@@ -753,8 +778,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           : undefined;
         if (typeof base === 'number' && base > 0) exactBase = base;
       }
-      const lowSubtotal = exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
-      const highSubtotal = exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
+      const lowSubtotal =
+        exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
+      const highSubtotal =
+        exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
       const lowServiceFee = Math.round(lowSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       const highServiceFee = Math.round(highSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       return {
@@ -796,7 +823,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
-  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, fixedPriceQuote, rooms.bedrooms]);
+  }, [
+    preSelectedCleaner,
+    selectedCleaner,
+    effectiveHours,
+    category,
+    fixedPriceQuote,
+    rooms.bedrooms,
+  ]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
@@ -901,7 +935,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         </div>
 
-        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}>
+        <Elements
+          stripe={stripePromise}
+          options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}
+        >
           <StripeCheckoutForm
             total={totalPrice}
             bookingId={confirmedBookingId}
@@ -944,7 +981,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Hero header */}
         <div className="mt-6 animate-fade-in">
-          <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">{serviceLabel}</h1>
+          <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">
+            {serviceLabel}
+          </h1>
           <p className="mt-2 max-w-xl font-jost text-sm font-light leading-relaxed text-ink-3">
             {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
           </p>
@@ -1050,7 +1089,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                             fetch('/api/waitlist', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                              body: JSON.stringify({
+                                email: waitlistEmail.trim(),
+                                postcode,
+                                source: 'service-page',
+                              }),
                             })
                               .then(() => setWaitlistSubmitted(true))
                               .catch(() => {})
@@ -1069,7 +1112,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         fetch('/api/waitlist', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ email: waitlistEmail.trim(), postcode }),
+                          body: JSON.stringify({
+                            email: waitlistEmail.trim(),
+                            postcode,
+                            source: 'service-page',
+                          }),
                         })
                           .then(() => setWaitlistSubmitted(true))
                           .catch(() => {})
@@ -1130,7 +1177,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Rooms — for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-newsreader font-semibold text-base text-ink">How Many Rooms?</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">
+                  How Many Rooms?
+                </h2>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Counter
                     label="Bedrooms"
@@ -1160,7 +1209,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Hours — only for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-newsreader font-semibold text-base text-ink">How Many Hours?</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">
+                  How Many Hours?
+                </h2>
                 <div className="mt-4 rounded-lg bg-cream-2/60 p-4 ring-1 ring-ink/[0.04]">
                   <p className="font-jost font-light text-sm text-ink-2">
                     We recommend{' '}
@@ -1214,7 +1265,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Products */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader font-semibold text-base text-ink">Cleaning Products</h2>
+              <h2 className="font-newsreader font-semibold text-base text-ink">
+                Cleaning Products
+              </h2>
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
@@ -1258,12 +1311,26 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
                 <h2 className="font-newsreader font-semibold text-base text-ink">Your Email</h2>
                 <input
+                  id="guest-email-input"
                   type="email"
+                  required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(null);
+                  }}
+                  onBlur={validateGuestEmail}
+                  aria-invalid={!!emailError}
                   placeholder="you@example.com"
-                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 ${
+                    emailError
+                      ? 'ring-danger focus:ring-danger/40'
+                      : 'ring-ink/[0.06] focus:ring-gold/30'
+                  }`}
                 />
+                {emailError && (
+                  <p className="mt-1.5 font-jost text-[12px] text-danger">{emailError}</p>
+                )}
                 <label className="mt-4 flex cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
@@ -1303,7 +1370,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           <>&pound;{priceBreakdown.lowPrice}</>
                         ) : (
                           <>
-                            &pound;{priceBreakdown.lowPrice} &ndash; &pound;{priceBreakdown.highPrice}
+                            &pound;{priceBreakdown.lowPrice} &ndash; &pound;
+                            {priceBreakdown.highPrice}
                           </>
                         )}
                       </span>
@@ -1346,7 +1414,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           <>&pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)}</>
                         ) : (
                           <>
-                            &pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)} &ndash; &pound;
+                            &pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)} &ndash;
+                            &pound;
                             {(priceBreakdown.highTotal + productCost).toFixed(2)}
                           </>
                         )}
@@ -1422,6 +1491,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 const trimmed = postcode.trim();
                 if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
                   setPostcodeError('Please enter a valid UK postcode');
+                  return;
+                }
+                // U1: a typo'd guest email fails HERE with an inline error,
+                // not later at book-time.
+                if (!validateGuestEmail()) {
+                  const el = document.getElementById('guest-email-input');
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  (el as HTMLInputElement | null)?.focus({ preventScroll: true });
                   return;
                 }
                 // Quote proceeds straight to results (method fork removed, M2).
@@ -2669,7 +2746,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 ))}
               </div>
 
-              <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">Pick a time of day</h2>
+              <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">
+                Pick a time of day
+              </h2>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {TIME_FIRST_BANDS.map((b) => (
                   <button
@@ -3132,7 +3211,9 @@ function Counter({
         >
           -
         </button>
-        <span className="w-8 text-center font-newsreader text-xl font-medium text-ink">{value}</span>
+        <span className="w-8 text-center font-newsreader text-xl font-medium text-ink">
+          {value}
+        </span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, value + 1))}

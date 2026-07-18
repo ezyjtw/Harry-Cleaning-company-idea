@@ -103,12 +103,11 @@ export default function ProfilePreviewPage() {
   // Build the SAME CleanerProfileData the public profile page builds, from the
   // cleaner's own live profile — so the preview is exactly what customers see.
   const p = profile as Record<string, unknown>;
-  const num = (v: unknown): number | null =>
-    typeof v === 'number' ? v : v ? Number(v) : null;
+  const num = (v: unknown): number | null => (typeof v === 'number' ? v : v ? Number(v) : null);
 
-  const serviceTypes = (((p.serviceTypes as string[]) || []).filter(
+  const serviceTypes = ((p.serviceTypes as string[]) || []).filter(
     isServiceTypeSlug
-  ) as ServiceTypeSlug[]);
+  ) as ServiceTypeSlug[];
   const hrReg = num(p.hourlyRateRegular);
   const hrDeep = num(p.hourlyRateDeep);
   const hrSame = num(p.hourlyRateSameDay);
@@ -140,7 +139,12 @@ export default function ProfilePreviewPage() {
   const testimonials = (Array.isArray(p.testimonials) ? p.testimonials : []) as Testimonial[];
   const reviews: ProfileReviewItem[] = testimonials
     .filter((t) => t.clientName?.trim() && t.text?.trim())
-    .map((t, i) => ({ id: `testimonial-${i}`, name: t.clientName, rating: t.rating, text: t.text }));
+    .map((t, i) => ({
+      id: `testimonial-${i}`,
+      name: t.clientName,
+      rating: t.rating,
+      text: t.text,
+    }));
 
   const now = new Date();
   const insuranceExpiry = p.insuranceExpiresAt ? new Date(p.insuranceExpiresAt as string) : null;
@@ -166,7 +170,6 @@ export default function ProfilePreviewPage() {
     experience: {
       years: (p.yearsExperience as number) ?? null,
       jobs: (p.completedJobs as number) || 0,
-      response: '~15 min',
     },
     languages: (p.languages as string[]) || [],
     services,
@@ -192,10 +195,7 @@ export default function ProfilePreviewPage() {
       </div>
 
       <div className="overflow-hidden rounded-[16px] border border-line bg-surface">
-        <CleanerProfileView
-          data={data}
-          availability={<ProfileWeekAvailability slots={slots} />}
-        />
+        <CleanerProfileView data={data} availability={<ProfileWeekAvailability slots={slots} />} />
       </div>
     </div>
   );

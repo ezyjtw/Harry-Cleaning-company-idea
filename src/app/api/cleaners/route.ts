@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { isNewToRena } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -153,10 +154,16 @@ export async function GET(request: NextRequest) {
         identityVerified: c.verificationStatus === 'VERIFIED',
         insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
         backgroundChecked: c.backgroundCheckPassed,
-        responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
         radius: c.radius,
         maxTravelMinutes: c.maxTravelMinutes,
         travelMode: c.travelMode,
+        // F-B badges: permanent founding flag + computed "New to Rena" expiry
+        // (5 completed jobs or 60 days post-go-live, whichever first).
+        founding: c.foundingCleaner,
+        isNew: isNewToRena(
+          c.completedJobs,
+          c.liveNotifiedAt ?? c.identityVerifiedAt ?? c.createdAt
+        ),
         distance,
         ...expandSlots(c.availabilitySlots),
       };

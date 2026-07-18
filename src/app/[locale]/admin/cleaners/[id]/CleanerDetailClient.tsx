@@ -40,6 +40,9 @@ function formatDate(iso: string): string {
 export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetail }) {
   const [verificationStatus, setVerificationStatus] = useState(cleaner.verificationStatus);
   const [verified, setVerified] = useState(cleaner.verified);
+  // F-B: admin-settable permanent founding badge.
+  const [founding, setFounding] = useState(cleaner.foundingCleaner);
+  const [foundingBusy, setFoundingBusy] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -73,6 +76,28 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
       setStatusMessage({ type: 'error', text: 'Network error.' });
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleFoundingToggle = async () => {
+    setFoundingBusy(true);
+    setStatusMessage(null);
+    try {
+      const res = await fetch(`/api/admin/cleaners/${cleaner.userId}/founding`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ founding: !founding }),
+      });
+      if (res.ok) {
+        setFounding(!founding);
+      } else {
+        const data = await res.json();
+        setStatusMessage({ type: 'error', text: data.error || 'Failed to update badge.' });
+      }
+    } catch {
+      setStatusMessage({ type: 'error', text: 'Network error.' });
+    } finally {
+      setFoundingBusy(false);
     }
   };
 
@@ -456,6 +481,28 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
         ) : (
           <p className="text-sm text-ink-3">No documents uploaded.</p>
         )}
+      </section>
+
+      {/* F-B: founding badge (permanent, admin-settable; auto-set for the
+          first N go-lives via founding_cleaner_limit) */}
+      <section className="bg-surface rounded-xl border border-line p-6">
+        <h2 className="text-lg font-semibold text-ink mb-2">Founding Cleaner Badge</h2>
+        <p className="text-sm text-ink-3 mb-4">
+          {founding
+            ? 'This cleaner carries the permanent founding badge.'
+            : 'This cleaner does not have the founding badge.'}
+        </p>
+        <button
+          onClick={handleFoundingToggle}
+          disabled={foundingBusy}
+          className={`inline-flex items-center rounded-lg px-6 py-2.5 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+            founding
+              ? 'border border-line text-ink-2 hover:bg-page'
+              : 'bg-primary text-white hover:bg-primary-hover'
+          }`}
+        >
+          {foundingBusy ? 'Saving…' : founding ? 'Remove founding badge' : 'Grant founding badge'}
+        </button>
       </section>
 
       {/* Verification Actions */}

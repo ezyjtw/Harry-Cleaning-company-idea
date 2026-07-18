@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import Decimal from 'decimal.js';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 
 import { MatchingService } from './matching.service';
@@ -161,7 +162,7 @@ export class CleanerQueueService {
           userId: q.cleanerId,
           type: 'BOOKING_REQUEST',
           title: 'New Job Available',
-          body: `A ${bookingData.serviceType} cleaning job is available on ${criteria.date.toLocaleDateString()}. You'd earn £${q.quote.cleanerPayout.toFixed(2)}. Accept within ${QUEUE_EXPIRY_MINUTES} minutes.`,
+          body: `A ${serviceLabelFromSlug(bookingData.serviceType)} cleaning job is available on ${criteria.date.toLocaleDateString()}. You'd earn £${q.quote.cleanerPayout.toFixed(2)}. Accept within ${QUEUE_EXPIRY_MINUTES} minutes.`,
           data: {
             bookingId: booking.id,
             quotedTotal: q.quote.customerTotal,
@@ -285,7 +286,7 @@ export class CleanerQueueService {
         userId: cleanerId,
         type: 'BOOKING_CONFIRMED',
         title: 'Job Confirmed!',
-        body: `You've been confirmed for a ${queueEntry.booking.serviceType} cleaning on ${queueEntry.booking.date.toLocaleDateString()}. You'll earn £${Number(queueEntry.cleanerEarns).toFixed(2)}.`,
+        body: `You've been confirmed for a ${serviceLabelFromSlug(queueEntry.booking.serviceType)} cleaning on ${queueEntry.booking.date.toLocaleDateString()}. You'll earn £${Number(queueEntry.cleanerEarns).toFixed(2)}.`,
         data: { bookingId } as Prisma.InputJsonValue,
       },
     });

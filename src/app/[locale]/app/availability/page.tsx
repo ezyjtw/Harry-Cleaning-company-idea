@@ -310,11 +310,6 @@ export default function AvailabilityAppPage() {
   });
   const [dateSlots, setDateSlots] = useState<Record<string, TimeSlot[]>>({});
   const [blocked, setBlocked] = useState<BlockedDate[]>([]);
-  // Loaded-but-not-edited-here settings, preserved verbatim on every PUT.
-  const passthrough = useRef<{ availableNow: boolean; bookingBufferMinutes: number }>({
-    availableNow: true,
-    bookingBufferMinutes: 30,
-  });
 
   const [savedFlash, setSavedFlash] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -348,10 +343,6 @@ export default function AvailabilityAppPage() {
       setWeekly(next);
       setDateSlots(data.dateSlots || {});
       setBlocked(data.blockedDates || []);
-      passthrough.current = {
-        availableNow: data.availableNow ?? true,
-        bookingBufferMinutes: data.bookingBufferMinutes === 60 ? 60 : 30,
-      };
     } catch {
       setLoadError(true);
     } finally {
@@ -372,8 +363,10 @@ export default function AvailabilityAppPage() {
     };
   }, [fetchAll]);
 
-  // PUT the whole document (weekly + blocked + preserved settings). Optimistic
-  // callers update state first and revert on failure.
+  // PUT only what this screen edits (weekly + blocked). Settings this screen
+  // has no UI for (availableNow, bookingBufferMinutes) are deliberately NOT
+  // sent — the API treats absent fields as untouched, and echoing them back
+  // from a stale snapshot could clobber a value saved elsewhere (B1).
   const putAll = useCallback(
     async (weeklyNext: Record<ApiDay, TimeSlot[]>, blockedNext: BlockedDate[]) => {
       setSaveError(null);
@@ -383,8 +376,6 @@ export default function AvailabilityAppPage() {
         body: JSON.stringify({
           weeklySlots: weeklyNext,
           blockedDates: blockedNext,
-          availableNow: passthrough.current.availableNow,
-          bookingBufferMinutes: passthrough.current.bookingBufferMinutes,
         }),
       });
       if (!res.ok) {

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+
 export interface QueueBooking {
   id: string;
   shortId: string;
@@ -127,7 +129,7 @@ export default function RenaFindQueueClient({ bookings }: { bookings: QueueBooki
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-mono font-medium">{b.shortId}</span>
                 <span className="text-ink-3">·</span>
-                <span>{b.serviceType}</span>
+                <span>{serviceLabelFromSlug(b.serviceType)}</span>
                 <span className="text-ink-3">·</span>
                 <span>
                   {b.date} {b.time}
