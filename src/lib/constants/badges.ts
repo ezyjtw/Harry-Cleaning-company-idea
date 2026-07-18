@@ -2,8 +2,7 @@
 // F-B: cleaner badges — single source of truth for both badge rules.
 // ─────────────────────────────────────────────────────────────
 
-// PLACEHOLDER TITLE — James names the founding badge at the gate. Every render
-// site pulls from here, so the rename is a one-line change.
+// "Founding Cleaner" — CONFIRMED by James at the Batch-2 gate (final title).
 export const FOUNDING_BADGE_LABEL = 'Founding Cleaner';
 
 // Default size of the founding cohort; live value is the PlatformConfig key
