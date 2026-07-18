@@ -317,6 +317,7 @@ export default function TodayPage() {
                     now={now}
                     processing={processingId === job.id}
                     onAdvance={() => advance(job)}
+                    onCancelled={fetchJobs}
                   />
                 ) : (
                   <JobCard
@@ -325,6 +326,7 @@ export default function TodayPage() {
                     now={now}
                     processing={processingId === job.id}
                     onAdvance={() => advance(job)}
+                    onCancelled={fetchJobs}
                   />
                 )
               )}

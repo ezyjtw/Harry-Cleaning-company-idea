@@ -12,7 +12,6 @@ export type BookingStatus =
   | 'Price approval needed'
   | 'Confirmed'
   | 'On the way'
-  | 'In progress'
   | 'Completed'
   | 'Cancelled'
   | 'Disputed'
@@ -26,9 +25,9 @@ export const statusStyles: Record<BookingStatus, string> = {
   'Our team is on it': 'bg-primary-soft text-primary border-primary/15',
   'Price approval needed': 'bg-warning/10 text-warning border-warning/20',
   Confirmed: 'bg-trust/10 text-trust border-trust/20',
-  'On the way': 'bg-trust/10 text-trust border-trust/20',
-  'In progress': 'bg-trust/10 text-trust border-trust/20',
-  Completed: 'bg-primary-soft text-primary border-primary/15',
+  // 4.6: one customer-visible "On the way" moment (amber), then green complete.
+  'On the way': 'bg-warning/10 text-warning border-warning/20',
+  Completed: 'bg-trust/10 text-trust border-trust/20',
   Cancelled: 'bg-page text-ink-3 border-line',
   Disputed: 'bg-danger/10 text-danger border-danger/20',
   'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
@@ -64,11 +63,11 @@ export function mapStatus(apiStatus: string, cascadePhase?: string | null): Book
     case 'CONFIRMED':
     case 'ACCEPTED':
       return 'Confirmed';
-    // X2: day-of states rendered honestly (parity with the guest timeline).
+    // X2/4.6: day-of states rendered honestly — EN_ROUTE and IN_PROGRESS are
+    // one customer-visible moment (parity with the guest timeline).
     case 'EN_ROUTE':
-      return 'On the way';
     case 'IN_PROGRESS':
-      return 'In progress';
+      return 'On the way';
     case 'COMPLETED':
     case 'REVIEWED':
       return 'Completed';

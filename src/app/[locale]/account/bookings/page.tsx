@@ -45,7 +45,7 @@ const CANCELLABLE_RAW_STATUSES = [
 // F9: REVIEWED included — a problem can surface after the review; the service
 // accepts it. (X3 context: the 6h self-completion window makes the button on a
 // just-completed booking the critical path — it renders on every COMPLETED row.)
-const DISPUTABLE_RAW_STATUSES = ['COMPLETED', 'IN_PROGRESS', 'REVIEWED'];
+const DISPUTABLE_RAW_STATUSES = ['COMPLETED', 'EN_ROUTE', 'IN_PROGRESS', 'REVIEWED'];
 
 const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'All', value: 'All' },
