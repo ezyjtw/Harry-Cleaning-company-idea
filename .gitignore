@@ -77,3 +77,4 @@ packages/*/dist/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+r2proxy.log

@@ -82,7 +82,9 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           cleanerName: guestToken
             ? data.cleanerName || 'Your cleaner'
             : data.cleaner?.name || 'Your cleaner',
-          cleanerPhoto: guestToken ? null : data.cleaner?.image || null,
+          // H22: guest endpoint now ships the resolved headshot — same photo
+          // account-holders see (guest parity).
+          cleanerPhoto: guestToken ? data.cleanerImage || null : data.cleaner?.image || null,
           cleanerRating:
             !guestToken &&
             (typeof data.cleaner?.cleanerProfile?.rating === 'number' ||
@@ -214,7 +216,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
               <p className="mt-3 text-center font-jost text-[12px] text-ink-3">
                 {booking.backupCleanerNames.length > 0
                   ? `Backup: ${booking.backupCleanerNames.join(', ')}`
-                  : 'Rena will assign a backup cleaner if needed.'}
+                  : "We'll keep searching other vetted cleaners if your cleaner can't take it."}
               </p>
             )}
           </>
@@ -273,10 +275,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           This booking has been refunded. The funds will appear in your account within 5–10 business
           days.
         </p>
-        <Link
-          href={guestToken ? guestTrackUrl : '/account'}
-          className={`mt-8 ${primaryBtn}`}
-        >
+        <Link href={guestToken ? guestTrackUrl : '/account'} className={`mt-8 ${primaryBtn}`}>
           {guestToken ? 'View your booking' : 'Go to dashboard'}
         </Link>
       </div>

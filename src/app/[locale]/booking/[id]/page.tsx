@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
+import CleanerAvatar from '@/components/CleanerAvatar';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { formatDate } from '@/lib/utils/formatting';
@@ -181,18 +182,14 @@ export default function BookingDetailPage() {
       <div className="mt-4 rounded-2xl border border-line bg-surface p-6">
         {/* Cleaner */}
         <div className="flex items-center gap-3">
-          {cleaner?.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={cleaner.image}
-              alt={cleaner.name || 'Cleaner'}
-              className="h-12 w-12 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft font-newsreader text-lg font-medium text-primary">
-              {(cleaner?.name || 'C').charAt(0).toUpperCase()}
-            </div>
-          )}
+          {/* H22 sweep: hand-rolled img/initials pair → the shared avatar (same
+              photo-or-initial behaviour, plus its broken-image fallback). */}
+          <CleanerAvatar
+            photo={cleaner?.image}
+            name={cleaner?.name || 'C'}
+            size={48}
+            className="shrink-0"
+          />
           <div>
             <p className="font-jost text-[15px] font-medium text-ink">
               {cleaner?.name || 'Assigned cleaner'}

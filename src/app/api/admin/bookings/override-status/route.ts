@@ -30,8 +30,10 @@ const VALID_STATUSES = [
 
 type Status = (typeof VALID_STATUSES)[number];
 
-// Full CascadePhase enum (the previous list was missing PHASE2_RESERVE,
-// RENA_FIND, RENA_FIND_ADMIN_REVIEW — the tool couldn't set phases that exist).
+// CascadePhase list, minus RENA_FIND (James-ruled, H22 merge): the wider-network
+// broadcast phase may only ever be entered with customer consent — booking-time
+// opt-in or rescue-① — never set by hand. Admins who need a rebroadcast use the
+// rena-find-rebroadcast tool, which enforces the consent flag.
 const VALID_CASCADE_PHASES = [
   'PRIMARY_OFFER',
   'BACKUP_OFFER',
@@ -39,7 +41,6 @@ const VALID_CASCADE_PHASES = [
   'CASCADE_EXHAUSTED',
   'PROVISIONAL_APPROVAL',
   'PHASE2_RESERVE',
-  'RENA_FIND',
   'RENA_FIND_ADMIN_REVIEW',
 ] as const;
 

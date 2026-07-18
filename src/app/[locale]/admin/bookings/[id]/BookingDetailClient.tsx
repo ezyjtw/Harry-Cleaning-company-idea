@@ -251,7 +251,8 @@ const VALID_CASCADE_PHASES = [
   'CASCADE_EXHAUSTED',
   'PROVISIONAL_APPROVAL',
   'PHASE2_RESERVE',
-  'RENA_FIND',
+  // RENA_FIND deliberately absent (James-ruled): consent-gated phase, never
+  // hand-settable — the override API rejects it too.
   'RENA_FIND_ADMIN_REVIEW',
 ];
 
