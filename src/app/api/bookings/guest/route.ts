@@ -37,6 +37,9 @@ export async function GET(request: NextRequest) {
       id: booking.id,
       guestToken: booking.guestToken,
       cleanerName: booking.cleaner.name || 'Assigned Cleaner',
+      // H5 rescue: during CLEANER_CANCELLED cleanerId is still the canceller —
+      // the rescue panel needs it to exclude/label them in the rebook picker.
+      cleanerId: booking.cleanerId,
       serviceType: booking.serviceType,
       date: booking.date.toISOString().split('T')[0],
       time: booking.startTime,

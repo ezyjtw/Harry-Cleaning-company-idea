@@ -138,6 +138,8 @@ export default function BookingDetailPage() {
             duration={Number(booking.duration)}
             postcode={booking.addressPostcode || booking.address?.postcode || ''}
             totalPrice={Number(booking.totalPrice)}
+            cancellerId={booking.cleaner?.id ?? null}
+            cancellerName={booking.cleaner?.name ?? null}
             backupCleanerIds={booking.backupCleanerIds}
             rescueDeadline={booking.rescueDeadline}
             initialAction={searchParams.get('rescue')}
@@ -177,7 +179,9 @@ export default function BookingDetailPage() {
           <Row label="Service" value={serviceLabelFromSlug(booking.serviceType)} />
           <Row
             label="Status"
-            value={<BookingStatusChip rawStatus={booking.status} cascadePhase={booking.cascadePhase} />}
+            value={
+              <BookingStatusChip rawStatus={booking.status} cascadePhase={booking.cascadePhase} />
+            }
           />
           {booking.status === 'AWAITING_CLEANER' &&
             cascadeSentence(booking.cascadePhase, cleaner?.name) && (

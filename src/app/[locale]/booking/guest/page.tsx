@@ -12,6 +12,7 @@ interface Booking {
   id: string;
   guestToken: string;
   cleanerName: string;
+  cleanerId?: string | null;
   serviceType: string;
   date: string;
   time: string;
@@ -426,6 +427,8 @@ function GuestBookingContent() {
               duration={booking.duration}
               postcode={booking.postcode || ''}
               totalPrice={booking.totalPrice}
+              cancellerId={booking.cleanerId ?? null}
+              cancellerName={booking.cleanerName ?? null}
               backupCleanerIds={booking.backupCleanerIds}
               rescueDeadline={booking.rescueDeadline}
               initialAction={searchParams.get('rescue')}
