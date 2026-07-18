@@ -7,6 +7,11 @@ import { ForbiddenError, NotFoundError, ValidationError } from '@/lib/utils/erro
 import { detectContactInfo } from '@/lib/utils/pii';
 import { sanitizeMessageContent } from '@/lib/utils/sanitize';
 
+// F-C (James-ruled): messaging stays open 48 hours after completion, then goes
+// read-only — covers key-return / left-item logistics. Cancelled bookings stay
+// read-only immediately, as before.
+export const POST_COMPLETION_CHAT_GRACE_HOURS = 48;
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -61,13 +66,27 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
       where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
       select: { blockerId: true, blockedId: true },
     }),
-    // Active/settling bookings of this user — funds not released/refunded AND not
-    // cancelled. Ordered newest-first so the first per partner is the active one.
+    // Bookings that keep the channel open: active/settling (funds not
+    // released/refunded), PLUS — F-C — completed-and-released bookings still
+    // inside the 48h grace. Cancelled never qualifies. Ordered newest-first so
+    // the first per partner is the active one.
     prisma.booking.findMany({
       where: {
         OR: [{ clientId: userId }, { cleanerId: userId }],
-        transferStatus: { notIn: ['RELEASED', 'REFUNDED'] },
         status: { notIn: ['CANCELLED', 'CASCADE_EXHAUSTED'] },
+        AND: [
+          {
+            OR: [
+              { transferStatus: { notIn: ['RELEASED', 'REFUNDED'] } },
+              {
+                transferStatus: 'RELEASED',
+                completedAt: {
+                  gte: new Date(Date.now() - POST_COMPLETION_CHAT_GRACE_HOURS * 3600_000),
+                },
+              },
+            ],
+          },
+        ],
       },
       orderBy: { date: 'desc' },
       select: { id: true, clientId: true, cleanerId: true },
@@ -206,7 +225,13 @@ export async function sendMessage(
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { clientId: true, cleanerId: true, transferStatus: true, status: true },
+    select: {
+      clientId: true,
+      cleanerId: true,
+      transferStatus: true,
+      status: true,
+      completedAt: true,
+    },
   });
   if (!booking) throw new NotFoundError('Booking not found.');
 
@@ -221,11 +246,16 @@ export async function sendMessage(
     throw new ForbiddenError('This booking has no counterparty to message.');
   }
 
-  // Release-gate (A6): open only while active/settling; read-only once settled or
-  // cancelled (a cancelled-pre-charge booking can't keep the channel open).
+  // Release-gate (A6) + F-C grace: open while active/settling, and for 48
+  // hours after completion even once funds release (key-return / left-item
+  // logistics). Cancelled/refunded stays read-only immediately, as before.
   const isSettled = booking.transferStatus === 'RELEASED' || booking.transferStatus === 'REFUNDED';
   const isDead = booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED';
-  if (isSettled || isDead) {
+  const inGrace =
+    booking.transferStatus === 'RELEASED' &&
+    !!booking.completedAt &&
+    Date.now() - booking.completedAt.getTime() <= POST_COMPLETION_CHAT_GRACE_HOURS * 3600_000;
+  if (isDead || (isSettled && !inGrace)) {
     throw new ForbiddenError(
       'This conversation is read-only — start a new booking to message again.'
     );
