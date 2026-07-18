@@ -1389,6 +1389,9 @@ async function enterRenaFind(
     ...(booking.declinedCleanerIds ?? []),
   ]);
 
+  // H9: availability filter OFF here too — the H7 slot predicate below is the
+  // single availability truth (findMatches' recurring-only gate would drop
+  // cleaners with date-specific slots that the picker/search shows).
   const matchResult = await MatchingService.findMatches({
     date: booking.date,
     startTime: booking.startTime,
@@ -1396,12 +1399,10 @@ async function enterRenaFind(
     serviceType: booking.serviceType,
     postcode,
     clientId: booking.clientId ?? undefined,
+    skipAvailabilityFilter: true,
   });
 
-  const eligible = matchResult.matches.filter((m) => m.isAvailable && !excludeSet.has(m.userId));
-  // H7: findMatches' gate is partial (recurring windows + same-day conflicts
-  // only) — apply THE slot predicate so the broadcast honours date-specific
-  // slots, time-off overrides and booking buffers exactly like search.
+  const eligible = matchResult.matches.filter((m) => !excludeSet.has(m.userId));
   const slotFree = await filterSlotAvailableCleaners(
     eligible.map((m) => m.userId),
     {

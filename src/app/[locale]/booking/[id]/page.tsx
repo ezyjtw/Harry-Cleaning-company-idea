@@ -17,6 +17,8 @@ interface BookingDetail {
   id: string;
   serviceType: string;
   status: string;
+  /** H8: who is looking — rescue choices are the customer's alone. */
+  viewer?: 'client' | 'cleaner' | 'backup' | 'admin';
   paymentStatus?: string | null;
   cascadePhase?: string | null;
   date: string;
@@ -127,8 +129,36 @@ export default function BookingDetailPage() {
         ← Back to my account
       </Link>
 
+      {/* H8: the rescue choice belongs to the CUSTOMER. Other authorized
+          viewers (the cleaner — including the canceller — backups, admin) get
+          an informational state, never the actionable panel. The POST refuses
+          them regardless; this stops the page presenting a choice that isn't
+          theirs. */}
+      {booking.status === 'CLEANER_CANCELLED' && booking.viewer !== 'client' && (
+        <div className="mt-4 rounded-xl border border-line bg-surface p-5">
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+            {booking.viewer === 'admin' ? 'Awaiting customer choice' : 'For the customer'}
+          </p>
+          <h2 className="mt-1 font-newsreader text-xl font-semibold text-ink">
+            {booking.viewer === 'admin'
+              ? 'The customer is choosing what happens next'
+              : 'This link is for the customer'}
+          </h2>
+          <p className="mt-2 font-jost text-sm text-ink-2">
+            {booking.viewer === 'admin'
+              ? 'They can keep the slot with another cleaner, rebook a new date, or take a full refund. If they make no choice by the deadline, the full refund fires automatically. Read-only here.'
+              : 'This booking was cancelled by its cleaner, and the customer has been asked to choose what happens next. There is nothing to action on this page.'}
+          </p>
+          {booking.rescueDeadline && (
+            <p className="mt-2 font-jost text-[13px] text-ink-3">
+              Auto-refund deadline: {new Date(booking.rescueDeadline).toLocaleString('en-GB')}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* M3 rescue: cleaner cancelled — the customer's refund/rebook choice */}
-      {booking.status === 'CLEANER_CANCELLED' && (
+      {booking.status === 'CLEANER_CANCELLED' && booking.viewer === 'client' && (
         <div className="mt-4">
           <RescuePanel
             bookingId={booking.id}

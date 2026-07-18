@@ -16,24 +16,34 @@ export async function GET() {
   const [primaryOffers, backupOffers, messages] = await Promise.all([
     // Live offers where this cleaner is the current primary holder — mirrors
     // the dashboard's offer semantics (cascade.service is the source of truth).
-    prisma.booking.count({
+    // H10: cascadePhase null included (legacy/rescue-rebooked direct offers).
+    prisma.booking.findMany({
       where: {
         cleanerId: user.id,
         status: 'AWAITING_CLEANER',
-        cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] },
+        OR: [{ cascadePhase: null }, { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } }],
         NOT: { declinedCleanerIds: { has: user.id } },
       },
+      select: { id: true },
+      take: 50,
     }),
-    prisma.booking.count({
+    // H10: every phase a backup can act on — BACKUP/COMBINED plus the Phase-2
+    // reopen and Rena-Find broadcasts. Held reserves are waiting, not acting.
+    prisma.booking.findMany({
       where: {
         backupCleanerIds: { has: user.id },
         status: 'AWAITING_CLEANER',
-        cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
-        NOT: { declinedCleanerIds: { has: user.id } },
+        cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'PHASE2_RESERVE', 'RENA_FIND'] },
+        NOT: [{ declinedCleanerIds: { has: user.id } }, { reserveCleanerIds: { has: user.id } }],
       },
+      select: { id: true },
+      take: 50,
     }),
     prisma.message.count({ where: { receiverId: user.id, read: false } }),
   ]);
 
-  return NextResponse.json({ offers: primaryOffers + backupOffers, messages });
+  // offerIds (additive — the native shell ignores it) lets the web sidebar
+  // track SEEN offers so the badge clears on viewing and re-fires for new ones.
+  const offerIds = Array.from(new Set([...primaryOffers, ...backupOffers].map((b) => b.id)));
+  return NextResponse.json({ offers: offerIds.length, offerIds, messages });
 }

@@ -64,6 +64,9 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
     return NextResponse.json({
       ...booking,
+      // H8: the page must know WHO is looking — rescue choices render for the
+      // booking's customer only (UI hiding backed by the POST's own authz).
+      viewer: isClient ? 'client' : isAdmin ? 'admin' : isCleaner ? 'cleaner' : 'backup',
       backupCleanerNames,
       cleaner: booking.cleaner
         ? { ...booking.cleaner, image: await resolveProfileImageUrl(booking.cleaner.image) }
