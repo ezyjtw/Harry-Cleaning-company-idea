@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
-import { executeCancellation } from '@/lib/services/cancellation.service';
+import { executeCancellation, previewCancellation } from '@/lib/services/cancellation.service';
 import { bookingFullAddress } from '@/lib/utils/booking-address';
 
 // UUID-like format validation (accepts standard UUID v4 format)
@@ -57,6 +57,36 @@ export async function GET(request: NextRequest) {
       createdAt: booking.createdAt.toISOString(),
     },
   });
+}
+
+// Guest cancel-dialog parity (James-ruled): the tokened page gets the same
+// read-only refund preview account-holders see — refund %, amount, and the
+// live grace deadline — before the guest confirms. Token IS the authorization,
+// exactly as on DELETE below; previewCancellation mutates nothing.
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({}));
+  const { token, dryRun } = body as { token?: string; dryRun?: boolean };
+
+  if (!dryRun) {
+    return NextResponse.json({ error: 'Only dryRun previews are supported here' }, { status: 400 });
+  }
+  if (!token) {
+    return NextResponse.json({ error: 'Token is required' }, { status: 400 });
+  }
+  if (!isValidToken(token)) {
+    return NextResponse.json({ error: 'Invalid token format' }, { status: 400 });
+  }
+
+  const booking = await prisma.booking.findUnique({
+    where: { guestToken: token },
+    select: { id: true },
+  });
+  if (!booking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
+  const preview = await previewCancellation(booking.id);
+  return NextResponse.json({ preview });
 }
 
 export async function DELETE(request: NextRequest) {
