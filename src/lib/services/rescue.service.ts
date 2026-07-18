@@ -80,8 +80,17 @@ export async function initiateCleanerCancelRescue(params: {
   // Atomic claim: only a live, cleaner-held booking enters rescue. Cascade
   // fields are torn down; the slot frees immediately because CLEANER_CANCELLED
   // is in no cleaner-facing status allowlist (jobs, dashboard, availability).
+  //
+  // H19 (law made structural): rescue = a COMMITTED cleaner cancelled;
+  // exhaustion = sourcing failed with no commitment. A genuinely committed
+  // booking (post-accept, or a direct CONFIRMED) always has cascadePhase null —
+  // atomicAccept/renaFindAccept clear it on accept. Guarding cascadePhase: null
+  // here makes it IMPOSSIBLE for a still-sourcing booking (any live offer
+  // phase) to be routed into the rescue funnel, no matter how the CANCELLED
+  // arrives — the claim simply no-ops and the caller gets a clean 409, leaving
+  // the cascade (and its own exhaustion → auto-refund) untouched.
   const claim = await prisma.booking.updateMany({
-    where: { id: bookingId, status: { in: [...RESCUABLE_FROM] }, cleanerId },
+    where: { id: bookingId, status: { in: [...RESCUABLE_FROM] }, cascadePhase: null, cleanerId },
     data: {
       status: 'CLEANER_CANCELLED',
       cancelledByCleanerId: cleanerId, // persistent stamp — survives rebooking

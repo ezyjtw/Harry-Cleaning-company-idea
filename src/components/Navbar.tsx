@@ -103,6 +103,32 @@ export default function Navbar() {
                 ))}
               </div>
 
+              {/* H20: a logged-in customer had NO path to their account from
+                  the hamburger. Cleaners/admins get their own sections below;
+                  this is the customer equivalent. Guests still see none. */}
+              {isAuthenticated && !isCleaner && !isAdmin && (
+                <>
+                  <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
+                    {t('myAccount')}
+                  </p>
+                  <div className="mt-3 flex flex-col gap-1">
+                    {[
+                      { href: '/account', label: t('dashboard') },
+                      { href: '/account/bookings', label: t('myBookings') },
+                    ].map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setOpen(false)}
+                        className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+
               {!isCleaner && (
                 <>
                   <p className="mt-5 font-jost text-[11px] font-medium uppercase tracking-[0.15em] text-ink-3">
