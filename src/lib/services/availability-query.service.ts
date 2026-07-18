@@ -5,6 +5,7 @@ import {
   toDateString,
 } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
 import { MatchingService } from './matching.service';
 
@@ -59,6 +60,8 @@ export interface BandAvailabilityCriteria {
 export interface AvailableCleanerCard {
   id: string;
   name: string;
+  /** H16: resolved profile photo URL (resolveProfileImageUrl) — null when unset. */
+  photo: string | null;
   tier: string; // lowercased, e.g. "gold"
   rating: number;
   reviewCount: number;
@@ -129,7 +132,7 @@ export async function getAvailableCleanersForBand(
         verificationStatus: true,
         backgroundCheckPassed: true,
         availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
-        user: { select: { name: true, reviewsReceived: { select: { id: true } } } },
+        user: { select: { name: true, image: true, reviewsReceived: { select: { id: true } } } },
       },
     }),
     prisma.availabilityDateSlot.findMany({
@@ -192,6 +195,8 @@ export async function getAvailableCleanersForBand(
       card: {
         id: c.userId, // Booking.cleanerId / Cleaner.id
         name: profile.user.name ?? c.name,
+        // H16: resolved below in one batch (resolver is async).
+        photo: profile.user.image,
         tier: profile.tier.toLowerCase(),
         rating: Number(profile.rating),
         reviewCount: profile.user.reviewsReceived.length,
@@ -213,7 +218,12 @@ export async function getAvailableCleanersForBand(
   // Rank by the existing matching score (desc), then strip the score.
   available.sort((a, b) => b.score - a.score);
 
-  return { date: dateStr, band: criteria.band, cleaners: available.map((x) => x.card) };
+  // H16: raw storage keys → servable URLs, exactly like every other surface.
+  const cards = await Promise.all(
+    available.map(async (x) => ({ ...x.card, photo: await resolveProfileImageUrl(x.card.photo) }))
+  );
+
+  return { date: dateStr, band: criteria.band, cleaners: cards };
 }
 
 function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {

@@ -49,15 +49,29 @@ export async function filterSlotAvailableCleaners(
 ): Promise<Set<string>> {
   const ids = Array.from(new Set(cleanerUserIds));
   if (ids.length === 0) return new Set();
-  if (slotStartDateTime(slot.date, slot.startTime).getTime() <= Date.now()) return new Set();
 
-  const startMin = timeToMinutes(slot.startTime);
-  const endMin = startMin + slot.durationHours * 60;
+  // H18-REOPENED: 'Flexible'-time bookings exist by design (services flow).
+  // timeToMinutes('Flexible') is NaN, and NaN containment excluded EVERY
+  // cleaner — a decline on a Flexible booking pruned genuinely-free backups
+  // and exhausted+refunded on the spot. For a flexible slot the honest
+  // question is "does ANY open range that day fit the duration"; pastness is
+  // end-of-day, not a (nonexistent) start time.
+  const isFlexible = !/^\d{1,2}:\d{2}$/.test(slot.startTime);
 
   const startOfDay = new Date(slot.date);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(slot.date);
   endOfDay.setHours(23, 59, 59, 999);
+
+  if (isFlexible) {
+    if (endOfDay.getTime() <= Date.now()) return new Set();
+  } else if (slotStartDateTime(slot.date, slot.startTime).getTime() <= Date.now()) {
+    return new Set();
+  }
+
+  const startMin = isFlexible ? null : timeToMinutes(slot.startTime);
+  const endMin = startMin === null ? null : startMin + slot.durationHours * 60;
+  const durationMins = slot.durationHours * 60;
 
   const profiles = await prisma.cleanerProfile.findMany({
     where: { userId: { in: ids } },
@@ -112,7 +126,11 @@ export async function filterSlotAvailableCleaners(
       bookings: bookingsByUser.get(p.userId) ?? [],
       isPast: false, // slot-start pastness handled above (offer machinery works same-day)
     });
-    if (openRanges.some((r) => startMin >= r.start && endMin <= r.end)) {
+    const fits =
+      startMin === null || endMin === null
+        ? openRanges.some((r) => r.end - r.start >= durationMins)
+        : openRanges.some((r) => startMin >= r.start && endMin <= r.end);
+    if (fits) {
       available.add(p.userId);
     }
   }

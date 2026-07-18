@@ -44,6 +44,9 @@ interface RecentCleaner {
   lastDate: string;
 }
 
+// H18: CASCADE_EXHAUSTED removed — it's a TERMINAL no-cleaner state (refund
+// firing), not an upcoming clean. Listing it here made a refunded booking look
+// like it was still sourcing on the dashboard.
 const UPCOMING_STATUSES = new Set([
   'PENDING',
   'AWAITING_CLEANER',
@@ -51,7 +54,6 @@ const UPCOMING_STATUSES = new Set([
   'ACCEPTED',
   'EN_ROUTE',
   'IN_PROGRESS',
-  'CASCADE_EXHAUSTED',
 ]);
 
 function formatDate(dateStr: string): string {

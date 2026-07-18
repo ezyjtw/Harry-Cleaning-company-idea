@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
     // Verify cleaner exists
     const cleaner = await prisma.user.findFirst({
@@ -30,7 +27,19 @@ export async function GET(
       take: 50,
     });
 
-    return NextResponse.json(reviews);
+    // H16 sweep: reviewer avatars go out RESOLVED like every other surface —
+    // a raw storage key in `client.image` renders as a broken image.
+    const { resolveProfileImageUrl } = await import('@/lib/storage/r2-client');
+    const resolved = await Promise.all(
+      reviews.map(async (r) => ({
+        ...r,
+        client: r.client
+          ? { ...r.client, image: await resolveProfileImageUrl(r.client.image) }
+          : r.client,
+      }))
+    );
+
+    return NextResponse.json(resolved);
   } catch {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }

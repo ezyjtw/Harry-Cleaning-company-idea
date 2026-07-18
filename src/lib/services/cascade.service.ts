@@ -1343,11 +1343,14 @@ async function cascadeExhaust(bookingId: string, expectedPhase: CascadePhase): P
     },
   });
   if (result.count > 0) {
-    const refunded = await autoRefundExhausted(bookingId);
-    if (!refunded) {
-      await notifyCustomerExhausted(bookingId);
-      await emailCustomerExhausted(bookingId);
-    }
+    // H17: the customer is told on BOTH outcomes — previously a SUCCESSFUL
+    // auto-refund was the silent case (only the failure branch notified), so
+    // the person whose booking just died heard nothing. The copy ("your full
+    // refund is on its way") is true either way: inline success, or the
+    // safety sweep retries a failed one.
+    await autoRefundExhausted(bookingId);
+    await notifyCustomerExhausted(bookingId);
+    await emailCustomerExhausted(bookingId);
     return true;
   }
   return false;
@@ -1509,11 +1512,14 @@ export async function expireRenaFind(bookingId: string): Promise<boolean> {
     },
   });
   if (result.count > 0) {
-    const refunded = await autoRefundExhausted(bookingId);
-    if (!refunded) {
-      await notifyCustomerExhausted(bookingId);
-      await emailCustomerExhausted(bookingId);
-    }
+    // H17: the customer is told on BOTH outcomes — previously a SUCCESSFUL
+    // auto-refund was the silent case (only the failure branch notified), so
+    // the person whose booking just died heard nothing. The copy ("your full
+    // refund is on its way") is true either way: inline success, or the
+    // safety sweep retries a failed one.
+    await autoRefundExhausted(bookingId);
+    await notifyCustomerExhausted(bookingId);
+    await emailCustomerExhausted(bookingId);
     return true;
   }
   return false;
@@ -1665,11 +1671,10 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
         },
       });
       if (res.count > 0) {
-        const refunded = await autoRefundExhausted(booking.id);
-        if (!refunded) {
-          await notifyCustomerExhausted(booking.id);
-          await emailCustomerExhausted(booking.id);
-        }
+        // H17: notify on both refund outcomes (see cascadeExhaust).
+        await autoRefundExhausted(booking.id);
+        await notifyCustomerExhausted(booking.id);
+        await emailCustomerExhausted(booking.id);
         processed++;
       }
     } catch (error) {
