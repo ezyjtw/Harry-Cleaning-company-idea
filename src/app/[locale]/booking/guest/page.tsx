@@ -83,13 +83,77 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
   const currentIndex = STATUS_STEPS.findIndex((s) => s.key === currentStatus);
 
+  // U4: seven equal columns of two-word labels never fit a phone — the old
+  // single horizontal row overlapped its own labels below ~500px. Mobile now
+  // gets a vertical rail (node + label side by side); sm+ keeps the horizontal
+  // strip with non-wrapping, evenly-spread labels.
+  const node = (index: number, isCompleted: boolean, isCurrent: boolean) => (
+    <div
+      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        isCurrent
+          ? 'bg-primary text-white ring-4 ring-primary-soft'
+          : isCompleted
+            ? 'bg-primary text-white'
+            : 'bg-line text-ink-3'
+      }`}
+    >
+      {isCompleted && !isCurrent ? (
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={3}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        index + 1
+      )}
+    </div>
+  );
+
+  const labelClass = (isCompleted: boolean, isCurrent: boolean) =>
+    isCurrent
+      ? 'font-semibold text-primary'
+      : isCompleted
+        ? 'font-medium text-primary'
+        : 'text-ink-3';
+
   return (
     <div className="py-2">
-      <div className="flex items-center justify-between">
+      {/* Mobile: vertical rail */}
+      <ol className="sm:hidden">
         {STATUS_STEPS.map((step, index) => {
           const isCompleted = index <= currentIndex;
           const isCurrent = index === currentIndex;
+          return (
+            <li key={step.key} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                {node(index, isCompleted, isCurrent)}
+                {index < STATUS_STEPS.length - 1 && (
+                  <div
+                    className={`w-0.5 flex-1 ${index < currentIndex ? 'bg-primary' : 'bg-line'}`}
+                  />
+                )}
+              </div>
+              <span
+                className={`pt-1.5 text-sm leading-tight ${labelClass(isCompleted, isCurrent)} ${
+                  index < STATUS_STEPS.length - 1 ? 'pb-5' : ''
+                }`}
+              >
+                {step.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
 
+      {/* sm+: horizontal strip */}
+      <div className="hidden items-start justify-between sm:flex">
+        {STATUS_STEPS.map((step, index) => {
+          const isCompleted = index <= currentIndex;
+          const isCurrent = index === currentIndex;
           return (
             <div key={step.key} className="flex flex-1 flex-col items-center">
               <div className="relative flex w-full items-center justify-center">
@@ -107,38 +171,10 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                     }`}
                   />
                 )}
-                <div
-                  className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
-                    isCurrent
-                      ? 'bg-primary text-white ring-4 ring-primary-soft'
-                      : isCompleted
-                        ? 'bg-primary text-white'
-                        : 'bg-line text-ink-3'
-                  }`}
-                >
-                  {isCompleted && !isCurrent ? (
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    index + 1
-                  )}
-                </div>
+                {node(index, isCompleted, isCurrent)}
               </div>
               <span
-                className={`mt-2 text-center text-xs leading-tight ${
-                  isCurrent
-                    ? 'font-semibold text-primary'
-                    : isCompleted
-                      ? 'font-medium text-primary'
-                      : 'text-ink-3'
-                }`}
+                className={`mt-2 px-1 text-center text-xs leading-tight ${labelClass(isCompleted, isCurrent)}`}
               >
                 {step.label}
               </span>

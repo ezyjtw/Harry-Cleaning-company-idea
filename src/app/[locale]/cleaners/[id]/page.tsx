@@ -248,6 +248,7 @@ export default async function CleanerProfilePage({
           <CleanerProfileView
             data={data}
             availability={<ProfileWeekAvailability slots={availabilitySlots} />}
+            mobileBar="fixed"
           />
         </div>
       </div>

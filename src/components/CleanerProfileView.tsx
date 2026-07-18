@@ -123,9 +123,14 @@ function PriceBand({
 export default function CleanerProfileView({
   data,
   availability,
+  mobileBar = 'sticky',
 }: {
   data: CleanerProfileData;
   availability?: ReactNode;
+  /** U3: how the mobile price band pins. 'sticky' works inside a bounded
+   *  scroll container (the modal); the standalone page has none, so it passes
+   *  'fixed' to pin the bar to the viewport. */
+  mobileBar?: 'sticky' | 'fixed';
 }) {
   const verifications = [
     data.idVerified && 'ID Verified',
@@ -311,14 +316,22 @@ export default function CleanerProfileView({
         )}
       </div>
 
-      {/* Price band — mobile (sticky at the bottom of the scroll container) */}
+      {/* Price band — mobile. In the modal it sticks to the bottom of the
+          scroll container; on the standalone page (U3) it pins to the viewport
+          so Book Now is always reachable mid-scroll. */}
       <PriceBand
         fromPrice={data.fromPrice}
         bookHref={data.bookHref}
         onBook={data.onBook}
         bookLabel={data.bookLabel}
-        className="sticky bottom-0 z-10 flex md:hidden"
+        className={
+          mobileBar === 'fixed'
+            ? 'fixed inset-x-0 bottom-0 z-40 flex pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden'
+            : 'sticky bottom-0 z-10 flex md:hidden'
+        }
       />
+      {/* Spacer so a fixed bar never covers the last content (reviews tail). */}
+      {mobileBar === 'fixed' && <div aria-hidden className="h-24 md:hidden" />}
     </div>
   );
 }
