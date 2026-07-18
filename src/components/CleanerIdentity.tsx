@@ -5,19 +5,22 @@ import { FOUNDING_BADGE_LABEL } from '@/lib/constants/badges';
 import CleanerAvatar from './CleanerAvatar';
 import StarRating from './StarRating';
 
-/** F-B: permanent founding-cohort pill — distinct styling from "New to Rena"
- *  (which is plain muted text and expires). Label is the placeholder constant
- *  until James names it. */
-export function FoundingBadge() {
+/** F-B founding chip (James-ruled restyle): the card's standard chip language —
+ *  light grey ground, 0.5px border, 6px radius, Jost 500 ~11px, ★ prefix.
+ *  whitespace-nowrap so it never breaks internally; on narrow viewports it
+ *  wraps WHOLE to its own line under the name (accepted behaviour — do not
+ *  shorten; a phone-only "★ Founding" variant is pre-approved in the ledger if
+ *  real cohort names prove long). `size="md"` is the proportional profile-
+ *  header variant. "New to Rena" stays muted text, visually subordinate. */
+export function FoundingBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 font-jost text-[10.5px] font-medium uppercase tracking-[0.08em] text-gold"
-      style={{ border: '1px solid rgba(191,149,63,0.35)' }}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-[6px] bg-[#F2F4F8] font-jost font-medium text-ink-2 ${
+        size === 'md' ? 'px-2.5 py-1 text-[12px]' : 'px-2 py-0.5 text-[11px]'
+      }`}
+      style={{ border: '0.5px solid rgb(var(--color-border))' }}
     >
-      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-        <path d="M10 1.5l2.47 5.006 5.53.803-4 3.9.944 5.505L10 14.115l-4.944 2.6.944-5.506-4-3.899 5.53-.803L10 1.5z" />
-      </svg>
-      {FOUNDING_BADGE_LABEL}
+      ★ {FOUNDING_BADGE_LABEL}
     </span>
   );
 }
@@ -80,8 +83,12 @@ export default function CleanerIdentity({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate font-newsreader text-[19px] font-semibold text-ink">{name}</h3>
+        {/* flex-wrap + nowrap chip: when the name leaves no room, the chip
+            wraps WHOLE to its own line beneath (James-accepted behaviour). */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <h3 className="max-w-full truncate font-newsreader text-[19px] font-semibold text-ink">
+            {name}
+          </h3>
           {founding && <FoundingBadge />}
         </div>
         <div className="mt-1 flex items-center gap-1.5">

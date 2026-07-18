@@ -153,11 +153,11 @@ export default function CleanerProfileView({
         <div className="flex items-start gap-5">
           <Avatar name={data.name} photo={data.photo} size={72} />
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <h2 className="font-newsreader text-[24px] font-semibold leading-tight text-ink">
                 {data.name}
               </h2>
-              {data.founding && <FoundingBadge />}
+              {data.founding && <FoundingBadge size="md" />}
             </div>
             <div className="mt-1 flex items-center gap-2">
               <StarRating rating={data.rating} />
