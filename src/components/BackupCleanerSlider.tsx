@@ -105,12 +105,16 @@ export default function BackupCleanerSlider({
           onChange={(e) => onAutoAssignChange(e.target.checked)}
         />
         <div>
+          {/* H21: this tickbox is the ONLY consent for the wider-network
+              (Rena-Find) search after declines — the copy must say exactly
+              that, not read like instant backup assignment. */}
           <span className="font-jost text-sm font-medium text-ink transition group-hover:text-ink/80">
-            Provide me an appropriate cleaner
+            Keep searching if my cleaners can&apos;t take it
           </span>
           <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
-            We&apos;ll assign a cleaner at the same price or lower if your chosen cleaner is
-            unavailable.
+            If your chosen cleaner and backups can&apos;t take this booking, we&apos;ll offer it to
+            other vetted Rena cleaners with a similar rating — same price, first to accept. If no
+            one can, you&apos;re automatically refunded in full.
           </p>
         </div>
       </label>

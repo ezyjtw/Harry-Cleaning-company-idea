@@ -110,11 +110,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const runwayMs = resolveBy.getTime() - now.getTime();
   const expiresAt = runwayMs > 0 ? resolveBy : new Date(now.getTime() + 12 * HOUR_MS);
 
+  // H21 consent law: admin review only ever holds bookings whose customer
+  // opted in at booking time (the enterRenaFindAdminReview claim requires it),
+  // so requiring the flag here is a no-op today — it makes the law structural
+  // if a future path ever parks an unconsented booking in the review queue.
   const result = await prisma.booking.updateMany({
     where: {
       id,
       status: 'AWAITING_CLEANER',
       cascadePhase: 'RENA_FIND_ADMIN_REVIEW',
+      autoAssignBackup: true,
     },
     data: {
       cascadePhase: 'RENA_FIND',
