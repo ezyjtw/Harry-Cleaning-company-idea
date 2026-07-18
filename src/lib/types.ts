@@ -27,7 +27,6 @@ export interface Cleaner {
   /** Specific time slots the cleaner is available per day. Key is day abbreviation (e.g. 'Mon'). */
   timeSlots: Record<string, string[]>;
   availableNow: boolean;
-  responseTime: string;
   categoryRatings: CategoryRatings;
   bringsProducts: boolean;
   productFee: number; // additional cost if cleaner brings products
@@ -36,11 +35,11 @@ export interface Cleaner {
   distance?: number | null;
 }
 
+// B7: no `value` (value-for-money) — the review form doesn't collect it.
 export interface CategoryRatings {
   thoroughness: number;
   punctuality: number;
   communication: number;
-  value: number;
 }
 
 export interface Booking {

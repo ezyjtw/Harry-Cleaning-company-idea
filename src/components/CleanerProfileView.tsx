@@ -48,7 +48,9 @@ export interface CleanerProfileData {
   /** Native sub-rating bars; null when there are no Rena sub-rated reviews yet. */
   ratings: ProfileRatingBar[] | null;
   ratingsNote?: string | null;
-  experience: { years: number | null; jobs: number; response: string };
+  // B7: no `response` field — response time was never measured anywhere, and
+  // the stat it fed was a hard-coded invention.
+  experience: { years: number | null; jobs: number };
   languages: string[];
   services: ProfileService[];
   reviews: ProfileReviewItem[];
@@ -134,7 +136,6 @@ export default function CleanerProfileView({
   const expBits = [
     data.experience.years && data.experience.years > 0 ? `${data.experience.years} yrs` : null,
     `${data.experience.jobs} jobs`,
-    `${data.experience.response} response`,
   ].filter(Boolean);
 
   return (

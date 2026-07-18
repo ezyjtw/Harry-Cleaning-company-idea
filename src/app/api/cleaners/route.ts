@@ -153,7 +153,6 @@ export async function GET(request: NextRequest) {
         identityVerified: c.verificationStatus === 'VERIFIED',
         insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
         backgroundChecked: c.backgroundCheckPassed,
-        responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
         radius: c.radius,
         maxTravelMinutes: c.maxTravelMinutes,
         travelMode: c.travelMode,

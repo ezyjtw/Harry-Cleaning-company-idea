@@ -307,8 +307,7 @@ function tfCleanerToCleaner(card: TfCleaner): Cleaner {
     availability: [],
     timeSlots: {},
     availableNow: false,
-    responseTime: '~15 min',
-    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0, value: 0 },
+    categoryRatings: { thoroughness: 0, punctuality: 0, communication: 0 },
     insured: false,
     bringsProducts: false,
     productFee: 0,
@@ -753,8 +752,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           : undefined;
         if (typeof base === 'number' && base > 0) exactBase = base;
       }
-      const lowSubtotal = exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
-      const highSubtotal = exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
+      const lowSubtotal =
+        exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
+      const highSubtotal =
+        exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
       const lowServiceFee = Math.round(lowSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       const highServiceFee = Math.round(highSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       return {
@@ -796,7 +797,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       serviceFee,
       discountedTotal: Math.round((cleaningSubtotal + serviceFee) * 100) / 100,
     };
-  }, [preSelectedCleaner, selectedCleaner, effectiveHours, category, fixedPriceQuote, rooms.bedrooms]);
+  }, [
+    preSelectedCleaner,
+    selectedCleaner,
+    effectiveHours,
+    category,
+    fixedPriceQuote,
+    rooms.bedrooms,
+  ]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
 
@@ -901,7 +909,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         </div>
 
-        <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}>
+        <Elements
+          stripe={stripePromise}
+          options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}
+        >
           <StripeCheckoutForm
             total={totalPrice}
             bookingId={confirmedBookingId}
@@ -944,7 +955,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Hero header */}
         <div className="mt-6 animate-fade-in">
-          <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">{serviceLabel}</h1>
+          <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">
+            {serviceLabel}
+          </h1>
           <p className="mt-2 max-w-xl font-jost text-sm font-light leading-relaxed text-ink-3">
             {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
           </p>
@@ -1130,7 +1143,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Rooms — for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-newsreader font-semibold text-base text-ink">How Many Rooms?</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">
+                  How Many Rooms?
+                </h2>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Counter
                     label="Bedrooms"
@@ -1160,7 +1175,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Hours — only for hourly services */}
             {!isFixedPrice(category) && (
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <h2 className="font-newsreader font-semibold text-base text-ink">How Many Hours?</h2>
+                <h2 className="font-newsreader font-semibold text-base text-ink">
+                  How Many Hours?
+                </h2>
                 <div className="mt-4 rounded-lg bg-cream-2/60 p-4 ring-1 ring-ink/[0.04]">
                   <p className="font-jost font-light text-sm text-ink-2">
                     We recommend{' '}
@@ -1214,7 +1231,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Products */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader font-semibold text-base text-ink">Cleaning Products</h2>
+              <h2 className="font-newsreader font-semibold text-base text-ink">
+                Cleaning Products
+              </h2>
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
@@ -1303,7 +1322,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           <>&pound;{priceBreakdown.lowPrice}</>
                         ) : (
                           <>
-                            &pound;{priceBreakdown.lowPrice} &ndash; &pound;{priceBreakdown.highPrice}
+                            &pound;{priceBreakdown.lowPrice} &ndash; &pound;
+                            {priceBreakdown.highPrice}
                           </>
                         )}
                       </span>
@@ -1346,7 +1366,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                           <>&pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)}</>
                         ) : (
                           <>
-                            &pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)} &ndash; &pound;
+                            &pound;{(priceBreakdown.lowTotal + productCost).toFixed(2)} &ndash;
+                            &pound;
                             {(priceBreakdown.highTotal + productCost).toFixed(2)}
                           </>
                         )}
@@ -2669,7 +2690,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 ))}
               </div>
 
-              <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">Pick a time of day</h2>
+              <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">
+                Pick a time of day
+              </h2>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {TIME_FIRST_BANDS.map((b) => (
                   <button
@@ -3132,7 +3155,9 @@ function Counter({
         >
           -
         </button>
-        <span className="w-8 text-center font-newsreader text-xl font-medium text-ink">{value}</span>
+        <span className="w-8 text-center font-newsreader text-xl font-medium text-ink">
+          {value}
+        </span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, value + 1))}

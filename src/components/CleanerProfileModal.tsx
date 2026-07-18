@@ -24,7 +24,6 @@ interface ReviewData {
     thoroughness: number;
     punctuality: number;
     communication: number;
-    value: number;
   };
 }
 
@@ -85,7 +84,6 @@ export default function CleanerProfileModal({
               thoroughness: Number(r.thoroughness || 0),
               punctuality: Number(r.punctuality || 0),
               communication: Number(r.communication || 0),
-              value: Number(r.rating),
             },
           }))
         );
@@ -114,7 +112,7 @@ export default function CleanerProfileModal({
         { label: 'Thoroughness', value: avg((r) => r.categoryRatings.thoroughness) },
         { label: 'Punctuality', value: avg((r) => r.categoryRatings.punctuality) },
         { label: 'Communication', value: avg((r) => r.categoryRatings.communication) },
-        { label: 'Value for money', value: avg((r) => r.categoryRatings.value) },
+        // B7 (James-ruled): no value-for-money row — not collected by the form.
       ]
     : null;
 
@@ -176,7 +174,6 @@ export default function CleanerProfileModal({
     experience: {
       years: cleaner.yearsExperience || null,
       jobs: cleaner.completedJobs,
-      response: cleaner.responseTime,
     },
     languages: cleaner.languages || [],
     services,

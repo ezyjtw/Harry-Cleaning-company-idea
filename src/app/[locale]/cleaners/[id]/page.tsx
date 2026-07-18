@@ -5,13 +5,13 @@ import CleanerProfileView, {
   type ProfileService,
   type ProfileReviewItem,
 } from '@/components/CleanerProfileView';
+import JsonLd from '@/components/JsonLd';
 import ProfileWeekAvailability from '@/components/ProfileWeekAvailability';
 import {
   serviceTypeLabel,
   isServiceTypeSlug,
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
-import JsonLd from '@/components/JsonLd';
 import prisma from '@/lib/db/prisma';
 import { computeCleanerRating } from '@/lib/services/rating.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
@@ -21,11 +21,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co
 
 // A1-P1: per-cleaner metadata — every profile page previously shared the
 // directory layout's generic title. Canonical + OG per cleaner.
-export async function generateMetadata({
-  params,
-}: {
-  params: { id: string };
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
     select: { location: true, bio: true, user: { select: { name: true } } },
@@ -96,11 +92,8 @@ export default async function CleanerProfilePage({
 
   const { subRatings: sub } = await computeCleanerRating(params.id);
   const hasNativeSubRatings = sub.thoroughness !== null;
-  const valueAgg = await prisma.review.aggregate({
-    where: { cleanerId: params.id, visibility: 'VISIBLE', thoroughness: { not: null } },
-    _avg: { rating: true },
-  });
-  const valueForMoney = valueAgg._avg.rating ? Number(valueAgg._avg.rating) : 0;
+  // B7 (James-ruled): NO value-for-money row — the review form doesn't collect
+  // it; the old row re-displayed the overall average under an invented label.
 
   const serviceTypes = (profile.serviceTypes || []).filter(isServiceTypeSlug) as ServiceTypeSlug[];
   const hrReg = profile.hourlyRateRegular ? Number(profile.hourlyRateRegular) : null;
@@ -185,17 +178,18 @@ export default async function CleanerProfilePage({
           { label: 'Thoroughness', value: sub.thoroughness ?? 0 },
           { label: 'Punctuality', value: sub.punctuality ?? 0 },
           { label: 'Communication', value: sub.communication ?? 0 },
-          { label: 'Value for money', value: valueForMoney },
         ]
       : null,
     ratingsNote:
       !hasNativeSubRatings && importedReviews.length > 0
         ? 'No Rena jobs yet — the category breakdown reflects completed Rena bookings only.'
         : null,
+    // B7 (James-ruled): no response-time stat — CleanerProfile.responseTime is
+    // never computed by any code path (NULL in production), and the old
+    // '~15 min' fallback was pure invention.
     experience: {
       years: profile.yearsExperience ?? null,
       jobs: profile.completedJobs,
-      response: profile.responseTime ? `~${profile.responseTime} min` : '~15 min',
     },
     languages: profile.languages || [],
     services,
@@ -218,7 +212,9 @@ export default async function CleanerProfilePage({
     '@type': 'Person',
     name: data.name,
     jobTitle: 'Professional cleaner',
-    ...(data.location ? { address: { '@type': 'PostalAddress', addressLocality: data.location } } : {}),
+    ...(data.location
+      ? { address: { '@type': 'PostalAddress', addressLocality: data.location } }
+      : {}),
     worksFor: { '@type': 'Organization', name: 'Rena Cleaning Network' },
   };
   const profileJsonLd = {

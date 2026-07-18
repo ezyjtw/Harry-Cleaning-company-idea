@@ -191,7 +191,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       })
       .catch(() => {});
 
-    fetch('/api/bookings?status=COMPLETED')
+    fetch('/api/bookings?status=COMPLETED,REVIEWED')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((result: { data: Array<Record<string, unknown>> }) => {
         setPastBookings(
@@ -643,10 +643,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <p className="mt-4 font-jost font-light text-ink-2">
           {isLastMinute ? (
             <>
-              Your last-minute booking request has been sent to {cleaner.name}. They typically
-              respond within{' '}
-              <strong className="font-normal text-ink">{cleaner.responseTime}</strong>. You&apos;ll
-              receive a confirmation at {form.email}.
+              Your last-minute booking request has been sent to {cleaner.name}. You&apos;ll receive
+              a confirmation at {form.email}.
             </>
           ) : (
             <>
@@ -876,7 +874,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       {isExpress && cleaner.availableNow && (
         <div className="mt-4 bg-primary-soft p-4" style={{ border: '0.5px solid #E4E9F0' }}>
           <div className="flex items-center gap-3">
-            <AvailableNowBadge responseTime={cleaner.responseTime} />
+            <AvailableNowBadge />
             <span className="font-jost text-sm font-light text-ink-2">
               Same-day rate:{' '}
               <strong className="font-normal text-ink">
@@ -885,8 +883,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </span>
           </div>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
-            {cleaner.name} is available now and typically responds within {cleaner.responseTime}.
-            Your booking will be prioritized.
+            {cleaner.name} is available now. Your booking will be prioritized.
           </p>
         </div>
       )}

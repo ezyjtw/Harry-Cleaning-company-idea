@@ -202,7 +202,6 @@ export async function listDirectoryCleaners(limit = 50) {
         identityVerified: c.verificationStatus === 'VERIFIED',
         insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
         backgroundChecked: c.backgroundCheckPassed,
-        responseTime: c.responseTime ? `~${c.responseTime} min` : '~15 min',
         distance: null as number | null,
         ...expandSlots(c.availabilitySlots),
       };
@@ -248,7 +247,12 @@ export function countCoveringPoint(
   longitude: number
 ): number {
   return geos.filter((g) =>
-    cleanerCoversPoint(g, latitude, longitude, haversineDistance(latitude, longitude, g.latitude, g.longitude))
+    cleanerCoversPoint(
+      g,
+      latitude,
+      longitude,
+      haversineDistance(latitude, longitude, g.latitude, g.longitude)
+    )
   ).length;
 }
 

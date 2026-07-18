@@ -64,7 +64,7 @@ interface DashboardData {
     weeklyEarnings: string;
     rating: string;
     reviewCount: number;
-    responseRate: number;
+    completionRate: number;
     backupBookingCount: number;
   };
   dailyPercents: number[];
@@ -582,7 +582,8 @@ export default function CleanerDashboard() {
     { label: "Today's Jobs", value: String(data.stats.todaysJobs), sub: 'Scheduled for today' },
     { label: 'Weekly Earnings', value: `£${data.stats.weeklyEarnings}`, sub: 'This week' },
     { label: 'Rating', value: data.stats.rating, sub: `${data.stats.reviewCount} reviews` },
-    { label: 'Response Rate', value: `${data.stats.responseRate}%`, sub: 'Last 30 days' },
+    // B7 honesty: this figure is the non-cancelled share of recent bookings.
+    { label: 'Completion Rate', value: `${data.stats.completionRate}%`, sub: 'Last 30 days' },
   ];
 
   return (

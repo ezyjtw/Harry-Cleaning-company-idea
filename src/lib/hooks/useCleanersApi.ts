@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import type { Cleaner, Review } from '@/lib/types';
 
-const DEFAULT_CATEGORY_RATINGS = { thoroughness: 0, punctuality: 0, communication: 0, value: 0 };
+const DEFAULT_CATEGORY_RATINGS = { thoroughness: 0, punctuality: 0, communication: 0 };
 
 function mapApiCleaner(c: Record<string, unknown>): Cleaner {
   return {
@@ -31,7 +31,6 @@ function mapApiCleaner(c: Record<string, unknown>): Cleaner {
     availability: (c.availability as string[]) || [],
     timeSlots: (c.timeSlots as Record<string, string[]>) || {},
     availableNow: (c.availableNow as boolean) || false,
-    responseTime: (c.responseTime as string) || '~15 min',
     categoryRatings: DEFAULT_CATEGORY_RATINGS,
     insured: (c.insured as boolean) || false,
     bringsProducts: false,
