@@ -65,23 +65,6 @@ const PROPERTY_SIZE_LABELS: Record<string, string> = {
   '4bedPlus': '4+ Bed',
 };
 
-const EOT_SUGGESTED_RANGES: Record<number, [number, number]> = {
-  0: [150, 200],
-  1: [190, 240],
-  2: [250, 300],
-  3: [320, 380],
-  4: [390, 450],
-  5: [480, 580],
-};
-
-const AIRBNB_SUGGESTED_RANGES: Record<number, [number, number]> = {
-  0: [45, 65],
-  1: [55, 85],
-  2: [75, 110],
-  3: [95, 140],
-  4: [130, 165],
-};
-
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
 function getSuggestedHours(bedrooms: number, bathrooms: number, isDeep: boolean): number {
@@ -125,8 +108,9 @@ function PanelFooter() {
       className="flex justify-between pt-5"
       style={{ borderTop: '1px solid rgb(var(--color-border))' }}
     >
+      {/* H2: no hardcoded "From £14/hr" — rates are cleaner-set per area. */}
       <span className="font-jost text-[12px] font-light text-ink-3">
-        From £14 / hr · No hidden fees
+        Cleaner-set rates · No hidden fees
       </span>
       <span className="font-jost text-[12px] font-light text-ink-3">Cancel anytime</span>
     </div>
@@ -597,30 +581,9 @@ export default function HeroQuoteWidget() {
         </div>
       )}
 
-      {/* Price range preview for EOT/Airbnb */}
-      {isFixed &&
-        bedrooms !== null &&
-        (() => {
-          const ranges = serviceSlug === 'eot' ? EOT_SUGGESTED_RANGES : AIRBNB_SUGGESTED_RANGES;
-          const key = Math.min(bedrooms, serviceSlug === 'eot' ? 5 : 4);
-          const range = ranges[key];
-          if (!range) return null;
-          const low = Math.ceil(range[0] * 1.06);
-          const high = Math.ceil(range[1] * 1.06);
-          return (
-            <div
-              className="mb-6 rounded-md bg-page px-4 py-3 text-center"
-              style={{ border: '1px solid rgb(var(--color-border))' }}
-            >
-              <span className="font-jost text-[13px] font-medium text-ink">
-                Prices from &pound;{low} &ndash; &pound;{high}
-              </span>
-              <p className="mt-1 font-jost text-[11px] text-ink-3">
-                depending on your cleaner. All-inclusive — no hidden fees.
-              </p>
-            </div>
-          );
-        })()}
+      {/* H2 (James-ruled): the hardcoded EOT/Airbnb "Prices from £X–£Y"
+          preview is gone — the next step fetches the REAL from-price across
+          eligible cleaners for this postcode, so no invented range here. */}
 
       <button
         onClick={handleStep2Next}
@@ -730,27 +693,18 @@ export default function HeroQuoteWidget() {
               </p>
             </>
           ) : (
-            <>
-              {(() => {
-                const ranges =
-                  serviceSlug === 'eot' ? EOT_SUGGESTED_RANGES : AIRBNB_SUGGESTED_RANGES;
-                const key = Math.min(bedrooms ?? 1, serviceSlug === 'eot' ? 5 : 4);
-                const range = ranges[key];
-                const low = range ? Math.ceil(range[0] * 1.06) : 0;
-                return (
-                  <p className="mt-2 font-newsreader text-[36px] font-medium text-ink">
-                    from &pound;{low}
-                  </p>
-                );
-              })()}
-              <p className="mt-2 font-jost text-[12px] text-ink-3">
-                Typical starting price for your area. All-inclusive — no hidden fees.
-              </p>
-            </>
+            /* H2 (James-ruled): zero eligible cleaners → no invented number.
+               The old branch showed a hardcoded "typical starting price". */
+            <p className="mt-2 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+              No cleaners currently cover {confirmedPostcode} for this service, so we can&apos;t
+              quote a price yet — we&apos;re onboarding cleaners in new areas every week.
+            </p>
           )}
-          <p className="mt-3 font-jost text-[11px] text-ink-3">
-            Exact price shown when you choose your cleaner
-          </p>
+          {quote.cleanerCount > 0 && (
+            <p className="mt-3 font-jost text-[11px] text-ink-3">
+              Exact price shown when you choose your cleaner
+            </p>
+          )}
         </div>
 
         {/* Add-ons for EOT and Airbnb */}
