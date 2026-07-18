@@ -106,6 +106,9 @@ export interface AreaQuoteResult {
   maxTotal: number;
   minCleanerPrice: number;
   maxCleanerPrice: number;
+  /** H2: lowest eligible hourly RATE (£/hr) for the service+area — the honest
+   *  "From £X/hr" figure. 0 for fixed-price services or when no cleaner. */
+  minHourlyRate: number;
 }
 
 // ─── Service ────────────────────────────────────────────────────
@@ -321,19 +324,30 @@ export class PricingService {
 
     const serviceTypeFilter = this.getServiceTypeFilterValue(params.serviceSlug);
 
-    const where: Record<string, unknown> = {
-      verified: true,
-      user: { accountStatus: 'ACTIVE', isDeleted: false },
-      serviceTypes: { has: serviceTypeFilter },
+    // H2: the area quote previously used a FORKED, looser predicate (verified
+    // only, plain radius) — its "from" price could name cleaners search would
+    // never show. It now uses the exact same eligibility as search/matching:
+    // eligibleCleanerWhere + a usable rate for THIS service + real coverage of
+    // the customer point (polygon-first via cleanerCoversPoint).
+    const { eligibleCleanerWhere } = await import('@/lib/services/area-search.service');
+    const { cleanerCoversPoint } = await import('@/lib/services/coverage.service');
+    const rateNotNull: Record<string, Record<string, unknown>> = {
+      regular: { hourlyRateRegular: { not: null } },
+      deep: { hourlyRateDeep: { not: null } },
+      'same-day': { hourlyRateSameDay: { not: null } },
+      eot: { eotPrices: { not: null } },
+      airbnb: { airbnbPrices: { not: null } },
     };
-
-    if (geo) {
-      where.latitude = { not: null };
-      where.longitude = { not: null };
-    }
+    const where: Record<string, unknown> = {
+      ...eligibleCleanerWhere(new Date()),
+      serviceTypes: { has: serviceTypeFilter },
+      ...(rateNotNull[params.serviceSlug] ?? {}),
+    };
 
     const cleaners = await prisma.cleanerProfile.findMany({
       where,
+      // Explicit select overrides the global catchmentPolygon omit — coverage
+      // needs the stored isochrone.
       select: {
         hourlyRateRegular: true,
         hourlyRateDeep: true,
@@ -343,6 +357,8 @@ export class PricingService {
         latitude: true,
         longitude: true,
         radius: true,
+        maxTravelMinutes: true,
+        catchmentPolygon: true,
       },
     });
 
@@ -352,11 +368,16 @@ export class PricingService {
       filtered = cleaners.filter((c) => {
         if (c.latitude === null || c.longitude === null) return false;
         const dist = haversineDistance(geo.latitude, geo.longitude, c.latitude, c.longitude);
-        return dist <= c.radius;
+        return cleanerCoversPoint(c, geo.latitude, geo.longitude, dist);
       });
+    } else {
+      // Postcode didn't geocode → no honest area answer; report zero rather
+      // than pricing against every cleaner on the platform.
+      filtered = [];
     }
 
     const prices: number[] = [];
+    const hourlyRates: number[] = [];
     for (const c of filtered) {
       if (isFixed) {
         if (!params.propertySize) continue;
@@ -372,6 +393,7 @@ export class PricingService {
         if (rate) {
           const hourly = Number(rate);
           const hours = params.hours || 2;
+          hourlyRates.push(hourly);
           prices.push(hourly * hours);
         }
       }
@@ -389,6 +411,7 @@ export class PricingService {
         maxTotal: 0,
         minCleanerPrice: 0,
         maxCleanerPrice: 0,
+        minHourlyRate: 0,
       };
     }
 
@@ -409,6 +432,7 @@ export class PricingService {
       maxTotal: new Decimal(maxPrice).plus(maxFee).toDecimalPlaces(2).toNumber(),
       minCleanerPrice: minPrice,
       maxCleanerPrice: maxPrice,
+      minHourlyRate: hourlyRates.length ? Math.min(...hourlyRates) : 0,
     };
   }
 
@@ -558,7 +582,10 @@ export function validatePriceFloors(
       }
       if (price <= 0) continue;
       if (price > MAX_FIXED_PRICE) {
-        return { valid: false, error: `End of Tenancy price for ${size} can't exceed £${MAX_FIXED_PRICE}.` };
+        return {
+          valid: false,
+          error: `End of Tenancy price for ${size} can't exceed £${MAX_FIXED_PRICE}.`,
+        };
       }
       const floor = EOT_PRICE_FLOORS[size as EotPropertySize];
       if (floor && price < floor) {
@@ -577,7 +604,10 @@ export function validatePriceFloors(
       }
       if (price <= 0) continue;
       if (price > MAX_FIXED_PRICE) {
-        return { valid: false, error: `Airbnb price for ${size} can't exceed £${MAX_FIXED_PRICE}.` };
+        return {
+          valid: false,
+          error: `Airbnb price for ${size} can't exceed £${MAX_FIXED_PRICE}.`,
+        };
       }
       const floor = AIRBNB_PRICE_FLOORS[size as AirbnbPropertySize];
       if (floor && price < floor) {

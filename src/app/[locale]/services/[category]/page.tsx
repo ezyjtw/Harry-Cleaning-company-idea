@@ -48,15 +48,9 @@ const SERVICE_DESCRIPTIONS: Record<ServiceCategory, string> = {
     'Landlord-ready cleaning with a satisfaction guarantee. Give yourself the best chance of your deposit back.',
 };
 
-/** Minimum cleaner rate (£14) × service multiplier, rounded down to nearest £ */
-const MIN_CLEANER_RATE = 14;
-const SERVICE_STARTING_RATES: Record<ServiceCategory, number> = {
-  regular: MIN_CLEANER_RATE, // £14
-  'same-day': Math.floor(MIN_CLEANER_RATE * 1.3), // £18
-  deep: Math.floor(MIN_CLEANER_RATE * 1.45), // £20
-  airbnb: 0, // fixed-price
-  'end-of-tenancy': 0, // fixed-price
-};
+// H2 (James-ruled): no invented starting rates — the cleaner-less price is
+// the fetched lowest ELIGIBLE rate for the service+area (see areaQuote), and
+// with zero eligible cleaners no number is shown at all.
 
 /** Short label describing the rate type for the current service */
 const SERVICE_RATE_LABELS: Record<ServiceCategory, string> = {
@@ -421,6 +415,53 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
 
+  // H2 (James-ruled): the cleaner-less price must be the LOWEST rate among
+  // cleaners genuinely eligible for this service + area (same predicate as
+  // search), never a constant. Fetched whenever service/postcode/size change;
+  // cleanerCount === 0 drives the honest no-cleaners state instead of a number.
+  const [areaQuote, setAreaQuote] = useState<{
+    cleanerCount: number;
+    minHourlyRate: number;
+    minCleanerPrice: number;
+    maxCleanerPrice: number;
+  } | null>(null);
+  useEffect(() => {
+    const pc = postcode.trim();
+    if (!isValidPostcode(pc)) {
+      setAreaQuote(null);
+      return;
+    }
+    const quoteSlug = category === 'end-of-tenancy' ? 'eot' : category;
+    const propertySize =
+      category === 'end-of-tenancy'
+        ? BEDROOMS_TO_EOT_SIZE[Math.min(rooms.bedrooms, 5)]
+        : category === 'airbnb'
+          ? BEDROOMS_TO_AIRBNB_SIZE[Math.min(rooms.bedrooms, 4)]
+          : undefined;
+    let stale = false;
+    fetch('/api/pricing/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postcode: pc, serviceSlug: quoteSlug, hours: 2, propertySize }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!stale && d && d.mode === 'area') setAreaQuote(d);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [postcode, category, rooms.bedrooms]);
+  // Honest empty state: a valid in-prefix postcode with ZERO eligible cleaners
+  // for this service must not show a price at all.
+  const noEligibleCleaners =
+    !preSelectedCleaner &&
+    !outsideCatchment &&
+    isValidPostcode(postcode.trim()) &&
+    areaQuote !== null &&
+    areaQuote.cleanerCount === 0;
+
   // Fixed-price calculation for Airbnb & EOT (no extras — property-size-based pricing only)
   const fixedPriceQuote = useMemo(() => {
     if (!isFixedPrice(category)) return null;
@@ -778,17 +819,31 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           : undefined;
         if (typeof base === 'number' && base > 0) exactBase = base;
       }
+      // H2: cleaner-less fixed pricing uses the REAL min/max cleaner-set
+      // prices for this size among eligible cleaners in the area, not the
+      // hardcoded suggested-range table; the table remains only while the
+      // area quote hasn't answered yet.
+      const areaLow =
+        exactBase === null && areaQuote && areaQuote.cleanerCount > 0
+          ? areaQuote.minCleanerPrice
+          : null;
+      const areaHigh =
+        exactBase === null && areaQuote && areaQuote.cleanerCount > 0
+          ? areaQuote.maxCleanerPrice
+          : null;
+      const lowBase = exactBase !== null ? exactBase : areaLow;
+      const highBase = exactBase !== null ? exactBase : areaHigh;
       const lowSubtotal =
-        exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
+        lowBase !== null ? lowBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.lowTotal;
       const highSubtotal =
-        exactBase !== null ? exactBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
+        highBase !== null ? highBase + fixedPriceQuote.extrasTotal : fixedPriceQuote.highTotal;
       const lowServiceFee = Math.round(lowSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       const highServiceFee = Math.round(highSubtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
       return {
         isFixed: true as const,
         isExact: exactBase !== null,
-        lowPrice: exactBase !== null ? exactBase : fixedPriceQuote.lowPrice,
-        highPrice: exactBase !== null ? exactBase : fixedPriceQuote.highPrice,
+        lowPrice: lowBase !== null ? lowBase : fixedPriceQuote.lowPrice,
+        highPrice: highBase !== null ? highBase : fixedPriceQuote.highPrice,
         extrasTotal: fixedPriceQuote.extrasTotal,
         cleaningSubtotal: lowSubtotal,
         displayServiceFee: lowServiceFee,
@@ -801,9 +856,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       };
     }
     const activeCleaner = preSelectedCleaner ?? selectedCleaner;
+    // H2: without a cleaner the rate is the lowest ELIGIBLE rate for this
+    // service+area (0 while unknown — the panel then shows no invented number).
     const rawRate = activeCleaner
       ? getCleanerRateForService(activeCleaner, category)
-      : MIN_CLEANER_RATE;
+      : (areaQuote?.minHourlyRate ?? 0);
     const listedHourlyRate = Math.round(rawRate * 100) / 100;
     const listedSubtotal = Math.round(rawRate * effectiveHours * 100) / 100;
     const cleaningSubtotal = listedSubtotal;
@@ -830,6 +887,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     category,
     fixedPriceQuote,
     rooms.bedrooms,
+    areaQuote,
   ]);
 
   const productCost = cleanerBringsProducts ? PRODUCT_FEE : 0;
@@ -1355,10 +1413,28 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {/* Price display */}
             <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
-              {priceBreakdown.isFixed && fixedPriceQuote ? (
+              {noEligibleCleaners ? (
+                /* H2: zero eligible cleaners for this service+postcode — no
+                   invented number, say so honestly. */
                 <>
                   <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    {priceBreakdown.isExact ? 'Your price' : 'Suggested price range'}
+                    Pricing
+                  </span>
+                  <p className="mt-3 font-jost text-sm font-light text-ink-2">
+                    No cleaners currently offer this service around{' '}
+                    <span className="font-normal text-ink">{postcode.trim().toUpperCase()}</span>,
+                    so we can&apos;t quote a price yet. Try another service, or leave your email
+                    below and we&apos;ll let you know when a cleaner reaches your area.
+                  </p>
+                </>
+              ) : priceBreakdown.isFixed && fixedPriceQuote ? (
+                <>
+                  <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                    {priceBreakdown.isExact
+                      ? 'Your price'
+                      : areaQuote && areaQuote.cleanerCount > 0
+                        ? 'Cleaner-set price range in your area'
+                        : 'Suggested price range'}
                   </span>
                   <div className="mt-3 space-y-2">
                     <div className="flex justify-between font-jost text-sm">
@@ -1442,39 +1518,43 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   )}
                   {!preSelectedCleaner && (
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
-                      Starting at &pound;
-                      {SERVICE_STARTING_RATES[category]}
-                      /hr
+                      {areaQuote && areaQuote.minHourlyRate > 0
+                        ? `From £${areaQuote.minHourlyRate.toFixed(2)}/hr — the lowest rate among cleaners covering your postcode`
+                        : 'Enter your postcode to see rates from cleaners near you'}
                     </p>
                   )}
-                  <div className="mt-3 space-y-2">
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">Cleaning ({effectiveHours}h)</span>
-                      <span className="text-ink">
-                        &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between font-jost text-sm">
-                      <span className="font-light text-ink-3">
-                        Service fee ({SERVICE_FEE_PERCENT}%)
-                      </span>
-                      <span className="text-ink">
-                        &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                      </span>
-                    </div>
-                    {productCost > 0 && (
+                  {/* H2: totals render only once a real rate exists — no
+                      £0.00 / invented figures while the area quote loads. */}
+                  {(preSelectedCleaner || priceBreakdown.listedHourlyRate > 0) && (
+                    <div className="mt-3 space-y-2">
                       <div className="flex justify-between font-jost text-sm">
-                        <span className="font-light text-ink-3">Cleaning products</span>
-                        <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
+                        <span className="font-light text-ink-3">Cleaning ({effectiveHours}h)</span>
+                        <span className="text-ink">
+                          &pound;{priceBreakdown.cleaningSubtotal.toFixed(2)}
+                        </span>
                       </div>
-                    )}
-                    <div className="flex justify-between pt-2 font-jost border-t border-ink/[0.06]">
-                      <span className="text-sm text-ink">Total</span>
-                      <span className="font-newsreader font-medium text-3xl text-ink">
-                        &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
-                      </span>
+                      <div className="flex justify-between font-jost text-sm">
+                        <span className="font-light text-ink-3">
+                          Service fee ({SERVICE_FEE_PERCENT}%)
+                        </span>
+                        <span className="text-ink">
+                          &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                        </span>
+                      </div>
+                      {productCost > 0 && (
+                        <div className="flex justify-between font-jost text-sm">
+                          <span className="font-light text-ink-3">Cleaning products</span>
+                          <span className="text-ink">&pound;{productCost.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 font-jost border-t border-ink/[0.06]">
+                        <span className="text-sm text-ink">Total</span>
+                        <span className="font-newsreader font-medium text-3xl text-ink">
+                          &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <p className="mt-3 font-jost font-light text-xs text-ink-3">
                     {!preSelectedCleaner
                       ? 'Final price depends on your chosen cleaner\u2019s rate. No hidden charges.'
@@ -1507,10 +1587,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 setScheduling('flexible');
                 setPhase('cleaner');
               }}
-              disabled={!postcode || (isGuest && !email) || outsideCatchment || !!postcodeError}
+              disabled={
+                !postcode ||
+                (isGuest && !email) ||
+                outsideCatchment ||
+                noEligibleCleaners ||
+                !!postcodeError
+              }
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {outsideCatchment ? 'Not yet available in your area' : 'Continue'}
+              {outsideCatchment || noEligibleCleaners
+                ? 'Not yet available in your area'
+                : 'Continue'}
             </button>
           </div>
           {/* End left column */}

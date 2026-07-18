@@ -137,9 +137,20 @@ export class BookingLifecycleService {
       };
     }
 
-    // Unaccepted bookings (no cleaner committed) → always 100%
+    // Unaccepted bookings (no cleaner committed) → always 100%.
+    // H1: still attach graceUntil when the grace window is live — the refund
+    // maths never depended on it here (100% either way), but the cancel
+    // dialog's "inside your free-cancellation window (ends …)" line reads it,
+    // and this path (cancel while the cascade is still sourcing a cleaner) is
+    // exactly where James saw the words missing. Display-only field.
     const UNACCEPTED = ['PENDING', 'AWAITING_CLEANER', 'CASCADE_EXHAUSTED'];
     if (UNACCEPTED.includes(status)) {
+      if (bookedAt) {
+        const graceUntil = this.graceDeadline(bookedAt, bookingDate);
+        if (Date.now() < graceUntil.getTime()) {
+          return { canCancel: true, refundPercent: 100, graceUntil };
+        }
+      }
       return { canCancel: true, refundPercent: 100 };
     }
 
