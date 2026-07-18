@@ -5,19 +5,30 @@
 // re-offer). Instead the booking enters CLEANER_CANCELLED — a holding state —
 // and the customer chooses, within min(48h, booking start):
 //
-//   (1) FULL REFUND  → executeCancellation (the proven cancel/refund path)
-//                      with a forced 100% directive (cleaner's fault — the
-//                      timing policy never applies).
+//   (1) FIND ANOTHER → keep the SAME date/time; the booking re-enters matching
+//                      as a RENA_FIND broadcast (the A5.5 wider-network phase)
+//                      to every eligible cleaner EXCLUDING the canceller.
+//                      First to accept takes it at the paid price — no
+//                      reconciliation, exactly like cascade-exhaustion
+//                      Rena-find. If nobody accepts by the cascade window,
+//                      expireRenaFind → CASCADE_EXHAUSTED → auto full refund.
 //   (2) REBOOK       → the booking itself re-enters matching with a customer-
 //                      chosen cleaner/date: same booking row, same captured
 //                      charge — "the money simply moves". Price deltas ride
 //                      the EXISTING accept-time reconciliation (cheaper →
 //                      partial refund; pricier → top-up approval), so no new
-//                      Stripe machinery is introduced at rebook time.
+//                      Stripe machinery is introduced at rebook time. The
+//                      canceller themselves may be rebooked — but only on a
+//                      DIFFERENT date (they cancelled that one).
+//   (3) FULL REFUND  → executeCancellation (the proven cancel/refund path)
+//                      with a forced 100% directive (cleaner's fault — the
+//                      timing policy never applies).
 //
 //   No choice by the deadline → the scheduler sweep auto-refunds via the same
 //   full-refund path (atomic claims make every race coherent: whichever of
-//   {customer click, sweep} wins the claim, the loser no-ops).
+//   {customer click, sweep} wins the claim, the loser no-ops). A choice of
+//   (1) hands deadline coverage to the cascade's own expiry machinery, whose
+//   terminal state is the same auto full refund.
 //
 // Auto-rescue (system proactively finds a replacement) is explicitly OUT —
 // ledgered post-launch.
@@ -28,7 +39,8 @@ import { prisma } from '@/lib/db/prisma';
 import { AuditService } from './audit.service';
 import type { CancellationResult } from './cancellation.service';
 import { computeCascadeWindows } from './cascade.service';
-import { sendCleanerCancelledRescue } from './email.service';
+import { sendCleanerCancelledRescue, sendRenaFindConcierge } from './email.service';
+import { MatchingService } from './matching.service';
 import { pricingService, type ServiceSlug } from './pricing.service';
 
 const RESCUE_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -142,6 +154,166 @@ export async function rescueChooseRefund(params: {
   });
 }
 
+// ─── Choice: find me another cleaner (same slot) ─────────────────────────────
+//
+// The customer keeps their date/time and the slot is broadcast to every
+// eligible cleaner except the canceller, via the EXISTING RENA_FIND phase:
+// renaFindAccept (first-to-accept, at the paid price, qualification =
+// backupCleanerIds membership) and expireRenaFind (no taker → CASCADE_EXHAUSTED
+// → auto full refund) both already run in production for cascade exhaustion.
+// No rating floor here — the exhaustion-path floor protects a customer who
+// never consented to substitution; this customer explicitly asked for anyone
+// suitable, and dropping them into admin-review limbo on a floor miss would be
+// worse than offering wider.
+
+export interface FindAnotherResult {
+  ok: boolean;
+  status: number;
+  error?: string;
+  offeredCount?: number;
+}
+
+export async function rescueFindAnother(params: { bookingId: string }): Promise<FindAnotherResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: params.bookingId },
+    select: {
+      id: true,
+      status: true,
+      date: true,
+      startTime: true,
+      duration: true,
+      serviceType: true,
+      clientId: true,
+      cancelledByCleanerId: true,
+      cleanerEarnings: true,
+      addressPostcode: true,
+      address: { select: { postcode: true } },
+    },
+  });
+  if (!booking) return { ok: false, status: 404, error: 'Booking not found' };
+  if (booking.status !== 'CLEANER_CANCELLED') {
+    return { ok: false, status: 422, error: 'This booking is not awaiting a rescue choice' };
+  }
+
+  const slotStart = bookingStartDateTime(booking.date, booking.startTime);
+  if (slotStart.getTime() <= Date.now()) {
+    return {
+      ok: false,
+      status: 422,
+      error: 'That time has already passed — pick a new date instead, or take the full refund.',
+    };
+  }
+
+  const postcode = booking.addressPostcode || booking.address?.postcode;
+  if (!postcode) {
+    return {
+      ok: false,
+      status: 422,
+      error: 'We could not search your area — pick a new date instead, or take the full refund.',
+    };
+  }
+
+  const matchResult = await MatchingService.findMatches({
+    date: booking.date,
+    startTime: booking.startTime,
+    duration: Number(booking.duration),
+    serviceType: booking.serviceType,
+    postcode,
+    clientId: booking.clientId ?? undefined,
+  });
+  const qualifiedIds = matchResult.matches
+    .filter((m) => m.isAvailable && m.userId !== booking.cancelledByCleanerId)
+    .map((m) => m.userId);
+
+  if (qualifiedIds.length === 0) {
+    // Honest dead-end: the booking STAYS in CLEANER_CANCELLED with its
+    // rescueDeadline intact — the other two choices (and the sweep) still apply.
+    return {
+      ok: false,
+      status: 422,
+      error:
+        'No other cleaners are free for that exact slot — pick a new date instead, or take the full refund.',
+    };
+  }
+
+  // Offer window: mirror enterRenaFind — resolve by slot−24h; if the slot is
+  // nearer than that, the offer runs right up to the slot itself, after which
+  // expireRenaFind auto-refunds.
+  const now = new Date();
+  const resolveBy = new Date(slotStart.getTime() - 24 * 60 * 60 * 1000);
+  const expiresAt = resolveBy.getTime() > now.getTime() ? resolveBy : slotStart;
+
+  // Atomic claim: CLEANER_CANCELLED → AWAITING_CLEANER/RENA_FIND. cleanerId
+  // stays the canceller (the enterRenaFind precedent) — every RENA_FIND surface
+  // qualifies on backupCleanerIds membership, and the cleaner jobs list's
+  // primary predicate excludes the RENA_FIND phase, so the canceller can
+  // neither see nor accept it. rescueDeadline is cleared: deadline coverage
+  // hands over to cascadeExpiresAt → expireRenaFind → auto full refund.
+  const claim = await prisma.booking.updateMany({
+    where: { id: booking.id, status: 'CLEANER_CANCELLED' },
+    data: {
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'RENA_FIND',
+      cascadeExpiresAt: expiresAt,
+      cascadeBackupExpiresAt: null,
+      backupCleanerIds: qualifiedIds,
+      declinedCleanerIds: [],
+      reserveCleanerIds: [],
+      rescueDeadline: null,
+      acceptedAt: null,
+    },
+  });
+  if (claim.count === 0) {
+    return { ok: false, status: 409, error: 'This booking was just resolved — check its status' };
+  }
+
+  await AuditService.log({
+    action: 'RENA_FIND_ENTERED',
+    entityType: 'Booking',
+    entityId: booking.id,
+    metadata: {
+      rescue: 'find_another',
+      candidateCount: qualifiedIds.length,
+      excludedCanceller: booking.cancelledByCleanerId,
+      expiresAt: expiresAt.toISOString(),
+    },
+  }).catch(() => {});
+
+  const earnings = `£${Number(booking.cleanerEarnings).toFixed(2)}`;
+  for (const cleanerId of qualifiedIds) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: cleanerId,
+          type: 'BOOKING_REQUEST',
+          title: 'Cleaning job available',
+          body: `A ${serviceLabelFromSlug(booking.serviceType)} job is available for ${earnings} — first to accept gets it.`,
+          data: { bookingId: booking.id },
+        },
+      })
+      .catch(() => {});
+  }
+
+  if (booking.clientId) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: booking.clientId,
+          type: 'SYSTEM',
+          title: 'Finding you another cleaner',
+          body: "We've offered your slot to other trusted cleaners — first to accept takes it. If no one can, you'll be refunded in full automatically.",
+          data: { bookingId: booking.id },
+        },
+      })
+      .catch(() => {});
+  }
+  // Concierge reassurance email — the same X1 sender the exhaustion-path
+  // Rena-find uses (resolves registered vs guest recipient itself).
+  await sendRenaFindConcierge(booking.id).catch(() => {});
+
+  return { ok: true, status: 200, offeredCount: qualifiedIds.length };
+}
+
 // ─── Choice 2: rebook ────────────────────────────────────────────────────────
 
 export interface RebookResult {
@@ -169,8 +341,19 @@ export async function rescueRebook(params: {
   if (booking.status !== 'CLEANER_CANCELLED') {
     return { ok: false, status: 422, error: 'This booking is not awaiting a rebooking choice' };
   }
-  if (newCleanerId === booking.cancelledByCleanerId) {
-    return { ok: false, status: 422, error: 'That cleaner cancelled this booking' };
+  // The canceller cancelled a DAY, not the relationship: rebooking them is
+  // allowed on a different date, refused on the one they just cancelled.
+  // (booking.date is still the original date here — it only changes on claim.)
+  if (
+    newCleanerId === booking.cancelledByCleanerId &&
+    params.date === booking.date.toISOString().split('T')[0]
+  ) {
+    return {
+      ok: false,
+      status: 422,
+      error:
+        'That cleaner cancelled this date — pick a different day with them, or choose another cleaner.',
+    };
   }
 
   const newCleaner = await prisma.user.findFirst({

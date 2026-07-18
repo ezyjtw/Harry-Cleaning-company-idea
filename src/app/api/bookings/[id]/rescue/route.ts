@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { rescueChooseRefund, rescueRebook } from '@/lib/services/rescue.service';
+import { rescueChooseRefund, rescueFindAnother, rescueRebook } from '@/lib/services/rescue.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,8 +12,10 @@ export const dynamic = 'force-dynamic';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // POST /api/bookings/[id]/rescue — the customer's choice on a CLEANER_CANCELLED
-// booking. Body: { choice: 'refund' } or
-//               { choice: 'rebook', cleanerId, date, startTime }
+// booking. Body: { choice: 'find_another' }  (keep the slot — RENA_FIND broadcast
+//                                             to eligible cleaners, canceller excluded)
+//            or  { choice: 'rebook', cleanerId, date, startTime }
+//            or  { choice: 'refund' }
 // Auth: the booking's registered owner (session) OR its guest token
 // (body.guestToken — the F5 pattern: every guest action works tokened end to
 // end). Both actors reach the same service functions; races with the timeout
@@ -24,14 +26,23 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Too many attempts — please try again shortly.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+      }
     );
   }
 
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
-  if (!body || (body.choice !== 'refund' && body.choice !== 'rebook')) {
-    return NextResponse.json({ error: "choice must be 'refund' or 'rebook'" }, { status: 400 });
+  if (
+    !body ||
+    (body.choice !== 'refund' && body.choice !== 'rebook' && body.choice !== 'find_another')
+  ) {
+    return NextResponse.json(
+      { error: "choice must be 'find_another', 'rebook' or 'refund'" },
+      { status: 400 }
+    );
   }
 
   const booking = await prisma.booking.findUnique({
@@ -78,6 +89,24 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       refunded: true,
       refundAmount: result.refundAmount,
       message: 'Your full refund is on its way back to your original payment method.',
+    });
+  }
+
+  if (body.choice === 'find_another') {
+    const result = await rescueFindAnother({ bookingId: id });
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error, alreadyResolved: result.status === 409 },
+        { status: result.status }
+      );
+    }
+    return NextResponse.json({
+      success: true,
+      searching: true,
+      offeredCount: result.offeredCount,
+      message: `We've offered your slot to ${result.offeredCount} trusted cleaner${
+        result.offeredCount === 1 ? '' : 's'
+      } nearby — first to accept takes it, at the price you've already paid. If no one can make it, you'll be refunded in full automatically.`,
     });
   }
 
