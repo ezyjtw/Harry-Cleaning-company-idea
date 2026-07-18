@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       declinedCleanerIds: true,
       date: true,
       startTime: true,
+      duration: true,
       serviceType: true,
     },
   });

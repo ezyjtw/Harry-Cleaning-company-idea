@@ -9,6 +9,7 @@
 
 import type { Booking, BookingStatus, CascadePhase, PropertySize } from '@prisma/client';
 
+import { filterSlotAvailableCleaners } from '@/lib/availability/slot-eligibility';
 import {
   normalizeToPricingSlug,
   propertySizeEnumToSlug,
@@ -127,11 +128,29 @@ type BookingCascadeData = Pick<
   | 'declinedCleanerIds'
   | 'date'
   | 'startTime'
+  | 'duration'
   | 'serviceType'
 >;
 
 async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData): Promise<void> {
-  if (booking.backupCleanerIds.length === 0) {
+  // H7: re-validate REAL slot availability at OFFER time — a backup chosen at
+  // booking time may have filled their diary since. Unavailable backups are
+  // pruned from the array itself so every downstream consumer (jobs list,
+  // accept qualification, all-declined bookkeeping) agrees; declined tracking
+  // is untouched. Nobody genuinely free → straight to exhaustion handling
+  // (which can still widen via Rena-Find).
+  const notDeclined = booking.backupCleanerIds.filter(
+    (id) => !(booking.declinedCleanerIds ?? []).includes(id)
+  );
+  const availableSet = await filterSlotAvailableCleaners(notDeclined, {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: bookingId,
+  });
+  const activeBackups = notDeclined.filter((id) => availableSet.has(id));
+
+  if (activeBackups.length === 0) {
     await handleCascadeExhaustion(bookingId, 'PRIMARY_OFFER');
     return;
   }
@@ -149,14 +168,12 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
       cascadePhase: 'BACKUP_OFFER',
       cascadeExpiresAt: backupExpiresAt,
       cascadeBackupExpiresAt: null,
+      backupCleanerIds: activeBackups,
     },
   });
 
   if (result.count === 0) return;
 
-  const activeBackups = booking.backupCleanerIds.filter(
-    (id) => !(booking.declinedCleanerIds ?? []).includes(id)
-  );
   for (const backupId of activeBackups) {
     await prisma.notification
       .create({
@@ -214,6 +231,7 @@ export async function handleDecline(bookingId: string, cleanerId: string): Promi
       declinedCleanerIds: true,
       date: true,
       startTime: true,
+      duration: true,
       serviceType: true,
     },
   });
@@ -297,6 +315,9 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
       cascadePhase: true,
       status: true,
       declinedCleanerIds: true,
+      date: true,
+      startTime: true,
+      duration: true,
     },
   });
 
@@ -325,6 +346,23 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   }
   if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
     return { success: false, reason: 'You already declined this booking' };
+  }
+
+  // H7 accept-time guard: offers can sit for hours — re-validate the accepter's
+  // REAL timesheet for this exact slot before assignment (the booking itself is
+  // excluded so a primary can't self-conflict).
+  const free = await filterSlotAvailableCleaners([cleanerId], {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: bookingId,
+  });
+  if (!free.has(cleanerId)) {
+    return {
+      success: false,
+      reason:
+        'This job overlaps your schedule — check your availability and bookings for that time.',
+    };
   }
 
   const result = await prisma.booking.updateMany({
@@ -385,6 +423,9 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
       cascadePhase: true,
       status: true,
       declinedCleanerIds: true,
+      date: true,
+      startTime: true,
+      duration: true,
     },
   });
 
@@ -400,6 +441,21 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
   }
   if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
     return { success: false, reason: 'You already declined this booking' };
+  }
+
+  // H7 accept-time guard — same re-validation as atomicAccept.
+  const free = await filterSlotAvailableCleaners([cleanerId], {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: bookingId,
+  });
+  if (!free.has(cleanerId)) {
+    return {
+      success: false,
+      reason:
+        'This job overlaps your schedule — check your availability and bookings for that time.',
+    };
   }
 
   const result = await prisma.booking.updateMany({
@@ -503,6 +559,9 @@ export async function atomicProvisionalAccept(
       cascadePhase: true,
       status: true,
       declinedCleanerIds: true,
+      date: true,
+      startTime: true,
+      duration: true,
     },
   });
 
@@ -528,6 +587,21 @@ export async function atomicProvisionalAccept(
   }
   if ((booking.declinedCleanerIds ?? []).includes(cleanerId)) {
     return { success: false, reason: 'You already declined this booking' };
+  }
+
+  // H7 accept-time guard — a provisional accept is still an assignment path.
+  const free = await filterSlotAvailableCleaners([cleanerId], {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: bookingId,
+  });
+  if (!free.has(cleanerId)) {
+    return {
+      success: false,
+      reason:
+        'This job overlaps your schedule — check your availability and bookings for that time.',
+    };
   }
 
   const result = await prisma.booking.updateMany({
@@ -693,6 +767,7 @@ export async function handleProvisionalFailure(
       provisionalSource: true,
       date: true,
       startTime: true,
+      duration: true,
       backupCleanerIds: true,
       declinedCleanerIds: true,
       serviceType: true,
@@ -788,7 +863,16 @@ function computePhase2ApprovalWindow(now: Date, bookingDate: Date, startTime: st
 
 async function reopenToBackups(
   bookingId: string,
-  booking: Pick<Booking, 'backupCleanerIds' | 'declinedCleanerIds' | 'serviceType' | 'clientId'> & {
+  booking: Pick<
+    Booking,
+    | 'backupCleanerIds'
+    | 'declinedCleanerIds'
+    | 'serviceType'
+    | 'clientId'
+    | 'date'
+    | 'startTime'
+    | 'duration'
+  > & {
     provisionalCleanerId: string | null;
   }
 ): Promise<void> {
@@ -796,7 +880,16 @@ async function reopenToBackups(
     ...(booking.declinedCleanerIds ?? []),
     ...(booking.provisionalCleanerId ? [booking.provisionalCleanerId] : []),
   ]);
-  const activeBackups = booking.backupCleanerIds.filter((id) => !declined.has(id));
+  const notDeclined = booking.backupCleanerIds.filter((id) => !declined.has(id));
+  // H7: this is an offer firing — only genuinely slot-free backups are invited
+  // (the accept-time guard backstops anyone who slips through via a stale list).
+  const availableSet = await filterSlotAvailableCleaners(notDeclined, {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: bookingId,
+  });
+  const activeBackups = notDeclined.filter((id) => availableSet.has(id));
 
   for (const backupId of activeBackups) {
     await prisma.notification
@@ -854,9 +947,19 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
     return false;
   }
 
-  const eligible = booking.reserveCleanerIds.filter(
+  const notDeclined = booking.reserveCleanerIds.filter(
     (id) => !(booking.declinedCleanerIds ?? []).includes(id)
   );
+  // H7: promotion is an assignment path — only reserves still free for the slot
+  // are priced/promoted. Unavailable reserves stay in the pool (their diary may
+  // clear before the next promotion attempt).
+  const reserveAvailable = await filterSlotAvailableCleaners(notDeclined, {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: booking.id,
+  });
+  const eligible = notDeclined.filter((id) => reserveAvailable.has(id));
 
   let pricingSlug: ReturnType<typeof normalizeToPricingSlug>;
   try {
@@ -1296,7 +1399,21 @@ async function enterRenaFind(
   });
 
   const eligible = matchResult.matches.filter((m) => m.isAvailable && !excludeSet.has(m.userId));
-  const qualifiedIds = eligible.filter((m) => m.rating >= ratingFloor).map((m) => m.userId);
+  // H7: findMatches' gate is partial (recurring windows + same-day conflicts
+  // only) — apply THE slot predicate so the broadcast honours date-specific
+  // slots, time-off overrides and booking buffers exactly like search.
+  const slotFree = await filterSlotAvailableCleaners(
+    eligible.map((m) => m.userId),
+    {
+      date: booking.date,
+      startTime: booking.startTime,
+      durationHours: Number(booking.duration),
+      excludeBookingId: bookingId,
+    }
+  );
+  const qualifiedIds = eligible
+    .filter((m) => slotFree.has(m.userId) && m.rating >= ratingFloor)
+    .map((m) => m.userId);
 
   if (qualifiedIds.length === 0) {
     const belowFloorCount = eligible.filter((m) => m.rating < ratingFloor).length;
@@ -1465,6 +1582,7 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
       declinedCleanerIds: true,
       date: true,
       startTime: true,
+      duration: true,
       serviceType: true,
       provisionalCleanerId: true,
     },

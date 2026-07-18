@@ -445,6 +445,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // H7: backups must pass the SAME gates the primary just did — static
+    // offer-eligibility AND real slot availability for this exact date/time
+    // (the UI pool is filtered too; this is the server enforcement). Failing
+    // backups are silently dropped — they're best-effort insurance, and a 400
+    // here would kill a valid booking over a stale slider.
+    let attachedBackupIds = backupCleanerIds;
+    if (backupCleanerIds.length > 0) {
+      const { eligibleCleanerWhere } = await import('@/lib/services/area-search.service');
+      const staticallyEligible = await prisma.cleanerProfile.findMany({
+        where: { userId: { in: backupCleanerIds }, ...eligibleCleanerWhere(new Date()) },
+        select: { userId: true },
+      });
+      const eligibleSet = new Set(staticallyEligible.map((p) => p.userId));
+      attachedBackupIds = backupCleanerIds.filter((id) => eligibleSet.has(id));
+
+      if (body.time !== 'Flexible' && attachedBackupIds.length > 0) {
+        const { filterSlotAvailableCleaners } = await import('@/lib/availability/slot-eligibility');
+        const slotFree = await filterSlotAvailableCleaners(attachedBackupIds, {
+          date: bookingDate,
+          startTime: body.time,
+          durationHours: Number(body.duration),
+        });
+        attachedBackupIds = attachedBackupIds.filter((id) => slotFree.has(id));
+      }
+
+      if (attachedBackupIds.length < backupCleanerIds.length) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[Booking] Dropped ${backupCleanerIds.length - attachedBackupIds.length} backup(s) failing eligibility/slot checks`,
+          backupCleanerIds.filter((id) => !attachedBackupIds.includes(id))
+        );
+      }
+    }
+
     const sessionUser = await getSessionUser();
 
     // A12: resolve + validate the structured booking address. It is stored
@@ -628,7 +662,7 @@ export async function POST(request: NextRequest) {
           propertySize: propertySizeSlugToEnum(body.propertySize),
           notes: body.notes || null,
           paymentStatus: 'PENDING',
-          backupCleanerIds,
+          backupCleanerIds: attachedBackupIds,
           autoAssignBackup,
         },
       });

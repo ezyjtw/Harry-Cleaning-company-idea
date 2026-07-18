@@ -252,6 +252,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
+  // H7: once date+time are chosen, the backup pool is slot-filtered via THE
+  // shared predicate (null = unknown → fall back to the day-of-week filter
+  // below; the server filters again at booking time regardless).
+  const [slotAvailableIds, setSlotAvailableIds] = useState<Set<string> | null>(null);
   // Products fee (James-ruled real addon): server-priced via addons:['products'].
   const [bringsProducts, setBringsProducts] = useState(false);
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
@@ -326,6 +330,41 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     return () => controller.abort();
   }, [params.id, form.serviceType, form.duration, form.bedrooms, bringsProducts]);
 
+  // H7: slot-filter the backup pool once date+time are chosen (fail open on
+  // error — the server enforces the same predicate at booking time).
+  useEffect(() => {
+    if (!form.date || !form.time || !/^\d{2}:\d{2}$/.test(form.time) || allCleaners.length === 0) {
+      setSlotAvailableIds(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/cleaners/slot-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cleanerIds: allCleaners.map((c) => c.id),
+            date: form.date,
+            time: form.time,
+            duration: form.duration,
+          }),
+        });
+        const data = res.ok ? await res.json().catch(() => null) : null;
+        if (!cancelled) {
+          setSlotAvailableIds(
+            Array.isArray(data?.availableIds) ? new Set<string>(data.availableIds) : null
+          );
+        }
+      } catch {
+        if (!cancelled) setSlotAvailableIds(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.date, form.time, form.duration, allCleaners]);
+
   if (!cleaner) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-page">
@@ -379,7 +418,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   };
   const selectedDay = getDayAbbreviation(form.date);
   const availableBackupCleaners = allCleaners.filter(
-    (c) => c.id !== cleaner.id && (!selectedDay || c.availability.includes(selectedDay))
+    (c) =>
+      c.id !== cleaner.id &&
+      (slotAvailableIds !== null
+        ? slotAvailableIds.has(c.id)
+        : !selectedDay || c.availability.includes(selectedDay))
   );
 
   const handleBackupToggle = (cleanerId: string) => {

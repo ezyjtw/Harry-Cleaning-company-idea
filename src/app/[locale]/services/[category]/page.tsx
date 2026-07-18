@@ -513,6 +513,44 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   );
   const [profileCleaner, setProfileCleaner] = useState<Cleaner | null>(null);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
+
+  // H7: once a date+time is chosen, the backup slider only offers cleaners
+  // genuinely free for that exact slot (same predicate as search/the offer
+  // machinery). null = unknown → fail open; the server filters again at
+  // booking time either way.
+  const [slotAvailableIds, setSlotAvailableIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!selectedDate || !selectedTime24 || cleaners.length === 0) {
+      setSlotAvailableIds(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/cleaners/slot-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cleanerIds: cleaners.map((c) => c.id),
+            date: selectedDate,
+            time: selectedTime24,
+            duration: effectiveHours,
+          }),
+        });
+        const data = res.ok ? await res.json().catch(() => null) : null;
+        if (!cancelled) {
+          setSlotAvailableIds(
+            Array.isArray(data?.availableIds) ? new Set<string>(data.availableIds) : null
+          );
+        }
+      } catch {
+        if (!cancelled) setSlotAvailableIds(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate, selectedTime24, effectiveHours, cleaners]);
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [keyAccess, setKeyAccess] = useState<KeyAccess>('i-will-be-home');
   const [keyAccessNote, setKeyAccessNote] = useState('');
@@ -551,7 +589,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // Backup cleaners: exclude selected/pre-selected cleaner
   const currentCleanerId = preSelectedCleaner?.id ?? selectedCleaner?.id;
-  const availableBackupCleaners = cleaners.filter((c) => c.id !== currentCleanerId);
+  const availableBackupCleaners = cleaners.filter(
+    (c) => c.id !== currentCleanerId && (slotAvailableIds === null || slotAvailableIds.has(c.id))
+  );
 
   const handleBackupToggle = (cleanerId: string) => {
     setBackupCleanerIds((prev) =>
@@ -2246,8 +2286,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const serviceFee = Math.round(subtotal * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
     const total = Math.round((subtotal + serviceFee) * 100) / 100;
 
-    // Backup cleaners: exclude the selected cleaner, only those with pricing
-    const fixedBackupCandidates = eligibleCleaners.filter((c) => c.id !== fixedSelectedCleaner?.id);
+    // Backup cleaners: exclude the selected cleaner, only those with pricing —
+    // and (H7) only those genuinely free for the chosen slot.
+    const fixedBackupCandidates = eligibleCleaners.filter(
+      (c) =>
+        c.id !== fixedSelectedCleaner?.id &&
+        (slotAvailableIds === null || slotAvailableIds.has(c.id))
+    );
 
     // Determine current step for back navigation
     const fixedStep = !fixedSelectedCleaner
