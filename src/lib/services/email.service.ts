@@ -267,7 +267,32 @@ export async function sendGuestBookingConfirmation(
   guestName: string,
   guestToken: string
 ): Promise<boolean> {
-  const { subject, html } = buildGuestBookingConfirmation(booking, email, guestName, guestToken);
+  // H6: the create-account CTA belongs to addresses that DON'T have an account.
+  // A guest checkout with an existing customer's email gets the sign-in line
+  // instead (claim-on-login then surfaces the booking in their account). The
+  // lookup is best-effort — on error we keep the guest CTA rather than block
+  // the confirmation.
+  let hasAccount = false;
+  try {
+    const { prisma } = await import('@/lib/db/prisma');
+    const existing = await prisma.user.findFirst({
+      where: {
+        email: { equals: email.toLowerCase().trim(), mode: 'insensitive' },
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
+    hasAccount = !!existing;
+  } catch {
+    hasAccount = false;
+  }
+  const { subject, html } = buildGuestBookingConfirmation(
+    booking,
+    email,
+    guestName,
+    guestToken,
+    hasAccount
+  );
   return sendEmail(email, subject, html);
 }
 
