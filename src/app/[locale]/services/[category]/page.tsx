@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
+import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerIdentity from '@/components/CleanerIdentity';
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
@@ -1865,9 +1866,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         {/* Cleaner summary */}
         <div className="mt-8 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 font-newsreader text-xl font-medium text-ink ring-1 ring-ink/[0.06]">
-            {preSelectedCleaner.name.charAt(0)}
-          </div>
+          {/* H22: was a hard-coded initials tile that never attempted the photo —
+              the one cleaner-image render site bypassing CleanerAvatar. */}
+          <CleanerAvatar
+            photo={preSelectedCleaner.photo}
+            name={preSelectedCleaner.name}
+            size={56}
+            className="shrink-0 ring-1 ring-ink/[0.06]"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-jost font-normal text-ink">{preSelectedCleaner.name}</span>
@@ -2107,9 +2113,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               >
                 {/* Cleaner header */}
                 <div className="p-5 flex items-start gap-4 sm:p-6">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-medium text-ink font-newsreader ring-1 ring-ink/[0.06]">
-                    {c.name.charAt(0)}
-                  </div>
+                  {/* H22 sweep: photo via the shared avatar, not an initials tile */}
+                  <CleanerAvatar
+                    photo={c.photo}
+                    name={c.name}
+                    size={56}
+                    className="shrink-0 ring-1 ring-ink/[0.06]"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-jost font-normal text-ink">{c.name}</span>
@@ -2471,9 +2481,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       className="group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md bg-white ring-ink/[0.06] hover:bg-cream"
                     >
                       <div className="flex items-start gap-3.5">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cream-2 group-hover:bg-cream text-lg font-medium text-ink font-newsreader ring-1 ring-ink/[0.06] transition">
-                          {c.name.charAt(0)}
-                        </div>
+                        {/* H22 sweep: photo via the shared avatar, not an initials tile */}
+                        <CleanerAvatar
+                          photo={c.photo}
+                          name={c.name}
+                          size={48}
+                          className="shrink-0 ring-1 ring-ink/[0.06]"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
@@ -2537,9 +2551,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="mt-8">
             {/* Selected cleaner summary */}
             <div className="rounded-xl bg-white p-4 ring-1 ring-ink/[0.06] flex items-center gap-3.5 mb-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-2 text-lg font-medium text-ink font-newsreader ring-1 ring-ink/[0.06]">
-                {fixedSelectedCleaner.name.charAt(0)}
-              </div>
+              {/* H22 sweep: photo via the shared avatar, not an initials tile */}
+              <CleanerAvatar
+                photo={fixedSelectedCleaner.photo}
+                name={fixedSelectedCleaner.name}
+                size={40}
+                className="shrink-0 ring-1 ring-ink/[0.06]"
+              />
               <div className="min-w-0 flex-1">
                 <span className="font-jost font-normal text-sm text-ink">
                   {fixedSelectedCleaner.name}
@@ -3091,9 +3109,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   key={sc.id}
                   className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06] sm:p-6"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cream-2 text-xl font-medium text-ink font-newsreader ring-1 ring-ink/[0.06]">
-                    {sc.name.charAt(0)}
-                  </div>
+                  {/* H22 sweep: photo via the shared avatar, not an initials tile */}
+                  <CleanerAvatar
+                    photo={sc.photo}
+                    name={sc.name}
+                    size={56}
+                    className="shrink-0 ring-1 ring-ink/[0.06]"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-jost font-normal text-ink">{sc.name}</span>

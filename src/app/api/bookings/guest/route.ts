@@ -25,18 +25,25 @@ export async function GET(request: NextRequest) {
 
   const booking = await prisma.booking.findUnique({
     where: { guestToken: token },
-    include: { cleaner: { select: { name: true } } },
+    include: { cleaner: { select: { name: true, image: true } } },
   });
 
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
+  // H22 sweep: guests get the same RESOLVED cleaner headshot account-holders
+  // see (guest parity) — this endpoint previously shipped no image at all,
+  // so the tokened confirmation page could only ever render initials.
+  const { resolveProfileImageUrl } = await import('@/lib/storage/r2-client');
+  const cleanerImage = await resolveProfileImageUrl(booking.cleaner.image);
+
   return NextResponse.json({
     booking: {
       id: booking.id,
       guestToken: booking.guestToken,
       cleanerName: booking.cleaner.name || 'Assigned Cleaner',
+      cleanerImage,
       // H5 rescue: during CLEANER_CANCELLED cleanerId is still the canceller —
       // the rescue panel needs it to exclude/label them in the rebook picker.
       cleanerId: booking.cleanerId,
