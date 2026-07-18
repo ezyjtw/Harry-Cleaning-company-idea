@@ -10,6 +10,7 @@
 import { isNewToRena } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
+import { getReviewCounts } from '@/lib/services/rating.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
 import { haversineDistance } from '@/lib/utils/postcode';
@@ -72,7 +73,7 @@ export async function findCleanersNearPoint(
     omit: { catchmentPolygon: false },
     include: {
       user: {
-        select: { id: true, name: true, image: true, reviewsReceived: { select: { id: true } } },
+        select: { id: true, name: true, image: true },
       },
     },
     orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
@@ -96,13 +97,17 @@ export async function findCleanersNearPoint(
     .map((r) => (r.c.hourlyRateRegular ? Number(r.c.hourlyRateRegular) : null))
     .filter((n): n is number => n !== null && n > 0);
 
+  // H23: blended counts (native VISIBLE + imported VERIFIED) — same
+  // population as the stored rating shown beside them.
+  const areaCounts = await getReviewCounts(inArea.slice(0, limit).map(({ c }) => c.user.id));
+
   const shown = await Promise.all(
     inArea.slice(0, limit).map(async ({ c, distance }) => ({
       id: c.user.id,
       name: displayName(c.user.name) || 'Cleaner',
       photo: (await resolveProfileImageUrl(c.user.image)) || null,
       rating: Number(c.rating),
-      reviewCount: c.user.reviewsReceived.length,
+      reviewCount: areaCounts.get(c.user.id) ?? 0,
       location: c.location || '',
       fromPrice: c.hourlyRateRegular
         ? Number(c.hourlyRateRegular)
@@ -166,13 +171,16 @@ export async function listDirectoryCleaners(limit = 50) {
     where: eligibleCleanerWhere(now),
     include: {
       user: {
-        select: { id: true, name: true, image: true, reviewsReceived: { select: { id: true } } },
+        select: { id: true, name: true, image: true },
       },
       availabilitySlots: { select: { dayOfWeek: true, startTime: true, endTime: true } },
     },
     orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
     take: limit,
   });
+
+  // H23: blended counts — same population as the stored rating on the card.
+  const directoryCounts = await getReviewCounts(rows.map((c) => c.user.id));
 
   return Promise.all(
     rows.map(async (c) => {
@@ -183,7 +191,7 @@ export async function listDirectoryCleaners(limit = 50) {
         photo: photoUrl || '',
         image: photoUrl,
         rating: Number(c.rating),
-        reviewCount: c.user.reviewsReceived.length,
+        reviewCount: directoryCounts.get(c.user.id) ?? 0,
         completedJobs: c.completedJobs,
         yearsExperience: c.yearsExperience ?? 0,
         languages: c.languages || [],

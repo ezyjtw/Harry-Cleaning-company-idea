@@ -92,7 +92,6 @@ export async function GET(request: NextRequest) {
           id: true,
           name: true,
           image: true,
-          reviewsReceived: { select: { id: true } },
         },
       },
       availabilitySlots: {
@@ -114,6 +113,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // H23: card review counts come from the SAME population as the blended
+  // rating (native VISIBLE + imported VERIFIED) — reviewsReceived.length was
+  // native-only AND counted hidden reviews, so imported-only founding
+  // cleaners showed a real rating with "(0 reviews)".
+  const { getReviewCounts } = await import('@/lib/services/rating.service');
+  const reviewCounts = await getReviewCounts(cleaners.map((c) => c.user.id));
+
   const results = await Promise.all(
     cleaners.map(async (c) => {
       let distance: number | null = null;
@@ -134,7 +140,7 @@ export async function GET(request: NextRequest) {
         photo: photoUrl || '',
         image: photoUrl,
         rating: Number(c.rating),
-        reviewCount: c.user.reviewsReceived.length,
+        reviewCount: reviewCounts.get(c.user.id) ?? 0,
         completedJobs: c.completedJobs,
         yearsExperience: c.yearsExperience ?? 0,
         languages: c.languages || [],

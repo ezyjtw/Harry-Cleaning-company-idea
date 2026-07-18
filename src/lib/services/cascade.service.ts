@@ -16,6 +16,7 @@ import {
   serviceLabelFromSlug,
 } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { getReviewCounts } from '@/lib/services/rating.service';
 
 import { AuditService } from './audit.service';
 import { BookingReminderService } from './booking-reminder.service';
@@ -1380,13 +1381,21 @@ async function enterRenaFind(
     return cascadeExhaust(bookingId, expectedPhase);
   }
 
-  // Rating floor: only broadcast to cleaners within 0.3 of primary's rating
+  // Rating floor: only broadcast to cleaners within 0.3 of the chosen
+  // cleaner's rating. H23 (James design ruling): the floor anchors on the
+  // blended stored rating — the SAME number customers see (native VISIBLE +
+  // imported VERIFIED via updateStoredRating) — and review-EXISTENCE decides
+  // whether it applies at all:
+  //   · unreviewed CHOSEN cleaner → no floor (the stored column holds its
+  //     default 0 for an unreviewed cleaner — "rated 0.0" and "never rated"
+  //     were indistinguishable, and a floor anchored on nothing is dishonest);
+  //   · unreviewed CANDIDATE → passes any floor while the platform is young
+  //     (the founding cohort must be offerable — revisit at review density).
   const primaryProfile = await prisma.cleanerProfile.findUnique({
     where: { userId: booking.cleanerId },
     select: { rating: true },
   });
   const primaryRating = primaryProfile ? Number(primaryProfile.rating) : 0;
-  const ratingFloor = primaryRating - 0.3;
 
   const slotStart = parseSlotStart(booking.date, booking.startTime);
   const resolveBy = slotStart
@@ -1415,26 +1424,39 @@ async function enterRenaFind(
   });
 
   const eligible = matchResult.matches.filter((m) => !excludeSet.has(m.userId));
-  const slotFree = await filterSlotAvailableCleaners(
-    eligible.map((m) => m.userId),
-    {
-      date: booking.date,
-      startTime: booking.startTime,
-      durationHours: Number(booking.duration),
-      excludeBookingId: bookingId,
-    }
-  );
+  const [slotFree, reviewCounts] = await Promise.all([
+    filterSlotAvailableCleaners(
+      eligible.map((m) => m.userId),
+      {
+        date: booking.date,
+        startTime: booking.startTime,
+        durationHours: Number(booking.duration),
+        excludeBookingId: bookingId,
+      }
+    ),
+    getReviewCounts([booking.cleanerId, ...eligible.map((m) => m.userId)]),
+  ]);
+  const chosenReviewed = (reviewCounts.get(booking.cleanerId) ?? 0) > 0;
+  const ratingFloor = chosenReviewed ? primaryRating - 0.3 : null;
+  const passesFloor = (m: { userId: string; rating: number }) =>
+    ratingFloor === null || (reviewCounts.get(m.userId) ?? 0) === 0 || m.rating >= ratingFloor;
   const qualifiedIds = eligible
-    .filter((m) => slotFree.has(m.userId) && m.rating >= ratingFloor)
+    .filter((m) => slotFree.has(m.userId) && passesFloor(m))
     .map((m) => m.userId);
 
   if (qualifiedIds.length === 0) {
-    const belowFloorCount = eligible.filter((m) => m.rating < ratingFloor).length;
+    // H23: metadata now separates the three excluders so an empty broadcast is
+    // diagnosable from the audit row alone — how many candidates matching
+    // produced, how many survived the slot predicate, how many the floor cut.
+    const belowFloorCount = eligible.filter((m) => !passesFloor(m)).length;
     return enterRenaFindAdminReview(bookingId, expectedPhase, booking.clientId, {
       primaryRating,
       ratingFloor,
+      chosenReviewed,
       belowFloorCount,
       totalCandidates: matchResult.totalCandidates,
+      eligibleCount: eligible.length,
+      slotFreeCount: slotFree.size,
     });
   }
 
@@ -1539,9 +1561,12 @@ async function enterRenaFindAdminReview(
   clientId: string | null,
   metadata: {
     primaryRating: number;
-    ratingFloor: number;
+    ratingFloor: number | null;
+    chosenReviewed: boolean;
     belowFloorCount: number;
     totalCandidates: number;
+    eligibleCount: number;
+    slotFreeCount: number;
   }
 ): Promise<boolean> {
   // H21: same consent-at-the-write guard as enterRenaFind — the admin-review

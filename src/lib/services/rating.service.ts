@@ -99,6 +99,43 @@ export async function computeCleanerRating(
 }
 
 /**
+ * H23: batch review counts for card surfaces and the Rena-Find floor —
+ * native VISIBLE + imported VERIFIED per cleaner, the SAME population the
+ * blended rating is computed from. Every "(N reviews)" a customer sees and
+ * every review-existence decision must come from this count, or rating and
+ * count drift apart (a 4.9 card reading "(0 reviews)" for an imported-only
+ * founding cleaner).
+ */
+export async function getReviewCounts(
+  cleanerUserIds: string[],
+  db?: PrismaLike
+): Promise<Map<string, number>> {
+  const client = db ?? prisma;
+  const ids = Array.from(new Set(cleanerUserIds));
+  const counts = new Map<string, number>();
+  if (ids.length === 0) return counts;
+
+  const [native, imported] = await Promise.all([
+    client.review.groupBy({
+      by: ['cleanerId'],
+      where: { cleanerId: { in: ids }, visibility: 'VISIBLE' },
+      _count: { _all: true },
+    }),
+    client.importedReview.groupBy({
+      by: ['cleanerId'],
+      where: { cleanerId: { in: ids }, verificationStatus: 'VERIFIED' },
+      _count: { _all: true },
+    }),
+  ]);
+
+  for (const row of native) counts.set(row.cleanerId, row._count._all);
+  for (const row of imported) {
+    counts.set(row.cleanerId, (counts.get(row.cleanerId) ?? 0) + row._count._all);
+  }
+  return counts;
+}
+
+/**
  * Recompute and persist the overall rating to CleanerProfile.rating.
  * Call after any event that changes the blended average.
  *

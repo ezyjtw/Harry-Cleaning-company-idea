@@ -22,7 +22,11 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file');
-    if (!file || !(file instanceof File)) {
+    // H23: duck-type instead of `instanceof File` — on Node 18 (what Railway
+    // ran before the engines pin) there is no global File, so the instanceof
+    // itself threw and every evidence upload 500'd. The runtime is now pinned
+    // to 22, but the check must never again depend on a global's existence.
+    if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
       return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     }
 
@@ -69,7 +73,11 @@ export async function POST(request: Request) {
     }).catch(() => {});
 
     return NextResponse.json({ evidenceUrl: objectKey, checksum }, { status: 201 });
-  } catch {
+  } catch (error) {
+    // H23: this catch used to be silent — James's live 500 left NOTHING in the
+    // runtime logs and cost the diagnosis an hour of edge-log archaeology.
+    // eslint-disable-next-line no-console
+    console.error('[ImportedReviewEvidence] Upload failed:', error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
