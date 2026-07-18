@@ -7,6 +7,7 @@ import {
   shouldSend,
   type NotificationCategory,
 } from '@/lib/services/notification-preferences.service';
+import { deferToMorningLondon, isQuietHoursLondon } from '@/lib/utils/quiet-hours';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -207,6 +208,25 @@ export class EnhancedNotificationService {
       include: { cleaner: true },
     });
     if (!booking || !booking.clientId) return;
+
+    // B8: a review nudge is non-critical — a job completed late in the evening
+    // must not ping the customer at night. Defer to the morning window via the
+    // scheduled-reminder path (same handler the time-based review request uses).
+    const now = new Date();
+    if (isQuietHoursLondon(now)) {
+      await prisma.backgroundJob.create({
+        data: {
+          type: 'SEND_REMINDER',
+          payload: {
+            bookingId,
+            reminderType: 'review_request',
+            recipientId: booking.clientId,
+          } as Prisma.InputJsonValue,
+          scheduledAt: deferToMorningLondon(now),
+        },
+      });
+      return;
+    }
 
     await this.send({
       userId: booking.clientId,

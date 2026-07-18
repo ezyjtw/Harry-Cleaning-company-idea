@@ -7,6 +7,7 @@ import {
   sendGuestBookingReminder,
   sendReviewRequest,
 } from '@/lib/services/email.service';
+import { deferToMorningLondon } from '@/lib/utils/quiet-hours';
 
 export interface ReminderSchedule {
   bookingId: string;
@@ -32,9 +33,15 @@ export class BookingReminderService {
     const [hours, minutes] = booking.startTime.split(':').map(Number);
     bookingDateTime.setHours(hours, minutes, 0, 0);
 
+    // B8 quiet hours: reminders and review requests are non-critical — any
+    // fire time landing 21:00–08:00 London is deferred to 08:00. Only the
+    // 30-minute arrival alert stays untouched (push-only + tied to an imminent
+    // job start, so it is operationally critical by definition).
+
     // 1. Customer reminder: 24 hours before
-    const customerReminder = new Date(bookingDateTime);
-    customerReminder.setHours(customerReminder.getHours() - 24);
+    const customerReminder = deferToMorningLondon(
+      new Date(bookingDateTime.getTime() - 24 * 60 * 60 * 1000)
+    );
     if (customerReminder > new Date()) {
       reminders.push({
         bookingId,
@@ -45,8 +52,9 @@ export class BookingReminderService {
     }
 
     // 2. Cleaner reminder: 12 hours before
-    const cleanerReminder = new Date(bookingDateTime);
-    cleanerReminder.setHours(cleanerReminder.getHours() - 12);
+    const cleanerReminder = deferToMorningLondon(
+      new Date(bookingDateTime.getTime() - 12 * 60 * 60 * 1000)
+    );
     if (cleanerReminder > new Date()) {
       reminders.push({
         bookingId,
@@ -68,11 +76,14 @@ export class BookingReminderService {
       });
     }
 
-    // 4. Review request: 2 hours after booking end
+    // 4. Review request: 2 hours after booking end. An evening job (ends 23:00)
+    // used to schedule this for ~01:00 — the "1 AM reminder" James saw. Now it
+    // waits for the morning window.
     const bookingEndTime = new Date(bookingDateTime);
     bookingEndTime.setHours(bookingEndTime.getHours() + Number(booking.duration));
-    const reviewRequest = new Date(bookingEndTime);
-    reviewRequest.setHours(reviewRequest.getHours() + 2);
+    const reviewRequest = deferToMorningLondon(
+      new Date(bookingEndTime.getTime() + 2 * 60 * 60 * 1000)
+    );
     reminders.push({
       bookingId,
       type: 'review_request',
@@ -152,7 +163,7 @@ export class BookingReminderService {
       await sendCleanerReminder(
         emailData,
         { name: booking.cleaner.name ?? 'Cleaner', email: booking.cleaner.email },
-        recipientId,
+        recipientId
       );
       return;
     }
@@ -178,7 +189,7 @@ export class BookingReminderService {
         emailData,
         booking.guestEmail,
         booking.guestName ?? 'there',
-        booking.guestToken,
+        booking.guestToken
       );
     }
   }
