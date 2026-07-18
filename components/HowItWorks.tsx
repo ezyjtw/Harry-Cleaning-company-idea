@@ -1,10 +1,12 @@
 'use client';
 
-import Image from 'next/image';
+import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
+import howStep1 from '../public/images/how-step-1.webp';
+import howStep3 from '../public/images/how-step-3.webp';
 import CleanerIdentity from '../src/components/CleanerIdentity';
 
 // ── Shared panel: all three step visuals render at the SAME fixed size + treatment
@@ -225,15 +227,19 @@ function StepHead({ n, title }: { n: string; title: string }) {
  *  was being cropped by object-cover's default centre position). An asset
  *  authored at 4:5 fills the panel edge-to-edge. Replace the PNG via GitHub
  *  upload and it renders automatically. */
-function StepMedia({ src, alt }: { src: string; alt: string }) {
+function StepMedia({ src, alt }: { src: StaticImageData; alt: string }) {
   return (
     <div className={`relative overflow-hidden ${PANEL}`}>
+      {/* PERF: static import → blurDataURL placeholder, so the lazy-loaded
+          panel shows a blurred stand-in immediately instead of popping in
+          blank when scrolled into view. */}
       <Image
         src={src}
         alt={alt}
         fill
         sizes="(max-width: 768px) 90vw, 380px"
         className="object-contain object-center"
+        placeholder="blur"
       />
     </div>
   );
@@ -266,7 +272,7 @@ export default function HowItWorks() {
             </p>
           </div>
           <div className="md:col-start-1 md:row-start-2">
-            <StepMedia src="/images/how-step-1.webp" alt="Browsing cleaners on the Rena app" />
+            <StepMedia src={howStep1} alt="Browsing cleaners on the Rena app" />
           </div>
 
           {/* Step 2 */}
@@ -288,7 +294,7 @@ export default function HowItWorks() {
             </p>
           </div>
           <div className="md:col-start-3 md:row-start-2">
-            <StepMedia src="/images/how-step-3.webp" alt="Your booking confirmed in the Rena app" />
+            <StepMedia src={howStep3} alt="Your booking confirmed in the Rena app" />
           </div>
         </div>
       </div>
