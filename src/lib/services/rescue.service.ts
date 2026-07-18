@@ -221,9 +221,20 @@ export async function rescueFindAnother(params: { bookingId: string }): Promise<
     postcode,
     clientId: booking.clientId ?? undefined,
   });
-  const qualifiedIds = matchResult.matches
+  // H7: findMatches' availability is partial — gate the broadcast set through
+  // THE slot predicate (date-specific slots, overrides, buffers) so only
+  // cleaners search would show for this exact slot are offered it.
+  const { filterSlotAvailableCleaners } = await import('@/lib/availability/slot-eligibility');
+  const candidates = matchResult.matches
     .filter((m) => m.isAvailable && m.userId !== booking.cancelledByCleanerId)
     .map((m) => m.userId);
+  const slotFree = await filterSlotAvailableCleaners(candidates, {
+    date: booking.date,
+    startTime: booking.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: booking.id,
+  });
+  const qualifiedIds = candidates.filter((id) => slotFree.has(id));
 
   if (qualifiedIds.length === 0) {
     // Honest dead-end: the booking STAYS in CLEANER_CANCELLED with its
@@ -372,6 +383,24 @@ export async function rescueRebook(params: {
   }
   if (bookingStartDateTime(when, params.startTime).getTime() <= Date.now()) {
     return { ok: false, status: 422, error: 'That time is in the past — pick a future slot' };
+  }
+
+  // H7: the picker (search) only shows genuinely free cleaners, but the server
+  // must enforce the same predicate — a crafted POST could otherwise rebook a
+  // cleaner whose timesheet doesn't cover the slot.
+  const { cleanerAvailableForSlot } = await import('@/lib/availability/slot-eligibility');
+  const slotOk = await cleanerAvailableForSlot(newCleanerId, {
+    date: when,
+    startTime: params.startTime,
+    durationHours: Number(booking.duration),
+    excludeBookingId: booking.id,
+  });
+  if (!slotOk) {
+    return {
+      ok: false,
+      status: 422,
+      error: 'That cleaner is not genuinely free at that time — pick another slot or cleaner.',
+    };
   }
 
   // Quote the new cleaner so the customer sees the delta honestly. Guests
