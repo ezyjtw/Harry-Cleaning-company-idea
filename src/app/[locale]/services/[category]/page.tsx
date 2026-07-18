@@ -22,6 +22,8 @@ import {
   bedroomIndexToPropertySize,
   BEDROOMS_TO_EOT_SIZE,
   BEDROOMS_TO_AIRBNB_SIZE,
+  minimumHoursForService,
+  serviceLabelFromSlug as serviceMinLabel,
 } from '@/lib/constants/services';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -384,6 +386,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [selectedHours, setSelectedHours] = useState<number | null>(null);
   const effectiveHours = selectedHours ?? suggestedHours;
   const isUnderSuggested = effectiveHours < suggestedHours;
+  // H13: the service minimum validates AT the field — one shared source
+  // (SERVICE_MINIMUM_HOURS, mirroring the reference data the server enforces).
+  const serviceMinHours = minimumHoursForService(category);
+  const hoursError =
+    serviceMinHours !== null && effectiveHours < serviceMinHours
+      ? `${serviceMinLabel(category)} needs at least ${serviceMinHours} hours.`
+      : null;
 
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
@@ -1363,6 +1372,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </button>
                   ))}
                 </div>
+                {hoursError && (
+                  <p
+                    className="mt-2 font-jost text-[12px] text-danger"
+                    data-testid="hours-min-error"
+                  >
+                    {hoursError}
+                  </p>
+                )}
 
                 {isUnderSuggested && (
                   <div className="mt-4 rounded-lg bg-cream-2/60 p-5 ring-1 ring-ink/[0.04]">
@@ -1647,6 +1664,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 const trimmed = postcode.trim();
                 if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
                   setPostcodeError('Please enter a valid UK postcode');
+                  return;
+                }
+                // H13: under-minimum hours are stopped HERE with the inline
+                // error (the server check remains the law).
+                if (hoursError) {
+                  const el = document.querySelector('[data-testid="hours-min-error"]');
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   return;
                 }
                 // U1: a typo'd guest email fails HERE with an inline error,

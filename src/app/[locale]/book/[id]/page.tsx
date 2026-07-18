@@ -21,6 +21,7 @@ import {
   BEDROOMS_TO_AIRBNB_SIZE,
   eotSizeLabel,
   airbnbSizeLabel,
+  minimumHoursForService,
   serviceLabelFromSlug,
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
@@ -523,6 +524,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     e.preventDefault();
     // A16b-1: block a rapid second submit synchronously (button-disable is async).
     if (submittingRef.current) return;
+
+    // H13: under-minimum hours stop HERE with the field's inline error.
+    const minHours = minimumHoursForService(form.serviceType);
+    if (minHours !== null && form.duration < minHours) {
+      document
+        .querySelector('[data-testid="hours-min-error"]')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
 
     // Guest checkout depends on a real email for confirmation + reminders.
     if (bookingMode === 'guest' && !validateEmail()) {
@@ -1207,6 +1217,18 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                         </option>
                       ))}
                     </select>
+                    {/* H13: the service minimum validates AT the field. */}
+                    {(() => {
+                      const min = minimumHoursForService(form.serviceType);
+                      return min !== null && form.duration < min ? (
+                        <p
+                          className="mt-1.5 font-jost text-[12px] text-danger"
+                          data-testid="hours-min-error"
+                        >
+                          {serviceLabelFromSlug(form.serviceType)} needs at least {min} hours.
+                        </p>
+                      ) : null;
+                    })()}
                   </div>
                 )}
                 <div className="sm:col-span-2">

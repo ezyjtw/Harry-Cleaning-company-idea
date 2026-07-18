@@ -666,6 +666,42 @@ export function buildCleanerCancelledRescue(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// ─── H15: acceptance moment — the customer learns WHO took their clean ───────
+//
+// Sent on EVERY acceptance path (direct, backup, Rena-Find, rescue-①, rebook)
+// via the atomic accept functions. Transactional/ESSENTIAL — it's the news the
+// customer is waiting for, so it is never quiet-hours gated or preference
+// suppressed.
+
+export function buildCleanerAcceptedBooking(data: {
+  bookingId: string;
+  customerName: string;
+  cleanerName: string;
+  serviceType: string;
+  date: Date;
+  startTime: string;
+  guestToken?: string | null;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const link = data.guestToken
+    ? `${appUrl()}/booking/guest?token=${encodeURIComponent(data.guestToken)}`
+    : `${appUrl()}/booking/${data.bookingId}`;
+  const subject = `Good news — ${data.cleanerName} has taken your ${serviceLabelFromSlug(data.serviceType).toLowerCase()}`;
+  const contentHtml =
+    h('Good news &mdash; your cleaner is confirmed') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `<strong>${data.cleanerName}</strong> has taken your ${serviceLabelFromSlug(data.serviceType)} on <strong>${dateStr} at ${data.startTime}</strong>. You're all set &mdash; nothing more to do.`
+    ) +
+    button(link, 'View your booking') +
+    p('Thank you for choosing Rena Cleaning Network!');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 // ─── X1 cascade milestone emails (both audiences; guests get tokened links) ──
 
 function bookingTrackLink(bookingId: string, guestToken?: string | null): string {

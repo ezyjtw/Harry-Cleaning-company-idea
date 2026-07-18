@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isInCatchmentArea } from '@/lib/catchment';
-import { BEDROOMS_TO_EOT_SIZE, BEDROOMS_TO_AIRBNB_SIZE } from '@/lib/constants/services';
+import {
+  BEDROOMS_TO_EOT_SIZE,
+  BEDROOMS_TO_AIRBNB_SIZE,
+  minimumHoursForService,
+} from '@/lib/constants/services';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -232,7 +236,8 @@ export default function HeroQuoteWidget() {
     if (isFixed || bedrooms === null || bathrooms === null) return;
     const isDeep = serviceSlug === 'deep';
     const suggested = getSuggestedHours(bedrooms, bathrooms, isDeep);
-    const minHours = isDeep ? 3 : 2;
+    // H13: minimums from THE shared source — no widget-local hardcode.
+    const minHours = minimumHoursForService(serviceSlug) ?? 2;
     setHours(Math.max(minHours, Math.round(suggested)));
   }, [bedrooms, bathrooms, serviceSlug, isFixed]);
 
@@ -568,14 +573,14 @@ export default function HeroQuoteWidget() {
           </p>
           <input
             type="range"
-            min={serviceSlug === 'deep' ? 3 : 2}
+            min={minimumHoursForService(serviceSlug) ?? 2}
             max={8}
             value={hours}
             onChange={(e) => setHours(Number(e.target.value))}
             className="w-full accent-primary"
           />
           <div className="flex justify-between font-jost text-[11px] text-ink-3/60">
-            <span>{serviceSlug === 'deep' ? '3 hrs' : '2 hrs'}</span>
+            <span>{minimumHoursForService(serviceSlug) ?? 2} hrs</span>
             <span>8 hrs</span>
           </div>
         </div>

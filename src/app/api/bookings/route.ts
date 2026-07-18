@@ -311,6 +311,26 @@ export async function POST(request: NextRequest) {
     // 3. Service type validation
     const pricingSlug = normalizeToPricingSlug(body.serviceType);
 
+    // H13: THE LAW — duration below the service's minimum is rejected here,
+    // explicitly, instead of the pricing engine silently clamping it into a
+    // price the customer never saw. Reads the reference-data row (the
+    // deploy-synced source of truth the UI constant mirrors).
+    if (body.duration !== undefined) {
+      const serviceTypeRow = await prisma.serviceType.findUnique({
+        where: { slug: pricingSlug },
+        select: { minimumHours: true, name: true },
+      });
+      const minHours = serviceTypeRow?.minimumHours ?? null;
+      if (minHours !== null && Number(body.duration) < minHours) {
+        return NextResponse.json(
+          {
+            error: `${serviceTypeRow?.name ?? 'This service'} needs at least ${minHours} hours.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // 5. Price calculation — never trust client-submitted totals
     let quote;
     try {

@@ -61,7 +61,15 @@ export async function GET(request: NextRequest) {
     status: 'AWAITING_CLEANER',
   };
 
-  const where = { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere, reserveWhere] };
+  // H14: the backup/provisional/reserve branches are ALL offer states pinned
+  // to AWAITING_CLEANER — previously they ignored the caller's status filter,
+  // so a pending offer rendered on every tab (Upcoming, On the way, Completed).
+  // They now ride along ONLY when the requested statuses include
+  // AWAITING_CLEANER (or no filter was given) — offers live in Pending alone.
+  const includeOfferBranches = !statusIn || statusIn.includes('AWAITING_CLEANER');
+  const where = includeOfferBranches
+    ? { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere, reserveWhere] }
+    : { OR: [primaryWhereWithCascade] };
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({
