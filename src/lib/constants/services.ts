@@ -239,6 +239,30 @@ export function normalizeToPricingSlug(serviceType: string): PricingServiceSlug 
   return slug;
 }
 
+// ─── H13: per-service minimum hours — ONE client-side source ────────────────
+//
+// Mirrors prisma/seed-reference-data.ts (the DB ServiceType rows remain the
+// deploy-synced truth; the server law reads them). Every duration input gates
+// on THIS map — no page-local hardcodes. null = fixed-price service, no
+// hourly minimum.
+
+export const SERVICE_MINIMUM_HOURS: Record<PricingServiceSlug, number | null> = {
+  regular: 2,
+  'same-day': 2,
+  deep: 3,
+  eot: null,
+  airbnb: null,
+};
+
+/** Minimum hours for any service identifier (booking or pricing slug); null when N/A. */
+export function minimumHoursForService(serviceType: string): number | null {
+  try {
+    return SERVICE_MINIMUM_HOURS[normalizeToPricingSlug(serviceType)] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── EOT / Airbnb Guide Prices (for pricing page UI) ────────────
 
 export const EOT_SIZES_WITH_GUIDE: { slug: EotSizeSlug; guide: string }[] = [

@@ -245,7 +245,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const accepted = await prisma.booking.findUnique({
       where: { id },
-      include: { client: { select: { id: true, name: true, email: true } } },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        cleaner: { select: { name: true } },
+      },
     });
 
     if (accepted?.clientId) {
@@ -255,7 +258,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             userId: accepted.clientId,
             type: 'BOOKING_CONFIRMED',
             title: 'Booking accepted',
-            body: `Your cleaner has accepted your booking for ${accepted.date.toLocaleDateString('en-GB')}.`,
+            body: `Good news — ${accepted.cleaner?.name ?? 'your cleaner'} has taken your booking for ${accepted.date.toLocaleDateString('en-GB')}.`,
             data: { bookingId: accepted.id },
           },
         })

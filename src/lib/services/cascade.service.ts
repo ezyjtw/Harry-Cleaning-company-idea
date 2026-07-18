@@ -22,6 +22,7 @@ import { BookingReminderService } from './booking-reminder.service';
 import {
   sendCascadeExhaustedRefund,
   sendCascadeSearchingUpdate,
+  sendCleanerAcceptedBooking,
   sendRenaFindConcierge,
   sendTopupApprovalRequest,
 } from './email.service';
@@ -390,6 +391,11 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   // the accept). The atomic guard above ensures this runs exactly once.
   await BookingReminderService.scheduleReminders(bookingId).catch(() => {});
 
+  // H15: the customer learns WHO took their clean, on every accept path —
+  // living here (not the routes) so no caller can forget it. ESSENTIAL, so
+  // never quiet-hours gated; guests get their tokened link.
+  await sendCleanerAcceptedBooking(bookingId).catch(() => {});
+
   // Best-effort loser notifications
   const losers = getLoserSet(booking, cleanerId);
   for (const loserId of losers) {
@@ -481,6 +487,9 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
 
   // Booking confirmed via Rena-find — schedule the reminder series (best-effort).
   await BookingReminderService.scheduleReminders(bookingId).catch(() => {});
+
+  // H15: same acceptance-moment email — covers Rena-Find AND rescue-① accepts.
+  await sendCleanerAcceptedBooking(bookingId).catch(() => {});
 
   const losers = booking.backupCleanerIds.filter(
     (id) => id !== cleanerId && !(booking.declinedCleanerIds ?? []).includes(id)

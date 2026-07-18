@@ -409,6 +409,46 @@ export async function sendCleanerCancelledRescue(data: {
   return sendEmail(data.customerEmail, subject, html);
 }
 
+// ─── H15: acceptance moment ─────────────────────────────────
+
+/**
+ * Emails the customer WHO took their clean, the moment any cleaner accepts —
+ * direct, backup, Rena-Find, rescue-① or rebook (called from the atomic accept
+ * functions so no route can forget it). Both audiences: registered customers
+ * get the plain booking link, guests the tokened one. Best-effort.
+ */
+export async function sendCleanerAcceptedBooking(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      clientId: true,
+      guestToken: true,
+      guestEmail: true,
+      guestName: true,
+      serviceType: true,
+      date: true,
+      startTime: true,
+      client: { select: { email: true, name: true } },
+      cleaner: { select: { name: true } },
+    },
+  });
+  if (!b) return false;
+  const email = b.client?.email ?? b.guestEmail;
+  if (!email) return false;
+  const { buildCleanerAcceptedBooking } = await import('./email-templates');
+  const { subject, html } = buildCleanerAcceptedBooking({
+    bookingId,
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    cleanerName: b.cleaner?.name ?? 'Your cleaner',
+    serviceType: b.serviceType,
+    date: b.date,
+    startTime: b.startTime,
+    guestToken: b.clientId ? null : b.guestToken,
+  });
+  return sendEmail(email, subject, html);
+}
+
 // ─── X1 cascade milestone emails ───────────────────────────
 
 async function resolveBookingRecipient(bookingId: string): Promise<{
