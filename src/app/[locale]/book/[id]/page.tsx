@@ -798,7 +798,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <button
               key={s.value}
               onClick={() => {
-                router.push(`/services/${s.value}?cleaner=${params.id}`);
+                // B3/B4: keep the property context on the hand-off — this push
+                // used to drop postcode + bedrooms, forcing re-entry.
+                const qs = new URLSearchParams({ cleaner: params.id });
+                if (seededPostcode) qs.set('postcode', seededPostcode);
+                if (seededBedrooms !== null) qs.set('bedrooms', String(seededBedrooms));
+                router.push(`/services/${s.value}?${qs.toString()}`);
               }}
               className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition hover:bg-page"
             >

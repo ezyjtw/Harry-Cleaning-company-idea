@@ -7,6 +7,7 @@
 // (isWithinTravelRange in lib/utils/postcode.ts), same as search, matching,
 // and the covers endpoint.
 
+import { isNewToRena } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
@@ -202,6 +203,13 @@ export async function listDirectoryCleaners(limit = 50) {
         identityVerified: c.verificationStatus === 'VERIFIED',
         insured: c.insuranceVerified && (!c.insuranceExpiresAt || c.insuranceExpiresAt > now),
         backgroundChecked: c.backgroundCheckPassed,
+        // F-B badges — same computation as /api/cleaners so the SSR seed and
+        // the client fetch can never disagree.
+        founding: c.foundingCleaner,
+        isNew: isNewToRena(
+          c.completedJobs,
+          c.liveNotifiedAt ?? c.identityVerifiedAt ?? c.createdAt
+        ),
         distance: null as number | null,
         ...expandSlots(c.availabilitySlots),
       };

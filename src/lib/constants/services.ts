@@ -33,7 +33,8 @@ export function serviceTypeLabel(slug: ServiceTypeSlug): string {
  * unrecognised value so a raw slug never leaks to the UI.
  */
 export function serviceLabelFromSlug(raw: string): string {
-  const normalized = raw.trim().toLowerCase().replace(/-/g, '_');
+  let normalized = raw.trim().toLowerCase().replace(/-/g, '_');
+  if (normalized === 'eot') normalized = 'end_of_tenancy'; // quote-widget short slug
   if (isServiceTypeSlug(normalized)) return SERVICE_TYPE_LABELS[normalized];
   return raw.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }

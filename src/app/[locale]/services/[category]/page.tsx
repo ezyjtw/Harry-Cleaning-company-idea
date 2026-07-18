@@ -353,6 +353,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // straight into the flow so the "Your Postcode" field is pre-filled and the
   // address step auto-looks-up on mount — no re-entry. Empty when absent (direct nav).
   const seededPostcode = (searchParams.get('postcode') ?? '').trim().toUpperCase();
+  // B3: bedrooms/bathrooms entered upstream (quote widget / booking hand-off)
+  // seed the room config — they were previously dropped at this hop.
+  const seededBedrooms = (() => {
+    const n = parseInt(searchParams.get('bedrooms') ?? '', 10);
+    return Number.isInteger(n) && n >= 0 && n <= 5 ? n : null;
+  })();
+  const seededBathrooms = (() => {
+    const n = parseInt(searchParams.get('bathrooms') ?? '', 10);
+    return Number.isInteger(n) && n >= 1 && n <= 4 ? n : null;
+  })();
 
   // Phase: "quote" = first page (postcode, rooms, hours, products, email)
   // Phase: "cleaner" = second page (flexible/set time, cleaner selection, key, notes)
@@ -369,8 +379,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // A12: structured booking address (captured at the cleaner phase, seeded from postcode).
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', postcode: '' });
   const [rooms, setRooms] = useState<RoomConfig>({
-    bedrooms: 2,
-    bathrooms: 1,
+    bedrooms: seededBedrooms ?? 2,
+    bathrooms: seededBathrooms ?? 1,
     livingAreas: 1,
     kitchen: true,
     additionals: [],
@@ -384,6 +394,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [cleanerNote, setCleanerNote] = useState('');
   const [cleanerBringsProducts, setCleanerBringsProducts] = useState(false);
   const [email, setEmail] = useState('');
+  // U1: guest email validates AT INPUT (required + format) with an inline
+  // error — a typo'd guest email orphans the whole booking (confirmation,
+  // reminders and the tokened manage link all go to it).
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const validateGuestEmail = (): boolean => {
+    if (!isGuest) return true;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailError('Email is required — your confirmation and booking link go here.');
+      return false;
+    }
+    const ok = EMAIL_RE.test(trimmed);
+    setEmailError(ok ? null : 'Please enter a valid email address.');
+    return ok;
+  };
   const [joinMailingList, setJoinMailingList] = useState(false);
 
   // Postcode validation + out-of-area waitlist
@@ -1285,12 +1311,26 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
                 <h2 className="font-newsreader font-semibold text-base text-ink">Your Email</h2>
                 <input
+                  id="guest-email-input"
                   type="email"
+                  required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(null);
+                  }}
+                  onBlur={validateGuestEmail}
+                  aria-invalid={!!emailError}
                   placeholder="you@example.com"
-                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 ring-ink/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 ${
+                    emailError
+                      ? 'ring-danger focus:ring-danger/40'
+                      : 'ring-ink/[0.06] focus:ring-gold/30'
+                  }`}
                 />
+                {emailError && (
+                  <p className="mt-1.5 font-jost text-[12px] text-danger">{emailError}</p>
+                )}
                 <label className="mt-4 flex cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
@@ -1451,6 +1491,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 const trimmed = postcode.trim();
                 if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
                   setPostcodeError('Please enter a valid UK postcode');
+                  return;
+                }
+                // U1: a typo'd guest email fails HERE with an inline error,
+                // not later at book-time.
+                if (!validateGuestEmail()) {
+                  const el = document.getElementById('guest-email-input');
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  (el as HTMLInputElement | null)?.focus({ preventScroll: true });
                   return;
                 }
                 // Quote proceeds straight to results (method fork removed, M2).
