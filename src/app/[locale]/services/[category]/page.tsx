@@ -254,6 +254,8 @@ function bandDateLabel(iso: string, band: TimeFirstBand): string {
 type TfCleaner = {
   id: string;
   name: string;
+  /** H16: resolved profile photo URL from the availability endpoint. */
+  photo?: string | null;
   tier: string;
   rating: number;
   reviewCount: number;
@@ -282,7 +284,8 @@ function tfCleanerToCleaner(card: TfCleaner): Cleaner {
   return {
     id: card.id,
     name: card.name,
-    photo: '',
+    // H16: the availability endpoint now serves the RESOLVED photo — use it.
+    photo: card.photo ?? '',
     rating: card.rating,
     reviewCount: card.reviewCount,
     hourlyRateRegular: card.hourlyRateRegular,
