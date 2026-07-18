@@ -213,6 +213,11 @@ export async function rescueFindAnother(params: { bookingId: string }): Promise<
     };
   }
 
+  // H9: candidates come from findMatches with its PARTIAL availability gate
+  // OFF (recurring-window containment misses date-specific slots and split
+  // windows — the exact ①-vs-② divergence James hit). Static eligibility,
+  // coverage and service checks still apply; availability truth is THE slot
+  // predicate below, identical to ②'s picker.
   const matchResult = await MatchingService.findMatches({
     date: booking.date,
     startTime: booking.startTime,
@@ -220,13 +225,11 @@ export async function rescueFindAnother(params: { bookingId: string }): Promise<
     serviceType: booking.serviceType,
     postcode,
     clientId: booking.clientId ?? undefined,
+    skipAvailabilityFilter: true,
   });
-  // H7: findMatches' availability is partial — gate the broadcast set through
-  // THE slot predicate (date-specific slots, overrides, buffers) so only
-  // cleaners search would show for this exact slot are offered it.
   const { filterSlotAvailableCleaners } = await import('@/lib/availability/slot-eligibility');
   const candidates = matchResult.matches
-    .filter((m) => m.isAvailable && m.userId !== booking.cancelledByCleanerId)
+    .filter((m) => m.userId !== booking.cancelledByCleanerId)
     .map((m) => m.userId);
   const slotFree = await filterSlotAvailableCleaners(candidates, {
     date: booking.date,

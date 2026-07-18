@@ -29,6 +29,8 @@ interface Booking {
   review: { id: string } | null;
   cascadePhase: string | null;
   topupAmount: number | string | null;
+  /** H11: set while CLEANER_CANCELLED awaits the customer's rescue choice. */
+  rescueDeadline?: string | null;
 }
 
 interface BookingsResponse {
@@ -66,6 +68,9 @@ export default function AccountHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
+  // H11: CLEANER_CANCELLED bookings awaiting the customer's rescue choice —
+  // announced FIRST on the account home, not buried in the list.
+  const [rescueBookings, setRescueBookings] = useState<Booking[]>([]);
   const [recentCleaners, setRecentCleaners] = useState<RecentCleaner[]>([]);
   const [unreviewedBookings, setUnreviewedBookings] = useState<Booking[]>([]);
   const [mostRecentCleaner, setMostRecentCleaner] = useState<{ id: string; name: string } | null>(
@@ -93,9 +98,12 @@ export default function AccountHome() {
 
     async function fetchHome() {
       try {
-        const [allRes, completedRes] = await Promise.all([
+        const [allRes, completedRes, rescueRes] = await Promise.all([
           fetch('/api/bookings'),
           fetch('/api/bookings?status=COMPLETED,REVIEWED'),
+          // H11: rescues are fetched EXPLICITLY — page 1 of the general list
+          // (newest 10) can miss an older booking whose cleaner just cancelled.
+          fetch('/api/bookings?status=CLEANER_CANCELLED'),
         ]);
         // A transient 401 while still authenticated is a hiccup — surface it as a
         // retryable load error, not a spurious logout (the guard effect handles a
@@ -116,6 +124,8 @@ export default function AccountHome() {
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .slice(0, 5)
         );
+        const rescueData: BookingsResponse | null = rescueRes.ok ? await rescueRes.json() : null;
+        setRescueBookings(rescueData?.data ?? []);
 
         const completed = completedData.data;
         setUnreviewedBookings(completed.filter((b) => b.status === 'COMPLETED' && !b.review));
@@ -210,6 +220,41 @@ export default function AccountHome() {
           </Link>
         )}
       </div>
+
+      {/* H11: rescue announcements lead the page — a cancelled-by-cleaner
+          booking awaiting the customer's choice must be the first thing seen. */}
+      {rescueBookings.map((b) => (
+        <div
+          key={b.id}
+          className="rounded-xl border border-danger/25 bg-danger/5 p-5"
+          data-testid="rescue-banner"
+        >
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-danger">
+            Action needed
+          </p>
+          <h2 className="mt-1 font-newsreader text-lg font-semibold text-ink">
+            Your cleaner had to cancel {serviceLabelFromSlug(b.serviceType)} on{' '}
+            {new Date(b.date).toLocaleDateString('en-GB', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })}{' '}
+            — choose what happens next
+          </h2>
+          <p className="mt-1 font-jost text-sm text-ink-2">
+            Keep the slot with another cleaner, pick a new date, or take a full refund.
+            {b.rescueDeadline
+              ? ` If you don't choose by ${new Date(b.rescueDeadline).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}, we'll refund you in full automatically.`
+              : ' Your payment is safe either way.'}
+          </p>
+          <Link
+            href={`/booking/${b.id}`}
+            className="mt-3 inline-flex items-center justify-center rounded-[10px] bg-primary px-5 py-2.5 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover"
+          >
+            Choose what happens next
+          </Link>
+        </div>
+      ))}
 
       {/* Upcoming bookings — teaser into the Bookings tab */}
       <section>

@@ -77,6 +77,51 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // H10: Jobs attention badge — live offers awaiting this cleaner's response
+  // (direct, cascade, backup, Phase-2 reopen, Rena-Find), the bell's countOnly
+  // grammar. Viewing the Jobs page marks the current offers seen (badge
+  // clears); a NEW offer arriving later re-fires it. Best-effort — any error
+  // just means no badge.
+  const [unseenOffers, setUnseenOffers] = useState(0);
+  useEffect(() => {
+    let stop = false;
+    const SEEN_KEY = 'rena-seen-offer-ids';
+    const readSeen = (): string[] => {
+      try {
+        return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]');
+      } catch {
+        return [];
+      }
+    };
+    async function tick() {
+      try {
+        const res = await fetch('/api/cleaner/badges');
+        const data = res.ok ? await res.json().catch(() => null) : null;
+        if (stop || !Array.isArray(data?.offerIds)) return;
+        const ids: string[] = data.offerIds;
+        if (pathname === '/cleaner/jobs') {
+          try {
+            localStorage.setItem(SEEN_KEY, JSON.stringify(ids));
+          } catch {
+            /* storage unavailable — live count below still works */
+          }
+          setUnseenOffers(0);
+        } else {
+          const seen = new Set(readSeen());
+          setUnseenOffers(ids.filter((id) => !seen.has(id)).length);
+        }
+      } catch {
+        /* badge is best-effort */
+      }
+    }
+    tick();
+    const iv = setInterval(tick, 60_000);
+    return () => {
+      stop = true;
+      clearInterval(iv);
+    };
+  }, [pathname]);
   const [cleanerName, setCleanerName] = useState('');
   const [cleanerTier, setCleanerTier] = useState('');
   const [cleanerImage, setCleanerImage] = useState('');
@@ -241,6 +286,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const showJobsBadge = item.href === '/cleaner/jobs' && unseenOffers > 0;
               return (
                 <Link
                   key={item.href}
@@ -269,6 +315,16 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                     />
                   </svg>
                   {item.label}
+                  {/* H10: live-offer attention badge — the bell's countOnly
+                      grammar on the Jobs item. */}
+                  {showJobsBadge && (
+                    <span
+                      data-testid="jobs-offer-badge"
+                      className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 font-jost text-[11px] font-semibold text-white"
+                    >
+                      {unseenOffers > 9 ? '9+' : unseenOffers}
+                    </span>
+                  )}
                 </Link>
               );
             })}

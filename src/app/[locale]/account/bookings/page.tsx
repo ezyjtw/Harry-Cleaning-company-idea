@@ -22,6 +22,8 @@ interface Booking {
   status: BookingStatus;
   rawStatus: string;
   cascadePhase: string | null;
+  /** H11: live only while CLEANER_CANCELLED — drives the action-needed card. */
+  rescueDeadline: string | null;
   address: string;
   backupCleanerNames: string[];
   autoAssignBackup: boolean;
@@ -328,15 +330,28 @@ export default function BookingsPage() {
   };
 
   useEffect(() => {
-    fetch('/api/bookings')
-      .then((res) => (res.ok ? res.json() : { bookings: [] }))
-      .then((data) => {
-        const raw = data.data || data.bookings || data || [];
+    // H11: rescues are fetched explicitly and surfaced FIRST — the general
+    // page-1 list (newest 10) can miss an older booking whose cleaner just
+    // cancelled, and an action-needed booking belongs at the top anyway.
+    Promise.all([
+      fetch('/api/bookings?status=CLEANER_CANCELLED').then((res) =>
+        res.ok ? res.json() : { data: [] }
+      ),
+      fetch('/api/bookings').then((res) => (res.ok ? res.json() : { bookings: [] })),
+    ])
+      .then(([rescueData, data]) => {
+        const rescueRaw = rescueData.data || [];
+        const generalRaw = data.data || data.bookings || data || [];
+        const rescueIds = new Set(rescueRaw.map((b: { id?: unknown }) => String(b.id)));
+        const raw = [
+          ...rescueRaw,
+          ...generalRaw.filter((b: { id?: unknown }) => !rescueIds.has(String(b.id))),
+        ];
         const items = raw.map((b: Record<string, unknown>) => ({
           fullId: String(b.id || ''),
           displayId: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
           date: typeof b.date === 'string' ? b.date.split('T')[0] : String(b.date),
-          time: b.startTime || b.time || '',
+          time: String(b.startTime || b.time || ''),
           // The list API returns the cleaner NESTED (cleaner: { name }); there is
           // no flat `cleanerName`, so the old read was always undefined and every
           // card showed the "Assigned cleaner" fallback. Read the nested name; when
@@ -349,7 +364,7 @@ export default function BookingsPage() {
               ? 'Cleaner being assigned'
               : 'Assigned cleaner'),
           cleanerImage: (b.cleaner as { image?: string | null } | null)?.image ?? null,
-          serviceType: b.serviceType || 'Cleaning',
+          serviceType: String(b.serviceType || 'Cleaning'),
           duration: Number(b.duration || 0),
           price: Number(b.totalPrice || b.price || 0),
           status: mapStatus(
@@ -358,6 +373,7 @@ export default function BookingsPage() {
           ),
           rawStatus: String(b.status || 'PENDING').toUpperCase(),
           cascadePhase: (b.cascadePhase as string | null) ?? null,
+          rescueDeadline: (b.rescueDeadline as string | null) ?? null,
           // A12: build from booking columns (helper falls back to legacy relation).
           address: bookingFullAddress(b as BookingAddressSource) || (b.fullAddress as string) || '',
           backupCleanerNames: (b.backupCleanerNames as string[]) || [],
@@ -486,6 +502,31 @@ export default function BookingsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+
+              {/* H11: a rescue awaiting the customer's choice is unmissable —
+                  visible without expanding, one button into the choice panel. */}
+              {booking.rawStatus === 'CLEANER_CANCELLED' && (
+                <div
+                  className="mt-3 rounded-lg border border-danger/25 bg-danger/5 p-3"
+                  data-testid="rescue-action-card"
+                >
+                  <p className="font-jost text-sm font-semibold text-ink">
+                    Your cleaner had to cancel — choose what happens next
+                  </p>
+                  <p className="mt-0.5 font-jost text-[12px] text-ink-3">
+                    Keep the slot with another cleaner, pick a new date, or take a full refund.
+                    {booking.rescueDeadline
+                      ? ` No choice by ${new Date(booking.rescueDeadline).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}? We'll refund you in full automatically.`
+                      : ''}
+                  </p>
+                  <Link
+                    href={`/booking/${booking.fullId}`}
+                    className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
+                  >
+                    Choose what happens next
+                  </Link>
+                </div>
+              )}
 
               {expandedId === booking.fullId && (
                 <div className="mt-4 space-y-4 border-t border-line pt-4">
