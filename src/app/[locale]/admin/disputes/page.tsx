@@ -38,7 +38,7 @@ async function getDisputes(): Promise<AdminDispute[]> {
   });
 
   return disputes.map((d) => {
-    const isFiledByCleaner = d.raisedBy.role === 'CLEANER';
+    const isFiledByCleaner = d.raisedBy?.role === 'CLEANER';
 
     // If there's a resolution note containing "split", map to resolved-split
     let status = mapPrismaStatus(d.status);
@@ -81,5 +81,5 @@ async function getDisputes(): Promise<AdminDispute[]> {
 export default async function AdminDisputesPage() {
   const disputes = await getDisputes();
 
-    return <DisputesList initialDisputes={disputes} />;
+  return <DisputesList initialDisputes={disputes} />;
 }

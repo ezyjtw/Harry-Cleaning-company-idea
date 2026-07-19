@@ -68,7 +68,11 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
   const charged = Number(b.totalAmountCharged ?? b.totalPrice);
 
   const partyOf = (userId: string | null): 'customer' | 'cleaner' | 'Rena team' =>
-    userId && userId === b.clientId ? 'customer' : userId && userId === b.cleanerId ? 'cleaner' : 'Rena team';
+    userId && userId === b.clientId
+      ? 'customer'
+      : userId && userId === b.cleanerId
+        ? 'cleaner'
+        : 'Rena team';
 
   const data = {
     id: dispute.id,
@@ -78,7 +82,7 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
     description: dispute.description,
     resolution: dispute.resolution,
     createdAt: dispute.createdAt.toISOString(),
-    filedBy: dispute.raisedBy.role === 'CLEANER' ? 'cleaner' : 'customer',
+    filedBy: dispute.raisedBy?.role === 'CLEANER' ? 'cleaner' : 'customer',
     booking: {
       id: b.id,
       shortId: b.id.substring(0, 8).toUpperCase(),
@@ -96,7 +100,10 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
         name: displayName(b.client?.name) || b.guestName || 'Guest',
         email: b.client?.email || b.guestEmail || '',
       },
-      cleaner: { name: displayName(b.cleaner?.name) || 'Unassigned', email: b.cleaner?.email || '' },
+      cleaner: {
+        name: displayName(b.cleaner?.name) || 'Unassigned',
+        email: b.cleaner?.email || '',
+      },
     },
     evidence: dispute.evidence.map((ev) => ({
       id: ev.id,

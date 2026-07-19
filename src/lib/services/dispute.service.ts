@@ -62,7 +62,8 @@ class DisputeConflict extends Error {}
  */
 export async function fileDispute(params: {
   bookingId: string;
-  raisedById: string;
+  /** H41: null when a tokened GUEST files — the token was the authorization. */
+  raisedById: string | null;
   reason: string;
   description: string;
 }): Promise<FileDisputeResult> {
@@ -152,7 +153,7 @@ export async function fileDispute(params: {
   // 7. Notify the cleaner + admins, and audit (best-effort — never block filing).
   await notifyDisputeOpened(booking, bookingId, reason).catch(() => {});
   await AuditService.log({
-    userId: raisedById,
+    userId: raisedById ?? undefined,
     action: 'DISPUTE_OPENED',
     entityType: 'Dispute',
     entityId: disputeId,
