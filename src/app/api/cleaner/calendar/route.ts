@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { computeCleanerOpenRanges, minutesToTime } from '@/lib/availability/timesheet';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import prisma from '@/lib/db/prisma';
 import { bookingPostcode } from '@/lib/utils/booking-address';
@@ -12,6 +13,11 @@ import { displayName } from '@/lib/utils/name';
 // en-route). Offers never render here — accepting lives on the Jobs surface.
 // Composes the standing read laws: paid-visible (H53) + never-own-purchase
 // (H38).
+//
+// H56 polish: alongside bookings, each day carries the cleaner's OWN remaining
+// availability (ghost fill) — the same computeCleanerOpenRanges core as H34,
+// no new truth. Bookings subtract from open ranges (± the cleaner's buffer),
+// so "Available 13:00–17:00" is what's genuinely left after the morning job.
 export async function GET(request: NextRequest) {
   const user = await getCleanerSession();
   if (!user) {
@@ -39,30 +45,80 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Range too large (max 62 days)' }, { status: 400 });
   }
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      cleanerId: user.id,
-      date: { gte: start, lte: end },
-      status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE'] },
-      ...paidVisibleWhere(),
-      AND: [notOwnBookingWhere(user.id)],
-    },
-    select: {
-      id: true,
-      date: true,
-      startTime: true,
-      duration: true,
-      serviceType: true,
-      status: true,
-      cleanerEarnings: true,
-      addressPostcode: true,
-      client: { select: { name: true } },
-      guestName: true,
-      address: { select: { postcode: true } },
-    },
-    orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
-    take: 200,
-  });
+  const cleanerProfileByUser = { cleanerProfile: { userId: user.id } };
+  const [bookings, profile, recurringSlots, dateSlots, overrides] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        cleanerId: user.id,
+        date: { gte: start, lte: end },
+        status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE'] },
+        ...paidVisibleWhere(),
+        AND: [notOwnBookingWhere(user.id)],
+      },
+      select: {
+        id: true,
+        date: true,
+        startTime: true,
+        duration: true,
+        serviceType: true,
+        status: true,
+        cleanerEarnings: true,
+        addressPostcode: true,
+        client: { select: { name: true } },
+        guestName: true,
+        address: { select: { postcode: true } },
+      },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      take: 200,
+    }),
+    prisma.cleanerProfile.findUnique({
+      where: { userId: user.id },
+      select: { bookingBufferMinutes: true },
+    }),
+    prisma.availabilitySlot.findMany({
+      where: cleanerProfileByUser,
+      select: { dayOfWeek: true, startTime: true, endTime: true },
+    }),
+    prisma.availabilityDateSlot.findMany({
+      where: { ...cleanerProfileByUser, date: { gte: start, lte: end } },
+      select: { date: true, startTime: true, endTime: true },
+    }),
+    prisma.availabilityOverride.findMany({
+      where: { ...cleanerProfileByUser, date: { gte: start, lte: end }, isBlocked: true },
+      select: { date: true, startTime: true, endTime: true },
+    }),
+  ]);
+
+  // Per-day ghost availability. isPast is STRICTLY-before-today here (the H34
+  // core's default treats today as past because a same-day slot isn't offerable
+  // — but the cleaner's own calendar should still show today's remaining time).
+  const todayYMD = new Date().toISOString().split('T')[0];
+  const bufferMins = profile?.bookingBufferMinutes ?? 0;
+  const days: Record<
+    string,
+    { openRanges: { start: string; end: string }[]; hasBaseSlots: boolean; fullDayBlocked: boolean }
+  > = {};
+  for (let t = start.getTime(); t <= end.getTime(); t += 86400000) {
+    const targetDate = new Date(t);
+    const ymd = targetDate.toISOString().split('T')[0];
+    const { openRanges, hasBaseSlots, fullDayBlocked } = computeCleanerOpenRanges({
+      targetDate,
+      bufferMins,
+      recurringSlots,
+      dateSlots,
+      overrides,
+      bookings,
+      isPast: ymd < todayYMD,
+    });
+    days[ymd] = {
+      openRanges: openRanges.map((r) => ({
+        start: minutesToTime(r.start),
+        end: minutesToTime(r.end),
+      })),
+      hasBaseSlots,
+      fullDayBlocked,
+    };
+  }
 
   return NextResponse.json({
     bookings: bookings.map((b) => {
@@ -82,5 +138,6 @@ export async function GET(request: NextRequest) {
         postcodeArea: postcode.split(' ')[0] || '',
       };
     }),
+    days,
   });
 }

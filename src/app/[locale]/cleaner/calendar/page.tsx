@@ -24,6 +24,19 @@ interface CalendarBooking {
   postcodeArea: string;
 }
 
+// H56 polish: per-day ghost availability — the cleaner's own remaining open
+// ranges (H34's computeCleanerOpenRanges core, bookings subtracted server-side).
+interface CalendarDayInfo {
+  openRanges: { start: string; end: string }[];
+  hasBaseSlots: boolean;
+  fullDayBlocked: boolean;
+}
+
+// £ without noise: whole pounds stay whole ("£88"), pennies show when real.
+function fmtPounds(v: number): string {
+  return v % 1 === 0 ? v.toFixed(0) : v.toFixed(2);
+}
+
 const DAY_MS = 86400000;
 
 function toYMD(d: Date): string {
@@ -56,6 +69,7 @@ export default function CleanerCalendarPage() {
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   });
   const [bookings, setBookings] = useState<CalendarBooking[]>([]);
+  const [days, setDays] = useState<Record<string, CalendarDayInfo>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +94,10 @@ export default function CleanerCalendarPage() {
     fetch(`/api/cleaner/calendar?start=${range.start}&end=${range.end}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Failed to load calendar'))))
       .then((d) => {
-        if (!cancelled) setBookings(d.bookings || []);
+        if (!cancelled) {
+          setBookings(d.bookings || []);
+          setDays(d.days || {});
+        }
       })
       .catch(() => {
         if (!cancelled) setError('Could not load your calendar. Please try again.');
@@ -140,9 +157,9 @@ export default function CleanerCalendarPage() {
     <NavLink
       surface="cleaner-calendar"
       href={`/cleaner/jobs?tab=${JOBS_TAB_FOR_STATUS[b.status] ?? 'pending'}#job-${b.id}`}
-      className="block rounded-[10px] border border-primary/20 bg-primary-soft px-2.5 py-2 transition hover:border-primary/50"
+      className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3 transition hover:border-primary/50"
     >
-      <p className="font-jost text-[12px] font-medium text-primary">
+      <p className="font-jost text-[13px] font-medium text-primary">
         {b.startTime} · {b.duration}h
       </p>
       <p className="truncate font-jost text-[12px] text-ink">
@@ -153,6 +170,36 @@ export default function CleanerCalendarPage() {
       </p>
     </NavLink>
   );
+
+  // Ghost availability slot — the "open for work" fill on days without (or
+  // around) bookings. Faint, dashed, never clickable: it's context, not a CTA.
+  const GhostSlot = ({ r }: { r: { start: string; end: string } }) => (
+    <div className="rounded-[10px] border border-dashed border-line px-3 py-2 font-jost text-[11px] font-light text-ink-3">
+      Available {r.start}–{r.end}
+    </div>
+  );
+
+  // Day summary for column headers: jobs+£ on work days, Available/Off
+  // otherwise. Past days stay quiet — yesterday's openness is not a fact worth
+  // asserting either way.
+  const daySummary = (ymd: string, dayBookings: CalendarBooking[]): string => {
+    if (dayBookings.length > 0) {
+      const net = dayBookings.reduce((s, b) => s + b.earnings, 0);
+      return `${dayBookings.length} job${dayBookings.length > 1 ? 's' : ''} · £${fmtPounds(net)}`;
+    }
+    if (ymd < todayYMD) return '—';
+    const info = days[ymd];
+    return info && info.openRanges.length > 0 ? 'Available' : 'Off';
+  };
+
+  // The week summary bar — the numbers cleaners actually care about (net-first).
+  const weekSummary = useMemo(() => {
+    const weekBookings = weekDays.flatMap((d) => byDay.get(d.ymd) ?? []);
+    const jobs = weekBookings.length;
+    const hrs = weekBookings.reduce((s, b) => s + b.duration, 0);
+    const net = weekBookings.reduce((s, b) => s + b.earnings, 0);
+    return { jobs, hrs: Number(hrs.toFixed(1)), net };
+  }, [weekDays, byDay]);
 
   // Month view: a compact grid — each day shows its booking count as dots;
   // clicking a day jumps the week view there.
@@ -253,12 +300,28 @@ export default function CleanerCalendarPage() {
         </div>
       ) : view === 'week' ? (
         <>
+          {/* Week summary bar — the week's story in one line. */}
+          <div className="mb-3 rounded-xl border border-line bg-surface px-4 py-2.5 font-jost text-[13px] text-ink-2">
+            This week:{' '}
+            {weekSummary.jobs === 0 ? (
+              <span className="font-medium text-ink">no jobs booked</span>
+            ) : (
+              <span className="font-medium text-ink">
+                {weekSummary.jobs} job{weekSummary.jobs > 1 ? 's' : ''} · {weekSummary.hrs} hrs · £
+                {fmtPounds(weekSummary.net)} expected
+              </span>
+            )}
+          </div>
+
           {/* Desktop: 7 day columns. Phone: vertical day-scroller (stacked
               sections) — same data, no horizontal squeeze. */}
           <div className="hidden gap-2 sm:grid sm:grid-cols-7">
             {weekDays.map((d) => {
               const dayBookings = byDay.get(d.ymd) ?? [];
               const isToday = d.ymd === todayYMD;
+              const isPast = d.ymd < todayYMD;
+              const info = days[d.ymd];
+              const ghosts = !isPast ? (info?.openRanges ?? []) : [];
               return (
                 <div
                   key={d.ymd}
@@ -267,16 +330,33 @@ export default function CleanerCalendarPage() {
                   }`}
                 >
                   <p
-                    className={`mb-2 text-center font-jost text-[11px] uppercase tracking-[0.1em] ${
+                    className={`text-center font-jost text-[11px] uppercase tracking-[0.1em] ${
                       isToday ? 'font-semibold text-primary' : 'text-ink-3'
                     }`}
                   >
                     {d.label} {d.dayNum}
                   </p>
+                  {/* Day summary line — the top row alone tells the week. */}
+                  <p
+                    className={`mb-2 mt-0.5 text-center font-jost text-[10px] font-light ${
+                      dayBookings.length > 0 ? 'text-ink-2' : 'text-ink-3/80'
+                    }`}
+                  >
+                    {daySummary(d.ymd, dayBookings)}
+                  </p>
                   <div className="space-y-1.5">
                     {dayBookings.map((b) => (
                       <BookingBlock key={b.id} b={b} />
                     ))}
+                    {/* Ghost fill: remaining open time reads "open for work". */}
+                    {ghosts.map((r, i) => (
+                      <GhostSlot key={`${d.ymd}-g${i}`} r={r} />
+                    ))}
+                    {!isPast && dayBookings.length === 0 && ghosts.length === 0 && (
+                      <p className="pt-1 text-center font-jost text-[11px] font-light text-ink-3/70">
+                        Not available
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -287,6 +367,9 @@ export default function CleanerCalendarPage() {
             {weekDays.map((d) => {
               const dayBookings = byDay.get(d.ymd) ?? [];
               const isToday = d.ymd === todayYMD;
+              const isPast = d.ymd < todayYMD;
+              const info = days[d.ymd];
+              const ghosts = !isPast ? (info?.openRanges ?? []) : [];
               return (
                 <div key={d.ymd} className="flex gap-3">
                   {/* Day chip — the L2 availability grammar, echoed. */}
@@ -301,10 +384,16 @@ export default function CleanerCalendarPage() {
                     <span className="text-[15px] font-semibold leading-none">{d.dayNum}</span>
                   </div>
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    {dayBookings.length === 0 ? (
-                      <p className="pt-3 font-jost text-[12px] font-light text-ink-3/60">—</p>
-                    ) : (
-                      dayBookings.map((b) => <BookingBlock key={b.id} b={b} />)
+                    {dayBookings.map((b) => (
+                      <BookingBlock key={b.id} b={b} />
+                    ))}
+                    {ghosts.map((r, i) => (
+                      <GhostSlot key={`${d.ymd}-g${i}`} r={r} />
+                    ))}
+                    {dayBookings.length === 0 && ghosts.length === 0 && (
+                      <p className="pt-3 font-jost text-[12px] font-light text-ink-3/60">
+                        {isPast ? '—' : 'Not available'}
+                      </p>
                     )}
                   </div>
                 </div>
