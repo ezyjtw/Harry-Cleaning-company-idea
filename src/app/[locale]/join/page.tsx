@@ -868,6 +868,14 @@ export default function JoinAsCleanerPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [mounted, setMounted] = useState(false);
+  // H48/H51: a restored draft can never carry the password or the profile photo
+  // (both are deliberately excluded from localStorage — passwords for security,
+  // base64 photos for quota). If we let the user resume onto a late step, those
+  // two gaps are invisible: they submit, the account has no password (→ bounced
+  // back through the wizard to "re-enter" everything) and no photo (silently
+  // missing). This flag drives an honest "welcome back, re-add these" banner and
+  // forces the resume to land on step 1 where both fields live.
+  const [resumeNotice, setResumeNotice] = useState<{ photo: boolean } | null>(null);
   const [webcamTarget, setWebcamTarget] = useState<'profilePhoto' | 'selfiePhoto' | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
@@ -887,6 +895,7 @@ export default function JoinAsCleanerPage() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        let hadPhoto = false;
         if (parsed.form) {
           const restored = { ...parsed.form };
           const fileFields = [
@@ -899,13 +908,25 @@ export default function JoinAsCleanerPage() {
           for (const f of fileFields) {
             if (restored[f] === '[uploaded]') restored[f] = '';
           }
+          // H51: the draft only ever recorded the photo as a marker, never the
+          // bytes — so a resumed user has lost it. Remember they HAD one so the
+          // banner can tell them to re-add it (rather than it vanishing silently).
+          hadPhoto = parsed.form.profilePhoto === '[uploaded]';
           setForm((prev) => ({ ...prev, ...restored }));
         }
         if (typeof parsed.currentStep === 'number') {
-          // Clamp to the valid range — the step count can change across deploys.
-          const restored = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
-          setCurrentStep(restored);
-          setMaxReachedStep(restored);
+          const savedStep = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
+          // maxReachedStep keeps their real progress (all steps stay tappable)…
+          setMaxReachedStep(savedStep);
+          // …but H48: the password is never restored, and the photo is gone, so
+          // land them on step 1 where both live — never on a late step where the
+          // gaps are invisible and a submit fails validation with a jarring bounce.
+          if (savedStep > 0) {
+            setCurrentStep(0);
+            setResumeNotice({ photo: hadPhoto });
+          } else {
+            setCurrentStep(savedStep);
+          }
         }
       }
     } catch {
@@ -1304,6 +1325,23 @@ export default function JoinAsCleanerPage() {
         }}
       />
       <MobileStepper currentStep={currentStep} />
+
+      {/* H48/H51: welcome-back notice — a resumed draft can't carry the
+          password (never stored) or the photo (marker only), so say so plainly
+          and land here on step 1 rather than let them submit with silent gaps. */}
+      {resumeNotice && (
+        <div className="mt-6 rounded-xl border border-warning/30 bg-warning/[0.06] p-4">
+          <p className="font-jost text-sm font-medium text-ink">
+            Welcome back — your progress was saved.
+          </p>
+          <p className="mt-1 font-jost text-[13px] text-ink-2">
+            For your security we didn&apos;t store your password
+            {resumeNotice.photo ? ' or profile photo' : ''}, so please re-enter your password
+            {resumeNotice.photo ? ' and re-add your photo' : ''} below to continue. Everything else
+            is just as you left it.
+          </p>
+        </div>
+      )}
 
       {/* ---------- Step content card ---------- */}
       <div className="mt-8 rounded-2xl border border-line bg-surface p-6 shadow-sm animate-fade-in sm:p-8">
