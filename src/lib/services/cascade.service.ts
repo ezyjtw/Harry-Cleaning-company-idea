@@ -1186,6 +1186,7 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
     topupAmount,
     expiresAt: approvalExpiresAt,
   }).catch(() => {});
+  await notifyTopupApprovalRequested(bookingId, topupAmount).catch(() => {});
   return true;
 }
 
@@ -1283,6 +1284,7 @@ export async function enterAdminReassignProvisional(args: {
     topupAmount: args.topupAmount,
     expiresAt: approvalExpiresAt,
   }).catch(() => {});
+  await notifyTopupApprovalRequested(args.bookingId, args.topupAmount).catch(() => {});
 
   return { success: true, approvalExpiresAt };
 }
@@ -1389,6 +1391,7 @@ export async function enterAdminPriceAdjust(args: {
     topupAmount: delta,
     expiresAt: approvalExpiresAt,
   }).catch(() => {});
+  await notifyTopupApprovalRequested(args.bookingId, delta).catch(() => {});
 
   return { success: true, approvalExpiresAt };
 }
@@ -2005,6 +2008,32 @@ export async function processExhaustedRefunds(): Promise<{ processed: number }> 
 }
 
 // ─── Notifications (best-effort, fire-and-forget) ──────────────
+
+// H57 addendum: every top-up approval request ALSO rings the bell — the email
+// alone stranded logged-out customers (registered accounts only; guests have
+// no bell and keep their tokened email link).
+export async function notifyTopupApprovalRequested(
+  bookingId: string,
+  topupAmount: number
+): Promise<void> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { clientId: true, serviceType: true, date: true },
+  });
+  if (!booking?.clientId) return;
+
+  await prisma.notification
+    .create({
+      data: {
+        userId: booking.clientId,
+        type: 'SYSTEM',
+        title: 'Price change needs your review',
+        body: `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Nothing is charged unless you approve.`,
+        data: { bookingId, url: `/booking/${bookingId}/approve-topup` },
+      },
+    })
+    .catch(() => {});
+}
 
 async function notifyCustomerExhausted(bookingId: string): Promise<void> {
   const booking = await prisma.booking.findUnique({

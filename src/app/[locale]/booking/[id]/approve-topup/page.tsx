@@ -1,7 +1,7 @@
 'use client';
 
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -17,12 +17,23 @@ interface TopupData {
   serviceType: string;
   date: string;
   time: string;
+  /** H57: admin sessions see the panel read-only — approval is the customer's. */
+  readOnly?: boolean;
 }
 
-type PageState = 'loading' | 'loaded' | 'processing' | 'success' | 'declined' | 'payment' | 'error';
+type PageState =
+  | 'loading'
+  | 'loaded'
+  | 'processing'
+  | 'success'
+  | 'declined'
+  | 'payment'
+  | 'error'
+  | 'resolved';
 
 export default function ApproveTopupPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const bookingId = params.id as string;
   // F5: guests arrive from the tokened approval email — every call (GET, POST,
@@ -40,7 +51,16 @@ export default function ApproveTopupPage() {
     )
       .then((r) => r.json())
       .then((d) => {
-        if (d.error) {
+        if (d.reason === 'auth_required') {
+          // H57 matrix row 1: logged-out account-holder → sign in, come
+          // straight back to this panel (the H6 callbackUrl pattern).
+          const back = `/booking/${bookingId}/approve-topup${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`;
+          router.replace(`/login?callbackUrl=${encodeURIComponent(back)}`);
+        } else if (d.reason === 'resolved') {
+          // H57 expiry sweep: dead provisional → calm resolved state, and the
+          // booking stands at its original price unless a change was approved.
+          setState('resolved');
+        } else if (d.error) {
           setError(d.error);
           setState('error');
         } else if (d.alreadyPaid) {
@@ -55,7 +75,7 @@ export default function ApproveTopupPage() {
         setError('Failed to load booking details');
         setState('error');
       });
-  }, [bookingId, guestToken]);
+  }, [bookingId, guestToken, router]);
 
   const handleApprove = useCallback(async () => {
     setState('processing');
@@ -137,6 +157,20 @@ export default function ApproveTopupPage() {
           <p className="mt-2 text-sm text-ink-2">
             Your booking has been confirmed with the new cleaner at &pound;
             {data?.newPrice?.toFixed(2)}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === 'resolved') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
+          <h2 className="font-newsreader text-2xl text-ink">Nothing to review</h2>
+          <p className="mt-2 text-sm text-ink-2">
+            This price change has already been resolved or has expired. Unless you approved it, your
+            booking stands at its original price.
           </p>
         </div>
       </div>
@@ -240,22 +274,29 @@ export default function ApproveTopupPage() {
           </div>
         )}
 
-        <div className="flex gap-3">
-          <button
-            onClick={handleDecline}
-            disabled={state === 'processing'}
-            className="flex-1 rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Decline
-          </button>
-          <button
-            onClick={handleApprove}
-            disabled={state === 'processing'}
-            className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {state === 'processing' ? 'Processing...' : 'Approve & Pay'}
-          </button>
-        </div>
+        {data.readOnly ? (
+          // H57 matrix row 5: admin view — the numbers, never the buttons.
+          <div className="rounded-[10px] border border-line bg-page px-4 py-3 text-center text-sm text-ink-2">
+            Admin view — only the customer can approve or decline this change.
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <button
+              onClick={handleDecline}
+              disabled={state === 'processing'}
+              className="flex-1 rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Decline
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={state === 'processing'}
+              className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {state === 'processing' ? 'Processing...' : 'Approve & Pay'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

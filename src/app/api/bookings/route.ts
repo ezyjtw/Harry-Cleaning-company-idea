@@ -41,6 +41,12 @@ export async function GET(request: NextRequest) {
       where.clientId = user.id;
     }
 
+    // H57: price-change approvals are fetched EXPLICITLY (like rescues) — a
+    // pending provisional lives on cascadePhase, which no status filter sees.
+    if (searchParams.get('approval') === 'pending') {
+      where.cascadePhase = 'PROVISIONAL_APPROVAL';
+    }
+
     if (status) {
       // B6: comma-separated statuses ("COMPLETED,REVIEWED") filter as a set —
       // reviewing a booking flips COMPLETED → REVIEWED, and single-status

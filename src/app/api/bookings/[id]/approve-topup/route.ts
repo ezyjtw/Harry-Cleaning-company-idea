@@ -26,6 +26,39 @@ function isAuthorized(
   return false;
 }
 
+// H57: the refusal must SAY WHY — a logged-out account-holder gets routed to
+// sign-in (reason 'auth_required'), a wrong-party session gets honest copy
+// (reason 'wrong_account'). A flat 403 stranded James at "not authorised"
+// with no path forward.
+function refusal(booking: { clientId: string | null }, user: { id: string } | null): NextResponse {
+  if (booking.clientId && !user) {
+    return NextResponse.json(
+      { error: 'Sign in to review this price change.', reason: 'auth_required' },
+      { status: 401 }
+    );
+  }
+  if (booking.clientId) {
+    return NextResponse.json(
+      {
+        error:
+          'This booking belongs to a different account. Sign in with the account that made the booking to review the price change.',
+        reason: 'wrong_account',
+      },
+      { status: 403 }
+    );
+  }
+  // Guest booking, missing/invalid token — the approval link in the email
+  // carries the token; without it there is nothing to honour.
+  return NextResponse.json(
+    {
+      error:
+        'This link is missing its access token. Please open the approval link from your email — it contains everything needed, no account required.',
+      reason: 'guest_token_required',
+    },
+    { status: 403 }
+  );
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
   const token = new URL(request.url).searchParams.get('token');
@@ -58,12 +91,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  if (!isAuthorized(booking, user, token)) {
-    return NextResponse.json({ error: 'Not authorised for this booking' }, { status: 403 });
+  // H57 matrix row 5: an admin session gets a READ-ONLY view — never the
+  // approve/decline capability (the POST refuses admins outright).
+  const isAdminViewer = !isAuthorized(booking, user, token) && user?.role === 'ADMIN';
+
+  if (!isAuthorized(booking, user, token) && !isAdminViewer) {
+    return refusal(booking, user);
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {
-    return NextResponse.json({ error: 'No pending approval' }, { status: 400 });
+    // H57 expiry sweep: a link that outlived its provisional gets a calm
+    // resolved state, not a dead-end error.
+    return NextResponse.json({ error: 'No pending approval', reason: 'resolved' }, { status: 400 });
   }
 
   return NextResponse.json({
@@ -77,6 +116,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     serviceType: booking.serviceType,
     date: booking.date.toISOString().split('T')[0],
     time: booking.startTime,
+    readOnly: isAdminViewer,
   });
 }
 
@@ -103,12 +143,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
+  // H57: the POST is the money door — the booking's customer (or its guest
+  // token) ONLY. Admin sessions are read-only viewers and are refused here.
   if (!isAuthorized(booking, user, token)) {
-    return NextResponse.json({ error: 'Not authorised for this booking' }, { status: 403 });
+    return refusal(booking, user);
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {
-    return NextResponse.json({ error: 'No pending approval' }, { status: 400 });
+    return NextResponse.json({ error: 'No pending approval', reason: 'resolved' }, { status: 400 });
   }
 
   if (booking.approvalExpiresAt && booking.approvalExpiresAt < new Date()) {
