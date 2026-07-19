@@ -82,8 +82,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       startTime: true,
       topupRecords: {
         where: { status: 'SUCCEEDED' },
-        select: { id: true },
+        select: { id: true, amount: true },
       },
+      cleaner: { select: { name: true } },
     },
   });
 
@@ -100,9 +101,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {
-    // H57 expiry sweep: a link that outlived its provisional gets a calm
-    // resolved state, not a dead-end error.
-    return NextResponse.json({ error: 'No pending approval', reason: 'resolved' }, { status: 400 });
+    // H67: a cleared provisional has TWO endings and they must not render
+    // alike. A SUCCEEDED top-up record exists only on the approved-and-paid
+    // path (writeTopupSuccess) — that visitor gets confirmation, not the
+    // dead-link copy. Everything else (declined/expired/reverted) keeps the
+    // calm H57 state, where "stands at its original price" is actually true.
+    if (booking.topupRecords.length > 0) {
+      return NextResponse.json({
+        reason: 'resolved',
+        outcome: 'approved',
+        // Post-success totalPrice IS the new total (writeTopupSuccess).
+        newPrice: Number(booking.totalPrice),
+        topupAmount: Number(booking.topupRecords[0].amount),
+        cleanerName: booking.cleaner?.name ?? null,
+        serviceType: booking.serviceType,
+        date: booking.date.toISOString().split('T')[0],
+        time: booking.startTime,
+      });
+    }
+    return NextResponse.json(
+      { error: 'No pending approval', reason: 'resolved', outcome: 'closed' },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({
