@@ -151,8 +151,15 @@ export class MatchingService {
           );
         });
 
+    // H38: the requesting CUSTOMER is never a candidate for their own job —
+    // covers every consumer of findMatches (Rena-Find broadcasts, rescue-①,
+    // time-first discovery) at one chokepoint.
+    const notSelf = criteria.clientId
+      ? inServiceArea.filter((cleaner) => cleaner.userId !== criteria.clientId)
+      : inServiceArea;
+
     // 4. Filter by service type qualification
-    const qualified = inServiceArea.filter((cleaner) => {
+    const qualified = notSelf.filter((cleaner) => {
       if (!cleaner.serviceTypes || cleaner.serviceTypes.length === 0) return true;
       const slugMap: Record<string, string> = {
         regular: 'regular',

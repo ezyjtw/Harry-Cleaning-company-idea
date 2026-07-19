@@ -238,7 +238,8 @@ export async function rescueFindAnother(params: { bookingId: string }): Promise<
   });
   const { filterSlotAvailableCleaners } = await import('@/lib/availability/slot-eligibility');
   const candidates = matchResult.matches
-    .filter((m) => m.userId !== booking.cancelledByCleanerId)
+    // H38: canceller AND the booking's own customer are both out.
+    .filter((m) => m.userId !== booking.cancelledByCleanerId && m.userId !== booking.clientId)
     .map((m) => m.userId);
   const slotFree = await filterSlotAvailableCleaners(candidates, {
     date: booking.date,
@@ -363,6 +364,10 @@ export async function rescueRebook(params: {
   if (!booking) return { ok: false, status: 404, error: 'Booking not found' };
   if (booking.status !== 'CLEANER_CANCELLED') {
     return { ok: false, status: 422, error: 'This booking is not awaiting a rebooking choice' };
+  }
+  // H38: a customer may never rebook the job to THEMSELVES.
+  if (booking.clientId && newCleanerId === booking.clientId) {
+    return { ok: false, status: 400, error: "You can't book yourself." };
   }
   // The canceller cancelled a DAY, not the relationship: rebooking them is
   // allowed on a different date, refused on the one they just cancelled.

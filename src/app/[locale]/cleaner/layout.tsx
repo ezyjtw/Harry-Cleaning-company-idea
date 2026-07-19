@@ -69,6 +69,13 @@ const navItems = [
     label: 'Profile Preview',
     icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
   },
+  // H38: the customer-role shelf — cleans this cleaner BOOKED as a customer.
+  // Last in the list, apart from the work items above.
+  {
+    href: '/cleaner/my-bookings',
+    label: 'My Bookings',
+    icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
+  },
 ];
 
 // The former sidebar completion-% widget was retired in favour of the dashboard

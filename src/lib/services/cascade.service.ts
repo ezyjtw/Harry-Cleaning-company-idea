@@ -412,6 +412,7 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
     where: { id: bookingId },
     select: {
       cleanerId: true,
+      clientId: true,
       backupCleanerIds: true,
       cascadePhase: true,
       status: true,
@@ -423,6 +424,13 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   });
 
   if (!booking) return { success: false, reason: 'Booking not found' };
+  // H38: belt-and-braces against the self-review exploit through the offer
+  // door — the booking's CUSTOMER may never accept their own job, whatever
+  // set they somehow appear in.
+  if (booking.clientId === cleanerId) {
+    return { success: false, reason: "This is your own booking — you can't accept it." };
+  }
+
   if (booking.status !== 'AWAITING_CLEANER') {
     return { success: false, reason: 'Booking is no longer available' };
   }
@@ -525,6 +533,7 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
+      clientId: true,
       backupCleanerIds: true,
       cascadePhase: true,
       status: true,
@@ -536,6 +545,13 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
   });
 
   if (!booking) return { success: false, reason: 'Booking not found' };
+  // H38: belt-and-braces against the self-review exploit through the offer
+  // door — the booking's CUSTOMER may never accept their own job, whatever
+  // set they somehow appear in.
+  if (booking.clientId === cleanerId) {
+    return { success: false, reason: "This is your own booking — you can't accept it." };
+  }
+
   if (booking.status !== 'AWAITING_CLEANER') {
     return { success: false, reason: 'Booking is no longer available' };
   }
@@ -664,6 +680,7 @@ export async function atomicProvisionalAccept(
     where: { id: bookingId },
     select: {
       cleanerId: true,
+      clientId: true,
       backupCleanerIds: true,
       cascadePhase: true,
       status: true,
@@ -675,6 +692,13 @@ export async function atomicProvisionalAccept(
   });
 
   if (!booking) return { success: false, reason: 'Booking not found' };
+  // H38: belt-and-braces against the self-review exploit through the offer
+  // door — the booking's CUSTOMER may never accept their own job, whatever
+  // set they somehow appear in.
+  if (booking.clientId === cleanerId) {
+    return { success: false, reason: "This is your own booking — you can't accept it." };
+  }
+
   if (booking.status !== 'AWAITING_CLEANER') {
     return { success: false, reason: 'Booking is no longer available' };
   }
@@ -771,6 +795,7 @@ export async function addToReserve(bookingId: string, cleanerId: string): Promis
     where: { id: bookingId },
     select: {
       status: true,
+      clientId: true,
       cascadePhase: true,
       backupCleanerIds: true,
       declinedCleanerIds: true,
@@ -779,6 +804,13 @@ export async function addToReserve(bookingId: string, cleanerId: string): Promis
   });
 
   if (!booking) return { success: false, reason: 'Booking not found' };
+  // H38: belt-and-braces against the self-review exploit through the offer
+  // door — the booking's CUSTOMER may never accept their own job, whatever
+  // set they somehow appear in.
+  if (booking.clientId === cleanerId) {
+    return { success: false, reason: "This is your own booking — you can't accept it." };
+  }
+
   if (booking.status !== 'AWAITING_CLEANER' || booking.cascadePhase !== 'PHASE2_RESERVE') {
     return { success: false, reason: 'This booking is no longer accepting reserves' };
   }
@@ -1503,11 +1535,16 @@ async function enterRenaFind(
   const runwayMs = resolveBy.getTime() - now.getTime();
   const expiresAt = runwayMs > 0 ? resolveBy : new Date(now.getTime() + 12 * HOUR_MS);
 
-  const excludeSet = new Set([
-    booking.cleanerId,
-    ...booking.backupCleanerIds,
-    ...(booking.declinedCleanerIds ?? []),
-  ]);
+  // H38: the booking's CUSTOMER is never a broadcast candidate — a
+  // cleaner-customer must not be offered their own job.
+  const excludeSet = new Set(
+    [
+      booking.cleanerId,
+      booking.clientId,
+      ...booking.backupCleanerIds,
+      ...(booking.declinedCleanerIds ?? []),
+    ].filter((x): x is string => !!x)
+  );
 
   // H9: availability filter OFF here too — the H7 slot predicate below is the
   // single availability truth (findMatches' recurring-only gate would drop

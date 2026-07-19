@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { notOwnBookingWhere } from '@/lib/booking/own-booking';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import type { ServiceSlug } from '@/lib/services/pricing.service';
@@ -67,9 +68,15 @@ export async function GET(request: NextRequest) {
   // They now ride along ONLY when the requested statuses include
   // AWAITING_CLEANER (or no filter was given) — offers live in Pending alone.
   const includeOfferBranches = !statusIn || statusIn.includes('AWAITING_CLEANER');
+  // H38: the viewer's OWN customer purchase never appears through the job door.
   const where = includeOfferBranches
-    ? { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere, reserveWhere] }
-    : { OR: [primaryWhereWithCascade] };
+    ? {
+        AND: [
+          notOwnBookingWhere(user.id),
+          { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere, reserveWhere] },
+        ],
+      }
+    : { AND: [notOwnBookingWhere(user.id), { OR: [primaryWhereWithCascade] }] };
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({
