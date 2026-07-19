@@ -321,7 +321,7 @@ export default function DisputesPage() {
                 type="text"
                 required
                 disabled={!!filedDisputeId}
-                placeholder="e.g. b3"
+                placeholder="e.g. AB12CD34 — from your confirmation email or bookings page"
                 value={newDispute.bookingId}
                 onChange={(e) => setNewDispute({ ...newDispute, bookingId: e.target.value })}
               />

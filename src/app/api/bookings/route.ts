@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/timesheet';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/services';
@@ -270,7 +271,9 @@ export async function POST(request: NextRequest) {
             where: {
               cleanerId: body.cleanerId,
               date: { gte: dayStart, lte: dayEnd },
-              status: { notIn: ['CANCELLED'] },
+              // H63: only committed work (or a live primary window) blocks a
+              // new booking on this cleaner.
+              AND: [blocksCleanerSlotWhere()],
             },
             select: { date: true, startTime: true, duration: true },
           }),

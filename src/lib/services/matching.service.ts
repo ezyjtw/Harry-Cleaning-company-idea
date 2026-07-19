@@ -1,3 +1,4 @@
+import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import { prisma } from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
@@ -184,7 +185,8 @@ export class MatchingService {
     const existingBookings = await prisma.booking.findMany({
       where: {
         date: { gte: startOfDay, lte: endOfDay },
-        status: { notIn: ['CANCELLED'] },
+        // H63: only committed work (or a live primary window) blocks matching.
+        AND: [blocksCleanerSlotWhere()],
         cleanerId: { in: qualified.map((c) => c.userId) },
       },
     });

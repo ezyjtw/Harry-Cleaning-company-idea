@@ -1,3 +1,4 @@
+import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import {
   computeCleanerOpenRanges,
   expandToSlots,
@@ -152,7 +153,8 @@ export async function getAvailableCleanersForBand(
       where: {
         cleanerId: { in: userIds },
         date: { gte: startOfDay, lte: endOfDay },
-        status: { notIn: ['CANCELLED'] },
+        // H63: only committed work (or a live primary window) blocks search.
+        AND: [blocksCleanerSlotWhere()],
       },
       select: { cleanerId: true, date: true, startTime: true, duration: true },
     }),

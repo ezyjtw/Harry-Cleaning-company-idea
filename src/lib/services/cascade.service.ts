@@ -369,8 +369,13 @@ async function checkReserveExhausted(bookingId: string): Promise<void> {
 
   const declined = booking.declinedCleanerIds ?? [];
   const allDeclined = booking.backupCleanerIds.every((id) => declined.includes(id));
-  const liveReserves = booking.reserveCleanerIds.filter((id) => !declined.includes(id));
-  if (allDeclined && liveReserves.length === 0) {
+  // H66 (Harry's law): reserve promotion needs a trigger on EVERY pool-state
+  // change, not just timers. When the pool ahead (the backups) has fully
+  // declined, run the promotion path NOW — promoteReserves itself promotes the
+  // best live reserve, or exhausts when none remain. The old condition only
+  // handled the exhaust arm (zero live reserves), so a live reserve — the
+  // customer's last candidate — sat in hold until the phase-2 timer.
+  if (allDeclined) {
     await promoteReserves(bookingId);
   }
 }
@@ -1039,6 +1044,16 @@ async function reopenToBackups(
     excludeBookingId: bookingId,
   });
   const activeBackups = notDeclined.filter((id) => availableSet.has(id));
+
+  // H66: phase-2 entry with NOBODY to re-offer is a pool-state where no decline
+  // event can ever arrive — the old code told the customer "reopened to backup
+  // cleaners" with zero backups and left any reserve waiting on the timer.
+  // Promote immediately instead (promoteReserves promotes or exhausts) and
+  // skip the reopened-comms lie.
+  if (activeBackups.length === 0) {
+    await promoteReserves(bookingId);
+    return;
+  }
 
   for (const backupId of activeBackups) {
     await prisma.notification
