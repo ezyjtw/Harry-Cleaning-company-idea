@@ -672,10 +672,20 @@ export class AdminOperationsService {
         releaseStatus = release.status;
       }
     } else {
-      // release-to-cleaner: un-pause and release full earnings.
+      // release-to-cleaner: un-pause and release full earnings. H68: caught
+      // like the split leg — the booking is already resolved (claim-first), so
+      // an unexpected release throw must NOT swallow the notifications below;
+      // a FAILED release is admin-retryable, silent parties are not.
       const release = await resumePausedRelease(bookingId, {
         trigger: 'DISPUTE_RESOLUTION',
         actorId: adminId,
+      }).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error(`[Dispute] release-to-cleaner release threw for ${bookingId}:`, err);
+        return {
+          status: 'FAILED' as const,
+          reason: 'Release threw during dispute resolution — admin retry needed',
+        };
       });
       releaseStatus = release.status;
     }
@@ -692,12 +702,17 @@ export class AdminOperationsService {
           : outcome === 'split'
             ? params.refundAmount
             : undefined;
+      // H68: a resolution email dying SILENTLY is the H62 disease one layer
+      // down — failures log loudly (recoverable from prod logs).
       await sendDisputeResolutionEmails({
         bookingId,
         outcome,
         refundAmount: refundedAmount > 0 ? refundedAmount : approvedRefund,
         refundSucceeded: refundStatus === 'REFUNDED' || refundStatus === 'PARTIALLY_REFUNDED',
-      }).catch(() => {});
+      }).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error(`[DisputeEmail] resolution emails FAILED for ${bookingId}:`, err);
+      });
     }
 
     // Audit.
