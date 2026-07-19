@@ -648,7 +648,7 @@ function provisionalEntryData(args: {
   provisionalPrice: number;
   topupAmount: number;
   approvalExpiresAt: Date;
-  source: 'CASCADE' | 'ADMIN_REASSIGN';
+  source: 'CASCADE' | 'ADMIN_REASSIGN' | 'ADMIN_PRICE_ADJUST';
   reserveCleanerIds?: string[];
 }) {
   return {
@@ -926,8 +926,10 @@ export async function handleProvisionalFailure(
   }
 
   // Admin-initiated provisional → revert to prior cleaner/state, do NOT
-  // continue the cascade (no Phase 2, no reserve advance).
-  if (b.provisionalSource === 'ADMIN_REASSIGN') {
+  // continue the cascade (no Phase 2, no reserve advance). H54: the
+  // price-adjust source reverts identically — decline/expiry leaves the
+  // booking intact at its old price with its cleaner (James ruling d).
+  if (b.provisionalSource === 'ADMIN_REASSIGN' || b.provisionalSource === 'ADMIN_PRICE_ADJUST') {
     return revertAdminReassign(bookingId, reason);
   }
 
@@ -1285,6 +1287,112 @@ export async function enterAdminReassignProvisional(args: {
   return { success: true, approvalExpiresAt };
 }
 
+// ─── H54: admin price adjust (same cleaner, delta only) ───────────────────
+//
+// James rulings: (a) approval restores the booking's PRE-ADJUST status (the
+// exact CONFIRMED/ACCEPTED it held — via reassignPreviousStatus, same restore
+// rail as reassign); (b) live paid bookings only, never while a cascade is in
+// flight (cascadePhase must be null at entry — the atomic claim enforces it);
+// (c) money splits proportionally — writeTopupSuccess scales every money field
+// by newTotal/oldTotal, so the cleaner keeps the same share of the delta;
+// (d) decline/expiry reverts to the old price + status via revertAdminReassign
+// (the customer's booking is untouched if they say no).
+//
+// The customer sees the existing approve page, which shows the DELTA only —
+// executeTopup charges topupAmount, never the total.
+export async function enterAdminPriceAdjust(args: {
+  bookingId: string;
+  topupAmount: number; // the DELTA in pounds, > 0
+  adminId: string;
+  reason: string;
+}): Promise<AdminReassignProvisionalResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: args.bookingId },
+    select: {
+      status: true,
+      cascadePhase: true,
+      cleanerId: true,
+      clientId: true,
+      totalPrice: true,
+      date: true,
+      startTime: true,
+      client: { select: { email: true, name: true } },
+    },
+  });
+  if (!booking) return { success: false, reason: 'Booking not found' };
+  if (!booking.clientId) {
+    return { success: false, reason: 'Guest bookings cannot approve top-ups' };
+  }
+
+  const delta = Math.round(args.topupAmount * 100) / 100;
+  if (!Number.isFinite(delta) || delta <= 0) {
+    return { success: false, reason: 'Adjustment amount must be a positive number' };
+  }
+
+  const originalPrice = Number(booking.totalPrice);
+  const provisionalPrice = Math.round((originalPrice + delta) * 100) / 100;
+  const approvalExpiresAt = computePhase2Window(new Date(), booking.date, booking.startTime);
+
+  // Atomic claim: LIVE paid bookings only — CONFIRMED/ACCEPTED, no cascade in
+  // flight, funds not yet released. Same guarded-updateMany technique as the
+  // cascade; a concurrent state change makes count 0 and we abort.
+  const claim = await prisma.booking.updateMany({
+    where: {
+      id: args.bookingId,
+      status: { in: ['CONFIRMED', 'ACCEPTED'] },
+      cascadePhase: null,
+      paymentStatus: { in: ['SUCCEEDED', 'PARTIALLY_REFUNDED'] },
+      transferStatus: { in: ['PENDING', 'FAILED'] },
+    },
+    data: {
+      status: 'AWAITING_CLEANER',
+      reassignPreviousStatus: booking.status,
+      reassignPreviousCleanerId: booking.cleanerId,
+      ...provisionalEntryData({
+        provisionalCleanerId: booking.cleanerId,
+        provisionalPrice,
+        topupAmount: delta,
+        approvalExpiresAt,
+        source: 'ADMIN_PRICE_ADJUST',
+      }),
+    },
+  });
+  if (claim.count === 0) {
+    return {
+      success: false,
+      reason:
+        'Booking is not adjustable (must be live, paid, no cascade in flight, funds unreleased)',
+    };
+  }
+
+  await AuditService.log({
+    userId: args.adminId,
+    action: 'ADMIN_PRICE_ADJUST_REQUESTED',
+    entityType: 'Booking',
+    entityId: args.bookingId,
+    metadata: {
+      topupAmount: delta,
+      originalPrice,
+      provisionalPrice,
+      reason: args.reason,
+    },
+  }).catch(() => {});
+
+  // Same delta-only approval email the reassign flow sends (guest-safe sender —
+  // though guests are blocked above, registered customers get their link).
+  await sendTopupApprovalRequest({
+    bookingId: args.bookingId,
+    customerEmail: booking.client?.email || undefined,
+    customerName: booking.client?.name || undefined,
+    originalPrice,
+    newPrice: provisionalPrice,
+    topupAmount: delta,
+    expiresAt: approvalExpiresAt,
+  }).catch(() => {});
+
+  return { success: true, approvalExpiresAt };
+}
+
 // Revert an admin-reassign provisional on customer decline / expiry / charge
 // fail. Restores the EXACT pre-reassign state (status + cleaner). For a
 // CASCADE_EXHAUSTED booking this returns it to CASCADE_EXHAUSTED (James
@@ -1306,7 +1414,8 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       id: bookingId,
       status: 'AWAITING_CLEANER',
       cascadePhase: 'PROVISIONAL_APPROVAL',
-      provisionalSource: 'ADMIN_REASSIGN',
+      // H54: both admin-initiated provisional sources revert the same way.
+      provisionalSource: { in: ['ADMIN_REASSIGN', 'ADMIN_PRICE_ADJUST'] },
     },
     data: {
       status: b.reassignPreviousStatus,

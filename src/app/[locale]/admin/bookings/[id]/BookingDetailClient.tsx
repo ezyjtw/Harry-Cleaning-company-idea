@@ -1309,6 +1309,112 @@ function ReassignPanel({ booking }: { booking: BookingDetail }) {
   );
 }
 
+// H54 (James-ruled): the standalone admin price-adjust door. Same cleaner —
+// requests a DELTA the customer must approve (the existing top-up flow; the
+// approve page shows the difference only, never a re-charge of the total).
+// Guards mirror the server: live paid booking, no cascade in flight, funds
+// unreleased. Decline/expiry reverts the booking untouched at the old price.
+function AdjustPricePanel({ booking }: { booking: BookingDetail }) {
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const eligible =
+    ['CONFIRMED', 'ACCEPTED'].includes(booking.status) &&
+    !booking.cascadePhase &&
+    ['PENDING', 'FAILED'].includes(booking.transferStatus ?? '');
+
+  const submit = useCallback(async () => {
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/adjust-price`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Number(amount), reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ ok: false, message: data.error || 'Adjustment failed' });
+        return;
+      }
+      setResult({
+        ok: true,
+        message: `Approval request sent for +£${Number(amount).toFixed(2)}. The booking completes at the new price when the customer approves; on decline or expiry it reverts unchanged.`,
+      });
+      setAmount('');
+      setReason('');
+    } catch {
+      setResult({ ok: false, message: 'Network error' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [booking.id, amount, reason]);
+
+  if (!eligible) {
+    return (
+      <Section title="Adjust Price">
+        <p className="text-sm text-ink-3">
+          Only live paid bookings (CONFIRMED/ACCEPTED, no cascade in flight, funds unreleased) can
+          be adjusted. Current: {booking.status}
+          {booking.cascadePhase ? ` · ${booking.cascadePhase}` : ''} · transfer{' '}
+          {booking.transferStatus}.
+        </p>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="Adjust Price">
+      <div className="space-y-3">
+        <p className="text-xs text-ink-3">
+          Requests an additional amount from the customer (they approve the difference only — the
+          original charge is untouched). Cleaner and platform shares scale proportionally.
+        </p>
+        <div>
+          <label className="block text-xs font-medium text-ink-3 mb-1">
+            Additional amount (£, the delta)
+          </label>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="e.g. 20.00"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-ink-3 mb-1">Reason</label>
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why is the price being adjusted? (audit-logged)"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm resize-none"
+          />
+        </div>
+        <button
+          onClick={submit}
+          disabled={!amount || Number(amount) <= 0 || !reason.trim() || submitting}
+          className="px-3 py-1.5 text-sm font-medium text-primary rounded-lg border border-primary/30 hover:bg-primary-soft disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? 'Sending…' : 'Request customer approval'}
+        </button>
+        {result && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
+          >
+            {result.message}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 export default function BookingDetailClient({ booking: b }: { booking: BookingDetail }) {
   const [showRefund, setShowRefund] = useState(false);
   const [releaseState, setReleaseState] = useState<{
@@ -1746,6 +1852,9 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
 
       {/* Stage 3: Reassign cleaner */}
       <ReassignPanel booking={b} />
+
+      {/* H54: standalone price adjust (same cleaner, delta via top-up flow) */}
+      <AdjustPricePanel booking={b} />
 
       {/* Stage 2: Testing Tools */}
       <StatusOverridePanel booking={b} />
