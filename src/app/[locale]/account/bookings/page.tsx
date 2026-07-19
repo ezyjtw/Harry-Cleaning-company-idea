@@ -337,15 +337,23 @@ export default function BookingsPage() {
       fetch('/api/bookings?status=CLEANER_CANCELLED').then((res) =>
         res.ok ? res.json() : { data: [] }
       ),
+      // H57: pending price-change approvals are pinned exactly like rescues —
+      // pagination-immune, surfaced first.
+      fetch('/api/bookings?approval=pending').then((res) => (res.ok ? res.json() : { data: [] })),
       fetch('/api/bookings').then((res) => (res.ok ? res.json() : { bookings: [] })),
     ])
-      .then(([rescueData, data]) => {
+      .then(([rescueData, approvalData, data]) => {
         const rescueRaw = rescueData.data || [];
+        const approvalRaw = approvalData.data || [];
         const generalRaw = data.data || data.bookings || data || [];
+        const pinnedIds = new Set(
+          [...rescueRaw, ...approvalRaw].map((b: { id?: unknown }) => String(b.id))
+        );
         const rescueIds = new Set(rescueRaw.map((b: { id?: unknown }) => String(b.id)));
         const raw = [
           ...rescueRaw,
-          ...generalRaw.filter((b: { id?: unknown }) => !rescueIds.has(String(b.id))),
+          ...approvalRaw.filter((b: { id?: unknown }) => !rescueIds.has(String(b.id))),
+          ...generalRaw.filter((b: { id?: unknown }) => !pinnedIds.has(String(b.id))),
         ];
         const items = raw.map((b: Record<string, unknown>) => ({
           fullId: String(b.id || ''),
@@ -524,6 +532,30 @@ export default function BookingsPage() {
                     className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
                   >
                     Choose what happens next
+                  </Link>
+                </div>
+              )}
+
+              {/* H57: a price change awaiting the customer's review — same
+                  unmissable treatment as the rescue card above. */}
+              {booking.cascadePhase === 'PROVISIONAL_APPROVAL' && (
+                <div
+                  className="mt-3 rounded-lg border border-warning/30 bg-warning/[0.06] p-3"
+                  data-testid="approval-action-card"
+                >
+                  <p className="font-jost text-sm font-semibold text-ink">
+                    Price change awaiting your review
+                    {booking.topupAmount ? ` — +£${booking.topupAmount.toFixed(2)}` : ''}
+                  </p>
+                  <p className="mt-0.5 font-jost text-[12px] text-ink-3">
+                    Nothing is charged unless you approve. Decline or do nothing and the booking
+                    stands at its original price.
+                  </p>
+                  <Link
+                    href={`/booking/${booking.fullId}/approve-topup`}
+                    className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
+                  >
+                    Review the price change
                   </Link>
                 </div>
               )}

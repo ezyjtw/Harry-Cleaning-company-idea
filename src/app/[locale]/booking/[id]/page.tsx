@@ -39,6 +39,10 @@ interface BookingDetail {
   addressPostcode?: string | null;
   address?: { line1?: string; line2?: string; city?: string; postcode?: string } | null;
   rescueDeadline?: string | null;
+  /** H57: pending price-change fields — live while cascadePhase is PROVISIONAL_APPROVAL. */
+  topupAmount?: number | string | null;
+  provisionalPrice?: number | string | null;
+  approvalExpiresAt?: string | null;
   backupCleanerIds?: string[];
   notes?: string | null;
   dispute?: { id: string } | null;
@@ -70,6 +74,39 @@ export default function BookingDetailPage() {
   const [disputeDescription, setDisputeDescription] = useState('');
   const [submittingDispute, setSubmittingDispute] = useState(false);
   const [disputeError, setDisputeError] = useState<string | null>(null);
+
+  // H57 addendum: the pending price change is actionable RIGHT HERE — the
+  // email/banner/card all also lead to the standalone approve page, but the
+  // detail page mustn't make the customer hunt for the door.
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+
+  const actOnPriceChange = async (action: 'approve' | 'decline') => {
+    setApprovalBusy(true);
+    setApprovalError(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/approve-topup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.result === 'requires_payment') {
+        // Card entry needed — the standalone page hosts the Stripe element.
+        window.location.href = `/booking/${id}/approve-topup`;
+        return;
+      }
+      if (!res.ok) {
+        setApprovalError(data.error || 'Something went wrong. Please try again.');
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setApprovalError('Network error. Please try again.');
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
 
   // H42: "Confirm & release payment" — the completion notification promises
   // this action on this page; the machinery (confirm-complete → releaseDueAt
@@ -230,6 +267,46 @@ export default function BookingDetailPage() {
               Auto-refund deadline: {new Date(booking.rescueDeadline).toLocaleString('en-GB')}
             </p>
           )}
+        </div>
+      )}
+
+      {/* H57 addendum: pending price change — inline approve/decline for the
+          booking's customer. Same POST as the standalone approve page; card
+          entry (no saved card) hands over to that page's Stripe element. */}
+      {booking.viewer === 'client' && booking.cascadePhase === 'PROVISIONAL_APPROVAL' && (
+        <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/[0.06] p-5">
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-warning">
+            Action needed
+          </p>
+          <h2 className="mt-1 font-newsreader text-xl font-semibold text-ink">
+            A price change of +£{Number(booking.topupAmount ?? 0).toFixed(2)} needs your review
+          </h2>
+          <p className="mt-2 font-jost text-sm text-ink-2">
+            New total: £{Number(booking.provisionalPrice ?? booking.totalPrice).toFixed(2)} (was £
+            {Number(booking.totalPrice).toFixed(2)}). Nothing is charged unless you approve —
+            decline or do nothing and the booking stands at its original price.
+            {booking.approvalExpiresAt &&
+              ` You have until ${new Date(booking.approvalExpiresAt).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} to decide.`}
+          </p>
+          {approvalError && (
+            <p className="mt-2 font-jost text-[13px] text-danger">{approvalError}</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => actOnPriceChange('approve')}
+              disabled={approvalBusy}
+              className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+            >
+              {approvalBusy ? 'Working…' : 'Approve & pay the difference'}
+            </button>
+            <button
+              onClick={() => actOnPriceChange('decline')}
+              disabled={approvalBusy}
+              className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+            >
+              Decline
+            </button>
+          </div>
         </div>
       )}
 
