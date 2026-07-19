@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+
+import NavLink from '@/components/nav/NavLink';
 
 const navItems = [
   {
@@ -51,7 +52,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         {/* Mobile: horizontal tabs */}
         <nav className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden">
           {navItems.map((item) => (
-            <Link
+            <NavLink
+              surface="account-tabs"
               key={item.href}
               href={item.href}
               className={`flex shrink-0 items-center gap-2 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors ${
@@ -70,7 +72,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                 <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
               </svg>
               {item.label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
@@ -78,7 +80,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         <aside className="hidden lg:block lg:w-56 lg:shrink-0">
           <nav className="sticky top-24 space-y-1 rounded-xl border border-line bg-surface p-2 shadow-sm">
             {navItems.map((item) => (
-              <Link
+              <NavLink
+                surface="account-sidebar"
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -97,7 +100,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                 </svg>
                 {item.label}
-              </Link>
+              </NavLink>
             ))}
           </nav>
         </aside>

@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import ChromeHider from '@/components/ChromeHider';
+import NavLink from '@/components/nav/NavLink';
 
 // F11: grouped nav — the four previously-unreachable pages (verification,
 // Rena-Find queue, release funds, pricing) join the sidebar. Badge keys pull
@@ -229,7 +229,8 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
                             ? counts.reviews
                             : 0;
                     return (
-                      <Link
+                      <NavLink
+                        surface="admin-sidebar"
                         key={item.href}
                         href={item.href}
                         onClick={() => setSidebarOpen(false)}
@@ -261,7 +262,7 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
                             {badgeCount > 99 ? '99+' : badgeCount}
                           </span>
                         )}
-                      </Link>
+                      </NavLink>
                     );
                   })}
                 </div>
@@ -271,7 +272,8 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
 
           {/* Bottom */}
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-            <Link
+            <NavLink
+              surface="admin-sidebar"
               href="/"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/10 hover:text-white/70 transition-colors"
             >
@@ -284,7 +286,7 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
                 />
               </svg>
               Back to Site
-            </Link>
+            </NavLink>
           </div>
         </aside>
 

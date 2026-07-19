@@ -4,6 +4,7 @@ import { signOut } from 'next-auth/react';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
+import { recordNav } from '@/lib/nav/nav-trace';
 
 interface TimeSlot {
   start: string;
@@ -179,6 +180,10 @@ export default function AvailabilityPage() {
       ) {
         // eslint-disable-next-line no-alert
         const ok = window.confirm('You have unsaved availability changes. Leave without saving?');
+        // H39 trap: every guard consultation leaves a fingerprint — a dead
+        // click caused by a leaked stale guard would show here as a blocked
+        // consult with no confirm dialog seen by the user.
+        recordNav({ kind: 'guard', guard: 'availability-dirty', href, allowed: ok });
         if (!ok) {
           e.preventDefault();
           e.stopPropagation();
