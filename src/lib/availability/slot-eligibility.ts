@@ -15,8 +15,53 @@
 // instantly exhaust). Here a slot is "past" only once its START time has
 // passed.
 
+import type { BookingStatus, CascadePhase } from '@prisma/client';
+
 import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+
+// ─── H63 (Harry-ruled, availability economics): WHICH bookings block a
+// cleaner's slot ───────────────────────────────────────────────────────────
+//
+// Only COMMITMENT blocks. The old clause (`status notIn ['CANCELLED']`)
+// blocked the pinned cleanerId for the booking's whole life — including
+// phases where that cleaner had DECLINED (cleanerId stays pinned to the
+// primary through the cascade), unpaid PENDING bookings (H53: not real),
+// CLEANER_CANCELLED (the canceller walked away) and CASCADE_EXHAUSTED
+// (terminal, refunded). The ruling:
+//   (a) accepted/assigned work blocks — CONFIRMED/ACCEPTED/EN_ROUTE/
+//       IN_PROGRESS (and the done states, for same-day buffer correctness);
+//   (b) a PRIMARY offer in its live window blocks (the customer was promised
+//       this cleaner is being asked);
+//   (c) unaccepted backup/reserve/broadcast membership NEVER blocks — those
+//       are maybes, and the H7 offer-time/accept-time re-validation already
+//       handles the race if a maybe books out elsewhere.
+// Compose with AND to avoid OR-collisions in caller where-objects.
+export function blocksCleanerSlotWhere(): {
+  OR: (
+    | { status: { in: BookingStatus[] } }
+    | { status: BookingStatus; cascadePhase: CascadePhase }
+  )[];
+} {
+  return {
+    OR: [
+      {
+        status: {
+          in: [
+            'CONFIRMED',
+            'ACCEPTED',
+            'EN_ROUTE',
+            'IN_PROGRESS',
+            'COMPLETED',
+            'REVIEWED',
+            'DISPUTED',
+          ],
+        },
+      },
+      { status: 'AWAITING_CLEANER', cascadePhase: 'PRIMARY_OFFER' },
+    ],
+  };
+}
 
 export interface SlotQuery {
   /** Booking date (the calendar day of the slot). */
@@ -99,12 +144,12 @@ export async function filterSlotAvailableCleaners(
       },
       select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
     }),
-    // Same conflict source as search: any non-cancelled booking that day.
+    // Same conflict source as search: bookings that actually BLOCK (H63).
     prisma.booking.findMany({
       where: {
         cleanerId: { in: userIds },
         date: { gte: startOfDay, lte: endOfDay },
-        status: { notIn: ['CANCELLED'] },
+        AND: [blocksCleanerSlotWhere()],
         ...(slot.excludeBookingId ? { id: { not: slot.excludeBookingId } } : {}),
       },
       select: { cleanerId: true, date: true, startTime: true, duration: true },

@@ -199,6 +199,7 @@ async function notifyDisputeOpened(
       cleanerUserId: booking.cleanerId,
       dateStr,
       reasonLabel,
+      bookingId,
     }).catch(() => {});
   }
 

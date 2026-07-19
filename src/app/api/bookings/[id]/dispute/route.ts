@@ -15,19 +15,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
 
-  const { id } = await context.params;
+  const { id: rawRef } = await context.params;
 
-  // Authorization: only the booking's owner may report a problem on it.
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    select: { clientId: true },
+  // H64: customers hold the DISPLAY reference (first 8 chars, uppercased —
+  // what the bookings list, admin cards and emails all show), not the internal
+  // id. Accept both: exact id first, else a case-insensitive prefix match
+  // scoped to the CALLER'S OWN bookings (no enumeration surface — you can only
+  // resolve references to bookings you already own).
+  let booking = await prisma.booking.findUnique({
+    where: { id: rawRef },
+    select: { id: true, clientId: true },
   });
+  if (!booking && /^[a-z0-9-]{6,25}$/i.test(rawRef)) {
+    booking = await prisma.booking.findFirst({
+      where: { clientId: user.id, id: { startsWith: rawRef.toLowerCase() } },
+      select: { id: true, clientId: true },
+    });
+  }
   if (!booking) {
-    return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
+    return NextResponse.json(
+      {
+        error:
+          'Booking reference not found. Use the reference from your confirmation email or bookings page (e.g. AB12CD34).',
+      },
+      { status: 404 }
+    );
   }
   if (booking.clientId !== user.id) {
     return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
   }
+  const id = booking.id;
 
   let body: { reason?: unknown; description?: unknown };
   try {

@@ -393,19 +393,33 @@ export function buildSupportAlert(data: {
 
 // H43: the assigned cleaner learns a customer reported a problem — bell AND
 // email. Their payout is paused; the case link takes them to add their side.
+// H64: the display reference customers and cleaners quote — first 8 chars,
+// uppercased (matches the bookings list / admin cards), and the dispute form
+// accepts exactly this format.
+export function bookingDisplayRef(bookingId: string): string {
+  return bookingId.substring(0, 8).toUpperCase();
+}
+
 export function buildDisputeOpenedCleaner(opts: {
   cleanerName: string;
   dateStr: string;
   reasonLabel: string;
+  /** H64: traceability — every dispute email carries the booking reference. */
+  bookingId?: string;
 }): EmailContent {
   const link = `${appUrl()}/disputes`;
-  const subject = 'A problem was reported on one of your bookings';
+  const subject = opts.bookingId
+    ? `A problem was reported on booking ${bookingDisplayRef(opts.bookingId)}`
+    : 'A problem was reported on one of your bookings';
   const contentHtml =
     h('A problem was reported') +
     p(`Hi ${opts.cleanerName || 'there'},`) +
     p(
       `A customer has reported a problem with your booking on ${opts.dateStr} (${opts.reasonLabel}). While our team reviews it, your payout for this booking is on hold.`
     ) +
+    (opts.bookingId
+      ? p(`Booking reference: <strong>${bookingDisplayRef(opts.bookingId)}</strong>`)
+      : '') +
     p(
       'You can add your side of the story and any photos on your disputes page. Stronger evidence helps us resolve things faster and fairly.'
     ) +
@@ -425,8 +439,12 @@ export function buildDisputeResolvedEmail(opts: {
   refundAmount?: number;
   /** The refund attempt failed (stuck-money retry queue) — promise, don't confirm. */
   refundPending?: boolean;
+  /** H64: traceability — every dispute email carries the booking reference. */
+  bookingId?: string;
 }): EmailContent {
-  const subject = 'Your dispute has been resolved';
+  const subject = opts.bookingId
+    ? `Your dispute has been resolved — booking ${bookingDisplayRef(opts.bookingId)}`
+    : 'Your dispute has been resolved';
   const link = `${appUrl()}/disputes`;
   const amount = opts.refundAmount ?? 0;
 

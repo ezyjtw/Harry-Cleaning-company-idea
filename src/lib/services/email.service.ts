@@ -332,6 +332,7 @@ export async function sendDisputeResolutionEmails(opts: {
       outcome: opts.outcome,
       refundAmount: opts.refundAmount,
       refundPending,
+      bookingId: opts.bookingId,
     });
     await sendEmail(customerEmail, subject, html, {
       userId: b.client?.id ?? null,
@@ -355,6 +356,7 @@ export async function sendDisputeResolutionEmails(opts: {
       dateStr,
       outcome: opts.outcome,
       refundAmount: opts.refundAmount,
+      bookingId: opts.bookingId,
     });
     await sendEmail(b.cleaner.email, subject, html, {
       userId: b.cleaner.id,
@@ -369,11 +371,14 @@ export async function sendDisputeOpenedToCleaner(opts: {
   cleanerUserId: string;
   dateStr: string;
   reasonLabel: string;
+  /** H64: traceability — carried into the email as the display reference. */
+  bookingId?: string;
 }): Promise<boolean> {
   const { subject, html } = buildDisputeOpenedCleaner({
     cleanerName: opts.cleanerName,
     dateStr: opts.dateStr,
     reasonLabel: opts.reasonLabel,
+    bookingId: opts.bookingId,
   });
   return sendEmail(opts.cleanerEmail, subject, html, {
     userId: opts.cleanerUserId,

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import {
   computeOpenRangesForDate,
   expandToSlots,
@@ -72,7 +73,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: {
         cleanerId: profile.userId,
         date: { gte: fromDate, lte: toDate },
-        status: { notIn: ['CANCELLED'] },
+        // H63: only committed work (or a live primary window) blocks the
+        // customer-facing calendar.
+        AND: [blocksCleanerSlotWhere()],
       },
       select: { date: true, startTime: true, duration: true },
     }),
