@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -117,12 +117,40 @@ export default function CleanerJobsPage() {
   // F16: honest load failure (was a silent blank) + per-action pending.
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // H56: calendar deep-links arrive as ?tab=<tab>#job-<id>. CSS :target can't
+  // match content that mounts after navigation, so the highlight is stateful.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  // H56: land on the tab the deep-linked job actually lives on.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && tabs.some((t) => t.key === tab)) setActiveTab(tab as JobStatus);
+  }, []);
+
+  // H56: once the list has rendered, scroll the deep-linked card into view and
+  // ring it.
+  useEffect(() => {
+    if (loading) return;
+    const m = window.location.hash.match(/^#job-(.+)$/);
+    if (!m) return;
+    const el = document.getElementById(`job-${m[1]}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    setHighlightId(m[1]);
+  }, [loading, jobList]);
+
+  // Stale-response guard: a slower earlier fetch (e.g. the mount-time
+  // 'pending' load racing a deep-link tab switch) must not overwrite the
+  // latest tab's list.
+  const fetchSeq = useRef(0);
 
   const fetchJobs = useCallback(async (tab: JobStatus) => {
+    const seq = ++fetchSeq.current;
     const statuses = toApiStatuses(tab).join(',');
     setLoadError(false);
     try {
       const res = await fetch(`/api/cleaner/jobs?status=${statuses}&limit=50`);
+      if (seq !== fetchSeq.current) return;
       if (res.status === 401) {
         // R3: signOut (not router.push) — clears the stale cookie so /login
         // renders instead of middleware bouncing back to /dashboard.
@@ -134,6 +162,7 @@ export default function CleanerJobsPage() {
         return;
       }
       const data = await res.json();
+      if (seq !== fetchSeq.current) return;
       setJobList(
         data.jobs.map((j: Job) => ({
           ...j,
@@ -141,7 +170,7 @@ export default function CleanerJobsPage() {
         }))
       );
     } catch {
-      setLoadError(true);
+      if (seq === fetchSeq.current) setLoadError(true);
     }
   }, []);
 
@@ -440,7 +469,11 @@ export default function CleanerJobsPage() {
           {jobList.map((job) => {
             const ds = toDisplayStatus(job.status);
             return (
-              <div key={job.id} className="rounded-xl border border-line bg-surface p-5">
+              <div
+                key={job.id}
+                id={`job-${job.id}`}
+                className={`rounded-xl border border-line bg-surface p-5 target:ring-2 target:ring-primary ${highlightId === job.id ? 'ring-2 ring-primary' : ''}`}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="mb-1.5 flex items-center gap-3">
