@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { computeCleanerOpenRanges } from '@/lib/availability/timesheet';
 import { notOwnBookingWhere } from '@/lib/booking/own-booking';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
@@ -21,6 +22,25 @@ export async function GET() {
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(endOfWeek.getDate() + 7);
 
+  // H34 banner window: today → end of THIS calendar week (Sunday 23:59). Its
+  // availability queries filter through the cleanerProfile relation on
+  // user.id, so they no longer depend on the profile row's id and fold into
+  // the single query burst below (see the perf note near the H34 loop).
+  const h34WeekEnd = new Date(startOfDay);
+  {
+    const dow = h34WeekEnd.getDay(); // 0=Sun
+    h34WeekEnd.setDate(h34WeekEnd.getDate() + (dow === 0 ? 0 : 7 - dow));
+    h34WeekEnd.setHours(23, 59, 59, 999);
+  }
+  const cleanerProfileByUser = { cleanerProfile: { userId: user.id } };
+
+  // PERF (H41 audit): the /cleaner dashboard was FOUR sequential DB round-trip
+  // phases — this burst, then a serial cancelled-count, then a serial
+  // review-count, then the H34 availability trio. Under production pool
+  // contention each phase queued for a free connection, so the render stalled
+  // in the tail intermittently. They only ever needed user.id (or the profile
+  // relation), so every query now shares ONE Promise.all: one acquisition
+  // burst, not four. The H34 work left after this is pure CPU.
   const [
     profile,
     todaysJobs,
@@ -32,6 +52,11 @@ export async function GET() {
     importedReviewCount,
     insuranceDocCount,
     rejectedDocs,
+    cancelledCount,
+    visibleReviewCount,
+    h34Recurring,
+    h34DateSlots,
+    h34Overrides,
   ] = await Promise.all([
     // Cleaner profile
     prisma.cleanerProfile.findUnique({
@@ -193,6 +218,39 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
     }),
+
+    // Cancelled in last 30 days (was a serial await — folded in; needs user.id).
+    prisma.booking.count({
+      where: {
+        cleanerId: user.id,
+        createdAt: { gte: new Date(now.getTime() - 30 * 86400000) },
+        status: 'CANCELLED',
+      },
+    }),
+
+    // B7: visible review count (was a serial await — folded in; needs user.id).
+    prisma.review.count({
+      where: { cleanerId: user.id, visibility: 'VISIBLE' },
+    }),
+
+    // H34 banner trio (was a second Promise.all after the profile — folded in
+    // by filtering through the cleanerProfile relation, so no profile.id dep).
+    prisma.availabilitySlot.findMany({
+      where: cleanerProfileByUser,
+      select: { dayOfWeek: true, startTime: true, endTime: true },
+    }),
+    prisma.availabilityDateSlot.findMany({
+      where: { ...cleanerProfileByUser, date: { gte: startOfDay, lte: h34WeekEnd } },
+      select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
+    }),
+    prisma.availabilityOverride.findMany({
+      where: {
+        ...cleanerProfileByUser,
+        date: { gte: startOfDay, lte: h34WeekEnd },
+        isBlocked: true,
+      },
+      select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
+    }),
   ]);
 
   if (!profile) {
@@ -212,14 +270,6 @@ export async function GET() {
   const maxDaily = Math.max(...dailyEarnings, 1);
   const dailyPercents = dailyEarnings.map((e) => Math.round((e / maxDaily) * 100));
 
-  // Cancelled in last 30 days
-  const cancelledCount = await prisma.booking.count({
-    where: {
-      cleanerId: user.id,
-      createdAt: { gte: new Date(now.getTime() - 30 * 86400000) },
-      status: 'CANCELLED',
-    },
-  });
   const totalRecent = thirtyDayBookings + cancelledCount;
   // B7 honesty: this is a COMPLETION rate (non-cancelled share of recent
   // bookings) — it was previously surfaced under a "Response Rate" label it
@@ -227,46 +277,18 @@ export async function GET() {
   const completionRate =
     totalRecent > 0 ? Math.round(((totalRecent - cancelledCount) / totalRecent) * 100) : 100;
 
-  // B7 honesty: "N reviews" must count reviews, not completed jobs.
-  const visibleReviewCount = await prisma.review.count({
-    where: { cleanerId: user.id, visibility: 'VISIBLE' },
-  });
-
   // H34 (James-ruled banner): "no availability set this week" — computed with
   // the SAME timesheet core search uses (computeCleanerOpenRanges: recurring
   // template + date-specific slots − blocked overrides), evaluated for each
   // REMAINING day of the current week (today → Sunday). Bookings are
   // deliberately NOT subtracted: a fully-booked week is not "no availability
   // set". Banner fires only when every remaining day has zero open ranges.
+  // PERF: the three availability reads this needs are fetched up in the single
+  // query burst above; only this pure-CPU loop remains here.
   let noAvailabilityThisWeek = false;
   {
-    const endOfWeek = new Date(startOfDay);
-    const dow = endOfWeek.getDay(); // 0=Sun
-    endOfWeek.setDate(endOfWeek.getDate() + (dow === 0 ? 0 : 7 - dow));
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    const [recurring, weekDateSlots, weekOverrides] = await Promise.all([
-      prisma.availabilitySlot.findMany({
-        where: { cleanerProfileId: profile.id },
-        select: { dayOfWeek: true, startTime: true, endTime: true },
-      }),
-      prisma.availabilityDateSlot.findMany({
-        where: { cleanerProfileId: profile.id, date: { gte: startOfDay, lte: endOfWeek } },
-        select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
-      }),
-      prisma.availabilityOverride.findMany({
-        where: {
-          cleanerProfileId: profile.id,
-          date: { gte: startOfDay, lte: endOfWeek },
-          isBlocked: true,
-        },
-        select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
-      }),
-    ]);
-
-    const { computeCleanerOpenRanges } = await import('@/lib/availability/timesheet');
     const dayMs = 86400000;
-    const remainingDays = Math.round((endOfWeek.getTime() - startOfDay.getTime()) / dayMs) + 1;
+    const remainingDays = Math.round((h34WeekEnd.getTime() - startOfDay.getTime()) / dayMs) + 1;
     let anyOpen = false;
     for (let i = 0; i < remainingDays && !anyOpen; i++) {
       const target = new Date(startOfDay.getTime() + i * dayMs);
@@ -274,9 +296,9 @@ export async function GET() {
       const { openRanges } = computeCleanerOpenRanges({
         targetDate: target,
         bufferMins: 0,
-        recurringSlots: recurring,
-        dateSlots: weekDateSlots.filter((s) => s.date.toISOString().startsWith(targetStr)),
-        overrides: weekOverrides.filter((o) => o.date.toISOString().startsWith(targetStr)),
+        recurringSlots: h34Recurring,
+        dateSlots: h34DateSlots.filter((s) => s.date.toISOString().startsWith(targetStr)),
+        overrides: h34Overrides.filter((o) => o.date.toISOString().startsWith(targetStr)),
         bookings: [],
         isPast: false,
       });
