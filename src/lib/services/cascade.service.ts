@@ -273,7 +273,106 @@ export async function handleDecline(bookingId: string, cleanerId: string): Promi
     return { success: true, message: 'Declined.' };
   }
 
+  // H27 (James law): a broadcast whose recipient set is provably exhausted
+  // terminates NOW — refund + email — never at window expiry. These two
+  // phases were built expiry-terminal only: declines were recorded with no
+  // consequence, so a 2-cleaner platform held the customer's money for days
+  // against an impossible outcome.
+  if (booking.cascadePhase === 'RENA_FIND') {
+    await checkBroadcastExhausted(bookingId);
+    return { success: true, message: 'Declined.' };
+  }
+
+  if (booking.cascadePhase === 'PHASE2_RESERVE') {
+    await checkReserveExhausted(bookingId);
+    return { success: true, message: 'Declined.' };
+  }
+
   return { success: true, message: 'Declined.' };
+}
+
+// H27: after EVERY broadcast decline, evaluate remaining-offerable =
+// (recipients − decliners) still genuinely free per the SHARED slot predicate.
+// Empty → the outcome is impossible → exhaust immediately through the same
+// terminal expiry uses (expireRenaFind: CASCADE_EXHAUSTED → auto-refund +
+// notify + email, the H17-fixed path). The scheduler expiry stays as backstop.
+// Applies identically to cascade-entered and rescue-①-entered broadcasts —
+// both terminate in an automatic full refund when nobody can take the slot.
+async function checkBroadcastExhausted(bookingId: string): Promise<void> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      cascadePhase: true,
+      backupCleanerIds: true,
+      declinedCleanerIds: true,
+      date: true,
+      startTime: true,
+      duration: true,
+    },
+  });
+  if (!booking || booking.status !== 'AWAITING_CLEANER' || booking.cascadePhase !== 'RENA_FIND') {
+    return;
+  }
+
+  const remaining = booking.backupCleanerIds.filter(
+    (id) => !(booking.declinedCleanerIds ?? []).includes(id)
+  );
+  if (remaining.length > 0) {
+    const slotFree = await filterSlotAvailableCleaners(remaining, {
+      date: booking.date,
+      startTime: booking.startTime,
+      durationHours: Number(booking.duration),
+      excludeBookingId: bookingId,
+    });
+    if (slotFree.size > 0) return; // someone can still accept — broadcast lives
+  }
+
+  const exhausted = await expireRenaFind(bookingId);
+  if (exhausted) {
+    await AuditService.log({
+      action: 'RENA_FIND_EXHAUSTED_ON_DECLINE',
+      entityType: 'Booking',
+      entityId: bookingId,
+      metadata: {
+        recipients: booking.backupCleanerIds.length,
+        declined: (booking.declinedCleanerIds ?? []).length,
+        remainingAfterDecline: remaining.length,
+      },
+    }).catch(() => {});
+  }
+}
+
+// H27 (rule 4): the ordinary cascade's Phase-2 shares the broadcast shape —
+// every offered cleaner declining with NO live reserve means the reserve
+// window can never produce a promotion. Run the promotion path NOW: with zero
+// priceable reserves it exhausts immediately (which itself widens to
+// Rena-Find or refunds, per the consent flag).
+async function checkReserveExhausted(bookingId: string): Promise<void> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      cascadePhase: true,
+      backupCleanerIds: true,
+      declinedCleanerIds: true,
+      reserveCleanerIds: true,
+    },
+  });
+  if (
+    !booking ||
+    booking.status !== 'AWAITING_CLEANER' ||
+    booking.cascadePhase !== 'PHASE2_RESERVE'
+  ) {
+    return;
+  }
+
+  const declined = booking.declinedCleanerIds ?? [];
+  const allDeclined = booking.backupCleanerIds.every((id) => declined.includes(id));
+  const liveReserves = booking.reserveCleanerIds.filter((id) => !declined.includes(id));
+  if (allDeclined && liveReserves.length === 0) {
+    await promoteReserves(bookingId);
+  }
 }
 
 async function checkAllDeclined(bookingId: string, phase: CascadePhase): Promise<void> {

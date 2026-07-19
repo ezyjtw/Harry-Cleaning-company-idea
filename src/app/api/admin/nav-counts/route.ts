@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
   }
 
-  const [verificationPending, renaFindQueue] = await Promise.all([
+  const [verificationPending, renaFindQueue, reviewCleaners] = await Promise.all([
     // Queue restructure: the unit is CLEANERS awaiting action (distinct
     // profiles with unverified docs), matching the per-cleaner queue page.
     prisma.documentUpload
@@ -26,7 +26,21 @@ export async function GET() {
       .then((rows) => rows.length),
     // Mirrors the Rena-Find queue page's list.
     prisma.booking.count({ where: { cascadePhase: 'RENA_FIND_ADMIN_REVIEW' } }),
+    // H24: reviews badge counts CLEANERS needing action (pending imports ∪
+    // flagged natives) — the same unit as the restructured page.
+    Promise.all([
+      prisma.importedReview.findMany({
+        where: { verificationStatus: 'PENDING' },
+        select: { cleanerId: true },
+        distinct: ['cleanerId'],
+      }),
+      prisma.review.findMany({
+        where: { visibility: 'FLAGGED' },
+        select: { cleanerId: true },
+        distinct: ['cleanerId'],
+      }),
+    ]).then(([imp, flag]) => new Set([...imp, ...flag].map((r) => r.cleanerId)).size),
   ]);
 
-  return NextResponse.json({ verificationPending, renaFindQueue });
+  return NextResponse.json({ verificationPending, renaFindQueue, reviewCleaners });
 }

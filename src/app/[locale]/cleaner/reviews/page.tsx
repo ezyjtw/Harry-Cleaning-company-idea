@@ -27,6 +27,8 @@ interface ReviewsData {
     punctuality: number;
     communication: number;
   };
+  /** H25: how many Rena reviews carry sub-ratings (imports never do). */
+  categoryCount?: number;
 }
 
 const ratingFilters = [0, 5, 4, 3, 2, 1];
@@ -38,24 +40,21 @@ export default function ReviewsPage() {
   const [data, setData] = useState<ReviewsData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchReviews = useCallback(
-    async (ratingFilter: number) => {
-      setLoading(true);
-      const params = ratingFilter > 0 ? `?rating=${ratingFilter}` : '';
-      const res = await fetch(`/api/cleaner/reviews${params}`);
-      if (res.status === 401) {
-        // R3: signOut (not router.push) — clears the stale cookie so /login
-        // renders instead of middleware bouncing back to /dashboard.
-        signOut({ callbackUrl: '/login' });
-        return;
-      }
-      if (res.ok) {
-        setData(await res.json());
-      }
-      setLoading(false);
-    },
-    []
-  );
+  const fetchReviews = useCallback(async (ratingFilter: number) => {
+    setLoading(true);
+    const params = ratingFilter > 0 ? `?rating=${ratingFilter}` : '';
+    const res = await fetch(`/api/cleaner/reviews${params}`);
+    if (res.status === 401) {
+      // R3: signOut (not router.push) — clears the stale cookie so /login
+      // renders instead of middleware bouncing back to /dashboard.
+      signOut({ callbackUrl: '/login' });
+      return;
+    }
+    if (res.ok) {
+      setData(await res.json());
+    }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     fetchReviews(filter);
@@ -165,30 +164,42 @@ export default function ReviewsPage() {
           </div>
         </div>
 
-        <div
-          className="rounded-xl bg-surface p-6"
-          style={{ border: '1px solid rgb(var(--color-border))' }}
-        >
-          <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
-            Category Breakdown
-          </h3>
-          <div className="space-y-3">
-            {Object.entries(data.avgCategories).map(([key, value]) => (
-              <div key={key}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-jost text-sm font-light text-ink-2 capitalize">{key}</span>
-                  <span className="font-jost text-sm font-light text-ink">{value.toFixed(1)}</span>
+        {/* H25: the breakdown renders only when Rena sub-rated reviews exist,
+            and says how many it averages — imported reviews feed the overall
+            number but never the categories. */}
+        {(data.categoryCount ?? 0) > 0 && (
+          <div
+            className="rounded-xl bg-surface p-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
+          >
+            <h3 className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mb-4">
+              Category Breakdown{' '}
+              <span className="normal-case tracking-normal">
+                · from {data.categoryCount} Rena {data.categoryCount === 1 ? 'review' : 'reviews'}
+              </span>
+            </h3>
+            <div className="space-y-3">
+              {Object.entries(data.avgCategories).map(([key, value]) => (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-jost text-sm font-light text-ink-2 capitalize">
+                      {key}
+                    </span>
+                    <span className="font-jost text-sm font-light text-ink">
+                      {value.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-primary-soft rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${(value / 5) * 100}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-primary-soft rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${(value / 5) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Filter */}

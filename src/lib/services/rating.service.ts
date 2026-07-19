@@ -9,6 +9,9 @@ export interface CleanerRating {
   totalCount: number;
   nativeCount: number;
   importedCount: number;
+  /** H25: how many native reviews carry sub-ratings — the population behind
+   *  subRatings, surfaced so displays can label the breakdown honestly. */
+  subRatedCount: number;
   subRatings: {
     thoroughness: number | null;
     punctuality: number | null;
@@ -81,6 +84,7 @@ export async function computeCleanerRating(
     totalCount,
     nativeCount,
     importedCount,
+    subRatedCount: nativeSubs._count,
     subRatings: {
       thoroughness:
         hasSubRatings && nativeSubs._avg.thoroughness !== null

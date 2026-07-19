@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
@@ -224,6 +225,30 @@ export default function DisputesPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
+          {/* H26: this page sits OUTSIDE the portal/account chrome — the
+              sidebar that brought a cleaner here vanishes on arrival. Same
+              role-aware way home the messages page has. */}
+          {role && (
+            <Link
+              href={role === 'CLEANER' ? '/cleaner' : '/account'}
+              className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 19.5 8.25 12l7.5-7.5"
+                />
+              </svg>
+              {role === 'CLEANER' ? 'Back to dashboard' : 'Back to my account'}
+            </Link>
+          )}
           <h1 className="font-newsreader text-3xl font-semibold text-ink">Dispute Resolution</h1>
           <p className="mt-2 text-ink-2">
             We take every dispute seriously. Both parties can submit evidence, and our team reviews
@@ -231,16 +256,16 @@ export default function DisputesPage() {
           </p>
         </div>
         {role !== 'CLEANER' && (
-        <button
-          onClick={() => setActiveView(activeView === 'new' ? 'list' : 'new')}
-          className={`shrink-0 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors ${
-            activeView === 'new'
-              ? 'border border-line bg-surface text-ink-2 hover:bg-page'
-              : 'bg-danger text-white hover:bg-red-700'
-          }`}
-        >
-          {activeView === 'new' ? 'Back to Disputes' : 'File a Dispute'}
-        </button>
+          <button
+            onClick={() => setActiveView(activeView === 'new' ? 'list' : 'new')}
+            className={`shrink-0 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors ${
+              activeView === 'new'
+                ? 'border border-line bg-surface text-ink-2 hover:bg-page'
+                : 'bg-danger text-white hover:bg-red-700'
+            }`}
+          >
+            {activeView === 'new' ? 'Back to Disputes' : 'File a Dispute'}
+          </button>
         )}
       </div>
 

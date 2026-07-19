@@ -9,7 +9,12 @@ import ChromeHider from '@/components/ChromeHider';
 // F11: grouped nav — the four previously-unreachable pages (verification,
 // Rena-Find queue, release funds, pricing) join the sidebar. Badge keys pull
 // live pending counts (60s poll, countOnly pattern like the notification bell).
-type NavItem = { href: string; label: string; icon: string; badge?: 'verification' | 'renaFind' };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  badge?: 'verification' | 'renaFind' | 'reviews';
+};
 type NavGroup = { label: string | null; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -85,7 +90,8 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: '/admin/imported-reviews',
-        label: 'Imported Reviews',
+        label: 'Reviews',
+        badge: 'reviews',
         icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
       },
     ],
@@ -116,17 +122,20 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // F11: live pending counts for the badge-carrying items.
-  const [counts, setCounts] = useState<{ verification: number; renaFind: number }>({
-    verification: 0,
-    renaFind: 0,
-  });
+  const [counts, setCounts] = useState<{ verification: number; renaFind: number; reviews: number }>(
+    { verification: 0, renaFind: 0, reviews: 0 }
+  );
   useEffect(() => {
     const poll = async () => {
       try {
         const res = await fetch('/api/admin/nav-counts');
         if (res.ok) {
           const d = await res.json();
-          setCounts({ verification: d.verificationPending ?? 0, renaFind: d.renaFindQueue ?? 0 });
+          setCounts({
+            verification: d.verificationPending ?? 0,
+            renaFind: d.renaFindQueue ?? 0,
+            reviews: d.reviewCleaners ?? 0,
+          });
         }
       } catch {
         /* badge poll is best-effort */
@@ -216,7 +225,9 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
                         ? counts.verification
                         : item.badge === 'renaFind'
                           ? counts.renaFind
-                          : 0;
+                          : item.badge === 'reviews'
+                            ? counts.reviews
+                            : 0;
                     return (
                       <Link
                         key={item.href}

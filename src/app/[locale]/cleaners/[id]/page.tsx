@@ -90,7 +90,7 @@ export default async function CleanerProfilePage({
     text: string;
   }[];
 
-  const { subRatings: sub } = await computeCleanerRating(params.id);
+  const { subRatings: sub, subRatedCount } = await computeCleanerRating(params.id);
   const hasNativeSubRatings = sub.thoroughness !== null;
   // B7 (James-ruled): NO value-for-money row — the review form doesn't collect
   // it; the old row re-displayed the overall average under an invented label.
@@ -181,10 +181,11 @@ export default async function CleanerProfilePage({
           { label: 'Communication', value: sub.communication ?? 0 },
         ]
       : null,
-    ratingsNote:
-      !hasNativeSubRatings && importedReviews.length > 0
-        ? 'No Rena jobs yet — the category breakdown reflects completed Rena bookings only.'
-        : null,
+    // H25: honest population labelling — the bars say how many Rena reviews
+    // they average, and the imported footnote appears when imports exist.
+    // Imported-only cleaners render NO detailed-ratings section at all.
+    subRatedCount,
+    hasImportedReviews: importedReviews.length > 0,
     // B7 (James-ruled): no response-time stat — CleanerProfile.responseTime is
     // never computed by any code path (NULL in production), and the old
     // '~15 min' fallback was pure invention.
