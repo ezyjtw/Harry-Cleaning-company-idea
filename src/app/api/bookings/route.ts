@@ -195,6 +195,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // H36 (James-ruled): a cleaner may book OTHER cleaners as a customer, but
+    // never themselves — self-booking is a rating-inflation vector (verified
+    // "native" review round-tripped to yourself for the fee).
+    {
+      const self = await getSessionUser();
+      if (self && self.id === body.cleanerId) {
+        return NextResponse.json({ error: "You can't book yourself." }, { status: 400 });
+      }
+    }
+
     // 2. Cleaner lookup with Stripe eligibility
     const cleaner = await prisma.user.findFirst({
       where: { id: body.cleanerId, role: 'CLEANER' },

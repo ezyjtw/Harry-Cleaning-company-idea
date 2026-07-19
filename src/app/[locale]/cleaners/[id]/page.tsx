@@ -140,13 +140,17 @@ export default async function CleanerProfilePage({
       verified: r.isVerifiedBooking,
       reply: r.reply || undefined,
     })),
-    ...testimonials.map((t, i) => ({
-      id: `testimonial-${i}`,
-      name: t.clientName,
-      rating: t.rating,
-      text: t.text || '',
-    })),
   ];
+
+  // James-ruled (ledger): self-entered testimonials leave the Reviews list and
+  // become their own labelled "In their own words" section — they were visually
+  // indistinguishable from Rena reviews despite counting toward nothing.
+  const testimonialItems: ProfileReviewItem[] = testimonials.map((t, i) => ({
+    id: `testimonial-${i}`,
+    name: t.clientName,
+    rating: t.rating,
+    text: t.text || '',
+  }));
 
   const now = new Date();
   // Photo carry-through fix (James, 2nd report): resolve the R2 key to a
@@ -191,6 +195,7 @@ export default async function CleanerProfilePage({
     languages: profile.languages || [],
     services,
     reviews: reviewItems,
+    testimonials: testimonialItems,
     importedReviews: importedReviews.map((imp) => ({
       id: imp.id,
       name: imp.reviewerName || 'Reviewer',
