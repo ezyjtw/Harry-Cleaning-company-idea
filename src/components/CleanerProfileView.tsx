@@ -66,6 +66,9 @@ export interface CleanerProfileData {
   /** H28 (James-ruled): verified imported reviews, rendered as their own
    *  labelled section BENEATH the Rena reviews — never mixed in. */
   importedReviews?: ProfileReviewItem[];
+  /** James-ruled (ledger): self-entered testimonials — own labelled section,
+   *  never mixed into Reviews, never counted anywhere. */
+  testimonials?: ProfileReviewItem[];
 }
 
 function Avatar({ name, photo, size }: { name: string; photo?: string | null; size: number }) {
@@ -336,6 +339,41 @@ export default function CleanerProfileView({
                         {rev.date}
                       </span>
                     )}
+                  </div>
+                  <div className="mt-1">
+                    <StarRating rating={rev.rating} />
+                  </div>
+                  {rev.text && (
+                    <p className="mt-2 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+                      {rev.text}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* James-ruled (ledger): self-entered references get their own honest
+            section — they read as testimony, not as verified reviews, and the
+            sub-line says exactly what they are. */}
+        {data.testimonials && data.testimonials.length > 0 && (
+          <>
+            <SectionLabel>In their own words ({data.testimonials.length})</SectionLabel>
+            <p className="font-jost text-[12px] font-light text-ink-3">
+              References {data.name} added themselves — not verified by Rena and not counted in the
+              rating.
+            </p>
+            <div>
+              {data.testimonials.map((rev) => (
+                <div key={rev.id} className="border-t border-line py-4 first:border-t-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-jost text-[14px] font-medium text-ink">
+                      {rev.name}
+                      <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] font-medium text-ink-2">
+                        Self-added reference
+                      </span>
+                    </span>
                   </div>
                   <div className="mt-1">
                     <StarRating rating={rev.rating} />
