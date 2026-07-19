@@ -35,6 +35,9 @@ export async function GET(_request: Request, { params }: { params: { id: string 
         },
         review: true,
         payment: true,
+        // H40: the booking page's "Report a problem" door needs to know
+        // whether a dispute is already open (id only — nothing sensitive).
+        dispute: { select: { id: true } },
       },
     });
 
