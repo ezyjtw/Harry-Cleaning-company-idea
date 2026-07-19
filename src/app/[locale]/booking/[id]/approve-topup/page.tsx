@@ -29,7 +29,18 @@ type PageState =
   | 'declined'
   | 'payment'
   | 'error'
-  | 'resolved';
+  | 'resolved'
+  | 'approved';
+
+/** H67: what a link whose provisional already resolved APPROVED renders from. */
+interface ApprovedOutcome {
+  newPrice: number;
+  topupAmount: number;
+  cleanerName: string | null;
+  serviceType: string;
+  date: string;
+  time: string;
+}
 
 export default function ApproveTopupPage() {
   const params = useParams();
@@ -41,6 +52,7 @@ export default function ApproveTopupPage() {
   // without an account.
   const guestToken = searchParams.get('token');
   const [data, setData] = useState<TopupData | null>(null);
+  const [approvedOutcome, setApprovedOutcome] = useState<ApprovedOutcome | null>(null);
   const [state, setState] = useState<PageState>('loading');
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -56,9 +68,15 @@ export default function ApproveTopupPage() {
           // straight back to this panel (the H6 callbackUrl pattern).
           const back = `/booking/${bookingId}/approve-topup${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`;
           router.replace(`/login?callbackUrl=${encodeURIComponent(back)}`);
+        } else if (d.reason === 'resolved' && d.outcome === 'approved') {
+          // H67: they approved and PAID — arriving here (including the Stripe
+          // return_url redirect after card entry) gets confirmation, never the
+          // dead-link copy.
+          setApprovedOutcome(d as ApprovedOutcome);
+          setState('approved');
         } else if (d.reason === 'resolved') {
-          // H57 expiry sweep: dead provisional → calm resolved state, and the
-          // booking stands at its original price unless a change was approved.
+          // H57 expiry sweep: declined/expired provisional → calm resolved
+          // state — here "stands at its original price" is actually true.
           setState('resolved');
         } else if (d.error) {
           setError(d.error);
@@ -163,14 +181,44 @@ export default function ApproveTopupPage() {
     );
   }
 
+  if (state === 'approved' && approvedOutcome) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+            <svg
+              className="h-7 w-7 text-trust"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="font-newsreader text-2xl text-ink">All confirmed</h2>
+          <p className="mt-2 text-sm text-ink-2">
+            You&apos;ve approved the price change —{' '}
+            {approvedOutcome.cleanerName
+              ? `${approvedOutcome.cleanerName} is booked`
+              : 'your booking is confirmed'}{' '}
+            for {approvedOutcome.date} at {approvedOutcome.time}. The extra &pound;
+            {approvedOutcome.topupAmount.toFixed(2)} has been charged, bringing your total to
+            &pound;{approvedOutcome.newPrice.toFixed(2)}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (state === 'resolved') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page p-4">
         <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
           <h2 className="font-newsreader text-2xl text-ink">Nothing to review</h2>
           <p className="mt-2 text-sm text-ink-2">
-            This price change has already been resolved or has expired. Unless you approved it, your
-            booking stands at its original price.
+            This price change is no longer active — it was declined or it expired, and your booking
+            stands at its original price.
           </p>
         </div>
       </div>
