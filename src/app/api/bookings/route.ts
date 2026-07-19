@@ -32,7 +32,10 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    if (user.role === 'CLEANER') {
+    // H38: ?as=client lets a CLEANER read their own CUSTOMER purchases (the
+    // portal's "My Bookings" shelf) — same clientId filter and serialization
+    // every customer gets; nothing role-special leaks in.
+    if (user.role === 'CLEANER' && searchParams.get('as') !== 'client') {
       where.cleanerId = user.id;
     } else {
       where.clientId = user.id;
@@ -437,9 +440,12 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Backup cleaner validation ─────
-    const backupCleanerIds: string[] = Array.isArray(body.backupCleanerIds)
-      ? body.backupCleanerIds
-      : [];
+    // H38: a customer can never list THEMSELVES as a backup — stripped
+    // silently (same family as the H36 self-primary refusal).
+    const bookerId = (await getSessionUser())?.id;
+    const backupCleanerIds: string[] = (
+      Array.isArray(body.backupCleanerIds) ? body.backupCleanerIds : []
+    ).filter((id: string) => id !== bookerId);
     const autoAssignBackup: boolean = body.autoAssignBackup === true;
 
     if (backupCleanerIds.length > 3) {

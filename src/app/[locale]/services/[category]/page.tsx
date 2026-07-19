@@ -2041,6 +2041,66 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           {/* Cleaning address (A12) */}
           {addressCard}
 
+          {/* H37: the cleaner-first flow NEVER had a Booking Summary card (the
+              payment copy above even promised "the booking summary shown
+              above"). Same card as the services-first confirm, same
+              priceBreakdown fields — no new maths. Column law: key-access →
+              instructions → Cleaning Address → Booking Summary → pay. */}
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+            <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              Booking Summary
+            </span>
+            <div className="mt-5 space-y-3">
+              <SummaryRow label="Service" value={serviceLabel} />
+              <SummaryRow label="Cleaner" value={preSelectedCleaner.name} />
+              {selectedDate && selectedTime24 && (
+                <SummaryRow
+                  label="When"
+                  value={`${selectedDate}, ${selectedTimeDisplay || selectedTime24}`}
+                />
+              )}
+              {!priceBreakdown.isFixed && (
+                <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
+              )}
+              <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
+                {!priceBreakdown.isFixed && (
+                  <div className="flex justify-between text-sm">
+                    <span className="font-jost font-light text-ink-3">
+                      Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
+                      /hr)
+                    </span>
+                    <span className="font-jost font-normal text-ink">
+                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {productCost > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="font-jost font-light text-ink-3">Cleaning products</span>
+                    <span className="font-jost font-light text-ink">
+                      &pound;{productCost.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="font-jost font-light text-ink-3">
+                    Service fee ({SERVICE_FEE_PERCENT}%)
+                  </span>
+                  <span className="font-jost font-light text-ink">
+                    &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
+                  <span className="font-jost font-normal text-ink">Total</span>
+                  <span className="font-newsreader font-medium text-3xl text-ink">
+                    &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {bookingError && (
             <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
               {bookingError}

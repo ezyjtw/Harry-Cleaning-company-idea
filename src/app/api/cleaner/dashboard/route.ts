@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { notOwnBookingWhere } from '@/lib/booking/own-booking';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
@@ -78,13 +79,19 @@ export async function GET() {
         // pinned to the primary through the whole cascade, so gate on cascadePhase).
         // Confirmed/accepted/in-progress work is theirs regardless of phase.
         NOT: { declinedCleanerIds: { has: user.id } },
-        OR: [
-          { status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] } },
+        // H38: own customer purchase never renders through the job door.
+        AND: [
+          notOwnBookingWhere(user.id),
           {
-            status: 'AWAITING_CLEANER',
             OR: [
-              { cascadePhase: null },
-              { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+              { status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] } },
+              {
+                status: 'AWAITING_CLEANER',
+                OR: [
+                  { cascadePhase: null },
+                  { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+                ],
+              },
             ],
           },
         ],
@@ -107,6 +114,9 @@ export async function GET() {
         cleanerId: user.id,
         date: { gte: startOfDay },
         NOT: { declinedCleanerIds: { has: user.id } },
+        // H38: own customer purchase never renders through the job door.
+        // (AND-wrapped — this where has its own OR; a spread would collide.)
+        AND: [notOwnBookingWhere(user.id)],
         // Only surface what a cleaner can actually act on or already owns:
         //  - CONFIRMED / ACCEPTED = their upcoming work (read-only, no Accept).
         //  - AWAITING_CLEANER + a LIVE primary cascade phase = a genuine offer

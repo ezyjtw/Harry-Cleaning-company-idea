@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { notOwnBookingWhere } from '@/lib/booking/own-booking';
 import prisma from '@/lib/db/prisma';
 
 export async function GET() {
@@ -21,7 +22,16 @@ export async function GET() {
       where: {
         cleanerId: user.id,
         status: 'AWAITING_CLEANER',
-        OR: [{ cascadePhase: null }, { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } }],
+        // H38: own customer purchase never counts as an offer.
+        AND: [
+          notOwnBookingWhere(user.id),
+          {
+            OR: [
+              { cascadePhase: null },
+              { cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+            ],
+          },
+        ],
         NOT: { declinedCleanerIds: { has: user.id } },
       },
       select: { id: true },
@@ -34,6 +44,8 @@ export async function GET() {
         backupCleanerIds: { has: user.id },
         status: 'AWAITING_CLEANER',
         cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'PHASE2_RESERVE', 'RENA_FIND'] },
+        // H38: own customer purchase never counts as an offer.
+        ...notOwnBookingWhere(user.id),
         NOT: [{ declinedCleanerIds: { has: user.id } }, { reserveCleanerIds: { has: user.id } }],
       },
       select: { id: true },
