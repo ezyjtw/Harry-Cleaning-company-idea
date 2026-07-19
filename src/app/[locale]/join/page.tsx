@@ -1020,6 +1020,13 @@ export default function JoinAsCleanerPage() {
         else if (form.password !== form.confirmPassword)
           e.confirmPassword = 'Passwords do not match';
       }
+      // H51 rider (James-ruled): a resumed draft that HAD a photo lost it (the
+      // draft only stored a marker). Require it back so it's never silently
+      // missing. Fresh signups keep the photo optional — this fires only when
+      // resumeNotice.photo proves one was previously added.
+      if (resumeNotice?.photo && !form.profilePhoto) {
+        e.profilePhoto = 'Please re-add your profile photo — it wasn’t saved with your draft.';
+      }
     }
 
     if (step === 1) {
@@ -1314,8 +1321,12 @@ export default function JoinAsCleanerPage() {
   /*  RENDER — Wizard                                                  */
   /* ================================================================ */
 
+  /* H50: extra bottom padding on phone so the fixed chat FAB (bottom-right)
+       never overlaps the step's Back/Continue buttons or the last content — the
+       content column now clears it. Desktop keeps the centred card well clear
+       of the corner FAB, so the extra padding is phone-only. */
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8 bg-page min-h-screen">
+    <div className="mx-auto min-h-screen max-w-3xl overflow-x-hidden bg-page px-4 pb-28 pt-14 sm:px-6 sm:pb-14 lg:px-8">
       <div className="text-center">
         <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-primary">Application</p>
         <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
