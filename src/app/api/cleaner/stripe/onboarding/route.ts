@@ -26,12 +26,11 @@ export async function POST() {
     return NextResponse.json({ error: 'Cleaner profile not found' }, { status: 404 });
   }
 
-  if (profile.verificationStatus !== 'VERIFIED') {
-    return NextResponse.json(
-      { error: 'You must be admin-verified before connecting your payment account.' },
-      { status: 403 }
-    );
-  }
+  // H55: mirror the connect page — payouts setup is available during the
+  // verification wait (the two-stage go-live flow), so this door no longer
+  // gates on VERIFIED. Stripe Express onboarding is independent of Rena
+  // verification. (This endpoint currently has no in-repo callers; relaxed for
+  // consistency so the two payout doors never diverge.)
 
   if (profile.stripeAccountId && profile.stripeChargesEnabled && profile.stripePayoutsEnabled) {
     return NextResponse.json(

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import { computeCleanerOpenRanges } from '@/lib/availability/timesheet';
-import { notOwnBookingWhere } from '@/lib/booking/own-booking';
+import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
@@ -104,6 +104,8 @@ export async function GET() {
         // pinned to the primary through the whole cascade, so gate on cascadePhase).
         // Confirmed/accepted/in-progress work is theirs regardless of phase.
         NOT: { declinedCleanerIds: { has: user.id } },
+        // H53: no payment → no visibility (guards the null-cascade offer branch).
+        ...paidVisibleWhere(),
         // H38: own customer purchase never renders through the job door.
         AND: [
           notOwnBookingWhere(user.id),
@@ -139,6 +141,8 @@ export async function GET() {
         cleanerId: user.id,
         date: { gte: startOfDay },
         NOT: { declinedCleanerIds: { has: user.id } },
+        // H53: no payment → no visibility (guards the null-cascade offer branch).
+        ...paidVisibleWhere(),
         // H38: own customer purchase never renders through the job door.
         // (AND-wrapped — this where has its own OR; a spread would collide.)
         AND: [notOwnBookingWhere(user.id)],
@@ -190,6 +194,8 @@ export async function GET() {
         backupCleanerIds: { has: user.id },
         status: 'AWAITING_CLEANER',
         cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER'] },
+        // H53: no payment → no offer.
+        ...paidVisibleWhere(),
         NOT: { declinedCleanerIds: { has: user.id } },
       },
     }),

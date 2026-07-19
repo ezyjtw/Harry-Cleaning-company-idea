@@ -21,7 +21,13 @@ export default async function StripeConnectPage() {
     },
   });
 
-  if (!profile || profile.verificationStatus !== 'VERIFIED') {
+  // H55: the two-stage flow explicitly invites payouts setup DURING the
+  // verification wait ("while we verify your identity, get ready to go live").
+  // Requiring VERIFIED here contradicted that — a pending cleaner clicking
+  // "Set up payouts" was 307'd straight back to /cleaner (the dead-click /
+  // redirects-wrong symptom). Stripe Express onboarding is independent of Rena
+  // verification, so any authenticated cleaner with a profile may start it.
+  if (!profile) {
     redirect('/en/cleaner');
   }
 

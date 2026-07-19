@@ -6,6 +6,7 @@
 
 export type BookingStatus =
   | 'Pending'
+  | 'Payment incomplete'
   | 'Waiting for cleaner to confirm'
   | 'Finding your cleaner'
   | 'Our team is on it'
@@ -20,6 +21,9 @@ export type BookingStatus =
 
 export const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-warning/10 text-warning border-warning/20',
+  // H53: an unpaid booking (status still PENDING) reads honestly — the customer
+  // must know payment didn't complete, not see a reassuring "we're on it".
+  'Payment incomplete': 'bg-danger/10 text-danger border-danger/20',
   'Waiting for cleaner to confirm': 'bg-warning/10 text-warning border-warning/20',
   'Finding your cleaner': 'bg-warning/10 text-warning border-warning/20',
   'Our team is on it': 'bg-primary-soft text-primary border-primary/15',
@@ -59,7 +63,10 @@ export function mapStatus(apiStatus: string, cascadePhase?: string | null): Book
   }
   switch (s) {
     case 'PENDING':
-      return 'Pending';
+      // H53: a booking is only ever status=PENDING while its payment is
+      // incomplete — the payment-success webhook flips it to AWAITING_CLEANER.
+      // So PENDING at rest = the customer never finished paying. Say so.
+      return 'Payment incomplete';
     case 'CONFIRMED':
     case 'ACCEPTED':
       return 'Confirmed';

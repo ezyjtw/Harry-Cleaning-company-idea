@@ -416,6 +416,7 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
       backupCleanerIds: true,
       cascadePhase: true,
       status: true,
+      paymentStatus: true,
       declinedCleanerIds: true,
       date: true,
       startTime: true,
@@ -429,6 +430,11 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   // set they somehow appear in.
   if (booking.clientId === cleanerId) {
     return { success: false, reason: "This is your own booking — you can't accept it." };
+  }
+  // H53: NO PAYMENT → NO ACCEPT. Belt-and-braces at the money door — a phantom
+  // offer that somehow reached a cleaner can never be accepted while unpaid.
+  if (booking.paymentStatus === 'PENDING' || booking.paymentStatus === 'FAILED') {
+    return { success: false, reason: 'This booking has not been paid for yet.' };
   }
 
   if (booking.status !== 'AWAITING_CLEANER') {
