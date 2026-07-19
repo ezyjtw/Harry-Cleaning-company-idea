@@ -120,6 +120,10 @@ async function sendEmail(
       html: htmlBody,
       ...(opts?.headers ? { headers: opts.headers } : {}),
     });
+    // H68: prod sends were INVISIBLE (success silent, failures easy to miss) —
+    // one line per send so "attempted or not" is always answerable from logs.
+    // eslint-disable-next-line no-console
+    console.log(`[Email] Sent (${category}) to: ${to} — ${subject}`);
     return true;
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -316,7 +320,13 @@ export async function sendDisputeResolutionEmails(opts: {
       cleaner: { select: { id: true, name: true, email: true } },
     },
   });
-  if (!b) return;
+  if (!b) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[DisputeEmail] booking ${opts.bookingId} not found — resolution emails NOT sent`
+    );
+    return;
+  }
 
   const dateStr = b.date.toLocaleDateString('en-GB');
   const isRefundOutcome = opts.outcome === 'refund-customer' || opts.outcome === 'split';
@@ -324,6 +334,12 @@ export async function sendDisputeResolutionEmails(opts: {
 
   const customerEmail = b.client?.email ?? b.guestEmail;
   const customerName = b.client?.name ?? b.guestName ?? 'there';
+  if (!customerEmail) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[DisputeEmail] booking ${opts.bookingId} has NO customer email (client null, guestEmail null) — customer NOT emailed`
+    );
+  }
   if (customerEmail) {
     const { subject, html } = buildDisputeResolvedEmail({
       audience: 'customer',
