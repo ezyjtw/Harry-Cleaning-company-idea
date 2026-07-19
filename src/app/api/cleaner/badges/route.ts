@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [primaryOffers, backupOffers, messages] = await Promise.all([
+  const [primaryOffers, backupOffers, messages, disputes] = await Promise.all([
     // Live offers where this cleaner is the current primary holder — mirrors
     // the dashboard's offer semantics (cascade.service is the source of truth).
     // H10: cascadePhase null included (legacy/rescue-rebooked direct offers).
@@ -52,10 +52,28 @@ export async function GET() {
       take: 50,
     }),
     prisma.message.count({ where: { receiverId: user.id, read: false } }),
+    // H43: open disputes on this cleaner's bookings — their attention/payout is
+    // on the line. Same seen-tracking pattern as offers (disputeIds below).
+    prisma.dispute.findMany({
+      where: {
+        status: { in: ['OPEN', 'UNDER_REVIEW'] },
+        booking: { cleanerId: user.id },
+      },
+      select: { id: true },
+      take: 50,
+    }),
   ]);
 
-  // offerIds (additive — the native shell ignores it) lets the web sidebar
-  // track SEEN offers so the badge clears on viewing and re-fires for new ones.
+  // offerIds / disputeIds (additive — the native shell ignores them) let the
+  // web sidebar track SEEN items so the badge clears on viewing and re-fires
+  // for new ones.
   const offerIds = Array.from(new Set([...primaryOffers, ...backupOffers].map((b) => b.id)));
-  return NextResponse.json({ offers: offerIds.length, offerIds, messages });
+  const disputeIds = disputes.map((d) => d.id);
+  return NextResponse.json({
+    offers: offerIds.length,
+    offerIds,
+    messages,
+    openDisputes: disputeIds.length,
+    disputeIds,
+  });
 }

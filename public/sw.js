@@ -1,10 +1,25 @@
-const CACHE_NAME = 'rena-v3';
-const STATIC_CACHE = 'rena-static-v3';
-const DYNAMIC_CACHE = 'rena-dynamic-v3';
+// H44: version bumped v3 → v4 to PURGE the poisoned dynamic cache. The old
+// networkFirst cached decrypted dispute-evidence bytes (and any authed API
+// response) into origin-scoped Cache Storage, which ignored the route's
+// `no-store` and served the file with no auth consulted on a network failure.
+// The activate handler deletes every cache whose name isn't in the current
+// set, so the bump wipes rena-dynamic-v3 from every existing client on update.
+const STATIC_CACHE = 'rena-static-v4';
+const DYNAMIC_CACHE = 'rena-dynamic-v4';
+
+// H44: sensitive authed API surfaces that must NEVER touch the cache — never
+// written, never served from cache. Evidence is encrypted-at-rest material in
+// an adversarial proceeding; the disputes API carries the same case data. The
+// authed party-scoped route is the EXCLUSIVE path, so the SW bypasses these to
+// the network entirely (a genuine 401/403 must reach the browser, and no byte
+// may survive in a shared origin cache).
+const NEVER_CACHE_PATTERNS = [/^\/api\/disputes\//];
+
+function isNeverCache(pathname) {
+  return NEVER_CACHE_PATTERNS.some((re) => re.test(pathname));
+}
 
 const STATIC_ASSETS = ['/', '/offline', '/manifest.json'];
-
-const API_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Install event
 self.addEventListener('install', (event) => {
@@ -40,6 +55,11 @@ self.addEventListener('fetch', (event) => {
 
   // Skip auth and API mutation requests
   if (url.pathname.startsWith('/api/auth')) return;
+
+  // H44: sensitive authed surfaces bypass the SW entirely — pure passthrough
+  // to the network so the route's own auth is the ONLY gate and nothing is
+  // ever cached. `return` (no respondWith) lets the browser fetch normally.
+  if (isNeverCache(url.pathname)) return;
 
   // API requests: network first with cache fallback
   if (url.pathname.startsWith('/api/')) {
@@ -96,7 +116,12 @@ self.addEventListener('notificationclick', (event) => {
 async function networkFirst(request, cacheName) {
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    // H44: never cache a response the server marked private/no-store. Any
+    // authed route that opts out of caching (evidence sets `private, no-store`)
+    // is honoured here too — belt-and-braces beside the path allowlist above.
+    const cc = response.headers.get('Cache-Control') || '';
+    const cacheable = response.ok && !/no-store|private/i.test(cc);
+    if (cacheable) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }

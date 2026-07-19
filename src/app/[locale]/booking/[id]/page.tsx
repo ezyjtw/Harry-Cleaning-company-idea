@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
+import NavLink from '@/components/nav/NavLink';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
@@ -196,12 +197,13 @@ export default function BookingDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
-      <Link
+      <NavLink
+        surface="booking-detail-back"
         href="/account"
         className="font-jost text-[12px] uppercase tracking-[0.1em] text-primary hover:underline"
       >
         ← Back to my account
-      </Link>
+      </NavLink>
 
       {/* H8: the rescue choice belongs to the CUSTOMER. Other authorized
           viewers (the cleaner — including the canceller — backups, admin) get

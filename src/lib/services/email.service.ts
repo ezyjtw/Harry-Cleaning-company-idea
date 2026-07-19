@@ -13,6 +13,7 @@ import {
   buildContactConfirmation,
   buildSupportAlert,
   buildReviewRequest,
+  buildDisputeOpenedCleaner,
   buildNewMessageEmail,
   buildGuestBookingConfirmation,
   buildGuestBookingReminder,
@@ -235,6 +236,28 @@ export async function sendReviewRequest(
 ): Promise<boolean> {
   const { subject, html } = buildReviewRequest(booking, user);
   return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
+}
+
+// ─── Dispute Emails ─────────────────────────────────────────
+
+// H43: email the assigned cleaner that a problem was reported. ESSENTIAL
+// category — a paused payout is not a marketing nicety they can opt out of.
+export async function sendDisputeOpenedToCleaner(opts: {
+  cleanerEmail: string;
+  cleanerName: string;
+  cleanerUserId: string;
+  dateStr: string;
+  reasonLabel: string;
+}): Promise<boolean> {
+  const { subject, html } = buildDisputeOpenedCleaner({
+    cleanerName: opts.cleanerName,
+    dateStr: opts.dateStr,
+    reasonLabel: opts.reasonLabel,
+  });
+  return sendEmail(opts.cleanerEmail, subject, html, {
+    userId: opts.cleanerUserId,
+    category: 'ESSENTIAL',
+  });
 }
 
 // ─── New Message Email ──────────────────────────────────────

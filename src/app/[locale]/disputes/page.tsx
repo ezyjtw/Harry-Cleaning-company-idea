@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
+import NavLink from '@/components/nav/NavLink';
 import { DISPUTE_REASONS, getDisputeStatusLabel } from '@/lib/trust';
 import type { Dispute, DisputeReason, DisputeStatus } from '@/lib/types';
 
@@ -65,7 +65,22 @@ export default function DisputesPage() {
   useEffect(() => {
     fetch('/api/disputes')
       .then((r) => (r.ok ? r.json() : { disputes: [] }))
-      .then((data) => setDisputes(data.disputes || []))
+      .then((data) => {
+        const list = data.disputes || [];
+        setDisputes(list);
+        // H43: viewing this page clears the cleaner sidebar's Disputes badge.
+        // The badge poll lives in the cleaner LAYOUT, which does NOT wrap this
+        // page — so the "seen" write must happen here. Harmless for customers
+        // (they have no such badge). Marks every loaded case id as seen.
+        try {
+          localStorage.setItem(
+            'rena-seen-dispute-ids',
+            JSON.stringify(list.map((d: { id: string }) => d.id))
+          );
+        } catch {
+          /* storage unavailable — badge just won't clear this visit */
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
     // F9: role decides form visibility (cleaners view/evidence, customers file);
@@ -229,7 +244,8 @@ export default function DisputesPage() {
               sidebar that brought a cleaner here vanishes on arrival. Same
               role-aware way home the messages page has. */}
           {role && (
-            <Link
+            <NavLink
+              surface="disputes-back"
               href={role === 'CLEANER' ? '/cleaner' : '/account'}
               className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
             >
@@ -247,7 +263,7 @@ export default function DisputesPage() {
                 />
               </svg>
               {role === 'CLEANER' ? 'Back to dashboard' : 'Back to my account'}
-            </Link>
+            </NavLink>
           )}
           <h1 className="font-newsreader text-3xl font-semibold text-ink">Dispute Resolution</h1>
           <p className="mt-2 text-ink-2">
@@ -513,130 +529,137 @@ export default function DisputesPage() {
               <p className="text-ink-3">No disputes. That&apos;s great!</p>
             </div>
           ) : (
-            disputes.map((dispute) => {
-              const statusInfo = getDisputeStatusLabel(dispute.status);
-              return (
-                <div key={dispute.id} className="rounded-xl border border-line bg-surface p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-newsreader text-lg font-semibold text-ink">
-                          Dispute #{dispute.id.substring(0, 8).toUpperCase()}
-                        </h3>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusInfo.color}`}
-                        >
-                          {statusInfo.label}
+            // H42: active cases lead, resolved fall below. 'open'/'under-review'
+            // are live; everything else (resolved-*/dismissed) is settled.
+            [...disputes]
+              .sort((a, b) => {
+                const live = (s: string) => (s === 'open' || s === 'under-review' ? 0 : 1);
+                return live(a.status) - live(b.status);
+              })
+              .map((dispute) => {
+                const statusInfo = getDisputeStatusLabel(dispute.status);
+                return (
+                  <div key={dispute.id} className="rounded-xl border border-line bg-surface p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-newsreader text-lg font-semibold text-ink">
+                            Dispute #{dispute.id.substring(0, 8).toUpperCase()}
+                          </h3>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusInfo.color}`}
+                          >
+                            {statusInfo.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-ink-3">
+                          Filed by {dispute.filedByName} ({dispute.filedBy}) on{' '}
+                          {new Date(dispute.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-sm text-ink-3">
+                        Booking: {dispute.bookingId.substring(0, 8).toUpperCase()}
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="text-sm font-medium text-ink-2">
+                        Reason:{' '}
+                        <span className="font-normal">
+                          {DISPUTE_REASONS.find((r) => r.value === dispute.reason)?.label}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-ink-3">
-                        Filed by {dispute.filedByName} ({dispute.filedBy}) on{' '}
-                        {new Date(dispute.createdAt).toLocaleDateString()}
-                      </p>
+                      <p className="mt-2 text-sm text-ink-2">{dispute.description}</p>
                     </div>
-                    <div className="shrink-0 text-sm text-ink-3">
-                      Booking: {dispute.bookingId.substring(0, 8).toUpperCase()}
-                    </div>
-                  </div>
 
-                  <div className="mt-3">
-                    <div className="text-sm font-medium text-ink-2">
-                      Reason:{' '}
-                      <span className="font-normal">
-                        {DISPUTE_REASONS.find((r) => r.value === dispute.reason)?.label}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-ink-2">{dispute.description}</p>
-                  </div>
-
-                  {/* Evidence */}
-                  {dispute.evidence.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">
-                        Evidence ({dispute.evidence.length})
-                      </h4>
-                      <div className="mt-2 space-y-2">
-                        {dispute.evidence.map((ev) => (
-                          <div
-                            key={ev.id}
-                            className="flex items-center justify-between gap-3 rounded-[8px] bg-page px-3 py-2 text-sm"
-                          >
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span
-                                className={`shrink-0 rounded-[6px] px-2 py-0.5 text-xs font-medium ${
-                                  evidenceChip[ev.type] ?? 'bg-page text-ink-2'
-                                }`}
-                              >
-                                {ev.type.toLowerCase()}
-                              </span>
-                              <span className="truncate text-ink-2">
-                                {ev.fileName || ev.description}
-                              </span>
+                    {/* Evidence */}
+                    {dispute.evidence.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">
+                          Evidence ({dispute.evidence.length})
+                        </h4>
+                        <div className="mt-2 space-y-2">
+                          {dispute.evidence.map((ev) => (
+                            <div
+                              key={ev.id}
+                              className="flex items-center justify-between gap-3 rounded-[8px] bg-page px-3 py-2 text-sm"
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className={`shrink-0 rounded-[6px] px-2 py-0.5 text-xs font-medium ${
+                                    evidenceChip[ev.type] ?? 'bg-page text-ink-2'
+                                  }`}
+                                >
+                                  {ev.type.toLowerCase()}
+                                </span>
+                                <span className="truncate text-ink-2">
+                                  {ev.fileName || ev.description}
+                                </span>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-3">
+                                {ev.url && (
+                                  <>
+                                    <a
+                                      href={ev.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-xs font-medium text-primary hover:text-primary-hover"
+                                    >
+                                      View
+                                    </a>
+                                    <a
+                                      href={`${ev.url}?download=1`}
+                                      className="text-xs font-medium text-ink-2 hover:text-ink"
+                                    >
+                                      Download
+                                    </a>
+                                  </>
+                                )}
+                                <span className="text-xs text-ink-3">
+                                  by {ev.uploadedBy}
+                                  {ev.uploadedAt
+                                    ? ` · ${new Date(ev.uploadedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                                    : ''}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-3">
-                              {ev.url && (
-                                <>
-                                  <a
-                                    href={ev.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs font-medium text-primary hover:text-primary-hover"
-                                  >
-                                    View
-                                  </a>
-                                  <a
-                                    href={`${ev.url}?download=1`}
-                                    className="text-xs font-medium text-ink-2 hover:text-ink"
-                                  >
-                                    Download
-                                  </a>
-                                </>
-                              )}
-                              <span className="text-xs text-ink-3">
-                                by {ev.uploadedBy}
-                                {ev.uploadedAt
-                                  ? ` · ${new Date(ev.uploadedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-                                  : ''}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Add evidence — available to parties while the dispute is unresolved. */}
-                  {canAddEvidence(dispute.status) && (
-                    <button
-                      type="button"
-                      onClick={() => openAddMore(dispute.id)}
-                      disabled={addMoreBusyId === dispute.id}
-                      className="mt-3 rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
-                    >
-                      {addMoreBusyId === dispute.id ? 'Uploading…' : '+ Add evidence'}
-                    </button>
-                  )}
-
-                  {/* Response area (for other party) */}
-                  {dispute.status === 'under-review' && (
-                    <div className="mt-4 rounded-[10px] border border-primary/20 bg-primary-soft p-3">
-                      <p className="text-sm text-primary">
-                        This dispute is under review. You can add additional evidence or information
-                        to strengthen your case.
-                      </p>
+                    {/* Add evidence — available to parties while the dispute is unresolved. */}
+                    {canAddEvidence(dispute.status) && (
                       <button
                         type="button"
                         onClick={() => openAddMore(dispute.id)}
                         disabled={addMoreBusyId === dispute.id}
-                        className="mt-2 rounded-[8px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                        className="mt-3 rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
                       >
-                        {addMoreBusyId === dispute.id ? 'Uploading…' : 'Add More Evidence'}
+                        {addMoreBusyId === dispute.id ? 'Uploading…' : '+ Add evidence'}
                       </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })
+                    )}
+
+                    {/* Response area (for other party) */}
+                    {dispute.status === 'under-review' && (
+                      <div className="mt-4 rounded-[10px] border border-primary/20 bg-primary-soft p-3">
+                        <p className="text-sm text-primary">
+                          This dispute is under review. You can add additional evidence or
+                          information to strengthen your case.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openAddMore(dispute.id)}
+                          disabled={addMoreBusyId === dispute.id}
+                          className="mt-2 rounded-[8px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                        >
+                          {addMoreBusyId === dispute.id ? 'Uploading…' : 'Add More Evidence'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
           )}
         </div>
       )}

@@ -17,8 +17,10 @@
 import type { BookingStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import { DISPUTE_REASONS } from '@/lib/trust';
 
 import { AuditService } from './audit.service';
+import { sendDisputeOpenedToCleaner } from './email.service';
 
 // A dispute may be filed only when the work has happened or is happening.
 // F9: REVIEWED included — problems can surface after the customer reviews
@@ -171,8 +173,9 @@ async function notifyDisputeOpened(
   reason: string
 ): Promise<void> {
   const dateStr = booking.date.toLocaleDateString('en-GB');
+  const reasonLabel = DISPUTE_REASONS.find((r) => r.value === reason)?.label ?? reason;
 
-  // Assigned cleaner — their payout is now on hold.
+  // Assigned cleaner — their payout is now on hold. Bell notification…
   await prisma.notification
     .create({
       data: {
@@ -184,6 +187,20 @@ async function notifyDisputeOpened(
       },
     })
     .catch(() => {});
+
+  // …and email (H43). Best-effort — a mail failure never blocks the filing.
+  const cleaner = await prisma.user
+    .findUnique({ where: { id: booking.cleanerId }, select: { email: true, name: true } })
+    .catch(() => null);
+  if (cleaner?.email) {
+    await sendDisputeOpenedToCleaner({
+      cleanerEmail: cleaner.email,
+      cleanerName: cleaner.name ?? '',
+      cleanerUserId: booking.cleanerId,
+      dateStr,
+      reasonLabel,
+    }).catch(() => {});
+  }
 
   // Admins — someone needs to review and resolve.
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });

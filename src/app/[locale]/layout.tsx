@@ -9,6 +9,7 @@ import AIChatWidget from '@/components/AIChatWidget';
 import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
+import NavProgress from '@/components/nav/NavProgress';
 import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
@@ -78,6 +79,7 @@ export default async function LocaleLayout({ children, params }: Props) {
               Skip to main content
             </a>
             <ServiceWorkerRegistration />
+            <NavProgress />
             <div id="layout-nav">
               <Navbar />
             </div>
