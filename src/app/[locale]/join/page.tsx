@@ -22,6 +22,7 @@ import {
   resizeProfilePhoto,
   UNSUPPORTED_PHOTO_MESSAGE,
 } from '@/lib/utils/client-image';
+import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -36,6 +37,10 @@ interface FormData {
   phone: string;
   postcode: string;
   dateOfBirth: string;
+  // H45: collected as two required fields; combined (each displayName-cased)
+  // into `name` at submit. `name` stays the stored/serialised full name.
+  firstName: string;
+  lastName: string;
   password: string;
   confirmPassword: string;
   profilePhoto: string; // base64 data URL from uploaded image
@@ -76,6 +81,8 @@ interface FormData {
 
 const INITIAL_FORM: FormData = {
   name: '',
+  firstName: '',
+  lastName: '',
   email: '',
   phone: '',
   postcode: '',
@@ -986,7 +993,8 @@ export default function JoinAsCleanerPage() {
     const e: Record<string, string> = {};
 
     if (step === 0) {
-      if (!form.name.trim()) e.name = 'Name is required';
+      if (!form.firstName.trim()) e.firstName = 'First name is required';
+      if (!form.lastName.trim()) e.lastName = 'Last name is required';
       if (!form.email.trim()) e.email = 'Email is required';
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         e.email = 'Enter a valid email address';
@@ -1162,6 +1170,10 @@ export default function JoinAsCleanerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...restFormData,
+          // H45: combine the two fields into the stored full name, each part
+          // displayName-cased ("james" → "James", "o'brien" → "O'Brien"). The
+          // server also displayName()s on create — belt-and-braces.
+          name: `${displayName(form.firstName)} ${displayName(form.lastName)}`.trim(),
           hourlyRateRegular: Number(form.serviceRates['regular']) || null,
           hourlyRateDeep: Number(form.serviceRates['deep']) || null,
           hourlyRateSameDay: Number(form.serviceRates['same_day']) || null,
@@ -1273,8 +1285,9 @@ export default function JoinAsCleanerPage() {
           Application Received!
         </h1>
         <p className="mt-4 max-w-md font-jost text-sm font-light text-ink-2 leading-relaxed">
-          Thank you for applying to join Rena, {form.name}! Your account has been created and is
-          being reviewed.
+          Thank you for applying to join Rena,{' '}
+          {`${displayName(form.firstName)} ${displayName(form.lastName)}`.trim()}! Your account has
+          been created and is being reviewed.
         </p>
         <Link
           href="/login"
@@ -1351,15 +1364,27 @@ export default function JoinAsCleanerPage() {
             <StepHeader step={0} />
 
             <div className="grid gap-4 sm:grid-cols-2">
+              {/* H45: first + last name, both required. Combined (each
+                  displayName-cased) into the stored full name at submit. */}
               <div>
-                <Label>Full Name</Label>
+                <Label>First name</Label>
                 <Input
                   type="text"
                   required
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
+                  value={form.firstName}
+                  onChange={(e) => set('firstName', e.target.value)}
                 />
-                <FieldError message={errors.name} />
+                <FieldError message={errors.firstName} />
+              </div>
+              <div>
+                <Label>Last name</Label>
+                <Input
+                  type="text"
+                  required
+                  value={form.lastName}
+                  onChange={(e) => set('lastName', e.target.value)}
+                />
+                <FieldError message={errors.lastName} />
               </div>
               <div>
                 <Label>Email</Label>
@@ -2382,7 +2407,9 @@ export default function JoinAsCleanerPage() {
                   <dl className="space-y-1 font-jost text-sm font-light text-ink-2">
                     <div>
                       <dt className="inline font-normal text-ink">Name:</dt>{' '}
-                      <dd className="inline">{form.name}</dd>
+                      <dd className="inline">
+                        {`${displayName(form.firstName)} ${displayName(form.lastName)}`.trim()}
+                      </dd>
                     </div>
                     <div>
                       <dt className="inline font-normal text-ink">Email:</dt>{' '}
@@ -2637,7 +2664,19 @@ export default function JoinAsCleanerPage() {
               />
               <span className="font-jost text-[13px] font-light text-ink-2">
                 I agree to the{' '}
-                <span className="font-normal text-primary underline">Terms &amp; Conditions</span>{' '}
+                {/* H47: this was an inert <span> styled to look like a link — a
+                    dead T&C link on the wizard's final step. Now a real link,
+                    opened in a new tab so the wizard's in-progress state (and
+                    this draft) is never lost. */}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-normal text-primary underline hover:text-primary-hover"
+                >
+                  Terms &amp; Conditions
+                </a>{' '}
                 and consent to a background check as part of the verification process.
               </span>
             </label>

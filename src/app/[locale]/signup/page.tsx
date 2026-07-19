@@ -6,13 +6,17 @@ import { signIn } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
 export default function SignupPage() {
   const router = useRouter();
   const [role, setRole] = useState<'CLIENT' | 'CLEANER' | null>(null);
   const [form, setForm] = useState({
-    name: '',
+    // H45: split like the cleaner wizard — first + last, both required,
+    // each displayName-cased and combined into the stored name.
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     password: '',
@@ -31,7 +35,8 @@ export default function SignupPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = 'Name is required';
+    if (!form.firstName.trim()) errs.firstName = 'First name is required';
+    if (!form.lastName.trim()) errs.lastName = 'Last name is required';
     if (!form.email.includes('@')) errs.email = 'Valid email is required';
     const pwResult = validatePasswordPolicy(form.password);
     if (!pwResult.valid) errs.password = pwResult.errors[0];
@@ -53,7 +58,7 @@ export default function SignupPage() {
         body: JSON.stringify({
           email: form.email,
           password: form.password,
-          name: form.name,
+          name: `${displayName(form.firstName)} ${displayName(form.lastName)}`.trim(),
           phone: form.phone,
           role: 'CLIENT',
         }),
@@ -159,7 +164,9 @@ export default function SignupPage() {
           >
             RENA
           </Link>
-          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Create Your Account</h1>
+          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
+            Create Your Account
+          </h1>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
             Sign up to book cleaners and manage your home.
           </p>
@@ -178,24 +185,46 @@ export default function SignupPage() {
         <form onSubmit={handleSubmit} className="mt-10 space-y-5">
           <div>
             <label
-              htmlFor="name"
+              htmlFor="firstName"
               className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3"
             >
-              Full Name
+              First name
             </label>
             <input
-              id="name"
+              id="firstName"
               type="text"
               required
-              autoComplete="name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={inputClass('name')}
-              style={inputStyle('name')}
-              placeholder="Your full name"
+              autoComplete="given-name"
+              value={form.firstName}
+              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              className={inputClass('firstName')}
+              style={inputStyle('firstName')}
+              placeholder="Your first name"
             />
-            {errors.name && (
-              <p className="mt-1.5 font-jost text-xs font-light text-red-500">{errors.name}</p>
+            {errors.firstName && (
+              <p className="mt-1.5 font-jost text-xs font-light text-red-500">{errors.firstName}</p>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="lastName"
+              className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3"
+            >
+              Last name
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              required
+              autoComplete="family-name"
+              value={form.lastName}
+              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              className={inputClass('lastName')}
+              style={inputStyle('lastName')}
+              placeholder="Your last name"
+            />
+            {errors.lastName && (
+              <p className="mt-1.5 font-jost text-xs font-light text-red-500">{errors.lastName}</p>
             )}
           </div>
           <div>
