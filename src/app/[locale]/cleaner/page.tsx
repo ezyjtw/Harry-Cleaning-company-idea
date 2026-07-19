@@ -373,93 +373,131 @@ export default function CleanerDashboard() {
           </div>
         )}
 
+        {/* H52 honesty rule: an item is TICKED only when its work is actually
+            COMPLETE. Identity verification was ticking the moment documents were
+            uploaded (isPending) — a lie: uploaded ≠ verified. The three honest
+            states are: submitted → amber "under review"; verified → tick;
+            rejected → action needed. "Upload identity documents" legitimately
+            ticks on upload (uploading IS that item's completion); the separate
+            "Verification review" row folded into this honest one. */}
         <div className="mt-8 space-y-3">
-          {[
-            {
-              label: 'Complete your profile',
-              description: 'Bio, postcode, specialties, and hourly rate',
-              done: data.profile.profileComplete,
-              href: '/cleaner/complete-profile',
-            },
-            {
-              label: 'Upload identity documents',
-              description: 'Photo ID and proof you can legally work in the UK',
-              done: isPending || data.profile.verified,
-              href: '/verify',
-            },
-            {
-              label: 'Identity verification',
-              description: 'Verify your ID with a photo and selfie.',
-              done: isPending || data.profile.verified,
-              href: '/verify',
-            },
-            {
-              label: 'Verification review',
-              description: isPending
-                ? "Under review — we'll email you when approved"
-                : data.profile.verified
-                  ? 'Approved'
-                  : 'Complete previous steps first',
-              done: data.profile.verified,
-              href: null,
-            },
-          ].map((step, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-4 rounded-xl bg-page px-5 py-4"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
+          {(() => {
+            type StepState = 'done' | 'review' | 'action' | 'todo';
+            const idVerifyState: StepState = data.profile.verified
+              ? 'done'
+              : hasRejectedDocs
+                ? 'action'
+                : isPending
+                  ? 'review'
+                  : 'todo';
+            const steps: {
+              label: string;
+              description: string;
+              state: StepState;
+              href: string | null;
+            }[] = [
+              {
+                label: 'Complete your profile',
+                description: 'Bio, postcode, specialties, and hourly rate',
+                state: data.profile.profileComplete ? 'done' : 'todo',
+                href: '/cleaner/complete-profile',
+              },
+              {
+                label: 'Upload identity documents',
+                description: 'Photo ID and proof you can legally work in the UK',
+                state: data.profile.verified
+                  ? 'done'
+                  : hasRejectedDocs
+                    ? 'action'
+                    : isPending
+                      ? 'done'
+                      : 'todo',
+                href: '/verify',
+              },
+              {
+                label: 'Identity verification',
+                description:
+                  idVerifyState === 'done'
+                    ? 'Verified'
+                    : idVerifyState === 'review'
+                      ? "Submitted — under review. We'll email you when approved."
+                      : idVerifyState === 'action'
+                        ? 'A document needs re-uploading (see above).'
+                        : 'Verify your ID with a photo and selfie.',
+                state: idVerifyState,
+                href: '/verify',
+              },
+            ];
+            return steps.map((step, i) => (
               <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-jost ${
-                  step.done
-                    ? 'bg-trust/10 text-trust'
-                    : isPending && i === 3
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-ink/5 text-ink-3'
-                }`}
+                key={i}
+                className="flex items-center gap-4 rounded-xl bg-page px-5 py-4"
+                style={{ border: '0.5px solid rgb(var(--color-border))' }}
               >
-                {step.done ? (
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-jost ${
+                    step.state === 'done'
+                      ? 'bg-trust/10 text-trust'
+                      : step.state === 'review'
+                        ? 'bg-warning/10 text-warning'
+                        : step.state === 'action'
+                          ? 'bg-danger/10 text-danger'
+                          : 'bg-ink/5 text-ink-3'
+                  }`}
+                >
+                  {step.state === 'done' ? (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : step.state === 'review' ? (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+                    </svg>
+                  ) : step.state === 'action' ? (
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`font-jost text-[14px] ${step.state === 'done' ? 'text-ink-3' : 'font-medium text-ink'}`}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : isPending && i === 3 ? (
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                    {step.label}
+                  </p>
+                  <p className="font-jost text-[12px] font-light text-ink-3">{step.description}</p>
+                </div>
+                {step.state !== 'done' && step.state !== 'review' && step.href && (
+                  <Link
+                    href={step.href}
+                    className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
-                  </svg>
-                ) : (
-                  i + 1
+                    {step.state === 'action' ? 'Fix' : 'Start'}
+                  </Link>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p
-                  className={`font-jost text-[14px] ${step.done ? 'text-ink-3' : 'font-medium text-ink'}`}
-                >
-                  {step.label}
-                </p>
-                <p className="font-jost text-[12px] font-light text-ink-3">{step.description}</p>
-              </div>
-              {!step.done && step.href && (
-                <Link
-                  href={step.href}
-                  className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
-                >
-                  Start
-                </Link>
-              )}
-            </div>
-          ))}
+            ));
+          })()}
         </div>
 
         {/* Productive setup during the verification wait — same checklist as the

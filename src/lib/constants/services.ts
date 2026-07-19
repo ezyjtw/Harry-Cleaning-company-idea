@@ -297,7 +297,12 @@ export const SPECIALTY_OPTIONS = [
   'Window Cleaning',
   'Oven Cleaning',
   'Post-Construction',
-  'Elderly',
+  // H49: "Elderly" → "Elderly-Friendly" (house style, matching Pet-Friendly /
+  // Eco-Friendly and the wizard/profile/directory lists, which already used
+  // this label). Specialties are stored as their label string, so this changes
+  // the stored key for NEW selections from the complete-profile list; existing
+  // 'Elderly' rows keep rendering as-is until re-saved.
+  'Elderly-Friendly',
 ] as const;
 
 export type Specialty = (typeof SPECIALTY_OPTIONS)[number];

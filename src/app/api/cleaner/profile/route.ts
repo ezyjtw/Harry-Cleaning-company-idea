@@ -44,7 +44,8 @@ export async function GET() {
   // Onboarding gate = the canonical profile-complete definition + a set password.
   // The profile-details half is the single source of truth (isProfileComplete);
   // the password requirement is composed on top (a distinct onboarding concern).
-  const onboardingComplete = isProfileComplete(profile) && !!profile.user.passwordHash;
+  const hasPassword = !!profile.user.passwordHash;
+  const onboardingComplete = isProfileComplete(profile) && hasPassword;
 
   const imageUrl = await resolveProfileImageUrl(profile.user.image);
 
@@ -93,6 +94,10 @@ export async function GET() {
     reviewCount: profile.user.reviewsReceived.length,
     testimonials: profile.testimonials || [],
     onboardingComplete,
+    // H48: complete-profile must only ask for a password when one is genuinely
+    // missing — it previously hardcoded the ask, re-prompting cleaners who
+    // already had one.
+    hasPassword,
   });
 }
 

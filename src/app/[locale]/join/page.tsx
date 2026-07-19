@@ -22,6 +22,7 @@ import {
   resizeProfilePhoto,
   UNSUPPORTED_PHOTO_MESSAGE,
 } from '@/lib/utils/client-image';
+import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -36,6 +37,10 @@ interface FormData {
   phone: string;
   postcode: string;
   dateOfBirth: string;
+  // H45: collected as two required fields; combined (each displayName-cased)
+  // into `name` at submit. `name` stays the stored/serialised full name.
+  firstName: string;
+  lastName: string;
   password: string;
   confirmPassword: string;
   profilePhoto: string; // base64 data URL from uploaded image
@@ -76,6 +81,8 @@ interface FormData {
 
 const INITIAL_FORM: FormData = {
   name: '',
+  firstName: '',
+  lastName: '',
   email: '',
   phone: '',
   postcode: '',
@@ -868,6 +875,14 @@ export default function JoinAsCleanerPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [mounted, setMounted] = useState(false);
+  // H48/H51: a restored draft can never carry the password or the profile photo
+  // (both are deliberately excluded from localStorage — passwords for security,
+  // base64 photos for quota). If we let the user resume onto a late step, those
+  // two gaps are invisible: they submit, the account has no password (→ bounced
+  // back through the wizard to "re-enter" everything) and no photo (silently
+  // missing). This flag drives an honest "welcome back, re-add these" banner and
+  // forces the resume to land on step 1 where both fields live.
+  const [resumeNotice, setResumeNotice] = useState<{ photo: boolean } | null>(null);
   const [webcamTarget, setWebcamTarget] = useState<'profilePhoto' | 'selfiePhoto' | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
@@ -887,6 +902,7 @@ export default function JoinAsCleanerPage() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        let hadPhoto = false;
         if (parsed.form) {
           const restored = { ...parsed.form };
           const fileFields = [
@@ -899,13 +915,25 @@ export default function JoinAsCleanerPage() {
           for (const f of fileFields) {
             if (restored[f] === '[uploaded]') restored[f] = '';
           }
+          // H51: the draft only ever recorded the photo as a marker, never the
+          // bytes — so a resumed user has lost it. Remember they HAD one so the
+          // banner can tell them to re-add it (rather than it vanishing silently).
+          hadPhoto = parsed.form.profilePhoto === '[uploaded]';
           setForm((prev) => ({ ...prev, ...restored }));
         }
         if (typeof parsed.currentStep === 'number') {
-          // Clamp to the valid range — the step count can change across deploys.
-          const restored = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
-          setCurrentStep(restored);
-          setMaxReachedStep(restored);
+          const savedStep = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
+          // maxReachedStep keeps their real progress (all steps stay tappable)…
+          setMaxReachedStep(savedStep);
+          // …but H48: the password is never restored, and the photo is gone, so
+          // land them on step 1 where both live — never on a late step where the
+          // gaps are invisible and a submit fails validation with a jarring bounce.
+          if (savedStep > 0) {
+            setCurrentStep(0);
+            setResumeNotice({ photo: hadPhoto });
+          } else {
+            setCurrentStep(savedStep);
+          }
         }
       }
     } catch {
@@ -965,7 +993,8 @@ export default function JoinAsCleanerPage() {
     const e: Record<string, string> = {};
 
     if (step === 0) {
-      if (!form.name.trim()) e.name = 'Name is required';
+      if (!form.firstName.trim()) e.firstName = 'First name is required';
+      if (!form.lastName.trim()) e.lastName = 'Last name is required';
       if (!form.email.trim()) e.email = 'Email is required';
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         e.email = 'Enter a valid email address';
@@ -990,6 +1019,13 @@ export default function JoinAsCleanerPage() {
         if (!pwResult.valid) e.password = pwResult.errors[0];
         else if (form.password !== form.confirmPassword)
           e.confirmPassword = 'Passwords do not match';
+      }
+      // H51 rider (James-ruled): a resumed draft that HAD a photo lost it (the
+      // draft only stored a marker). Require it back so it's never silently
+      // missing. Fresh signups keep the photo optional — this fires only when
+      // resumeNotice.photo proves one was previously added.
+      if (resumeNotice?.photo && !form.profilePhoto) {
+        e.profilePhoto = 'Please re-add your profile photo — it wasn’t saved with your draft.';
       }
     }
 
@@ -1141,6 +1177,10 @@ export default function JoinAsCleanerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...restFormData,
+          // H45: combine the two fields into the stored full name, each part
+          // displayName-cased ("james" → "James", "o'brien" → "O'Brien"). The
+          // server also displayName()s on create — belt-and-braces.
+          name: `${displayName(form.firstName)} ${displayName(form.lastName)}`.trim(),
           hourlyRateRegular: Number(form.serviceRates['regular']) || null,
           hourlyRateDeep: Number(form.serviceRates['deep']) || null,
           hourlyRateSameDay: Number(form.serviceRates['same_day']) || null,
@@ -1252,8 +1292,9 @@ export default function JoinAsCleanerPage() {
           Application Received!
         </h1>
         <p className="mt-4 max-w-md font-jost text-sm font-light text-ink-2 leading-relaxed">
-          Thank you for applying to join Rena, {form.name}! Your account has been created and is
-          being reviewed.
+          Thank you for applying to join Rena,{' '}
+          {`${displayName(form.firstName)} ${displayName(form.lastName)}`.trim()}! Your account has
+          been created and is being reviewed.
         </p>
         <Link
           href="/login"
@@ -1280,8 +1321,12 @@ export default function JoinAsCleanerPage() {
   /*  RENDER — Wizard                                                  */
   /* ================================================================ */
 
+  /* H50: extra bottom padding on phone so the fixed chat FAB (bottom-right)
+       never overlaps the step's Back/Continue buttons or the last content — the
+       content column now clears it. Desktop keeps the centred card well clear
+       of the corner FAB, so the extra padding is phone-only. */
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8 bg-page min-h-screen">
+    <div className="mx-auto min-h-screen max-w-3xl overflow-x-hidden bg-page px-4 pb-28 pt-14 sm:px-6 sm:pb-14 lg:px-8">
       <div className="text-center">
         <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-primary">Application</p>
         <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
@@ -1305,6 +1350,23 @@ export default function JoinAsCleanerPage() {
       />
       <MobileStepper currentStep={currentStep} />
 
+      {/* H48/H51: welcome-back notice — a resumed draft can't carry the
+          password (never stored) or the photo (marker only), so say so plainly
+          and land here on step 1 rather than let them submit with silent gaps. */}
+      {resumeNotice && (
+        <div className="mt-6 rounded-xl border border-warning/30 bg-warning/[0.06] p-4">
+          <p className="font-jost text-sm font-medium text-ink">
+            Welcome back — your progress was saved.
+          </p>
+          <p className="mt-1 font-jost text-[13px] text-ink-2">
+            For your security we didn&apos;t store your password
+            {resumeNotice.photo ? ' or profile photo' : ''}, so please re-enter your password
+            {resumeNotice.photo ? ' and re-add your photo' : ''} below to continue. Everything else
+            is just as you left it.
+          </p>
+        </div>
+      )}
+
       {/* ---------- Step content card ---------- */}
       <div className="mt-8 rounded-2xl border border-line bg-surface p-6 shadow-sm animate-fade-in sm:p-8">
         {/* ===== Step 0 – Personal ===== */}
@@ -1313,15 +1375,27 @@ export default function JoinAsCleanerPage() {
             <StepHeader step={0} />
 
             <div className="grid gap-4 sm:grid-cols-2">
+              {/* H45: first + last name, both required. Combined (each
+                  displayName-cased) into the stored full name at submit. */}
               <div>
-                <Label>Full Name</Label>
+                <Label>First name</Label>
                 <Input
                   type="text"
                   required
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
+                  value={form.firstName}
+                  onChange={(e) => set('firstName', e.target.value)}
                 />
-                <FieldError message={errors.name} />
+                <FieldError message={errors.firstName} />
+              </div>
+              <div>
+                <Label>Last name</Label>
+                <Input
+                  type="text"
+                  required
+                  value={form.lastName}
+                  onChange={(e) => set('lastName', e.target.value)}
+                />
+                <FieldError message={errors.lastName} />
               </div>
               <div>
                 <Label>Email</Label>
@@ -2344,7 +2418,9 @@ export default function JoinAsCleanerPage() {
                   <dl className="space-y-1 font-jost text-sm font-light text-ink-2">
                     <div>
                       <dt className="inline font-normal text-ink">Name:</dt>{' '}
-                      <dd className="inline">{form.name}</dd>
+                      <dd className="inline">
+                        {`${displayName(form.firstName)} ${displayName(form.lastName)}`.trim()}
+                      </dd>
                     </div>
                     <div>
                       <dt className="inline font-normal text-ink">Email:</dt>{' '}
@@ -2599,7 +2675,19 @@ export default function JoinAsCleanerPage() {
               />
               <span className="font-jost text-[13px] font-light text-ink-2">
                 I agree to the{' '}
-                <span className="font-normal text-primary underline">Terms &amp; Conditions</span>{' '}
+                {/* H47: this was an inert <span> styled to look like a link — a
+                    dead T&C link on the wizard's final step. Now a real link,
+                    opened in a new tab so the wizard's in-progress state (and
+                    this draft) is never lost. */}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-normal text-primary underline hover:text-primary-hover"
+                >
+                  Terms &amp; Conditions
+                </a>{' '}
                 and consent to a background check as part of the verification process.
               </span>
             </label>

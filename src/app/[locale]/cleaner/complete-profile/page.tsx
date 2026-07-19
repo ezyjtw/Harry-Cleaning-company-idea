@@ -32,6 +32,7 @@ interface ProfileData {
   languages: string[];
   hourlyRateRegular: number | null;
   onboardingComplete: boolean;
+  hasPassword: boolean;
 }
 
 interface MissingFields {
@@ -94,7 +95,9 @@ export default function CompleteProfilePage() {
           postcode: !data.postcode,
           specialties: data.specialties.length === 0,
           languages: !data.languages || data.languages.length === 0,
-          password: true,
+          // H48: only ask for a password when one is genuinely absent — this was
+          // hardcoded true, re-prompting cleaners who already had a password.
+          password: !data.hasPassword,
         });
       })
       .catch(() => router.push('/login'))
