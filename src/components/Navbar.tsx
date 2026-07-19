@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useState, useRef, useEffect } from 'react';
 
 import NotificationBell from '@/components/layout/NotificationBell';
+import NavLink from '@/components/nav/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
@@ -38,12 +38,13 @@ export default function Navbar() {
       style={{ borderBottom: '1px solid rgba(27,42,74,0.06)' }}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-14 md:py-5">
-        <Link
+        <NavLink
+          surface="navbar-brand"
           href="/"
           className="font-etna text-[28px] font-semibold tracking-widest text-ink md:text-[34px]"
         >
           RENA
-        </Link>
+        </NavLink>
 
         <div className="flex items-center gap-3">
           {/* F10: the real bell — visible to every logged-in user (customer
@@ -92,14 +93,15 @@ export default function Navbar() {
                   { href: '/faq', label: t('faq') },
                   { href: '/contact', label: t('contactUs') },
                 ].map((link) => (
-                  <Link
+                  <NavLink
+                    surface="hamburger"
                     key={link.href}
                     href={link.href}
                     onClick={() => setOpen(false)}
                     className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                   >
                     {link.label}
-                  </Link>
+                  </NavLink>
                 ))}
               </div>
 
@@ -116,14 +118,15 @@ export default function Navbar() {
                       { href: '/account', label: t('dashboard') },
                       { href: '/account/bookings', label: t('myBookings') },
                     ].map((link) => (
-                      <Link
+                      <NavLink
+                        surface="hamburger"
                         key={link.href}
                         href={link.href}
                         onClick={() => setOpen(false)}
                         className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                       >
                         {link.label}
-                      </Link>
+                      </NavLink>
                     ))}
                   </div>
                 </>
@@ -135,13 +138,14 @@ export default function Navbar() {
                     {t('cleanerSection')}
                   </p>
                   <div className="mt-3 flex flex-col gap-1">
-                    <Link
+                    <NavLink
+                      surface="hamburger"
                       href="/join"
                       onClick={() => setOpen(false)}
                       className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                     >
                       {t('becomeCleaner')}
-                    </Link>
+                    </NavLink>
                   </div>
                 </>
               )}
@@ -158,14 +162,15 @@ export default function Navbar() {
                       { href: '/cleaner/earnings', label: t('earnings') },
                       { href: '/cleaner/profile', label: t('profile') },
                     ].map((link) => (
-                      <Link
+                      <NavLink
+                        surface="hamburger"
                         key={link.href}
                         href={link.href}
                         onClick={() => setOpen(false)}
                         className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                       >
                         {link.label}
-                      </Link>
+                      </NavLink>
                     ))}
                   </div>
                 </>
@@ -177,13 +182,14 @@ export default function Navbar() {
                     {t('admin')}
                   </p>
                   <div className="mt-3 flex flex-col gap-1">
-                    <Link
+                    <NavLink
+                      surface="hamburger"
                       href="/admin"
                       onClick={() => setOpen(false)}
                       className="rounded-md px-3 py-2 font-jost text-[14px] font-normal text-ink-2 transition-colors hover:bg-cream hover:text-ink"
                     >
                       {t('adminDashboard')}
-                    </Link>
+                    </NavLink>
                   </div>
                 </>
               )}
@@ -206,20 +212,22 @@ export default function Navbar() {
                   </>
                 ) : (
                   <>
-                    <Link
+                    <NavLink
+                      surface="hamburger"
                       href="/login"
                       onClick={() => setOpen(false)}
                       className="font-jost text-[13px] font-normal text-ink-2 transition-colors hover:text-ink"
                     >
                       {t('logIn')}
-                    </Link>
-                    <Link
+                    </NavLink>
+                    <NavLink
+                      surface="hamburger"
                       href="/signup"
                       onClick={() => setOpen(false)}
                       className="rounded-md bg-ink px-5 py-2.5 font-jost text-[13px] font-medium text-cream transition-opacity hover:opacity-90"
                     >
                       {t('signUp')}
-                    </Link>
+                    </NavLink>
                   </>
                 )}
               </div>

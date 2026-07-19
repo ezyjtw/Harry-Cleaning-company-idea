@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import ChromeHider from '@/components/ChromeHider';
 import NotificationBell from '@/components/layout/NotificationBell';
+import NavLink from '@/components/nav/NavLink';
 
 const navItems = [
   {
@@ -208,12 +208,16 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           </svg>
         </button>
         {/* H26: the mobile wordmark was inert text — now it's the way home. */}
-        <Link href="/cleaner" className="flex items-center gap-2">
+        <NavLink
+          surface="cleaner-mobile-header"
+          href="/cleaner"
+          className="flex items-center gap-2"
+        >
           <span className="font-etna text-lg tracking-widest text-white">RENA</span>
           <span className="font-jost text-[10px] uppercase tracking-[0.15em] text-white/45">
             Cleaner
           </span>
-        </Link>
+        </NavLink>
         {/* F10: portal bell — offers surface mid-session (60s badge poll). */}
         <NotificationBell role="CLEANER" tone="dark" />
       </div>
@@ -241,14 +245,18 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               portal, "/" is an exit to the marketing site, and that exit
               already exists explicitly as "Back to Site" at the bottom. */}
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
-            <Link href="/cleaner" className="flex items-center gap-2">
+            <NavLink
+              surface="cleaner-sidebar-brand"
+              href="/cleaner"
+              className="flex items-center gap-2"
+            >
               <span className="font-etna text-xl font-semibold tracking-widest text-white">
                 RENA
               </span>
               <span className="font-jost text-[9px] uppercase tracking-[0.2em] text-white/45">
                 Cleaner Portal
               </span>
-            </Link>
+            </NavLink>
             {/* F10: portal bell (desktop) — prominent, dark tone. */}
             <div className="hidden lg:block">
               <NotificationBell role="CLEANER" tone="dark" />
@@ -298,7 +306,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               const isActive = pathname === item.href;
               const showJobsBadge = item.href === '/cleaner/jobs' && unseenOffers > 0;
               return (
-                <Link
+                <NavLink
+                  surface="cleaner-sidebar"
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
@@ -335,14 +344,15 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                       {unseenOffers > 9 ? '9+' : unseenOffers}
                     </span>
                   )}
-                </Link>
+                </NavLink>
               );
             })}
           </nav>
 
           {/* Bottom section */}
           <div className="p-3" style={{ borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
-            <Link
+            <NavLink
+              surface="cleaner-sidebar"
               href="/"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-jost font-light text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-150"
             >
@@ -360,7 +370,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                 />
               </svg>
               Back to Site
-            </Link>
+            </NavLink>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: '/' })}

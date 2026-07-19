@@ -5,6 +5,7 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
+import { recordNav } from '@/lib/nav/nav-trace';
 import {
   isBrowserDisplayableImage,
   resizeProfilePhoto,
@@ -129,6 +130,8 @@ export default function CleanerProfilePage() {
       if (href.startsWith('/cleaner') || href === '/') {
         // eslint-disable-next-line no-alert
         const ok = window.confirm('You have unsaved changes. Leave without saving?');
+        // H39 trap: record every guard consultation (see availability page).
+        recordNav({ kind: 'guard', guard: 'profile-dirty', href, allowed: ok });
         if (!ok) {
           e.preventDefault();
           e.stopPropagation();

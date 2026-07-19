@@ -8,7 +8,13 @@ import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusCh
 import CleanerAvatar from '@/components/CleanerAvatar';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { DISPUTE_REASONS } from '@/lib/trust';
 import { formatDate } from '@/lib/utils/formatting';
+
+// H40: statuses where "Report a problem" may be filed. Mirrors
+// DISPUTABLE_STATUS in dispute.service.ts (the server enforces it regardless —
+// this only controls whether the door renders).
+const DISPUTABLE_STATUSES = ['COMPLETED', 'EN_ROUTE', 'IN_PROGRESS', 'REVIEWED'];
 
 // #5: customer job-detail view. Data + access control come entirely from the
 // existing ownership-gated GET /api/bookings/[id] (clientId/cleaner/backup/admin
@@ -34,6 +40,7 @@ interface BookingDetail {
   rescueDeadline?: string | null;
   backupCleanerIds?: string[];
   notes?: string | null;
+  dispute?: { id: string } | null;
   cleaner: {
     id: string;
     name: string | null;
@@ -50,6 +57,40 @@ export default function BookingDetailPage() {
   const id = String(params?.id || '');
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [state, setState] = useState<LoadState>('loading');
+
+  // H40: the "Report a problem" door — the completion notification and the
+  // FAQ both send customers HERE to report, but this page never had the door.
+  // Same inline form + POST as /account/bookings; success lands on /disputes
+  // where evidence (photos) is added and both sides see the case.
+  const [reporting, setReporting] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeDescription, setDisputeDescription] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
+
+  const submitDispute = async () => {
+    setSubmittingDispute(true);
+    setDisputeError(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/dispute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: disputeReason, description: disputeDescription }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDisputeError(data.error || 'Failed to submit report.');
+        return;
+      }
+      // F9 pattern: photos/evidence strengthen the claim — take them straight
+      // to the dispute case.
+      window.location.href = '/disputes';
+    } catch {
+      setDisputeError('Network error. Please try again.');
+    } finally {
+      setSubmittingDispute(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -229,6 +270,92 @@ export default function BookingDetailPage() {
           </div>
         )}
       </div>
+
+      {/* H40: report-a-problem door — customer only, work happened/happening,
+          no dispute already open. The friendly label stays; the flow behind it
+          is the real dispute machinery (pauses payment, notifies the cleaner,
+          lands in the admin queue). */}
+      {booking.viewer === 'client' && booking.dispute && (
+        <div className="mt-4 rounded-2xl border border-warning/25 bg-warning/[0.06] p-5">
+          <p className="font-jost text-[14px] font-medium text-ink">
+            A problem has been reported on this booking
+          </p>
+          <p className="mt-1 font-jost text-[13px] text-ink-2">
+            Our team is reviewing it. You can add photos and follow the case on your disputes page.
+          </p>
+          <Link
+            href="/disputes"
+            className="mt-3 inline-flex items-center justify-center rounded-[10px] border border-warning/40 px-4 py-2 font-jost text-[13px] font-medium text-warning transition-colors hover:bg-warning/[0.08]"
+          >
+            View the case
+          </Link>
+        </div>
+      )}
+      {booking.viewer === 'client' &&
+        !booking.dispute &&
+        DISPUTABLE_STATUSES.includes(booking.status) &&
+        (reporting ? (
+          <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-warning/25 bg-warning/[0.06] p-5">
+            <span className="font-jost text-[14px] font-medium text-ink">
+              Report a problem with this booking
+            </span>
+            <select
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-[13px] text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">Select a reason…</option>
+              {DISPUTE_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <textarea
+              rows={3}
+              value={disputeDescription}
+              onChange={(e) => setDisputeDescription(e.target.value)}
+              placeholder="Please describe the problem…"
+              maxLength={2000}
+              className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-[13px] text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <p className="font-jost text-[12px] text-ink-3">
+              Reporting a problem pauses payment to your cleaner while we look into it. You can add
+              photos on the next page.
+            </p>
+            {disputeError && (
+              <span className="font-jost text-[12px] text-danger">{disputeError}</span>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={submitDispute}
+                disabled={submittingDispute || !disputeReason || !disputeDescription.trim()}
+                className="rounded-[10px] bg-warning px-4 py-2 font-jost text-[13px] font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
+              >
+                {submittingDispute ? 'Submitting…' : 'Submit report'}
+              </button>
+              <button
+                onClick={() => {
+                  setReporting(false);
+                  setDisputeError(null);
+                }}
+                disabled={submittingDispute}
+                className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <button
+              onClick={() => setReporting(true)}
+              className="rounded-[10px] border border-warning/40 px-4 py-2 font-jost text-[13px] font-medium text-warning transition-colors hover:bg-warning/[0.08]"
+            >
+              Report a problem
+            </button>
+          </div>
+        ))}
     </div>
   );
 }
