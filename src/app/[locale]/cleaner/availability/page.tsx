@@ -152,6 +152,43 @@ export default function AvailabilityPage() {
   const [dirty, setDirty] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // H29 (James law): an unsaved-changes guard must ASK, never act silently —
+  // and the absence of one silently LOSES edits, which is the same sin. This
+  // page tracked dirty state but let any sidebar click discard it without a
+  // word. Same interceptor as the profile page.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href === '/cleaner/availability') return;
+      if (
+        href.startsWith('/cleaner') ||
+        href.startsWith('/messages') ||
+        href.startsWith('/disputes') ||
+        href === '/'
+      ) {
+        // eslint-disable-next-line no-alert
+        const ok = window.confirm('You have unsaved availability changes. Leave without saving?');
+        if (!ok) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [dirty]);
+
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [newBlockDate, setNewBlockDate] = useState('');
   const [newBlockReason, setNewBlockReason] = useState('');

@@ -62,11 +62,25 @@ export default function CleanerProfileModal({
   bookLabel,
 }: CleanerProfileModalProps) {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
+  // H28: verified imported reviews, shown in their own labelled section.
+  const [importedReviews, setImportedReviews] = useState<
+    {
+      id: string;
+      rating: number;
+      text: string | null;
+      source: string;
+      reviewerName: string | null;
+    }[]
+  >([]);
 
   useEffect(() => {
     fetch(`/api/cleaners/${cleaner.id}/reviews`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: Array<Record<string, unknown>>) => {
+      .then((res) => (res.ok ? res.json() : { reviews: [], imported: [] }))
+      .then((payload: { reviews?: Array<Record<string, unknown>>; imported?: [] } | []) => {
+        // Endpoint shape moved from bare array → {reviews, imported} (H28);
+        // tolerate both so a cached client never crashes mid-deploy.
+        const data = Array.isArray(payload) ? payload : (payload.reviews ?? []);
+        setImportedReviews(Array.isArray(payload) ? [] : (payload.imported ?? []));
         setReviews(
           data.map((r) => ({
             id: r.id as string,
@@ -172,11 +186,18 @@ export default function CleanerProfileModal({
     bookLabel,
     about: cleaner.bio,
     ratings,
-    // H25: population label + imported footnote. `reviewCount` is the BLENDED
-    // count (H23) while `reviews` is the fetched native list — a surplus means
-    // verified imported reviews exist.
+    // H25: population label + imported footnote — the fetched imports are now
+    // the direct truth (H28), no count inference needed.
     subRatedCount: rated.length,
-    hasImportedReviews: cleaner.reviewCount > reviews.length,
+    hasImportedReviews: importedReviews.length > 0,
+    // H28: separated section beneath the Rena reviews.
+    importedReviews: importedReviews.map((r) => ({
+      id: r.id,
+      name: r.reviewerName || 'Reviewer',
+      rating: r.rating,
+      text: r.text || '',
+      source: r.source,
+    })),
     experience: {
       years: cleaner.yearsExperience || null,
       jobs: cleaner.completedJobs,

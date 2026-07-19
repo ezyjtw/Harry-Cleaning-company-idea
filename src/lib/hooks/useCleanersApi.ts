@@ -99,7 +99,9 @@ export function useCleanersApi(postcode?: string) {
     try {
       const res = await fetch(`/api/cleaners/${cleanerId}/reviews`);
       if (!res.ok) return [];
-      return res.json();
+      const payload = await res.json();
+      // H28: endpoint shape moved from bare array → {reviews, imported}.
+      return Array.isArray(payload) ? payload : (payload.reviews ?? []);
     } catch {
       return [];
     }

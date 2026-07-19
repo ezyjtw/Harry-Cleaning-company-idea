@@ -344,6 +344,24 @@ export default function MessagesPage() {
   if (conversations.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+        {/* H29 ring sweep: the empty state was the ONE messages view without
+            the way home — a cleaner with no conversations yet had no back
+            link at all. Same role-aware link as the list header. */}
+        <Link
+          href={currentUserRole === 'cleaner' ? '/cleaner' : '/account'}
+          className="mb-6 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          {currentUserRole === 'cleaner' ? 'Back to dashboard' : 'Back to my account'}
+        </Link>
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
           <svg
             className="h-8 w-8 text-primary"

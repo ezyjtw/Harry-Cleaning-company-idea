@@ -124,6 +124,8 @@ export default async function CleanerProfilePage({
       services.push({ label: serviceTypeLabel('airbnb'), price: `from £${m.toFixed(2)}` });
   }
 
+  // H28: Rena reviews lead; verified imports render as their OWN labelled
+  // section (importedItems below), no longer mixed into this list.
   const reviewItems: ProfileReviewItem[] = [
     ...reviews.map((r) => ({
       id: r.id,
@@ -137,13 +139,6 @@ export default async function CleanerProfilePage({
       }),
       verified: r.isVerifiedBooking,
       reply: r.reply || undefined,
-    })),
-    ...importedReviews.map((imp) => ({
-      id: imp.id,
-      name: imp.reviewerName || 'Reviewer',
-      rating: Number(imp.rating),
-      text: imp.text || '',
-      source: imp.source,
     })),
     ...testimonials.map((t, i) => ({
       id: `testimonial-${i}`,
@@ -196,6 +191,13 @@ export default async function CleanerProfilePage({
     languages: profile.languages || [],
     services,
     reviews: reviewItems,
+    importedReviews: importedReviews.map((imp) => ({
+      id: imp.id,
+      name: imp.reviewerName || 'Reviewer',
+      rating: Number(imp.rating),
+      text: imp.text || '',
+      source: imp.source,
+    })),
     reviewsSubtitle: 'Only verified customers who completed a booking can leave reviews.',
   };
 
