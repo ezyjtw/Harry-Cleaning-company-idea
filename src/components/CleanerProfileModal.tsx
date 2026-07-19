@@ -172,6 +172,11 @@ export default function CleanerProfileModal({
     bookLabel,
     about: cleaner.bio,
     ratings,
+    // H25: population label + imported footnote. `reviewCount` is the BLENDED
+    // count (H23) while `reviews` is the fetched native list — a surplus means
+    // verified imported reviews exist.
+    subRatedCount: rated.length,
+    hasImportedReviews: cleaner.reviewCount > reviews.length,
     experience: {
       years: cleaner.yearsExperience || null,
       jobs: cleaner.completedJobs,

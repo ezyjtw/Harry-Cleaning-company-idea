@@ -200,12 +200,13 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
             />
           </svg>
         </button>
-        <div className="flex items-center gap-2">
+        {/* H26: the mobile wordmark was inert text — now it's the way home. */}
+        <Link href="/cleaner" className="flex items-center gap-2">
           <span className="font-etna text-lg tracking-widest text-white">RENA</span>
           <span className="font-jost text-[10px] uppercase tracking-[0.15em] text-white/45">
             Cleaner
           </span>
-        </div>
+        </Link>
         {/* F10: portal bell — offers surface mid-session (60s badge poll). */}
         <NotificationBell role="CLEANER" tone="dark" />
       </div>
@@ -229,9 +230,11 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
             flex flex-col
           `}
         >
-          {/* Brand */}
+          {/* Brand. H26: the wordmark goes HOME (the dashboard) — inside the
+              portal, "/" is an exit to the marketing site, and that exit
+              already exists explicitly as "Back to Site" at the bottom. */}
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/cleaner" className="flex items-center gap-2">
               <span className="font-etna text-xl font-semibold tracking-widest text-white">
                 RENA
               </span>

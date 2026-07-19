@@ -92,6 +92,10 @@ export async function GET(request: NextRequest) {
     totalReviews: allReviews.length,
     distribution,
     avgCategories,
+    // H25: the population behind avgCategories — how many Rena reviews carry
+    // sub-ratings. The portal labels the breakdown with it (imported reviews
+    // never contribute categories).
+    categoryCount,
   });
 }
 

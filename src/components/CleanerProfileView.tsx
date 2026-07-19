@@ -51,6 +51,11 @@ export interface CleanerProfileData {
   /** Native sub-rating bars; null when there are no Rena sub-rated reviews yet. */
   ratings: ProfileRatingBar[] | null;
   ratingsNote?: string | null;
+  /** H25: population behind the bars — how many Rena reviews carry sub-ratings. */
+  subRatedCount?: number;
+  /** H25: when verified imported reviews exist, the bars get the one-line
+   *  "imported reviews don't include detailed categories" footnote. */
+  hasImportedReviews?: boolean;
   // B7: no `response` field — response time was never measured anywhere, and
   // the stat it fed was a hard-coded invention.
   experience: { years: number | null; jobs: number };
@@ -206,29 +211,47 @@ export default function CleanerProfileView({
           </div>
         )}
 
-        <SectionLabel>Detailed ratings</SectionLabel>
-        {data.ratings && data.ratings.length > 0 ? (
-          <div className="max-w-md space-y-2 pt-1">
-            {data.ratings.map((r) => (
-              <div key={r.label} className="flex items-center gap-3">
-                <span className="w-32 font-jost text-[13px] font-light text-ink-2">{r.label}</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary-soft">
-                  <span
-                    className="block h-full rounded-full bg-rating"
-                    style={{ width: `${(r.value / 5) * 100}%` }}
-                  />
+        {/* H25 (mixed-population honesty): the bars average NATIVE sub-rated
+            reviews only — imported reviews feed the headline but carry no
+            categories — so the section SAYS which population it reflects, and
+            renders nothing at all when that population is empty (imported-only
+            or unreviewed cleaners: no bars, no note, no section). */}
+        {data.ratings && data.ratings.length > 0 && (
+          <>
+            <SectionLabel>
+              Detailed ratings
+              {typeof data.subRatedCount === 'number' && data.subRatedCount > 0 && (
+                <span className="normal-case tracking-normal text-ink-3">
+                  {' '}
+                  · from {data.subRatedCount} Rena {data.subRatedCount === 1 ? 'review' : 'reviews'}
                 </span>
-                <span className="w-8 text-right font-jost text-[13px] font-medium text-ink">
-                  {r.value.toFixed(1)}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="pt-1 font-jost text-[13px] font-light text-ink-3">
-            {data.ratingsNote ??
-              'No Rena jobs yet — the category breakdown reflects completed Rena bookings only.'}
-          </p>
+              )}
+            </SectionLabel>
+            <div className="max-w-md space-y-2 pt-1">
+              {data.ratings.map((r) => (
+                <div key={r.label} className="flex items-center gap-3">
+                  <span className="w-32 font-jost text-[13px] font-light text-ink-2">
+                    {r.label}
+                  </span>
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary-soft">
+                    <span
+                      className="block h-full rounded-full bg-rating"
+                      style={{ width: `${(r.value / 5) * 100}%` }}
+                    />
+                  </span>
+                  <span className="w-8 text-right font-jost text-[13px] font-medium text-ink">
+                    {r.value.toFixed(1)}
+                  </span>
+                </div>
+              ))}
+              {data.hasImportedReviews && (
+                <p className="pt-1 font-jost text-[12px] font-light text-ink-3">
+                  Imported reviews count toward the overall rating but don&apos;t include detailed
+                  categories.
+                </p>
+              )}
+            </div>
+          </>
         )}
 
         <SectionLabel>Reviews ({data.reviews.length})</SectionLabel>
