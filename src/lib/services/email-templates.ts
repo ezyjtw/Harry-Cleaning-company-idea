@@ -414,6 +414,71 @@ export function buildDisputeOpenedCleaner(opts: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// H62 (the rule): EVERY dispute resolution emails BOTH parties — the outcome,
+// what happens to the money, and when. A refund additionally gets the standard
+// refund confirmation (amount + timeline) via buildRefundConfirmation.
+export function buildDisputeResolvedEmail(opts: {
+  audience: 'customer' | 'cleaner';
+  name: string;
+  dateStr: string;
+  outcome: 'release-to-cleaner' | 'refund-customer' | 'split';
+  refundAmount?: number;
+  /** The refund attempt failed (stuck-money retry queue) — promise, don't confirm. */
+  refundPending?: boolean;
+}): EmailContent {
+  const subject = 'Your dispute has been resolved';
+  const link = `${appUrl()}/disputes`;
+  const amount = opts.refundAmount ?? 0;
+
+  let moneyHtml: string;
+  if (opts.audience === 'customer') {
+    if (opts.outcome === 'refund-customer') {
+      moneyHtml = opts.refundPending
+        ? p(
+            `A full refund of <strong>&pound;${amount.toFixed(2)}</strong> has been approved and is being processed. We'll email you confirmation as soon as it's issued.`
+          )
+        : p(
+            `A full refund of <strong>&pound;${amount.toFixed(2)}</strong> has been issued. It will appear in your account within 5-10 business days.`
+          );
+    } else if (opts.outcome === 'split') {
+      moneyHtml = opts.refundPending
+        ? p(
+            `A partial refund of <strong>&pound;${amount.toFixed(2)}</strong> has been approved and is being processed. We'll email you confirmation as soon as it's issued. The remainder of the payment goes to your cleaner.`
+          )
+        : p(
+            `A partial refund of <strong>&pound;${amount.toFixed(2)}</strong> has been issued and will appear in your account within 5-10 business days. The remainder of the payment goes to your cleaner.`
+          );
+    } else {
+      moneyHtml = p(
+        'No refund has been issued — after review, the payment goes to your cleaner as normal. No further money will leave your account for this booking.'
+      );
+    }
+  } else {
+    if (opts.outcome === 'refund-customer') {
+      moneyHtml = p(
+        'The customer has been refunded in full, so no payment will be released to you for this booking.'
+      );
+    } else if (opts.outcome === 'split') {
+      moneyHtml = p(
+        `The customer received a partial refund of &pound;${amount.toFixed(2)}; your reduced payment for this booking is being released now and follows your normal payout schedule.`
+      );
+    } else {
+      moneyHtml = p(
+        'The dispute was resolved in your favour — your full payment for this booking is being released now and follows your normal payout schedule.'
+      );
+    }
+  }
+
+  const contentHtml =
+    h('Dispute resolved') +
+    p(`Hi ${opts.name || 'there'},`) +
+    p(`Our team has finished reviewing the problem reported on the booking of ${opts.dateStr}.`) +
+    moneyHtml +
+    button(link, 'View the case') +
+    p('Thank you for your patience while we looked into this.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildReviewRequest(booking: BookingEmailData, user: UserEmailData): EmailContent {
   const reviewLink = `${appUrl()}/dashboard?review=${booking.id}`;
   const subject = `How was your clean with ${booking.cleanerName}?`;

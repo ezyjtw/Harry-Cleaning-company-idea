@@ -680,8 +680,25 @@ export class AdminOperationsService {
       releaseStatus = release.status;
     }
 
-    // Notify both parties (best-effort).
+    // Notify both parties (best-effort): bell rows AND emails (H62 — the rule:
+    // every resolution emails both parties with outcome + money + timeline; a
+    // successful refund adds the standard refund confirmation).
     await notifyDisputeResolved(dispute.booking, outcome, resolution).catch(() => {});
+    {
+      const { sendDisputeResolutionEmails } = await import('./email.service');
+      const approvedRefund =
+        outcome === 'refund-customer'
+          ? remainder
+          : outcome === 'split'
+            ? params.refundAmount
+            : undefined;
+      await sendDisputeResolutionEmails({
+        bookingId,
+        outcome,
+        refundAmount: refundedAmount > 0 ? refundedAmount : approvedRefund,
+        refundSucceeded: refundStatus === 'REFUNDED' || refundStatus === 'PARTIALLY_REFUNDED',
+      }).catch(() => {});
+    }
 
     // Audit.
     await AuditService.log({

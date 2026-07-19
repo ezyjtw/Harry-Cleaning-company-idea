@@ -14,6 +14,7 @@ import {
   buildSupportAlert,
   buildReviewRequest,
   buildDisputeOpenedCleaner,
+  buildDisputeResolvedEmail,
   buildNewMessageEmail,
   buildGuestBookingConfirmation,
   buildGuestBookingReminder,
@@ -242,6 +243,126 @@ export async function sendReviewRequest(
 
 // H43: email the assigned cleaner that a problem was reported. ESSENTIAL
 // category — a paused payout is not a marketing nicety they can opt out of.
+// H62 (the rule): every dispute resolution emails BOTH parties — outcome,
+// what happens to the money, and when. Refund flavours ALSO send the standard
+// refund confirmation (amount + timeline) to the customer, but only when the
+// refund actually succeeded — a failed attempt (stuck-money retry queue) gets
+// the honest "approved and being processed" wording instead. Guest-safe: the
+// customer side resolves to the client's email or the guest email.
+// H62: the standard refund confirmation (amount + 5-10 day timeline), resolved
+// guest-safe from the booking. Used by the dispute-resolution sender and by
+// the stuck-refund retry path — the ONLY places a refund is confirmed after
+// the fact (first-attempt refunds in cancel flows carry their refund info in
+// the cancellation email itself).
+export async function sendRefundConfirmationForBooking(
+  bookingId: string,
+  refundAmount: number,
+  isFullRefund: boolean
+): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      date: true,
+      startTime: true,
+      serviceType: true,
+      totalPrice: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!b) return false;
+  const email = b.client?.email ?? b.guestEmail;
+  const name = b.client?.name ?? b.guestName ?? 'there';
+  if (!email) return false;
+  const { subject, html } = buildRefundConfirmation(
+    {
+      id: b.id,
+      customerName: name,
+      date: b.date.toLocaleDateString('en-GB'),
+      time: b.startTime,
+      address: '',
+      serviceType: b.serviceType,
+      totalPrice: Number(b.totalPrice),
+    },
+    { name, email },
+    refundAmount,
+    isFullRefund
+  );
+  return sendEmail(email, subject, html, { userId: b.client?.id ?? null, category: 'ESSENTIAL' });
+}
+
+export async function sendDisputeResolutionEmails(opts: {
+  bookingId: string;
+  outcome: 'release-to-cleaner' | 'refund-customer' | 'split';
+  refundAmount?: number;
+  refundSucceeded?: boolean;
+}): Promise<void> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: opts.bookingId },
+    select: {
+      id: true,
+      date: true,
+      startTime: true,
+      serviceType: true,
+      totalPrice: true,
+      clientId: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { id: true, name: true, email: true } },
+      cleaner: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!b) return;
+
+  const dateStr = b.date.toLocaleDateString('en-GB');
+  const isRefundOutcome = opts.outcome === 'refund-customer' || opts.outcome === 'split';
+  const refundPending = isRefundOutcome && !opts.refundSucceeded;
+
+  const customerEmail = b.client?.email ?? b.guestEmail;
+  const customerName = b.client?.name ?? b.guestName ?? 'there';
+  if (customerEmail) {
+    const { subject, html } = buildDisputeResolvedEmail({
+      audience: 'customer',
+      name: customerName,
+      dateStr,
+      outcome: opts.outcome,
+      refundAmount: opts.refundAmount,
+      refundPending,
+    });
+    await sendEmail(customerEmail, subject, html, {
+      userId: b.client?.id ?? null,
+      category: 'ESSENTIAL',
+    });
+
+    // The standard refund confirmation rides along on a SUCCESSFUL refund.
+    if (isRefundOutcome && opts.refundSucceeded && opts.refundAmount) {
+      await sendRefundConfirmationForBooking(
+        opts.bookingId,
+        opts.refundAmount,
+        opts.outcome === 'refund-customer'
+      );
+    }
+  }
+
+  if (b.cleaner?.email) {
+    const { subject, html } = buildDisputeResolvedEmail({
+      audience: 'cleaner',
+      name: b.cleaner.name ?? 'there',
+      dateStr,
+      outcome: opts.outcome,
+      refundAmount: opts.refundAmount,
+    });
+    await sendEmail(b.cleaner.email, subject, html, {
+      userId: b.cleaner.id,
+      category: 'ESSENTIAL',
+    });
+  }
+}
+
 export async function sendDisputeOpenedToCleaner(opts: {
   cleanerEmail: string;
   cleanerName: string;

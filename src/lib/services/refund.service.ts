@@ -427,6 +427,15 @@ async function handleUnknownRefund(
       bookingDataOverride,
     });
     await notifyRefundSuccess(booking, amountPounds, reason, isFullRefund).catch(() => {});
+    // H62: a stuck refund that finally lands must send the confirmation the
+    // customer was promised ("we'll email you as soon as it's issued") — the
+    // original failure path never confirmed anything.
+    {
+      const { sendRefundConfirmationForBooking } = await import('./email.service');
+      await sendRefundConfirmationForBooking(booking.id, amountPounds, isFullRefund).catch(
+        () => {}
+      );
+    }
 
     return {
       status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
@@ -499,8 +508,7 @@ function buildRefundAllocation(
       capturedPence: Math.round(Number(t.amount) * 100),
     }));
   const totalPaidPence = Math.round(totalPaidPounds * 100);
-  const originalCapturedPence =
-    totalPaidPence - topups.reduce((s, t) => s + t.capturedPence, 0);
+  const originalCapturedPence = totalPaidPence - topups.reduce((s, t) => s + t.capturedPence, 0);
 
   // Already refunded per PI.
   const refundedByPi = new Map<string, number>();
@@ -592,8 +600,7 @@ async function executeMultiSliceRefund(params: {
       );
       executed.push({ ...slice, refundId: r.id });
     } catch (err: unknown) {
-      const executedPounds =
-        Math.round(executed.reduce((s, e) => s + e.amountPence, 0)) / 100;
+      const executedPounds = Math.round(executed.reduce((s, e) => s + e.amountPence, 0)) / 100;
       const detail = err instanceof Error ? err.message : 'Stripe error';
 
       if (executed.length === 0) {
