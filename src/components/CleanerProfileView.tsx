@@ -63,6 +63,9 @@ export interface CleanerProfileData {
   services: ProfileService[];
   reviews: ProfileReviewItem[];
   reviewsSubtitle?: string;
+  /** H28 (James-ruled): verified imported reviews, rendered as their own
+   *  labelled section BENEATH the Rena reviews — never mixed in. */
+  importedReviews?: ProfileReviewItem[];
 }
 
 function Avatar({ name, photo, size }: { name: string; photo?: string | null; size: number }) {
@@ -304,6 +307,48 @@ export default function CleanerProfileView({
           <p className="py-6 text-center font-jost text-[14px] font-light text-ink-3">
             No reviews yet.
           </p>
+        )}
+
+        {/* H28 (James-ruled transparency): verified imports live in their own
+            clearly-labelled section beneath the Rena reviews. The heading is
+            honest about PROVENANCE only — Rena verified where the review came
+            from, never the clean itself. Same card language; the source chip
+            does the differentiating (the admin dossier's chip grammar). */}
+        {data.importedReviews && data.importedReviews.length > 0 && (
+          <>
+            <SectionLabel>Reviews from before Rena ({data.importedReviews.length})</SectionLabel>
+            <p className="font-jost text-[12px] font-light text-ink-3">
+              Brought over by {data.name} from other platforms. Rena verifies where each review came
+              from — not the clean itself. They count toward the overall rating.
+            </p>
+            <div>
+              {data.importedReviews.map((rev) => (
+                <div key={rev.id} className="border-t border-line py-4 first:border-t-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-jost text-[14px] font-medium text-ink">
+                      {rev.name}
+                      <span className="rounded-full bg-ink/5 px-2 py-0.5 font-jost text-[10px] font-medium text-ink-2">
+                        via {rev.source}
+                      </span>
+                    </span>
+                    {rev.date && (
+                      <span className="shrink-0 font-jost text-[12px] font-light text-ink-3">
+                        {rev.date}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1">
+                    <StarRating rating={rev.rating} />
+                  </div>
+                  {rev.text && (
+                    <p className="mt-2 font-jost text-[14px] font-light leading-relaxed text-ink-2">
+                      {rev.text}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         <SectionLabel>Experience</SectionLabel>

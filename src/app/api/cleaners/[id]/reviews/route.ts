@@ -39,7 +39,19 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       }))
     );
 
-    return NextResponse.json(resolved);
+    // H28 (James-ruled transparency): the profile modal shows BOTH populations,
+    // separated — so this endpoint ships VERIFIED imports alongside. PENDING /
+    // REJECTED never leave the building.
+    const imported = await prisma.importedReview.findMany({
+      where: { cleanerId: params.id, verificationStatus: 'VERIFIED' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, rating: true, text: true, source: true, reviewerName: true },
+    });
+
+    return NextResponse.json({
+      reviews: resolved,
+      imported: imported.map((r) => ({ ...r, rating: Number(r.rating) })),
+    });
   } catch {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
