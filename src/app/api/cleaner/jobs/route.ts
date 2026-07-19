@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
-import { notOwnBookingWhere } from '@/lib/booking/own-booking';
+import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import type { ServiceSlug } from '@/lib/services/pricing.service';
@@ -73,10 +73,16 @@ export async function GET(request: NextRequest) {
     ? {
         AND: [
           notOwnBookingWhere(user.id),
+          // H53: no payment → no visibility. Guards the null-cascade primary
+          // branch, which would otherwise show a freshly-created (unpaid,
+          // cascadePhase-null) cleaner-first booking as a phantom offer.
+          paidVisibleWhere(),
           { OR: [primaryWhereWithCascade, backupWhere, provisionalWhere, reserveWhere] },
         ],
       }
-    : { AND: [notOwnBookingWhere(user.id), { OR: [primaryWhereWithCascade] }] };
+    : {
+        AND: [notOwnBookingWhere(user.id), paidVisibleWhere(), { OR: [primaryWhereWithCascade] }],
+      };
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({

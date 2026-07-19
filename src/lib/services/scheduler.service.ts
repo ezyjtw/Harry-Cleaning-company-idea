@@ -54,9 +54,19 @@ async function processAbandonedBookings(): Promise<HandlerResult> {
   const { prisma } = await import('@/lib/db/prisma');
   const cutoff = new Date(Date.now() - ABANDONED_AGE_MS);
 
+  // H53: reap UNPAID bookings in any pre-work status. PENDING is the normal
+  // abandoned-at-checkout shape; AWAITING_CLEANER catches the legacy phantom —
+  // a booking that was offered while still unpaid (before offer entry was
+  // gated on the payment webhook). Both are retracted here. The outer
+  // paymentStatus filter guarantees these are genuinely unpaid, and cancelling
+  // the PI first (Amendment 1) stands down the instant Stripe says it's paid —
+  // so a truly-paid row can never be clobbered. Retraction is a plain CANCELLED
+  // write, NOT a decline: no decline penalty is recorded against any cleaner
+  // who was phantom-offered, and the read-guard already hid it from them.
+  const REAPABLE_STATUSES = ['PENDING', 'AWAITING_CLEANER'] as const;
   const stale = await prisma.booking.findMany({
     where: {
-      status: 'PENDING',
+      status: { in: [...REAPABLE_STATUSES] },
       paymentStatus: { in: ['PENDING', 'FAILED', 'CANCELED', 'REQUIRES_ACTION'] },
       createdAt: { lt: cutoff },
     },
@@ -79,9 +89,15 @@ async function processAbandonedBookings(): Promise<HandlerResult> {
     }
 
     // 2. PI is cancelled (or there was none) — cancel the booking, guarded on
-    //    PENDING so we never cancel a booking the webhook just took live.
+    //    the same unpaid pre-work statuses so we never cancel a booking the
+    //    webhook just took live (which would also have flipped paymentStatus to
+    //    SUCCEEDED, failing the guard).
     const result = await prisma.booking.updateMany({
-      where: { id: booking.id, status: 'PENDING' },
+      where: {
+        id: booking.id,
+        status: { in: [...REAPABLE_STATUSES] },
+        paymentStatus: { in: ['PENDING', 'FAILED', 'CANCELED', 'REQUIRES_ACTION'] },
+      },
       data: { status: 'CANCELLED', paymentStatus: 'CANCELED' },
     });
     if (result.count > 0) processed++;

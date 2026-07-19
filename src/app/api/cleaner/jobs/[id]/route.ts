@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
-import { notOwnBookingWhere } from '@/lib/booking/own-booking';
+import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import prisma from '@/lib/db/prisma';
 import { atomicAccept } from '@/lib/services/cascade.service';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
@@ -51,6 +51,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const booking = await prisma.booking.findFirst({
     where: {
       id,
+      // H53: no payment → no visibility. A cleaner can't open an unpaid booking.
+      ...paidVisibleWhere(),
       // H38: own customer purchase never opens through the job door.
       AND: [
         notOwnBookingWhere(user.id),
