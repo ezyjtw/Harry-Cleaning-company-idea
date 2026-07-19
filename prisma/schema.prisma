@@ -1147,6 +1147,28 @@ model PlatformConfig {
 // F-A: out-of-area interest capture (quote widget + service pages). Before this
 // model existed the /api/waitlist route only console-logged entries — they
 // lived nowhere but Railway logs.
+// H65 (James ruling a): the promotional-offers tick persists DURABLY — the
+// endpoint only fires when ticked, so every row is a consented capture. The
+// immutable consent record is the email-keyed GdprConsent row written
+// alongside; if the email has an account, the live NotificationPreference
+// ledger (which the email chokepoint enforces) is granted too.
+model Lead {
+  id                 String   @id @default(cuid())
+  email              String
+  postcode           String
+  bedrooms           Int?
+  bathrooms          Int?
+  serviceType        String?
+  estimatedTotal     Decimal? @db.Decimal(10, 2)
+  marketingConsentAt DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([email, postcode])
+  @@index([email])
+  @@index([createdAt])
+}
+
 model WaitlistEntry {
   id        String   @id @default(cuid())
   email     String
