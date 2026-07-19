@@ -8,6 +8,7 @@ import {
   BEDROOMS_TO_AIRBNB_SIZE,
   minimumHoursForService,
 } from '@/lib/constants/services';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -308,21 +309,25 @@ export default function HeroQuoteWidget() {
   // ─── Handlers ──────────────────────────────────────────────
 
   const handlePostcodeSubmit = () => {
-    const trimmed = postcode.trim();
-    if (!UK_POSTCODE_REGEX.test(trimmed)) {
+    // H31: canonicalise ("e47ap" → "E4 7AP") — the field, the stored value,
+    // and every downstream lookup all use the same normalised form.
+    const raw = postcode.trim();
+    if (!UK_POSTCODE_REGEX.test(raw)) {
       setPostcodeError('Please enter a valid UK postcode');
       return;
     }
+    const trimmed = normalizeUkPostcode(raw) ?? raw.toUpperCase();
+    setPostcode(trimmed);
     setPostcodeError('');
 
     if (!isInCatchmentArea(trimmed)) {
-      setConfirmedPostcode(trimmed.toUpperCase());
+      setConfirmedPostcode(trimmed);
       setShowWaitlist(true);
       return;
     }
 
     setShowWaitlist(false);
-    setConfirmedPostcode(trimmed.toUpperCase());
+    setConfirmedPostcode(trimmed);
     setCleanerCount(null); // loading — real count fetched below
     setStep(2);
 

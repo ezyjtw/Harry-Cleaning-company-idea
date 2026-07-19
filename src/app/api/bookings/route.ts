@@ -14,7 +14,7 @@ import { pricingService } from '@/lib/services/pricing.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import stripe from '@/lib/stripe';
 import { isValidPostcode } from '@/lib/utils/postcode';
-import { isSaneDurationHours } from '@/lib/validation/inputs';
+import { isSaneDurationHours, normalizeUkPostcode } from '@/lib/validation/inputs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -508,8 +508,11 @@ export async function POST(request: NextRequest) {
     let addressLine1 = typeof body.addressLine1 === 'string' ? body.addressLine1.trim() : '';
     let addressLine2 = typeof body.addressLine2 === 'string' ? body.addressLine2.trim() : '';
     let addressCity = typeof body.addressCity === 'string' ? body.addressCity.trim() : '';
-    let addressPostcode =
+    // H31: PERSIST the canonical form — "E47AP" is stored as "E4 7AP", so every
+    // downstream consumer (coverage, area quotes, display) sees one spelling.
+    const rawPostcode =
       typeof body.addressPostcode === 'string' ? body.addressPostcode.trim().toUpperCase() : '';
+    let addressPostcode = normalizeUkPostcode(rawPostcode) ?? rawPostcode;
 
     // Saved address selected: copy its fields onto the booking (ownership-checked).
     if (body.addressId && sessionUser) {

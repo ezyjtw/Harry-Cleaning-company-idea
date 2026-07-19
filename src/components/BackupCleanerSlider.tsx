@@ -108,8 +108,10 @@ export default function BackupCleanerSlider({
           {/* H21: this tickbox is the ONLY consent for the wider-network
               (Rena-Find) search after declines — the copy must say exactly
               that, not read like instant backup assignment. */}
+          {/* H30 (James-ruled label): title only — the honest consent body
+              below stays verbatim. */}
           <span className="font-jost text-sm font-medium text-ink transition group-hover:text-ink/80">
-            Keep searching if my cleaners can&apos;t take it
+            Let the RENA network step in
           </span>
           <p className="mt-0.5 font-jost text-xs font-light text-ink-3">
             If your chosen cleaner and backups can&apos;t take this booking, we&apos;ll offer it to

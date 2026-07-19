@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { isValidPostcode } from '@/lib/utils/postcode';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 // Manual structured address entry — the clean, intentional default.
 //
@@ -71,8 +72,12 @@ export default function AddressAutocomplete({
   }, [autoLookupPostcode, initialPostcode]);
 
   // Re-validate catchment / chosen-cleaner coverage when a full postcode is entered.
+  // H31 (customer parity with F6): normalise on blur — "e47ap" becomes "E4 7AP"
+  // in the field itself, and the canonical form is what every lookup receives.
   async function revalidatePostcode() {
-    const pc = value.postcode.trim().toUpperCase();
+    const raw = value.postcode.trim().toUpperCase();
+    const pc = normalizeUkPostcode(raw) ?? raw;
+    if (pc !== value.postcode) onChange({ ...value, postcode: pc });
     setCoverageMsg(null);
     if (onPostcodeChange && isValidPostcode(pc)) {
       const verdict = await onPostcodeChange(pc);
