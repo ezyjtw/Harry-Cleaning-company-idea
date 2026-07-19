@@ -375,7 +375,7 @@ export async function getDisputes(
     dateRaised: d.createdAt.toISOString().split('T')[0],
     status: d.status.toLowerCase().replace('_', '-'),
     amount: Number(d.booking.totalPrice),
-    filedBy: d.raisedBy.role === 'CLEANER' ? ('cleaner' as const) : ('customer' as const),
+    filedBy: d.raisedBy?.role === 'CLEANER' ? ('cleaner' as const) : ('customer' as const),
   }));
 
   return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };

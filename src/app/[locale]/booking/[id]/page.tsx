@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
+import NavLink from '@/components/nav/NavLink';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
@@ -41,6 +42,8 @@ interface BookingDetail {
   backupCleanerIds?: string[];
   notes?: string | null;
   dispute?: { id: string } | null;
+  transferStatus?: string | null;
+  completionConfirmedAt?: string | null;
   cleaner: {
     id: string;
     name: string | null;
@@ -67,6 +70,36 @@ export default function BookingDetailPage() {
   const [disputeDescription, setDisputeDescription] = useState('');
   const [submittingDispute, setSubmittingDispute] = useState(false);
   const [disputeError, setDisputeError] = useState<string | null>(null);
+
+  // H42: "Confirm & release payment" — the completion notification promises
+  // this action on this page; the machinery (confirm-complete → releaseDueAt
+  // now, scheduler releases) existed but only /account/bookings had the door.
+  const [confirming, setConfirming] = useState(false);
+  const [confirmResult, setConfirmResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const confirmComplete = async () => {
+    setConfirming(true);
+    setConfirmResult(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/confirm-complete`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setBooking((prev) =>
+          prev ? { ...prev, completionConfirmedAt: new Date().toISOString() } : prev
+        );
+        setConfirmResult({
+          ok: true,
+          message: data.message || 'Confirmed — payment will be released to your cleaner shortly.',
+        });
+      } else {
+        setConfirmResult({ ok: false, message: data.error || 'Could not confirm completion.' });
+      }
+    } catch {
+      setConfirmResult({ ok: false, message: 'Something went wrong. Please try again.' });
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   const submitDispute = async () => {
     setSubmittingDispute(true);
@@ -164,12 +197,13 @@ export default function BookingDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
-      <Link
+      <NavLink
+        surface="booking-detail-back"
         href="/account"
         className="font-jost text-[12px] uppercase tracking-[0.1em] text-primary hover:underline"
       >
         ← Back to my account
-      </Link>
+      </NavLink>
 
       {/* H8: the rescue choice belongs to the CUSTOMER. Other authorized
           viewers (the cleaner — including the canceller — backups, admin) get
@@ -270,6 +304,38 @@ export default function BookingDetailPage() {
           </div>
         )}
       </div>
+
+      {/* H42: confirm-release door — customer only, COMPLETED, funds still
+          held (PENDING), not yet confirmed, no dispute. Gone the moment any
+          of that changes. Wires to the existing confirm-complete machinery. */}
+      {booking.viewer === 'client' &&
+        booking.status === 'COMPLETED' &&
+        booking.transferStatus === 'PENDING' &&
+        !booking.completionConfirmedAt &&
+        !booking.dispute && (
+          <div className="mt-4 rounded-2xl border border-line bg-surface p-5">
+            <p className="font-jost text-[14px] font-medium text-ink">Happy with your clean?</p>
+            <p className="mt-1 font-jost text-[13px] text-ink-2">
+              Confirm you&rsquo;re satisfied and we&rsquo;ll release payment to your cleaner right
+              away. If you do nothing, it releases automatically 24 hours after completion.
+            </p>
+            {confirmResult && !confirmResult.ok && (
+              <p className="mt-2 font-jost text-[13px] text-danger">{confirmResult.message}</p>
+            )}
+            <button
+              onClick={confirmComplete}
+              disabled={confirming}
+              className="mt-3 rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+            >
+              {confirming ? 'Confirming…' : 'Confirm & release payment'}
+            </button>
+          </div>
+        )}
+      {booking.viewer === 'client' && confirmResult?.ok && (
+        <div className="mt-4 rounded-2xl border border-trust/30 bg-green-50 p-5">
+          <p className="font-jost text-[14px] font-medium text-trust">{confirmResult.message}</p>
+        </div>
+      )}
 
       {/* H40: report-a-problem door — customer only, work happened/happening,
           no dispute already open. The friendly label stays; the flow behind it

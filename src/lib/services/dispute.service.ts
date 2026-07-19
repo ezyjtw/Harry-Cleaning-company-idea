@@ -17,8 +17,10 @@
 import type { BookingStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import { DISPUTE_REASONS } from '@/lib/trust';
 
 import { AuditService } from './audit.service';
+import { sendDisputeOpenedToCleaner } from './email.service';
 
 // A dispute may be filed only when the work has happened or is happening.
 // F9: REVIEWED included — problems can surface after the customer reviews
@@ -62,7 +64,8 @@ class DisputeConflict extends Error {}
  */
 export async function fileDispute(params: {
   bookingId: string;
-  raisedById: string;
+  /** H41: null when a tokened GUEST files — the token was the authorization. */
+  raisedById: string | null;
   reason: string;
   description: string;
 }): Promise<FileDisputeResult> {
@@ -152,7 +155,7 @@ export async function fileDispute(params: {
   // 7. Notify the cleaner + admins, and audit (best-effort — never block filing).
   await notifyDisputeOpened(booking, bookingId, reason).catch(() => {});
   await AuditService.log({
-    userId: raisedById,
+    userId: raisedById ?? undefined,
     action: 'DISPUTE_OPENED',
     entityType: 'Dispute',
     entityId: disputeId,
@@ -170,8 +173,9 @@ async function notifyDisputeOpened(
   reason: string
 ): Promise<void> {
   const dateStr = booking.date.toLocaleDateString('en-GB');
+  const reasonLabel = DISPUTE_REASONS.find((r) => r.value === reason)?.label ?? reason;
 
-  // Assigned cleaner — their payout is now on hold.
+  // Assigned cleaner — their payout is now on hold. Bell notification…
   await prisma.notification
     .create({
       data: {
@@ -183,6 +187,20 @@ async function notifyDisputeOpened(
       },
     })
     .catch(() => {});
+
+  // …and email (H43). Best-effort — a mail failure never blocks the filing.
+  const cleaner = await prisma.user
+    .findUnique({ where: { id: booking.cleanerId }, select: { email: true, name: true } })
+    .catch(() => null);
+  if (cleaner?.email) {
+    await sendDisputeOpenedToCleaner({
+      cleanerEmail: cleaner.email,
+      cleanerName: cleaner.name ?? '',
+      cleanerUserId: booking.cleanerId,
+      dateStr,
+      reasonLabel,
+    }).catch(() => {});
+  }
 
   // Admins — someone needs to review and resolve.
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });

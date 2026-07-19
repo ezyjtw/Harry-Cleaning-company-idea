@@ -91,32 +91,44 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   // clears); a NEW offer arriving later re-fires it. Best-effort — any error
   // just means no badge.
   const [unseenOffers, setUnseenOffers] = useState(0);
+  // H43: open-dispute attention badge — same seen-tracking pattern as offers,
+  // clears when the cleaner opens /disputes, re-fires for a newly-opened case.
+  const [unseenDisputes, setUnseenDisputes] = useState(0);
   useEffect(() => {
     let stop = false;
     const SEEN_KEY = 'rena-seen-offer-ids';
-    const readSeen = (): string[] => {
+    const DISPUTE_SEEN_KEY = 'rena-seen-dispute-ids';
+    const readSeen = (key: string): string[] => {
       try {
-        return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]');
+        return JSON.parse(localStorage.getItem(key) || '[]');
       } catch {
         return [];
       }
+    };
+    const unseenCount = (ids: string[], key: string, onPage: boolean): number => {
+      if (onPage) {
+        try {
+          localStorage.setItem(key, JSON.stringify(ids));
+        } catch {
+          /* storage unavailable — count still works this tick */
+        }
+        return 0;
+      }
+      const seen = new Set(readSeen(key));
+      return ids.filter((id) => !seen.has(id)).length;
     };
     async function tick() {
       try {
         const res = await fetch('/api/cleaner/badges');
         const data = res.ok ? await res.json().catch(() => null) : null;
-        if (stop || !Array.isArray(data?.offerIds)) return;
-        const ids: string[] = data.offerIds;
-        if (pathname === '/cleaner/jobs') {
-          try {
-            localStorage.setItem(SEEN_KEY, JSON.stringify(ids));
-          } catch {
-            /* storage unavailable — live count below still works */
-          }
-          setUnseenOffers(0);
-        } else {
-          const seen = new Set(readSeen());
-          setUnseenOffers(ids.filter((id) => !seen.has(id)).length);
+        if (stop || !data) return;
+        if (Array.isArray(data.offerIds)) {
+          setUnseenOffers(unseenCount(data.offerIds, SEEN_KEY, pathname === '/cleaner/jobs'));
+        }
+        if (Array.isArray(data.disputeIds)) {
+          setUnseenDisputes(
+            unseenCount(data.disputeIds, DISPUTE_SEEN_KEY, pathname === '/disputes')
+          );
         }
       } catch {
         /* badge is best-effort */
@@ -305,6 +317,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const showJobsBadge = item.href === '/cleaner/jobs' && unseenOffers > 0;
+              const showDisputeBadge = item.href === '/disputes' && unseenDisputes > 0;
               return (
                 <NavLink
                   surface="cleaner-sidebar"
@@ -342,6 +355,15 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                       className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 font-jost text-[11px] font-semibold text-white"
                     >
                       {unseenOffers > 9 ? '9+' : unseenOffers}
+                    </span>
+                  )}
+                  {/* H43: open-dispute attention badge on the Disputes item. */}
+                  {showDisputeBadge && (
+                    <span
+                      data-testid="disputes-badge"
+                      className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 font-jost text-[11px] font-semibold text-white"
+                    >
+                      {unseenDisputes > 9 ? '9+' : unseenDisputes}
                     </span>
                   )}
                 </NavLink>

@@ -391,6 +391,29 @@ export function buildSupportAlert(data: {
   };
 }
 
+// H43: the assigned cleaner learns a customer reported a problem — bell AND
+// email. Their payout is paused; the case link takes them to add their side.
+export function buildDisputeOpenedCleaner(opts: {
+  cleanerName: string;
+  dateStr: string;
+  reasonLabel: string;
+}): EmailContent {
+  const link = `${appUrl()}/disputes`;
+  const subject = 'A problem was reported on one of your bookings';
+  const contentHtml =
+    h('A problem was reported') +
+    p(`Hi ${opts.cleanerName || 'there'},`) +
+    p(
+      `A customer has reported a problem with your booking on ${opts.dateStr} (${opts.reasonLabel}). While our team reviews it, your payout for this booking is on hold.`
+    ) +
+    p(
+      'You can add your side of the story and any photos on your disputes page. Stronger evidence helps us resolve things faster and fairly.'
+    ) +
+    button(link, 'View the dispute') +
+    p('Thank you for using Rena.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildReviewRequest(booking: BookingEmailData, user: UserEmailData): EmailContent {
   const reviewLink = `${appUrl()}/dashboard?review=${booking.id}`;
   const subject = `How was your clean with ${booking.cleanerName}?`;

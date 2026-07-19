@@ -1,9 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import type { ComponentProps, MouseEvent as ReactMouseEvent } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  useEffect,
+  useState,
+  type ComponentProps,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 
+import { startNavProgress } from '@/lib/nav/nav-progress';
 import { recordNav, updateNav } from '@/lib/nav/nav-trace';
 
 // H39: resilient navigation link — the mitigation that ships ahead of the
@@ -25,8 +31,22 @@ type NavLinkProps = ComponentProps<typeof Link> & {
 const CONFIRM_MS = 500; // spec checkpoint: "did the route change within 500ms?"
 const FALLBACK_MS = 800; // hard-navigation deadline
 
-export default function NavLink({ surface, onClick, href, children, ...rest }: NavLinkProps) {
+export default function NavLink({
+  surface,
+  onClick,
+  href,
+  children,
+  className,
+  ...rest
+}: NavLinkProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  // H41: immediate pressed/loading state on the clicked link — set the instant
+  // the handler fires, cleared when the route actually changes.
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    setPending(false);
+  }, [pathname]);
 
   const handleClick = (e: ReactMouseEvent<HTMLAnchorElement>) => {
     onClick?.(e);
@@ -47,6 +67,10 @@ export default function NavLink({ surface, onClick, href, children, ...rest }: N
     }
 
     e.preventDefault();
+    // H41: instant feedback — the top progress bar and this link's pressed
+    // state both fire before the (possibly slow) route resolves.
+    setPending(true);
+    startNavProgress();
     const from = window.location.pathname + window.location.search;
     const id = recordNav({ kind: 'push', surface, href: target, from, handlerFired: true });
 
@@ -80,7 +104,15 @@ export default function NavLink({ surface, onClick, href, children, ...rest }: N
   };
 
   return (
-    <Link href={href} {...rest} onClick={handleClick}>
+    <Link
+      href={href}
+      {...rest}
+      className={className}
+      onClick={handleClick}
+      aria-busy={pending || undefined}
+      data-nav-pending={pending || undefined}
+      style={pending ? { opacity: 0.6, ...(rest.style ?? {}) } : rest.style}
+    >
       {children}
     </Link>
   );

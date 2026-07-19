@@ -63,8 +63,8 @@ export async function GET() {
     const mapped = disputes.map((d) => ({
       id: d.id,
       bookingId: d.booking.id,
-      filedBy: d.raisedBy.role === 'CLEANER' ? ('cleaner' as const) : ('customer' as const),
-      filedByName: d.raisedBy.name || 'A party',
+      filedBy: d.raisedBy?.role === 'CLEANER' ? ('cleaner' as const) : ('customer' as const),
+      filedByName: d.raisedBy?.name || 'Guest customer',
       reason: d.reason as DisputeReason,
       description: d.description,
       status: mapPrismaStatus(d.status, d.resolution),

@@ -843,7 +843,9 @@ model PromoCode {
 model Dispute {
   id          String        @id @default(cuid())
   bookingId   String        @unique
-  raisedById  String
+  // H41 guest parity: null when a GUEST (tokened, no account) filed the
+  // dispute — the booking's guestName/guestEmail identify them.
+  raisedById  String?
   reason      String
   description String        @db.Text
   status      DisputeStatus @default(OPEN)
@@ -853,7 +855,7 @@ model Dispute {
   updatedAt   DateTime      @updatedAt
 
   booking  Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  raisedBy User              @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
+  raisedBy User?             @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
   evidence DisputeEvidence[]
 
   @@index([bookingId])

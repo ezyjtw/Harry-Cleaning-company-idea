@@ -7,6 +7,11 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { cascadeSentence } from '@/components/BookingStatusChip';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { DISPUTE_REASONS } from '@/lib/trust';
+
+// H41 guest parity: same disputable window as the account/booking pages
+// (mirrors DISPUTABLE_STATUS in dispute.service.ts — server enforces it).
+const DISPUTABLE_STATUSES = ['COMPLETED', 'EN_ROUTE', 'IN_PROGRESS', 'REVIEWED'];
 
 interface Booking {
   id: string;
@@ -209,6 +214,16 @@ function GuestBookingContent() {
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // H41: tokened "Report a problem" — the guest-parity door to the dispute
+  // flow. The token authorizes the POST; on success the booking re-fetches
+  // into its DISPUTED state (the "Being reviewed" banner).
+  const [reporting, setReporting] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeDescription, setDisputeDescription] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
+  const [disputeFiled, setDisputeFiled] = useState(false);
+
   const fetchBooking = useCallback(async () => {
     if (!token) {
       setError('No booking token provided.');
@@ -288,6 +303,33 @@ function GuestBookingContent() {
       setPreviewError('Could not check your refund — please try again.');
     } finally {
       setPreviewing(false);
+    }
+  };
+
+  const submitDispute = async () => {
+    if (!token) return;
+    setSubmittingDispute(true);
+    setDisputeError(null);
+    try {
+      const res = await fetch('/api/bookings/guest/dispute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, reason: disputeReason, description: disputeDescription }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDisputeError(data.error || 'Failed to submit report.');
+        return;
+      }
+      setDisputeFiled(true);
+      setReporting(false);
+      // Re-fetch: the booking is now DISPUTED — the "Being reviewed" banner
+      // takes over and payment is on hold.
+      fetchBooking();
+    } catch {
+      setDisputeError('Network error. Please try again.');
+    } finally {
+      setSubmittingDispute(false);
     }
   };
 
@@ -588,6 +630,81 @@ function GuestBookingContent() {
                 </button>
                 {previewError && <p className="mt-2 text-sm text-danger">{previewError}</p>}
               </>
+            )}
+          </div>
+        )}
+
+        {/* H41: guest "Report a problem" — same dispute flow as account
+            holders, authorized by the token. Renders only while the work
+            happened/is happening and no dispute exists (DISPUTED bookings
+            show the "Being reviewed" banner above instead). */}
+        {disputeFiled && (
+          <div className="mb-6 rounded-xl border border-warning/25 bg-warning/[0.06] p-4">
+            <p className="font-semibold text-ink">Problem reported</p>
+            <p className="mt-1 text-sm text-ink-2">
+              Payment to your cleaner is paused while our team reviews it. We&rsquo;ll email you the
+              outcome — reply to that email if you have photos or anything to add.
+            </p>
+          </div>
+        )}
+        {!disputeFiled && !cancelled && token && DISPUTABLE_STATUSES.includes(booking.status) && (
+          <div className="mb-6">
+            {reporting ? (
+              <div className="flex flex-col gap-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] p-4">
+                <span className="text-sm font-medium text-ink">
+                  Report a problem with this booking
+                </span>
+                <select
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  className="rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Select a reason…</option>
+                  {DISPUTE_REASONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  rows={3}
+                  value={disputeDescription}
+                  onChange={(e) => setDisputeDescription(e.target.value)}
+                  placeholder="Please describe the problem…"
+                  maxLength={2000}
+                  className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <p className="text-xs text-ink-3">
+                  Reporting a problem pauses payment to your cleaner while we look into it.
+                </p>
+                {disputeError && <span className="text-xs text-danger">{disputeError}</span>}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={submitDispute}
+                    disabled={submittingDispute || !disputeReason || !disputeDescription.trim()}
+                    className="rounded-[10px] bg-warning px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
+                  >
+                    {submittingDispute ? 'Submitting…' : 'Submit report'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setReporting(false);
+                      setDisputeError(null);
+                    }}
+                    disabled={submittingDispute}
+                    className="rounded-[10px] border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setReporting(true)}
+                className="w-full rounded-[10px] border border-warning/40 bg-surface px-6 py-3 text-sm font-medium text-warning transition-colors hover:bg-warning/[0.08]"
+              >
+                Report a problem
+              </button>
             )}
           </div>
         )}
