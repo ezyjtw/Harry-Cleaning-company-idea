@@ -341,8 +341,14 @@ function GuestBookingContent() {
         method: 'DELETE',
       });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to cancel booking.');
+        // H59: transients (e.g. a deploy swap mid-request) can return non-JSON
+        // bodies — parse defensively, and be HONEST about state: the cancel is
+        // a single atomic write, so a failed request means nothing changed.
+        const data = await res.json().catch(() => ({}) as { error?: string });
+        setError(
+          data.error ||
+            "That didn't go through — nothing was changed and your booking is untouched. Please try again."
+        );
         setCancelling(false);
         return;
       }
@@ -350,7 +356,9 @@ function GuestBookingContent() {
       setBooking(data.booking);
       setCancelled(true);
     } catch {
-      setError('Failed to cancel booking. Please try again later.');
+      setError(
+        "That didn't go through — nothing was changed and your booking is untouched. Please try again."
+      );
     } finally {
       setCancelling(false);
     }

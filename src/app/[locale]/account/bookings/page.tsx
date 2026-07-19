@@ -250,7 +250,7 @@ export default function BookingsPage() {
       setBookings((prev) =>
         prev.map((b) =>
           b.fullId === fullId
-            ? { ...b, status: 'Disputed' as const, rawStatus: 'DISPUTED', hasDispute: true }
+            ? { ...b, status: 'Under review' as const, rawStatus: 'DISPUTED', hasDispute: true }
             : b
         )
       );
@@ -397,7 +397,14 @@ export default function BookingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = filter === 'All' ? bookings : bookings.filter((b) => b.status === filter);
+  // H60 (James-ruled): a booking under dispute REMAINS in Completed — the work
+  // happened; the case is an overlay, not a different life stage.
+  const filtered =
+    filter === 'All'
+      ? bookings
+      : bookings.filter(
+          (b) => b.status === filter || (filter === 'Completed' && b.status === 'Under review')
+        );
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -557,6 +564,18 @@ export default function BookingsPage() {
                   >
                     Review the price change
                   </Link>
+                </div>
+              )}
+
+              {/* H60: an under-review booking stays here AND links to its case. */}
+              {booking.hasDispute && (
+                <div className="mt-3 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5">
+                  <p className="font-jost text-[13px] text-ink-2">
+                    A reported problem on this booking is under review.{' '}
+                    <Link href="/disputes" className="font-medium text-warning underline">
+                      View the case
+                    </Link>
+                  </p>
                 </div>
               )}
 

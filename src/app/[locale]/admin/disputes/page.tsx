@@ -6,17 +6,29 @@ import type { AdminDispute } from './DisputesList';
 
 export const dynamic = 'force-dynamic';
 
-// Map Prisma DisputeStatus enum values to UI status strings
-function mapPrismaStatus(prismaStatus: string): DisputeStatus {
-  switch (prismaStatus) {
+// H61: the resolution FLAVOUR is derived from what actually happened to the
+// money, not from string-sniffing the admin's free-text note (which mislabeled
+// any note mentioning "cleaner"). refund-customer resolutions cancel the
+// booking; split resolutions leave a SUCCEEDED refund record tagged
+// "(split)"; everything else released to the cleaner.
+function mapPrismaStatus(d: {
+  status: string;
+  booking: { status: string; refundRecords: { reason: string }[] };
+}): DisputeStatus {
+  switch (d.status) {
     case 'OPEN':
       return 'open';
     case 'UNDER_REVIEW':
       return 'under-review';
-    case 'RESOLVED':
-      return 'resolved-customer'; // Default resolved mapping
     case 'DISMISSED':
-      return 'resolved-cleaner'; // Dismissed maps to resolved for cleaner
+      return 'dismissed';
+    case 'RESOLVED': {
+      if (d.booking.status === 'CANCELLED') return 'resolved-customer'; // refunded in full
+      if (d.booking.refundRecords.some((r) => r.reason.startsWith('Dispute resolved (split)'))) {
+        return 'resolved-split'; // refunded partially
+      }
+      return 'resolved-cleaner'; // no refund — released to cleaner
+    }
     default:
       return 'open';
   }
@@ -30,6 +42,7 @@ async function getDisputes(): Promise<AdminDispute[]> {
         include: {
           client: { select: { name: true, role: true } },
           cleaner: { select: { name: true } },
+          refundRecords: { where: { status: 'SUCCEEDED' }, select: { reason: true } },
         },
       },
       raisedBy: { select: { id: true, name: true, role: true } },
@@ -39,15 +52,7 @@ async function getDisputes(): Promise<AdminDispute[]> {
 
   return disputes.map((d) => {
     const isFiledByCleaner = d.raisedBy?.role === 'CLEANER';
-
-    // If there's a resolution note containing "split", map to resolved-split
-    let status = mapPrismaStatus(d.status);
-    if (d.status === 'RESOLVED' && d.resolution?.toLowerCase().includes('split')) {
-      status = 'resolved-split';
-    }
-    if (d.status === 'RESOLVED' && d.resolution?.toLowerCase().includes('cleaner')) {
-      status = 'resolved-cleaner';
-    }
+    const status = mapPrismaStatus(d);
 
     return {
       id: d.id.substring(0, 8).toUpperCase(),

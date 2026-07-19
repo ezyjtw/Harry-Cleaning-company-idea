@@ -15,7 +15,7 @@ export type BookingStatus =
   | 'On the way'
   | 'Completed'
   | 'Cancelled'
-  | 'Disputed'
+  | 'Under review'
   | 'No cleaner available'
   | 'Cleaner cancelled — action needed';
 
@@ -33,7 +33,9 @@ export const statusStyles: Record<BookingStatus, string> = {
   'On the way': 'bg-warning/10 text-warning border-warning/20',
   Completed: 'bg-trust/10 text-trust border-trust/20',
   Cancelled: 'bg-page text-ink-3 border-line',
-  Disputed: 'bg-danger/10 text-danger border-danger/20',
+  // H60 (James-ruled): a disputed booking wears an AMBER "Under review", not a
+  // red accusation — it stays in the completed list while the case runs.
+  'Under review': 'bg-warning/10 text-warning border-warning/20',
   'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
   'Cleaner cancelled — action needed': 'bg-danger/10 text-danger border-danger/20',
 };
@@ -81,7 +83,7 @@ export function mapStatus(apiStatus: string, cascadePhase?: string | null): Book
     case 'CANCELLED':
       return 'Cancelled';
     case 'DISPUTED':
-      return 'Disputed';
+      return 'Under review';
     case 'CASCADE_EXHAUSTED':
       return 'No cleaner available';
     case 'CLEANER_CANCELLED':

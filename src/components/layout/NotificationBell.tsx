@@ -96,8 +96,20 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
+  // H58: the dropdown is anchored to the bell. `right-0` (chosen for the
+  // customer navbar, bell top-right) shoved the 340px panel off the LEFT edge
+  // when the bell lives in the cleaner sidebar (top-left). Pick the anchor
+  // side from where the bell actually is at open time.
+  const [alignLeft, setAlignLeft] = useState(false);
+
   const toggle = () => {
     const next = !open;
+    if (next && wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect();
+      // A right-anchored panel spans [bellRight - 340, bellRight]. If that
+      // would cross the left viewport edge, anchor left instead.
+      setAlignLeft(rect.right - 340 < 8);
+    }
     setOpen(next);
     if (next) loadList();
   };
@@ -145,7 +157,11 @@ export default function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-[340px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
+        <div
+          className={`absolute z-50 mt-2 w-[340px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-xl ${
+            alignLeft ? 'left-0' : 'right-0'
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <p className="font-jost text-sm font-semibold text-ink">Notifications</p>
             {unread > 0 && (
