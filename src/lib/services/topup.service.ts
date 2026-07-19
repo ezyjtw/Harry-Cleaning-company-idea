@@ -349,11 +349,93 @@ async function writeTopupSuccess(
       extras: true,
       totalAmountCharged: true,
       totalPrice: true,
+      // H54: the admin price-adjust source finalizes differently — same
+      // cleaner, proportional money scaling, pre-adjust status restored.
+      provisionalSource: true,
+      reassignPreviousStatus: true,
+      cleanerEarnings: true,
+      platformFee: true,
+      platformCommissionAmount: true,
+      platformFeeAmount: true,
+      renaEarns: true,
+      customerSubtotal: true,
+      customerServiceFee: true,
+      cleanerPayoutAmount: true,
     },
   });
   if (!full) throw new Error(`writeTopupSuccess: booking ${booking.id} vanished`);
   if (!booking.provisionalCleanerId) {
     throw new Error(`writeTopupSuccess: booking ${booking.id} has no provisional cleaner`);
+  }
+
+  // ── H54 branch: ADMIN_PRICE_ADJUST (same cleaner, delta approved) ──
+  // James ruling (c): the delta splits PROPORTIONALLY — every money field
+  // scales by newTotal/oldTotal, so the cleaner keeps the same share of the
+  // adjusted price and every ledger line (subtotal, fee, commission, earnings,
+  // Rena take) stays internally consistent. Ruling (a): the booking returns to
+  // its EXACT pre-adjust status (reassignPreviousStatus), keeping its cleaner.
+  if (full.provisionalSource === 'ADMIN_PRICE_ADJUST') {
+    const oldTotal = Number(full.totalPrice);
+    const newTotal = Math.round((oldTotal + amountPounds) * 100) / 100;
+    const factor = oldTotal > 0 ? newTotal / oldTotal : 1;
+    const scale = (v: unknown) => Math.round(Number(v ?? 0) * factor * 100) / 100;
+
+    await prisma.$transaction([
+      prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          status: full.reassignPreviousStatus ?? 'CONFIRMED',
+          totalPrice: newTotal,
+          totalAmountCharged:
+            Math.round((Number(full.totalAmountCharged ?? full.totalPrice) + amountPounds) * 100) /
+            100,
+          cleanerEarnings: scale(full.cleanerEarnings),
+          cleanerPayoutAmount: scale(full.cleanerPayoutAmount),
+          platformFee: scale(full.platformFee),
+          platformCommissionAmount: scale(full.platformCommissionAmount),
+          platformFeeAmount: scale(full.platformFeeAmount),
+          renaEarns: scale(full.renaEarns),
+          customerSubtotal: scale(full.customerSubtotal),
+          customerServiceFee: scale(full.customerServiceFee),
+          cascadePhase: null,
+          cascadeExpiresAt: null,
+          cascadeBackupExpiresAt: null,
+          provisionalCleanerId: null,
+          provisionalPrice: null,
+          topupAmount: null,
+          approvalExpiresAt: null,
+          topupApproved: false,
+          provisionalSource: null,
+          reassignPreviousStatus: null,
+          reassignPreviousCleanerId: null,
+        },
+      }),
+      prisma.topupRecord.update({
+        where: { id: topupRecord.id },
+        data: {
+          stripePaymentIntentId,
+          status: 'SUCCEEDED',
+          paymentMethodType,
+          attempt,
+          failureReason: null,
+        },
+      }),
+    ]);
+
+    await AuditService.log({
+      action: 'TOPUP_SUCCEEDED',
+      entityType: 'Booking',
+      entityId: booking.id,
+      metadata: {
+        amount: amountPounds,
+        topupRecordId: topupRecord.id,
+        source: 'ADMIN_PRICE_ADJUST',
+        oldTotal,
+        newTotal,
+        scaleFactor: factor,
+      },
+    }).catch(() => {});
+    return;
   }
 
   const capturedSoFar = Number(full.totalAmountCharged ?? full.totalPrice);
