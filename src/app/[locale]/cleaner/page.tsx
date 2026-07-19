@@ -57,6 +57,7 @@ interface DashboardData {
     homePostcode: string | null;
     maxTravelMinutes: number | null;
     availabilitySlotsCount: number;
+    noAvailabilityThisWeek: boolean;
     importedReviewCount: number;
   };
   stats: {
@@ -629,6 +630,22 @@ export default function CleanerDashboard() {
       {/* Consolidated setup checklist — replaces the former service-area, payouts,
           and EoT/Airbnb pricing banners. Auto-completes from real state. */}
       <CleanerSetupChecklist profile={data.profile} />
+
+      {/* H34 (James-ruled): quiet amber nudge when the CURRENT week has zero
+          availability set — same timesheet truth as search (see dashboard API). */}
+      {data.profile.noAvailabilityThisWeek && (
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <p className="font-jost text-sm text-amber-900">
+            You&apos;ve no availability set this week — customers can&apos;t book you until you do.
+          </p>
+          <Link
+            href="/cleaner/availability"
+            className="shrink-0 rounded-[10px] bg-amber-600 px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-amber-700"
+          >
+            Set availability
+          </Link>
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

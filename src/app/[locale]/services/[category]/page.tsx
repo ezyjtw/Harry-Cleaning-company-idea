@@ -31,6 +31,7 @@ import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner } from '@/lib/types';
 import { isValidPostcode } from '@/lib/utils/postcode';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 const SERVICE_LABELS: Record<ServiceCategory, string> = {
   regular: 'Regular Cleaning',
@@ -1191,7 +1192,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   const trimmed = postcode.trim();
                   if (trimmed && !/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
                     setPostcodeError('Please enter a valid UK postcode');
+                    return;
                   }
+                  // H31: canonicalise on blur — "E47AP" reads back as "E4 7AP"
+                  // and every downstream lookup gets the same form.
+                  const norm = normalizeUkPostcode(trimmed);
+                  if (norm && norm !== postcode) setPostcode(norm);
                 }}
                 placeholder="e.g. SW1A 1AA"
                 className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost text-lg font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 focus:ring-gold/30 ${postcodeError ? 'ring-red-400' : 'ring-ink/[0.06]'}`}
@@ -2653,6 +2659,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               />
             </div>
 
+            {/* H32 (James-ruled): the cleaning address sits ABOVE the summary. */}
+            {addressCard}
+
             {/* Booking summary */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
@@ -2714,9 +2723,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 included. No hidden charges.
               </p>
             </div>
-
-            {/* Cleaning address (A12) */}
-            {addressCard}
 
             {bookingError && (
               <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
@@ -3277,6 +3283,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               />
             </div>
 
+            {/* H32 (James-ruled): the cleaning address sits ABOVE the summary. */}
+            {addressCard}
+
             {/* Summary & submit */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
@@ -3364,9 +3373,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 )}
               </div>
             </div>
-
-            {/* Cleaning address (A12) */}
-            {addressCard}
 
             {bookingError && (
               <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">

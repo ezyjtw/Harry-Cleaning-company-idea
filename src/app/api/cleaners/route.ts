@@ -69,13 +69,16 @@ export async function GET(request: NextRequest) {
   let customerGeo: { latitude: number; longitude: number } | null = null;
 
   if (postcode) {
-    const geo = await lookupPostcode(postcode);
+    // H31: canonicalise the search input too, so the geo-miss prefix fallback
+    // behaves identically however the customer typed it.
+    const canonical = normalizeUkPostcode(postcode) ?? postcode;
+    const geo = await lookupPostcode(canonical);
     if (geo) {
       customerGeo = { latitude: geo.latitude, longitude: geo.longitude };
       where.latitude = { not: null };
       where.longitude = { not: null };
     } else {
-      const prefix = postcode.split(' ')[0].toUpperCase();
+      const prefix = canonical.split(' ')[0].toUpperCase();
       where.postcode = { startsWith: prefix };
     }
   }

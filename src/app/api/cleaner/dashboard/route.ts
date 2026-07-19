@@ -36,6 +36,7 @@ export async function GET() {
     prisma.cleanerProfile.findUnique({
       where: { userId: user.id },
       select: {
+        id: true,
         rating: true,
         tier: true,
         completedJobs: true,
@@ -58,7 +59,12 @@ export async function GET() {
         acknowledgmentVersion: true,
         // Setup-checklist: count of availability slots (no "availability set" flag
         // existed before; this derives one for the checklist item).
-        _count: { select: { availabilitySlots: true } },
+        // H33: BOTH availability shapes count — the per-week editor writes
+        // AvailabilityDateSlot rows, not recurring AvailabilitySlot rows, and
+        // the recurring-only count left "Set your availability" permanently
+        // unticked for week-view cleaners. Derived at read time, so the fix is
+        // retroactive for everyone who already set times.
+        _count: { select: { availabilitySlots: true, availabilityDateSlots: true } },
       },
     }),
 
@@ -216,6 +222,59 @@ export async function GET() {
     where: { cleanerId: user.id, visibility: 'VISIBLE' },
   });
 
+  // H34 (James-ruled banner): "no availability set this week" — computed with
+  // the SAME timesheet core search uses (computeCleanerOpenRanges: recurring
+  // template + date-specific slots − blocked overrides), evaluated for each
+  // REMAINING day of the current week (today → Sunday). Bookings are
+  // deliberately NOT subtracted: a fully-booked week is not "no availability
+  // set". Banner fires only when every remaining day has zero open ranges.
+  let noAvailabilityThisWeek = false;
+  {
+    const endOfWeek = new Date(startOfDay);
+    const dow = endOfWeek.getDay(); // 0=Sun
+    endOfWeek.setDate(endOfWeek.getDate() + (dow === 0 ? 0 : 7 - dow));
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const [recurring, weekDateSlots, weekOverrides] = await Promise.all([
+      prisma.availabilitySlot.findMany({
+        where: { cleanerProfileId: profile.id },
+        select: { dayOfWeek: true, startTime: true, endTime: true },
+      }),
+      prisma.availabilityDateSlot.findMany({
+        where: { cleanerProfileId: profile.id, date: { gte: startOfDay, lte: endOfWeek } },
+        select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
+      }),
+      prisma.availabilityOverride.findMany({
+        where: {
+          cleanerProfileId: profile.id,
+          date: { gte: startOfDay, lte: endOfWeek },
+          isBlocked: true,
+        },
+        select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
+      }),
+    ]);
+
+    const { computeCleanerOpenRanges } = await import('@/lib/availability/timesheet');
+    const dayMs = 86400000;
+    const remainingDays = Math.round((endOfWeek.getTime() - startOfDay.getTime()) / dayMs) + 1;
+    let anyOpen = false;
+    for (let i = 0; i < remainingDays && !anyOpen; i++) {
+      const target = new Date(startOfDay.getTime() + i * dayMs);
+      const targetStr = target.toISOString().split('T')[0];
+      const { openRanges } = computeCleanerOpenRanges({
+        targetDate: target,
+        bufferMins: 0,
+        recurringSlots: recurring,
+        dateSlots: weekDateSlots.filter((s) => s.date.toISOString().startsWith(targetStr)),
+        overrides: weekOverrides.filter((o) => o.date.toISOString().startsWith(targetStr)),
+        bookings: [],
+        isPast: false,
+      });
+      if (openRanges.length > 0) anyOpen = true;
+    }
+    noAvailabilityThisWeek = !anyOpen;
+  }
+
   return NextResponse.json({
     profile: {
       name: displayName(user.name),
@@ -239,8 +298,11 @@ export async function GET() {
       stripePayoutsEnabled: profile.stripePayoutsEnabled,
       homePostcode: profile.homePostcode,
       maxTravelMinutes: profile.maxTravelMinutes,
-      // Setup-checklist derived state
-      availabilitySlotsCount: profile._count.availabilitySlots,
+      // Setup-checklist derived state (H33: recurring + date-specific)
+      availabilitySlotsCount:
+        profile._count.availabilitySlots + profile._count.availabilityDateSlots,
+      // H34 banner predicate (see computation above)
+      noAvailabilityThisWeek,
       importedReviewCount,
       insuranceSubmitted: insuranceDocCount > 0,
       // F8: the NEWEST doc of each type decides (docs arrive createdAt desc) —

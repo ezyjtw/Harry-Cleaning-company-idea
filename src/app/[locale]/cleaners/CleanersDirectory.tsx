@@ -12,6 +12,7 @@ import {
   airbnbSizeLabel,
 } from '@/lib/constants/services';
 import type { Cleaner } from '@/lib/types';
+import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 const FILTER_LABEL_TO_SERVICE_SLUG: Record<string, string> = {
   'Regular Cleaning': 'regular',
@@ -204,13 +205,16 @@ function CleanersContent({
       setPostcodeError('');
       return;
     }
-    const trimmed = postcodeSearch.trim();
-    if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
+    const raw = postcodeSearch.trim();
+    if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(raw)) {
       setPostcodeError('Please enter a valid UK postcode');
       return;
     }
+    // H31: canonical form in the field and in the API call ("e47ap" → "E4 7AP").
+    const trimmed = normalizeUkPostcode(raw) ?? raw.toUpperCase();
+    setPostcodeSearch(trimmed);
     setPostcodeError('');
-    setPostcode(trimmed.toUpperCase());
+    setPostcode(trimmed);
     setSort('distance');
   };
 
