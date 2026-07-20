@@ -2,6 +2,7 @@ import type { NotificationType, Prisma } from '@prisma/client';
 
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
+import { BookingReminderService } from '@/lib/services/booking-reminder.service';
 import {
   categoryForType,
   shouldSend,
@@ -237,6 +238,12 @@ export class EnhancedNotificationService {
       // Toggleable review nudge (NEW_REVIEW already maps to REMINDER; explicit for clarity).
       category: 'REMINDER',
     });
+
+    // H72: send() above delivers bell + web push only — the branded review-request
+    // EMAIL previously existed solely on the deferred quiet-hours path, so any
+    // daytime completion never emailed the customer. Send the same
+    // preference-gated email the deferred handler sends.
+    await BookingReminderService.sendReminderEmail('review_request', bookingId, booking.clientId);
   }
 
   /**

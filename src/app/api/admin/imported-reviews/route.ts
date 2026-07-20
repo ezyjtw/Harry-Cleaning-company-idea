@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   try {
-    const [pendingImports, flaggedNatives] = await Promise.all([
+    const [pendingImports, flaggedNatives, uncheckedNatives] = await Promise.all([
       prisma.importedReview.findMany({
         where: { verificationStatus: 'PENDING' },
         select: { cleanerId: true, createdAt: true },
@@ -25,11 +25,20 @@ export async function GET() {
         where: { visibility: 'FLAGGED' },
         select: { cleanerId: true, createdAt: true },
       }),
+      // H72: a freshly submitted review (VISIBLE, never moderated) had NO admin
+      // door anywhere — this queue only triggered on pending imports and flags,
+      // so a new customer review was invisible to admins until someone flagged
+      // it from a surface that doesn't exist. Never-checked native reviews are
+      // now a third action trigger; "Looks fine" (action VISIBLE) clears them.
+      prisma.review.findMany({
+        where: { isModerated: false },
+        select: { cleanerId: true, createdAt: true },
+      }),
     ]);
 
-    // Cleaner unit: union of both action queues, newest actionable item first.
+    // Cleaner unit: union of the action queues, newest actionable item first.
     const newestActionAt = new Map<string, Date>();
-    for (const row of [...pendingImports, ...flaggedNatives]) {
+    for (const row of [...pendingImports, ...flaggedNatives, ...uncheckedNatives]) {
       const prev = newestActionAt.get(row.cleanerId);
       if (!prev || row.createdAt > prev) newestActionAt.set(row.cleanerId, row.createdAt);
     }
@@ -92,6 +101,7 @@ export async function GET() {
           rating: u?.cleanerProfile ? Number(u.cleanerProfile.rating) : 0,
           pendingImportedCount: imports.filter((r) => r.verificationStatus === 'PENDING').length,
           flaggedNativeCount: natives.filter((r) => r.visibility === 'FLAGGED').length,
+          uncheckedNativeCount: natives.filter((r) => !r.isModerated).length,
           newestActionAt: newestActionAt.get(id),
           importedReviews: imports.map((r) => ({
             id: r.id,

@@ -44,6 +44,7 @@ interface ReviewCleaner {
   rating: number;
   pendingImportedCount: number;
   flaggedNativeCount: number;
+  uncheckedNativeCount: number;
   newestActionAt: string;
   importedReviews: ImportedReviewRow[];
   nativeReviews: NativeReviewRow[];
@@ -161,7 +162,7 @@ export default function AdminReviewsPage() {
           action === 'HIDDEN'
             ? 'Review hidden — it no longer counts toward the rating.'
             : action === 'VISIBLE'
-              ? 'Review visible — it counts toward the rating.'
+              ? 'Review checked and visible — it counts toward the rating.'
               : 'Review flagged for follow-up.'
         );
         await fetchQueue();
@@ -347,6 +348,7 @@ export default function AdminReviewsPage() {
                   {entry.row.visibility === 'VISIBLE' && <Chip tone="trust">Visible</Chip>}
                   {entry.row.visibility === 'HIDDEN' && <Chip tone="muted">Hidden</Chip>}
                   {entry.row.visibility === 'FLAGGED' && <Chip tone="danger">Flagged</Chip>}
+                  {!entry.row.isModerated && <Chip tone="amber">New — not yet checked</Chip>}
                   <span className="ml-auto text-xs text-ink-3">
                     {new Date(entry.row.createdAt).toLocaleDateString('en-GB')}
                   </span>
@@ -358,6 +360,17 @@ export default function AdminReviewsPage() {
                 {entry.row.text && <p className="mt-2 text-sm text-ink-2">{entry.row.text}</p>}
 
                 <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                  {/* H72: a new (never-moderated) VISIBLE review queues the cleaner
+                      here; "Looks fine" marks it checked without changing anything. */}
+                  {!entry.row.isModerated && entry.row.visibility === 'VISIBLE' && (
+                    <button
+                      onClick={() => actNative(entry.row.id, 'VISIBLE')}
+                      disabled={processingId === entry.row.id}
+                      className="rounded-lg bg-trust px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      {processingId === entry.row.id ? 'Working…' : 'Looks fine'}
+                    </button>
+                  )}
                   {entry.row.visibility !== 'HIDDEN' && (
                     <button
                       onClick={() => actNative(entry.row.id, 'HIDDEN')}
@@ -445,6 +458,12 @@ export default function AdminReviewsPage() {
                 )}
                 {c.flaggedNativeCount > 0 && (
                   <Chip tone="danger">{c.flaggedNativeCount} flagged</Chip>
+                )}
+                {c.uncheckedNativeCount > 0 && (
+                  <Chip tone="amber">
+                    {c.uncheckedNativeCount} new review{c.uncheckedNativeCount === 1 ? '' : 's'} to
+                    check
+                  </Chip>
                 )}
                 <span className="text-xs text-ink-3">
                   {new Date(c.newestActionAt).toLocaleDateString('en-GB')}

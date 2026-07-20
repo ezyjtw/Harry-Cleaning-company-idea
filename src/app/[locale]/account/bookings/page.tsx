@@ -330,6 +330,10 @@ export default function BookingsPage() {
   };
 
   useEffect(() => {
+    // H72: the review-request email deep-links here as ?review=<bookingId>.
+    // Fetched explicitly like rescues/approvals so the link works even when the
+    // booking has fallen off the newest-10 general page (pagination-immune).
+    const wanted = new URLSearchParams(window.location.search).get('review');
     // H11: rescues are fetched explicitly and surfaced FIRST — the general
     // page-1 list (newest 10) can miss an older booking whose cleaner just
     // cancelled, and an action-needed booking belongs at the top anyway.
@@ -341,8 +345,13 @@ export default function BookingsPage() {
       // pagination-immune, surfaced first.
       fetch('/api/bookings?approval=pending').then((res) => (res.ok ? res.json() : { data: [] })),
       fetch('/api/bookings').then((res) => (res.ok ? res.json() : { bookings: [] })),
+      wanted
+        ? fetch(`/api/bookings/${encodeURIComponent(wanted)}`).then((res) =>
+            res.ok ? res.json() : null
+          )
+        : Promise.resolve(null),
     ])
-      .then(([rescueData, approvalData, data]) => {
+      .then(([rescueData, approvalData, data, reviewTarget]) => {
         const rescueRaw = rescueData.data || [];
         const approvalRaw = approvalData.data || [];
         const generalRaw = data.data || data.bookings || data || [];
@@ -350,10 +359,18 @@ export default function BookingsPage() {
           [...rescueRaw, ...approvalRaw].map((b: { id?: unknown }) => String(b.id))
         );
         const rescueIds = new Set(rescueRaw.map((b: { id?: unknown }) => String(b.id)));
+        const targetRaw =
+          reviewTarget && reviewTarget.id && !pinnedIds.has(String(reviewTarget.id))
+            ? [reviewTarget]
+            : [];
+        const targetIds = new Set(targetRaw.map((b: { id?: unknown }) => String(b.id)));
         const raw = [
           ...rescueRaw,
           ...approvalRaw.filter((b: { id?: unknown }) => !rescueIds.has(String(b.id))),
-          ...generalRaw.filter((b: { id?: unknown }) => !pinnedIds.has(String(b.id))),
+          ...targetRaw,
+          ...generalRaw.filter(
+            (b: { id?: unknown }) => !pinnedIds.has(String(b.id)) && !targetIds.has(String(b.id))
+          ),
         ];
         const items = raw.map((b: Record<string, unknown>) => ({
           fullId: String(b.id || ''),
@@ -392,6 +409,20 @@ export default function BookingsPage() {
           hasReview: !!b.review,
         }));
         setBookings(items);
+        // Open the review form for the deep-linked booking straight away (only
+        // when it is actually reviewable — completed and not yet reviewed).
+        if (wanted) {
+          const target = items.find(
+            (b: { fullId: string; rawStatus: string; hasReview: boolean }) =>
+              b.fullId === wanted && b.rawStatus === 'COMPLETED' && !b.hasReview
+          );
+          if (target) {
+            // Cards are collapsed by default — expand the target so the form
+            // (which lives in the expanded actions area) is actually on screen.
+            setExpandedId(wanted);
+            setReviewingId(wanted);
+          }
+        }
       })
       .catch(() => setBookings([]))
       .finally(() => setLoading(false));
@@ -682,8 +713,12 @@ export default function BookingsPage() {
                           </span>
                         )}
 
-                        {booking.completionConfirmed &&
-                          !booking.hasReview &&
+                        {/* H72: no completionConfirmed gate — auto-release after the
+                            hold never sets it, which left late-returning customers
+                            with no review door at all. Reviewing implies satisfaction
+                            (the API records the confirmation in the same transaction);
+                            the form says so when confirmation hasn't happened yet. */}
+                        {!booking.hasReview &&
                           !reviewResult[booking.fullId]?.ok &&
                           reviewingId !== booking.fullId &&
                           !confirmResult[booking.fullId]?.ok && (
@@ -700,6 +735,12 @@ export default function BookingsPage() {
                             <span className="text-sm font-medium text-ink">
                               How was your clean?
                             </span>
+                            {!booking.completionConfirmed && (
+                              <span className="text-xs text-ink-3">
+                                Submitting a review also confirms you&apos;re happy for payment to
+                                be released to your cleaner.
+                              </span>
+                            )}
 
                             <div>
                               <span className="mb-1 block text-xs text-ink-2">Overall rating</span>

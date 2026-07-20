@@ -500,7 +500,10 @@ export function buildDisputeResolvedEmail(opts: {
 }
 
 export function buildReviewRequest(booking: BookingEmailData, user: UserEmailData): EmailContent {
-  const reviewLink = `${appUrl()}/dashboard?review=${booking.id}`;
+  // H72: /dashboard is a redirect junction that DROPS the query string — the old
+  // link landed on /account with the review context gone. Deep-link the bookings
+  // page, which opens the review form for this booking.
+  const reviewLink = `${appUrl()}/account/bookings?review=${booking.id}`;
   const subject = `How was your clean with ${booking.cleanerName}?`;
   const contentHtml =
     h('How was your clean?') +
