@@ -97,12 +97,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const encrypted = await getObject(evidence.url);
     const decrypted = decryptDocument(encrypted, keyIdFromObjectKey(evidence.url));
 
+    // H80: guest-token views previously audited with no viewer identity at all
+    // (userId undefined, no marker) — the adversarial-process record must say
+    // WHICH credential viewed the file.
     AuditService.log({
       action: 'DISPUTE_EVIDENCE_VIEWED',
       userId: user?.id,
       entityType: 'DisputeEvidence',
       entityId: evidence.id,
-      metadata: { disputeId },
+      metadata: { disputeId, ...(isGuestParty ? { viaGuestToken: true } : {}) },
       ipAddress: getClientIp(request),
     }).catch(() => {});
 
