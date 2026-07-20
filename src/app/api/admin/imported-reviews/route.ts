@@ -1,8 +1,11 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { AuditService } from '@/lib/services/audit.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
+import { sanitizeInput } from '@/lib/utils/validation';
 
 // H24 (James-ruled, the verification-queue playbook): the unit is the CLEANER.
 // The list is every cleaner with reviews needing admin action — a PENDING
@@ -132,6 +135,83 @@ export async function GET() {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[AdminImportedReviews] List failed:', error);
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+  }
+}
+
+// P7 (ledger, the onboarding-help ruling): the admin can add an imported
+// review on a cleaner's behalf from the cleaner dossier. CAP-EXEMPT for admin
+// (the cleaner-side 3-review cap is an anti-gaming limit on self-service);
+// enters the SAME verification flow — created PENDING, verified/rejected with
+// the existing queue machinery, so nothing counts toward a rating unchecked.
+export async function POST(request: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json().catch(() => null);
+    const cleanerId = typeof body?.cleanerId === 'string' ? body.cleanerId : '';
+    const { rating, text, source, reviewerName, referenceContacts } = body ?? {};
+
+    if (!cleanerId) {
+      return NextResponse.json({ error: 'cleanerId is required.' }, { status: 400 });
+    }
+    if (!source || typeof source !== 'string' || source.trim().length === 0) {
+      return NextResponse.json({ error: 'A source platform is required.' }, { status: 400 });
+    }
+    if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+      return NextResponse.json(
+        { error: 'Rating must be a number between 1 and 5.' },
+        { status: 400 }
+      );
+    }
+
+    const cleaner = await prisma.user.findFirst({
+      where: { id: cleanerId, role: 'CLEANER' },
+      select: { id: true },
+    });
+    if (!cleaner) {
+      return NextResponse.json({ error: 'Cleaner not found.' }, { status: 404 });
+    }
+
+    const imported = await prisma.importedReview.create({
+      data: {
+        cleanerId,
+        rating: Math.round(rating * 10) / 10,
+        text: text ? sanitizeInput(String(text)).substring(0, 2000) : null,
+        source: sanitizeInput(String(source).trim()).substring(0, 200),
+        reviewerName: reviewerName
+          ? sanitizeInput(String(reviewerName).trim()).substring(0, 200)
+          : null,
+        referenceContacts: referenceContacts
+          ? sanitizeInput(String(referenceContacts).trim()).substring(0, 1000)
+          : null,
+        verificationStatus: 'PENDING',
+      },
+    });
+
+    await AuditService.log({
+      action: 'IMPORTED_REVIEW_SUBMITTED',
+      userId: admin.id,
+      entityType: 'ImportedReview',
+      entityId: imported.id,
+      metadata: {
+        cleanerId,
+        source: imported.source,
+        rating: Number(imported.rating),
+        byAdmin: true,
+      },
+    }).catch(() => {});
+
+    return NextResponse.json(
+      { id: imported.id, verificationStatus: imported.verificationStatus },
+      { status: 201 }
+    );
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[AdminImportedReviews] Create failed:', error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

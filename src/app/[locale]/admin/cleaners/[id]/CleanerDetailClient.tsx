@@ -50,6 +50,48 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  // P7: admin-side imported-review form state.
+  const [importSource, setImportSource] = useState('');
+  const [importRating, setImportRating] = useState('');
+  const [importReviewer, setImportReviewer] = useState('');
+  const [importContacts, setImportContacts] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importSubmitting, setImportSubmitting] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+
+  const submitImportedReview = async () => {
+    setImportSubmitting(true);
+    setImportMessage('');
+    try {
+      const res = await fetch('/api/admin/imported-reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cleanerId: cleaner.userId,
+          source: importSource.trim(),
+          rating: Number(importRating),
+          reviewerName: importReviewer.trim() || undefined,
+          referenceContacts: importContacts.trim() || undefined,
+          text: importText.trim() || undefined,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setImportMessage('Added — now pending in the Reviews verification queue.');
+        setImportSource('');
+        setImportRating('');
+        setImportReviewer('');
+        setImportContacts('');
+        setImportText('');
+      } else {
+        setImportMessage(d.error || 'Could not add the review.');
+      }
+    } catch {
+      setImportMessage('Network error — could not add the review.');
+    } finally {
+      setImportSubmitting(false);
+    }
+  };
 
   const selfieDoc = cleaner.documents.find((d) => d.documentType === 'selfie');
   const photoIdDoc = cleaner.documents.find((d) => d.documentType === 'photo_id');
@@ -575,6 +617,68 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
             </div>
           )}
         </div>
+      </section>
+
+      {/* P7 (ledger, onboarding-help ruling): admin adds an imported review on
+          the cleaner's behalf — cap-exempt, lands PENDING in the Reviews queue
+          for the normal verification pass. */}
+      <section className="rounded-xl border border-line bg-surface p-6">
+        <h2 className="text-lg font-semibold text-ink mb-1">Add imported review</h2>
+        <p className="mb-4 text-sm text-ink-3">
+          Enters the verification queue as pending — it counts toward nothing until approved there.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            value={importSource}
+            onChange={(e) => setImportSource(e.target.value)}
+            maxLength={200}
+            placeholder="Source platform (required, e.g. Checkatrade)"
+            className="rounded-lg border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <input
+            value={importRating}
+            onChange={(e) => setImportRating(e.target.value)}
+            inputMode="decimal"
+            placeholder="Rating 1–5 (required)"
+            className="rounded-lg border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <input
+            value={importReviewer}
+            onChange={(e) => setImportReviewer(e.target.value)}
+            maxLength={200}
+            placeholder="Reviewer name (optional)"
+            className="rounded-lg border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <input
+            value={importContacts}
+            onChange={(e) => setImportContacts(e.target.value)}
+            maxLength={1000}
+            placeholder="Reference contact (optional)"
+            className="rounded-lg border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <textarea
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+          maxLength={2000}
+          rows={3}
+          placeholder="Review text (optional)"
+          className="mt-3 w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        />
+        {importMessage && (
+          <p
+            className={`mt-2 text-sm ${importMessage.startsWith('Added') ? 'text-trust' : 'text-danger'}`}
+          >
+            {importMessage}
+          </p>
+        )}
+        <button
+          onClick={submitImportedReview}
+          disabled={importSubmitting || !importSource.trim() || !importRating.trim()}
+          className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+        >
+          {importSubmitting ? 'Adding…' : 'Add to verification queue'}
+        </button>
       </section>
     </div>
   );

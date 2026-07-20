@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import NavLink from '@/components/nav/NavLink';
+
 type Party = 'customer' | 'cleaner' | 'Rena team';
 
 interface DisputeData {
@@ -63,7 +65,9 @@ function fmt(iso: string): string {
 
 export default function DisputeDetail({ data }: { data: DisputeData }) {
   const router = useRouter();
-  const [outcome, setOutcome] = useState<'release-to-cleaner' | 'refund-customer' | 'split' | ''>('');
+  const [outcome, setOutcome] = useState<'release-to-cleaner' | 'refund-customer' | 'split' | ''>(
+    ''
+  );
   const [refundAmount, setRefundAmount] = useState('');
   const [resolution, setResolution] = useState('');
   const [busy, setBusy] = useState(false);
@@ -118,16 +122,24 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <Link href="/admin/disputes" className="text-sm text-ink-3 hover:text-ink">
+      {/* P5 (ledger): H39 resilient-nav wrap — this back-link was the one nav
+          surface left on a bare Link. */}
+      <NavLink
+        surface="admin-dispute-detail"
+        href="/admin/disputes"
+        className="text-sm text-ink-3 hover:text-ink"
+      >
         ← All disputes
-      </Link>
+      </NavLink>
 
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="font-newsreader text-2xl font-semibold text-ink">Dispute #{data.shortId}</h1>
         <span className="rounded-full bg-page px-3 py-0.5 text-xs font-medium text-ink-2">
           {data.status.replace(/_/g, ' ').toLowerCase()}
         </span>
-        <span className="text-sm text-ink-3">Filed by {data.filedBy} · {fmt(data.createdAt)}</span>
+        <span className="text-sm text-ink-3">
+          Filed by {data.filedBy} · {fmt(data.createdAt)}
+        </span>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -157,7 +169,9 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
                     className="flex items-center justify-between gap-3 rounded-lg bg-page px-3 py-2"
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${partyChip(ev.uploadedBy)}`}>
+                      <span
+                        className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${partyChip(ev.uploadedBy)}`}
+                      >
                         {ev.uploadedBy}
                       </span>
                       <span className="truncate text-sm text-ink-2">
@@ -166,10 +180,18 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
                       <span className="shrink-0 text-xs text-ink-3">{fmt(ev.uploadedAt)}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <a href={ev.viewUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-primary hover:underline">
+                      <a
+                        href={ev.viewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
                         View
                       </a>
-                      <a href={`${ev.viewUrl}?download=1`} className="text-xs font-medium text-ink-2 hover:underline">
+                      <a
+                        href={`${ev.viewUrl}?download=1`}
+                        className="text-xs font-medium text-ink-2 hover:underline"
+                      >
                         Download
                       </a>
                     </div>
@@ -181,7 +203,9 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
 
           {/* Message thread */}
           <section className="rounded-xl border border-line bg-surface p-5">
-            <h2 className="font-newsreader text-lg font-semibold text-ink">Messages between the parties</h2>
+            <h2 className="font-newsreader text-lg font-semibold text-ink">
+              Messages between the parties
+            </h2>
             {data.messages.length === 0 ? (
               <p className="mt-2 text-sm text-ink-3">No messages on this booking.</p>
             ) : (
@@ -189,7 +213,9 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
                 {data.messages.map((m) => (
                   <div key={m.id} className="rounded-lg bg-page px-3 py-2">
                     <div className="flex items-center justify-between">
-                      <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${partyChip(m.party)}`}>
+                      <span
+                        className={`rounded px-2 py-0.5 text-[11px] font-medium ${partyChip(m.party)}`}
+                      >
                         {m.party}
                       </span>
                       <span className="text-xs text-ink-3">{fmt(m.at)}</span>
@@ -219,7 +245,10 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
         <div className="space-y-6">
           <section className="rounded-xl border border-line bg-surface p-5">
             <h2 className="font-newsreader text-lg font-semibold text-ink">Booking</h2>
-            <Link href={`/admin/bookings/${data.booking.id}`} className="mt-1 block text-sm text-primary hover:underline">
+            <Link
+              href={`/admin/bookings/${data.booking.id}`}
+              className="mt-1 block text-sm text-primary hover:underline"
+            >
               #{data.booking.shortId} →
             </Link>
             <dl className="mt-3 space-y-1.5 text-sm">

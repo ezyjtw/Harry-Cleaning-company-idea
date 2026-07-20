@@ -1871,6 +1871,11 @@ async function enterRenaFindAdminReview(
       })
       .catch(() => {});
   }
+  // P2 (ledger): the admin-review waiting room belled but never EMAILED — the
+  // one Rena-Find state with no written reassurance. Same concierge email as
+  // the broadcast entry (guest-safe, ESSENTIAL); a booking that passed through
+  // broadcast first may receive it twice, which is acceptable reassurance.
+  await sendRenaFindConcierge(bookingId).catch(() => {});
 
   await AuditService.log({
     action: 'RENA_FIND_ADMIN_REVIEW_ENTERED',
