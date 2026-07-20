@@ -64,7 +64,11 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Booking state changed — please refresh' }, { status: 409 });
   }
 
-  await EnhancedNotificationService.sendReviewRequest(bookingId).catch(() => {});
+  // H74: never a silent catch — a thrown review-request must say so in prod.
+  await EnhancedNotificationService.sendReviewRequest(bookingId).catch((e) => {
+    // eslint-disable-next-line no-console
+    console.error(`[ReviewRequest] Failed for booking ${bookingId}:`, e);
+  });
 
   return NextResponse.json({ message: 'Completion confirmed — funds will be released shortly' });
 }

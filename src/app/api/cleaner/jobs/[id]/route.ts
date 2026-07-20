@@ -399,7 +399,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       })
       .catch(() => {});
 
-    await EnhancedNotificationService.sendReviewRequest(updated.id).catch(() => {});
+    // H74: never a silent catch — a thrown review-request must say so in prod.
+    await EnhancedNotificationService.sendReviewRequest(updated.id).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.error(`[ReviewRequest] Failed for booking ${updated.id}:`, e);
+    });
   }
 
   return NextResponse.json({

@@ -34,6 +34,9 @@ interface RecentReview {
 }
 
 interface DashboardData {
+  // H75: pre-complete jobs whose scheduled slot has ended — money-blocking
+  // until the cleaner marks them complete (no auto-complete exists).
+  overdueJobs?: { id: string; date: string; startTime: string; serviceType: string }[];
   profile: {
     name: string;
     rating: number;
@@ -668,6 +671,33 @@ export default function CleanerDashboard() {
       {/* Consolidated setup checklist — replaces the former service-area, payouts,
           and EoT/Airbnb pricing banners. Auto-completes from real state. */}
       <CleanerSetupChecklist profile={data.profile} />
+
+      {/* H75 (Harry-ruled, money-safety): a job past its scheduled end that was
+          never marked complete blocks the payout — completion is the ONLY
+          trigger (no auto-complete exists). One banner per overdue job. */}
+      {(data.overdueJobs ?? []).map((job) => (
+        <div
+          key={job.id}
+          data-testid="overdue-completion-banner"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
+        >
+          <p className="font-jost text-sm text-amber-900">
+            You haven&apos;t marked your {serviceLabelFromSlug(job.serviceType)} on{' '}
+            {new Date(job.date).toLocaleDateString('en-GB', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            })}{' '}
+            as complete — mark it done to get paid.
+          </p>
+          <Link
+            href="/cleaner/jobs"
+            className="shrink-0 rounded-[10px] bg-amber-600 px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-amber-700"
+          >
+            Mark it complete
+          </Link>
+        </div>
+      ))}
 
       {/* H34 (James-ruled): quiet amber nudge when the CURRENT week has zero
           availability set — same timesheet truth as search (see dashboard API). */}
