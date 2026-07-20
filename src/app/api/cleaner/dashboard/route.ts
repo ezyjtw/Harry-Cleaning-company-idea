@@ -57,6 +57,7 @@ export async function GET() {
     h34Recurring,
     h34DateSlots,
     h34Overrides,
+    overdueRaw,
   ] = await Promise.all([
     // Cleaner profile
     prisma.cleanerProfile.findUnique({
@@ -257,6 +258,24 @@ export async function GET() {
       },
       select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
     }),
+
+    // H75 (Harry-ruled, money-safety): pre-complete jobs whose scheduled slot
+    // has already ended. Completion is the ONLY payout trigger — no
+    // auto-complete exists and the release scheduler only fires on
+    // releaseDueAt, which only completion/confirm/review set — so an unmarked
+    // job is an unpaid cleaner. Date-bounded to today-or-earlier here; the
+    // end-time arithmetic (date + start + duration) is pure CPU below.
+    prisma.booking.findMany({
+      where: {
+        cleanerId: user.id,
+        status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] },
+        date: { lt: new Date(startOfDay.getTime() + 86400000) },
+        ...paidVisibleWhere(),
+        AND: [notOwnBookingWhere(user.id)],
+      },
+      select: { id: true, date: true, startTime: true, duration: true, serviceType: true },
+      orderBy: { date: 'asc' },
+    }),
   ]);
 
   if (!profile) {
@@ -313,7 +332,30 @@ export async function GET() {
     noAvailabilityThisWeek = !anyOpen;
   }
 
+  // H75: scheduled end = booking date 00:00 + startTime + duration hours.
+  // A "Flexible" startTime parses to 0:00, so a flexible job on a past date
+  // counts as overdue from that midnight — erring loud beats erring silent
+  // for money-blocking state.
+  const overdueJobs = overdueRaw
+    .map((b) => {
+      const [h, m] = String(b.startTime || '0:0')
+        .split(':')
+        .map((n) => Number(n) || 0);
+      const end = new Date(b.date.getTime());
+      end.setHours(h, m, 0, 0);
+      end.setTime(end.getTime() + Number(b.duration) * 3600000);
+      return { b, end };
+    })
+    .filter(({ end }) => end < now)
+    .map(({ b }) => ({
+      id: b.id,
+      date: b.date.toISOString(),
+      startTime: b.startTime,
+      serviceType: b.serviceType,
+    }));
+
   return NextResponse.json({
+    overdueJobs,
     profile: {
       name: displayName(user.name),
       rating: Number(profile.rating),

@@ -208,13 +208,25 @@ export class EnhancedNotificationService {
       where: { id: bookingId },
       include: { cleaner: true },
     });
-    if (!booking || !booking.clientId) return;
+    // H74: every skip must NAME ITSELF in the log — the silent guest
+    // early-return here made a guest-shaped completion indistinguishable from
+    // a broken email path in prod. Guests can't review (accounts only; guest
+    // reviews are a parked ruling), so no request is sent — but say so.
+    if (!booking) return;
+    if (!booking.clientId) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[ReviewRequest] Skipped for guest booking ${bookingId} — review requests need an account (guest reviews: parked ruling)`
+      );
+      return;
+    }
 
     // B8: a review nudge is non-critical — a job completed late in the evening
     // must not ping the customer at night. Defer to the morning window via the
     // scheduled-reminder path (same handler the time-based review request uses).
     const now = new Date();
     if (isQuietHoursLondon(now)) {
+      const scheduledAt = deferToMorningLondon(now);
       await prisma.backgroundJob.create({
         data: {
           type: 'SEND_REMINDER',
@@ -223,9 +235,13 @@ export class EnhancedNotificationService {
             reminderType: 'review_request',
             recipientId: booking.clientId,
           } as Prisma.InputJsonValue,
-          scheduledAt: deferToMorningLondon(now),
+          scheduledAt,
         },
       });
+      // eslint-disable-next-line no-console
+      console.log(
+        `[ReviewRequest] Quiet hours — deferred for booking ${bookingId} to ${scheduledAt.toISOString()}`
+      );
       return;
     }
 
