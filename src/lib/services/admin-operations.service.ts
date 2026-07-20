@@ -572,6 +572,7 @@ export class AdminOperationsService {
             cleanerId: true,
             clientId: true,
             date: true,
+            completedAt: true,
             refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
           },
         },
@@ -619,6 +620,14 @@ export class AdminOperationsService {
           status: nextBookingStatus,
           ...(outcome === 'refund-customer'
             ? { cancelledAt: new Date(), cancellationReason: `Dispute resolved: ${resolution}` }
+            : {}),
+          // H81: a booking disputed straight from IN_PROGRESS never had
+          // completedAt written — landing it in COMPLETED with a null
+          // completedAt made it invisible on every completedAt-keyed earnings
+          // surface (page, dashboard, statement). Stamp resolution time only
+          // when no true completion time exists.
+          ...(nextBookingStatus === 'COMPLETED' && !dispute.booking.completedAt
+            ? { completedAt: new Date() }
             : {}),
         },
       }),
