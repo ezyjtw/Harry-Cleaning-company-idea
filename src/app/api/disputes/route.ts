@@ -27,13 +27,15 @@ function mapPrismaStatus(status: string, resolution: string | null): DisputeStat
   }
 }
 
-// Label an evidence uploader by their role on the booking. Neither party →
-// "Rena team" (admin/support upload). Display-only.
+// Label an evidence uploader by their role on the booking. H69: a null
+// uploader is the booking's GUEST customer (token-authorised upload). Neither
+// party → "Rena team" (admin/support upload). Display-only.
 function labelUploader(
-  uploaderId: string,
+  uploaderId: string | null,
   clientId: string | null,
   cleanerId: string
 ): 'customer' | 'cleaner' | 'Rena team' {
+  if (uploaderId === null) return 'customer';
   if (uploaderId === clientId) return 'customer';
   if (uploaderId === cleanerId) return 'cleaner';
   return 'Rena team';

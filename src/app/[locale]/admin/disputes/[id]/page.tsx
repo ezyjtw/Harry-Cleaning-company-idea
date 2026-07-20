@@ -67,10 +67,11 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
   const refundedSoFar = b.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
   const charged = Number(b.totalAmountCharged ?? b.totalPrice);
 
+  // H69: a null actor is the booking's GUEST customer (token-authorised).
   const partyOf = (userId: string | null): 'customer' | 'cleaner' | 'Rena team' =>
-    userId && userId === b.clientId
+    userId === null || userId === b.clientId
       ? 'customer'
-      : userId && userId === b.cleanerId
+      : userId === b.cleanerId
         ? 'cleaner'
         : 'Rena team';
 

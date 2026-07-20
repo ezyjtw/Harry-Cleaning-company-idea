@@ -318,7 +318,9 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+          {/* H70 sweep: min-h-0 so the flex child genuinely scrolls at short
+              viewport heights instead of pushing the sign-out block off. */}
+          <nav className="flex-1 min-h-0 p-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const showJobsBadge = item.href === '/cleaner/jobs' && unseenOffers > 0;

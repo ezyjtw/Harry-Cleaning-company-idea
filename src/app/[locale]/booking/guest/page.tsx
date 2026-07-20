@@ -224,6 +224,66 @@ function GuestBookingContent() {
   const [disputeError, setDisputeError] = useState<string | null>(null);
   const [disputeFiled, setDisputeFiled] = useState(false);
 
+  // H69: the tokened dispute CASE VIEW — status, description, BOTH parties'
+  // evidence (both-see-all rule) and a working photo upload. Replaces the old
+  // "reply to that email" copy, which referenced an email that never existed.
+  interface GuestEvidence {
+    id: string;
+    type: string;
+    fileName: string | null;
+    party: string;
+    url: string | null;
+    uploadedAt: string;
+  }
+  interface GuestDisputeCase {
+    id: string;
+    status: string;
+    reason: string;
+    description: string;
+    resolution: string | null;
+    canUpload: boolean;
+    evidence: GuestEvidence[];
+  }
+  const [disputeCase, setDisputeCase] = useState<GuestDisputeCase | null>(null);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+
+  const fetchDisputeCase = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/bookings/guest/dispute?token=${encodeURIComponent(token)}`);
+      if (!res.ok) return;
+      const d = await res.json();
+      setDisputeCase(d.dispute ?? null);
+    } catch {
+      /* panel simply stays hidden on a transient */
+    }
+  }, [token]);
+
+  const uploadEvidence = async (file: File) => {
+    if (!token || !disputeCase) return;
+    setUploadingEvidence(true);
+    setEvidenceError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(
+        `/api/disputes/${disputeCase.id}/evidence?token=${encodeURIComponent(token)}`,
+        { method: 'POST', body: fd }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setEvidenceError(data.error || 'Upload failed. Please try again.');
+        return;
+      }
+      await fetchDisputeCase();
+    } catch {
+      setEvidenceError('Upload failed — nothing was saved. Please try again.');
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
   const fetchBooking = useCallback(async () => {
     if (!token) {
       setError('No booking token provided.');
@@ -251,6 +311,14 @@ function GuestBookingContent() {
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
+
+  // H69: load the case whenever a dispute exists on this booking — either the
+  // booking arrived DISPUTED or one was just filed here.
+  useEffect(() => {
+    if (booking?.status === 'DISPUTED' || disputeFiled) {
+      fetchDisputeCase();
+    }
+  }, [booking?.status, disputeFiled, fetchDisputeCase]);
 
   // Guest cancel parity (James-ruled): same refund preview + copy the
   // account-holder dialog shows — refund %, amount, and the live grace
@@ -646,13 +714,84 @@ function GuestBookingContent() {
             holders, authorized by the token. Renders only while the work
             happened/is happening and no dispute exists (DISPUTED bookings
             show the "Being reviewed" banner above instead). */}
-        {disputeFiled && (
+        {/* H69: the tokened dispute case — status, description, both parties'
+            evidence, and a WORKING photo upload (the old copy told guests to
+            reply to an email that was never sent). */}
+        {(disputeFiled || booking.status === 'DISPUTED' || disputeCase) && (
           <div className="mb-6 rounded-xl border border-warning/25 bg-warning/[0.06] p-4">
-            <p className="font-semibold text-ink">Problem reported</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-ink">Problem reported — under review</p>
+              {disputeCase && (
+                <span className="rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">
+                  {disputeCase.status === 'RESOLVED'
+                    ? 'Resolved'
+                    : disputeCase.status === 'DISMISSED'
+                      ? 'Closed'
+                      : 'Under review'}
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-ink-2">
               Payment to your cleaner is paused while our team reviews it. We&rsquo;ll email you the
-              outcome — reply to that email if you have photos or anything to add.
+              outcome{disputeCase?.canUpload ? ' — add photos below to support your case.' : '.'}
             </p>
+            {disputeCase?.description && (
+              <p className="mt-2 rounded-lg bg-surface px-3 py-2 text-sm text-ink-2">
+                &ldquo;{disputeCase.description}&rdquo;
+              </p>
+            )}
+
+            {disputeCase && disputeCase.evidence.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+                  Evidence ({disputeCase.evidence.length})
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {disputeCase.evidence.map((ev) =>
+                    ev.url ? (
+                      <a
+                        key={ev.id}
+                        href={ev.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-ink-2 hover:bg-page"
+                      >
+                        <span className="max-w-[140px] truncate">{ev.fileName || 'evidence'}</span>
+                        <span className="text-ink-3">· {ev.party}</span>
+                      </a>
+                    ) : (
+                      <span
+                        key={ev.id}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-ink-3"
+                      >
+                        <span className="max-w-[140px] truncate">{ev.fileName || 'evidence'}</span>
+                        <span>· {ev.party}</span>
+                      </span>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {disputeCase?.canUpload && (
+              <div className="mt-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-warning/40 px-3 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/[0.08]">
+                  {uploadingEvidence ? 'Uploading…' : 'Add a photo'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    disabled={uploadingEvidence}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadEvidence(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                {evidenceError && <p className="mt-1.5 text-sm text-danger">{evidenceError}</p>}
+              </div>
+            )}
           </div>
         )}
         {!disputeFiled && !cancelled && token && DISPUTABLE_STATUSES.includes(booking.status) && (

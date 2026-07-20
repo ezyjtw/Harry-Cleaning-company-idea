@@ -36,33 +36,48 @@ const EXT_BY_MIME: Record<string, string> = {
 
 const MAX_DESCRIPTION_LENGTH = 1000;
 
+const GUEST_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const user = await getSessionUser();
-    if (!user) {
+    const guestToken = new URL(request.url).searchParams.get('token');
+    if (!user && !(guestToken && GUEST_TOKEN_RE.test(guestToken))) {
       return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
     }
 
     const { id: disputeId } = await context.params;
 
     const ip = getClientIp(request);
-    const rl = checkRateLimit(`dispute-evidence:${user.id}`, 20, 60 * 60 * 1000);
+    const rl = checkRateLimit(
+      `dispute-evidence:${user ? user.id : `guest:${guestToken}`}`,
+      20,
+      60 * 60 * 1000
+    );
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many uploads. Try again later.' }, { status: 429 });
     }
 
     // Ownership: uploader must be a party to the dispute's booking (client or
-    // cleaner — both may need to submit proof), or an admin.
+    // cleaner — both may need to submit proof), an admin, or — H69 — the
+    // booking's GUEST customer proving themselves with the booking token
+    // (the H8 matrix standard: the token IS the authorization).
     const dispute = await prisma.dispute.findUnique({
       where: { id: disputeId },
-      include: { booking: { select: { clientId: true, cleanerId: true } } },
+      include: { booking: { select: { clientId: true, cleanerId: true, guestToken: true } } },
     });
     if (!dispute) {
       return NextResponse.json({ error: 'Dispute not found.' }, { status: 404 });
     }
 
-    const isParty = dispute.booking.clientId === user.id || dispute.booking.cleanerId === user.id;
-    if (!isParty && user.role !== 'ADMIN') {
+    const isGuestParty =
+      !user &&
+      !!guestToken &&
+      !dispute.booking.clientId &&
+      dispute.booking.guestToken === guestToken;
+    const isParty =
+      !!user && (dispute.booking.clientId === user.id || dispute.booking.cleanerId === user.id);
+    if (!isGuestParty && !isParty && user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
     }
 
@@ -120,7 +135,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     await putObject(objectKey, encrypted, 'application/octet-stream');
 
-    const evidence = await DisputeEvidenceService.addDisputeEvidence(disputeId, user.id, {
+    // H69: null uploadedBy = the booking's guest customer.
+    const evidence = await DisputeEvidenceService.addDisputeEvidence(disputeId, user?.id ?? null, {
       type: mapMimeToEvidenceType(validation.detectedMime),
       url: objectKey,
       fileName: file.name,
@@ -130,7 +146,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     AuditService.log({
       action: 'DISPUTE_EVIDENCE_UPLOADED',
-      userId: user.id,
+      userId: user?.id,
       entityType: 'DisputeEvidence',
       entityId: evidence.id,
       metadata: {

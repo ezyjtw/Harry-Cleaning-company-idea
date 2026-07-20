@@ -16,7 +16,8 @@ interface AddDisputeEvidenceInput {
 export class DisputeEvidenceService {
   static async addDisputeEvidence(
     disputeId: string,
-    uploadedBy: string,
+    // H69: null = the booking's guest customer (token-authorised, no account).
+    uploadedBy: string | null,
     input: AddDisputeEvidenceInput
   ) {
     return prisma.disputeEvidence.create({

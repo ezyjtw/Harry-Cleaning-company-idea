@@ -72,7 +72,8 @@ async function getDisputes(): Promise<AdminDispute[]> {
         type: ev.type,
         fileName: ev.fileName,
         uploadedBy:
-          ev.uploadedBy === d.booking.clientId
+          // H69: null uploader = the booking's guest customer.
+          ev.uploadedBy === null || ev.uploadedBy === d.booking.clientId
             ? ('customer' as const)
             : ev.uploadedBy === d.booking.cleanerId
               ? ('cleaner' as const)
