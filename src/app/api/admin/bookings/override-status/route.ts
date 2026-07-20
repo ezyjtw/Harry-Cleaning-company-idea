@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
       cascadePhase: true,
       paymentStatus: true,
       transferStatus: true,
+      completedAt: true,
     },
   });
 
@@ -223,6 +224,14 @@ export async function POST(request: NextRequest) {
   if (status !== undefined && status !== booking.status) {
     changes.status = status;
     auditChanges.push({ field: 'status', from: booking.status, to: status });
+    // H81: an override INTO the completed family must stamp completedAt when
+    // none exists — a null completedAt makes the booking invisible on every
+    // completedAt-keyed earnings surface (page, dashboard, statement) while
+    // still counting as COMPLETED everywhere else.
+    if ((status === 'COMPLETED' || status === 'REVIEWED') && !booking.completedAt) {
+      changes.completedAt = new Date();
+      auditChanges.push({ field: 'completedAt', from: null, to: 'now (override stamp)' });
+    }
   }
 
   if (cascadePhase !== undefined && cascadePhase !== booking.cascadePhase) {

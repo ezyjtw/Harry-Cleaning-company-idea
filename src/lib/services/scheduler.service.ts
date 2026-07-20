@@ -25,6 +25,7 @@ export interface SchedulerSummary {
   abandonedBookings: HandlerResult;
   compliance: HandlerResult;
   stuckJobs: HandlerResult;
+  completedAtBackfill: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -226,6 +227,42 @@ async function processRescueTimeouts(): Promise<HandlerResult> {
   }
 }
 
+// H81: self-healing completedAt backfill. The H79 earnings surfaces key on
+// completedAt, but two historical paths (admin status override, dispute
+// resolution from IN_PROGRESS) landed bookings in COMPLETED with a null
+// completedAt — invisible on every earnings surface while still counting as
+// completed. Those write paths are fixed; this sweep repairs the existing
+// rows with the best available timestamp, in fallback order:
+//   completionConfirmedAt (customer confirmed — closest to the real moment)
+//   ?? releaseDueAt        (set at completion + hold; same day)
+//   ?? updatedAt           (last write — the honest floor)
+// Idempotent and convergent: once no null-completedAt completed rows remain
+// it processes 0 forever. New nulls can no longer be created.
+async function processCompletedAtBackfill(): Promise<HandlerResult> {
+  const { prisma } = await import('@/lib/db/prisma');
+  try {
+    const rows = await prisma.booking.findMany({
+      where: { status: { in: ['COMPLETED', 'REVIEWED'] }, completedAt: null },
+      select: { id: true, completionConfirmedAt: true, releaseDueAt: true, updatedAt: true },
+      take: 50,
+    });
+    for (const b of rows) {
+      const stamp = b.completionConfirmedAt ?? b.releaseDueAt ?? b.updatedAt;
+      await prisma.booking.updateMany({
+        where: { id: b.id, completedAt: null },
+        data: { completedAt: stamp },
+      });
+      // eslint-disable-next-line no-console
+      console.log(`[CompletedAtBackfill] ${b.id} stamped ${stamp.toISOString()}`);
+    }
+    return { processed: rows.length };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[CompletedAtBackfill] sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 // Stuck-money reaper sweep — detection and nudges ONLY; the money buttons are
 // admin-pressed (stuck-jobs.service). Failure-isolated like every handler.
 async function processStuckJobs(): Promise<HandlerResult> {
@@ -249,6 +286,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const abandonedBookings = await processAbandonedBookings();
   const compliance = await processComplianceJobsDaily();
   const stuckJobs = await processStuckJobs();
+  const completedAtBackfill = await processCompletedAtBackfill();
 
   return {
     timestamp: new Date().toISOString(),
@@ -261,5 +299,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     abandonedBookings,
     compliance,
     stuckJobs,
+    completedAtBackfill,
   };
 }
