@@ -36,16 +36,23 @@ function keyIdFromObjectKey(objectKey: string): string {
   return dotIdx >= 0 ? withoutEnc.slice(0, dotIdx) : withoutEnc;
 }
 
+const GUEST_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
-  if (!user) {
+  const guestToken = new URL(request.url).searchParams.get('token');
+  if (!user && !(guestToken && GUEST_TOKEN_RE.test(guestToken))) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
 
   const { id: disputeId, evidenceId } = await context.params;
   const download = new URL(request.url).searchParams.get('download') === '1';
 
-  const rl = checkRateLimit(`dispute-evidence-view:${user.id}`, 120, 60 * 60 * 1000);
+  const rl = checkRateLimit(
+    `dispute-evidence-view:${user ? user.id : `guest:${guestToken}`}`,
+    120,
+    60 * 60 * 1000
+  );
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Too many requests. Please try again later.' },
@@ -60,7 +67,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const evidence = await prisma.disputeEvidence.findUnique({
       where: { id: evidenceId },
       include: {
-        dispute: { include: { booking: { select: { clientId: true, cleanerId: true } } } },
+        dispute: {
+          include: { booking: { select: { clientId: true, cleanerId: true, guestToken: true } } },
+        },
       },
     });
 
@@ -69,11 +78,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Evidence not found.' }, { status: 404 });
     }
 
-    // Access: a party to the dispute's booking (client or cleaner), or an admin.
+    // Access: a party to the dispute's booking (client or cleaner), an admin,
+    // or — H69 — the booking's GUEST customer via the booking token (their own
+    // case's files only; both-see-all applies to the case's full evidence).
+    const isGuestParty =
+      !user &&
+      !!guestToken &&
+      !evidence.dispute.booking.clientId &&
+      evidence.dispute.booking.guestToken === guestToken;
     const isParty =
-      evidence.dispute.booking.clientId === user.id ||
-      evidence.dispute.booking.cleanerId === user.id;
-    if (!isParty && user.role !== 'ADMIN') {
+      !!user &&
+      (evidence.dispute.booking.clientId === user.id ||
+        evidence.dispute.booking.cleanerId === user.id);
+    if (!isGuestParty && !isParty && user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
     }
 
@@ -82,7 +99,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     AuditService.log({
       action: 'DISPUTE_EVIDENCE_VIEWED',
-      userId: user.id,
+      userId: user?.id,
       entityType: 'DisputeEvidence',
       entityId: evidence.id,
       metadata: { disputeId },

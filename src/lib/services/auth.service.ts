@@ -239,7 +239,9 @@ export async function resetPassword(
 
   await prisma.user.update({
     where: { email },
-    data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+    // H71: passwordChangedAt is the F6 session-invalidation switch — a reset
+    // must kill every session issued before it, same as change-password.
+    data: { passwordHash, failedLoginCount: 0, lockedUntil: null, passwordChangedAt: new Date() },
   });
 
   // Delete the used token

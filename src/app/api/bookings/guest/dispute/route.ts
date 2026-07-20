@@ -16,6 +16,66 @@ function isValidToken(token: string): boolean {
   return uuidRegex.test(token);
 }
 
+// H69: the tokened CASE VIEW — the same case panel account customers get
+// (status, description, both parties' evidence per the both-see-all rule).
+// The token is the authorization. Evidence file URLs are tokened and only
+// issued for true guest bookings (clientId null) — an account-owned booking's
+// files stay behind the session (sign in to view/add).
+export async function GET(request: NextRequest) {
+  const token = new URL(request.url).searchParams.get('token') ?? '';
+  if (!token) {
+    return NextResponse.json({ error: 'Token is required' }, { status: 400 });
+  }
+  if (!isValidToken(token)) {
+    return NextResponse.json({ error: 'Invalid token format' }, { status: 400 });
+  }
+
+  const booking = await prisma.booking.findUnique({
+    where: { guestToken: token },
+    select: { id: true, clientId: true, cleanerId: true },
+  });
+  if (!booking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
+  const dispute = await prisma.dispute.findUnique({
+    where: { bookingId: booking.id },
+    include: { evidence: { orderBy: { uploadedAt: 'asc' } } },
+  });
+  if (!dispute) {
+    return NextResponse.json({ error: 'No dispute on this booking' }, { status: 404 });
+  }
+
+  const isTrueGuest = booking.clientId === null;
+  return NextResponse.json({
+    dispute: {
+      id: dispute.id,
+      status: dispute.status,
+      reason: dispute.reason,
+      description: dispute.description,
+      resolution: dispute.resolution,
+      createdAt: dispute.createdAt.toISOString(),
+      canUpload: isTrueGuest && (dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW'),
+      evidence: dispute.evidence.map((ev) => ({
+        id: ev.id,
+        type: ev.type,
+        fileName: ev.fileName,
+        description: ev.description,
+        uploadedAt: ev.uploadedAt.toISOString(),
+        party:
+          ev.uploadedBy === null || ev.uploadedBy === booking.clientId
+            ? 'customer'
+            : ev.uploadedBy === booking.cleanerId
+              ? 'cleaner'
+              : 'Rena team',
+        url: isTrueGuest
+          ? `/api/disputes/${dispute.id}/evidence/${ev.id}?token=${encodeURIComponent(token)}`
+          : null,
+      })),
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   let body: { token?: unknown; reason?: unknown; description?: unknown };
   try {

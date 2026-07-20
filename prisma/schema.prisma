@@ -1083,7 +1083,9 @@ model DisputeEvidence {
   url         String
   fileName    String?
   description String?      @db.Text
-  uploadedBy  String // userId
+  // H69: null = the booking's GUEST customer (token-authorised upload, no
+  // account). Party mapping treats null as 'customer'.
+  uploadedBy  String?
   uploadedAt  DateTime     @default(now())
 
   dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)

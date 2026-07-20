@@ -191,10 +191,11 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
             w-64 h-screen bg-ink
             transform transition-transform duration-200 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+            flex flex-col
           `}
         >
           {/* Admin header */}
-          <div className="p-6 border-b border-white/10">
+          <div className="shrink-0 p-6 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-danger flex items-center justify-center text-white font-bold text-sm">
                 A
@@ -208,8 +209,12 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="p-4 space-y-4 overflow-y-auto">
+          {/* Navigation. H70: the aside is now a flex column and this list is
+              the shrinkable, SCROLLING region (min-h-0 is what lets a flex
+              child actually scroll) — previously overflow-y-auto sat on an
+              unbounded block, so short viewports cut off the lower sections
+              with no way to reach them. */}
+          <nav className="flex-1 min-h-0 p-4 space-y-4 overflow-y-auto">
             {NAV_GROUPS.map((group) => (
               <div key={group.label ?? 'root'}>
                 {group.label && (
@@ -270,8 +275,9 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
             ))}
           </nav>
 
-          {/* Bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
+          {/* Bottom — a normal flex footer (was absolutely positioned OVER the
+              nav, hiding whatever scrolled beneath it). */}
+          <div className="shrink-0 p-4 border-t border-white/10">
             <NavLink
               surface="admin-sidebar"
               href="/"

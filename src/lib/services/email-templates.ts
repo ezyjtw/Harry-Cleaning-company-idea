@@ -441,11 +441,13 @@ export function buildDisputeResolvedEmail(opts: {
   refundPending?: boolean;
   /** H64: traceability — every dispute email carries the booking reference. */
   bookingId?: string;
+  /** H69: guests get their tokened case view, not the login-walled /disputes. */
+  caseUrl?: string;
 }): EmailContent {
   const subject = opts.bookingId
     ? `Your dispute has been resolved — booking ${bookingDisplayRef(opts.bookingId)}`
     : 'Your dispute has been resolved';
-  const link = `${appUrl()}/disputes`;
+  const link = opts.caseUrl ?? `${appUrl()}/disputes`;
   const amount = opts.refundAmount ?? 0;
 
   let moneyHtml: string;

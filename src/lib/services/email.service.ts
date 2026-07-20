@@ -316,6 +316,7 @@ export async function sendDisputeResolutionEmails(opts: {
       clientId: true,
       guestEmail: true,
       guestName: true,
+      guestToken: true,
       client: { select: { id: true, name: true, email: true } },
       cleaner: { select: { id: true, name: true, email: true } },
     },
@@ -349,6 +350,11 @@ export async function sendDisputeResolutionEmails(opts: {
       refundAmount: opts.refundAmount,
       refundPending,
       bookingId: opts.bookingId,
+      // H69: a true guest can't open /disputes — link their tokened case view.
+      caseUrl:
+        !b.client && b.guestToken
+          ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk'}/booking/guest?token=${encodeURIComponent(b.guestToken)}`
+          : undefined,
     });
     await sendEmail(customerEmail, subject, html, {
       userId: b.client?.id ?? null,
