@@ -6,6 +6,7 @@ import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server
 export const dynamic = 'force-dynamic';
 
 import AIChatWidget from '@/components/AIChatWidget';
+import ContactFab from '@/components/ContactFab';
 import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
@@ -14,6 +15,7 @@ import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import { routing } from '@/i18n/routing';
+import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
 import { fontVariables } from '@/lib/fonts';
 import { generateOrganizationSchema } from '@/lib/seo/structured-data';
 
@@ -92,7 +94,9 @@ export default async function LocaleLayout({ children, params }: Props) {
               <Footer />
             </div>
             <CookieConsent />
-            <AIChatWidget />
+            {/* H88 (James-ruled): live chat is pulled from launch — the same
+                bottom-right FAB opens the contact form until the flag flips. */}
+            {LIVE_CHAT_ENABLED ? <AIChatWidget /> : <ContactFab />}
           </AuthProvider>
         </NextIntlClientProvider>
       </body>

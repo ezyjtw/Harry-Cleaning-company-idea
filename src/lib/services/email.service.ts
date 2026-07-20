@@ -87,6 +87,9 @@ async function sendEmail(
     userId?: string | null;
     category?: NotificationCategory;
     headers?: Record<string, string>;
+    // H88: inbound-style mail (contact-form alerts) sets reply-to to the
+    // customer so the team answers them directly, not the from-address.
+    replyTo?: string;
   }
 ): Promise<boolean> {
   const category = opts?.category ?? 'ESSENTIAL';
@@ -105,6 +108,10 @@ async function sendEmail(
     console.log(`[Email] To: ${to}`);
     // eslint-disable-next-line no-console
     console.log(`[Email] Subject: ${subject}`);
+    if (opts?.replyTo) {
+      // eslint-disable-next-line no-console
+      console.log(`[Email] Reply-To: ${opts.replyTo}`);
+    }
     // eslint-disable-next-line no-console
     console.log(`[Email] Body preview: ${htmlBody.substring(0, 200)}...`);
     // eslint-disable-next-line no-console
@@ -119,6 +126,7 @@ async function sendEmail(
       subject,
       html: htmlBody,
       ...(opts?.headers ? { headers: opts.headers } : {}),
+      ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
     });
     // H73: the Resend SDK does NOT throw on API errors — it resolves with
     // { data, error }. The old code ignored the response, so a REJECTED send
@@ -243,7 +251,9 @@ export async function sendSupportAlert(data: {
   bookingRef?: string;
 }): Promise<boolean> {
   const { subject, html } = buildSupportAlert(data);
-  return sendEmail(SUPPORT_EMAIL, subject, html);
+  // H88: reply-to is the customer — a plain "Reply" in the support inbox
+  // answers them, honouring the contact form's 24-hour promise.
+  return sendEmail(SUPPORT_EMAIL, subject, html, { replyTo: data.email });
 }
 
 // ─── Review Request Email ──────────────────────────────────
