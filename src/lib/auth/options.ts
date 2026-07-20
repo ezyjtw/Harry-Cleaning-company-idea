@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { headers } from 'next/headers';
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
@@ -111,4 +112,40 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: '/login', error: '/login' },
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET,
+  // H77: the default logger printed a 15-line anonymous stack for every stale
+  // cookie that failed to decrypt — no way to tell WHICH device kept knocking.
+  // One enriched line instead: IP, user-agent, and referer (the surface that
+  // made the call), read from the request scope. The cookie's issued-at is by
+  // definition unrecoverable — it's inside the payload that won't decrypt.
+  // All other codes keep their default shape.
+  logger: {
+    error(code, metadata) {
+      if (code === 'JWT_SESSION_ERROR') {
+        let ctx = 'no request context';
+        try {
+          // Request-scoped in app-router handlers; throws outside — caught.
+          const h = headers();
+          const ip =
+            h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown-ip';
+          const ua = h.get('user-agent') ?? 'no-ua';
+          const referer = h.get('referer') ?? 'no-referer';
+          ctx = `ip=${ip} ua="${ua}" referer=${referer}`;
+        } catch {
+          /* outside a request scope — keep the fallback label */
+        }
+        // eslint-disable-next-line no-console
+        console.error(`[Auth] Stale session cookie failed to decrypt (JWT_SESSION_ERROR) — ${ctx}`);
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.error(`[next-auth][error][${code}]`, metadata);
+    },
+    warn(code) {
+      // eslint-disable-next-line no-console
+      console.warn(`[next-auth][warn][${code}]`);
+    },
+    debug() {
+      /* silent */
+    },
+  },
 };
