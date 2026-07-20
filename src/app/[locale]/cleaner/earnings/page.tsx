@@ -41,31 +41,49 @@ export default function EarningsPage() {
   const [data, setData] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // P1 (ledger): Stripe Express payouts dashboard door.
+  const [payoutsOpening, setPayoutsOpening] = useState(false);
+  const [payoutsError, setPayoutsError] = useState('');
 
-  const fetchEarnings = useCallback(
-    async (p: Period) => {
-      setLoading(true);
-      setLoadError(false);
-      try {
-        const res = await fetch(`/api/cleaner/earnings?period=${p}`);
-        if (res.status === 401) {
-          // R3: signOut (not router.push) — clears the stale cookie so /login
-          // renders instead of middleware bouncing back to /dashboard.
-          signOut({ callbackUrl: '/login' });
-          return;
-        }
-        if (res.ok) {
-          setData(await res.json());
-        } else {
-          setLoadError(true);
-        }
-      } catch {
+  const openPayoutsDashboard = async () => {
+    setPayoutsOpening(true);
+    setPayoutsError('');
+    try {
+      const res = await fetch('/api/cleaner/stripe/login-link', { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.url) {
+        window.open(d.url, '_blank', 'noopener,noreferrer');
+      } else {
+        setPayoutsError(d.error || 'Could not open your payouts dashboard.');
+      }
+    } catch {
+      setPayoutsError('Could not open your payouts dashboard.');
+    } finally {
+      setPayoutsOpening(false);
+    }
+  };
+
+  const fetchEarnings = useCallback(async (p: Period) => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/cleaner/earnings?period=${p}`);
+      if (res.status === 401) {
+        // R3: signOut (not router.push) — clears the stale cookie so /login
+        // renders instead of middleware bouncing back to /dashboard.
+        signOut({ callbackUrl: '/login' });
+        return;
+      }
+      if (res.ok) {
+        setData(await res.json());
+      } else {
         setLoadError(true);
       }
-      setLoading(false);
-    },
-    []
-  );
+    } catch {
+      setLoadError(true);
+    }
+    setLoading(false);
+  }, []);
 
   // A8 (shell only): native pull-to-refresh hook.
   useEffect(() => {
@@ -104,6 +122,14 @@ export default function EarningsPage() {
           <p className="font-jost text-sm font-light text-ink-3 mt-1">
             Track your income and payouts
           </p>
+          <button
+            onClick={openPayoutsDashboard}
+            disabled={payoutsOpening}
+            className="mt-2 inline-flex items-center rounded-[10px] border border-line bg-surface px-3 py-1.5 font-jost text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+          >
+            {payoutsOpening ? 'Opening…' : 'View payouts in Stripe'}
+          </button>
+          {payoutsError && <p className="mt-1 font-jost text-xs text-danger">{payoutsError}</p>}
         </div>
         <div
           className="flex gap-1 bg-primary-soft p-1"
@@ -206,77 +232,77 @@ export default function EarningsPage() {
                 </div>
               ) : (
                 <>
-                {/* X7: stacked cards on mobile — the 5-column table survives
+                  {/* X7: stacked cards on mobile — the 5-column table survives
                     only from sm: up (horizontal-scroll tables are unusable on
                     a phone). Same data, same order. */}
-                <div className="sm:hidden">
-                  {data.payouts.map((payout) => (
-                    <div
-                      key={payout.id}
-                      className="border-t border-line px-4 py-3 first:border-t-0"
-                    >
-                      <div className="flex items-baseline justify-between">
-                        <span className="font-newsreader text-lg font-medium text-ink">
-                          £{payout.amount.toFixed(2)}
-                        </span>
-                        {getStatusBadge(payout.status)}
-                      </div>
-                      <div className="mt-1 flex items-center justify-between font-jost text-[13px] text-ink-3">
-                        <span>
-                          {payout.date} · {payout.bookingCount} job
-                          {payout.bookingCount === 1 ? '' : 's'}
-                        </span>
-                        <span className="font-mono text-[11px]">{payout.reference}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden overflow-x-auto sm:block">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}>
-                        <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Date
-                        </th>
-                        <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Amount
-                        </th>
-                        <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Jobs
-                        </th>
-                        <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Status
-                        </th>
-                        <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                          Reference
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.payouts.map((payout) => (
-                        <tr
-                          key={payout.id}
-                          className="hover:bg-page/50 transition-colors"
-                          style={{ borderTop: '0.5px solid rgb(var(--color-border))' }}
-                        >
-                          <td className="px-6 py-4 font-jost text-sm font-light text-ink">
-                            {payout.date}
-                          </td>
-                          <td className="px-6 py-4 font-jost text-sm font-normal text-ink">
+                  <div className="sm:hidden">
+                    {data.payouts.map((payout) => (
+                      <div
+                        key={payout.id}
+                        className="border-t border-line px-4 py-3 first:border-t-0"
+                      >
+                        <div className="flex items-baseline justify-between">
+                          <span className="font-newsreader text-lg font-medium text-ink">
                             £{payout.amount.toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 font-jost text-sm font-light text-ink-3">
-                            {payout.bookingCount}
-                          </td>
-                          <td className="px-6 py-4">{getStatusBadge(payout.status)}</td>
-                          <td className="px-6 py-4 font-jost text-sm font-light text-ink-3 font-mono">
-                            {payout.reference}
-                          </td>
+                          </span>
+                          {getStatusBadge(payout.status)}
+                        </div>
+                        <div className="mt-1 flex items-center justify-between font-jost text-[13px] text-ink-3">
+                          <span>
+                            {payout.date} · {payout.bookingCount} job
+                            {payout.bookingCount === 1 ? '' : 's'}
+                          </span>
+                          <span className="font-mono text-[11px]">{payout.reference}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full">
+                      <thead>
+                        <tr style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}>
+                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                            Date
+                          </th>
+                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                            Amount
+                          </th>
+                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                            Jobs
+                          </th>
+                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                            Status
+                          </th>
+                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
+                            Reference
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {data.payouts.map((payout) => (
+                          <tr
+                            key={payout.id}
+                            className="hover:bg-page/50 transition-colors"
+                            style={{ borderTop: '0.5px solid rgb(var(--color-border))' }}
+                          >
+                            <td className="px-6 py-4 font-jost text-sm font-light text-ink">
+                              {payout.date}
+                            </td>
+                            <td className="px-6 py-4 font-jost text-sm font-normal text-ink">
+                              £{payout.amount.toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 font-jost text-sm font-light text-ink-3">
+                              {payout.bookingCount}
+                            </td>
+                            <td className="px-6 py-4">{getStatusBadge(payout.status)}</td>
+                            <td className="px-6 py-4 font-jost text-sm font-light text-ink-3 font-mono">
+                              {payout.reference}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </>
               )}
             </div>

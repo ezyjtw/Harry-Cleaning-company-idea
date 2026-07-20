@@ -15,6 +15,7 @@ const DISPUTABLE_STATUSES = ['COMPLETED', 'EN_ROUTE', 'IN_PROGRESS', 'REVIEWED']
 
 interface Booking {
   id: string;
+  claimed?: boolean;
   guestToken: string;
   cleanerName: string;
   cleanerId?: string | null;
@@ -507,6 +508,23 @@ function GuestBookingContent() {
           <h1 className="font-newsreader text-3xl text-ink">Your Booking</h1>
           <p className="mt-1 text-ink-3">Booking reference: {booking.id}</p>
         </div>
+
+        {/* P3 (ledger): guest→account conversion claimed this booking — the
+            old emailed link still works, but say where the booking now lives. */}
+        {booking.claimed && (
+          <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+            <p className="font-jost text-sm text-ink-2">
+              This booking now belongs to your Rena account &mdash;{' '}
+              <a
+                href="/login?callbackUrl=/account/bookings"
+                className="font-medium text-primary hover:underline"
+              >
+                sign in
+              </a>{' '}
+              to manage it with your full account tools.
+            </p>
+          </div>
+        )}
 
         {/* Cancellation confirmation */}
         {cancelled && (

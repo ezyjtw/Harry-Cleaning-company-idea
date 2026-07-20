@@ -24,6 +24,7 @@ export interface SchedulerSummary {
   backgroundJobs: HandlerResult;
   abandonedBookings: HandlerResult;
   compliance: HandlerResult;
+  stuckJobs: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -225,6 +226,19 @@ async function processRescueTimeouts(): Promise<HandlerResult> {
   }
 }
 
+// Stuck-money reaper sweep — detection and nudges ONLY; the money buttons are
+// admin-pressed (stuck-jobs.service). Failure-isolated like every handler.
+async function processStuckJobs(): Promise<HandlerResult> {
+  try {
+    const { sweepStuckJobs } = await import('./stuck-jobs.service');
+    return await sweepStuckJobs();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[StuckJobs] sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
@@ -234,6 +248,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const backgroundJobs = await processBackgroundJobs();
   const abandonedBookings = await processAbandonedBookings();
   const compliance = await processComplianceJobsDaily();
+  const stuckJobs = await processStuckJobs();
 
   return {
     timestamp: new Date().toISOString(),
@@ -245,5 +260,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     backgroundJobs,
     abandonedBookings,
     compliance,
+    stuckJobs,
   };
 }

@@ -88,11 +88,74 @@ function refundMessage(p: CancelPreview): string {
   return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;
 }
 
+// P4 (ledger): shared raw→card mapper — the initial load and Load more must
+// map identically or paged cards drift from page-1 cards.
+function toBookingItem(b: Record<string, unknown>): Booking {
+  return {
+    fullId: String(b.id || ''),
+    displayId: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
+    date: typeof b.date === 'string' ? b.date.split('T')[0] : String(b.date),
+    time: String(b.startTime || b.time || ''),
+    // The list API returns the cleaner NESTED (cleaner: { name }); there is
+    // no flat `cleanerName`, so the old read was always undefined and every
+    // card showed the "Assigned cleaner" fallback. Read the nested name; when
+    // it's genuinely absent, say so honestly for pre-assignment states.
+    cleanerName:
+      (b.cleaner as { name?: string | null } | null)?.name ||
+      (['PENDING', 'AWAITING_CLEANER', 'CASCADE_EXHAUSTED'].includes(
+        String(b.status || 'PENDING').toUpperCase()
+      )
+        ? 'Cleaner being assigned'
+        : 'Assigned cleaner'),
+    cleanerImage: (b.cleaner as { image?: string | null } | null)?.image ?? null,
+    serviceType: String(b.serviceType || 'Cleaning'),
+    duration: Number(b.duration || 0),
+    price: Number(b.totalPrice || b.price || 0),
+    status: mapStatus(String(b.status || 'PENDING'), b.cascadePhase as string | null | undefined),
+    rawStatus: String(b.status || 'PENDING').toUpperCase(),
+    cascadePhase: (b.cascadePhase as string | null) ?? null,
+    rescueDeadline: (b.rescueDeadline as string | null) ?? null,
+    // A12: build from booking columns (helper falls back to legacy relation).
+    address: bookingFullAddress(b as BookingAddressSource) || (b.fullAddress as string) || '',
+    backupCleanerNames: (b.backupCleanerNames as string[]) || [],
+    autoAssignBackup: (b.autoAssignBackup as boolean) || false,
+    topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
+    hasDispute: !!(b.dispute || (b as Record<string, unknown>).hasDispute),
+    completionConfirmed: !!b.completionConfirmedAt,
+    hasReview: !!b.review,
+  };
+}
+
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'All'>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // P4: general-list pagination — page 1 loads with the pins; Load more appends.
+  const [generalPage, setGeneralPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = generalPage + 1;
+      const res = await fetch(`/api/bookings?page=${next}`);
+      if (!res.ok) return;
+      const d = await res.json();
+      const raw = d.data || d.bookings || [];
+      setBookings((prev) => {
+        const seen = new Set(prev.map((x) => x.fullId));
+        return [...prev, ...raw.map(toBookingItem).filter((x: Booking) => !seen.has(x.fullId))];
+      });
+      setGeneralPage(next);
+      setTotalPages(Number(d.totalPages) || next);
+    } catch {
+      // Leave the button in place — retry is a re-click.
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Confirm-complete flow
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -372,43 +435,11 @@ export default function BookingsPage() {
             (b: { id?: unknown }) => !pinnedIds.has(String(b.id)) && !targetIds.has(String(b.id))
           ),
         ];
-        const items = raw.map((b: Record<string, unknown>) => ({
-          fullId: String(b.id || ''),
-          displayId: (b.id as string)?.substring(0, 8).toUpperCase() || String(b.id),
-          date: typeof b.date === 'string' ? b.date.split('T')[0] : String(b.date),
-          time: String(b.startTime || b.time || ''),
-          // The list API returns the cleaner NESTED (cleaner: { name }); there is
-          // no flat `cleanerName`, so the old read was always undefined and every
-          // card showed the "Assigned cleaner" fallback. Read the nested name; when
-          // it's genuinely absent, say so honestly for pre-assignment states.
-          cleanerName:
-            (b.cleaner as { name?: string | null } | null)?.name ||
-            (['PENDING', 'AWAITING_CLEANER', 'CASCADE_EXHAUSTED'].includes(
-              String(b.status || 'PENDING').toUpperCase()
-            )
-              ? 'Cleaner being assigned'
-              : 'Assigned cleaner'),
-          cleanerImage: (b.cleaner as { image?: string | null } | null)?.image ?? null,
-          serviceType: String(b.serviceType || 'Cleaning'),
-          duration: Number(b.duration || 0),
-          price: Number(b.totalPrice || b.price || 0),
-          status: mapStatus(
-            String(b.status || 'PENDING'),
-            b.cascadePhase as string | null | undefined
-          ),
-          rawStatus: String(b.status || 'PENDING').toUpperCase(),
-          cascadePhase: (b.cascadePhase as string | null) ?? null,
-          rescueDeadline: (b.rescueDeadline as string | null) ?? null,
-          // A12: build from booking columns (helper falls back to legacy relation).
-          address: bookingFullAddress(b as BookingAddressSource) || (b.fullAddress as string) || '',
-          backupCleanerNames: (b.backupCleanerNames as string[]) || [],
-          autoAssignBackup: (b.autoAssignBackup as boolean) || false,
-          topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
-          hasDispute: !!(b.dispute || (b as Record<string, unknown>).hasDispute),
-          completionConfirmed: !!b.completionConfirmedAt,
-          hasReview: !!b.review,
-        }));
+        const items = raw.map(toBookingItem);
         setBookings(items);
+        // P4: the general list paginates (newest 10 per page) — remember where
+        // page 1 ended so Load more can continue. Pins/target stay immune.
+        setTotalPages(Number(data.totalPages) || 1);
         // Open the review form for the deep-linked booking straight away (only
         // when it is actually reviewable — completed and not yet reviewed).
         if (wanted) {
@@ -949,6 +980,21 @@ export default function BookingsPage() {
               )}
             </div>
           ))}
+          {/* P4: the general list is newest-10 paged — older bookings load on
+              demand. Hidden while a status filter is active only if everything
+              is already loaded; the fetch is unfiltered so appended pages feed
+              every tab. */}
+          {generalPage < totalPages && (
+            <div className="pt-2 text-center">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="rounded-[10px] border border-line bg-surface px-5 py-2 font-jost text-sm font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load older bookings'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

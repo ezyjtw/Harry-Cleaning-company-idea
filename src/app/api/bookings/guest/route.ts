@@ -41,6 +41,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     booking: {
       id: booking.id,
+      // P3 (ledger): a claimed booking (guest→account conversion backfilled
+      // clientId) keeps its tokened view working, but the page tells the
+      // customer it now lives in their account.
+      claimed: booking.clientId !== null,
       guestToken: booking.guestToken,
       cleanerName: booking.cleaner.name || 'Assigned Cleaner',
       cleanerImage,

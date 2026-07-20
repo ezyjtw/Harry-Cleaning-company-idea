@@ -745,3 +745,69 @@ export async function sendGoLive(user: { name: string; email: string }): Promise
   const { subject, html } = buildGoLive({ name: user.name });
   return sendEmail(user.email, subject, html);
 }
+
+// ─── Stuck-money reaper (James-approved) ─────────────────────
+
+/** Cleaner nudge (ESSENTIAL — a blocked payout is not an optional reminder). */
+export async function sendStuckJobNudge(bookingId: string, escalated: boolean): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      serviceType: true,
+      date: true,
+      startTime: true,
+      cleanerId: true,
+      cleaner: { select: { name: true, email: true } },
+    },
+  });
+  if (!b?.cleaner?.email) return false;
+  const { buildStuckJobNudge } = await import('./email-templates');
+  const { subject, html } = buildStuckJobNudge({
+    cleanerName: b.cleaner.name ?? 'there',
+    serviceType: b.serviceType,
+    date: b.date,
+    startTime: b.startTime,
+    escalated,
+  });
+  return sendEmail(b.cleaner.email, subject, html);
+}
+
+/** Ask-the-customer (ESSENTIAL, guest-safe). */
+export async function sendJobHappenedAsk(bookingId: string, askToken: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const r = await resolveBookingRecipient(bookingId);
+  if (!r) return false;
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { cleaner: { select: { name: true } } },
+  });
+  const { buildJobHappenedAsk } = await import('./email-templates');
+  const { subject, html } = buildJobHappenedAsk({
+    customerName: r.name,
+    cleanerName: b?.cleaner?.name ?? 'your cleaner',
+    serviceType: r.serviceType,
+    date: r.date,
+    askToken,
+  });
+  return sendEmail(r.email, subject, html);
+}
+
+/** Force-complete notice (ESSENTIAL, guest-safe). */
+export async function sendForceCompleteNotice(
+  bookingId: string,
+  confirmedByCustomer: boolean
+): Promise<boolean> {
+  const r = await resolveBookingRecipient(bookingId);
+  if (!r) return false;
+  const { buildForceCompleteNotice } = await import('./email-templates');
+  const { subject, html } = buildForceCompleteNotice({
+    customerName: r.name,
+    serviceType: r.serviceType,
+    date: r.date,
+    guestToken: r.guestToken,
+    bookingId,
+    confirmedByCustomer,
+  });
+  return sendEmail(r.email, subject, html);
+}

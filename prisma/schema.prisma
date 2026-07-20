@@ -509,6 +509,7 @@ model Booking {
   bookingAddons BookingAddon[]
   cleanerQueue  BookingCleanerQueue[]
   refundRecords RefundRecord[]
+  stuckJobCase  StuckJobCase?
 
   // ─── Pricing snapshot (captured at booking creation) ─────
   propertySize              PropertySize?
@@ -1154,6 +1155,31 @@ model PlatformConfig {
 // immutable consent record is the email-keyed GdprConsent row written
 // alongside; if the email has an account, the live NotificationPreference
 // ledger (which the email chokepoint enforces) is granted too.
+// Stuck-money reaper (James-approved spec): tracks a paid job whose scheduled
+// end + 48h grace passed with no completion. The case carries nudge history,
+// the tokened ask-the-customer state, and resolution. The TIMER NEVER MOVES
+// MONEY — detection and nudges only; force-complete / cancel-refund are
+// admin-pressed buttons reusing the existing completion/refund primitives.
+model StuckJobCase {
+  id                 String    @id @default(cuid())
+  bookingId          String    @unique
+  scheduledEndAt     DateTime
+  firstFlaggedAt     DateTime  @default(now())
+  nudge1At           DateTime?
+  nudge2At           DateTime?
+  customerAskedAt    DateTime?
+  customerAnswer     String? // 'YES' | 'NO'
+  customerAnsweredAt DateTime?
+  askToken           String    @unique @default(uuid())
+  resolvedAt         DateTime?
+  resolvedBy         String? // admin user id, or 'system' for self-resolved
+  resolution         String? // 'self-resolved' | 'force-completed' | 'cancelled-refunded'
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([resolvedAt])
+}
+
 model Lead {
   id                 String   @id @default(cuid())
   email              String
