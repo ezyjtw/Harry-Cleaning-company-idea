@@ -949,3 +949,97 @@ export function buildPaymentFailureNotification(data: {
     p('Best regards,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };
 }
+
+// ─── Stuck-money reaper (James-approved) ─────────────────────
+
+/** Cleaner nudge — two escalating flavours. Money-critical: completion is the
+ *  only payout trigger, so an unmarked job is an unpaid cleaner. */
+export function buildStuckJobNudge(data: {
+  cleanerName: string;
+  serviceType: string;
+  date: Date;
+  startTime: string;
+  escalated: boolean;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const subject = data.escalated
+    ? `Action needed — mark your ${dateStr} job complete to get paid`
+    : `Did you finish your ${serviceLabelFromSlug(data.serviceType).toLowerCase()} on ${dateStr}?`;
+  const contentHtml =
+    h(data.escalated ? 'Your payment is waiting on you' : 'Mark your job complete') +
+    p(`Hi ${data.cleanerName},`) +
+    p(
+      `Your ${serviceLabelFromSlug(data.serviceType)} on <strong>${dateStr} at ${data.startTime}</strong> is past its scheduled end but hasn&rsquo;t been marked complete.`
+    ) +
+    p(
+      data.escalated
+        ? 'Your customer has already been charged &mdash; completing the job is what releases your payment. Until you mark it done, nothing can be paid out, and our team may need to step in to resolve the booking.'
+        : 'Marking it complete is what starts your payout. It takes a few seconds from your jobs page.'
+    ) +
+    button(`${appUrl()}/cleaner/jobs`, 'Mark it complete') +
+    p('If something went wrong with this job, reply to this email and our team will help.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+/** Ask-the-customer: tokened one-question check — did this clean happen?
+ *  The token is the authorization (H8 matrix); yes/no lands on the case. */
+export function buildJobHappenedAsk(data: {
+  customerName: string;
+  cleanerName: string;
+  serviceType: string;
+  date: Date;
+  askToken: string;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const subject = `Quick check — did your ${dateStr} clean go ahead?`;
+  const link = `${appUrl()}/job-check?token=${encodeURIComponent(data.askToken)}`;
+  const contentHtml =
+    h('One quick question') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `Your ${serviceLabelFromSlug(data.serviceType)} with ${data.cleanerName} on <strong>${dateStr}</strong> hasn&rsquo;t been marked complete by your cleaner, so we wanted to check with you directly.`
+    ) +
+    p('It takes one tap &mdash; just tell us whether the clean went ahead:') +
+    button(link, 'Answer the question') +
+    p(
+      'Your answer helps us close the booking correctly &mdash; releasing payment if the work was done, or arranging your refund if it wasn&rsquo;t.'
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+/** Force-complete notice to the customer. When they already answered YES the
+ *  window copy is skipped — their yes IS the dispute window answered. */
+export function buildForceCompleteNotice(data: {
+  customerName: string;
+  serviceType: string;
+  date: Date;
+  guestToken?: string | null;
+  bookingId: string;
+  confirmedByCustomer: boolean;
+}): EmailContent {
+  const dateStr = data.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const subject = `Your ${dateStr} clean has been marked complete`;
+  const contentHtml =
+    h('Booking marked complete') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      data.confirmedByCustomer
+        ? `Thanks for confirming your ${serviceLabelFromSlug(data.serviceType)} on <strong>${dateStr}</strong> went ahead &mdash; we&rsquo;ve marked it complete and your cleaner&rsquo;s payment is being released.`
+        : `Our team has marked your ${serviceLabelFromSlug(data.serviceType)} on <strong>${dateStr}</strong> as complete after your cleaner didn&rsquo;t confirm it. If this clean did not happen or there was a problem, report it within <strong>24 hours</strong> and the payment will be paused while we look into it.`
+    ) +
+    button(bookingTrackLink(data.bookingId, data.guestToken), 'View your booking') +
+    p('Thank you for using Rena!');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
