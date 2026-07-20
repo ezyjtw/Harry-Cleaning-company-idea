@@ -152,11 +152,12 @@ export async function updateStoredRating(
 ): Promise<number | null> {
   const client = db ?? prisma;
   const { overall } = await computeCleanerRating(cleanerId, client);
-  if (overall !== null) {
-    await client.cleanerProfile.updateMany({
-      where: { userId: cleanerId },
-      data: { rating: overall },
-    });
-  }
+  // H72: overall is null when the countable pool is EMPTY (e.g. the only
+  // visible review was just hidden). Skipping the write here left the old
+  // rating frozen — write the schema default (0 = unrated) instead.
+  await client.cleanerProfile.updateMany({
+    where: { userId: cleanerId },
+    data: { rating: overall ?? 0 },
+  });
   return overall;
 }

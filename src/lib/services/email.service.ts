@@ -113,17 +113,31 @@ async function sendEmail(
   }
 
   try {
-    await resend?.emails.send({
+    const result = await resend?.emails.send({
       from: FROM_WITH_NAME,
       to,
       subject,
       html: htmlBody,
       ...(opts?.headers ? { headers: opts.headers } : {}),
     });
+    // H73: the Resend SDK does NOT throw on API errors — it resolves with
+    // { data, error }. The old code ignored the response, so a REJECTED send
+    // (bad from-address, suppressed recipient, rate limit) still logged "Sent".
+    // Inspect the envelope: rejections log loudly, successes log the provider
+    // message id so any single email's delivery can be traced in the Resend
+    // dashboard.
+    if (result?.error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[Email] Provider REJECTED (${category}) to: ${to} — ${subject}: ` +
+          `${result.error.name}/${result.error.statusCode ?? '-'} ${result.error.message}`
+      );
+      return false;
+    }
     // H68: prod sends were INVISIBLE (success silent, failures easy to miss) —
     // one line per send so "attempted or not" is always answerable from logs.
     // eslint-disable-next-line no-console
-    console.log(`[Email] Sent (${category}) to: ${to} — ${subject}`);
+    console.log(`[Email] Sent (${category}) to: ${to} — ${subject} (id: ${result?.data?.id})`);
     return true;
   } catch (error) {
     // eslint-disable-next-line no-console
