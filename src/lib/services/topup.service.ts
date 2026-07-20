@@ -507,6 +507,25 @@ async function writeTopupSuccess(
       snapshot: JSON.stringify(snapshot),
     },
   }).catch(() => {});
+
+  // H82: this finalize IS the acceptance moment for the pricier-cleaner shape
+  // — the customer approved and paid, the new cleaner is now assigned — but it
+  // bypassed both atomic accept doors, so the H15 acceptance-moment email
+  // ("Good news — [Cleaner] has taken your clean", guest-tokened) and the
+  // reminder series never fired. Same two side-effects the plain accept runs,
+  // loud on failure per the H74/H78 logging law. The H54 same-cleaner branch
+  // above correctly sends neither (no new acceptance happened).
+  const { BookingReminderService } = await import('./booking-reminder.service');
+  await BookingReminderService.scheduleReminders(booking.id).catch((e) => {
+    // eslint-disable-next-line no-console
+    console.error(`[Topup] Reminder scheduling failed for ${booking.id}:`, e);
+  });
+  const { sendCleanerAcceptedBooking } = await import('./email.service');
+  const sent = await sendCleanerAcceptedBooking(booking.id).catch(() => false);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[Topup] Acceptance email for ${booking.id} after top-up finalize — ${sent ? 'sent' : 'NOT sent'}`
+  );
 }
 
 // ─── Webhook handler for topup PI outcomes ────────────────────

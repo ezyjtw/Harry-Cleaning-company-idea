@@ -66,7 +66,9 @@ export default async function LocaleLayout({ children, params }: Props) {
         <meta name="msapplication-TileColor" content="#16296b" />
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
         {/* Fonts are self-hosted via next/font (see src/app/layout.tsx) — no Google Fonts link. */}
-        <link rel="preload" as="image" href="/images/hero-banner.webp" fetchPriority="high" />
+        {/* H87: no manual hero preload — the hero renders via next/image with
+            `priority`, which preloads the OPTIMISED /_next/image URL itself; a
+            raw-file preload here was never used and warned in the console. */}
         <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">
