@@ -366,9 +366,17 @@ export async function cancelRefund(
     { triggeredBy: adminId }
   );
   if (result.status !== 'REFUNDED' && result.status !== 'PARTIALLY_REFUNDED') {
+    // H78: admissible error copy — the admin must see WHAT refused and WHY,
+    // not "action failed". The reason is Stripe's own message (or our guard's),
+    // and it's also logged loudly in refund.service and persisted on the
+    // FAILED RefundRecord.
+    // eslint-disable-next-line no-console
+    console.error(
+      `[StuckJobs] Cancel-refund failed for ${c.bookingId}: ${result.status} — ${result.reason ?? 'no reason given'}`
+    );
     return {
       ok: false,
-      error: `Refund did not succeed (${result.status}${result.reason ? `: ${result.reason}` : ''}) — the case stays open.`,
+      error: `Refund refused — ${result.reason ?? result.status}. The case stays open; if this booking was already refunded previously, use "Close without refund".`,
       status: 502,
     };
   }
@@ -401,4 +409,66 @@ export async function cancelRefund(
   });
 
   return { ok: true, refunded: remainder };
+}
+
+/**
+ * H78: ADMIN BUTTON (records only — moves NO money, calls NO provider):
+ * close an aged case whose payment was already refunded through an earlier
+ * path (a prior walk, a different Stripe era, a manual dashboard refund).
+ * The booking closes the same terminal shape as the refunded leg —
+ * CANCELLED / transferStatus REFUNDED with an honest reason — but no charge
+ * is touched. Armed-gated and audited like the money buttons; the audit row
+ * is the record that an admin attested "refund already issued previously".
+ */
+export async function resolveNoRefund(
+  caseId: string,
+  adminId: string
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  const c = await prisma.stuckJobCase.findUnique({
+    where: { id: caseId },
+    include: { booking: { select: { id: true, status: true } } },
+  });
+  if (!c) return { ok: false, error: 'Case not found.', status: 404 };
+  if (c.resolvedAt) return { ok: false, error: 'Case already resolved.', status: 400 };
+  if (!actionArmed(c.scheduledEndAt)) {
+    return {
+      ok: false,
+      error: 'Too early — admin actions arm 5 days after the scheduled end.',
+      status: 400,
+    };
+  }
+  if (!PRE_COMPLETE.includes(c.booking.status as (typeof PRE_COMPLETE)[number])) {
+    return {
+      ok: false,
+      error: 'Booking is no longer in a pre-complete state — refresh.',
+      status: 409,
+    };
+  }
+
+  const now = new Date();
+  await prisma.booking.updateMany({
+    where: { id: c.bookingId, status: { in: [...PRE_COMPLETE] } },
+    data: {
+      status: 'CANCELLED',
+      cancelledAt: now,
+      cancellationReason: 'Closed by Rena — refund was already issued previously',
+      transferStatus: 'REFUNDED',
+    },
+  });
+  await prisma.stuckJobCase.update({
+    where: { id: caseId },
+    data: { resolvedAt: now, resolvedBy: adminId, resolution: 'resolved-no-refund' },
+  });
+  await AuditService.log({
+    userId: adminId,
+    action: 'STUCK_JOB_RESOLVED_NO_REFUND',
+    entityType: 'Booking',
+    entityId: c.bookingId,
+    metadata: { attested: 'refund already issued previously' },
+  }).catch(() => {});
+  // eslint-disable-next-line no-console
+  console.log(
+    `[StuckJobs] Case for ${c.bookingId} closed without refund (admin ${adminId} attested prior refund)`
+  );
+  return { ok: true };
 }

@@ -73,7 +73,10 @@ export default function AdminStuckJobsPage() {
     fetchQueue();
   }, [fetchQueue]);
 
-  const act = async (id: string, action: 'ask' | 'force-complete' | 'cancel-refund') => {
+  const act = async (
+    id: string,
+    action: 'ask' | 'force-complete' | 'cancel-refund' | 'resolve-no-refund'
+  ) => {
     setBusyId(id);
     setStatusMessage('');
     setConfirming(null);
@@ -90,7 +93,9 @@ export default function AdminStuckJobsPage() {
             ? 'Question sent to the customer.'
             : action === 'force-complete'
               ? `Marked complete — payment releases ${d?.released === 'immediate' ? 'now (customer confirmed)' : 'after a 24h dispute window'}.`
-              : `Cancelled and refunded £${(d?.refunded ?? 0).toFixed ? d.refunded.toFixed(2) : d?.refunded}.`
+              : action === 'resolve-no-refund'
+                ? 'Closed without refund — attested as previously refunded (audited).'
+                : `Cancelled and refunded £${(d?.refunded ?? 0).toFixed ? d.refunded.toFixed(2) : d?.refunded}.`
         );
         await fetchQueue();
       } else {
@@ -186,11 +191,19 @@ export default function AdminStuckJobsPage() {
                     <span className="text-sm font-medium text-ink">
                       {confirming.action === 'force-complete'
                         ? `Mark complete and release £${c.cleanerEarnings.toFixed(2)} to ${c.cleanerName}?`
-                        : `Cancel and refund £${c.totalPrice.toFixed(2)} to ${c.customerName}?`}
+                        : confirming.action === 'resolve-no-refund'
+                          ? 'Close without refunding — you are attesting this booking was already refunded previously (audited)?'
+                          : `Cancel and refund £${c.totalPrice.toFixed(2)} to ${c.customerName}?`}
                     </span>
                     <button
                       onClick={() =>
-                        act(c.id, confirming.action as 'force-complete' | 'cancel-refund')
+                        act(
+                          c.id,
+                          confirming.action as
+                            | 'force-complete'
+                            | 'cancel-refund'
+                            | 'resolve-no-refund'
+                        )
                       }
                       disabled={busyId === c.id}
                       className="rounded-lg bg-danger px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
@@ -227,6 +240,17 @@ export default function AdminStuckJobsPage() {
                       className="rounded-lg border border-danger/30 px-4 py-1.5 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-40"
                     >
                       Cancel &amp; refund customer
+                    </button>
+                    {/* H78: honest exit for aged cases whose payment was
+                        already refunded through an earlier path — records
+                        only, no provider call. */}
+                    <button
+                      onClick={() => setConfirming({ id: c.id, action: 'resolve-no-refund' })}
+                      disabled={!c.actionsArmed || busyId === c.id}
+                      title={!c.actionsArmed ? 'Arms 5 days after the scheduled end' : undefined}
+                      className="rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-page disabled:opacity-40"
+                    >
+                      Close without refund
                     </button>
                   </>
                 )}
