@@ -52,12 +52,23 @@ export default function NotificationBell({
   const [loading, setLoading] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  // H77: dead sessions must STOP knocking. A parked tab whose cookie no
+  // longer decrypts got a 401 every 60s forever — noise in the prod log and
+  // wasted requests. On 401 the poller halts for the life of this mount;
+  // signing in again always navigates (role-routed login), which remounts the
+  // bell and resumes polling with the fresh cookie.
+  const pollHalted = useRef(false);
+
   const pollBadge = useCallback(async () => {
+    if (pollHalted.current) return;
     try {
       const res = await fetch('/api/notifications?countOnly=1');
       if (res.ok) {
         const d = await res.json();
         setUnread(d.unreadCount ?? 0);
+      } else if (res.status === 401) {
+        pollHalted.current = true;
+        setUnread(0);
       }
     } catch {
       /* badge poll is best-effort */
