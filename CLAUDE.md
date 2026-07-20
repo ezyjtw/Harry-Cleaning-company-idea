@@ -64,9 +64,15 @@ concrete and tied to the actual diff, not generic.
 
 ## Railway
 
-Railway start command is configured via `railway.json`. The `--accept-data-loss` flag is required
-because we use `prisma db push` rather than proper migrations. This is acceptable while there's no
-real customer data; before launching to real users, migrate to `prisma migrate deploy` workflow.
+Railway start command is configured via `railway.json` and runs `prisma migrate deploy` —
+the migration workflow, cut over from `db push` pre-launch. The baseline is
+`prisma/migrations/0_init` (the full launch schema, verified equal to what `db push` produced).
+
+**Every schema change now requires a migration file.** After editing `schema.prisma`, generate
+one with `npx prisma migrate dev --name <change>` locally (or `prisma migrate diff` + a new
+`prisma/migrations/<timestamp>_<change>/migration.sql`), commit it alongside the schema change,
+and it applies on deploy. `prisma db push` must not be used against prod — there is no
+`--accept-data-loss` anywhere anymore, by design.
 
 ## Reference data vs dev data
 
