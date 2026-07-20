@@ -292,6 +292,10 @@ export async function refundBooking(
 
     // Pre-release or no reversal needed — safe to release claim
     const failReason = err instanceof Error ? err.message : 'Unknown Stripe error';
+    // H78: a refused refund was INVISIBLE in the logs — the reason lived only
+    // in the HTTP response and the RefundRecord row. One loud line per refusal.
+    // eslint-disable-next-line no-console
+    console.error(`[Refund] Stripe refused refund for booking ${bookingId}: ${failReason}`);
     await prisma.$transaction([
       prisma.refundRecord.update({
         where: { id: refundRecord.id },
