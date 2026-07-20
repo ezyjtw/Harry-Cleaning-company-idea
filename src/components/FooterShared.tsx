@@ -199,10 +199,15 @@ export function FooterPaymentMethods() {
 export function FooterSocialLinks() {
   return (
     <div className="flex items-center gap-4">
+      {/* H91: byte-exact match of the URL that loads on desktop (trailing
+          slash), and noreferrer dropped — Instagram errored on some
+          referrer-stripped desktop arrivals, and telling it visitors come
+          from renacleaning.co.uk is a marketing win, not a leak. noopener
+          stays (the security half). */}
       <a
-        href="https://www.instagram.com/therenacleaningnetwork"
+        href="https://www.instagram.com/therenacleaningnetwork/"
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"
         className="text-white/80 transition-colors hover:text-white"
         aria-label="Instagram"
       >
