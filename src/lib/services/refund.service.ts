@@ -762,12 +762,30 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
 
   // Pre-release earnings adjustment — atomic with transferStatus unlock
   // so release never reads stale cleanerEarnings (tightening B).
+  // H79: the A3/A4 snapshot columns (cleanerPayoutAmount /
+  // platformCommissionAmount) must scale WITH the legacy columns — the PDF
+  // statement prefers the snapshots, so leaving them untouched made the
+  // tax statement report PRE-adjustment nets for refund-adjusted bookings.
   if (!isPostRelease && adjustEarnings) {
     const totalPrice = Number(booking.totalPrice);
     const ratio = totalPrice > 0 ? amountPounds / totalPrice : 0;
+    const b = booking as typeof booking & {
+      cleanerPayoutAmount?: unknown;
+      platformCommissionAmount?: unknown;
+    };
+    const scaleDown = (value: unknown) =>
+      value === null || value === undefined
+        ? undefined
+        : Math.max(0, Math.round(Number(value) * (1 - ratio) * 100) / 100);
     if (isFullPreRelease) {
       bookingUpdate.cleanerEarnings = 0;
       bookingUpdate.platformFee = 0;
+      if (b.cleanerPayoutAmount !== null && b.cleanerPayoutAmount !== undefined) {
+        bookingUpdate.cleanerPayoutAmount = 0;
+      }
+      if (b.platformCommissionAmount !== null && b.platformCommissionAmount !== undefined) {
+        bookingUpdate.platformCommissionAmount = 0;
+      }
     } else {
       const earningsReduction = Number(booking.cleanerEarnings) * ratio;
       const feeReduction = Number(booking.platformFee) * ratio;
@@ -779,6 +797,10 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
         0,
         Math.round((Number(booking.platformFee) - feeReduction) * 100) / 100
       );
+      const scaledPayout = scaleDown(b.cleanerPayoutAmount);
+      if (scaledPayout !== undefined) bookingUpdate.cleanerPayoutAmount = scaledPayout;
+      const scaledCommission = scaleDown(b.platformCommissionAmount);
+      if (scaledCommission !== undefined) bookingUpdate.platformCommissionAmount = scaledCommission;
     }
   }
 

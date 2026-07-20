@@ -18,7 +18,9 @@ export async function GET() {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfDay);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
+  // H79: (getDay()+6)%7 = days since Monday. The old `- getDay() + 1` jumped
+  // to NEXT Monday on Sundays, zeroing the weekly figure one day in seven.
+  startOfWeek.setDate(startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7)); // Monday
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(endOfWeek.getDate() + 7);
 
@@ -126,14 +128,17 @@ export async function GET() {
       },
     }),
 
-    // Weekly earnings
+    // Weekly earnings — H79 one-truth law: keyed by completedAt like the
+    // earnings page and the PDF statement (the ledger basis), NOT the booking
+    // date. A job booked last week but completed this week (late marking,
+    // reaper force-completes) now counts in the same week on every surface.
     prisma.booking.findMany({
       where: {
         cleanerId: user.id,
-        date: { gte: startOfWeek, lt: endOfWeek },
+        completedAt: { gte: startOfWeek, lt: endOfWeek },
         status: { in: ['COMPLETED', 'REVIEWED'] },
       },
-      select: { cleanerEarnings: true, date: true },
+      select: { cleanerEarnings: true, completedAt: true },
     }),
 
     // Upcoming jobs (next 7 days, pending or confirmed)
@@ -285,10 +290,10 @@ export async function GET() {
   // Calculate weekly earnings by day
   const weeklyEarnings = weeklyBookings.reduce((sum, b) => sum + Number(b.cleanerEarnings), 0);
 
-  // Build daily earnings for the chart (Mon-Sun)
+  // Build daily earnings for the chart (Mon-Sun) — completedAt-keyed (H79).
   const dailyEarnings = Array(7).fill(0);
   for (const booking of weeklyBookings) {
-    const day = booking.date.getDay();
+    const day = (booking.completedAt ?? new Date(0)).getDay();
     const idx = day === 0 ? 6 : day - 1; // Convert to Mon=0, Sun=6
     dailyEarnings[idx] += Number(booking.cleanerEarnings);
   }

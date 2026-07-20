@@ -4,15 +4,22 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import CleanerStatements from '@/components/cleaner/CleanerStatements';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
+
+// H79: restyled to the portal's design grammar (the calendar page and
+// dashboard are the reference — rounded-xl hairline cards, Newsreader
+// headings/figures, Jost labels, rounded-full chips) and rebuilt on the
+// honest data shape: net-first with a real paid-out / pending-release split,
+// earnings-by-day with true release state (the old "Payout History" invented
+// payout references and stamped everything "completed").
 
 type Period = 'week' | 'month' | 'year';
 
-interface Payout {
-  id: string;
+interface EarningsDay {
   date: string;
   amount: number;
-  status: 'completed' | 'pending' | 'processing';
-  reference: string;
+  released: number;
+  pending: number;
   bookingCount: number;
 }
 
@@ -25,8 +32,10 @@ interface ServiceBreakdown {
 interface EarningsData {
   totalEarnings: number;
   netEarnings: number;
+  paidOut: number;
+  pendingRelease: number;
   bookingCount: number;
-  payouts: Payout[];
+  days: EarningsDay[];
   breakdown: ServiceBreakdown[];
 }
 
@@ -35,6 +44,14 @@ const periodLabels: Record<Period, string> = {
   month: 'This Month',
   year: 'This Year',
 };
+
+function fmtDay(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
 
 export default function EarningsPage() {
   const [period, setPeriod] = useState<Period>('month');
@@ -99,27 +116,35 @@ export default function EarningsPage() {
     fetchEarnings(period);
   }, [period, fetchEarnings]);
 
-  const getStatusBadge = (status: Payout['status']) => {
-    const styles = {
-      completed: 'bg-primary/10 text-primary',
-      pending: 'bg-ink/5 text-ink-3',
-      processing: 'bg-ink/5 text-ink-2',
-    };
+  // Honest release chip for a day: all released / all pending / a mix.
+  const dayChip = (day: EarningsDay) => {
+    if (day.pending <= 0) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-trust/10 px-2 py-0.5 font-jost text-xs font-medium text-trust">
+          Paid out
+        </span>
+      );
+    }
+    if (day.released <= 0) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-jost text-xs font-medium text-amber-800">
+          Pending release
+        </span>
+      );
+    }
     return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ${styles[status]}`}
-      >
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-jost text-xs font-medium text-amber-800">
+        £{day.pending.toFixed(2)} pending
       </span>
     );
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-newsreader text-2xl font-semibold text-ink">Earnings</h1>
-          <p className="font-jost text-sm font-light text-ink-3 mt-1">
+          <p className="mt-1 font-jost text-sm font-light text-ink-3">
             Track your income and payouts
           </p>
           <button
@@ -131,16 +156,14 @@ export default function EarningsPage() {
           </button>
           {payoutsError && <p className="mt-1 font-jost text-xs text-danger">{payoutsError}</p>}
         </div>
-        <div
-          className="flex gap-1 bg-primary-soft p-1"
-          style={{ border: '0.5px solid rgb(var(--color-border))' }}
-        >
+        {/* Period toggle — calendar-page segmented grammar. */}
+        <div className="flex overflow-hidden rounded-[10px] border border-line">
           {(Object.keys(periodLabels) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 font-jost text-xs transition-colors ${
-                period === p ? 'bg-primary text-white' : 'text-ink-3 hover:text-ink'
+              className={`px-3 py-1.5 font-jost text-sm transition-colors ${
+                period === p ? 'bg-primary text-white' : 'bg-surface text-ink-2 hover:bg-page'
               }`}
             >
               {periodLabels[p]}
@@ -167,178 +190,124 @@ export default function EarningsPage() {
 
       {loading && (
         <div className="animate-pulse space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 bg-ink/5" />
+              <div key={i} className="h-28 rounded-xl bg-line" />
             ))}
           </div>
-          <div className="h-64 bg-ink/5" />
+          <div className="h-64 rounded-xl bg-line" />
         </div>
       )}
 
       {!loading && data && (
         <>
-          {/* Summary cards — net-first. The full gross → commission → net
-              breakdown lives in the downloadable statement (for tax); the
-              day-to-day view leads with what the cleaner actually receives. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            <div
-              className="bg-primary/5 p-5"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
+          {/* Summary cards — net-first (standing rule), with the honest
+              paid-out / pending-release split. earned = paid + pending. */}
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-line bg-surface p-5">
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-primary">
                 You&apos;ll receive
               </p>
-              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
+              <p className="mt-1 font-newsreader text-3xl font-medium text-ink">
                 £{data.netEarnings.toFixed(2)}
               </p>
-              <p className="font-jost text-xs font-light text-primary mt-1">
-                Paid to you across {data.bookingCount} completed bookings
+              <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                Net earned across {data.bookingCount} completed booking
+                {data.bookingCount === 1 ? '' : 's'}
               </p>
             </div>
-            <div
-              className="bg-primary-soft p-5"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
+            <div className="rounded-xl border border-line bg-surface p-5">
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Completed bookings
+                Paid out
               </p>
-              <p className="font-newsreader text-3xl font-medium text-ink mt-1">
-                {data.bookingCount}
+              <p className="mt-1 font-newsreader text-3xl font-medium text-ink">
+                £{data.paidOut.toFixed(2)}
               </p>
-              <p className="font-jost text-xs font-light text-ink-3 mt-1">
-                For a full breakdown, download your statement below
+              <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                Released to your account
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface p-5">
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Pending release
+              </p>
+              <p className="mt-1 font-newsreader text-3xl font-medium text-ink">
+                £{data.pendingRelease.toFixed(2)}
+              </p>
+              <p className="mt-1 font-jost text-xs font-light text-ink-3">
+                Releases after each job&apos;s confirmation window
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Payout history */}
-            <div
-              className="lg:col-span-2 bg-primary-soft overflow-hidden"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
-              <div
-                className="px-6 py-4"
-                style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}
-              >
-                <h2 className="font-newsreader text-lg font-semibold text-ink">Payout History</h2>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* Earnings by day — the honest ledger (real release state per day). */}
+            <div className="overflow-hidden rounded-xl border border-line bg-surface lg:col-span-2">
+              <div className="border-b border-line px-6 py-4">
+                <h2 className="font-newsreader text-lg font-semibold text-ink">Earnings by day</h2>
               </div>
-              {data.payouts.length === 0 ? (
+              {data.days.length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <p className="font-jost text-sm font-light text-ink-3">
                     No completed bookings in this period
                   </p>
                 </div>
               ) : (
-                <>
-                  {/* X7: stacked cards on mobile — the 5-column table survives
-                    only from sm: up (horizontal-scroll tables are unusable on
-                    a phone). Same data, same order. */}
-                  <div className="sm:hidden">
-                    {data.payouts.map((payout) => (
-                      <div
-                        key={payout.id}
-                        className="border-t border-line px-4 py-3 first:border-t-0"
-                      >
-                        <div className="flex items-baseline justify-between">
-                          <span className="font-newsreader text-lg font-medium text-ink">
-                            £{payout.amount.toFixed(2)}
-                          </span>
-                          {getStatusBadge(payout.status)}
-                        </div>
-                        <div className="mt-1 flex items-center justify-between font-jost text-[13px] text-ink-3">
-                          <span>
-                            {payout.date} · {payout.bookingCount} job
-                            {payout.bookingCount === 1 ? '' : 's'}
-                          </span>
-                          <span className="font-mono text-[11px]">{payout.reference}</span>
-                        </div>
+                <div>
+                  {data.days.map((day) => (
+                    <div
+                      key={day.date}
+                      className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-6 py-3.5 first:border-t-0"
+                    >
+                      <div className="flex items-baseline gap-3">
+                        <span className="font-jost text-sm text-ink">{fmtDay(day.date)}</span>
+                        <span className="font-jost text-xs font-light text-ink-3">
+                          {day.bookingCount} job{day.bookingCount === 1 ? '' : 's'}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="hidden overflow-x-auto sm:block">
-                    <table className="w-full">
-                      <thead>
-                        <tr style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}>
-                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                            Date
-                          </th>
-                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                            Amount
-                          </th>
-                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                            Jobs
-                          </th>
-                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                            Status
-                          </th>
-                          <th className="text-left px-6 py-3 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 font-normal">
-                            Reference
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.payouts.map((payout) => (
-                          <tr
-                            key={payout.id}
-                            className="hover:bg-page/50 transition-colors"
-                            style={{ borderTop: '0.5px solid rgb(var(--color-border))' }}
-                          >
-                            <td className="px-6 py-4 font-jost text-sm font-light text-ink">
-                              {payout.date}
-                            </td>
-                            <td className="px-6 py-4 font-jost text-sm font-normal text-ink">
-                              £{payout.amount.toFixed(2)}
-                            </td>
-                            <td className="px-6 py-4 font-jost text-sm font-light text-ink-3">
-                              {payout.bookingCount}
-                            </td>
-                            <td className="px-6 py-4">{getStatusBadge(payout.status)}</td>
-                            <td className="px-6 py-4 font-jost text-sm font-light text-ink-3 font-mono">
-                              {payout.reference}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+                      <div className="flex items-baseline gap-3">
+                        {dayChip(day)}
+                        <span className="font-newsreader text-lg font-medium text-ink">
+                          £{day.amount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
             {/* Service breakdown */}
-            <div
-              className="bg-primary-soft overflow-hidden"
-              style={{ border: '0.5px solid rgb(var(--color-border))' }}
-            >
-              <div
-                className="px-6 py-4"
-                style={{ borderBottom: '0.5px solid rgb(var(--color-border))' }}
-              >
-                <h2 className="font-newsreader text-lg font-semibold text-ink">By Service Type</h2>
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
+              <div className="border-b border-line px-6 py-4">
+                <h2 className="font-newsreader text-lg font-semibold text-ink">By service type</h2>
               </div>
               {data.breakdown.length === 0 ? (
                 <div className="p-6 text-center">
                   <p className="font-jost text-sm font-light text-ink-3">No data yet</p>
                 </div>
               ) : (
-                <div className="p-6 space-y-4">
+                <div className="space-y-4 p-6">
                   {data.breakdown.map((item) => {
                     const maxAmount = Math.max(...data.breakdown.map((b) => b.amount), 1);
                     const percentage = (item.amount / maxAmount) * 100;
                     return (
                       <div key={item.type}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-jost text-sm font-light text-ink">{item.type}</span>
-                          <span className="font-jost text-sm font-light text-ink-3">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="font-jost text-sm text-ink">
+                            {serviceLabelFromSlug(item.type)}
+                          </span>
+                          <span className="font-newsreader text-sm font-medium text-ink">
                             £{item.amount.toFixed(2)}
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-page overflow-hidden">
-                          <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-page">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${percentage}%` }}
+                          />
                         </div>
-                        <p className="font-jost text-xs font-light text-ink-3 mt-1">
+                        <p className="mt-1 font-jost text-xs font-light text-ink-3">
                           {item.count} booking{item.count !== 1 ? 's' : ''}
                         </p>
                       </div>
