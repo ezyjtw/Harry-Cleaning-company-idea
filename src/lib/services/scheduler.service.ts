@@ -26,6 +26,7 @@ export interface SchedulerSummary {
   compliance: HandlerResult;
   stuckJobs: HandlerResult;
   completedAtBackfill: HandlerResult;
+  catchmentHeal: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -263,6 +264,86 @@ async function processCompletedAtBackfill(): Promise<HandlerResult> {
   }
 }
 
+// H89 (James-promoted): self-healing catchment sweep. Live cleaners whose one
+// fire-and-forget generation attempt failed (ORS outage, geocode blip) used to
+// stay on the crow-flies fallback until a profile edit or a manual batch run.
+// This sweep regenerates them on the existing tick and, like the completedAt
+// sweep, converges to zero: once every live cleaner has a polygon it selects
+// nothing forever.
+//
+// ORS free-tier discipline (~500 calls/day, ~20/min): at most 2 attempts per
+// 5-minute tick (well under the rate limit), a 100/day cap so signups and the
+// batch script keep most of the budget, and a 24h per-cleaner cooldown so a
+// permanently-failing cleaner (unresolvable postcode, dead ORS account) costs
+// one attempt per day, not one per tick. Cap and cooldown are in-memory —
+// a deploy restart resets them, which only ever errs toward retrying sooner.
+const CATCHMENT_HEAL_BATCH = 2;
+const CATCHMENT_HEAL_DAILY_CAP = 100;
+const CATCHMENT_HEAL_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+let catchmentHealDay = '';
+let catchmentHealMintedToday = 0;
+const catchmentHealLastAttempt = new Map<string, number>();
+
+async function processCatchmentHeal(): Promise<HandlerResult> {
+  // Feature dormant without the key — silent early-out (the boot log already
+  // names the unset variable once; naming it every 5 minutes is noise).
+  if (!process.env.ORS_API_KEY) return { processed: 0 };
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today !== catchmentHealDay) {
+      catchmentHealDay = today;
+      catchmentHealMintedToday = 0;
+    }
+    if (catchmentHealMintedToday >= CATCHMENT_HEAL_DAILY_CAP) return { processed: 0 };
+
+    const { prisma } = await import('@/lib/db/prisma');
+    const { Prisma } = await import('@prisma/client');
+    const { eligibleCleanerWhere } = await import('./area-search.service');
+    const candidates = await prisma.cleanerProfile.findMany({
+      // AnyNull: a missing polygon is a DB NULL (never written) — AnyNull also
+      // catches a JSON-null literal so neither shape can hide from the sweep.
+      where: { ...eligibleCleanerWhere(new Date()), catchmentPolygon: { equals: Prisma.AnyNull } },
+      select: { userId: true, homePostcode: true, postcode: true },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+    });
+
+    const now = Date.now();
+    const due = candidates
+      .filter((c) => {
+        const last = catchmentHealLastAttempt.get(c.userId);
+        return last === undefined || now - last > CATCHMENT_HEAL_COOLDOWN_MS;
+      })
+      .slice(0, CATCHMENT_HEAL_BATCH);
+
+    let processed = 0;
+    const { generateCatchmentForCleaner } = await import('./catchment-generation.service');
+    for (const c of due) {
+      catchmentHealLastAttempt.set(c.userId, now);
+      catchmentHealMintedToday++;
+      const result = await generateCatchmentForCleaner(c.userId);
+      if (result.status === 'generated') {
+        processed++;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[CatchmentHeal] minted polygon for ${c.userId} (${c.homePostcode ?? c.postcode ?? 'no postcode'})`
+        );
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[CatchmentHeal] ${result.status} for ${c.userId}: ${result.reason} — next attempt after 24h cooldown`
+        );
+      }
+    }
+    return { processed };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[CatchmentHeal] sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 // Stuck-money reaper sweep — detection and nudges ONLY; the money buttons are
 // admin-pressed (stuck-jobs.service). Failure-isolated like every handler.
 async function processStuckJobs(): Promise<HandlerResult> {
@@ -287,6 +368,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const compliance = await processComplianceJobsDaily();
   const stuckJobs = await processStuckJobs();
   const completedAtBackfill = await processCompletedAtBackfill();
+  const catchmentHeal = await processCatchmentHeal();
 
   return {
     timestamp: new Date().toISOString(),
@@ -300,5 +382,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     compliance,
     stuckJobs,
     completedAtBackfill,
+    catchmentHeal,
   };
 }
