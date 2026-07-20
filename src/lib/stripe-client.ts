@@ -7,11 +7,20 @@ export default stripePromise;
 // Single Stripe Elements appearance (B8, upgraded in the polish batch) — one
 // source, passed at every Elements provider so the PaymentElement matches the
 // site. stripeFonts loads REAL Jost inside Stripe's iframe (the iframe can't
-// see our next/font CSS, but Elements accepts an external cssSrc it fetches
-// itself); clients that block it degrade to the same web-safe fallbacks as
-// before.
+// see our next/font CSS).
+//
+// H84: the old cssSrc pointed at fonts.googleapis.com — stripe-js FETCHES the
+// cssSrc from the parent page at runtime, which our connect-src rightly
+// blocks (the CSP was doing its job; we don't widen it). Self-hosted instead:
+// one Jost VARIABLE woff2 in public/fonts serves all three weights, fetched
+// by the iframe itself (CORS-enabled for /fonts in next.config). Degrades to
+// the same web-safe fallbacks if blocked.
+// Absolute URL — the iframe resolves relative srcs against js.stripe.com.
+const JOST_SRC = `url(${process.env.NEXT_PUBLIC_APP_URL ?? ''}/fonts/jost-latin-var.woff2)`;
 export const stripeFonts = [
-  { cssSrc: 'https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap' },
+  { family: 'Jost', src: JOST_SRC, weight: '300' },
+  { family: 'Jost', src: JOST_SRC, weight: '400' },
+  { family: 'Jost', src: JOST_SRC, weight: '500' },
 ];
 export const stripeAppearance: Appearance = {
   theme: 'stripe',

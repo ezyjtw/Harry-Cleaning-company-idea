@@ -6,6 +6,7 @@ import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server
 export const dynamic = 'force-dynamic';
 
 import AIChatWidget from '@/components/AIChatWidget';
+import ContactFab from '@/components/ContactFab';
 import CookieConsent from '@/components/CookieConsent';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
@@ -14,6 +15,7 @@ import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import { routing } from '@/i18n/routing';
+import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
 import { fontVariables } from '@/lib/fonts';
 import { generateOrganizationSchema } from '@/lib/seo/structured-data';
 
@@ -66,7 +68,9 @@ export default async function LocaleLayout({ children, params }: Props) {
         <meta name="msapplication-TileColor" content="#16296b" />
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
         {/* Fonts are self-hosted via next/font (see src/app/layout.tsx) — no Google Fonts link. */}
-        <link rel="preload" as="image" href="/images/hero-banner.webp" fetchPriority="high" />
+        {/* H87: no manual hero preload — the hero renders via next/image with
+            `priority`, which preloads the OPTIMISED /_next/image URL itself; a
+            raw-file preload here was never used and warned in the console. */}
         <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">
@@ -90,7 +94,9 @@ export default async function LocaleLayout({ children, params }: Props) {
               <Footer />
             </div>
             <CookieConsent />
-            <AIChatWidget />
+            {/* H88 (James-ruled): live chat is pulled from launch — the same
+                bottom-right FAB opens the contact form until the flag flips. */}
+            {LIVE_CHAT_ENABLED ? <AIChatWidget /> : <ContactFab />}
           </AuthProvider>
         </NextIntlClientProvider>
       </body>

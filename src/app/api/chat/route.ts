@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
 import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
 
@@ -62,6 +63,15 @@ function getClientIP(request: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // H88: live chat is pulled from launch — no UI opens this, and the AI
+    // endpoint must not stay quietly reachable while the widget is off.
+    if (!LIVE_CHAT_ENABLED) {
+      return NextResponse.json(
+        { error: 'Live chat is not available. Please use the contact form at /contact.' },
+        { status: 503 }
+      );
+    }
+
     // Rate limiting by IP
     const clientIP = getClientIP(request);
     const rateCheck = chatRateLimiter.check(clientIP);

@@ -89,7 +89,7 @@ export default function HeroSection() {
                 {t('bookCleaner')}
               </a>
               <a
-                href="#how-it-works"
+                href="/how-it-works"
                 className="rounded-md border border-white/30 px-7 py-3.5 text-center font-jost text-[14px] font-normal text-white transition-colors hover:border-white/50"
               >
                 {t('howItWorks')}

@@ -48,6 +48,16 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // H84: Stripe Elements loads our self-hosted Jost INSIDE its iframe
+        // (js.stripe.com origin) — cross-origin font fetches require CORS.
+        // Font files only; nothing sensitive lives under /fonts.
+        source: '/fonts/(.*)',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
     ];
   },
 

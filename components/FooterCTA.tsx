@@ -24,7 +24,7 @@ export default function FooterCTA() {
           {t('findCleaners')}
         </a>
         <a
-          href="#how-it-works"
+          href="/how-it-works"
           className="rounded-md px-9 py-3.5 font-jost text-[14px] font-normal text-ink transition-colors hover:bg-page"
           style={{ border: '1px solid rgb(var(--color-border))' }}
         >

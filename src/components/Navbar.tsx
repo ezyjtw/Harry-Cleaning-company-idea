@@ -88,7 +88,7 @@ export default function Navbar() {
                 {[
                   { href: '/services', label: t('bookClean') },
                   { href: '/cleaners', label: t('findCleaners') },
-                  { href: '/#how-it-works', label: t('howItWorks') },
+                  { href: '/how-it-works', label: t('howItWorks') },
                   { href: '/pricing', label: t('pricing') },
                   { href: '/faq', label: t('faq') },
                   { href: '/contact', label: t('contactUs') },

@@ -15,6 +15,7 @@ import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerIdentity from '@/components/CleanerIdentity';
 import CleaningEstimator from '@/components/CleaningEstimator';
 import VerificationBadge from '@/components/VerificationBadge';
+import { useAuth } from '@/hooks/useAuth';
 import {
   bedroomIndexToPropertySize,
   BEDROOMS_TO_EOT_SIZE,
@@ -134,6 +135,8 @@ function CancellationNotice({ dateStr, timeStr }: { dateStr: string; timeStr: st
 export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // H83: session truth for gating account-only fetches (guests get no 401 spray).
+  const { isAuthenticated } = useAuth();
   const isExpress = searchParams.get('express') === 'true';
   // Carry the up-front postcode (cleaner card / profile pass ?postcode=) into the
   // address step so it auto-looks-up on mount instead of a manual "Find address".
@@ -173,7 +176,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     }>
   >([]);
 
+  // H83: these are account-only conveniences (saved addresses, rebook history).
+  // They fired unconditionally, spraying 401s into every guest's console —
+  // noise that masks real errors and wastes requests. Gate on a real session.
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetch('/api/addresses')
       .then((res) => (res.ok ? res.json() : []))
       .then((data: Array<Record<string, unknown>>) => {
@@ -211,7 +218,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         );
       })
       .catch(() => {});
-  }, []);
+  }, [isAuthenticated]);
 
   const today = new Date().toISOString().split('T')[0];
 
