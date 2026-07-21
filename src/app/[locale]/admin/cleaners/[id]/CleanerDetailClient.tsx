@@ -268,7 +268,21 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
           <CleanerAvatar photo={cleaner.image} name={cleaner.name} size={56} />
           <div>
             <h1 className="text-2xl font-bold text-ink">{cleaner.name}</h1>
-            <p className="text-ink-3">{cleaner.email}</p>
+            <p className="text-ink-3">
+              {cleaner.email}{' '}
+              {cleaner.emailVerified ? (
+                <span
+                  className="ml-1 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"
+                  title={`Verified ${new Date(cleaner.emailVerified).toLocaleDateString('en-GB')}`}
+                >
+                  ✓ Email verified {new Date(cleaner.emailVerified).toLocaleDateString('en-GB')}
+                </span>
+              ) : (
+                <span className="ml-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  Email unverified
+                </span>
+              )}
+            </p>
             {cleaner.phone && <p className="text-ink-3 text-sm">{cleaner.phone}</p>}
           </div>
         </div>

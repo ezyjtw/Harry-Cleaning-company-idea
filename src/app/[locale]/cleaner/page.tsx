@@ -103,6 +103,18 @@ export default function CleanerDashboard() {
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const res = await fetch('/api/cleaner/dashboard', { signal: controller.signal });
+      if (res.status === 404) {
+        // H99 ①: a cleaner-role account with NO profile is a step-0 signup
+        // that never finished the wizard — resume it, never a broken
+        // dashboard. ONLY the specific no-profile 404 redirects; any other
+        // shape falls through to the error/retry card below.
+        const body = await res.json().catch(() => null);
+        if (body?.error === 'Cleaner profile not found') {
+          router.push('/join');
+          return;
+        }
+        throw new Error('Failed to load dashboard');
+      }
       if (!res.ok) throw new Error('Failed to load dashboard');
       const d = await res.json();
       setData(d);
@@ -115,7 +127,7 @@ export default function CleanerDashboard() {
     } finally {
       clearTimeout(timer);
     }
-  }, []);
+  }, [router]);
 
   // #1: redirect ONLY on a definitive auth verdict — never while the session is
   // still loading. Prevents the spurious "log back in" bounce on navigation.

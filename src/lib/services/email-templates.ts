@@ -323,6 +323,25 @@ export function buildPasswordReset(token: string): EmailContent {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// H99 ①: welcome-framed verify email at cleaner ACCOUNT CREATION (step 0 of
+// the wizard) — copy James-approved. Verification gates nothing inside the
+// wizard; abandoners stay contactable.
+export function buildCleanerWelcome(token: string, firstName: string): EmailContent {
+  const verifyLink = `${appUrl()}/api/auth/verify-email?token=${token}`;
+  const subject = 'Welcome to Rena — verify your email';
+  const contentHtml =
+    h('Welcome to Rena Cleaning Network!') +
+    p(`Hi ${firstName},`) +
+    p(
+      'Your account is set up — one quick step: confirm this email address so job updates and payout messages reach you.'
+    ) +
+    button(verifyLink, 'Verify my email') +
+    pMuted(
+      'Verifying never blocks your application — you can finish it any time, and we&rsquo;ll keep your progress safe.'
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildEmailVerification(token: string): EmailContent {
   // H95: the link must hit the CONSUMING route (/api/auth/verify-email), which
   // verifies and 303s to the friendly page with a status. It previously
