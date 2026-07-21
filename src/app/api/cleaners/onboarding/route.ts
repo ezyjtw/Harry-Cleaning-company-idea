@@ -5,12 +5,12 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { rateLimit } from '@/lib/rate-limit';
-import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
+import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { putObject } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
-import { isSaneHoursPerWeek, isValidPhone, isValidUkPostcode } from '@/lib/validation/inputs';
 import { lookupPostcode } from '@/lib/utils/postcode';
+import { isSaneHoursPerWeek, isValidPhone, isValidUkPostcode } from '@/lib/validation/inputs';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -271,6 +271,23 @@ export async function POST(request: NextRequest) {
     // B: generate the new cleaner's travel-time isochrone (fire-and-forget;
     // dormant without ORS_API_KEY — the crow-flies fallback covers them).
     triggerCatchmentRefresh(result.user.id);
+
+    // H92: cleaner signup now sends the SAME verification email customers get
+    // — this path previously created the user with no token and no send, so
+    // cleaners landed unverified forever. Verified email is what guest-booking
+    // claim keys on, what password-reset trusts, and what proves the cleaner
+    // owns the inbox their payout mail goes to. Fire-and-forget (never blocks
+    // the wizard), loud either way per the logging law.
+    const { resendEmailVerification } = await import('@/lib/services/auth.service');
+    resendEmailVerification(result.user.email)
+      .then(() => {
+        // eslint-disable-next-line no-console
+        console.log(`[CleanerSignup] Verification email queued for ${result.user.email}`);
+      })
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.error(`[CleanerSignup] Verification email FAILED for ${result.user.email}:`, e);
+      });
 
     return NextResponse.json(
       {
