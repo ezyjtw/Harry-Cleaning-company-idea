@@ -336,20 +336,79 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
               {cleaner.rating > 0 ? cleaner.rating.toFixed(1) : 'N/A'}
             </dd>
           </div>
-          <div>
-            <dt className="text-ink-3">Travel radius</dt>
-            <dd className="font-medium text-ink">{cleaner.radius} miles</dd>
-          </div>
+          {/* H107: "Travel radius" removed — it displayed a schema default (10)
+              nobody collects and live matching never consults. The live model
+              is the Catchment section below. */}
           <div>
             <dt className="text-ink-3">Travel mode</dt>
             <dd className="font-medium text-ink capitalize">
               {cleaner.travelMode?.replace(/_/g, ' ') || '—'}
+              <span className="ml-1 font-normal normal-case text-ink-3">
+                (not used in matching)
+              </span>
             </dd>
           </div>
           <div>
             <dt className="text-ink-3">Experience</dt>
             <dd className="font-medium text-ink">
               {cleaner.yearsExperience !== null ? `${cleaner.yearsExperience} years` : '—'}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      {/* H107 item 2: the LIVE matching model — polygon truth + maxTravelMinutes.
+          This is what cleanerCoversPoint actually consults; everything above is
+          identity/profile. No map component exists in the repo, so the polygon
+          is reported as facts, not drawn. */}
+      <section className="bg-surface rounded-xl border border-line p-6 mb-6">
+        <h2 className="text-lg font-semibold text-ink mb-1">Catchment</h2>
+        <p className="text-sm text-ink-3 mb-4">
+          The live matching model: drive-time polygon first, crow-flies fallback (25&nbsp;mph
+          &times; max travel time) when no polygon is stored.
+        </p>
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+          <div>
+            <dt className="text-ink-3">Home postcode</dt>
+            <dd className="font-medium text-ink">
+              {cleaner.homePostcode || cleaner.postcode || '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-ink-3">Max travel time</dt>
+            <dd className="font-medium text-ink">
+              {cleaner.maxTravelMinutes !== null ? (
+                `${cleaner.maxTravelMinutes} min`
+              ) : (
+                <span className="text-danger">not set — not matchable</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-ink-3">Geocoded</dt>
+            <dd className="font-medium text-ink">
+              {cleaner.hasGeo ? 'Yes' : <span className="text-danger">No — not matchable</span>}
+            </dd>
+          </div>
+          <div className="col-span-2 sm:col-span-3">
+            <dt className="text-ink-3">Drive-time polygon</dt>
+            <dd className="font-medium text-ink">
+              {cleaner.hasCatchmentPolygon ? (
+                <>
+                  <span className="text-trust">Present</span>
+                  {cleaner.catchmentGeneratedAt && (
+                    <span className="font-normal text-ink-2">
+                      {' '}
+                      — minted {formatDate(cleaner.catchmentGeneratedAt)}
+                    </span>
+                  )}
+                  {cleaner.catchmentSource && (
+                    <span className="font-normal text-ink-3"> ({cleaner.catchmentSource})</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-warning">Absent — matching uses the crow-flies fallback</span>
+              )}
             </dd>
           </div>
         </dl>

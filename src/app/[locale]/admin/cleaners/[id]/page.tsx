@@ -39,8 +39,19 @@ export interface CleanerDetail {
   serviceTypes: string[];
   postcode: string | null;
   location: string | null;
-  radius: number;
+  // H107: `radius` is deliberately NOT surfaced — it's a schema default (10)
+  // nobody collects and live matching never consults (eligibility requires
+  // maxTravelMinutes, so the radius fallback branch is unreachable for any
+  // matchable cleaner). travelMode is shown but labelled honestly: the ORS
+  // isochrone hardcodes driving-car and the crow-flies fallback is flat 25mph.
   travelMode: string | null;
+  // H107: the LIVE matching model — polygon truth + maxTravelMinutes.
+  homePostcode: string | null;
+  maxTravelMinutes: number | null;
+  hasGeo: boolean;
+  hasCatchmentPolygon: boolean;
+  catchmentGeneratedAt: string | null;
+  catchmentSource: string | null;
   tier: string;
   verified: boolean;
   foundingCleaner: boolean;
@@ -82,6 +93,12 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
 
   if (!profile) return null;
 
+  // catchmentPolygon is globally omitted (large GeoJSON blob) — the dossier
+  // only needs PRESENCE, so ask the DB for the boolean, never the blob.
+  const [polygonRow] = await prisma.$queryRaw<{ present: boolean }[]>`
+    SELECT "catchmentPolygon" IS NOT NULL AS present
+    FROM "CleanerProfile" WHERE id = ${profile.id}`;
+
   const documents = await prisma.documentUpload.findMany({
     where: { profileId: profile.id, isDestroyed: false },
     orderBy: { createdAt: 'desc' },
@@ -118,8 +135,15 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
     serviceTypes: profile.serviceTypes || [],
     postcode: profile.postcode,
     location: profile.location,
-    radius: profile.radius,
     travelMode: profile.travelMode,
+    homePostcode: profile.homePostcode,
+    maxTravelMinutes: profile.maxTravelMinutes,
+    hasGeo:
+      (profile.homeLatitude !== null && profile.homeLongitude !== null) ||
+      (profile.latitude !== null && profile.longitude !== null),
+    hasCatchmentPolygon: polygonRow?.present ?? false,
+    catchmentGeneratedAt: profile.catchmentGeneratedAt?.toISOString() || null,
+    catchmentSource: profile.catchmentSource,
     tier: profile.tier,
     verified: profile.verified,
     foundingCleaner: profile.foundingCleaner,
