@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
+import ProfilePhotoNudge from '@/components/ProfilePhotoNudge';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
@@ -636,6 +637,8 @@ export default function CleanerDashboard() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* H92: soft verify-your-email nudge — shows only while unverified. */}
       <VerifyEmailBanner />
+      {/* H98: friendly photo nudge for photo-less live cleaners — never a block. */}
+      <ProfilePhotoNudge />
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>

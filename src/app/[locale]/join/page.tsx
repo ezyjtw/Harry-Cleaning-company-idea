@@ -71,6 +71,9 @@ interface FormData {
   dbsCertIssueDate: string;
   selfiePhoto: string; // base64 for liveness check
   livenessComplete: boolean;
+  // H97: how the selfie entered — 'webcam' (desktop getUserMedia), 'capture'
+  // (mobile front-camera input), or 'upload' (no-camera fallback file pick).
+  selfieProvenance: '' | 'webcam' | 'capture' | 'upload';
 
   // Step 5 – Self-employment acknowledgment
   acknowledgeSelfEmployment: boolean;
@@ -113,6 +116,7 @@ const INITIAL_FORM: FormData = {
   dbsCertIssueDate: '',
   selfiePhoto: '',
   livenessComplete: false,
+  selfieProvenance: '',
 
   acknowledgeSelfEmployment: false,
   agreedToTerms: false,
@@ -885,10 +889,20 @@ export default function JoinAsCleanerPage() {
   const [resumeNotice, setResumeNotice] = useState<{ photo: boolean } | null>(null);
   const [webcamTarget, setWebcamTarget] = useState<'profilePhoto' | 'selfiePhoto' | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  // H97: null = unknown (assume camera; webcam modal is the only path), false =
+  // definitively no video device → the flagged upload fallback appears.
+  const [hasCamera, setHasCamera] = useState<boolean | null>(null);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
 
   useEffect(() => {
     setIsDesktop(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+    // H97: detect a video input so the no-camera upload fallback only appears
+    // when there genuinely is no camera. Detection failure leaves null
+    // (camera assumed — the stricter default).
+    navigator.mediaDevices
+      ?.enumerateDevices?.()
+      .then((devices) => setHasCamera(devices.some((d) => d.kind === 'videoinput')))
+      .catch(() => {});
   }, []);
 
   // Track initial page view
@@ -1189,6 +1203,7 @@ export default function JoinAsCleanerPage() {
           hasDbsCert: !!dbsCertFile,
           hasSelfie: !!selfiePhoto,
           selfiePhoto: selfiePhoto || null,
+          selfieProvenance: form.selfieProvenance || null,
           profilePhoto: profilePhoto || null,
         }),
       });
@@ -1558,6 +1573,12 @@ export default function JoinAsCleanerPage() {
               </div>
               <div>
                 <Label>Profile Picture</Label>
+                {/* H98 (Harry-ruled): encouraged, never a gate — the wizard
+                    stays frictionless; the dashboard nudges after go-live. */}
+                <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                  Optional now, but worth it — cleaners with a friendly photo get chosen far more
+                  often.
+                </p>
                 <div className="mt-3 flex items-start gap-5">
                   {/* Preview circle */}
                   <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft border-2 border-line">
@@ -2308,6 +2329,7 @@ export default function JoinAsCleanerPage() {
                                 if (typeof reader.result === 'string') {
                                   set('selfiePhoto', reader.result);
                                   set('livenessComplete', true);
+                                  set('selfieProvenance', 'capture');
                                 }
                               };
                               reader.readAsDataURL(file);
@@ -2315,39 +2337,46 @@ export default function JoinAsCleanerPage() {
                           />
                         </label>
                       )}
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink-2 transition hover:bg-page">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                      {/* H97 (Harry-ruled): the selfie proves a present person —
+                          no gallery picker where a camera exists. The upload
+                          fallback appears ONLY on desktops with no camera, and
+                          it flags the dossier "uploaded, not captured". */}
+                      {isDesktop && hasCamera === false && (
+                        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink-2 transition hover:bg-page">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                            />
+                          </svg>
+                          Upload Photo (no camera found)
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                if (typeof reader.result === 'string') {
+                                  set('selfiePhoto', reader.result);
+                                  set('livenessComplete', false);
+                                  set('selfieProvenance', 'upload');
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }}
                           />
-                        </svg>
-                        Upload Photo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              if (typeof reader.result === 'string') {
-                                set('selfiePhoto', reader.result);
-                                set('livenessComplete', true);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </label>
+                        </label>
+                      )}
                       {form.selfiePhoto && (
                         <span className="font-jost text-xs text-trust">
                           &#10003; Selfie captured
@@ -2764,6 +2793,7 @@ export default function JoinAsCleanerPage() {
             }
             if (webcamTarget === 'selfiePhoto') {
               set('livenessComplete', true);
+              set('selfieProvenance', 'webcam');
             }
           }}
           onClose={() => setWebcamTarget(null)}

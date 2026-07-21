@@ -398,7 +398,13 @@ export async function POST(request: NextRequest) {
             dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
             rightToWorkStatus: body.rightToWorkDocType ? 'PENDING' : 'UNVERIFIED',
             verificationMeta: body.selfiePhoto
-              ? { livenessComplete: true, dbsOption: body.dbsOption || null }
+              ? {
+                  // H97: provenance is the truth — an uploaded file is NOT a
+                  // live capture, and the dossier must say so.
+                  livenessComplete: body.selfieProvenance !== 'upload',
+                  selfieProvenance: body.selfieProvenance || 'unknown',
+                  dbsOption: body.dbsOption || null,
+                }
               : body.dbsOption
                 ? { dbsOption: body.dbsOption }
                 : undefined,
@@ -540,7 +546,13 @@ export async function POST(request: NextRequest) {
           dbsCertIssueDate: body.dbsCertIssueDate ? new Date(body.dbsCertIssueDate) : null,
           rightToWorkStatus: body.rightToWorkDocType ? 'PENDING' : 'UNVERIFIED',
           verificationMeta: body.selfiePhoto
-            ? { livenessComplete: true, dbsOption: body.dbsOption || null }
+            ? {
+                // H97: provenance is the truth — an uploaded file is NOT a
+                // live capture, and the dossier must say so.
+                livenessComplete: body.selfieProvenance !== 'upload',
+                selfieProvenance: body.selfieProvenance || 'unknown',
+                dbsOption: body.dbsOption || null,
+              }
             : body.dbsOption
               ? { dbsOption: body.dbsOption }
               : undefined,
