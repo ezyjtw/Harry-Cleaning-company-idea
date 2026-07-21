@@ -3,6 +3,8 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
+import JunkMailHint from '@/components/JunkMailHint';
+
 const SUBJECT_OPTIONS = [
   'General Enquiry',
   'Booking Issue',
@@ -137,6 +139,7 @@ export default function ContactPage() {
               A confirmation email has been sent to{' '}
               <strong className="font-normal">{form.email}</strong>.
             </p>
+            <JunkMailHint variant="reply" />
             <button
               onClick={() => {
                 setForm(initialForm);

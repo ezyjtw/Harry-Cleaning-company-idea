@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
+import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
@@ -208,6 +209,10 @@ export default function AccountHome() {
 
   return (
     <div className="space-y-8">
+      {/* H94: customer signup auto-logs-in straight to this page with no
+          "check your email" interstitial — the verify banner (which carries
+          the junk-folder whisper) IS that state, shown until verified. */}
+      <VerifyEmailBanner />
       {/* Greeting + primary CTA */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

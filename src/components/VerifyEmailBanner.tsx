@@ -53,7 +53,11 @@ export default function VerifyEmailBanner() {
       <p className="font-jost text-sm text-amber-900">
         <span className="font-medium">Verify your email.</span> We sent a link to{' '}
         <span className="font-medium">{email}</span> — verifying protects your account and makes
-        sure job and payout emails reach you.
+        sure job and payout emails reach you.{' '}
+        <span className="text-amber-900/70">
+          Can&apos;t find it? Check your junk or spam folder — and mark us &apos;not junk&apos; so
+          future emails reach you.
+        </span>
       </p>
       <button
         type="button"
