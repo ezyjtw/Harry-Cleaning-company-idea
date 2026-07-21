@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
@@ -76,7 +76,8 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function CleanerJobDetailPage({ params }: { params: { id: string } }) {
+export default function CleanerJobDetailPage() {
+  const params = useParams<{ id: string }>();
   const router = useRouter();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export default function CleanerJobDetailPage({ params }: { params: { id: string 
       setError(res.status === 404 ? 'Job not found.' : 'Could not load this job.');
       return;
     }
-    setJob(await res.json());
+    setJob((await res.json()).job);
   }, [params.id]);
 
   useEffect(() => {
@@ -152,7 +153,9 @@ export default function CleanerJobDetailPage({ params }: { params: { id: string 
           : null;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+    // pb-28 clears the portal's fixed bottom action bar — the lifecycle
+    // button must never sit under it.
+    <div className="p-4 sm:p-6 lg:p-8 pb-40 max-w-3xl mx-auto">
       <button
         onClick={() => router.back()}
         className="font-jost text-[12px] uppercase tracking-[0.1em] text-ink-3 hover:text-ink transition"
@@ -190,7 +193,9 @@ export default function CleanerJobDetailPage({ params }: { params: { id: string 
           {typeof job.bedrooms === 'number' && (
             <Row label="Property" value={`${job.bedrooms} bed`} />
           )}
-          {job.extras.length > 0 && <Row label="Extras" value={job.extras.join(', ')} />}
+          {(job.extras ?? []).length > 0 && (
+            <Row label="Extras" value={(job.extras ?? []).join(', ')} />
+          )}
         </Section>
 
         {job.assigned ? (

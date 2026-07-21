@@ -6,6 +6,7 @@ import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking'
 import prisma from '@/lib/db/prisma';
 import { atomicAccept } from '@/lib/services/cascade.service';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
+import { getTransferAmountPence } from '@/lib/services/transfer-amount';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
@@ -157,7 +158,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       duration: Number(booking.duration),
       serviceType: booking.serviceType,
       totalPrice: Number(booking.totalPrice),
-      cleanerEarnings: Number(booking.cleanerEarnings),
+      // H104 money law: the figure shown is THE payout function's figure —
+      // getTransferAmountPence is the single source of the transfer amount.
+      cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
       paymentStatus: booking.paymentStatus,
       // H104: customer guidance is assigned-cleaner-only — SERVER-side, not UI
       // hiding. Pre-accept offer recipients get none of it.
