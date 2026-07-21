@@ -18,8 +18,14 @@ import {
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import {
+  dataUrlBytes,
+  DOC_IMAGE_MAX_PX,
+  INTAKE_TOO_LARGE_MESSAGE,
   isBrowserDisplayableImage,
+  MAX_INTAKE_BYTES,
+  resizeCapture,
   resizeProfilePhoto,
+  SELFIE_MAX_PX,
   UNSUPPORTED_PHOTO_MESSAGE,
 } from '@/lib/utils/client-image';
 import { displayName } from '@/lib/utils/name';
@@ -476,7 +482,10 @@ function MobileStepper({ currentStep }: { currentStep: number }) {
 
 /* ---- Label-wrapped file dropzone (the dispute-evidence treatment): styled
    trigger, hidden native input, trust-tinted confirmation once a file lands.
-   Behaviour is unchanged — same FileReader → data URL as before. ---- */
+   H101: image intakes are downscaled at the door (2000px long edge, EXIF
+   honoured — dense document text stays admin-legible); PDFs pass through
+   untouched; anything still over the 10MB ceiling is rejected with a
+   friendly message, never a crash or a silent drop. ---- */
 function UploadDropzone({
   label,
   accept,
@@ -492,6 +501,38 @@ function UploadDropzone({
   uploadedLabel: string;
   onFile: (dataUrl: string) => void;
 }) {
+  const [intakeError, setIntakeError] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setIntakeError(null);
+    let dataUrl: string;
+    if (file.type.startsWith('image/')) {
+      try {
+        dataUrl = await resizeCapture(file, DOC_IMAGE_MAX_PX);
+      } catch {
+        // Undecodable format → raw fallback; the size guard still applies.
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () =>
+            typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('read'));
+          reader.readAsDataURL(file);
+        });
+      }
+    } else {
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () =>
+          typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('read'));
+        reader.readAsDataURL(file);
+      });
+    }
+    if (dataUrlBytes(dataUrl) > MAX_INTAKE_BYTES) {
+      setIntakeError(INTAKE_TOO_LARGE_MESSAGE);
+      return;
+    }
+    onFile(dataUrl);
+  }
+
   return (
     <label
       className={`mt-2 block w-full cursor-pointer rounded-[10px] border-2 border-dashed px-4 py-3 text-center text-sm transition ${
@@ -518,14 +559,15 @@ function UploadDropzone({
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            if (typeof reader.result === 'string') onFile(reader.result);
-          };
-          reader.readAsDataURL(file);
+          handleFile(file).catch(() => setIntakeError('Could not read that file — try another.'));
           e.target.value = '';
         }}
       />
+      {intakeError && (
+        <span className="mt-1.5 block font-jost text-[12px] font-normal text-danger">
+          {intakeError}
+        </span>
+      )}
     </label>
   );
 }
@@ -897,6 +939,8 @@ export default function JoinAsCleanerPage() {
   // H97: null = unknown (assume camera; webcam modal is the only path), false =
   // definitively no video device → the flagged upload fallback appears.
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
+  // H102: user-declared upload hatch on the selfie step (quiet text link).
+  const [selfieHatchOpen, setSelfieHatchOpen] = useState(false);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
 
   useEffect(() => {
@@ -1143,6 +1187,40 @@ export default function JoinAsCleanerPage() {
   }
 
   /* ---- Navigation ---- */
+  // H101: single selfie intake — downscale to SELFIE_MAX_PX (EXIF honoured),
+  // raw fallback for undecodable formats, hard 10MB ceiling with friendly
+  // copy. Provenance (H97) is set by the CALLER's path and untouched by the
+  // resize: 'capture' = live camera, 'upload' = no-camera fallback.
+  async function ingestSelfie(file: File, provenance: 'capture' | 'upload') {
+    let dataUrl: string;
+    try {
+      dataUrl = await resizeCapture(file, SELFIE_MAX_PX);
+    } catch {
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('read'));
+        reader.readAsDataURL(file);
+      }).catch(() => '');
+    }
+    if (!dataUrl) {
+      setErrors((prev) => ({ ...prev, selfiePhoto: 'Could not read that photo — try again.' }));
+      return;
+    }
+    if (dataUrlBytes(dataUrl) > MAX_INTAKE_BYTES) {
+      setErrors((prev) => ({ ...prev, selfiePhoto: INTAKE_TOO_LARGE_MESSAGE }));
+      return;
+    }
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.selfiePhoto;
+      return next;
+    });
+    set('selfiePhoto', dataUrl);
+    set('livenessComplete', provenance === 'capture');
+    set('selfieProvenance', provenance);
+  }
+
   async function goNext() {
     if (!validate(currentStep)) return;
     // H99 ①: leaving step 0 CREATES THE ACCOUNT (role CLEANER, no profile)
@@ -2406,15 +2484,10 @@ export default function JoinAsCleanerPage() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                if (typeof reader.result === 'string') {
-                                  set('selfiePhoto', reader.result);
-                                  set('livenessComplete', true);
-                                  set('selfieProvenance', 'capture');
-                                }
-                              };
-                              reader.readAsDataURL(file);
+                              // H101: native camera photos downscale at intake
+                              // (1280px long edge, EXIF honoured) — the raw
+                              // full-res base64 was the mobile OOM.
+                              ingestSelfie(file, 'capture');
                             }}
                           />
                         </label>
@@ -2423,7 +2496,7 @@ export default function JoinAsCleanerPage() {
                           no gallery picker where a camera exists. The upload
                           fallback appears ONLY on desktops with no camera, and
                           it flags the dossier "uploaded, not captured". */}
-                      {isDesktop && hasCamera === false && (
+                      {(selfieHatchOpen || (isDesktop && hasCamera === false)) && (
                         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[13px] font-medium text-ink-2 transition hover:bg-page">
                           <svg
                             className="w-4 h-4"
@@ -2438,7 +2511,9 @@ export default function JoinAsCleanerPage() {
                               d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
                             />
                           </svg>
-                          Upload Photo (no camera found)
+                          {isDesktop && hasCamera === false
+                            ? 'Upload Photo (no camera found)'
+                            : 'Upload Photo'}
                           <input
                             type="file"
                             accept="image/*"
@@ -2446,15 +2521,7 @@ export default function JoinAsCleanerPage() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                if (typeof reader.result === 'string') {
-                                  set('selfiePhoto', reader.result);
-                                  set('livenessComplete', false);
-                                  set('selfieProvenance', 'upload');
-                                }
-                              };
-                              reader.readAsDataURL(file);
+                              ingestSelfie(file, 'upload');
                             }}
                           />
                         </label>
@@ -2465,6 +2532,19 @@ export default function JoinAsCleanerPage() {
                         </span>
                       )}
                     </div>
+                    {/* H102 (James-ruled): user-declared escape hatch — quiet
+                        text link, never a visual peer of "Take Selfie".
+                        Provenance law unchanged: hatch uploads write
+                        'upload' + livenessComplete false → amber dossier chip. */}
+                    {!selfieHatchOpen && !(isDesktop && hasCamera === false) && (
+                      <button
+                        type="button"
+                        onClick={() => setSelfieHatchOpen(true)}
+                        className="mt-2 block font-jost text-[12px] font-light text-ink-3 underline decoration-ink-3/40 transition hover:text-ink-2"
+                      >
+                        Can&apos;t use your camera? Upload a photo instead
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

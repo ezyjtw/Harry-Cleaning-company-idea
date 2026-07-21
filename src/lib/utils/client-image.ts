@@ -76,3 +76,53 @@ export async function resizeProfilePhoto(source: Blob | string): Promise<string>
   ctx.drawImage(bmp, (w - side) / 2, (h - side) / 2, side, side, 0, 0, target, target);
   return canvas.toDataURL('image/jpeg', PROFILE_PHOTO_QUALITY);
 }
+
+// ── H101: intake resize for wizard captures/uploads ─────────────────────────
+// Charlie's real-device OOM: full-resolution native camera photos held as raw
+// base64 in wizard state (a 4MB JPEG ≈ 11MB of string RAM; its preview decode
+// ≈ 46–183MB of bitmap). Every image intake now downscales at the door:
+// selfies to 1280px long edge (webcam parity), document photos to 2000px
+// (dense text stays admin-legible). Aspect preserved, never upscaled, EXIF
+// orientation honoured via loadBitmap (createImageBitmap from-image — the
+// same machinery the profile pipeline uses, so portraits stay upright).
+export const SELFIE_MAX_PX = 1280;
+export const DOC_IMAGE_MAX_PX = 2000;
+export const CAPTURE_QUALITY = 0.85;
+
+// H101 rider: hard ceiling on any single intake AFTER resize (PDFs and raw
+// fallbacks included) — a friendly rejection, never a crash or silent drop.
+export const MAX_INTAKE_BYTES = 10 * 1024 * 1024;
+export const INTAKE_TOO_LARGE_MESSAGE =
+  'That file is too large even after compression — please use a photo or PDF under 10MB.';
+
+/** Approximate decoded byte size of a data URL's payload. */
+export function dataUrlBytes(dataUrl: string): number {
+  const comma = dataUrl.indexOf(',');
+  const b64len = comma >= 0 ? dataUrl.length - comma - 1 : dataUrl.length;
+  return Math.floor(b64len * 0.75);
+}
+
+/**
+ * Long-edge resize preserving aspect ratio. Throws on undecodable input —
+ * callers fall back to the raw file (then the MAX_INTAKE_BYTES guard still
+ * applies) so an exotic format never blocks a signup.
+ */
+export async function resizeCapture(source: Blob | string, maxLongEdge: number): Promise<string> {
+  const bmp = await loadBitmap(source);
+  const w = 'width' in bmp ? bmp.width : 0;
+  const h = 'height' in bmp ? bmp.height : 0;
+  if (!w || !h) throw new Error('image has no dimensions');
+
+  const scale = Math.min(1, maxLongEdge / Math.max(w, h)); // never upscale
+  const tw = Math.round(w * scale);
+  const th = Math.round(h * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = tw;
+  canvas.height = th;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas unavailable');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bmp, 0, 0, tw, th);
+  return canvas.toDataURL('image/jpeg', CAPTURE_QUALITY);
+}
