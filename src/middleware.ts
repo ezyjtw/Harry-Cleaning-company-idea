@@ -79,7 +79,14 @@ if (typeof setInterval !== 'undefined') {
 // X5: cleaner portal + messages join the server-side auth gate (they were
 // client-fetch-gated only — page shells rendered for logged-out users).
 // R-batch: /notifications added for parity with /account (was client-gated only).
-const protectedRoutes = ['/dashboard', '/account', '/admin', '/cleaner', '/messages', '/notifications'];
+const protectedRoutes = [
+  '/dashboard',
+  '/account',
+  '/admin',
+  '/cleaner',
+  '/messages',
+  '/notifications',
+];
 const authRoutes = ['/login', '/register', '/forgot-password'];
 
 // R1: segment-boundary matching. Plain startsWith over-matched sibling routes —
@@ -259,6 +266,14 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder assets
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/|icons/|images/|fonts/|manifest\\.json|sw\\.js).*)',
+    /*
+     * Polish gate: the old list named individual public files, so any NEW
+     * public asset (og-image.png, icon-192.png, apple-touch-icon.png, …)
+     * fell through to the i18n router and 404'd — og-image.png had been
+     * 404ing in prod this whole time despite the file existing. Any path
+     * ending in a static-asset extension now bypasses the middleware;
+     * rate limiting still covers every page and API route.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public/|icons/|images/|fonts/|manifest\\.json|sw\\.js|.*\\.(?:png|jpe?g|webp|avif|gif|svg|ico|txt|xml|webmanifest|woff2?)$).*)',
   ],
 };
