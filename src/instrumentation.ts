@@ -43,6 +43,18 @@ export async function register() {
 
     const { checkReferenceDataIntegrity } = await import('@/lib/db/reference-data-check');
     await checkReferenceDataIntegrity();
+
+    // James-ruled: one boot line stating Xero mode, so "off" and "broken" are
+    // distinguishable in any log window. Best-effort — never blocks boot.
+    try {
+      const { isPushEnabled } = await import('@/lib/services/xero.service');
+      const enabled = await isPushEnabled();
+      // eslint-disable-next-line no-console
+      console.log(enabled ? '[xero] push ENABLED, mapping complete' : '[xero] push disabled');
+    } catch {
+      // eslint-disable-next-line no-console
+      console.log('[xero] push status unknown (check failed at boot)');
+    }
   }
 }
 

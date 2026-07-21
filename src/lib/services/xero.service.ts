@@ -17,6 +17,10 @@ export interface XeroStatus {
   connected: boolean; // an OAuth connection exists
   tenantName: string | null;
   expiresAt: string | null;
+  // James-ruled: no more inferring connection health from silence.
+  lastRefreshAt: string | null; // last token rotation (connection row updatedAt)
+  lastWriteAt: string | null; // newest COMPLETED push
+  lastWriteEvent: string | null;
 }
 
 export interface XeroAccount {
@@ -72,11 +76,21 @@ export async function getConnection() {
 
 export async function getStatus(): Promise<XeroStatus> {
   const conn = await getConnection();
+  const lastWrite = conn
+    ? await prisma.xeroPushLog.findFirst({
+        where: { status: 'COMPLETED' },
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true, event: true },
+      })
+    : null;
   return {
     configured: xeroConfigured(),
     connected: !!conn,
     tenantName: conn?.tenantName ?? null,
     expiresAt: conn?.expiresAt.toISOString() ?? null,
+    lastRefreshAt: conn?.updatedAt.toISOString() ?? null,
+    lastWriteAt: lastWrite?.updatedAt.toISOString() ?? null,
+    lastWriteEvent: lastWrite?.event ?? null,
   };
 }
 
@@ -151,8 +165,7 @@ export async function saveMapping(input: Partial<XeroMapping>): Promise<XeroMapp
     feeAccountCode: input.feeAccountCode ?? conn.feeAccountCode,
     clearingAccountCode: input.clearingAccountCode ?? conn.clearingAccountCode,
     stripeFeeAccountCode: input.stripeFeeAccountCode ?? conn.stripeFeeAccountCode,
-    settlementBankAccountCode:
-      input.settlementBankAccountCode ?? conn.settlementBankAccountCode,
+    settlementBankAccountCode: input.settlementBankAccountCode ?? conn.settlementBankAccountCode,
     pushEnabled: input.pushEnabled ?? conn.pushEnabled,
   };
 
@@ -195,26 +208,70 @@ export async function getAuthedClient(): Promise<{ client: XeroClient; tenantId:
   const refreshToken = decryptToken(conn.refreshTokenEnc, conn.keyId);
 
   if (conn.expiresAt.getTime() - Date.now() < 120_000) {
-    // Refresh + rotate + re-store (encrypted with a fresh keyId).
-    const newSet = await client.refreshWithRefreshToken(
-      process.env.XERO_CLIENT_ID as string,
-      process.env.XERO_CLIENT_SECRET as string,
-      refreshToken
-    );
-    if (!newSet.access_token || !newSet.refresh_token) {
-      throw new Error('Xero refresh returned no tokens');
+    // Batch-5 (James-ruled): Xero refresh tokens are SINGLE-USE — two callers
+    // refreshing concurrently both redeem the same token, Xero honours one and
+    // the other's stored rotation kills the connection silently. Serialise via
+    // a row lock on the singleton, and double-check expiry after acquiring:
+    // the second caller finds the fresh token and never touches Xero.
+    try {
+      const tokenForClient = await prisma.$transaction(
+        async (tx) => {
+          const rows = await tx.$queryRaw<
+            {
+              accessTokenEnc: string;
+              refreshTokenEnc: string;
+              expiresAt: Date;
+              keyId: string;
+            }[]
+          >`SELECT "accessTokenEnc", "refreshTokenEnc", "expiresAt", "keyId" FROM "XeroConnection" WHERE key = ${KEY} FOR UPDATE`;
+          const cur = rows[0];
+          if (!cur) throw new Error('Xero connection disappeared during refresh');
+
+          if (new Date(cur.expiresAt).getTime() - Date.now() >= 120_000) {
+            // Another caller already rotated while we waited for the lock.
+            return {
+              access_token: decryptToken(cur.accessTokenEnc, cur.keyId),
+              refresh_token: decryptToken(cur.refreshTokenEnc, cur.keyId),
+              expires_at: Math.floor(new Date(cur.expiresAt).getTime() / 1000),
+              token_type: 'Bearer',
+            };
+          }
+
+          const curRefresh = decryptToken(cur.refreshTokenEnc, cur.keyId);
+          const newSet = await client.refreshWithRefreshToken(
+            process.env.XERO_CLIENT_ID as string,
+            process.env.XERO_CLIENT_SECRET as string,
+            curRefresh
+          );
+          if (!newSet.access_token || !newSet.refresh_token) {
+            throw new Error('Xero refresh returned no tokens');
+          }
+          const keyId = generateKeyId();
+          const expiry = tokenExpiryDate(newSet);
+          await tx.xeroConnection.update({
+            where: { key: KEY },
+            data: {
+              accessTokenEnc: encryptToken(newSet.access_token, keyId),
+              refreshTokenEnc: encryptToken(newSet.refresh_token, keyId),
+              expiresAt: expiry,
+              keyId,
+            },
+          });
+          // eslint-disable-next-line no-console
+          console.log(`[xero-refresh] rotated, expires ${expiry.toISOString()}`);
+          return newSet;
+        },
+        // The lock is held across Xero's token endpoint round-trip — a
+        // singleton row with near-zero contention; generous timeout so a slow
+        // Xero response waits rather than aborts.
+        { timeout: 30_000 }
+      );
+      client.setTokenSet(tokenForClient);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[xero-refresh] FAILED: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
     }
-    const keyId = generateKeyId();
-    await prisma.xeroConnection.update({
-      where: { key: KEY },
-      data: {
-        accessTokenEnc: encryptToken(newSet.access_token, keyId),
-        refreshTokenEnc: encryptToken(newSet.refresh_token, keyId),
-        expiresAt: tokenExpiryDate(newSet),
-        keyId,
-      },
-    });
-    client.setTokenSet(newSet);
   } else {
     client.setTokenSet({
       access_token: decryptToken(conn.accessTokenEnc, conn.keyId),
