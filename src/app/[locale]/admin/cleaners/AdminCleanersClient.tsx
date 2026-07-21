@@ -44,6 +44,8 @@ export default function AdminCleanersClient({
     active: 'bg-trust/10 text-trust',
     suspended: 'bg-danger/10 text-danger',
     'pending-approval': 'bg-warning/10 text-warning',
+    // H99 ①: step-0 account, wizard unfinished — not a reviewable applicant.
+    'signup-incomplete': 'bg-gray-100 text-gray-600',
   };
 
   return (
@@ -147,7 +149,21 @@ export default function AdminCleanersClient({
                       <p className="text-sm font-medium text-primary hover:text-primary">
                         {cleaner.name}
                       </p>
-                      <p className="text-xs text-ink-3">{cleaner.email}</p>
+                      <p className="text-xs text-ink-3">
+                        {cleaner.email}{' '}
+                        {cleaner.emailVerified ? (
+                          <span className="text-trust" title="Email verified">
+                            ✓
+                          </span>
+                        ) : (
+                          <span
+                            className="rounded bg-amber-50 px-1 text-[10px] text-amber-700"
+                            title="Email not verified"
+                          >
+                            unverified
+                          </span>
+                        )}
+                      </p>
                     </Link>
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
@@ -225,7 +241,9 @@ export default function AdminCleanersClient({
                     >
                       {cleaner.status === 'pending-approval'
                         ? 'Pending'
-                        : cleaner.status.charAt(0).toUpperCase() + cleaner.status.slice(1)}
+                        : cleaner.status === 'signup-incomplete'
+                          ? 'Signup incomplete'
+                          : cleaner.status.charAt(0).toUpperCase() + cleaner.status.slice(1)}
                     </span>
                   </td>
                 </tr>

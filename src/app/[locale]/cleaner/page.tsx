@@ -103,6 +103,12 @@ export default function CleanerDashboard() {
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const res = await fetch('/api/cleaner/dashboard', { signal: controller.signal });
+      if (res.status === 404) {
+        // H99 ①: a cleaner-role account with NO profile is a step-0 signup
+        // that never finished the wizard — resume it, never a broken dashboard.
+        router.push('/join');
+        return;
+      }
       if (!res.ok) throw new Error('Failed to load dashboard');
       const d = await res.json();
       setData(d);
@@ -115,7 +121,7 @@ export default function CleanerDashboard() {
     } finally {
       clearTimeout(timer);
     }
-  }, []);
+  }, [router]);
 
   // #1: redirect ONLY on a definitive auth verdict — never while the session is
   // still loading. Prevents the spurious "log back in" bounce on navigation.

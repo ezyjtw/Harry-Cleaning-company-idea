@@ -8,6 +8,7 @@ import {
   buildRefundConfirmation,
   buildCleanerAssignment,
   buildPasswordReset,
+  buildCleanerWelcome,
   buildEmailVerification,
   buildPaymentReceipt,
   buildContactConfirmation,
@@ -218,6 +219,16 @@ export async function sendPasswordReset(email: string, token: string): Promise<b
 
 export async function sendEmailVerification(email: string, token: string): Promise<boolean> {
   const { subject, html } = buildEmailVerification(token);
+  return sendEmail(email, subject, html);
+}
+
+// H99 ①: welcome-framed verify at cleaner account creation (wizard step 0).
+export async function sendCleanerWelcome(
+  email: string,
+  token: string,
+  firstName: string
+): Promise<boolean> {
+  const { subject, html } = buildCleanerWelcome(token, firstName);
   return sendEmail(email, subject, html);
 }
 

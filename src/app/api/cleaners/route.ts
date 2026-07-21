@@ -331,15 +331,32 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      // Already a cleaner — block duplicate
-      if (existing.cleanerProfile || existing.role === 'CLEANER') {
+      // A finished cleaner (profile exists) is always a duplicate.
+      if (existing.cleanerProfile) {
         return NextResponse.json(
           { error: 'A cleaner account with this email already exists. Please log in instead.' },
           { status: 409 }
         );
       }
 
-      // Existing client — upgrade to cleaner
+      // H99 ①: attaching a profile to an EXISTING account (the step-0-created
+      // cleaner resuming, or a client upgrading) now requires ownership
+      // proof — the session must be that account. The previous behaviour let
+      // an unauthenticated submit overwrite an existing user's password: an
+      // account-takeover hole, closed here.
+      const { getSessionUser } = await import('@/lib/auth/session');
+      const sessionUser = await getSessionUser().catch(() => null);
+      if (!sessionUser || sessionUser.id !== existing.id) {
+        return NextResponse.json(
+          {
+            error:
+              'An account with this email already exists. Log in to continue your application.',
+          },
+          { status: 409 }
+        );
+      }
+
+      // Existing account (session-proven) — attach the cleaner profile
       let upgradePhotoKey: string | null = null;
       if (photoUpload) {
         upgradePhotoKey = await uploadProfilePhoto(
@@ -477,6 +494,10 @@ export async function POST(request: NextRequest) {
         role: 'CLEANER',
         createdAt: result.user.createdAt.toISOString(),
       }).catch(() => {});
+
+      // (No verification resend here: a step-0-created account already got the
+      // welcome-verify at creation — resending at completion would double-email
+      // every normal run. The banner's resend covers stragglers.)
 
       return NextResponse.json(
         {
@@ -641,6 +662,23 @@ export async function POST(request: NextRequest) {
       role: 'CLEANER',
       createdAt: result.user.createdAt.toISOString(),
     }).catch(() => {});
+
+    // H99 Part 1 belt-and-braces: any path that still creates the User HERE
+    // (mobile app, or a wizard run whose step-0 account never happened) sends
+    // the verification email at creation — the send H92 wired into the wrong
+    // route. Loud both ways; no-op for already-verified accounts.
+    {
+      const { resendEmailVerification } = await import('@/lib/services/auth.service');
+      resendEmailVerification(result.user.email)
+        .then(() => {
+          // eslint-disable-next-line no-console
+          console.log(`[CleanerSignup] Verification email queued for ${result.user.email}`);
+        })
+        .catch((e) => {
+          // eslint-disable-next-line no-console
+          console.error(`[CleanerSignup] Verification email FAILED for ${result.user.email}:`, e);
+        });
+    }
 
     return NextResponse.json(
       {

@@ -16,7 +16,8 @@ export interface CleanerRow {
   completedJobs: number;
   docCount: number;
   hasSelfie: boolean;
-  status: 'active' | 'suspended' | 'pending-approval';
+  emailVerified: boolean;
+  status: 'active' | 'suspended' | 'pending-approval' | 'signup-incomplete';
 }
 
 async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }> {
@@ -27,6 +28,7 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
       id: true,
       name: true,
       email: true,
+      emailVerified: true,
       isSuspended: true,
       accountStatus: true,
       cleanerProfile: {
@@ -81,7 +83,11 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
   const rows: CleanerRow[] = cleaners.map((c) => {
     let status: CleanerRow['status'] = 'active';
     if (c.isSuspended || c.accountStatus === 'SUSPENDED') status = 'suspended';
-    else if (!c.cleanerProfile?.verified) status = 'pending-approval';
+    // H99 ①: a cleaner-role User with no profile is a step-0 signup that
+    // hasn't finished the wizard — honestly chipped, not mistaken for a
+    // reviewable applicant (James-ruled: chipped over excluded).
+    else if (!c.cleanerProfile) status = 'signup-incomplete';
+    else if (!c.cleanerProfile.verified) status = 'pending-approval';
 
     const docInfo = c.cleanerProfile?.id ? docCountMap.get(c.cleanerProfile.id) : undefined;
 
@@ -97,6 +103,7 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
       completedJobs: c.cleanerProfile?.completedJobs || 0,
       docCount: docInfo?.total || 0,
       hasSelfie: docInfo?.hasSelfie || false,
+      emailVerified: !!c.emailVerified,
       status,
     };
   });

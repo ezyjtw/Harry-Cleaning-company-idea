@@ -26,6 +26,7 @@ export interface CleanerDetail {
   profileId: string;
   name: string;
   email: string;
+  emailVerified: string | null;
   phone: string | null;
   createdAt: string;
   image: string | null;
@@ -70,6 +71,7 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
           id: true,
           name: true,
           email: true,
+          emailVerified: true,
           phone: true,
           image: true,
           createdAt: true,
@@ -103,6 +105,7 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
     profileId: profile.id,
     name: displayName(profile.user.name) || 'Unknown',
     email: profile.user.email,
+    emailVerified: profile.user.emailVerified ? profile.user.emailVerified.toISOString() : null,
     phone: profile.user.phone,
     createdAt: profile.user.createdAt.toISOString(),
     image: await resolveProfileImageUrl(profile.user.image),

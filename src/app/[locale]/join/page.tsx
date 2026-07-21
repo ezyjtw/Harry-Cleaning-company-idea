@@ -887,6 +887,11 @@ export default function JoinAsCleanerPage() {
   // missing). This flag drives an honest "welcome back, re-add these" banner and
   // forces the resume to land on step 1 where both fields live.
   const [resumeNotice, setResumeNotice] = useState<{ photo: boolean } | null>(null);
+  // H99 ①: the account is born when step 0 completes. Persisted with the
+  // draft so a resumed run never re-creates (409s) its own account.
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [accountExists, setAccountExists] = useState(false);
   const [webcamTarget, setWebcamTarget] = useState<'profilePhoto' | 'selfiePhoto' | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   // H97: null = unknown (assume camera; webcam modal is the only path), false =
@@ -935,6 +940,10 @@ export default function JoinAsCleanerPage() {
           hadPhoto = parsed.form.profilePhoto === '[uploaded]';
           setForm((prev) => ({ ...prev, ...restored }));
         }
+        // H99 ①: the account survives abandonment — the resumed draft must not
+        // try to create it again (its own 409). The final submit attaches the
+        // profile to the existing account under session proof.
+        if (parsed.accountCreated === true) setAccountCreated(true);
         if (typeof parsed.currentStep === 'number') {
           const savedStep = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
           // maxReachedStep keeps their real progress (all steps stay tappable)…
@@ -980,11 +989,14 @@ export default function JoinAsCleanerPage() {
         selfiePhoto: selfiePhoto ? '[uploaded]' : '',
         profilePhoto: profilePhoto ? '[uploaded]' : '',
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ form: persistable, currentStep }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ form: persistable, currentStep, accountCreated })
+      );
     } catch {
       /* quota exceeded – ignore */
     }
-  }, [form, currentStep, mounted]);
+  }, [form, currentStep, mounted, accountCreated]);
 
   /* ---- Field updater helpers ---- */
   const set = useCallback(
@@ -1131,8 +1143,64 @@ export default function JoinAsCleanerPage() {
   }
 
   /* ---- Navigation ---- */
-  function goNext() {
+  async function goNext() {
     if (!validate(currentStep)) return;
+    // H99 ①: leaving step 0 CREATES THE ACCOUNT (role CLEANER, no profile)
+    // and fires the welcome-verify email — abandoners stay contactable.
+    // Exactly once: skipped on back-and-forth once the account exists.
+    if (currentStep === 0 && accountCreated) {
+      // H48 resume rider: the draft never restores the password, so the user
+      // re-typed it — re-establish the session silently for the submit-time
+      // ownership proof. A wrong password here is caught at final submit with
+      // a friendly log-in message, never a silent failure.
+      await signIn('credentials', {
+        email: form.email.toLowerCase().trim(),
+        password: form.password,
+        redirect: false,
+      }).catch(() => null);
+    }
+    if (currentStep === 0 && !accountCreated) {
+      setCreatingAccount(true);
+      try {
+        const res = await fetch('/api/cleaners/signup-start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+            phone: form.phone,
+            password: form.password,
+          }),
+        });
+        if (res.status === 409) {
+          const data = await res.json().catch(() => ({}));
+          setErrors({
+            email:
+              (data.error as string) ||
+              'An account with this email already exists. Log in to continue.',
+          });
+          setAccountExists(true);
+          return;
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setErrors({ email: (data.error as string) || 'Something went wrong. Please try again.' });
+          return;
+        }
+        setAccountCreated(true);
+        setAccountExists(false);
+        // Establish the session so the final submit can attach the profile to
+        // THIS account under ownership proof (no unauthenticated attach).
+        await signIn('credentials', {
+          email: form.email.toLowerCase().trim(),
+          password: form.password,
+          redirect: false,
+        }).catch(() => null);
+      } finally {
+        setCreatingAccount(false);
+      }
+    }
     const nextStep = Math.min(currentStep + 1, 6);
     // Map wizard step (0-6) to funnel step: personal, experience, pricing, identity, dbs, terms, review
     trackStep(nextStep + 2, STEPS[nextStep]?.label?.toLowerCase() ?? `step_${nextStep}`);
@@ -1421,6 +1489,13 @@ export default function JoinAsCleanerPage() {
                   onChange={(e) => set('email', e.target.value)}
                 />
                 <FieldError message={errors.email} />
+                {accountExists && (
+                  <p className="mt-1 font-jost text-[12px]">
+                    <Link href="/login?callbackUrl=/join" className="text-primary underline">
+                      Log in to continue
+                    </Link>
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Phone</Label>
@@ -2748,9 +2823,10 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goNext}
-              className="rounded-[10px] bg-primary px-8 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover"
+              disabled={creatingAccount}
+              className="rounded-[10px] bg-primary px-8 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-60"
             >
-              Continue
+              {creatingAccount ? 'Creating your account…' : 'Continue'}
             </button>
           ) : (
             <button
