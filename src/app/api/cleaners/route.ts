@@ -9,6 +9,7 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
 import { eligibleCleanerWhere, expandSlots } from '@/lib/services/area-search.service';
 import { AuditService } from '@/lib/services/audit.service';
+import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { sendSignupNotification } from '@/lib/services/email.service';
@@ -487,6 +488,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // H105 leg 1: the web wizard's attach branch now mints the catchment at
+      // signup, identical to the mobile route — fire-and-forget, dormant
+      // without ORS_API_KEY, crow-flies covering the interim.
+      triggerCatchmentRefresh(result.user.id);
+
       sendSignupNotification({
         name: result.user.name || body.name,
         email: result.user.email,
@@ -654,6 +660,9 @@ export async function POST(request: NextRequest) {
         }).catch(() => {});
       }
     }
+
+    // H105 leg 1: fresh-user branch mints the catchment at signup too.
+    triggerCatchmentRefresh(result.user.id);
 
     sendSignupNotification({
       name: result.user.name || body.name,
