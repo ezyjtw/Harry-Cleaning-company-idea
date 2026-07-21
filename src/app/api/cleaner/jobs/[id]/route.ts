@@ -127,6 +127,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     job: {
       id: booking.id,
       status: booking.status,
+      // H104: server-side authz truth — full guidance renders only for the
+      // ASSIGNED cleaner post-accept; offered cleaners get the sanitised view.
+      assigned:
+        booking.cleanerId === user.id &&
+        booking.status !== 'PENDING' &&
+        booking.status !== 'AWAITING_CLEANER' &&
+        booking.status !== 'CASCADE_EXHAUSTED',
       // Offer-cascade fields (Rena Pro Offer screen: window countdown + accept routing).
       cascadePhase: booking.cascadePhase,
       cascadeExpiresAt: booking.cascadeExpiresAt ? booking.cascadeExpiresAt.toISOString() : null,
@@ -152,7 +159,29 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       totalPrice: Number(booking.totalPrice),
       cleanerEarnings: Number(booking.cleanerEarnings),
       paymentStatus: booking.paymentStatus,
-      notes: booking.notes,
+      // H104: customer guidance is assigned-cleaner-only — SERVER-side, not UI
+      // hiding. Pre-accept offer recipients get none of it.
+      notes:
+        booking.cleanerId === user.id &&
+        booking.status !== 'PENDING' &&
+        booking.status !== 'AWAITING_CLEANER' &&
+        booking.status !== 'CASCADE_EXHAUSTED'
+          ? booking.notes
+          : undefined,
+      keyAccess:
+        booking.cleanerId === user.id &&
+        booking.status !== 'PENDING' &&
+        booking.status !== 'AWAITING_CLEANER' &&
+        booking.status !== 'CASCADE_EXHAUSTED'
+          ? ((booking.rooms as Record<string, unknown>)?.keyAccess as string | undefined)
+          : undefined,
+      keyAccessNote:
+        booking.cleanerId === user.id &&
+        booking.status !== 'PENDING' &&
+        booking.status !== 'AWAITING_CLEANER' &&
+        booking.status !== 'CASCADE_EXHAUSTED'
+          ? ((booking.rooms as Record<string, unknown>)?.keyAccessNote as string | undefined)
+          : undefined,
       cleanerNotes: booking.cleanerNotes,
       bedrooms: (booking.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
       extras: booking.extras,

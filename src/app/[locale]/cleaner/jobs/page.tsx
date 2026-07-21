@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -474,6 +475,13 @@ export default function CleanerJobsPage() {
                 id={`job-${job.id}`}
                 className={`rounded-xl border border-line bg-surface p-5 target:ring-2 target:ring-primary ${highlightId === job.id ? 'ring-2 ring-primary' : ''}`}
               >
+                {/* H104 item 5: click through to the job's home. */}
+                <Link
+                  href={`/cleaner/jobs/${job.id}`}
+                  className="mb-2 inline-block font-jost text-[11px] uppercase tracking-[0.08em] text-primary"
+                >
+                  View details →
+                </Link>
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="mb-1.5 flex items-center gap-3">

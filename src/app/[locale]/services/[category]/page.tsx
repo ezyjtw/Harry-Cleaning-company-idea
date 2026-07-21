@@ -798,7 +798,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           time: selectedTime24 || 'Flexible',
           duration: effectiveHours,
           serviceType: category,
-          notes: specialInstructions || undefined,
+          // H104 item 1: the fewer-hours focus note rides Booking.notes as a
+          // "Focus: ..." line - zero schema, flows everywhere notes flows.
+          // (It was previously collected and silently dropped.)
+          notes:
+            [specialInstructions.trim(), cleanerNote.trim() ? `Focus: ${cleanerNote.trim()}` : '']
+              .filter(Boolean)
+              .join('\n\n') || undefined,
           totalPrice,
           isGuest,
           propertySize: isFixedPrice(category)

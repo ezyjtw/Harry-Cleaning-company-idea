@@ -318,6 +318,13 @@ export function JobCard({
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-4">
+      {/* H104 item 5: every job card clicks through to the job detail. */}
+      <Link
+        href={`/app/offer/${job.id}`}
+        className="mb-1 block font-jost text-[11px] uppercase tracking-[0.08em] text-primary"
+      >
+        View details →
+      </Link>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-newsreader text-lg font-semibold text-ink">

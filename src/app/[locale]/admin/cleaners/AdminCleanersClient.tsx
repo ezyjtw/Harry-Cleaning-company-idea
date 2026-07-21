@@ -18,11 +18,33 @@ export default function AdminCleanersClient({
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [verifiedFilter, setVerifiedFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
+  // H106: broom for incomplete signups — grey rows only; the server guard is
+  // structural (role CLEANER + no profile + no bookings), this is just the door.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string } | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  async function removeIncomplete(id: string) {
+    setRemoving(id);
+    try {
+      const res = await fetch(`/api/admin/cleaners/incomplete/${id}`, { method: 'DELETE' });
+      if (res.ok) setRemoved((prev) => new Set(prev).add(id));
+      else {
+        const d = await res.json().catch(() => ({}));
+        setRemoveError(d.error || 'Could not remove this signup.');
+      }
+    } finally {
+      setRemoving(null);
+      setConfirmRemove(null);
+    }
+  }
 
   const filtered = cleaners.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase());
+    if (removed.has(c.fullId)) return false;
     const matchesTier = tierFilter === 'all' || c.tier === tierFilter;
     const matchesVerified =
       verifiedFilter === 'all' || (verifiedFilter === 'verified' ? c.verified : !c.verified);
@@ -245,6 +267,16 @@ export default function AdminCleanersClient({
                           ? 'Signup incomplete'
                           : cleaner.status.charAt(0).toUpperCase() + cleaner.status.slice(1)}
                     </span>
+                    {cleaner.status === 'signup-incomplete' && (
+                      <button
+                        type="button"
+                        disabled={removing === cleaner.fullId}
+                        onClick={() => setConfirmRemove({ id: cleaner.fullId, name: cleaner.name })}
+                        className="ml-2 rounded px-2 py-0.5 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -277,6 +309,37 @@ export default function AdminCleanersClient({
           </div>
         )}
       </div>
+      {/* H106 confirm modal — states exactly what is removed. */}
+      {confirmRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-6">
+            <p className="font-newsreader text-lg font-semibold text-ink">
+              Remove {confirmRemove.name}&apos;s incomplete signup?
+            </p>
+            <p className="mt-2 font-jost text-sm text-ink-2">
+              Their account and email will be deleted — this can&apos;t be undone.
+            </p>
+            {removeError && <p className="mt-2 font-jost text-sm text-danger">{removeError}</p>}
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmRemove(null)}
+                className="flex-1 rounded-[10px] border border-line py-2.5 font-jost text-sm text-ink-2"
+              >
+                Keep
+              </button>
+              <button
+                type="button"
+                disabled={!!removing}
+                onClick={() => removeIncomplete(confirmRemove.id)}
+                className="flex-1 rounded-[10px] bg-danger py-2.5 font-jost text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {removing ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

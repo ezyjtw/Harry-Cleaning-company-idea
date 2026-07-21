@@ -1562,6 +1562,14 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
               <span className="font-medium">Notes:</span> {b.notes}
             </div>
           )}
+          {/* H104 item 4: access instructions visible to support — mediation
+              needs the door code as much as the cleaner does. */}
+          {b.rooms?.keyAccess && (
+            <div className="mt-1 text-sm text-ink-2">
+              <span className="font-medium">Getting in:</span> {String(b.rooms.keyAccess)}
+              {b.rooms.keyAccessNote ? ` — ${String(b.rooms.keyAccessNote)}` : ''}
+            </div>
+          )}
           {b.cleanerNotes && (
             <div className="mt-1 text-sm text-ink-2">
               <span className="font-medium">Cleaner notes:</span> {b.cleanerNotes}
