@@ -111,30 +111,16 @@ export async function processPaymentSuccess(
 
   // ── Side-effects (claim winner only — never double-fired) ──
 
-  // A13-Xero: pull the ACTUAL Stripe processing fee from the charge's balance
-  // transaction so the Xero receive nets to what Stripe truly credited.
-  // Best-effort: if unavailable the push simply omits the fee line.
-  let stripeFeeAmount: number | undefined;
-  if (pi.chargeId) {
-    try {
-      const ch = await stripe.charges.retrieve(pi.chargeId, {
-        expand: ['balance_transaction'],
-      });
-      const bt = ch.balance_transaction;
-      if (bt && typeof bt !== 'string') stripeFeeAmount = bt.fee / 100;
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[payment-success] could not read Stripe fee for charge', pi.chargeId, e);
-    }
-  }
-
   // A13-Xero-c: mirror the gross customer payment into Xero as Receive Money
-  // (gated — no-op unless connected + mapped + flag on). Never blocks processing.
+  // (gated — no-op unless connected + mapped + flag on). Never blocks
+  // processing. XERO-F1: the processing fee is no longer read here — the push
+  // handler resolves it from the charge id per attempt, so a failed read
+  // retries with the job instead of freezing an incomplete payload.
   await enqueueXeroPush({
     bookingId,
     event: 'PAYMENT_RECEIVED',
     occurredAt: new Date(pi.created * 1000).toISOString(),
-    stripeFeeAmount,
+    stripeChargeId: pi.chargeId ?? undefined,
   }).catch(() => {});
 
   // Confirmation + cleaner-offer emails fire HERE, on payment success — not at

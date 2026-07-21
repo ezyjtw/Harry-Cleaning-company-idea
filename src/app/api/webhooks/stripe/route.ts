@@ -302,6 +302,51 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // XERO-F2 (James-ruled): chargeback money movements. funds_withdrawn debits
+  // the real Stripe balance (dispute amount + Stripe's dispute fee);
+  // funds_reinstated (dispute won) credits it back. Mirror both through the
+  // existing push pipeline against the booking's proportional splits — same
+  // idempotency (dispute id as externalRef), same loudness, same retries.
+  // NB: these events reach us only once added to the PLATFORM webhook
+  // destination in the Stripe dashboard (James's step).
+  if (
+    event.type === 'charge.dispute.funds_withdrawn' ||
+    event.type === 'charge.dispute.funds_reinstated'
+  ) {
+    const dispute = event.data.object as Stripe.Dispute;
+    const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+    const booking = chargeId
+      ? await prisma.booking.findUnique({ where: { stripeChargeId: chargeId } })
+      : null;
+    if (!booking) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[xero-push] dispute ${dispute.id} (${event.type}) has no matching booking for charge ${chargeId} — NOT booked to Xero`
+      );
+    } else {
+      const withdrawn = event.type === 'charge.dispute.funds_withdrawn';
+      const amountPounds = dispute.amount / 100;
+      // Stripe's dispute fee rides the dispute's balance transactions; the
+      // relevant txn for this event is the newest one. |fee| covers both the
+      // charge (withdrawn) and the return (reinstated). If unreadable, the
+      // payload goes out incomplete and the push handler REFUSES loudly
+      // (XERO-F2 guard) — never posted short.
+      const txns = dispute.balance_transactions ?? [];
+      const latestTxn = txns.length > 0 ? txns[txns.length - 1] : null;
+      const { calculateCleanerSharePence } = await import('@/lib/services/refund.service');
+      const { enqueueXeroPush } = await import('@/lib/services/xero-push.service');
+      await enqueueXeroPush({
+        bookingId: booking.id,
+        event: withdrawn ? 'DISPUTE_WITHDRAWN' : 'DISPUTE_REINSTATED',
+        externalRef: `${dispute.id}:${event.type}`,
+        occurredAt: new Date(event.created * 1000).toISOString(),
+        disputeAmount: amountPounds,
+        disputeFee: latestTxn ? Math.abs(latestTxn.fee) / 100 : undefined,
+        cleanerRefundPortion: calculateCleanerSharePence(amountPounds, booking) / 100,
+      }).catch(() => {});
+    }
+  }
+
   // A13-Xero reconciliation: the actual Stripe→bank deposit. Book it as a Xero bank
   // transfer (Stripe-balance → settlement bank) and record the balance-transaction
   // bundle it settles for the audit trail. PLATFORM payouts only — connected-account
