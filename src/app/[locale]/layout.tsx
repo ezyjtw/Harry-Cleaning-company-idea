@@ -27,6 +27,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Metadata' });
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
   return {
     title: {
@@ -38,6 +39,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: 'website',
       locale: 'en_GB',
       siteName: 'Rena Cleaning Network',
+      // Site-wide default share image (pages with their own openGraph set
+      // their own): the hero photograph, ruled at the polish gate.
+      images: [{ url: `${baseUrl}/og-image.png`, width: 1200, height: 630, alt: t('title') }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      images: [`${baseUrl}/og-image.png`],
     },
   };
 }
@@ -56,12 +64,13 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale} className={`scroll-smooth ${fontVariables}`}>
       <head>
+        {/* Polish gate (James-ruled): favicon.ico (16/32/48) is his
+            white-R-on-navy mark, scaled only; the large set is the full RENA
+            logo. Sources canonicalised at public/favicon-source.png and
+            public/rena-logo.png. */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
-        <link rel="icon" href="/icons/favicon-16x16.png" type="image/png" sizes="16x16" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
-        <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png" />
+        <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
