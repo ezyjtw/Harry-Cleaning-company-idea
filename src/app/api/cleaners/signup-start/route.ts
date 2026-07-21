@@ -89,6 +89,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error, code: 'account_exists' }, { status: 409 });
   }
 
+  // H101 rider: device forensics for exactly the crash class Charlie hit — an
+  // OOM tab-kill leaves no client error, so the UA at account creation is the
+  // only durable fingerprint.
+  // eslint-disable-next-line no-console
+  console.log(`[CleanerSignup] signup-start UA for ${email}: ${request.headers.get('user-agent')}`);
+
   const user = await prisma.user.create({
     data: {
       email,
