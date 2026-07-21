@@ -830,6 +830,13 @@ export default function CleanerDashboard() {
                 style={i > 0 ? { borderTop: '1px solid rgb(var(--color-border))' } : undefined}
               >
                 <div className="flex-1 min-w-0">
+                  {/* H104 item 5: dashboard cards click through to the job detail. */}
+                  <Link
+                    href={`/cleaner/jobs/${job.id}`}
+                    className="font-jost text-[11px] uppercase tracking-[0.08em] text-primary"
+                  >
+                    View details →
+                  </Link>
                   <div className="flex items-center gap-2">
                     <p className="font-jost text-sm font-normal text-ink">{job.clientName}</p>
                     <CleanerStatusChip status={job.status} />

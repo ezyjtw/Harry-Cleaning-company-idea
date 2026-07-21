@@ -4,6 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Offer {
+  assigned?: boolean;
+  keyAccess?: string;
+  keyAccessNote?: string;
+  fullAddress?: string;
   id: string;
   status: string;
   cascadePhase: string | null;
@@ -21,6 +25,28 @@ interface Offer {
   // B3: offer context — travelMinutes from the cleaner's home point (crow-flies
   // 25 mph convention) + their other active jobs on that date.
   context?: { travelMinutes: number | null; sameDayJobs: number };
+}
+
+// H104: shared guidance vocabulary for the assigned view.
+const KEY_ACCESS_LABELS: Record<string, string> = {
+  'i-will-be-home': 'The customer will be home to let you in',
+  'key-under-mat': 'Key left out (under mat)',
+  lockbox: 'Lockbox on site',
+  'with-concierge': 'Key with concierge/reception',
+  other: 'Other arrangement — see note',
+};
+function splitFocus(notes: string | null | undefined): {
+  focus: string | null;
+  rest: string | null;
+} {
+  if (!notes) return { focus: null, rest: null };
+  const lines = notes.split('\n');
+  const i = lines.findIndex((l) => l.trim().startsWith('Focus:'));
+  if (i === -1) return { focus: null, rest: notes.trim() || null };
+  return {
+    focus: lines[i].trim().replace(/^Focus:\s*/, '') || null,
+    rest: [...lines.slice(0, i), ...lines.slice(i + 1)].join('\n').trim() || null,
+  };
 }
 
 type Tier = 'normal' | 'amber' | 'danger' | 'expired';
@@ -315,7 +341,10 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
           New job offer
         </p>
-        <h1 className="mt-1 font-newsreader text-2xl font-semibold">
+        {/* Explicit on-navy colour: the base layer paints h1..h6 text-gray-900,
+            which beats the card's inherited text-white — without this class the
+            title renders near-black on brand navy. */}
+        <h1 className="mt-1 font-newsreader text-2xl font-semibold text-white">
           {serviceLabel(offer.serviceType)}
         </h1>
         {/* B3: context line — travel half from home-point→postcode crow-flies
@@ -365,13 +394,57 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           <Row label="Customer" value={offer.clientName} />
         </div>
 
-        {offer.notes && (
+        {/* H104 item 3: pre-accept is SANITISED (server withholds the fields;
+            this line is the honest explanation). Post-accept, the assigned
+            cleaner gets the sectioned guidance. */}
+        {!offer.assigned ? (
           <div className="mt-4 rounded-lg bg-page p-3">
-            <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-              Notes
+            <p className="font-jost text-[13px] font-light text-ink-3">
+              Customer notes and entry details are shown once you accept.
             </p>
-            <p className="mt-1 font-jost text-sm text-ink-2">{offer.notes}</p>
           </div>
+        ) : (
+          <>
+            {offer.fullAddress && (
+              <div className="mt-4 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  Address
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink">{offer.fullAddress}</p>
+              </div>
+            )}
+            {offer.keyAccess && (
+              <div className="mt-3 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  Getting in
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink">
+                  {KEY_ACCESS_LABELS[offer.keyAccess] ?? offer.keyAccess}
+                </p>
+                {offer.keyAccessNote && (
+                  <p className="mt-1 font-jost text-sm text-ink-2">{offer.keyAccessNote}</p>
+                )}
+              </div>
+            )}
+            {splitFocus(offer.notes).focus && (
+              <div className="mt-3 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  What to focus on
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink-2">{splitFocus(offer.notes).focus}</p>
+              </div>
+            )}
+            {splitFocus(offer.notes).rest && (
+              <div className="mt-3 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  Notes
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink-2 whitespace-pre-line">
+                  {splitFocus(offer.notes).rest}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
