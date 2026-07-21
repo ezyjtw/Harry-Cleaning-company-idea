@@ -89,12 +89,20 @@ export class DBSVerificationService {
     const apiUrl = process.env.IDENTITY_VERIFY_API_URL;
 
     if (!apiKey || !apiUrl) {
-      // Fall back to manual review
+      // Fall back to manual review. H100: spread the existing meta (same
+      // pattern as the admin reject path) — a wholesale replace here wiped
+      // selfieProvenance and dbsOption from the dossier.
+      const current = await prisma.cleanerProfile.findUnique({
+        where: { id: profileId },
+        select: { verificationMeta: true },
+      });
+      const existingMeta = (current?.verificationMeta as Record<string, unknown>) || {};
       await prisma.cleanerProfile.update({
         where: { id: profileId },
         data: {
           verificationStatus: 'PENDING',
           verificationMeta: {
+            ...existingMeta,
             identityCheckMethod: 'manual_review',
             selfieDocumentId: selfieDoc.id,
             idDocumentId: idDoc.id,
