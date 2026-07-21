@@ -7,6 +7,9 @@ interface XeroStatus {
   connected: boolean;
   tenantName: string | null;
   expiresAt: string | null;
+  lastRefreshAt: string | null;
+  lastWriteAt: string | null;
+  lastWriteEvent: string | null;
 }
 
 interface XeroAccount {
@@ -216,6 +219,18 @@ export default function AdminXeroPage() {
                     ? `Connected: ${status.tenantName || 'Xero org'}`
                     : 'Not connected'}
                 </p>
+                {status.connected && (
+                  <p className="mt-0.5 text-xs text-ink-3">
+                    Last token refresh:{' '}
+                    {status.lastRefreshAt
+                      ? new Date(status.lastRefreshAt).toLocaleString('en-GB')
+                      : '—'}{' '}
+                    · Last successful write:{' '}
+                    {status.lastWriteAt
+                      ? `${new Date(status.lastWriteAt).toLocaleString('en-GB')} (${status.lastWriteEvent})`
+                      : 'none yet'}
+                  </p>
+                )}
                 {status.connected && status.expiresAt && (
                   <p className="mt-0.5 text-xs text-ink-3">
                     Access token valid until {new Date(status.expiresAt).toLocaleString('en-GB')}{' '}
@@ -246,9 +261,7 @@ export default function AdminXeroPage() {
               so it can never pause silently. */}
           {status.connected && mapping.pushEnabled && !complete && (
             <div className="rounded border-2 border-danger/40 bg-danger/10 px-4 py-3">
-              <p className="text-sm font-semibold text-danger">
-                Push paused: mapping incomplete
-              </p>
+              <p className="text-sm font-semibold text-danger">Push paused: mapping incomplete</p>
               <p className="mt-1 text-sm text-ink-2">
                 Pushing is switched on but Rena is <strong>not</strong> sending anything to Xero
                 until every required account is mapped below — including the two new ones,{' '}
