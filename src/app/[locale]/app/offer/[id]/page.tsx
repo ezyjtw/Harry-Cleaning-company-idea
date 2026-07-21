@@ -341,7 +341,10 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
           New job offer
         </p>
-        <h1 className="mt-1 font-newsreader text-2xl font-semibold">
+        {/* Explicit on-navy colour: the base layer paints h1..h6 text-gray-900,
+            which beats the card's inherited text-white — without this class the
+            title renders near-black on brand navy. */}
+        <h1 className="mt-1 font-newsreader text-2xl font-semibold text-white">
           {serviceLabel(offer.serviceType)}
         </h1>
         {/* B3: context line — travel half from home-point→postcode crow-flies
