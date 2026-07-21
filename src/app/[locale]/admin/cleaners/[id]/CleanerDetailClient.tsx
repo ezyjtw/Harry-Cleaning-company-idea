@@ -475,6 +475,31 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
                   {formatBytes(selfieDoc.fileSize)}
                 </p>
               )}
+              {/* H97: capture-vs-upload provenance — an uploaded file is not a
+                  live capture; review it against the ID with that in mind. */}
+              {selfieDoc &&
+                (() => {
+                  const prov = cleaner.verificationMeta?.selfieProvenance;
+                  if (prov === 'webcam' || prov === 'capture') {
+                    return (
+                      <span className="mt-2 inline-block rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                        Captured live ({prov === 'webcam' ? 'webcam' : 'phone camera'})
+                      </span>
+                    );
+                  }
+                  if (prov === 'upload') {
+                    return (
+                      <span className="mt-2 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                        Uploaded file — NOT captured live
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="mt-2 inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                      Provenance unknown (pre-H97 signup)
+                    </span>
+                  );
+                })()}
             </div>
             <div className="border border-line rounded-lg p-4 text-center">
               <p className="text-sm font-medium text-ink-3 mb-2">Photo ID</p>

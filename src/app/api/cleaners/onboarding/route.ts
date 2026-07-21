@@ -156,7 +156,11 @@ export async function POST(request: NextRequest) {
           dbsCertIssueDate: dbsIssueDate ? new Date(dbsIssueDate) : null,
           verificationMeta: {
             dbsOption: dbsOption || null,
-            livenessComplete: !!selfiePhoto,
+            // H97: the mobile-app flow captures via the device camera; the
+            // shell sends selfieProvenance when it knows better.
+            livenessComplete:
+              !!selfiePhoto && (formData.get('selfieProvenance') as string | null) !== 'upload',
+            selfieProvenance: (formData.get('selfieProvenance') as string | null) || 'unknown',
             yearsExperience: parseInt(yearsExperienceStr || '0', 10),
             serviceTypes,
             languages,
