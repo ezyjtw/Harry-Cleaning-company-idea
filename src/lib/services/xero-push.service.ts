@@ -28,7 +28,15 @@ import {
 //   payout SPEND       = getTransferAmountPence(cleanerEarnings)
 // The snapshot fields are used solely to divide the commission-vs-fee remainder.
 
-export type XeroPushEvent = 'PAYMENT_RECEIVED' | 'PAYOUT' | 'REFUND' | 'STRIPE_PAYOUT';
+export type XeroPushEvent =
+  | 'PAYMENT_RECEIVED'
+  | 'PAYOUT'
+  | 'REFUND'
+  | 'STRIPE_PAYOUT'
+  // XERO-F2: chargeback money movements — funds withdrawn on a dispute, and
+  // reinstated if the dispute is won.
+  | 'DISPUTE_WITHDRAWN'
+  | 'DISPUTE_REINSTATED';
 
 export interface XeroPushPayload {
   bookingId: string; // for STRIPE_PAYOUT this carries the Stripe payout id
@@ -41,10 +49,15 @@ export interface XeroPushPayload {
   isPostRelease?: boolean;
   refundAmount?: number; // £ — RefundRecord.amount
   cleanerRefundPortion?: number; // £ — cleaner's proportional share of this refund
-  // PAYMENT_RECEIVED only. The ACTUAL Stripe processing fee for this charge, read
-  // from the charge's balance transaction and captured at enqueue time, so the
-  // receive nets down to what Stripe truly credited to the balance.
+  // PAYMENT_RECEIVED only. The ACTUAL Stripe processing fee for this charge,
+  // from the charge's balance transaction. XERO-F1 (James-ruled): resolved at
+  // PUSH time from stripeChargeId so a failed read fails the JOB (retry with
+  // backoff, terminal FAILED, loud) — the receive is NEVER posted short.
   stripeFeeAmount?: number; // £
+  stripeChargeId?: string; // PAYMENT_RECEIVED: fee source of truth
+  // DISPUTE_WITHDRAWN / DISPUTE_REINSTATED only (XERO-F2).
+  disputeAmount?: number; // £ — disputed amount moved out of / back into the balance
+  disputeFee?: number; // £ — Stripe's dispute fee taken (withdrawn) or returned (reinstated)
   // STRIPE_PAYOUT only.
   payoutAmount?: number; // £ — the deposit landing in the real bank
   payoutBundle?: string; // JSON audit summary of the balance-transaction bundle
@@ -171,6 +184,44 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
     const authed = await getAuthedClient();
     if (!authed) throw new Error('Xero not connected at push time');
 
+    // XERO-F1 (James-ruled): the Stripe fee is resolved HERE, per attempt, so
+    // a failed balance-transaction read fails the JOB (retry ×3 with backoff,
+    // then terminal FAILED — loud like every push). The receive is NEVER
+    // posted without its fee line.
+    let resolvedPayload = payload;
+    if (event === 'PAYMENT_RECEIVED' && resolvedPayload.stripeFeeAmount === undefined) {
+      if (!resolvedPayload.stripeChargeId) {
+        throw new Error(
+          'XERO-F1: no Stripe charge id on the payload — cannot read the processing fee; refusing to post the receive short'
+        );
+      }
+      const { default: stripe } = await import('@/lib/stripe');
+      const ch = await stripe.charges.retrieve(resolvedPayload.stripeChargeId, {
+        expand: ['balance_transaction'],
+      });
+      const bt = ch.balance_transaction;
+      if (!bt || typeof bt === 'string') {
+        throw new Error(
+          `XERO-F1: balance transaction unavailable for charge ${resolvedPayload.stripeChargeId} — refusing to post the receive short`
+        );
+      }
+      resolvedPayload = { ...resolvedPayload, stripeFeeAmount: bt.fee / 100 };
+    }
+    payload = resolvedPayload;
+
+    // XERO-F2 completeness guard: dispute pushes must carry their amounts —
+    // a partial payload FAILS loudly rather than posting short.
+    if (
+      (event === 'DISPUTE_WITHDRAWN' || event === 'DISPUTE_REINSTATED') &&
+      (payload.disputeAmount === undefined ||
+        payload.disputeFee === undefined ||
+        payload.cleanerRefundPortion === undefined)
+    ) {
+      throw new Error(
+        'XERO-F2: dispute payload missing amount/fee/cleaner-share — refusing to post short'
+      );
+    }
+
     // ── STRIPE_PAYOUT: book the bank deposit as a Xero bank transfer ──
     if (event === 'STRIPE_PAYOUT') {
       const transferId = await postStripePayout(authed, mapping, payload);
@@ -252,7 +303,10 @@ function describeXeroError(err: unknown): string {
       body = String(rawBody);
     }
   }
-  return [e?.message, status ? `status=${status}` : '', body].filter(Boolean).join(' | ').slice(0, 4000);
+  return [e?.message, status ? `status=${status}` : '', body]
+    .filter(Boolean)
+    .join(' | ')
+    .slice(0, 4000);
 }
 
 /** Find-or-create the single "Rena Marketplace" contact and cache its id. */
@@ -391,6 +445,44 @@ function buildBankTransactions(
             bankAccount,
             date,
             reference: `Booking ${booking.id} payment`,
+            lineAmountTypes: LineAmountTypes.NoTax,
+            lineItems,
+          },
+        ];
+  }
+
+  // ── XERO-F2: chargeback mirrors. WITHDRAWN books the dispute leaving the
+  // balance (SPEND: proportional reversal of commission/fee + cleaner share to
+  // clearing, plus Stripe's dispute fee as an expense line). REINSTATED (dispute
+  // won) books the exact mirror back in, with the fee returned. Note (James):
+  // a POST-release dispute leaves clearing negative by the cleaner share —
+  // truthfully representing Rena's recoverable claim against the cleaner.
+  if (event === 'DISPUTE_WITHDRAWN' || event === 'DISPUTE_REINSTATED') {
+    const amount = money(payload.disputeAmount ?? 0);
+    const cleanerPortion = money(payload.cleanerRefundPortion ?? 0);
+    const disputeFee = money(payload.disputeFee ?? 0);
+    const { commission, fee } = splitRemainder(amount - cleanerPortion);
+    const withdrawn = event === 'DISPUTE_WITHDRAWN';
+    const suffix = withdrawn ? 'dispute withdrawn' : 'dispute reinstated';
+    const lineItems = nonZero([
+      line(commission, mapping.commissionAccountCode, `Commission — ${suffix}`),
+      line(fee, mapping.feeAccountCode, `Service fee — ${suffix}`),
+      line(cleanerPortion, mapping.clearingAccountCode, `Cleaner share — ${suffix}`),
+      line(
+        disputeFee,
+        mapping.stripeFeeAccountCode,
+        withdrawn ? 'Stripe dispute fee' : 'Stripe dispute fee returned'
+      ),
+    ]);
+    return lineItems.length === 0
+      ? []
+      : [
+          {
+            type: withdrawn ? BankTransaction.TypeEnum.SPEND : BankTransaction.TypeEnum.RECEIVE,
+            contact,
+            bankAccount,
+            date,
+            reference: `Booking ${booking.id} ${suffix} ${payload.externalRef ?? ''}`.trim(),
             lineAmountTypes: LineAmountTypes.NoTax,
             lineItems,
           },

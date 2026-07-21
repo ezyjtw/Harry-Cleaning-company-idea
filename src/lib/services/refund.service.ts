@@ -466,7 +466,9 @@ async function handleUnknownRefund(
 
 // ─── Helpers ──────────────────────────────────────────────
 
-function calculateCleanerSharePence(
+// Exported for XERO-F2: the dispute webhook books the chargeback with the SAME
+// proportional cleaner share a refund of that amount would carry.
+export function calculateCleanerSharePence(
   refundAmountPounds: number,
   booking: { totalPrice: unknown; totalAmountCharged?: unknown; cleanerEarnings: unknown }
 ): number {
