@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, useCallback } from 'react';
 
 import CleanerAvatar from '@/components/CleanerAvatar';
+import JunkMailHint from '@/components/JunkMailHint';
 import StarRating from '@/components/StarRating';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -225,6 +226,9 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
         <p className="mt-6 text-center font-jost text-sm font-light text-ink-2">
           Your payment was successful. We&apos;ll email you when {firstName} accepts.
         </p>
+        <div className="text-center">
+          <JunkMailHint />
+        </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link href={`/booking/${params.id}`} className={primaryBtn}>
@@ -305,6 +309,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
             </a>{' '}
             with reference {params.id}.
           </p>
+          <JunkMailHint />
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href={guestToken ? guestTrackUrl : '/account'} className={primaryBtn}>
               {guestToken ? 'Track your booking' : 'Go to dashboard'}
@@ -347,6 +352,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           ? "Your payment is still processing. We'll email you as soon as it's confirmed."
           : "This usually takes a few seconds. Please don't close this page."}
       </p>
+      {pollCount >= maxPolls && <JunkMailHint />}
       {pollCount >= maxPolls && (
         <Link href={guestToken ? guestTrackUrl : '/account'} className={`mt-8 ${primaryBtn}`}>
           {guestToken ? 'Track your booking' : 'Go to dashboard'}

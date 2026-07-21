@@ -81,7 +81,8 @@ export default function ForgotPasswordPage() {
               we&apos;ve sent password reset instructions to your inbox.
             </p>
             <p className="mt-2 font-jost text-xs font-light text-ink-3">
-              Didn&apos;t receive an email? Check your spam folder or try again.
+              Can&apos;t find it? Check your junk or spam folder — and mark us &apos;not junk&apos;
+              so future emails reach you.
             </p>
             <div className="mt-8 space-y-3">
               <button
