@@ -17,7 +17,6 @@ import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
 import VerificationBadge from '@/components/VerificationBadge';
 import { useAuth } from '@/hooks/useAuth';
-import { isInCatchmentArea } from '@/lib/catchment';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import {
   bedroomIndexToPropertySize,
@@ -26,6 +25,7 @@ import {
   minimumHoursForService,
   serviceLabelFromSlug as serviceMinLabel,
 } from '@/lib/constants/services';
+import { anyLiveCleanerCovers } from '@/lib/coverage-client';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
@@ -445,9 +445,21 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // Postcode validation + out-of-area waitlist
   const [postcodeError, setPostcodeError] = useState('');
-  const [outsideCatchment, setOutsideCatchment] = useState(
-    isValidPostcode(seededPostcode) ? !isInCatchmentArea(seededPostcode) : false
-  );
+  // H96: seeded-postcode coverage now asks live polygon truth (async) instead
+  // of the old hardcoded prefix list — start optimistic, flip to the waitlist
+  // state only on a definitive "no live cleaner covers this".
+  const [outsideCatchment, setOutsideCatchment] = useState(false);
+  useEffect(() => {
+    if (!isValidPostcode(seededPostcode)) return;
+    let cancelled = false;
+    anyLiveCleanerCovers(seededPostcode).then(({ covered }) => {
+      if (!cancelled && covered === false) setOutsideCatchment(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
@@ -625,8 +637,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const p = pc.trim().toUpperCase();
     const active = preSelectedCleaner ?? selectedCleaner;
 
-    // 1. Do we serve this area at all?
-    if (!isInCatchmentArea(p)) {
+    // 1. Do we serve this area at all? Live polygon truth (H96): only a
+    //    definitive "no live cleaner covers this point" rejects; inability to
+    //    evaluate fails open into step 2, per the standing catchment ruling.
+    const { covered } = await anyLiveCleanerCovers(p);
+    if (covered === false) {
       return { accepted: false, message: `We're not in ${p} yet. Choose another address or area.` };
     }
 
@@ -674,7 +689,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       return;
     }
     setPostcode(p);
-    setOutsideCatchment(!isInCatchmentArea(p));
+    // H96: live polygon truth, async — flip to waitlist only on a definitive no.
+    setOutsideCatchment(false);
+    anyLiveCleanerCovers(p).then(({ covered }) => {
+      if (covered === false) setOutsideCatchment(true);
+    });
     setSelectedCleanerIds([]);
     setDateTimeSelection(null);
   };
@@ -1183,7 +1202,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   if (postcodeError) setPostcodeError('');
                   const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
                   if (fullPostcode.test(val.trim())) {
-                    setOutsideCatchment(!isInCatchmentArea(val));
+                    // H96: live polygon truth, async — only a definitive no waitlists.
+                    setOutsideCatchment(false);
+                    anyLiveCleanerCovers(val.trim()).then(({ covered }) => {
+                      if (covered === false) setOutsideCatchment(true);
+                    });
                   } else {
                     setOutsideCatchment(false);
                   }

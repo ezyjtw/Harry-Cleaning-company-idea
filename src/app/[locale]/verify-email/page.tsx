@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // A16b-2a: friendly landing for the one-click email-verification link.
 // Statuses come from /api/auth/verify-email: verified | already_verified | expired | invalid.
@@ -34,9 +34,21 @@ const COPY: Record<Status, { title: string; body: string; tone: 'ok' | 'warn' }>
 
 export default function VerifyEmailPage() {
   const params = useSearchParams();
+  // H95: emails sent before the template fix carry ?token= pointing at THIS
+  // page — forward them to the consuming route so those links verify instead
+  // of dead-ending. The route 303s straight back here with a status.
+  const strayToken = params.get('token');
+  const hasStatus = params.get('status') !== null;
+  useEffect(() => {
+    if (strayToken && !hasStatus) {
+      window.location.replace(`/api/auth/verify-email?token=${encodeURIComponent(strayToken)}`);
+    }
+  }, [strayToken, hasStatus]);
+
   const status = (params.get('status') as Status) || 'invalid';
   const copy = COPY[status] ?? COPY.invalid;
   const canResend = status === 'expired' || status === 'invalid';
+  const forwarding = Boolean(strayToken && !hasStatus);
 
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -61,6 +73,15 @@ export default function VerifyEmailPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  if (forwarding) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="mt-4 font-jost text-sm text-ink-3">Verifying your email…</p>
+      </div>
+    );
   }
 
   return (

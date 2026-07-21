@@ -324,7 +324,11 @@ export function buildPasswordReset(token: string): EmailContent {
 }
 
 export function buildEmailVerification(token: string): EmailContent {
-  const verifyLink = `${appUrl()}/verify-email?token=${token}`;
+  // H95: the link must hit the CONSUMING route (/api/auth/verify-email), which
+  // verifies and 303s to the friendly page with a status. It previously
+  // pointed at the page itself, which ignores ?token= — so every verification
+  // link ever sent landed on "Link no longer valid" without being consumed.
+  const verifyLink = `${appUrl()}/api/auth/verify-email?token=${token}`;
   const subject = 'Verify your email - Rena Cleaning Network';
   const contentHtml =
     h('Verify your email address') +

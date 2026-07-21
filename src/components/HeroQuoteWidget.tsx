@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { isInCatchmentArea } from '@/lib/catchment';
 import {
   BEDROOMS_TO_EOT_SIZE,
   BEDROOMS_TO_AIRBNB_SIZE,
   minimumHoursForService,
 } from '@/lib/constants/services';
+import { anyLiveCleanerCovers } from '@/lib/coverage-client';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -196,6 +196,7 @@ export default function HeroQuoteWidget() {
   // Step 1
   const [postcode, setPostcode] = useState('');
   const [postcodeError, setPostcodeError] = useState('');
+  const [coverageChecking, setCoverageChecking] = useState(false);
   const [cleanerCount, setCleanerCount] = useState<number | null>(null);
   const [confirmedPostcode, setConfirmedPostcode] = useState('');
 
@@ -308,7 +309,7 @@ export default function HeroQuoteWidget() {
 
   // ─── Handlers ──────────────────────────────────────────────
 
-  const handlePostcodeSubmit = () => {
+  const handlePostcodeSubmit = async () => {
     // H31: canonicalise ("e47ap" → "E4 7AP") — the field, the stored value,
     // and every downstream lookup all use the same normalised form.
     const raw = postcode.trim();
@@ -319,8 +320,18 @@ export default function HeroQuoteWidget() {
     const trimmed = normalizeUkPostcode(raw) ?? raw.toUpperCase();
     setPostcode(trimmed);
     setPostcodeError('');
+    setCoverageChecking(true);
 
-    if (!isInCatchmentArea(trimmed)) {
+    // H96: coverage is LIVE POLYGON TRUTH — one call answers both "do we
+    // serve this postcode?" (any live cleaner's isochrone covers it) and the
+    // "N cleaners nearby" count. The old check consulted a hardcoded
+    // postcode-prefix list that waitlisted postcodes sitting INSIDE real
+    // polygons. covered === null (couldn't evaluate) fails open, per the
+    // standing catchment ruling.
+    const { covered, count } = await anyLiveCleanerCovers(trimmed);
+    setCoverageChecking(false);
+
+    if (covered === false) {
       setConfirmedPostcode(trimmed);
       setShowWaitlist(true);
       return;
@@ -328,18 +339,8 @@ export default function HeroQuoteWidget() {
 
     setShowWaitlist(false);
     setConfirmedPostcode(trimmed);
-    setCleanerCount(null); // loading — real count fetched below
+    setCleanerCount(count);
     setStep(2);
-
-    // #3: real "N cleaners nearby" — the count of cleaners actually serving this
-    // postcode (same distance/travel-time filter the cleaner grid uses). Fire-and-
-    // forget; graceful on error/0. `count` is the full total, independent of limit.
-    // (James-ruled fix: the API field is `count` — reading `total` meant the
-    // nearby-count never displayed.)
-    fetch(`/api/cleaners?postcode=${encodeURIComponent(trimmed)}&limit=1`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCleanerCount(typeof d?.count === 'number' ? d.count : null))
-      .catch(() => setCleanerCount(null));
   };
 
   const handleWaitlistSubmit = async () => {
@@ -420,9 +421,10 @@ export default function HeroQuoteWidget() {
         />
         <button
           onClick={handlePostcodeSubmit}
-          className="bg-primary px-7 font-jost text-[13px] tracking-[0.04em] text-white transition-opacity hover:opacity-90"
+          disabled={coverageChecking}
+          className="bg-primary px-7 font-jost text-[13px] tracking-[0.04em] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          Continue
+          {coverageChecking ? 'Checking…' : 'Continue'}
         </button>
       </div>
 
