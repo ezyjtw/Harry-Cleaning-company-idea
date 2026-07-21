@@ -71,6 +71,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           identityVerifiedAt: new Date(),
         },
       });
+
+      // H105 leg 3: belt-and-braces mint at the moment eligibility starts.
+      // The generator always refreshes (no polygon-present early-out): one
+      // ORS call, harmless overwrite with a fresh isochrone. Fire-and-forget,
+      // loud both ways in the trigger.
+      const { triggerCatchmentRefresh } =
+        await import('@/lib/services/catchment-generation.service');
+      triggerCatchmentRefresh(profile.userId);
     } else {
       const existingMeta = (profile.verificationMeta as Record<string, unknown>) || {};
       await prisma.cleanerProfile.update({

@@ -106,9 +106,18 @@ export async function generateCatchmentForCleaner(userId: string): Promise<Catch
 export function triggerCatchmentRefresh(userId: string): void {
   void generateCatchmentForCleaner(userId)
     .then((r) => {
-      if (r.status === 'failed') {
+      if (r.status === 'generated') {
+        // H105 rider: mint success is LOUD — H105 was only diagnosable because
+        // absence-of-call was silent; this line makes the next absence
+        // self-announcing (both-ways logging, matching the heal sweep).
+        // eslint-disable-next-line no-console
+        console.log(`[catchment] polygon minted for ${userId}`);
+      } else if (r.status === 'failed') {
         // eslint-disable-next-line no-console
         console.warn(`[catchment] generation failed for ${userId}: ${r.reason}`);
+      } else {
+        // eslint-disable-next-line no-console
+        console.log(`[catchment] ${r.status} for ${userId}: ${r.reason}`);
       }
     })
     .catch((err) => {
