@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
+import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -270,6 +271,9 @@ export default function CleanerDashboard() {
 
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+        {/* H92: new cleaners live on this pending screen until approval —
+            the verify nudge must reach them here, not just the dashboard. */}
+        <VerifyEmailBanner />
         <div className="text-center py-10">
           <div
             className="mx-auto flex h-20 w-20 items-center justify-center rounded-full"
@@ -630,6 +634,8 @@ export default function CleanerDashboard() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* H92: soft verify-your-email nudge — shows only while unverified. */}
+      <VerifyEmailBanner />
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>

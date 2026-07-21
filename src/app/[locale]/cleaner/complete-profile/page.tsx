@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
 
 const LANGUAGE_OPTIONS = [
@@ -184,6 +185,9 @@ export default function CompleteProfilePage() {
 
   return (
     <div className="mx-auto max-w-lg px-5 py-12 md:py-20">
+      {/* H92: fresh cleaners land HERE first — the verify nudge must reach
+          them on this screen, not just the dashboard behind it. */}
+      <VerifyEmailBanner />
       <div className="text-center">
         <h1 className="font-newsreader text-3xl font-semibold text-ink">Complete Your Profile</h1>
         <p className="mt-2 font-jost text-sm font-light text-ink-2">
