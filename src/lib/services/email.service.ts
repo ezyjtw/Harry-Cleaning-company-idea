@@ -102,6 +102,14 @@ async function sendEmail(
     return false;
   }
 
+  // Dev-only failure drill (H99 P3): EMAIL_FORCE_FAIL=1 makes every send
+  // report failure so the loud-both-ways legs can be driven without touching
+  // the code under test. Ignored in production builds.
+  if (process.env.NODE_ENV !== 'production' && process.env.EMAIL_FORCE_FAIL === '1') {
+    // eslint-disable-next-line no-console
+    console.error(`[Email] DEV FORCED FAILURE (${category}) to: ${to} — ${subject}`);
+    return false;
+  }
   if (process.env.NODE_ENV !== 'production' || !resend) {
     // eslint-disable-next-line no-console
     console.log('─────────────────────────────────────────');

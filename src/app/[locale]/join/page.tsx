@@ -1150,14 +1150,21 @@ export default function JoinAsCleanerPage() {
     // Exactly once: skipped on back-and-forth once the account exists.
     if (currentStep === 0 && accountCreated) {
       // H48 resume rider: the draft never restores the password, so the user
-      // re-typed it — re-establish the session silently for the submit-time
-      // ownership proof. A wrong password here is caught at final submit with
-      // a friendly log-in message, never a silent failure.
-      await signIn('credentials', {
+      // re-typed it — re-establish the session for the submit-time ownership
+      // proof. H99 P4: a wrong password stops HERE with a friendly retry (the
+      // draft is untouched), not at a dead-end submit five steps later.
+      const si = await signIn('credentials', {
         email: form.email.toLowerCase().trim(),
         password: form.password,
         redirect: false,
       }).catch(() => null);
+      if (si?.error) {
+        setErrors({
+          password:
+            "That password doesn't match your saved account. Try again — or reset it via 'Forgot password?' on the log-in page.",
+        });
+        return;
+      }
     }
     if (currentStep === 0 && !accountCreated) {
       setCreatingAccount(true);
@@ -2800,6 +2807,17 @@ export default function JoinAsCleanerPage() {
             {errors.submit && (
               <div className="rounded-[10px] border border-danger/20 bg-red-50 px-4 py-3 font-jost text-[13px] font-light text-danger">
                 {errors.submit}
+                {/* H99 P2: an expired session at submit is a re-auth, never a
+                    dead end — the draft lives in this browser and survives the
+                    login round-trip. */}
+                {errors.submit.includes('Log in') && (
+                  <p className="mt-2">
+                    <Link href="/login?callbackUrl=/join" className="font-medium underline">
+                      Log in and pick up where you left off
+                    </Link>{' '}
+                    — your application is saved on this device.
+                  </p>
+                )}
               </div>
             )}
           </div>
