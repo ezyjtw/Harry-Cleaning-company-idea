@@ -269,6 +269,10 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
       where: { id: log.id },
       data: { status: 'COMPLETED', xeroId: ids || null, lastError: null },
     });
+    // F2b (James-ruled): success is LOUD. The drain's silence-on-success made a
+    // healthy pipeline look dead mid-rehearsal — this line is the books' heartbeat.
+    // eslint-disable-next-line no-console
+    console.log(`[xero-push] ${event} COMPLETED for booking ${bookingId} → ${ids || 'no-id'}`);
   } catch (err) {
     // Capture the ACTIONABLE detail: a Xero rejection puts the validation
     // reason (bad account code, scope/auth, archived account, tax type) in the
