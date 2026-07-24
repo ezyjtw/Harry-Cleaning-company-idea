@@ -159,10 +159,21 @@ export async function processPaymentSuccess(
   }
 
   if (booking.cleaner?.email) {
-    await sendCleanerAssignment(emailData, {
-      name: booking.cleaner.name || '',
-      email: booking.cleaner.email,
-    }).catch(() => {});
+    // F1: the cleaner's offer email is SANITISED — area only (city + postcode),
+    // never the street address, plus their own net figure. The full emailData
+    // address stays customer-side only.
+    const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
+    await sendCleanerAssignment(
+      {
+        ...emailData,
+        area: [booking.addressCity, booking.addressPostcode].filter(Boolean).join(' '),
+        cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
+      },
+      {
+        name: booking.cleaner.name || '',
+        email: booking.cleaner.email,
+      }
+    ).catch(() => {});
   }
 
   // Notify primary cleaner (and backups in COMBINED_OFFER)
