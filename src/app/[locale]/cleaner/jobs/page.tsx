@@ -470,10 +470,16 @@ export default function CleanerJobsPage() {
           {jobList.map((job) => {
             const ds = toDisplayStatus(job.status);
             return (
+              // F3: whole-card click target; Message/Accept/Decline and inner
+              // links win via the interactive-ancestor guard.
               <div
                 key={job.id}
                 id={`job-${job.id}`}
-                className={`rounded-xl border border-line bg-surface p-5 target:ring-2 target:ring-primary ${highlightId === job.id ? 'ring-2 ring-primary' : ''}`}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('button, a')) return;
+                  router.push(`/cleaner/jobs/${job.id}`);
+                }}
+                className={`cursor-pointer rounded-xl border border-line bg-surface p-5 transition-colors hover:bg-page/40 target:ring-2 target:ring-primary ${highlightId === job.id ? 'ring-2 ring-primary' : ''}`}
               >
                 {/* H104 item 5: click through to the job's home. */}
                 <Link
