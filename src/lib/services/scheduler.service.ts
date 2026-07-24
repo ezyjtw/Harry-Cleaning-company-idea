@@ -101,7 +101,10 @@ async function processAbandonedBookings(): Promise<HandlerResult> {
         status: { in: [...REAPABLE_STATUSES] },
         paymentStatus: { in: ['PENDING', 'FAILED', 'CANCELED', 'REQUIRES_ACTION'] },
       },
-      data: { status: 'CANCELLED', paymentStatus: 'CANCELED' },
+      // F6a: never-paid rows get their own terminal species — ABANDONED, not
+      // CANCELLED. Nobody cancelled anything; checkout was simply never
+      // finished. Keeps cancellation stats and cancelled lists honest.
+      data: { status: 'ABANDONED', paymentStatus: 'CANCELED' },
     });
     if (result.count > 0) processed++;
   }

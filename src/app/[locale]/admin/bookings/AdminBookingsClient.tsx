@@ -143,7 +143,10 @@ export default function AdminBookingsClient({
     const matchesSearch =
       b.id.toLowerCase().includes(search.toLowerCase()) ||
       b.customer.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
+    // F6a: abandoned (never-paid) rows are funnel data — excluded from "All
+    // Statuses"; visible only when their own filter is selected.
+    const matchesStatus =
+      statusFilter === 'all' ? b.status !== 'abandoned' : b.status === statusFilter;
     const matchesService = serviceFilter === 'all' || b.serviceType === serviceFilter;
     return matchesSearch && matchesStatus && matchesService;
   });
@@ -158,6 +161,8 @@ export default function AdminBookingsClient({
     'in-progress': 'bg-orange-100 text-orange-700',
     completed: 'bg-trust/10 text-trust',
     cancelled: 'bg-danger/10 text-danger',
+    // F6a: quiet neutral — nobody cancelled anything, checkout just stopped.
+    abandoned: 'bg-page text-ink-3',
     disputed: 'bg-purple-100 text-purple-700',
   };
 
@@ -220,6 +225,7 @@ export default function AdminBookingsClient({
           <option value="in-progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
+          <option value="abandoned">Abandoned (never paid)</option>
           <option value="disputed">Disputed</option>
         </select>
         <select

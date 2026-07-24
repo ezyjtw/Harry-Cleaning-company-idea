@@ -46,6 +46,9 @@ export const statusStyles: Record<BookingStatus, string> = {
  *  never a bare "Pending" while Rena is actively working the booking. */
 export function mapStatus(apiStatus: string, cascadePhase?: string | null): BookingStatus {
   const s = apiStatus.toUpperCase();
+  // F6a: a reaped never-paid booking reads with the same honest H53 label an
+  // unpaid PENDING row already wears — no new visual language.
+  if (s === 'ABANDONED') return 'Payment incomplete';
   if (s === 'AWAITING_CLEANER') {
     switch (cascadePhase) {
       case 'PRIMARY_OFFER':

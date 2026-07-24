@@ -20,11 +20,16 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20));
 
+  // F6a: ABANDONED (never-paid) is NOT cleaner business — no offer ever fired.
+  // It can neither be requested explicitly nor ride the unfiltered default.
   const statusIn = statusFilter
-    ? statusFilter.split(',').map((s) => s.trim().toUpperCase())
+    ? statusFilter
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => s !== 'ABANDONED')
     : undefined;
 
-  const baseStatusFilter = statusIn ? { in: statusIn } : undefined;
+  const baseStatusFilter = statusIn ? { in: statusIn } : { not: 'ABANDONED' as const };
 
   // Primary path: bookings assigned to this cleaner, excluding those that moved
   // past their cascade phase (BACKUP_OFFER means primary's turn is over)

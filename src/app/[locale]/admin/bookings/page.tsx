@@ -22,7 +22,8 @@ export interface BookingRow {
     | 'completed'
     | 'cancelled'
     | 'disputed'
-    | 'cascade_exhausted';
+    | 'cascade_exhausted'
+    | 'abandoned';
   paymentStatus: string;
 }
 
@@ -43,6 +44,10 @@ function mapStatus(prismaStatus: string): BookingRow['status'] {
       return 'completed';
     case 'CANCELLED':
       return 'cancelled';
+    // F6a: never-paid rows are funnel data, not bookings — their own bucket,
+    // never masquerading as 'pending' via the default arm.
+    case 'ABANDONED':
+      return 'abandoned';
     case 'DISPUTED':
       return 'disputed';
     case 'CASCADE_EXHAUSTED':
