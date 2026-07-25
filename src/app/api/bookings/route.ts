@@ -725,8 +725,41 @@ export async function POST(request: NextRequest) {
       throw err;
     }
 
+    // F7 (James-ruled): mint a CustomerSession so the PaymentElement can
+    // REDISPLAY saved methods for authed customers. The customer on the PI is
+    // necessary but not sufficient — without this session secret the Element
+    // never shows saved cards. Saving stays OUR consent tick (payment_method_save
+    // disabled here so Stripe's own checkbox never doubles up); card removal is
+    // not checkout's job. Best-effort: a mint failure never blocks checkout.
+    const mintCustomerSession = async (customerId: string): Promise<string | null> => {
+      try {
+        const cs = await stripe.customerSessions.create({
+          customer: customerId,
+          components: {
+            payment_element: {
+              enabled: true,
+              features: {
+                payment_method_redisplay: 'enabled',
+                payment_method_save: 'disabled',
+                payment_method_remove: 'disabled',
+              },
+            },
+          },
+        });
+        return cs.client_secret;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[F7] CustomerSession mint failed — checkout proceeds without saved cards:',
+          err
+        );
+        return null;
+      }
+    };
+
     // 9. Create Stripe PaymentIntent
     let clientSecret: string | null = null;
+    let customerSessionClientSecret: string | null = null;
     try {
       const paymentIntent = await stripe.paymentIntents.create(
         {
@@ -748,6 +781,11 @@ export async function POST(request: NextRequest) {
       );
 
       clientSecret = paymentIntent.client_secret;
+      // F7: authed customers get the session secret; guests structurally can't
+      // (no stripeCustomerId is ever resolved for them).
+      if (stripeCustomerId) {
+        customerSessionClientSecret = await mintCustomerSession(stripeCustomerId);
+      }
 
       // 10. Update Booking with stripePaymentIntentId
       await prisma.booking.update({
@@ -803,6 +841,8 @@ export async function POST(request: NextRequest) {
         message: 'Booking created successfully',
         booking,
         clientSecret,
+        // F7: present only for authed customers — guests never get one.
+        ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
       },
       { status: 201 }
     );

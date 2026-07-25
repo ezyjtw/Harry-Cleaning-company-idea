@@ -607,6 +607,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     ) : null;
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  // F7: authed customers' Elements session — lets the PaymentElement redisplay
+  // saved cards. Null for guests (the server never mints one for them).
+  const [customerSessionSecret, setCustomerSessionSecret] = useState<string | null>(null);
   const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
   const [saveCard, setSaveCard] = useState(false);
@@ -871,6 +874,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         setConfirmedBookingId(data.booking?.id || '');
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
+          setCustomerSessionSecret(data.customerSessionClientSecret || null);
           setStripePaymentIntentId(data.booking?.stripePaymentIntentId || null);
           setPaymentStep(true);
         }
@@ -1167,7 +1171,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         <Elements
           stripe={stripePromise}
-          options={{ clientSecret, appearance: stripeAppearance, fonts: stripeFonts }}
+          options={{
+            clientSecret,
+            appearance: stripeAppearance,
+            fonts: stripeFonts,
+            // F7: present → PaymentElement shows the customer's saved cards.
+            ...(customerSessionSecret
+              ? { customerSessionClientSecret: customerSessionSecret }
+              : {}),
+          }}
         >
           <StripeCheckoutForm
             total={totalPrice}
