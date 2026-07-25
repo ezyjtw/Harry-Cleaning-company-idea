@@ -23,6 +23,7 @@ import { BookingReminderService } from './booking-reminder.service';
 import {
   sendCascadeExhaustedRefund,
   sendCascadeSearchingUpdate,
+  sendBackupOfferEmails,
   sendCleanerAcceptedBooking,
   sendCleanerJobAccepted,
   sendRenaFindConcierge,
@@ -190,6 +191,10 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
       })
       .catch(() => {});
   }
+  // F11: the bell alone was the hole — every active backup also gets the F1
+  // offer email (sanitised, their own figure, Accept deep link). activeBackups
+  // is already pruned of declined/unavailable — the corpse law holds.
+  await sendBackupOfferEmails(bookingId, activeBackups).catch(() => {});
 
   const clientBooking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -1073,6 +1078,9 @@ async function reopenToBackups(
       })
       .catch(() => {});
   }
+  // F11 extension (James-ruled): the Phase-2 reopen is an offer — same email
+  // as every other offer, to the same pruned active set.
+  await sendBackupOfferEmails(bookingId, activeBackups).catch(() => {});
 
   if (booking.clientId) {
     await prisma.notification
@@ -1774,6 +1782,10 @@ async function enterRenaFind(
       })
       .catch(() => {});
   }
+  // F11 extension (James-ruled): the Rena-Find broadcast is an offer — a
+  // cleaner who'd get an email as a backup gets the same one as a broadcast
+  // recipient. qualifiedIds is the pruned, qualified set.
+  await sendBackupOfferEmails(bookingId, qualifiedIds).catch(() => {});
 
   if (booking.clientId) {
     await prisma.notification
