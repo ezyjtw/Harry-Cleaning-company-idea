@@ -43,6 +43,11 @@ enum BookingStatus {
   // auto-refunded by the scheduler sweep. Excluded from every cleaner-facing
   // job/availability query (the slot frees immediately).
   CLEANER_CANCELLED
+  // F6a (James-ruled): never-paid bookings are their own terminal species —
+  // NOT CANCELLED. Nobody cancelled anything: checkout was abandoned before
+  // payment. No offer ever fired, no notification ever sent, no money moved.
+  // Funnel data, not a booking. Invisible to cleaners; filtered on admin.
+  ABANDONED
 }
 
 enum CascadePhase {
