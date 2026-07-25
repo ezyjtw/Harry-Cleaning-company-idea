@@ -60,6 +60,9 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
     cleanerRating: number | null;
     backupCleanerNames: string[];
     autoAssignBackup: boolean;
+    // F9: the booking's assignment state — the page must not claim "{cleaner}
+    // is coming" while the offer is still unanswered.
+    bookingStatus: string | null;
   } | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const maxPolls = 15;
@@ -94,6 +97,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
               : null,
           backupCleanerNames: guestToken ? [] : data.backupCleanerNames || [],
           autoAssignBackup: guestToken ? false : data.autoAssignBackup || false,
+          bookingStatus: data.status || null,
         });
       } else {
         // A read the recipient is entitled to failed (e.g. an invalid/expired
@@ -170,6 +174,22 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
 
   if (status === 'SUCCEEDED') {
     const firstName = (booking?.cleanerName || 'Your cleaner').split(' ')[0];
+    // F9: the certain claim is EARNED at accept, never asserted at payment.
+    // Unknown/missing status reads as pending — the safe, honest default.
+    const cleanerAccepted = [
+      'ACCEPTED',
+      'CONFIRMED',
+      'EN_ROUTE',
+      'IN_PROGRESS',
+      'COMPLETED',
+      'REVIEWED',
+    ].includes(booking?.bookingStatus || '');
+    const reassuranceNet =
+      booking && booking.backupCleanerNames.length > 0
+        ? ' — if they can’t make it, your backups will step in.'
+        : booking?.autoAssignBackup
+          ? ' — if they can’t make it, the Rena network will step in.'
+          : '.';
     return (
       <div className="mx-auto max-w-xl px-4 py-16 sm:py-20">
         {/* Trust eyebrow (James-signed) */}
@@ -187,8 +207,15 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
               </div>
 
               <h1 className="mt-4 font-newsreader text-3xl font-semibold text-ink">
-                {firstName} is coming
+                {cleanerAccepted
+                  ? `${firstName} is confirmed for your clean`
+                  : `Your clean has been offered to ${firstName}`}
               </h1>
+              {!cleanerAccepted && (
+                <p className="mt-2 font-jost text-[13px] font-light text-ink-2">
+                  We&rsquo;ll confirm as soon as they accept{reassuranceNet}
+                </p>
+              )}
               <p className="mt-1.5 font-jost text-sm text-ink-2">
                 {formatDate(booking.date, 'full')} at {booking.startTime}
               </p>
@@ -224,7 +251,12 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
         )}
 
         <p className="mt-6 text-center font-jost text-sm font-light text-ink-2">
-          Your payment was successful. We&apos;ll email you when {firstName} accepts.
+          {booking &&
+          ['ACCEPTED', 'CONFIRMED', 'EN_ROUTE', 'IN_PROGRESS', 'COMPLETED', 'REVIEWED'].includes(
+            booking.bookingStatus || ''
+          )
+            ? `Your payment was successful. ${firstName} has accepted — you're all set.`
+            : `Your payment was successful. We'll email you when ${firstName} accepts.`}
         </p>
         <div className="text-center">
           <JunkMailHint />
