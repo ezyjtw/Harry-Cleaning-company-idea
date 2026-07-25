@@ -3,7 +3,7 @@
 import { Elements } from '@stripe/react-stripe-js';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
@@ -584,6 +584,27 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  // F5: per-field missing-value errors, keyed by the field's anchor id. Set as
+  // a complete map on each failed attempt so EVERY offending field shows its
+  // error simultaneously; cleared on the next attempt and on step change.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const failValidation = (errors: Array<{ id: string; msg: string }>) => {
+    const map: Record<string, string> = {};
+    for (const e of errors) if (!map[e.id]) map[e.id] = e.msg;
+    setFieldErrors(map);
+    // Walk the customer to the FIRST problem; focus without a second jump.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(errors[0].id);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (el as HTMLElement | null)?.focus?.({ preventScroll: true });
+    });
+  };
+  const FieldError = ({ k }: { k: string }) =>
+    fieldErrors[k] ? (
+      <p role="alert" className="mt-2 font-jost text-sm text-danger">
+        {fieldErrors[k]}
+      </p>
+    ) : null;
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null);
@@ -745,7 +766,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // phase-2 summary (before pay). By the summary the start-postcode is set, so
   // the autocomplete engages auto-mode (dropdown, no second postcode box).
   const addressCard = (
-    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+    <div
+      id="booking-address"
+      tabIndex={-1}
+      className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 scroll-mt-24"
+    >
       <h2 className="font-newsreader font-semibold text-base text-ink">Cleaning Address</h2>
       <p className="mt-2 font-jost text-sm font-light text-ink-2">Where should your cleaner go?</p>
       <div className="mt-4">
@@ -757,17 +782,37 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           onReselectCleaner={handleReselectForPostcode}
         />
       </div>
+      <FieldError k="booking-address" />
     </div>
   );
 
-  const handleBookingSubmit = async () => {
+  const handleBookingSubmit = async (opts?: { requireDateTime?: boolean }) => {
     if (bookingSubmitting) return;
+    // F5: collect EVERY missing field, show all inline errors simultaneously,
+    // scroll-and-focus the first. The submit button no longer hides behind
+    // disabled — clicking it names what's missing.
+    const requireDateTime = opts?.requireDateTime ?? true;
+    const missing: Array<{ id: string; msg: string }> = [];
+    if (requireDateTime && !selectedDate) {
+      missing.push({ id: 'booking-datetime', msg: 'Please choose a date for your clean.' });
+    } else if (requireDateTime && !selectedTime24) {
+      missing.push({ id: 'booking-datetime', msg: 'Please choose an arrival time.' });
+    }
     // A12: require a real street address (line1 + a valid postcode) before booking.
     const effectivePostcode = address.postcode || postcode;
-    if (!address.line1.trim() || !isValidPostcode(effectivePostcode)) {
-      setBookingError('Please enter the full cleaning address (street and a valid postcode).');
+    if (!address.line1.trim()) {
+      missing.push({ id: 'booking-address', msg: 'Please enter the street address.' });
+    } else if (!isValidPostcode(effectivePostcode)) {
+      missing.push({
+        id: 'booking-address',
+        msg: 'Please enter a valid postcode for the address.',
+      });
+    }
+    if (missing.length > 0) {
+      failValidation(missing);
       return;
     }
+    setFieldErrors({});
     setBookingSubmitting(true);
     setBookingError(null);
     try {
@@ -866,6 +911,31 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     // by-cleaner grid (default), toggled to set-time via the results toggle.
     return 'browse';
   }, [phase, scheduling, selectedCleanerIds, paymentStep]);
+
+  // F4: every step transition lands the viewport at the top of the incoming
+  // step — not wherever the previous step's Continue button sat. The key
+  // includes the fixed-price flow's INTERNAL steps (cleaner → time → review),
+  // which replace whole screens while currentStep reads 'booking' throughout.
+  // Normal-flow date/time picks deliberately do NOT scroll (same-screen reveal).
+  const fixedFlowStep =
+    phase === 'cleaner' && isFixedPrice(category)
+      ? selectedCleanerIds.length === 0
+        ? 'choose-cleaner'
+        : !selectedDate || !selectedTime24
+          ? 'choose-time'
+          : 'review'
+      : '';
+  const stepScrollKey = `${currentStep}:${fixedFlowStep}`;
+  const prevStepScrollKey = useRef(stepScrollKey);
+  useEffect(() => {
+    if (prevStepScrollKey.current === stepScrollKey) return;
+    prevStepScrollKey.current = stepScrollKey;
+    setFieldErrors({}); // stale field errors never follow to another step
+    // rAF: let the incoming step render before scrolling to its top.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }, [stepScrollKey]);
 
   const goBack = useCallback(() => {
     if (profileCleaner) {
@@ -1200,6 +1270,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <h2 className="font-newsreader font-semibold text-base text-ink">Your Postcode</h2>
               <input
+                id="quote-postcode-input"
                 type="text"
                 value={postcode}
                 onChange={(e) => {
@@ -1700,24 +1771,34 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             <button
               type="button"
               onClick={() => {
+                // F5: validate EVERYTHING, show every inline error at once,
+                // then scroll-and-focus the first offender. No early returns
+                // between checks — partial feedback is the anti-pattern.
+                const firstInvalid: Array<{ id: string; msg: string }> = [];
                 const trimmed = postcode.trim();
                 if (!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(trimmed)) {
+                  // Existing inline renderers (postcode/hours/email) stay the
+                  // display; fieldErrors only carries fields without one.
                   setPostcodeError('Please enter a valid UK postcode');
-                  return;
+                  firstInvalid.push({ id: 'quote-postcode-input', msg: '' });
                 }
-                // H13: under-minimum hours are stopped HERE with the inline
-                // error (the server check remains the law).
+                // H13: under-minimum hours stopped HERE (server check stays the law).
                 if (hoursError) {
-                  const el = document.querySelector('[data-testid="hours-min-error"]');
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  return;
+                  firstInvalid.push({ id: 'hours-min-error', msg: '' });
                 }
-                // U1: a typo'd guest email fails HERE with an inline error,
-                // not later at book-time.
+                // U1: a typo'd guest email fails HERE, not later at book-time.
                 if (!validateGuestEmail()) {
-                  const el = document.getElementById('guest-email-input');
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  (el as HTMLInputElement | null)?.focus({ preventScroll: true });
+                  firstInvalid.push({ id: 'guest-email-input', msg: '' });
+                }
+                if (firstInvalid.length > 0) {
+                  requestAnimationFrame(() => {
+                    const first = firstInvalid[0];
+                    const el =
+                      document.getElementById(first.id) ||
+                      document.querySelector('[data-testid="hours-min-error"]');
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    (el as HTMLElement | null)?.focus?.({ preventScroll: true });
+                  });
                   return;
                 }
                 // Quote proceeds straight to results (method fork removed, M2).
@@ -1726,13 +1807,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 setScheduling('flexible');
                 setPhase('cleaner');
               }}
-              disabled={
-                !postcode ||
-                (isGuest && !email) ||
-                outsideCatchment ||
-                noEligibleCleaners ||
-                !!postcodeError
-              }
+              // F5: the button stays enabled-and-validating for missing input —
+              // clicking names what's missing instead of silently refusing.
+              // Only the honest area-blocks (with their own label) stay disabled.
+              disabled={outsideCatchment || noEligibleCleaners}
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {outsideCatchment || noEligibleCleaners
@@ -1939,13 +2017,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
         <div className="mt-10 space-y-8">
           {/* Date and time selection via calendar */}
-          <DateTimePicker
-            cleanerId={preSelectedCleaner.id}
-            durationHours={effectiveHours}
-            value={dateTimeSelection}
-            onChange={setDateTimeSelection}
-            dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
-          />
+          <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+            <DateTimePicker
+              cleanerId={preSelectedCleaner.id}
+              durationHours={effectiveHours}
+              value={dateTimeSelection}
+              onChange={setDateTimeSelection}
+              dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
+            />
+            <FieldError k="booking-datetime" />
+          </div>
 
           {/* Backup cleaner slider */}
           {selectedDate && selectedTime24 && (
@@ -2136,11 +2217,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Submit */}
+          {/* Submit — F5: enabled-and-validating; a click with no date/time
+              names the gap inline and scrolls to the picker. */}
           <button
             type="button"
-            onClick={handleBookingSubmit}
-            disabled={!selectedDate || !selectedTime24}
+            onClick={() => handleBookingSubmit()}
+            disabled={bookingSubmitting}
             className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
@@ -2383,10 +2465,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
 
-            {/* Submit */}
+            {/* Submit — same-day never requires a picked slot (arrival is
+                arranged same-day); address still validates uniformly. */}
             <button
               type="button"
-              onClick={handleBookingSubmit}
+              onClick={() => handleBookingSubmit({ requireDateTime: false })}
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
             >
               Confirm Same-Day Booking
@@ -2674,14 +2757,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             </div>
 
-            <DateTimePicker
-              cleanerId={fixedSelectedCleaner.id}
-              durationHours={effectiveHours}
-              value={dateTimeSelection}
-              onChange={setDateTimeSelection}
-              dateLabel="When would you like this done?"
-              dateSubtitle={`${fixedSelectedCleaner.name}'s availability`}
-            />
+            <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+              <DateTimePicker
+                cleanerId={fixedSelectedCleaner.id}
+                durationHours={effectiveHours}
+                value={dateTimeSelection}
+                onChange={setDateTimeSelection}
+                dateLabel="When would you like this done?"
+                dateSubtitle={`${fixedSelectedCleaner.name}'s availability`}
+              />
+              <FieldError k="booking-datetime" />
+            </div>
           </div>
         )}
 
@@ -2821,7 +2907,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             <button
               type="button"
-              onClick={handleBookingSubmit}
+              onClick={() => handleBookingSubmit()}
               disabled={bookingSubmitting}
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -3247,14 +3333,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* When to book — cleaner's availability calendar */}
-            <DateTimePicker
-              cleanerId={selectedCleaner.id}
-              durationHours={effectiveHours}
-              value={dateTimeSelection}
-              onChange={setDateTimeSelection}
-              dateLabel={`When would you like ${selectedCleaner.name}?`}
-              dateSubtitle={`Your clean is ${effectiveHours} hours`}
-            />
+            <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+              <DateTimePicker
+                cleanerId={selectedCleaner.id}
+                durationHours={effectiveHours}
+                value={dateTimeSelection}
+                onChange={setDateTimeSelection}
+                dateLabel={`When would you like ${selectedCleaner.name}?`}
+                dateSubtitle={`Your clean is ${effectiveHours} hours`}
+              />
+              <FieldError k="booking-datetime" />
+            </div>
 
             {/* Backup cleaner slider */}
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
@@ -3469,10 +3558,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
 
+            {/* F5: enabled-and-validating — a click with no date/time names
+                the gap inline and scrolls to the picker. */}
             <button
               type="button"
-              onClick={handleBookingSubmit}
-              disabled={!selectedDate || !selectedTime24}
+              onClick={() => handleBookingSubmit()}
+              disabled={bookingSubmitting}
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
