@@ -135,6 +135,38 @@ export async function POST(request: NextRequest) {
     // paying the SAME PaymentIntent. The idempotency key is derived SERVER-SIDE
     // below from the validated request + a time bucket — never trusted from the
     // client (a client-supplied key could wrongly collapse or be replayed).
+    // F7 (James-ruled): mint a CustomerSession so the PaymentElement can
+    // REDISPLAY saved methods for authed customers. The customer on the PI is
+    // necessary but not sufficient — without this session secret the Element
+    // never shows saved cards. Saving stays OUR consent tick (payment_method_save
+    // disabled here so Stripe's own checkbox never doubles up); card removal is
+    // not checkout's job. Best-effort: a mint failure never blocks checkout —
+    // but the failure leg is LOUD on every path (H92 law), never a silent catch.
+    const mintCustomerSession = async (customerId: string): Promise<string | null> => {
+      try {
+        const cs = await stripe.customerSessions.create({
+          customer: customerId,
+          components: {
+            payment_element: {
+              enabled: true,
+              features: {
+                payment_method_redisplay: 'enabled',
+                payment_method_save: 'disabled',
+                payment_method_remove: 'disabled',
+              },
+            },
+          },
+        });
+        return cs.client_secret;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[stripe] CustomerSession mint failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+        return null;
+      }
+    };
+
     const buildReplay = async (bk: {
       id: string;
       stripePaymentIntentId: string | null;
@@ -149,6 +181,15 @@ export async function POST(request: NextRequest) {
           /* PI not retrievable — return the booking; client can re-initiate payment */
         }
       }
+      // F7 reopen (James-ruled, live evidence): replays are what retries,
+      // refreshes and back-buttons produce — the replay response must carry a
+      // FRESH session secret exactly like the fresh-booking path (sessions are
+      // short-lived; re-mint per response, never reuse a stored one). Guests
+      // structurally can't get one: no stripeCustomerId is ever resolved.
+      let replaySessionSecret: string | null = null;
+      if (stripeCustomerId) {
+        replaySessionSecret = await mintCustomerSession(stripeCustomerId);
+      }
       return NextResponse.json(
         {
           message: 'Booking already created',
@@ -158,6 +199,7 @@ export async function POST(request: NextRequest) {
             guestToken: bk.guestToken,
           },
           clientSecret,
+          ...(replaySessionSecret ? { customerSessionClientSecret: replaySessionSecret } : {}),
           idempotentReplay: true,
         },
         { status: 200 }
@@ -724,38 +766,6 @@ export async function POST(request: NextRequest) {
       }
       throw err;
     }
-
-    // F7 (James-ruled): mint a CustomerSession so the PaymentElement can
-    // REDISPLAY saved methods for authed customers. The customer on the PI is
-    // necessary but not sufficient — without this session secret the Element
-    // never shows saved cards. Saving stays OUR consent tick (payment_method_save
-    // disabled here so Stripe's own checkbox never doubles up); card removal is
-    // not checkout's job. Best-effort: a mint failure never blocks checkout.
-    const mintCustomerSession = async (customerId: string): Promise<string | null> => {
-      try {
-        const cs = await stripe.customerSessions.create({
-          customer: customerId,
-          components: {
-            payment_element: {
-              enabled: true,
-              features: {
-                payment_method_redisplay: 'enabled',
-                payment_method_save: 'disabled',
-                payment_method_remove: 'disabled',
-              },
-            },
-          },
-        });
-        return cs.client_secret;
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          '[F7] CustomerSession mint failed — checkout proceeds without saved cards:',
-          err
-        );
-        return null;
-      }
-    };
 
     // 9. Create Stripe PaymentIntent
     let clientSecret: string | null = null;
