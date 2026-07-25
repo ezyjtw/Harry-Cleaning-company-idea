@@ -91,6 +91,8 @@ async function sendEmail(
     // H88: inbound-style mail (contact-form alerts) sets reply-to to the
     // customer so the team answers them directly, not the from-address.
     replyTo?: string;
+    // F8: optional file attachments (e.g. the accepted-job .ics).
+    attachments?: Array<{ filename: string; content: string }>;
   }
 ): Promise<boolean> {
   const category = opts?.category ?? 'ESSENTIAL';
@@ -136,6 +138,7 @@ async function sendEmail(
       html: htmlBody,
       ...(opts?.headers ? { headers: opts.headers } : {}),
       ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
+      ...(opts?.attachments ? { attachments: opts.attachments } : {}),
     });
     // H73: the Resend SDK does NOT throw on API errors — it resolves with
     // { data, error }. The old code ignored the response, so a REJECTED send
@@ -662,6 +665,55 @@ export async function sendCleanerAcceptedBooking(bookingId: string): Promise<boo
     guestToken: b.clientId ? null : b.guestToken,
   });
   return sendEmail(email, subject, html);
+}
+
+// F8: the CLEANER's acceptance confirmation — new email; before this only the
+// customer heard about an accept. Carries the .ics attachment (full address in
+// LOCATION per the address law — this recipient just became the assigned
+// cleaner). Notes/entry details stay OUT of both email and .ics; the job
+// detail link is the door.
+export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { cleaner: { select: { id: true, name: true, email: true } } },
+  });
+  if (!b?.cleaner?.email) return false;
+  const { serviceLabelFromSlug } = await import('@/lib/constants/services');
+  const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
+  const { buildJobIcs } = await import('@/lib/services/job-ics');
+  const { buildCleanerJobAccepted } = await import('./email-templates');
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const dateStr = b.date.toISOString().split('T')[0];
+  const fullAddress = [b.addressLine1, b.addressLine2, b.addressCity, b.addressPostcode]
+    .filter(Boolean)
+    .join(', ');
+  const earnings = getTransferAmountPence(Number(b.cleanerEarnings)) / 100;
+  const detailUrl = `${appUrl}/cleaner/jobs/${b.id}`;
+
+  const ics = buildJobIcs({
+    id: b.id,
+    serviceLabel: serviceLabelFromSlug(b.serviceType),
+    date: dateStr,
+    startTime: b.startTime,
+    durationHours: Number(b.duration),
+    fullAddress,
+    cleanerEarnings: earnings,
+    detailUrl,
+  });
+  const { subject, html } = buildCleanerJobAccepted({
+    cleanerName: b.cleaner.name || 'there',
+    serviceLabel: serviceLabelFromSlug(b.serviceType),
+    date: dateStr,
+    time: b.startTime,
+    earnings,
+    detailUrl,
+  });
+  return sendEmail(b.cleaner.email, subject, html, {
+    userId: b.cleaner.id,
+    attachments: [{ filename: `rena-clean-${dateStr}.ics`, content: ics }],
+  });
 }
 
 // ─── X1 cascade milestone emails ───────────────────────────

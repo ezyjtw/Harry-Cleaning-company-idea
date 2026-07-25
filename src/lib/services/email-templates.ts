@@ -328,6 +328,33 @@ export function buildCleanerAssignment(
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// F8: the cleaner's acceptance confirmation — rides with the .ics attachment.
+// Sanitised body: net figure + link; entry details and notes live behind the
+// authenticated detail page only.
+export function buildCleanerJobAccepted(data: {
+  cleanerName: string;
+  serviceLabel: string;
+  date: string;
+  time: string;
+  earnings: number;
+  detailUrl: string;
+}): EmailContent {
+  const subject = `You're booked - ${data.date} at ${data.time}`;
+  const contentHtml =
+    h('Job confirmed — it&rsquo;s yours') +
+    p(`Hi ${data.cleanerName},`) +
+    p(
+      `Your ${data.serviceLabel} on ${data.date} at ${data.time} is confirmed. ` +
+        `You earn &pound;${data.earnings.toFixed(2)}.`
+    ) +
+    p('The attached calendar file adds it to your calendar with the address and timings.') +
+    button(data.detailUrl, 'Open the job') +
+    pMuted(
+      'Entry details and customer notes are on the job page — kept there (not in this email or the calendar event) so they stay private to you.'
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildPasswordReset(token: string): EmailContent {
   const resetLink = `${appUrl()}/reset-password?token=${token}`;
   const subject = 'Reset your password - Rena Cleaning Network';

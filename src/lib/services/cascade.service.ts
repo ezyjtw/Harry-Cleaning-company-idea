@@ -24,6 +24,7 @@ import {
   sendCascadeExhaustedRefund,
   sendCascadeSearchingUpdate,
   sendCleanerAcceptedBooking,
+  sendCleanerJobAccepted,
   sendRenaFindConcierge,
   sendTopupApprovalRequest,
 } from './email.service';
@@ -514,6 +515,8 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
   // living here (not the routes) so no caller can forget it. ESSENTIAL, so
   // never quiet-hours gated; guests get their tokened link.
   await sendCleanerAcceptedBooking(bookingId).catch(() => {});
+  // F8: the CLEANER's confirmation with the .ics calendar attachment.
+  await sendCleanerJobAccepted(bookingId).catch(() => {});
 
   // Best-effort loser notifications
   const losers = getLoserSet(booking, cleanerId);
@@ -617,6 +620,8 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
 
   // H15: same acceptance-moment email — covers Rena-Find AND rescue-① accepts.
   await sendCleanerAcceptedBooking(bookingId).catch(() => {});
+  // F8: cleaner confirmation + .ics on this accept path too.
+  await sendCleanerJobAccepted(bookingId).catch(() => {});
 
   const losers = booking.backupCleanerIds.filter(
     (id) => id !== cleanerId && !(booking.declinedCleanerIds ?? []).includes(id)
