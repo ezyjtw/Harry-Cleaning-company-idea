@@ -50,6 +50,11 @@ export interface BookingEmailData {
   address: string;
   serviceType: string;
   totalPrice: number;
+  // F9: the confirmation email fires at PAYMENT time — before the offer is
+  // answered — so its copy is state-honest ("offered", not "confirmed with").
+  // These flags gate the reassurance clause to the booking's ACTUAL net.
+  hasBackups?: boolean;
+  autoAssignBackup?: boolean;
 }
 
 export interface UserEmailData {
@@ -177,6 +182,17 @@ function hasRealCleanerName(booking: BookingEmailData): boolean {
   return !!booking.cleanerName && booking.cleanerName !== 'Your cleaner';
 }
 
+// F9: the honest pending-offer line. The second clause names a net ONLY when
+// one actually exists — no promising backups that aren't there.
+function offerReassurance(booking: BookingEmailData): string {
+  const net = booking.hasBackups
+    ? ' &mdash; if they can&rsquo;t make it, your backup cleaners will step in'
+    : booking.autoAssignBackup
+      ? ' &mdash; if they can&rsquo;t make it, the Rena network will step in'
+      : '';
+  return `We&rsquo;ll confirm as soon as they accept${net}.`;
+}
+
 export function buildBookingConfirmation(
   booking: BookingEmailData,
   user: UserEmailData
@@ -184,7 +200,8 @@ export function buildBookingConfirmation(
   const subject = `Booking confirmed - ${booking.date} at ${booking.time}`;
   const named = hasRealCleanerName(booking);
   const rows: Array<[string, string]> = [];
-  if (named) rows.push(['Cleaner', booking.cleanerName as string]);
+  // F9: state-honest label — at payment time the cleaner is OFFERED, not booked.
+  if (named) rows.push(['Offered to', booking.cleanerName as string]);
   rows.push(
     ['Date', booking.date],
     ['Time', booking.time],
@@ -196,8 +213,8 @@ export function buildBookingConfirmation(
     p(`Hi ${user.name},`) +
     p(
       named
-        ? `Your ${serviceLabelFromSlug(booking.serviceType)} clean with <strong>${booking.cleanerName}</strong> has been confirmed.`
-        : `Your ${serviceLabelFromSlug(booking.serviceType)} clean has been confirmed.`
+        ? `Your ${serviceLabelFromSlug(booking.serviceType)} clean has been offered to <strong>${booking.cleanerName}</strong>. ${offerReassurance(booking)}`
+        : `Your ${serviceLabelFromSlug(booking.serviceType)} clean is booked. We&rsquo;re matching you with a vetted cleaner and will confirm as soon as one accepts.`
     ) +
     infoBlock(rows) +
     p('Your payment is held securely until the job is completed.') +
@@ -623,7 +640,8 @@ export function buildGuestBookingConfirmation(
   // B5: name the cleaner (guest parity with the account-holder confirmation).
   const named = hasRealCleanerName(booking);
   const rows: Array<[string, string]> = [];
-  if (named) rows.push(['Cleaner', booking.cleanerName as string]);
+  // F9: guest parity — same state-honest label as the account email.
+  if (named) rows.push(['Offered to', booking.cleanerName as string]);
   rows.push(
     ['Date', booking.date],
     ['Time', booking.time],
@@ -635,8 +653,8 @@ export function buildGuestBookingConfirmation(
     p(`Hi ${guestName},`) +
     p(
       named
-        ? `Your ${serviceLabelFromSlug(booking.serviceType)} clean with <strong>${booking.cleanerName}</strong> has been confirmed.`
-        : `Your ${serviceLabelFromSlug(booking.serviceType)} clean has been confirmed.`
+        ? `Your ${serviceLabelFromSlug(booking.serviceType)} clean has been offered to <strong>${booking.cleanerName}</strong>. ${offerReassurance(booking)}`
+        : `Your ${serviceLabelFromSlug(booking.serviceType)} clean is booked. We&rsquo;re matching you with a vetted cleaner and will confirm as soon as one accepts.`
     ) +
     infoBlock(rows) +
     p('You can manage your booking using this link:') +

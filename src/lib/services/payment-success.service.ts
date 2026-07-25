@@ -142,6 +142,10 @@ export async function processPaymentSuccess(
       .join(', '),
     serviceType: booking.serviceType,
     totalPrice: Number(booking.totalPrice),
+    // F9: the confirmation email fires here (pre-accept) — give the template
+    // the booking's ACTUAL net so the reassurance clause never overpromises.
+    hasBackups: (booking.backupCleanerIds ?? []).length > 0,
+    autoAssignBackup: !!booking.autoAssignBackup,
   };
 
   if (booking.client) {
