@@ -96,31 +96,12 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   // the moment no offers await. Matches the native tab bar's A7 semantics.
   // Best-effort — any error just means no badge.
   const [unseenOffers, setUnseenOffers] = useState(0);
-  // H43: open-dispute attention badge — same seen-tracking pattern as offers,
-  // clears when the cleaner opens /disputes, re-fires for a newly-opened case.
+  // H43→F10 (James-ruled): the Disputes badge is the OPEN-DISPUTE COUNT —
+  // disputes carry response deadlines and evidence windows; "I looked at it
+  // once" is not "I dealt with it." Clears only on resolution, never on viewing.
   const [unseenDisputes, setUnseenDisputes] = useState(0);
   useEffect(() => {
     let stop = false;
-    const DISPUTE_SEEN_KEY = 'rena-seen-dispute-ids';
-    const readSeen = (key: string): string[] => {
-      try {
-        return JSON.parse(localStorage.getItem(key) || '[]');
-      } catch {
-        return [];
-      }
-    };
-    const unseenCount = (ids: string[], key: string, onPage: boolean): number => {
-      if (onPage) {
-        try {
-          localStorage.setItem(key, JSON.stringify(ids));
-        } catch {
-          /* storage unavailable — count still works this tick */
-        }
-        return 0;
-      }
-      const seen = new Set(readSeen(key));
-      return ids.filter((id) => !seen.has(id)).length;
-    };
     async function tick() {
       try {
         const res = await fetch('/api/cleaner/badges');
@@ -130,9 +111,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           setUnseenOffers(data.offerIds.length);
         }
         if (Array.isArray(data.disputeIds)) {
-          setUnseenDisputes(
-            unseenCount(data.disputeIds, DISPUTE_SEEN_KEY, pathname === '/disputes')
-          );
+          setUnseenDisputes(data.disputeIds.length);
         }
       } catch {
         /* badge is best-effort */
