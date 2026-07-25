@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       // M3 rescue: the tokened tracking page renders the refund/rebook panel.
       rescueDeadline: booking.rescueDeadline ? booking.rescueDeadline.toISOString() : null,
       backupCleanerIds: booking.backupCleanerIds,
+      // F9 (James-ruled): the guest confirmation page must speak the same
+      // reassurance clause as the guest's own email — expose the net state.
+      hasBackups: (booking.backupCleanerIds ?? []).length > 0,
+      autoAssignBackup: !!booking.autoAssignBackup,
       postcode: booking.addressPostcode || '',
       guestEmail: booking.guestEmail || '',
       guestName: booking.guestName || '',
