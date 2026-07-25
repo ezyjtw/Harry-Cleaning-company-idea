@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { buildGoogleCalendarLink } from '@/lib/services/job-ics';
 
 // H104 item 5: the job's home — every cleaner job row/card clicks through to
 // here. Built ENTIRELY from the portal's existing vocabulary: surface cards
@@ -175,6 +176,35 @@ export default function CleanerJobDetailPage() {
           <Row label="Date" value={dateLabel} />
           <Row label="Time" value={job.time} />
           <Row label="Duration" value={`${job.duration} hours`} />
+          {/* F8: calendar actions — assigned-only (the .ics carries the full
+              address; the serving route enforces the same law server-side). */}
+          {job.assigned && (
+            <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-line pt-3">
+              <a
+                href={`/api/cleaner/jobs/${job.id}/ics`}
+                className="font-jost text-[12px] uppercase tracking-[0.08em] text-primary hover:text-primary-hover transition"
+              >
+                Add to calendar (.ics)
+              </a>
+              <a
+                href={buildGoogleCalendarLink({
+                  id: job.id,
+                  serviceLabel: serviceLabelFromSlug(job.serviceType),
+                  date: job.date,
+                  startTime: job.time,
+                  durationHours: job.duration,
+                  fullAddress: job.fullAddress || job.address,
+                  cleanerEarnings: job.cleanerEarnings,
+                  detailUrl: typeof window !== 'undefined' ? window.location.href : '',
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-jost text-[12px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition"
+              >
+                Google Calendar
+              </a>
+            </div>
+          )}
         </Section>
 
         <Section title="Where">
