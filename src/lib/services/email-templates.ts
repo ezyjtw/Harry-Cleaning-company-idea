@@ -292,22 +292,39 @@ export function buildRefundConfirmation(
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// F1: the offer email. SANITISED BY LAW — this is a PRE-ACCEPT surface, so it
+// carries area-level location only (H104 email law: no street address, no
+// notes, no entry details ride in email). The Accept button deep-links to the
+// job's home; the accept itself is the real authenticated atomicAccept there —
+// logged-out cleaners go through login and return via callbackUrl. NO
+// magic-token auto-accept, ever: a forwarded email must never let anyone
+// accept as this cleaner.
 export function buildCleanerAssignment(
-  booking: BookingEmailData,
+  booking: BookingEmailData & { area: string; cleanerEarnings?: number },
   cleaner: CleanerEmailData
 ): EmailContent {
-  const subject = `New cleaning assignment - ${booking.date} at ${booking.time}`;
+  const detailLink = `${appUrl()}/cleaner/jobs/${booking.id}`;
+  const subject = `New job offer - ${booking.date} at ${booking.time}`;
   const contentHtml =
-    h('New assignment') +
+    h('New job offer') +
     p(`Hi ${cleaner.name},`) +
-    p(`You have been assigned a new ${serviceLabelFromSlug(booking.serviceType)} cleaning job.`) +
+    p(`You&rsquo;ve been offered a ${serviceLabelFromSlug(booking.serviceType)} job.`) +
     infoBlock([
       ['Date', booking.date],
       ['Time', booking.time],
-      ['Address', booking.address],
-      ['Customer', booking.customerName],
+      ['Area', booking.area],
+      // Net-first law: the cleaner's own figure, never the customer total.
+      ...(booking.cleanerEarnings !== undefined
+        ? ([['You&rsquo;d earn', `&pound;${booking.cleanerEarnings.toFixed(2)}`]] as [
+            string,
+            string,
+          ][])
+        : []),
     ]) +
-    p('Please confirm your availability as soon as possible.');
+    button(detailLink, 'Accept this job') +
+    pMuted(
+      'The full address and any customer notes are shown once you accept. Not signed in? The link takes you through login and straight back to this job.'
+    );
   return { subject, html: renderEmail({ contentHtml }) };
 }
 

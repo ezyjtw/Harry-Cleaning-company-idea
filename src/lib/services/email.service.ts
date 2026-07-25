@@ -211,7 +211,8 @@ export async function sendRefundConfirmation(
 }
 
 export async function sendCleanerAssignment(
-  booking: BookingEmailData,
+  // F1: the offer email requires the SANITISED area (never the full address).
+  booking: BookingEmailData & { area: string; cleanerEarnings?: number },
   cleaner: CleanerEmailData
 ): Promise<boolean> {
   const { subject, html } = buildCleanerAssignment(booking, cleaner);
