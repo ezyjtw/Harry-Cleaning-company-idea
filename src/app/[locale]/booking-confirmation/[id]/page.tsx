@@ -59,6 +59,7 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
     cleanerPhoto: string | null;
     cleanerRating: number | null;
     backupCleanerNames: string[];
+    hasBackups: boolean;
     autoAssignBackup: boolean;
     // F9: the booking's assignment state — the page must not claim "{cleaner}
     // is coming" while the offer is still unanswered.
@@ -96,7 +97,10 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
               ? Number(data.cleaner.cleanerProfile.rating)
               : null,
           backupCleanerNames: guestToken ? [] : data.backupCleanerNames || [],
-          autoAssignBackup: guestToken ? false : data.autoAssignBackup || false,
+          // F9 guest parity: the guest endpoint now ships the net state, so
+          // the page's reassurance clause matches the guest's own email.
+          hasBackups: guestToken ? !!data.hasBackups : (data.backupCleanerNames || []).length > 0,
+          autoAssignBackup: !!data.autoAssignBackup,
           bookingStatus: data.status || null,
         });
       } else {
@@ -184,12 +188,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
       'COMPLETED',
       'REVIEWED',
     ].includes(booking?.bookingStatus || '');
-    const reassuranceNet =
-      booking && booking.backupCleanerNames.length > 0
-        ? ' — if they can’t make it, your backups will step in.'
-        : booking?.autoAssignBackup
-          ? ' — if they can’t make it, the Rena network will step in.'
-          : '.';
+    const reassuranceNet = booking?.hasBackups
+      ? ' — if they can’t make it, your backups will step in.'
+      : booking?.autoAssignBackup
+        ? ' — if they can’t make it, the Rena network will step in.'
+        : '.';
     return (
       <div className="mx-auto max-w-xl px-4 py-16 sm:py-20">
         {/* Trust eyebrow (James-signed) */}
