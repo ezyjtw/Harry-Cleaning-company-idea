@@ -824,9 +824,15 @@ export default function CleanerDashboard() {
               </div>
             )}
             {jobs.map((job, i) => (
+              // F3: the whole row is the click target for the job detail; the
+              // ancestor guard keeps Accept/Decline (and any inner link) winning.
               <div
                 key={job.id}
-                className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-page/30 transition-colors"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('button, a')) return;
+                  router.push(`/cleaner/jobs/${job.id}`);
+                }}
+                className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-page/30 transition-colors"
                 style={i > 0 ? { borderTop: '1px solid rgb(var(--color-border))' } : undefined}
               >
                 <div className="flex-1 min-w-0">

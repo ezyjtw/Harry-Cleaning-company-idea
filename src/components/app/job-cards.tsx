@@ -6,6 +6,7 @@
 // /app/* pages, which are served exclusively to the native shell (+ preview).
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export interface AppJob {
@@ -215,6 +216,7 @@ export function HeroJob({
   onCancelled?: () => void;
 }) {
   const action = LIFECYCLE_ACTION[job.status];
+  const router = useRouter();
   void now; // referenced so the hero re-renders on the countdown tick
   const countdown = startsInLabel(job.date, job.time);
   // C3: T-30 warm state — inside half an hour of the start the hero warms up
@@ -226,8 +228,16 @@ export function HeroJob({
   const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
 
   return (
+    // F3: the WHOLE card is the click target for the job detail. Inner
+    // interactive elements (lifecycle button, Message, map link, Can't-make-it)
+    // always win: the guard bails when the tap landed on any button/a ancestor —
+    // the same layering as stopPropagation on every control, but unmissable.
     <div
-      className={`rounded-2xl bg-primary p-5 text-white shadow-sm ${
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button, a')) return;
+        router.push(`/app/offer/${job.id}`);
+      }}
+      className={`cursor-pointer rounded-2xl bg-primary p-5 text-white shadow-sm transition-opacity active:opacity-90 ${
         warm ? 'ring-2 ring-warning/80' : ''
       }`}
     >
@@ -313,11 +323,19 @@ export function JobCard({
   onCancelled?: () => void;
 }) {
   const action = LIFECYCLE_ACTION[job.status];
+  const router = useRouter();
   void now;
   const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
+    // F3: whole-card click target; inner buttons/links win via the ancestor guard.
+    <div
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button, a')) return;
+        router.push(`/app/offer/${job.id}`);
+      }}
+      className="cursor-pointer rounded-2xl border border-line bg-surface p-4 transition-colors active:bg-page"
+    >
       {/* H104 item 5: every job card clicks through to the job detail. */}
       <Link
         href={`/app/offer/${job.id}`}
