@@ -667,6 +667,65 @@ export async function sendCleanerAcceptedBooking(bookingId: string): Promise<boo
   return sendEmail(email, subject, html);
 }
 
+// F11 (James-ruled, live find from the drill): backups previously got an
+// in-app bell only at the PRIMARY_OFFER → BACKUP_OFFER flip — no email. Each
+// active backup now gets the F1 offer email (Accept deep link, area-only,
+// THEIR OWN net figure via their quote — never the primary's). The caller
+// passes the already-pruned active set, so the H63 corpse law holds: no email
+// to declined/excluded/unavailable cleaners.
+export async function sendBackupOfferEmails(bookingId: string, backupIds: string[]): Promise<void> {
+  if (backupIds.length === 0) return;
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!b) return;
+  const { serviceLabelFromSlug, normalizeToPricingSlug, propertySizeEnumToSlug } =
+    await import('@/lib/constants/services');
+  const { pricingService } = await import('@/lib/services/pricing.service');
+  const users = await prisma.user.findMany({
+    where: { id: { in: backupIds } },
+    select: { id: true, name: true, email: true },
+  });
+  const area = [b.addressCity, b.addressPostcode].filter(Boolean).join(' ');
+  const dateStr = b.date.toISOString().split('T')[0];
+  for (const u of users) {
+    if (!u.email) continue;
+    // The backup's OWN at-or-below figure — the same quote the jobs list shows
+    // them. If quoting fails, the earnings row is simply omitted (never the
+    // primary's figure, never the customer total).
+    let earnings: number | undefined;
+    try {
+      const quote = await pricingService.calculateQuote({
+        cleanerId: u.id,
+        serviceSlug: normalizeToPricingSlug(b.serviceType) as never,
+        hours: Number(b.duration),
+        propertySize: b.propertySize ? propertySizeEnumToSlug(b.propertySize as never) : undefined,
+        addons: b.extras,
+      });
+      earnings = quote.cleanerPayout;
+    } catch {
+      earnings = undefined;
+    }
+    await sendCleanerAssignment(
+      {
+        id: b.id,
+        customerName: '',
+        date: dateStr,
+        time: b.startTime,
+        address: area,
+        serviceType: b.serviceType,
+        totalPrice: 0,
+        area,
+        cleanerEarnings: earnings,
+      },
+      { name: u.name || 'there', email: u.email }
+    ).catch(() => {});
+  }
+  // eslint-disable-next-line no-console
+  console.log(
+    `[Cascade] backup-offer emails attempted for ${bookingId}: ${users.filter((u) => u.email).length} of ${backupIds.length} backups (${serviceLabelFromSlug(b.serviceType)})`
+  );
+}
+
 // F8: the CLEANER's acceptance confirmation — new email; before this only the
 // customer heard about an accept. Carries the .ics attachment (full address in
 // LOCATION per the address law — this recipient just became the assigned

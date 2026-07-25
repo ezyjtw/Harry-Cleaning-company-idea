@@ -90,18 +90,17 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // H10: Jobs attention badge — live offers awaiting this cleaner's response
-  // (direct, cascade, backup, Phase-2 reopen, Rena-Find), the bell's countOnly
-  // grammar. Viewing the Jobs page marks the current offers seen (badge
-  // clears); a NEW offer arriving later re-fires it. Best-effort — any error
-  // just means no badge.
+  // H10→F10 (James-ruled): the Jobs badge is the OPEN-OFFER COUNT — every
+  // offer is time-boxed, so red urgency holds until each one is answered.
+  // Viewing the page no longer clears it (the old seen-tracking); it clears
+  // the moment no offers await. Matches the native tab bar's A7 semantics.
+  // Best-effort — any error just means no badge.
   const [unseenOffers, setUnseenOffers] = useState(0);
   // H43: open-dispute attention badge — same seen-tracking pattern as offers,
   // clears when the cleaner opens /disputes, re-fires for a newly-opened case.
   const [unseenDisputes, setUnseenDisputes] = useState(0);
   useEffect(() => {
     let stop = false;
-    const SEEN_KEY = 'rena-seen-offer-ids';
     const DISPUTE_SEEN_KEY = 'rena-seen-dispute-ids';
     const readSeen = (key: string): string[] => {
       try {
@@ -128,7 +127,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         const data = res.ok ? await res.json().catch(() => null) : null;
         if (stop || !data) return;
         if (Array.isArray(data.offerIds)) {
-          setUnseenOffers(unseenCount(data.offerIds, SEEN_KEY, pathname === '/cleaner/jobs'));
+          setUnseenOffers(data.offerIds.length);
         }
         if (Array.isArray(data.disputeIds)) {
           setUnseenDisputes(

@@ -23,6 +23,7 @@ import { BookingReminderService } from './booking-reminder.service';
 import {
   sendCascadeExhaustedRefund,
   sendCascadeSearchingUpdate,
+  sendBackupOfferEmails,
   sendCleanerAcceptedBooking,
   sendCleanerJobAccepted,
   sendRenaFindConcierge,
@@ -190,6 +191,10 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
       })
       .catch(() => {});
   }
+  // F11: the bell alone was the hole — every active backup also gets the F1
+  // offer email (sanitised, their own figure, Accept deep link). activeBackups
+  // is already pruned of declined/unavailable — the corpse law holds.
+  await sendBackupOfferEmails(bookingId, activeBackups).catch(() => {});
 
   const clientBooking = await prisma.booking.findUnique({
     where: { id: bookingId },
