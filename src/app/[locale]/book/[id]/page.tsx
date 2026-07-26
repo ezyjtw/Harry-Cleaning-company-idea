@@ -266,6 +266,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [slotAvailableIds, setSlotAvailableIds] = useState<Set<string> | null>(null);
   // Products fee (James-ruled real addon): server-priced via addons:['products'].
   const [bringsProducts, setBringsProducts] = useState(false);
+  // LB-7 (James-ruled): REQUIRED supplies question — null until answered,
+  // validated at submit. No default is ever guessed.
+  const [suppliesProvided, setSuppliesProvided] = useState<boolean | null>(null);
+  const [suppliesError, setSuppliesError] = useState(false);
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [serverQuote, setServerQuote] = useState<{
     cleanerListedPrice: number;
@@ -541,6 +545,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       return;
     }
 
+    // LB-7: the supplies answer is required — a cleaner without a kit can't
+    // accept a bring-your-own booking, so no default is ever assumed.
+    if (suppliesProvided === null) {
+      setSuppliesError(true);
+      const el = document.getElementById('booking-supplies');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     // Guest checkout depends on a real email for confirmation + reminders.
     if (bookingMode === 'guest' && !validateEmail()) {
       // U1: don't fail invisibly — bring the offending field into view.
@@ -566,6 +579,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({
           cleanerId: cleaner.id,
           ...form,
+          suppliesProvided,
           addons: bringsProducts ? ['products'] : undefined,
           propertySize,
           totalPrice: priceBreakdown.total,
@@ -1286,6 +1300,43 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </span>
               </span>
             </label>
+
+            {/* LB-7 (James-ruled): required supplies question. */}
+            <div id="booking-supplies" tabIndex={-1} className="scroll-mt-24">
+              <label className="block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Will cleaning supplies be provided?
+              </label>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    { value: true, label: 'I’ll provide supplies and equipment' },
+                    { value: false, label: 'Please bring your own supplies' },
+                  ] as { value: boolean; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => {
+                      setSuppliesProvided(opt.value);
+                      setSuppliesError(false);
+                    }}
+                    className={`px-4 py-3 text-left font-jost font-light text-sm transition-all ${
+                      suppliesProvided === opt.value
+                        ? 'bg-primary-soft text-ink ring-1 ring-primary'
+                        : 'bg-white text-ink-2 hover:bg-page'
+                    }`}
+                    style={{ border: '0.5px solid #E4E9F0' }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {suppliesError && (
+                <p className="mt-1.5 font-jost text-[12px] text-danger">
+                  Please tell us whether cleaning supplies will be provided.
+                </p>
+              )}
+            </div>
 
             {/* Notes */}
             <div>

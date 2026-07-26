@@ -11,6 +11,7 @@
 // button so Outlook renders the click area, degrades sanely with images off.
 // ─────────────────────────────────────────────────────────────
 
+import { suppliesLabel } from '@/lib/booking/supplies';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
 // Absolute, production URLs (emails can't rely on relative paths or next/font).
@@ -317,7 +318,11 @@ export function buildRefundConfirmation(
 // magic-token auto-accept, ever: a forwarded email must never let anyone
 // accept as this cleaner.
 export function buildCleanerAssignment(
-  booking: BookingEmailData & { area: string; cleanerEarnings?: number },
+  booking: BookingEmailData & {
+    area: string;
+    cleanerEarnings?: number;
+    suppliesProvided?: boolean | null;
+  },
   cleaner: CleanerEmailData
 ): EmailContent {
   const detailLink = `${appUrl()}/cleaner/jobs/${booking.id}`;
@@ -330,6 +335,9 @@ export function buildCleanerAssignment(
       ['Date', booking.date],
       ['Time', booking.time],
       ['Area', booking.area],
+      // LB-7: supplies is decision-relevant (a cleaner without a kit can't
+      // take a bring-your-own job) — it rides the sanitised offer safe set.
+      ['Supplies', suppliesLabel(booking.suppliesProvided)],
       // Net-first law: the cleaner's own figure, never the customer total.
       ...(booking.cleanerEarnings !== undefined
         ? ([['You&rsquo;d earn', `&pound;${booking.cleanerEarnings.toFixed(2)}`]] as [
@@ -1233,6 +1241,41 @@ export function buildSignupNotification(data: {
   rows.push(['Signed up', data.createdAt]);
   const contentHtml =
     h(`New ${roleLabel} Signup`) + infoBlock(rows) + button(adminUrl, 'View in admin dashboard');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+/** B1.3 dispute early-warning: admin alert on charge.dispute.created. The
+ *  evidence deadline is the headline — miss it and the dispute is lost by
+ *  default. Alerting only; the money legs (funds_withdrawn/reinstated) are
+ *  handled separately by the Xero pipeline. */
+export function buildAdminDisputeOpened(data: {
+  bookingRef: string;
+  bookingId: string | null;
+  customerName: string;
+  amount: string;
+  reason: string;
+  evidenceDueBy: string | null;
+}): EmailContent {
+  const subject = data.evidenceDueBy
+    ? `Dispute opened on booking ${data.bookingRef} — respond by ${data.evidenceDueBy}`
+    : `Dispute opened on booking ${data.bookingRef}`;
+  const rows: Array<[string, string]> = [
+    ['Booking', data.bookingRef],
+    ['Customer', data.customerName],
+    ['Amount disputed', data.amount],
+    ['Reason', data.reason],
+    ['Respond by', data.evidenceDueBy ?? 'Unknown — check the Stripe dashboard'],
+  ];
+  const contentHtml =
+    h('A customer has disputed a card payment') +
+    p(
+      'A chargeback has been opened against this booking. Evidence must be submitted in the Stripe dashboard <strong>before the deadline below</strong> or the dispute is lost by default.'
+    ) +
+    infoBlock(rows) +
+    button('https://dashboard.stripe.com/disputes', 'Open Stripe disputes') +
+    (data.bookingId
+      ? p(`Booking record: ${appUrl()}/admin/bookings (ref ${data.bookingRef})`)
+      : p('No matching booking was found for this charge — investigate in Stripe directly.'));
   return { subject, html: renderEmail({ contentHtml }) };
 }
 

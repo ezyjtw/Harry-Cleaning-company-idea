@@ -20,6 +20,62 @@ interface RecentSignup {
   date: string;
 }
 
+interface OpenCardDispute {
+  disputeId: string;
+  bookingRef: string;
+  amount: string;
+  dueBy: string | null;
+}
+
+// B1.3 dispute early-warning banner. Source of truth is the stored webhook
+// events (every verified event is persisted on receipt): a dispute is OPEN
+// when its charge.dispute.created event has no matching charge.dispute.closed.
+// Clearing therefore relies on charge.dispute.closed being enabled on the
+// platform webhook destination alongside .created. Alerting only — no money.
+async function getOpenCardDisputes(): Promise<OpenCardDispute[]> {
+  const [created, closed] = await Promise.all([
+    prisma.stripeWebhookEvent.findMany({
+      where: { type: 'charge.dispute.created' },
+      orderBy: { processedAt: 'desc' },
+      take: 20,
+      select: { payload: true },
+    }),
+    prisma.stripeWebhookEvent.findMany({
+      where: { type: 'charge.dispute.closed' },
+      select: { payload: true },
+    }),
+  ]);
+  const disputeOf = (payload: unknown) =>
+    (payload as { data?: { object?: Record<string, unknown> } })?.data?.object ?? {};
+  const closedIds = new Set(closed.map((e) => String(disputeOf(e.payload).id ?? '')));
+  const open = created
+    .map((e) => disputeOf(e.payload))
+    .filter((d) => d.id && !closedIds.has(String(d.id)));
+
+  return Promise.all(
+    open.map(async (d) => {
+      const chargeId =
+        typeof d.charge === 'string' ? d.charge : ((d.charge as { id?: string })?.id ?? null);
+      const booking = chargeId
+        ? await prisma.booking.findUnique({ where: { stripeChargeId: chargeId } }).catch(() => null)
+        : null;
+      const dueBySecs = (d.evidence_details as { due_by?: number } | undefined)?.due_by;
+      return {
+        disputeId: String(d.id),
+        bookingRef: booking ? booking.id.substring(0, 8).toUpperCase() : (chargeId ?? 'unknown'),
+        amount: `£${(Number(d.amount ?? 0) / 100).toFixed(2)}`,
+        dueBy: dueBySecs
+          ? new Date(dueBySecs * 1000).toLocaleDateString('en-GB', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })
+          : null,
+      };
+    })
+  );
+}
+
 async function getAdminMetrics() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -40,14 +96,15 @@ async function getAdminMetrics() {
     prisma.booking.count({
       where: { createdAt: { gte: startOfLastMonth, lt: startOfMonth } },
     }),
-    prisma.user.count({
-      where: { role: 'CLEANER', accountStatus: 'ACTIVE', isSuspended: false },
+    // B1.1: profile-based — a CleanerProfile row only exists once signup
+    // completes, so step-0 accounts never inflate the cleaner count. "New this
+    // week" keys on profile createdAt (the completion date).
+    prisma.cleanerProfile.count({
+      where: { user: { accountStatus: 'ACTIVE', isSuspended: false } },
     }),
-    prisma.user.count({
+    prisma.cleanerProfile.count({
       where: {
-        role: 'CLEANER',
-        accountStatus: 'ACTIVE',
-        isSuspended: false,
+        user: { accountStatus: 'ACTIVE', isSuspended: false },
         createdAt: { gte: startOfWeek },
       },
     }),
@@ -163,12 +220,15 @@ async function getRevenueLastWeek(): Promise<number[]> {
 }
 
 export default async function AdminDashboard() {
-  const [metrics, recentBookings, recentSignups, revenueWeek] = await Promise.all([
-    getAdminMetrics(),
-    getRecentBookings(),
-    getRecentSignups(),
-    getRevenueLastWeek(),
-  ]);
+  const [metrics, recentBookings, recentSignups, revenueWeek, openCardDisputes] = await Promise.all(
+    [
+      getAdminMetrics(),
+      getRecentBookings(),
+      getRecentSignups(),
+      getRevenueLastWeek(),
+      getOpenCardDisputes().catch(() => []),
+    ]
+  );
 
   const colorMap: Record<string, { bg: string; text: string; icon: string }> = {
     blue: { bg: 'bg-primary-soft', text: 'text-primary', icon: 'text-primary' },
@@ -213,6 +273,39 @@ export default async function AdminDashboard() {
           </a>
         </div>
       </div>
+
+      {/* B1.3: open card-dispute banner — unmissable, above everything else. */}
+      {openCardDisputes.length > 0 && (
+        <div className="mb-6 rounded-xl border border-danger/40 bg-danger/10 p-4">
+          <p className="font-jost text-sm font-semibold text-danger">
+            ⚠ {openCardDisputes.length} open card dispute
+            {openCardDisputes.length > 1 ? 's' : ''} — evidence deadlines apply
+          </p>
+          <ul className="mt-2 space-y-1">
+            {openCardDisputes.map((d) => (
+              <li key={d.disputeId} className="font-jost text-sm text-ink">
+                Dispute opened on booking <strong>{d.bookingRef}</strong> ({d.amount})
+                {d.dueBy ? (
+                  <>
+                    {' '}
+                    — respond by <strong>{d.dueBy}</strong>
+                  </>
+                ) : (
+                  <> — deadline unknown, check Stripe</>
+                )}
+              </li>
+            ))}
+          </ul>
+          <a
+            href="https://dashboard.stripe.com/disputes"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-block font-jost text-sm font-medium text-danger underline"
+          >
+            Respond in the Stripe dashboard
+          </a>
+        </div>
+      )}
 
       {/* Metrics cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

@@ -215,7 +215,12 @@ export async function sendRefundConfirmation(
 
 export async function sendCleanerAssignment(
   // F1: the offer email requires the SANITISED area (never the full address).
-  booking: BookingEmailData & { area: string; cleanerEarnings?: number },
+  // LB-7: supplies rides the safe set — decision-relevant, not sensitive.
+  booking: BookingEmailData & {
+    area: string;
+    cleanerEarnings?: number;
+    suppliesProvided?: boolean | null;
+  },
   cleaner: CleanerEmailData
 ): Promise<boolean> {
   const { subject, html } = buildCleanerAssignment(booking, cleaner);
@@ -762,6 +767,7 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
         totalPrice: 0,
         area,
         cleanerEarnings: earnings,
+        suppliesProvided: b.suppliesProvided,
       },
       { name: u.name || 'there', email: u.email }
     ).catch(() => {});
@@ -806,6 +812,7 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
     fullAddress,
     cleanerEarnings: earnings,
     detailUrl,
+    suppliesProvided: b.suppliesProvided,
   });
   const { subject, html } = buildCleanerJobAccepted({
     cleanerName: b.cleaner.name || 'there',
@@ -1170,6 +1177,25 @@ export async function sendSignupNotification(data: {
   if (!notificationEmail) return false;
 
   const { subject, html } = buildSignupNotification(data);
+  return sendEmail(notificationEmail, subject, html);
+}
+
+// ─── Dispute early-warning (B1.3) ──────────────────────────
+
+/** Admin alert on charge.dispute.created — same recipient as signup
+ *  notifications. Alerting only; no money movement here. */
+export async function sendAdminDisputeOpened(data: {
+  bookingRef: string;
+  bookingId: string | null;
+  customerName: string;
+  amount: string;
+  reason: string;
+  evidenceDueBy: string | null;
+}): Promise<boolean> {
+  const notificationEmail = process.env.RESEND_NOTIFICATION_EMAIL;
+  if (!notificationEmail) return false;
+  const { buildAdminDisputeOpened } = await import('./email-templates');
+  const { subject, html } = buildAdminDisputeOpened(data);
   return sendEmail(notificationEmail, subject, html);
 }
 

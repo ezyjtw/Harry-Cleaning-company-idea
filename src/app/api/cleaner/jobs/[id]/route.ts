@@ -186,6 +186,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           ? ((booking.rooms as Record<string, unknown>)?.keyAccessNote as string | undefined)
           : undefined,
       cleanerNotes: booking.cleanerNotes,
+      // LB-7: supplies is DECISION-relevant, not sensitive — a cleaner without
+      // a kit can't take a bring-your-own job. Unlike address/notes it is in
+      // the sanitised PRE-ACCEPT safe set, alongside date/time/area/pay.
+      suppliesProvided: booking.suppliesProvided,
       bedrooms: (booking.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
       extras: booking.extras,
       createdAt: booking.createdAt.toISOString(),

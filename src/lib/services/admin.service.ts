@@ -109,14 +109,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     prisma.booking.count({
       where: { createdAt: { gte: startOfLastMonth, lt: startOfMonth } },
     }),
-    prisma.user.count({
-      where: { role: 'CLEANER', accountStatus: 'ACTIVE', isSuspended: false },
+    // B1.1: profile-based — see admin dashboard page; step-0 accounts (no
+    // CleanerProfile yet) never inflate the cleaner count.
+    prisma.cleanerProfile.count({
+      where: { user: { accountStatus: 'ACTIVE', isSuspended: false } },
     }),
-    prisma.user.count({
+    prisma.cleanerProfile.count({
       where: {
-        role: 'CLEANER',
-        accountStatus: 'ACTIVE',
-        isSuspended: false,
+        user: { accountStatus: 'ACTIVE', isSuspended: false },
         createdAt: { gte: startOfWeek },
       },
     }),

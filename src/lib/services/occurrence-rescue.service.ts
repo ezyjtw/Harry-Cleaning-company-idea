@@ -215,6 +215,35 @@ export async function holidayCantMake(params: {
   return { ok: true, status: 200, flagged, customers: byCustomer.size };
 }
 
+/** LB-1 (James-ruled): the Going-away form ALSO blocks the range in the
+ *  cleaner's availability — closing the gap where new one-off bookings could
+ *  land during a holiday. Rides the existing blockDate upsert (idempotent);
+ *  unblocking is the existing Blocked Dates UI (holidays have no entity of
+ *  their own to delete — reported at the gate). */
+export async function blockHolidayDates(params: {
+  cleanerId: string;
+  startDate: string;
+  endDate: string;
+}): Promise<{ blocked: number }> {
+  const profile = await prisma.cleanerProfile.findUnique({
+    where: { userId: params.cleanerId },
+    select: { id: true },
+  });
+  if (!profile) return { blocked: 0 };
+  const { AvailabilityService } = await import('@/lib/services/availability.service');
+  const blocked = await AvailabilityService.blockDateRange(
+    profile.id,
+    new Date(`${params.startDate}T00:00:00.000Z`),
+    new Date(`${params.endDate}T00:00:00.000Z`),
+    'Away (holiday)'
+  );
+  // eslint-disable-next-line no-console
+  console.log(
+    `[OccurrenceRescue] HOLIDAY auto-block: ${blocked} date(s) blocked ${params.startDate}..${params.endDate}`
+  );
+  return { blocked };
+}
+
 /** Customer: reschedule an UNPAID flagged occurrence with the SAME cleaner —
  *  it stays SCHEDULED and charges at its new T-48h. The new slot must pass the
  *  cleaner's real availability (same predicate as every picker). */

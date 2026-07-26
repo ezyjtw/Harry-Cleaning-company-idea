@@ -1488,8 +1488,8 @@ export default function AvailabilityPage() {
               )}
               <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
                 Paid cleans offer your customer a reschedule, cover, or a full refund; uncharged
-                ones offer a new date or a free skip. Remember to also block the dates below so
-                one-off bookings can&rsquo;t land while you&rsquo;re away.
+                ones offer a new date or a free skip. The dates are also blocked in your
+                availability automatically — unblock them any time under Blocked Dates.
               </p>
             </div>
           </div>

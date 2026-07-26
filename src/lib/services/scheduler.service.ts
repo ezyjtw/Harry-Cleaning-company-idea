@@ -30,6 +30,7 @@ export interface SchedulerSummary {
   recurringWindows: HandlerResult;
   recurringCharges: HandlerResult;
   recurringCancels: HandlerResult;
+  incompleteSignups: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -402,6 +403,20 @@ async function processRecurringCancels(): Promise<HandlerResult> {
   }
 }
 
+// LB-3: 30-day auto-expiry of incomplete cleaner signups. Same structural
+// guard as the admin broom (removeIncompleteSignup is the shared core); the
+// sweep only adds the age cutoff. Converges to zero; audit rows say swept:true.
+async function processIncompleteSignups(): Promise<HandlerResult> {
+  try {
+    const { sweepIncompleteSignups } = await import('./incomplete-signup.service');
+    return await sweepIncompleteSignups();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[IncompleteSweep] sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
@@ -417,6 +432,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const recurringWindows = await processRecurringWindows();
   const recurringCharges = await processRecurringCharges();
   const recurringCancels = await processRecurringCancels();
+  const incompleteSignups = await processIncompleteSignups();
 
   return {
     timestamp: new Date().toISOString(),
@@ -434,5 +450,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     recurringWindows,
     recurringCharges,
     recurringCancels,
+    incompleteSignups,
   };
 }
