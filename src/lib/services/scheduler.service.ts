@@ -27,6 +27,7 @@ export interface SchedulerSummary {
   stuckJobs: HandlerResult;
   completedAtBackfill: HandlerResult;
   catchmentHeal: HandlerResult;
+  recurringWindows: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -360,6 +361,20 @@ async function processStuckJobs(): Promise<HandlerResult> {
   }
 }
 
+// R1-A: extend every ACTIVE agreement's rolling 8-week occurrence window.
+// mintOccurrences is idempotent (existing dates skipped), so the 5-minute cron
+// cadence is safe — most ticks mint nothing; the weekly roll-over mints one.
+async function processRecurringWindows(): Promise<HandlerResult> {
+  try {
+    const { extendAgreementWindows } = await import('./recurring.service');
+    return await extendAgreementWindows();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[Recurring] window extension failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
@@ -372,6 +387,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const stuckJobs = await processStuckJobs();
   const completedAtBackfill = await processCompletedAtBackfill();
   const catchmentHeal = await processCatchmentHeal();
+  const recurringWindows = await processRecurringWindows();
 
   return {
     timestamp: new Date().toISOString(),
@@ -386,5 +402,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     stuckJobs,
     completedAtBackfill,
     catchmentHeal,
+    recurringWindows,
   };
 }

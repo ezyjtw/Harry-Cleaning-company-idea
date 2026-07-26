@@ -51,8 +51,14 @@ export async function GET(request: NextRequest) {
       where: {
         cleanerId: user.id,
         date: { gte: start, lte: end },
-        status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE'] },
-        ...paidVisibleWhere(),
+        // R1-A: SCHEDULED occurrences are the ONE deliberate exception to the
+        // paid-visible law on this surface — they are unpaid BY DESIGN until
+        // the T-48h charge, and the cleaner must see their regular client as
+        // a blocked slot. Everything else keeps the H53 gate.
+        OR: [
+          { status: { in: ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE'] }, ...paidVisibleWhere() },
+          { status: 'SCHEDULED' },
+        ],
         AND: [notOwnBookingWhere(user.id)],
       },
       select: {
@@ -136,6 +142,8 @@ export async function GET(request: NextRequest) {
         customerFirstName: fullName.split(' ')[0],
         // Postcode AREA only (outward code) — the calendar is a glance surface.
         postcodeArea: postcode.split(' ')[0] || '',
+        // R1-A: lets the calendar label the slot "Regular client".
+        isRegular: b.status === 'SCHEDULED',
       };
     }),
     days,

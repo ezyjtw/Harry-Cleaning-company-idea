@@ -55,6 +55,10 @@ export function blocksCleanerSlotWhere(): {
             'COMPLETED',
             'REVIEWED',
             'DISPUTED',
+            // R1-A: a scheduled occurrence of a recurring agreement IS the
+            // commitment — blocking the slot for the regular client is the
+            // entire point of the agreement.
+            'SCHEDULED',
           ],
         },
       },

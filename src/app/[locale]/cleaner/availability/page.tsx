@@ -3,12 +3,16 @@
 import { signOut } from 'next-auth/react';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 
+import RecurringAgreementsCard from '@/components/RecurringAgreementsCard';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { recordNav } from '@/lib/nav/nav-trace';
 
 interface TimeSlot {
   start: string;
   end: string;
+  // R1-A: "Open to regular clients" — lets customers book this weekly slot as
+  // a standing weekly/fortnightly clean.
+  recurringEligible?: boolean;
 }
 
 interface BlockedDate {
@@ -330,6 +334,18 @@ export default function AvailabilityPage() {
         .padStart(2, '0');
       const endM = (newEndMins % 60).toString().padStart(2, '0');
       return { ...prev, [day]: [...existing, { start: lastEnd, end: `${endH}:${endM}` }] };
+    });
+    setDirty(true);
+    setSaved(false);
+    setValidationError(null);
+  };
+
+  // R1-A: per-slot "Open to regular clients" toggle.
+  const toggleRecurringEligible = (day: DayOfWeek, index: number) => {
+    setWeeklyRanges((prev) => {
+      const ranges = [...prev[day]];
+      ranges[index] = { ...ranges[index], recurringEligible: !ranges[index].recurringEligible };
+      return { ...prev, [day]: ranges };
     });
     setDirty(true);
     setSaved(false);
@@ -1354,6 +1370,17 @@ export default function AvailabilityPage() {
                                 />
                               </svg>
                             </button>
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!range.recurringEligible}
+                                onChange={() => toggleRecurringEligible(day, idx)}
+                                className="h-3.5 w-3.5 rounded border-ink/20 text-primary focus:ring-primary/30"
+                              />
+                              <span className="font-jost text-xs font-light text-ink-3">
+                                Open to regular clients
+                              </span>
+                            </label>
                           </div>
                         ))}
                         <button
@@ -1383,6 +1410,9 @@ export default function AvailabilityPage() {
               })}
             </div>
           </div>
+
+          {/* R1-A: standing regular clients — renders only when one exists. */}
+          <RecurringAgreementsCard role="CLEANER" className="mb-6" />
 
           {/* Blocked dates */}
           <div

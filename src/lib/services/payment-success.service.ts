@@ -123,6 +123,13 @@ export async function processPaymentSuccess(
     stripeChargeId: pi.chargeId ?? undefined,
   }).catch(() => {});
 
+  // R1-A: first occurrence paid → the agreement gains its anchor; mint the
+  // rolling window of SCHEDULED occurrences (fire-and-forget, idempotent).
+  if (booking.agreementId) {
+    const { mintOccurrences } = await import('@/lib/services/recurring.service');
+    void mintOccurrences(booking.agreementId).catch(() => {});
+  }
+
   // Confirmation + cleaner-offer emails fire HERE, on payment success — not at
   // booking creation — so an abandoned/unpaid booking never triggers a
   // "you're booked" email.

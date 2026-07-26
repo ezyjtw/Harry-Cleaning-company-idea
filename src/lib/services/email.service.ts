@@ -775,6 +775,56 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
   });
 }
 
+// R1-A: agreement-ended notice to the AFFECTED party (the other side gets a
+// bell from the recurring service). Cleaner ended → customer/guest email;
+// customer ended → cleaner email. Guest parity: guest agreements have
+// guestEmail on the agreement row itself.
+export async function sendAgreementEnded(
+  agreementId: string,
+  endedBy: 'CLEANER' | 'CUSTOMER'
+): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const a = await prisma.recurringAgreement.findUnique({
+    where: { id: agreementId },
+    include: {
+      cleaner: { select: { id: true, name: true, email: true } },
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!a) return false;
+  const { serviceLabelFromSlug } = await import('@/lib/constants/services');
+  const { buildAgreementEnded } = await import('./email-templates');
+
+  const frequencyLabel = a.frequency === 'WEEKLY' ? 'weekly' : 'fortnightly';
+  const serviceLabel = serviceLabelFromSlug(a.serviceType);
+
+  let to: string | null;
+  let recipientName: string;
+  let otherPartyName: string;
+  let userId: string | undefined;
+  if (endedBy === 'CLEANER') {
+    to = a.client?.email ?? a.guestEmail;
+    recipientName = a.client?.name ?? a.guestName ?? 'there';
+    otherPartyName = a.cleaner.name || 'Your cleaner';
+    userId = a.client?.id;
+  } else {
+    to = a.cleaner.email;
+    recipientName = a.cleaner.name || 'there';
+    otherPartyName = a.client?.name ?? a.guestName ?? 'Your client';
+    userId = a.cleaner.id;
+  }
+  if (!to) return false;
+
+  const { subject, html } = buildAgreementEnded({
+    recipientName,
+    endedBy,
+    otherPartyName,
+    serviceLabel,
+    frequencyLabel,
+  });
+  return sendEmail(to, subject, html, userId ? { userId } : undefined);
+}
+
 // ─── X1 cascade milestone emails ───────────────────────────
 
 async function resolveBookingRecipient(bookingId: string): Promise<{

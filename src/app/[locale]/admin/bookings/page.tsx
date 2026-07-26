@@ -23,7 +23,8 @@ export interface BookingRow {
     | 'cancelled'
     | 'disputed'
     | 'cascade_exhausted'
-    | 'abandoned';
+    | 'abandoned'
+    | 'scheduled';
   paymentStatus: string;
 }
 
@@ -48,6 +49,9 @@ function mapStatus(prismaStatus: string): BookingRow['status'] {
     // never masquerading as 'pending' via the default arm.
     case 'ABANDONED':
       return 'abandoned';
+    // R1-A: future recurring occurrences — their own bucket, never 'pending'.
+    case 'SCHEDULED':
+      return 'scheduled';
     case 'DISPUTED':
       return 'disputed';
     case 'CASCADE_EXHAUSTED':

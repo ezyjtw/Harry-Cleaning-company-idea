@@ -372,6 +372,46 @@ export function buildCleanerJobAccepted(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// R1-A: agreement-ended notice — no lock-in, either side can end. The AFFECTED
+// party gets this email. Money honesty: SCHEDULED occurrences are unpaid by
+// definition (Phase B charges at T-48h), so "nothing has been charged" is a
+// structural truth, not a promise.
+export function buildAgreementEnded(data: {
+  recipientName: string;
+  endedBy: 'CLEANER' | 'CUSTOMER';
+  otherPartyName: string;
+  serviceLabel: string;
+  frequencyLabel: string; // 'weekly' | 'fortnightly'
+}): EmailContent {
+  if (data.endedBy === 'CLEANER') {
+    // Cleaner ended → the customer hears it.
+    const subject = 'Your regular clean has ended';
+    const contentHtml =
+      h('Your regular clean has ended') +
+      p(`Hi ${data.recipientName},`) +
+      p(
+        `${data.otherPartyName} has ended your ${data.frequencyLabel} ${data.serviceLabel} arrangement. ` +
+          'All upcoming scheduled cleans are cancelled and nothing has been charged for them.'
+      ) +
+      p(
+        'Any clean that already happened is unaffected. If you&rsquo;d like to keep a regular clean going, you can book with another cleaner any time.'
+      ) +
+      button(`${appUrl()}/booking`, 'Book a clean');
+    return { subject, html: renderEmail({ contentHtml }) };
+  }
+  // Customer ended → the cleaner hears it.
+  const subject = 'A regular client has ended their arrangement';
+  const contentHtml =
+    h('Regular arrangement ended') +
+    p(`Hi ${data.recipientName},`) +
+    p(
+      `${data.otherPartyName} has ended their ${data.frequencyLabel} ${data.serviceLabel} arrangement. ` +
+        'Their upcoming scheduled cleans are cancelled and those slots are now free for other bookings.'
+    ) +
+    p('Any clean you&rsquo;ve already completed is unaffected — earnings from it stand as normal.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildPasswordReset(token: string): EmailContent {
   const resetLink = `${appUrl()}/reset-password?token=${token}`;
   const subject = 'Reset your password - Rena Cleaning Network';

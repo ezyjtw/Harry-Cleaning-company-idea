@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
+import RecurringAgreementsCard from '@/components/RecurringAgreementsCard';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -412,6 +413,9 @@ export default function AccountHome() {
           )}
         </div>
       </section>
+
+      {/* R1-A: standing regular cleans — renders only when one exists. */}
+      <RecurringAgreementsCard role="CUSTOMER" />
 
       {/* Your Cleaners — teaser into the My Cleaners tab */}
       {recentCleaners.length > 0 && (

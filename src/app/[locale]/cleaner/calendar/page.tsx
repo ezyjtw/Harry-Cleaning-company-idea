@@ -22,6 +22,9 @@ interface CalendarBooking {
   earnings: number;
   customerFirstName: string;
   postcodeArea: string;
+  // R1-A: SCHEDULED occurrence of a recurring agreement — rendered as a
+  // blocked slot labelled "Regular client", not a clickable job.
+  isRegular?: boolean;
 }
 
 // H56 polish: per-day ghost availability — the cleaner's own remaining open
@@ -153,23 +156,43 @@ export default function CleanerCalendarPage() {
     [monthAnchor]
   );
 
-  const BookingBlock = ({ b }: { b: CalendarBooking }) => (
-    <NavLink
-      surface="cleaner-calendar"
-      href={`/cleaner/jobs?tab=${JOBS_TAB_FOR_STATUS[b.status] ?? 'pending'}#job-${b.id}`}
-      className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3 transition hover:border-primary/50"
-    >
-      <p className="font-jost text-[13px] font-medium text-primary">
-        {b.startTime} · {b.duration}h
-      </p>
-      <p className="truncate font-jost text-[12px] text-ink">
-        {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
-      </p>
-      <p className="font-jost text-[11px] font-light text-ink-3">
-        {b.postcodeArea && `${b.postcodeArea} · `}£{b.earnings.toFixed(2)}
-      </p>
-    </NavLink>
-  );
+  const BookingBlock = ({ b }: { b: CalendarBooking }) => {
+    // R1-A: SCHEDULED occurrences are slot-blockers, not jobs — no deep link
+    // (they're hidden from the Jobs surface by law), a "Regular client" label
+    // instead of workflow affordances.
+    if (b.isRegular) {
+      return (
+        <div className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3">
+          <p className="font-jost text-[13px] font-medium text-primary">
+            {b.startTime} · {b.duration}h
+          </p>
+          <p className="truncate font-jost text-[12px] text-ink">
+            {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
+          </p>
+          <p className="font-jost text-[11px] font-light text-ink-3">
+            Regular client{b.postcodeArea && ` · ${b.postcodeArea}`}
+          </p>
+        </div>
+      );
+    }
+    return (
+      <NavLink
+        surface="cleaner-calendar"
+        href={`/cleaner/jobs?tab=${JOBS_TAB_FOR_STATUS[b.status] ?? 'pending'}#job-${b.id}`}
+        className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3 transition hover:border-primary/50"
+      >
+        <p className="font-jost text-[13px] font-medium text-primary">
+          {b.startTime} · {b.duration}h
+        </p>
+        <p className="truncate font-jost text-[12px] text-ink">
+          {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
+        </p>
+        <p className="font-jost text-[11px] font-light text-ink-3">
+          {b.postcodeArea && `${b.postcodeArea} · `}£{b.earnings.toFixed(2)}
+        </p>
+      </NavLink>
+    );
+  };
 
   // Ghost availability slot — the "open for work" fill on days without (or
   // around) bookings. Faint, dashed, never clickable: it's context, not a CTA.

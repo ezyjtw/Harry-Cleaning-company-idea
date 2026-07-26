@@ -167,16 +167,30 @@ export async function updateAvailability(
   };
 
   await prisma.$transaction(async (tx) => {
+    // R1-A: delete-and-recreate must not clobber "open to regular clients" —
+    // carry the flag across for slots that survive with the same day+times.
+    const previous = await tx.availabilitySlot.findMany({
+      where: { cleanerProfileId: profile.id },
+      select: { dayOfWeek: true, startTime: true, endTime: true, recurringEligible: true },
+    });
+    const previousFlags = new Map(
+      previous.map((s) => [`${s.dayOfWeek}|${s.startTime}|${s.endTime}`, s.recurringEligible])
+    );
+
     await tx.availabilitySlot.deleteMany({
       where: { cleanerProfileId: profile.id },
     });
 
-    const data = slots.map((slot) => ({
-      cleanerProfileId: profile.id,
-      dayOfWeek: DAY_TO_NUMBER[slot.day] ?? 0,
-      startTime: slot.start,
-      endTime: slot.end,
-    }));
+    const data = slots.map((slot) => {
+      const dayOfWeek = DAY_TO_NUMBER[slot.day] ?? 0;
+      return {
+        cleanerProfileId: profile.id,
+        dayOfWeek,
+        startTime: slot.start,
+        endTime: slot.end,
+        recurringEligible: previousFlags.get(`${dayOfWeek}|${slot.start}|${slot.end}`) ?? false,
+      };
+    });
 
     if (data.length > 0) {
       await tx.availabilitySlot.createMany({ data });
