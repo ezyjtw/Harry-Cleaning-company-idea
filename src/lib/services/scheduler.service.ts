@@ -28,6 +28,8 @@ export interface SchedulerSummary {
   completedAtBackfill: HandlerResult;
   catchmentHeal: HandlerResult;
   recurringWindows: HandlerResult;
+  recurringCharges: HandlerResult;
+  recurringCancels: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -375,6 +377,31 @@ async function processRecurringWindows(): Promise<HandlerResult> {
   }
 }
 
+// R1-B: the T-48h single-attempt charge sweep + the T-24h unpaid auto-cancel.
+// Both flag-gated (RECURRING_AUTOCHARGE) inside the service; both idempotent
+// (paymentStatus is the attempt marker; the cancel is an atomic claim).
+async function processRecurringCharges(): Promise<HandlerResult> {
+  try {
+    const { processRecurringCharges: run } = await import('./recurring-charge.service');
+    return await run();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[RecurringCharge] charge sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
+async function processRecurringCancels(): Promise<HandlerResult> {
+  try {
+    const { cancelUnpaidOccurrences } = await import('./recurring-charge.service');
+    return await cancelUnpaidOccurrences();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[RecurringCharge] cancel sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
@@ -388,6 +415,8 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const completedAtBackfill = await processCompletedAtBackfill();
   const catchmentHeal = await processCatchmentHeal();
   const recurringWindows = await processRecurringWindows();
+  const recurringCharges = await processRecurringCharges();
+  const recurringCancels = await processRecurringCancels();
 
   return {
     timestamp: new Date().toISOString(),
@@ -403,5 +432,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     completedAtBackfill,
     catchmentHeal,
     recurringWindows,
+    recurringCharges,
+    recurringCancels,
   };
 }

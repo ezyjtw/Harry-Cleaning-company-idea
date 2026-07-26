@@ -87,6 +87,89 @@ export async function processPaymentSuccess(
     });
   }
 
+  // ── R1-B: OCCURRENCE branch — a paid SCHEDULED occurrence becomes the
+  // cleaner's confirmed job directly (SCHEDULED→ACCEPTED). No cascade, no
+  // offer emails: the agreement's cleaner already owns the slot. Everything
+  // else (Xero push, receipt, lifecycle, payout-on-completion) rides the same
+  // laws as any paid booking.
+  if (booking.agreementId && booking.status === 'SCHEDULED') {
+    const claimed = await prisma.booking.updateMany({
+      where: { id: bookingId, status: 'SCHEDULED' },
+      data: {
+        paymentStatus: 'SUCCEEDED',
+        status: 'ACCEPTED',
+        ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
+      },
+    });
+    if (claimed.count === 0) {
+      // Cancelled between our read and the claim — the same cancel/pay race
+      // as below; route it to the refund handler rather than dropping it.
+      return handleLateOccurrencePayment(bookingId, pi);
+    }
+
+    await enqueueXeroPush({
+      bookingId,
+      event: 'PAYMENT_RECEIVED',
+      // pi.created robustness (the ledgered nit, defended here): a malformed
+      // event must never crash the claim-winner's side-effects.
+      occurredAt: new Date(
+        (Number.isFinite(pi.created) ? pi.created : Math.floor(Date.now() / 1000)) * 1000
+      ).toISOString(),
+      stripeChargeId: pi.chargeId ?? undefined,
+    }).catch(() => {});
+
+    const dateStr = booking.date.toISOString().split('T')[0];
+    // Customer: the existing receipt template — money left their card
+    // off-session, so the movement is never silent.
+    const { sendPaymentReceipt } = await import('@/lib/services/email.service');
+    const recipientEmail = booking.client?.email ?? booking.guestEmail;
+    if (recipientEmail) {
+      await sendPaymentReceipt(
+        {
+          id: pi.id,
+          bookingId,
+          amount: Number(booking.totalAmountCharged ?? booking.totalPrice),
+          date: dateStr,
+          method: 'Saved card',
+        },
+        {
+          name: booking.client?.name || booking.guestName || 'Customer',
+          email: recipientEmail,
+        }
+      ).catch(() => {});
+    }
+    // Cleaner: their regular clean is now a confirmed job — the F8 accepted
+    // email (with the .ics) is exactly that moment.
+    const { sendCleanerJobAccepted } = await import('@/lib/services/email.service');
+    await sendCleanerJobAccepted(bookingId).catch(() => {});
+    await prisma.notification
+      .create({
+        data: {
+          userId: booking.cleanerId,
+          type: 'BOOKING_CONFIRMED',
+          title: 'Regular clean confirmed',
+          body: `Your regular clean on ${dateStr} is paid and confirmed.`,
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+
+    // eslint-disable-next-line no-console
+    console.log(`[RecurringCharge] occurrence ${bookingId} paid → ACCEPTED (${dateStr})`);
+    return 'PROCESSED';
+  }
+
+  // ── R1-B (James-ruled race fix): the T-24h sweep cancelled this occurrence
+  // and the payment success arrived AFTER — money is never silently kept
+  // against a cancelled clean. Full automatic refund + honest email.
+  if (
+    booking.agreementId &&
+    booking.status === 'CANCELLED' &&
+    booking.paymentStatus === 'CANCELED'
+  ) {
+    return handleLateOccurrencePayment(bookingId, pi);
+  }
+
   // Compute cascade windows (safe — falls back to COMBINED_OFFER on parse failure)
   const now = new Date();
   const cascadeData = computeCascadeWindows(booking.date, booking.startTime, now);
@@ -219,6 +302,84 @@ export async function processPaymentSuccess(
   }
 
   return 'PROCESSED';
+}
+
+// ─── R1-B cancel/pay race handler ─────────────────────────────────────────────
+//
+// The T-24h sweep cancelled the occurrence (status CANCELLED + paymentStatus
+// CANCELED — its exact signature) and the payment's success landed afterwards.
+// James-ruled: automatic FULL refund through the existing refund service, an
+// honest email, and a loud log. Idempotent: once refunded the row's
+// paymentStatus is no longer CANCELED, so a replayed success event falls
+// through to the normal no-op paths.
+
+async function handleLateOccurrencePayment(
+  bookingId: string,
+  pi: PaymentSuccessInput['pi']
+): Promise<PaymentSuccessOutcome> {
+  const row = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      paymentStatus: true,
+      agreementId: true,
+      totalAmountCharged: true,
+      totalPrice: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { name: true, email: true } },
+      cleaner: { select: { name: true } },
+      date: true,
+      refundRecords: { where: { status: 'SUCCEEDED' }, select: { id: true } },
+    },
+  });
+  if (
+    !row ||
+    !row.agreementId ||
+    row.status !== 'CANCELLED' ||
+    row.paymentStatus !== 'CANCELED' ||
+    row.refundRecords.length > 0
+  ) {
+    return 'SKIPPED_ALREADY';
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `[RecurringCharge] LATE PAYMENT on cancelled occurrence ${bookingId} — auto-refunded`
+  );
+
+  // Record the truth first — the charge DID succeed — so the refund service's
+  // payment guards see reality; then refund in full through the existing path.
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      paymentStatus: 'SUCCEEDED',
+      ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
+    },
+  });
+  const amount = Number(row.totalAmountCharged ?? row.totalPrice);
+  const { refundBooking } = await import('@/lib/services/refund.service');
+  const refund = await refundBooking(
+    bookingId,
+    amount,
+    'Late payment on a cancelled occurrence — automatic full refund',
+    { triggeredBy: 'system' }
+  );
+  if (refund.status !== 'REFUNDED' && refund.status !== 'PARTIALLY_REFUNDED') {
+    // Money is sitting against a cancelled clean — the loudest line we have.
+    // eslint-disable-next-line no-console
+    console.error(
+      `[RecurringCharge] LATE PAYMENT refund FAILED for ${bookingId} (${refund.reason ?? refund.status}) — customer money held against a cancelled clean, INVESTIGATE`
+    );
+    return 'SKIPPED_ALREADY';
+  }
+
+  const to = row.client?.email ?? row.guestEmail;
+  if (to) {
+    const { sendOccurrenceLatePaymentRefunded } = await import('@/lib/services/email.service');
+    await sendOccurrenceLatePaymentRefunded(bookingId).catch(() => {});
+  }
+  return 'SKIPPED_ALREADY';
 }
 
 // ─── The safety-net sweep (M4) ────────────────────────────────────────────────
