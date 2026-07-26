@@ -87,6 +87,70 @@ export async function processPaymentSuccess(
     });
   }
 
+  // ── R1-B: OCCURRENCE branch — a paid SCHEDULED occurrence becomes the
+  // cleaner's confirmed job directly (SCHEDULED→ACCEPTED). No cascade, no
+  // offer emails: the agreement's cleaner already owns the slot. Everything
+  // else (Xero push, receipt, lifecycle, payout-on-completion) rides the same
+  // laws as any paid booking.
+  if (booking.agreementId && booking.status === 'SCHEDULED') {
+    const claimed = await prisma.booking.updateMany({
+      where: { id: bookingId, status: 'SCHEDULED' },
+      data: {
+        paymentStatus: 'SUCCEEDED',
+        status: 'ACCEPTED',
+        ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
+      },
+    });
+    if (claimed.count === 0) return 'SKIPPED_ALREADY';
+
+    await enqueueXeroPush({
+      bookingId,
+      event: 'PAYMENT_RECEIVED',
+      occurredAt: new Date(pi.created * 1000).toISOString(),
+      stripeChargeId: pi.chargeId ?? undefined,
+    }).catch(() => {});
+
+    const dateStr = booking.date.toISOString().split('T')[0];
+    // Customer: the existing receipt template — money left their card
+    // off-session, so the movement is never silent.
+    const { sendPaymentReceipt } = await import('@/lib/services/email.service');
+    const recipientEmail = booking.client?.email ?? booking.guestEmail;
+    if (recipientEmail) {
+      await sendPaymentReceipt(
+        {
+          id: pi.id,
+          bookingId,
+          amount: Number(booking.totalAmountCharged ?? booking.totalPrice),
+          date: dateStr,
+          method: 'Saved card',
+        },
+        {
+          name: booking.client?.name || booking.guestName || 'Customer',
+          email: recipientEmail,
+        }
+      ).catch(() => {});
+    }
+    // Cleaner: their regular clean is now a confirmed job — the F8 accepted
+    // email (with the .ics) is exactly that moment.
+    const { sendCleanerJobAccepted } = await import('@/lib/services/email.service');
+    await sendCleanerJobAccepted(bookingId).catch(() => {});
+    await prisma.notification
+      .create({
+        data: {
+          userId: booking.cleanerId,
+          type: 'BOOKING_CONFIRMED',
+          title: 'Regular clean confirmed',
+          body: `Your regular clean on ${dateStr} is paid and confirmed.`,
+          data: { bookingId },
+        },
+      })
+      .catch(() => {});
+
+    // eslint-disable-next-line no-console
+    console.log(`[RecurringCharge] occurrence ${bookingId} paid → ACCEPTED (${dateStr})`);
+    return 'PROCESSED';
+  }
+
   // Compute cascade windows (safe — falls back to COMBINED_OFFER on parse failure)
   const now = new Date();
   const cascadeData = computeCascadeWindows(booking.date, booking.startTime, now);

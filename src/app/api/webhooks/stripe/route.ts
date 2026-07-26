@@ -191,6 +191,27 @@ export async function POST(request: NextRequest) {
     const bookingId = pi.metadata?.bookingId;
 
     if (bookingId) {
+      // R1-B: SCHEDULED occurrences are the recurring-charge service's
+      // problem, not this handler's — it already sent the specific "pay now to
+      // keep your slot" email on the single failed attempt, and the T-24h
+      // sweep owns the cancellation. The generic failure email and the
+      // PENDING-teardown below must not fire for them.
+      const failedBooking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { status: true, agreementId: true },
+      });
+      if (failedBooking?.agreementId && failedBooking.status === 'SCHEDULED') {
+        await prisma.booking.update({
+          where: { id: bookingId },
+          data: { paymentStatus: 'FAILED' },
+        });
+        // eslint-disable-next-line no-console
+        console.log(
+          `[RecurringCharge] payment_failed webhook for occurrence ${bookingId} — marked FAILED, messaging owned by the charge service`
+        );
+        return NextResponse.json({ received: true });
+      }
+
       await prisma.booking.update({
         where: { id: bookingId },
         data: { paymentStatus: 'FAILED' },

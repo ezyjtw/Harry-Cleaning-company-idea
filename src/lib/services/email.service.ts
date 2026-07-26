@@ -871,6 +871,79 @@ export async function sendAgreementEnded(
   return sendEmail(to, subject, html, userId ? { userId } : undefined);
 }
 
+// R1-B: the single-attempt failure email — "pay now to keep your slot". The
+// link is the occurrence's ON-SESSION checkout (/pay/[id]); guests carry their
+// token. ESSENTIAL category — a payment problem is never opt-out-able.
+export async function sendOccurrencePayNow(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      startTime: true,
+      guestEmail: true,
+      guestName: true,
+      guestToken: true,
+      clientId: true,
+      client: { select: { name: true, email: true } },
+      cleaner: { select: { name: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const payUrl = b.clientId
+    ? `${appUrl}/pay/${bookingId}`
+    : `${appUrl}/pay/${bookingId}?token=${encodeURIComponent(b.guestToken ?? '')}`;
+  const dateLong = b.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  const { buildOccurrencePayNow } = await import('./email-templates');
+  const { subject, html } = buildOccurrencePayNow({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    cleanerName: b.cleaner?.name ?? 'your cleaner',
+    dateLong,
+    time: b.startTime,
+    payUrl,
+  });
+  return sendEmail(to, subject, html);
+}
+
+// R1-B: the T-24h auto-cancel email — honest copy, agreement survives.
+export async function sendOccurrenceAutoCancelled(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { name: true, email: true } },
+      cleaner: { select: { name: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const dateLong = b.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  const { buildOccurrenceAutoCancelled } = await import('./email-templates');
+  const { subject, html } = buildOccurrenceAutoCancelled({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    cleanerName: b.cleaner?.name ?? 'your cleaner',
+    dateLong,
+  });
+  return sendEmail(to, subject, html);
+}
+
 // ─── X1 cascade milestone emails ───────────────────────────
 
 async function resolveBookingRecipient(bookingId: string): Promise<{

@@ -412,6 +412,53 @@ export function buildAgreementEnded(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// R1-B: the single-attempt failure email — James-ruled copy. The link is the
+// normal ON-SESSION checkout for this occurrence (SCA handled natively there).
+export function buildOccurrencePayNow(data: {
+  customerName: string;
+  cleanerName: string;
+  dateLong: string; // e.g. "Tuesday 4 August"
+  time: string;
+  payUrl: string;
+}): EmailContent {
+  const subject = `We couldn't take payment for your clean on ${data.dateLong}`;
+  const contentHtml =
+    h('We couldn&rsquo;t take payment') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `We couldn&rsquo;t take payment for your regular clean with ${data.cleanerName} on ${data.dateLong} at ${data.time} — pay now to keep your slot.`
+    ) +
+    button(data.payUrl, 'Pay now') +
+    pMuted(
+      `If it isn&rsquo;t paid by 24 hours before the clean, just this visit is cancelled — your regular arrangement carries on as normal.`
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R1-B: the T-24h auto-cancel email — honest, blame-free, and explicit that
+// the standing arrangement survives (one missed payment kills one occurrence,
+// never the schedule).
+export function buildOccurrenceAutoCancelled(data: {
+  customerName: string;
+  cleanerName: string;
+  dateLong: string;
+}): EmailContent {
+  const subject = `We couldn't confirm your clean this week`;
+  const contentHtml =
+    h('This week&rsquo;s clean is cancelled') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `We couldn&rsquo;t confirm your clean with ${data.cleanerName} on ${data.dateLong} — payment didn&rsquo;t go through in time, so just this visit has been cancelled. You have not been charged for it.`
+    ) +
+    p(
+      `<strong>Your regular slot is unaffected.</strong> Your next scheduled clean will be confirmed as normal.`
+    ) +
+    pMuted(
+      'If your card details have changed, your next clean&rsquo;s payment email will let you pay with a new card.'
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildPasswordReset(token: string): EmailContent {
   const resetLink = `${appUrl()}/reset-password?token=${token}`;
   const subject = 'Reset your password - Rena Cleaning Network';
