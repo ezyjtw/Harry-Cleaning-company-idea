@@ -16,6 +16,8 @@
 // the cancellation email is the correction. METHOD:CANCEL sequencing is a
 // ledgered later refinement, not this build.
 
+import { suppliesIcsLine } from '@/lib/booking/supplies';
+
 export interface JobIcsInput {
   id: string;
   serviceLabel: string;
@@ -25,6 +27,9 @@ export interface JobIcsInput {
   fullAddress: string;
   cleanerEarnings: number; // £, the cleaner's own net figure
   detailUrl: string;
+  // LB-7: the supplies answer — logistics, not sensitive, so it MAY ride the
+  // calendar (unlike notes/access). Null renders the honest not-specified line.
+  suppliesProvided?: boolean | null;
 }
 
 // RFC 5545 text escaping: backslash, semicolon, comma, newline.
@@ -70,6 +75,7 @@ export function buildJobIcs(job: JobIcsInput): string {
     .replace(/\.\d{3}/, '');
   const description =
     `${job.serviceLabel} · ${job.durationHours} hours\n` +
+    `${suppliesIcsLine(job.suppliesProvided)}\n` +
     `You earn £${job.cleanerEarnings.toFixed(2)}\n` +
     `Entry details and customer notes: ${job.detailUrl}`;
 

@@ -215,7 +215,12 @@ export async function sendRefundConfirmation(
 
 export async function sendCleanerAssignment(
   // F1: the offer email requires the SANITISED area (never the full address).
-  booking: BookingEmailData & { area: string; cleanerEarnings?: number },
+  // LB-7: supplies rides the safe set — decision-relevant, not sensitive.
+  booking: BookingEmailData & {
+    area: string;
+    cleanerEarnings?: number;
+    suppliesProvided?: boolean | null;
+  },
   cleaner: CleanerEmailData
 ): Promise<boolean> {
   const { subject, html } = buildCleanerAssignment(booking, cleaner);
@@ -762,6 +767,7 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
         totalPrice: 0,
         area,
         cleanerEarnings: earnings,
+        suppliesProvided: b.suppliesProvided,
       },
       { name: u.name || 'there', email: u.email }
     ).catch(() => {});
@@ -806,6 +812,7 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
     fullAddress,
     cleanerEarnings: earnings,
     detailUrl,
+    suppliesProvided: b.suppliesProvided,
   });
   const { subject, html } = buildCleanerJobAccepted({
     cleanerName: b.cleaner.name || 'there',

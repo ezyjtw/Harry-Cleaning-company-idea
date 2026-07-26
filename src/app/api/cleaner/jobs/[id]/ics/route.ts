@@ -54,6 +54,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     fullAddress,
     cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
     detailUrl: `${appUrl}/cleaner/jobs/${booking.id}`,
+    suppliesProvided: booking.suppliesProvided,
   });
 
   return new NextResponse(ics, {

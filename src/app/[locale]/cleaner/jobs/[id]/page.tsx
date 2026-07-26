@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
+import { suppliesLabel } from '@/lib/booking/supplies';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { buildGoogleCalendarLink } from '@/lib/services/job-ics';
 
@@ -30,6 +31,7 @@ interface JobDetail {
   notes?: string | null;
   keyAccess?: string;
   keyAccessNote?: string;
+  suppliesProvided?: boolean | null;
   bedrooms?: number;
   extras: string[];
 }
@@ -229,42 +231,61 @@ export default function CleanerJobDetailPage() {
         </Section>
 
         {job.assigned ? (
-          (job.keyAccess || focus || rest) && (
-            <Section title="Customer guidance">
-              {job.keyAccess && (
-                <div className="rounded-lg bg-page p-3">
-                  <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-                    Getting in
-                  </p>
-                  <p className="mt-1 font-jost text-sm text-ink">
-                    {KEY_ACCESS_LABELS[job.keyAccess] ?? job.keyAccess}
-                  </p>
-                  {job.keyAccessNote && (
-                    <p className="mt-1 font-jost text-sm text-ink-2">{job.keyAccessNote}</p>
-                  )}
-                </div>
-              )}
-              {focus && (
-                <div className="mt-3 rounded-lg bg-page p-3">
-                  <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-                    What to focus on
-                  </p>
-                  <p className="mt-1 font-jost text-sm text-ink-2">{focus}</p>
-                </div>
-              )}
-              {rest && (
-                <div className="mt-3 rounded-lg bg-page p-3">
-                  <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-                    Notes
-                  </p>
-                  <p className="mt-1 font-jost text-sm text-ink-2 whitespace-pre-line">{rest}</p>
-                </div>
-              )}
-            </Section>
-          )
+          <Section title="Customer guidance">
+            {/* LB-7: supplies is decision-relevant, not sensitive — its line
+                renders in BOTH states (see the pre-accept branch below). */}
+            <div className="rounded-lg bg-page p-3">
+              <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                Supplies
+              </p>
+              <p className="mt-1 font-jost text-sm text-ink">
+                {suppliesLabel(job.suppliesProvided)}
+              </p>
+            </div>
+            {job.keyAccess && (
+              <div className="mt-3 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  Getting in
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink">
+                  {KEY_ACCESS_LABELS[job.keyAccess] ?? job.keyAccess}
+                </p>
+                {job.keyAccessNote && (
+                  <p className="mt-1 font-jost text-sm text-ink-2">{job.keyAccessNote}</p>
+                )}
+              </div>
+            )}
+            {focus && (
+              <div className="mt-3 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  What to focus on
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink-2">{focus}</p>
+              </div>
+            )}
+            {rest && (
+              <div className="mt-3 rounded-lg bg-page p-3">
+                <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                  Notes
+                </p>
+                <p className="mt-1 font-jost text-sm text-ink-2 whitespace-pre-line">{rest}</p>
+              </div>
+            )}
+          </Section>
         ) : (
           <Section title="Customer guidance">
-            <p className="font-jost text-sm font-light text-ink-3">
+            {/* LB-7: the supplies line IS pre-accept — a cleaner without a kit
+                can't take a bring-your-own job, so it sits with date/time/
+                area/pay, unlike the address and notes below. */}
+            <div className="rounded-lg bg-page p-3">
+              <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                Supplies
+              </p>
+              <p className="mt-1 font-jost text-sm text-ink">
+                {suppliesLabel(job.suppliesProvided)}
+              </p>
+            </div>
+            <p className="mt-3 font-jost text-sm font-light text-ink-3">
               Customer notes and entry details are shown once you accept.
             </p>
           </Section>

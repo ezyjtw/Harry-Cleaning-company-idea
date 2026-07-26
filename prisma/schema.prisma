@@ -524,6 +524,12 @@ model Booking {
   refundRecords RefundRecord[]
   stuckJobCase  StuckJobCase?
 
+  // LB-7 (James-ruled): "Will cleaning supplies be provided?" — true = the
+  // customer provides supplies and equipment, false = the cleaner brings their
+  // own. Nullable: bookings made before the question existed have no answer
+  // and every surface renders "Not specified — check with your customer".
+  suppliesProvided Boolean?
+
   // ─── Pricing snapshot (captured at booking creation) ─────
   propertySize             PropertySize?
   bookingFrequency         BookingFrequency?
@@ -931,6 +937,9 @@ model RecurringAgreement {
   addressPostcode String
   rooms           Json?
   notes           String?
+  // LB-7: snapshot of the trial booking's supplies answer — occurrences
+  // inherit it at mint.
+  suppliesProvided Boolean?
   totalPrice      Decimal            @db.Decimal(10, 2)
   platformFee     Decimal            @db.Decimal(10, 2)
   cleanerEarnings Decimal            @db.Decimal(10, 2)

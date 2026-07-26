@@ -82,6 +82,8 @@ export async function mintOccurrences(
         addressPostcode: agreement.addressPostcode,
         rooms: agreement.rooms ?? undefined,
         notes: agreement.notes,
+        // LB-7: occurrences inherit the agreement's (= trial booking's) answer.
+        suppliesProvided: agreement.suppliesProvided,
         // The per-occurrence money snapshot — the platform's existing splits,
         // captured once from the first booking's quote. No new arithmetic.
         totalPrice: agreement.totalPrice,

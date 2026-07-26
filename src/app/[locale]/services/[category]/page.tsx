@@ -23,6 +23,7 @@ import {
   BEDROOMS_TO_EOT_SIZE,
   BEDROOMS_TO_AIRBNB_SIZE,
   minimumHoursForService,
+  propertySizeSlugToEnum,
   serviceLabelFromSlug as serviceMinLabel,
 } from '@/lib/constants/services';
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
@@ -389,7 +390,41 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   const suggestedHours = calculateSuggestedHours(rooms, category);
   const [selectedHours, setSelectedHours] = useState<number | null>(null);
-  const effectiveHours = selectedHours ?? suggestedHours;
+  // LB-6 (James-ruled): fixed-price categories hold the calendar for the
+  // reference table's estimatedHours — server truth, so the customer's
+  // expectation matches the block the server will make (it derives the same
+  // value and ignores the client-sent duration). The room heuristic is only
+  // the fallback while the fetch is in flight. Hourly categories untouched.
+  const [fixedHoursMap, setFixedHoursMap] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!isFixedPrice(category)) return;
+    let cancelled = false;
+    fetch('/api/pricing/services')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        const slug = category === 'end-of-tenancy' ? 'eot' : 'airbnb';
+        const svc = rows.find((s) => s?.slug === slug);
+        if (!Array.isArray(svc?.fixedPrices)) return;
+        const map: Record<string, number> = {};
+        for (const fp of svc.fixedPrices) map[fp.propertySize] = Number(fp.estimatedHours);
+        setFixedHoursMap(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [category]);
+  const fixedSizeSlug = !isFixedPrice(category)
+    ? null
+    : category === 'end-of-tenancy'
+      ? BEDROOMS_TO_EOT_SIZE[Math.min(rooms.bedrooms, 5)]
+      : BEDROOMS_TO_AIRBNB_SIZE[Math.min(rooms.bedrooms, 4)];
+  const serverFixedHours =
+    fixedSizeSlug && fixedHoursMap
+      ? (fixedHoursMap[propertySizeSlugToEnum(fixedSizeSlug) ?? ''] ?? null)
+      : null;
+  const effectiveHours = serverFixedHours ?? selectedHours ?? suggestedHours;
   const isUnderSuggested = effectiveHours < suggestedHours;
   // H13: the service minimum validates AT the field — one shared source
   // (SERVICE_MINIMUM_HOURS, mirroring the reference data the server enforces).
@@ -580,6 +615,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [keyAccess, setKeyAccess] = useState<KeyAccess>('i-will-be-home');
   const [keyAccessNote, setKeyAccessNote] = useState('');
+  // LB-7 (James-ruled): REQUIRED supplies question — no default is guessed;
+  // null until the customer answers, and submit validates it.
+  const [suppliesProvided, setSuppliesProvided] = useState<boolean | null>(null);
   const [specialInstructions, setSpecialInstructions] = useState('');
 
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
@@ -789,6 +827,42 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     </div>
   );
 
+  // LB-7 (James-ruled): the required supplies question — one definition,
+  // rendered in every journey's details step (like addressCard).
+  const suppliesCard = (
+    <div
+      id="booking-supplies"
+      tabIndex={-1}
+      className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 scroll-mt-24"
+    >
+      <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+        Will cleaning supplies be provided?
+      </h2>
+      <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+        {(
+          [
+            { value: true, label: 'I’ll provide supplies and equipment' },
+            { value: false, label: 'Please bring your own supplies' },
+          ] as { value: boolean; label: string }[]
+        ).map((opt) => (
+          <button
+            key={String(opt.value)}
+            type="button"
+            onClick={() => setSuppliesProvided(opt.value)}
+            className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
+              suppliesProvided === opt.value
+                ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <FieldError k="booking-supplies" />
+    </div>
+  );
+
   const handleBookingSubmit = async (opts?: { requireDateTime?: boolean }) => {
     if (bookingSubmitting) return;
     // F5: collect EVERY missing field, show all inline errors simultaneously,
@@ -809,6 +883,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       missing.push({
         id: 'booking-address',
         msg: 'Please enter a valid postcode for the address.',
+      });
+    }
+    // LB-7: the supplies answer is required — a cleaner without a kit can't
+    // accept a bring-your-own booking, so no default is ever assumed.
+    if (suppliesProvided === null) {
+      missing.push({
+        id: 'booking-supplies',
+        msg: 'Please tell us whether cleaning supplies will be provided.',
       });
     }
     if (missing.length > 0) {
@@ -846,6 +928,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           time: selectedTime24 || 'Flexible',
           duration: effectiveHours,
           serviceType: category,
+          suppliesProvided,
           // H104 item 1: the fewer-hours focus note rides Booking.notes as a
           // "Focus: ..." line - zero schema, flows everywhere notes flows.
           // (It was previously collected and silently dropped.)
@@ -2161,6 +2244,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
 
           {/* Cleaning address (A12) */}
+          {suppliesCard}
           {addressCard}
 
           {/* H37: the cleaner-first flow NEVER had a Booking Summary card (the
@@ -2469,6 +2553,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* Cleaning address (A12) */}
+            {suppliesCard}
             {addressCard}
 
             {bookingError && (
@@ -2847,6 +2932,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* H32 (James-ruled): the cleaning address sits ABOVE the summary. */}
+            {suppliesCard}
             {addressCard}
 
             {/* Booking summary */}
@@ -3474,6 +3560,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
 
             {/* H32 (James-ruled): the cleaning address sits ABOVE the summary. */}
+            {suppliesCard}
             {addressCard}
 
             {/* Summary & submit */}

@@ -3,10 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { suppliesLabel } from '@/lib/booking/supplies';
+
 interface Offer {
   assigned?: boolean;
   keyAccess?: string;
   keyAccessNote?: string;
+  suppliesProvided?: boolean | null;
   fullAddress?: string;
   id: string;
   status: string;
@@ -388,6 +391,9 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           />
           <Row label="Duration" value={`${offer.duration} hours`} />
           <Row label="Area" value={offer.postcode || offer.address} />
+          {/* LB-7: decision-relevant pre-accept — a cleaner without a kit
+              can't take a bring-your-own job. Sits with date/area/pay. */}
+          <Row label="Supplies" value={suppliesLabel(offer.suppliesProvided)} />
           {typeof offer.bedrooms === 'number' && (
             <Row label="Property" value={`${offer.bedrooms} bed`} />
           )}

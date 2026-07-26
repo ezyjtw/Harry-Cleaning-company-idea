@@ -214,6 +214,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // LB-7 (James-ruled): the supplies question is REQUIRED — a cleaner
+    // without a kit can't accept a bring-your-own booking, so the answer must
+    // exist before the offer can. Boolean only; no default is ever guessed.
+    if (body.suppliesProvided !== true && body.suppliesProvided !== false) {
+      return NextResponse.json(
+        { error: 'Please tell us whether cleaning supplies will be provided.' },
+        { status: 400 }
+      );
+    }
+
     // 1a. Email format — the confirmation + reminder emails depend on it. Reject
     // a malformed address at the door rather than storing an unreachable one.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email).trim())) {
@@ -255,6 +265,27 @@ export async function POST(request: NextRequest) {
       if (self && self.id === body.cleanerId) {
         return NextResponse.json({ error: "You can't book yourself." }, { status: 400 });
       }
+    }
+
+    // Service slug resolved early: the fixed-duration derivation and the
+    // TOCTOU slot check below both need it.
+    const pricingSlug = normalizeToPricingSlug(body.serviceType);
+
+    // LB-6 (James-ruled): for fixed-price services the CALENDAR HOLD is the
+    // reference table's estimatedHours for the property size — the client-sent
+    // duration is ignored (the wizard's room heuristic under-blocked EOT days,
+    // a double-booking gap). Price is unaffected (fixed regardless). Applies to
+    // NEW bookings only — existing rows are never restated.
+    if (pricingSlug === 'eot' || pricingSlug === 'airbnb') {
+      const sizeEnum = propertySizeSlugToEnum(body.propertySize);
+      if (sizeEnum) {
+        const fsp = await prisma.fixedServicePrice.findFirst({
+          where: { serviceType: { slug: pricingSlug }, propertySize: sizeEnum },
+          select: { estimatedHours: true },
+        });
+        if (fsp) body.duration = Number(fsp.estimatedHours);
+      }
+      // No sizeEnum → the pricing engine 400s below ('propertySize required').
     }
 
     // 2. Cleaner lookup with Stripe eligibility
@@ -373,7 +404,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Service type validation
-    const pricingSlug = normalizeToPricingSlug(body.serviceType);
+    // (pricingSlug resolved above, before the TOCTOU check.)
 
     // H13: THE LAW — duration below the service's minimum is rejected here,
     // explicitly, instead of the pricing engine silently clamping it into a
@@ -811,6 +842,7 @@ export async function POST(request: NextRequest) {
               (quote.cleanerCommission + quote.customerPlatformFee - discountAmount) * 100
             ) / 100,
           propertySize: propertySizeSlugToEnum(body.propertySize),
+          suppliesProvided: body.suppliesProvided,
           notes: body.notes || null,
           paymentStatus: 'PENDING',
           backupCleanerIds: attachedBackupIds,
@@ -850,6 +882,8 @@ export async function POST(request: NextRequest) {
           addressPostcode: booking.addressPostcode || '',
           rooms: booking.rooms ?? undefined,
           notes: booking.notes,
+          // LB-7: occurrences inherit the first booking's supplies answer.
+          suppliesProvided: booking.suppliesProvided,
           totalPrice: booking.totalPrice,
           platformFee: booking.platformFee,
           cleanerEarnings: booking.cleanerEarnings,

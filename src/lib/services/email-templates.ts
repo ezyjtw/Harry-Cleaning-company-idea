@@ -11,6 +11,7 @@
 // button so Outlook renders the click area, degrades sanely with images off.
 // ─────────────────────────────────────────────────────────────
 
+import { suppliesLabel } from '@/lib/booking/supplies';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
 // Absolute, production URLs (emails can't rely on relative paths or next/font).
@@ -317,7 +318,11 @@ export function buildRefundConfirmation(
 // magic-token auto-accept, ever: a forwarded email must never let anyone
 // accept as this cleaner.
 export function buildCleanerAssignment(
-  booking: BookingEmailData & { area: string; cleanerEarnings?: number },
+  booking: BookingEmailData & {
+    area: string;
+    cleanerEarnings?: number;
+    suppliesProvided?: boolean | null;
+  },
   cleaner: CleanerEmailData
 ): EmailContent {
   const detailLink = `${appUrl()}/cleaner/jobs/${booking.id}`;
@@ -330,6 +335,9 @@ export function buildCleanerAssignment(
       ['Date', booking.date],
       ['Time', booking.time],
       ['Area', booking.area],
+      // LB-7: supplies is decision-relevant (a cleaner without a kit can't
+      // take a bring-your-own job) — it rides the sanitised offer safe set.
+      ['Supplies', suppliesLabel(booking.suppliesProvided)],
       // Net-first law: the cleaner's own figure, never the customer total.
       ...(booking.cleanerEarnings !== undefined
         ? ([['You&rsquo;d earn', `&pound;${booking.cleanerEarnings.toFixed(2)}`]] as [

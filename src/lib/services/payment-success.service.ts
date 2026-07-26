@@ -262,6 +262,7 @@ export async function processPaymentSuccess(
         ...emailData,
         area: [booking.addressCity, booking.addressPostcode].filter(Boolean).join(' '),
         cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
+        suppliesProvided: booking.suppliesProvided,
       },
       {
         name: booking.cleaner.name || '',
