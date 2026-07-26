@@ -22,6 +22,23 @@ interface AgreementRow {
   otherPartyName: string;
   amount: number;
   nextOccurrence: string | null;
+  // R1-C: skip target — the next occurrence and its money state.
+  nextOccurrenceId: string | null;
+  nextOccurrenceTime: string | null;
+  nextOccurrencePaid: boolean;
+}
+
+// R1-C skip policy copy (James-ruled): unpaid free at any distance; paid free
+// before 24h; inside 24h the charge stands.
+function skipCopy(a: AgreementRow): string {
+  if (!a.nextOccurrencePaid) {
+    return 'Skip this clean? Nothing has been charged for it — skipping is free, and your regular arrangement carries on as normal.';
+  }
+  const start = new Date(`${a.nextOccurrence}T${a.nextOccurrenceTime || '00:00'}:00`);
+  const inside24h = start.getTime() - Date.now() <= 24 * 60 * 60 * 1000;
+  return inside24h
+    ? "Skip this clean? Inside 24 hours the charge stands — your cleaner committed this time. You can still skip, but this clean won't be refunded."
+    : "Skip this clean? You'll be refunded in full, and your regular arrangement carries on as normal.";
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -46,6 +63,10 @@ export default function RecurringAgreementsCard({
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [endingId, setEndingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // R1-C: customer skip of the next occurrence (customer seat only).
+  const [confirmingSkipId, setConfirmingSkipId] = useState<string | null>(null);
+  const [skippingId, setSkippingId] = useState<string | null>(null);
+  const [skipMsg, setSkipMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/agreements')
@@ -109,7 +130,19 @@ export default function RecurringAgreementsCard({
                   <p className="font-newsreader text-lg font-medium text-ink">
                     £{a.amount.toFixed(2)}
                   </p>
-                  {confirmingId !== a.id && (
+                  {role === 'CUSTOMER' &&
+                    a.nextOccurrenceId &&
+                    confirmingSkipId !== a.id &&
+                    confirmingId !== a.id && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingSkipId(a.id)}
+                        className="font-jost text-[12px] text-ink-3 underline transition hover:text-ink"
+                      >
+                        Skip next clean
+                      </button>
+                    )}
+                  {confirmingId !== a.id && confirmingSkipId !== a.id && (
                     <button
                       type="button"
                       onClick={() => setConfirmingId(a.id)}
@@ -120,6 +153,56 @@ export default function RecurringAgreementsCard({
                   )}
                 </div>
               </div>
+              {confirmingSkipId === a.id && (
+                <div className="mt-3 rounded-[10px] border border-line bg-page p-4">
+                  <p className="font-jost text-sm text-ink">{skipCopy(a)}</p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={skippingId === a.id}
+                      onClick={async () => {
+                        setSkippingId(a.id);
+                        setError(null);
+                        try {
+                          const res = await fetch(`/api/bookings/${a.nextOccurrenceId}/skip`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: '{}',
+                          });
+                          const data = await res.json().catch(() => null);
+                          if (!res.ok) throw new Error(data?.error || 'Could not skip.');
+                          setSkipMsg(data?.message ?? 'Skipped.');
+                          // refresh next-occurrence info
+                          const ref = await fetch('/api/agreements').then((r) =>
+                            r.ok ? r.json() : null
+                          );
+                          if (ref) {
+                            const rows: AgreementRow[] =
+                              role === 'CLEANER' ? ref.asCleaner : ref.asCustomer;
+                            setAgreements((rows || []).filter((x) => x.status === 'ACTIVE'));
+                          }
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : 'Could not skip.');
+                        } finally {
+                          setSkippingId(null);
+                          setConfirmingSkipId(null);
+                        }
+                      }}
+                      className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+                    >
+                      {skippingId === a.id ? 'Skipping…' : 'Yes, skip it'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={skippingId === a.id}
+                      onClick={() => setConfirmingSkipId(null)}
+                      className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
               {confirmingId === a.id && (
                 <div className="mt-3 rounded-[10px] border border-danger/25 bg-danger/5 p-4">
                   <p className="font-jost text-sm text-ink">
@@ -151,6 +234,7 @@ export default function RecurringAgreementsCard({
               )}
             </div>
           ))}
+          {skipMsg && <p className="px-6 pb-2 font-jost text-sm text-trust">{skipMsg}</p>}
           {error && <p className="px-6 pb-4 font-jost text-sm text-danger">{error}</p>}
         </div>
       </div>

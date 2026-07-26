@@ -11,9 +11,11 @@ import { fileDispute } from '@/lib/services/dispute.service';
 // null for a true guest (no account), or the client account when the tokened
 // booking belongs to one.
 
+// R1-A/C: occurrence tokens are 48-hex (randomBytes) alongside checkout UUIDs.
 function isValidToken(token: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(token);
+  const hexRegex = /^[0-9a-f]{48}$/i;
+  return uuidRegex.test(token) || hexRegex.test(token);
 }
 
 // H69: the tokened CASE VIEW — the same case panel account customers get

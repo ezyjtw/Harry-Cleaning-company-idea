@@ -75,6 +75,9 @@ export default function CleanerCalendarPage() {
   const [days, setDays] = useState<Record<string, CalendarDayInfo>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // R1-C: inline confirm for "Can't make this one" on a Regular-client block.
+  const [cantMakeConfirm, setCantMakeConfirm] = useState<string | null>(null);
+  const [cantMakeBusy, setCantMakeBusy] = useState(false);
 
   const todayYMD = toYMD(new Date());
 
@@ -159,8 +162,10 @@ export default function CleanerCalendarPage() {
   const BookingBlock = ({ b }: { b: CalendarBooking }) => {
     // R1-A: SCHEDULED occurrences are slot-blockers, not jobs — no deep link
     // (they're hidden from the Jobs surface by law), a "Regular client" label
-    // instead of workflow affordances.
+    // instead of workflow affordances. R1-C adds the ONE affordance the
+    // cleaner has here: "Can't make this one" — the customer then chooses.
     if (b.isRegular) {
+      const confirming = cantMakeConfirm === b.id;
       return (
         <div className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3">
           <p className="font-jost text-[13px] font-medium text-primary">
@@ -172,6 +177,55 @@ export default function CleanerCalendarPage() {
           <p className="font-jost text-[11px] font-light text-ink-3">
             Regular client{b.postcodeArea && ` · ${b.postcodeArea}`}
           </p>
+          {!confirming ? (
+            <button
+              type="button"
+              onClick={() => setCantMakeConfirm(b.id)}
+              className="font-jost text-[11px] text-ink-3 underline transition hover:text-danger"
+            >
+              Can&rsquo;t make this one
+            </button>
+          ) : (
+            <div className="pt-1">
+              <p className="font-jost text-[11px] text-ink-2">
+                Flag this visit? {b.customerFirstName} will choose a new date or skip it — your
+                arrangement is unchanged.
+              </p>
+              <div className="mt-1 flex gap-2">
+                <button
+                  type="button"
+                  disabled={cantMakeBusy}
+                  onClick={async () => {
+                    setCantMakeBusy(true);
+                    try {
+                      const res = await fetch(`/api/cleaner/occurrences/${b.id}/cant-make`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: '{}',
+                      });
+                      if (res.ok) {
+                        setBookings((prev) => prev.filter((x) => x.id !== b.id));
+                      }
+                    } finally {
+                      setCantMakeBusy(false);
+                      setCantMakeConfirm(null);
+                    }
+                  }}
+                  className="rounded-[8px] bg-danger px-2 py-1 font-jost text-[11px] font-semibold text-white disabled:opacity-50"
+                >
+                  {cantMakeBusy ? 'Flagging…' : 'Yes, flag it'}
+                </button>
+                <button
+                  type="button"
+                  disabled={cantMakeBusy}
+                  onClick={() => setCantMakeConfirm(null)}
+                  className="font-jost text-[11px] text-ink-2 underline"
+                >
+                  Keep it
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
