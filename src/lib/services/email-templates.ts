@@ -623,7 +623,40 @@ export function buildDisputeResolvedEmail(opts: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
-export function buildReviewRequest(booking: BookingEmailData, user: UserEmailData): EmailContent {
+// R1-A (amended): the post-completion regular-clean offer, carried by the
+// completion emails. usualSlot is the slot the customer just had, when opened.
+export interface RegularOfferEmailSection {
+  cleanerName: string;
+  usualSlot: { dayOfWeek: number; start: string; end: string } | null;
+  ctaUrl: string;
+}
+
+const OFFER_DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+function regularOfferHtml(offer: RegularOfferEmailSection): string {
+  const slotLine = offer.usualSlot
+    ? `your ${OFFER_DAY_NAMES[offer.usualSlot.dayOfWeek]} ${offer.usualSlot.start} slot is open`
+    : 'they have slots open';
+  return (
+    p(
+      `<strong>Loved your clean with ${offer.cleanerName}?</strong> Make it regular — ${slotLine} for weekly or fortnightly cleans. No lock-in: you can end it any time.`
+    ) + button(offer.ctaUrl, 'Set up a regular clean')
+  );
+}
+
+export function buildReviewRequest(
+  booking: BookingEmailData,
+  user: UserEmailData,
+  offer?: RegularOfferEmailSection
+): EmailContent {
   // H72: /dashboard is a redirect junction that DROPS the query string — the old
   // link landed on /account with the review context gone. Deep-link the bookings
   // page, which opens the review form for this booking.
@@ -637,7 +670,34 @@ export function buildReviewRequest(booking: BookingEmailData, user: UserEmailDat
     ) +
     p("We'd love to hear how it went! Your review helps other customers find great cleaners.") +
     button(reviewLink, 'Leave a Review') +
+    // R1-A (amended): the offer rides the completion email only when eligible —
+    // never a dead-end CTA.
+    (offer ? regularOfferHtml(offer) : '') +
     p('Thank you for using Rena!');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R1-A (amended): the guest completion email — offer only (guest reviews are a
+// parked ruling, so there is no review ask here). The CTA carries the guest's
+// tokened link; the token is their identity on the setup page.
+export function buildGuestCompletionOffer(data: {
+  guestName: string;
+  cleanerName: string;
+  usualSlot: { dayOfWeek: number; start: string; end: string } | null;
+  ctaUrl: string;
+}): EmailContent {
+  const subject = `Make your clean with ${data.cleanerName} a regular thing?`;
+  const slotLine = data.usualSlot
+    ? `your ${OFFER_DAY_NAMES[data.usualSlot.dayOfWeek]} ${data.usualSlot.start} slot is open`
+    : 'they have slots open';
+  const contentHtml =
+    h('Loved your clean?') +
+    p(`Hi ${data.guestName},`) +
+    p(
+      `Your clean with ${data.cleanerName} is complete. If you&rsquo;d like to make it regular, ${slotLine} for weekly or fortnightly cleans — same cleaner, same standard, no lock-in.`
+    ) +
+    button(data.ctaUrl, 'Set up a regular clean') +
+    pMuted('You can end a regular arrangement at any time — nothing is charged beyond each clean.');
   return { subject, html: renderEmail({ contentHtml }) };
 }
 

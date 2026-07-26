@@ -10,7 +10,6 @@ import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
-import RecurringCleanOption from '@/components/booking/RecurringCleanOption';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerIdentity from '@/components/CleanerIdentity';
@@ -267,9 +266,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [slotAvailableIds, setSlotAvailableIds] = useState<Set<string> | null>(null);
   // Products fee (James-ruled real addon): server-priced via addons:['products'].
   const [bringsProducts, setBringsProducts] = useState(false);
-  // R1-A: "make it regular" — eligibility + rendering live in the shared
-  // RecurringCleanOption (server re-validates the same rule at booking time).
-  const [recurringFrequency, setRecurringFrequency] = useState<'' | 'WEEKLY' | 'FORTNIGHTLY'>('');
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [serverQuote, setServerQuote] = useState<{
     cleanerListedPrice: number;
@@ -577,10 +573,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           isGuest: bookingMode === 'guest',
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
           autoAssignBackup,
-          // R1-A: make it a standing clean — this first booking is the normal
-          // paid checkout; the agreement rides alongside it server-side (which
-          // re-validates slot eligibility).
-          recurring: recurringFrequency ? { frequency: recurringFrequency } : undefined,
         }),
       });
 
@@ -641,15 +633,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 {form.date} at {form.time}
               </span>
             </div>
-            {recurringFrequency && (
-              <div className="flex justify-between">
-                <span className="text-ink-3">Repeats</span>
-                <span className="font-normal text-ink">
-                  {recurringFrequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'} &middot; paying
-                  for today&apos;s clean only
-                </span>
-              </div>
-            )}
             <div
               className="flex justify-between pt-2 mt-2"
               style={{ borderTop: '0.5px solid #E4E9F0' }}
@@ -1281,17 +1264,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
             </div>
-
-            {/* R1-A: make it a regular clean — only when the chosen slot is
-                one the cleaner opened to regular clients. */}
-            <RecurringCleanOption
-              cleanerId={cleaner.id}
-              cleanerName={cleaner.name}
-              date={form.date}
-              time24={form.time}
-              value={recurringFrequency}
-              onChange={setRecurringFrequency}
-            />
 
             {/* Products fee toggle (James-ruled £5 real addon) */}
             <label

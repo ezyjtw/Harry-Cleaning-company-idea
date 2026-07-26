@@ -701,8 +701,10 @@ export async function POST(request: NextRequest) {
     });
     if (replayExisting) return buildReplay(replayExisting);
 
-    // R1-A: "Book a regular clean" — the first occurrence is THIS normal
-    // checkout; the standing agreement is created alongside it and future
+    // R1-A (amended): recurring entry is POST-COMPLETION only. The completed
+    // clean is STRUCTURAL — a recurring checkout is refused unless the customer
+    // already shares a completed clean with this cleaner. The first occurrence
+    // is THIS normal checkout; the agreement is created alongside it and future
     // occurrences mint only after this booking's payment succeeds.
     let recurringRequest: { frequency: 'WEEKLY' | 'FORTNIGHTLY' } | null = null;
     if (body.recurring) {
@@ -739,24 +741,23 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      // One-completed-clean gate (James-ruled: config flag, OFF for launch).
-      const { RECURRING_REQUIRES_COMPLETED_CLEAN } = await import('@/lib/config/features');
-      if (RECURRING_REQUIRES_COMPLETED_CLEAN) {
-        const done = sessionUser
-          ? await prisma.booking.count({
-              where: {
-                clientId: sessionUser.id,
-                cleanerId: body.cleanerId,
-                status: { in: ['COMPLETED', 'REVIEWED'] },
-              },
-            })
-          : 0;
-        if (done === 0) {
-          return NextResponse.json(
-            { error: 'Book one clean with this cleaner first — then make it regular.' },
-            { status: 400 }
-          );
-        }
+      // The completed-clean requirement is STRUCTURAL (James-ruled amendment —
+      // no config flag): accounts match on clientId, guests on their booking
+      // email. A trial clean must exist and be complete before any agreement.
+      const done = await prisma.booking.count({
+        where: {
+          cleanerId: body.cleanerId,
+          status: { in: ['COMPLETED', 'REVIEWED'] },
+          ...(sessionUser
+            ? { clientId: sessionUser.id }
+            : { guestEmail: { equals: String(body.email || ''), mode: 'insensitive' } }),
+        },
+      });
+      if (done === 0) {
+        return NextResponse.json(
+          { error: 'Book one clean with this cleaner first — then make it regular.' },
+          { status: 400 }
+        );
       }
       recurringRequest = { frequency: freq };
     }
