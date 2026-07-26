@@ -1236,6 +1236,41 @@ export function buildSignupNotification(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+/** B1.3 dispute early-warning: admin alert on charge.dispute.created. The
+ *  evidence deadline is the headline — miss it and the dispute is lost by
+ *  default. Alerting only; the money legs (funds_withdrawn/reinstated) are
+ *  handled separately by the Xero pipeline. */
+export function buildAdminDisputeOpened(data: {
+  bookingRef: string;
+  bookingId: string | null;
+  customerName: string;
+  amount: string;
+  reason: string;
+  evidenceDueBy: string | null;
+}): EmailContent {
+  const subject = data.evidenceDueBy
+    ? `Dispute opened on booking ${data.bookingRef} — respond by ${data.evidenceDueBy}`
+    : `Dispute opened on booking ${data.bookingRef}`;
+  const rows: Array<[string, string]> = [
+    ['Booking', data.bookingRef],
+    ['Customer', data.customerName],
+    ['Amount disputed', data.amount],
+    ['Reason', data.reason],
+    ['Respond by', data.evidenceDueBy ?? 'Unknown — check the Stripe dashboard'],
+  ];
+  const contentHtml =
+    h('A customer has disputed a card payment') +
+    p(
+      'A chargeback has been opened against this booking. Evidence must be submitted in the Stripe dashboard <strong>before the deadline below</strong> or the dispute is lost by default.'
+    ) +
+    infoBlock(rows) +
+    button('https://dashboard.stripe.com/disputes', 'Open Stripe disputes') +
+    (data.bookingId
+      ? p(`Booking record: ${appUrl()}/admin/bookings (ref ${data.bookingRef})`)
+      : p('No matching booking was found for this charge — investigate in Stripe directly.'));
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildPaymentFailureNotification(data: {
   bookingId: string;
   customerName: string;

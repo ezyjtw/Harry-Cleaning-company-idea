@@ -1173,6 +1173,25 @@ export async function sendSignupNotification(data: {
   return sendEmail(notificationEmail, subject, html);
 }
 
+// ─── Dispute early-warning (B1.3) ──────────────────────────
+
+/** Admin alert on charge.dispute.created — same recipient as signup
+ *  notifications. Alerting only; no money movement here. */
+export async function sendAdminDisputeOpened(data: {
+  bookingRef: string;
+  bookingId: string | null;
+  customerName: string;
+  amount: string;
+  reason: string;
+  evidenceDueBy: string | null;
+}): Promise<boolean> {
+  const notificationEmail = process.env.RESEND_NOTIFICATION_EMAIL;
+  if (!notificationEmail) return false;
+  const { buildAdminDisputeOpened } = await import('./email-templates');
+  const { subject, html } = buildAdminDisputeOpened(data);
+  return sendEmail(notificationEmail, subject, html);
+}
+
 // ─── Payment Failure Email ─────────────────────────────────
 
 export async function sendPaymentFailureNotification(

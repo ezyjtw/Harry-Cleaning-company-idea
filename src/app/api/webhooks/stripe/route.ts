@@ -323,6 +323,49 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // B1.3 dispute early-warning: a new chargeback alerts the admin immediately —
+  // email with the evidence deadline + the dashboard banner (which reads the
+  // stored webhook events, so receipt alone is enough to surface it). Alerting
+  // ONLY — the money legs stay with the XERO-F2 handler below. Re-run safe:
+  // resending one email on a webhook retry is acceptable for an alert.
+  if (event.type === 'charge.dispute.created') {
+    const dispute = event.data.object as Stripe.Dispute;
+    const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+    const booking = chargeId
+      ? await prisma.booking.findUnique({
+          where: { stripeChargeId: chargeId },
+          include: { client: { select: { name: true } } },
+        })
+      : null;
+    const dueBy = dispute.evidence_details?.due_by
+      ? new Date(dispute.evidence_details.due_by * 1000).toLocaleDateString('en-GB', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : null;
+    const bookingRef = booking
+      ? booking.id.substring(0, 8).toUpperCase()
+      : `charge ${chargeId ?? 'unknown'}`;
+    // eslint-disable-next-line no-console
+    console.error(
+      `[Dispute] OPENED ${dispute.id} on ${bookingRef} — £${(dispute.amount / 100).toFixed(2)}, respond by ${dueBy ?? 'UNKNOWN'}`
+    );
+    const { sendAdminDisputeOpened } = await import('@/lib/services/email.service');
+    await sendAdminDisputeOpened({
+      bookingRef,
+      bookingId: booking?.id ?? null,
+      customerName: booking?.client?.name || booking?.guestName || 'Unknown',
+      amount: `£${(dispute.amount / 100).toFixed(2)}`,
+      reason: dispute.reason || 'not given',
+      evidenceDueBy: dueBy,
+    }).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.error(`[Dispute] alert email FAILED for ${dispute.id} — banner still shows it`, e);
+    });
+  }
+
   // XERO-F2 (James-ruled): chargeback money movements. funds_withdrawn debits
   // the real Stripe balance (dispute amount + Stripe's dispute fee);
   // funds_reinstated (dispute won) credits it back. Mirror both through the

@@ -53,9 +53,13 @@ export class PlatformAnalyticsService {
         where: { status: 'SUCCEEDED', createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
         _sum: { amount: true },
       }),
-      prisma.user.count({ where: { role: 'CLEANER', isDeleted: false } }),
-      prisma.user.count({ where: { role: 'CLEANER', isDeleted: false, accountStatus: 'ACTIVE' } }),
-      prisma.user.count({ where: { role: 'CLEANER', createdAt: { gte: thisMonthStart } } }),
+      // B1.1: cleaner counts are profile-based — a CleanerProfile row only exists
+      // once signup completes, so step-0 accounts never inflate these numbers.
+      prisma.cleanerProfile.count({ where: { user: { isDeleted: false } } }),
+      prisma.cleanerProfile.count({
+        where: { user: { isDeleted: false, accountStatus: 'ACTIVE' } },
+      }),
+      prisma.cleanerProfile.count({ where: { createdAt: { gte: thisMonthStart } } }),
       prisma.user.count({ where: { role: 'CLIENT', isDeleted: false } }),
       prisma.user.count({ where: { role: 'CLIENT', isDeleted: false, accountStatus: 'ACTIVE' } }),
       prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: thisMonthStart } } }),
