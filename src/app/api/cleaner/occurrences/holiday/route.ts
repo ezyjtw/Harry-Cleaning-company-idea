@@ -19,18 +19,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { holidayCantMake } = await import('@/lib/services/occurrence-rescue.service');
+  const { holidayCantMake, blockHolidayDates } =
+    await import('@/lib/services/occurrence-rescue.service');
   const result = await holidayCantMake({ cleanerId: user.id, startDate, endDate });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
+  // LB-1: also block the range so no NEW one-off bookings land while away.
+  const { blocked } = await blockHolidayDates({ cleanerId: user.id, startDate, endDate }).catch(
+    () => ({ blocked: 0 })
+  );
   return NextResponse.json({
     success: true,
     flagged: result.flagged,
     customers: result.customers,
+    blocked,
     message:
-      result.flagged === 0
+      (result.flagged === 0
         ? 'No regular cleans fall in that range.'
-        : `${result.flagged} regular clean(s) flagged — ${result.customers} customer(s) have been asked to choose. Your arrangements are unchanged.`,
+        : `${result.flagged} regular clean(s) flagged — ${result.customers} customer(s) have been asked to choose. Your arrangements are unchanged.`) +
+      (blocked > 0
+        ? ` ${blocked} date(s) blocked in your availability — unblock them any time under Blocked Dates.`
+        : ''),
   });
 }
