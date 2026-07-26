@@ -10,6 +10,7 @@ import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
+import RecurringCleanOption from '@/components/booking/RecurringCleanOption';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerIdentity from '@/components/CleanerIdentity';
@@ -266,14 +267,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [slotAvailableIds, setSlotAvailableIds] = useState<Set<string> | null>(null);
   // Products fee (James-ruled real addon): server-priced via addons:['products'].
   const [bringsProducts, setBringsProducts] = useState(false);
-  // R1-A: the weekly slots this cleaner has opened to regular clients. The
-  // "make it regular" option only renders when the CHOSEN date+time falls in
-  // one — the server re-validates the same rule at booking time.
-  const [recurringSlots, setRecurringSlots] = useState<Array<{
-    dayOfWeek: number;
-    start: string;
-    end: string;
-  }> | null>(null);
+  // R1-A: "make it regular" — eligibility + rendering live in the shared
+  // RecurringCleanOption (server re-validates the same rule at booking time).
   const [recurringFrequency, setRecurringFrequency] = useState<'' | 'WEEKLY' | 'FORTNIGHTLY'>('');
   const [autoAssignBackup, setAutoAssignBackup] = useState(false);
   const [serverQuote, setServerQuote] = useState<{
@@ -302,30 +297,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     setBookingError(null);
   }, [step, paymentStep]);
-
-  // R1-A: load the cleaner's regular-client slots once (public read).
-  useEffect(() => {
-    if (!params.id) return;
-    fetch(`/api/cleaners/${params.id}/recurring-slots`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setRecurringSlots(data?.slots ?? []))
-      .catch(() => setRecurringSlots([]));
-  }, [params.id]);
-
-  // Eligible only when the chosen date+time sits inside an opened slot.
-  const slotIsRecurringEligible = (() => {
-    if (!form.date || !form.time || !recurringSlots || recurringSlots.length === 0) return false;
-    const dow = new Date(`${form.date}T00:00:00Z`).getUTCDay();
-    return recurringSlots.some(
-      (s) => s.dayOfWeek === dow && s.start <= form.time && s.end > form.time
-    );
-  })();
-
-  // A date/time move to a non-eligible slot silently drops the choice — the
-  // POST must never carry a frequency the server would reject.
-  useEffect(() => {
-    if (!slotIsRecurringEligible && recurringFrequency) setRecurringFrequency('');
-  }, [slotIsRecurringEligible, recurringFrequency]);
 
   // Fetch server-side quote when service/duration/cleaner/bedrooms changes
   useEffect(() => {
@@ -607,11 +578,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
           autoAssignBackup,
           // R1-A: make it a standing clean — this first booking is the normal
-          // paid checkout; the agreement rides alongside it server-side.
-          recurring:
-            recurringFrequency && slotIsRecurringEligible
-              ? { frequency: recurringFrequency }
-              : undefined,
+          // paid checkout; the agreement rides alongside it server-side (which
+          // re-validates slot eligibility).
+          recurring: recurringFrequency ? { frequency: recurringFrequency } : undefined,
         }),
       });
 
@@ -1290,10 +1259,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   <DateTimePicker
                     cleanerId={params.id}
                     durationHours={form.duration}
+                    // R1-A find (pre-existing defect): the picker is fully
+                    // value-controlled, so a date-only selection must still
+                    // round-trip — gating on form.time made the picker forget
+                    // the date on click and the time list could never render.
                     value={
-                      form.date && form.time
-                        ? { date: form.date, time: form.time, time24: form.time }
-                        : null
+                      form.date ? { date: form.date, time: form.time, time24: form.time } : null
                     }
                     onChange={(sel: DateTimeSelection | null) => {
                       if (sel && sel.date && sel.time24) {
@@ -1313,39 +1284,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
             {/* R1-A: make it a regular clean — only when the chosen slot is
                 one the cleaner opened to regular clients. */}
-            {slotIsRecurringEligible && (
-              <div className="p-4" style={{ border: '0.5px solid #E4E9F0' }}>
-                <p className="font-jost text-sm text-ink">Make it a regular clean?</p>
-                <p className="mt-0.5 font-jost text-[12px] font-light text-ink-3">
-                  {cleaner.name} offers this slot to regular clients. You pay for today&apos;s clean
-                  now — each future clean is confirmed and paid closer to the date. No lock-in: you
-                  can end it any time.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(
-                    [
-                      { value: '', label: 'Just once' },
-                      { value: 'WEEKLY', label: 'Weekly' },
-                      { value: 'FORTNIGHTLY', label: 'Every two weeks' },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.label}
-                      type="button"
-                      onClick={() => setRecurringFrequency(opt.value)}
-                      className={`px-4 py-2 font-jost text-sm transition ${
-                        recurringFrequency === opt.value
-                          ? 'bg-primary text-white'
-                          : 'bg-page text-ink-2 hover:text-ink'
-                      }`}
-                      style={{ border: '0.5px solid #E4E9F0' }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <RecurringCleanOption
+              cleanerId={cleaner.id}
+              cleanerName={cleaner.name}
+              date={form.date}
+              time24={form.time}
+              value={recurringFrequency}
+              onChange={setRecurringFrequency}
+            />
 
             {/* Products fee toggle (James-ruled £5 real addon) */}
             <label

@@ -9,6 +9,7 @@ import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
 import type { DateTimeSelection } from '@/components/booking/DateTimePicker';
+import RecurringCleanOption from '@/components/booking/RecurringCleanOption';
 import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerIdentity from '@/components/CleanerIdentity';
@@ -532,6 +533,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const [dateTimeSelection, setDateTimeSelection] = useState<DateTimeSelection | null>(null);
   const selectedDate = dateTimeSelection?.date || '';
   const selectedTime24 = dateTimeSelection?.time24 || '';
+  // R1-A: "make it a regular clean" — rendered by RecurringCleanOption only
+  // when the chosen slot is recurring-eligible for the chosen cleaner.
+  const [recurringFrequency, setRecurringFrequency] = useState<'' | 'WEEKLY' | 'FORTNIGHTLY'>('');
   const selectedTimeDisplay = dateTimeSelection?.time || '';
   const todayIso = new Date().toISOString().split('T')[0];
   const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>(
@@ -860,6 +864,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             : undefined,
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
           autoAssignBackup,
+          // R1-A: standing agreement rides alongside this first paid checkout;
+          // the server re-validates slot eligibility and the chosen cleaner.
+          recurring:
+            recurringFrequency && selectedCleaner?.id
+              ? { frequency: recurringFrequency }
+              : undefined,
           rooms: {
             ...rooms,
             cleanerBringsProducts,
@@ -2038,6 +2048,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
             />
             <FieldError k="booking-datetime" />
+            {/* R1-A: regular-clean entry — renders only on eligible slots. */}
+            <div className="mt-4">
+              <RecurringCleanOption
+                cleanerId={preSelectedCleaner.id}
+                cleanerName={preSelectedCleaner.name}
+                date={selectedDate}
+                time24={selectedTime24}
+                value={recurringFrequency}
+                onChange={setRecurringFrequency}
+              />
+            </div>
           </div>
 
           {/* Backup cleaner slider */}
@@ -3355,6 +3376,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 dateSubtitle={`Your clean is ${effectiveHours} hours`}
               />
               <FieldError k="booking-datetime" />
+              {/* R1-A: regular-clean entry — renders only on eligible slots. */}
+              <div className="mt-4">
+                <RecurringCleanOption
+                  cleanerId={selectedCleaner.id}
+                  cleanerName={selectedCleaner.name}
+                  date={selectedDate}
+                  time24={selectedTime24}
+                  value={recurringFrequency}
+                  onChange={setRecurringFrequency}
+                />
+              </div>
             </div>
 
             {/* Backup cleaner slider */}
