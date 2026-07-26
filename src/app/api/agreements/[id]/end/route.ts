@@ -26,14 +26,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     endedBy = 'CLEANER';
   } else if (user && agreement.clientId && user.id === agreement.clientId) {
     endedBy = 'CUSTOMER';
-  } else if (!agreement.clientId) {
-    // Guest agreement: the tokened-link door. The token must belong to a
-    // booking OF THIS AGREEMENT (any occurrence email link works).
+  } else if (!agreement.clientId && agreement.guestEmail) {
+    // Guest agreement: the tokened-link door. The guest's identity is their
+    // booking email — ANY of their tokened links works (the trial clean's
+    // page, an occurrence email), not just bookings inside the agreement:
+    // the end surface lives on the trial booking's tokened page.
     const body = await request.json().catch(() => ({}));
     const token = typeof body?.token === 'string' ? body.token : null;
     if (token) {
       const match = await prisma.booking.findFirst({
-        where: { agreementId: id, guestToken: token },
+        where: {
+          guestToken: token,
+          guestEmail: { equals: agreement.guestEmail, mode: 'insensitive' },
+        },
         select: { id: true },
       });
       if (match) endedBy = 'CUSTOMER';
