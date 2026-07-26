@@ -106,7 +106,11 @@ export async function processPaymentSuccess(
     await enqueueXeroPush({
       bookingId,
       event: 'PAYMENT_RECEIVED',
-      occurredAt: new Date(pi.created * 1000).toISOString(),
+      // pi.created robustness (the ledgered nit, defended here): a malformed
+      // event must never crash the claim-winner's side-effects.
+      occurredAt: new Date(
+        (Number.isFinite(pi.created) ? pi.created : Math.floor(Date.now() / 1000)) * 1000
+      ).toISOString(),
       stripeChargeId: pi.chargeId ?? undefined,
     }).catch(() => {});
 

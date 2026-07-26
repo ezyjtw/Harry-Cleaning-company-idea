@@ -130,41 +130,63 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
       }
 
       const amountPence = Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100);
-      const pi = await stripe.paymentIntents.create(
-        {
-          amount: amountPence,
-          currency: 'gbp',
-          customer: stripeCustomerId,
-          payment_method: methodId,
-          confirm: true,
-          off_session: true,
-          metadata: { bookingId: b.id, type: 'recurring_occurrence' },
-        },
-        // Single attempt held at the Stripe layer too: a crash-and-rerun
-        // resolves to the SAME PaymentIntent, never a second charge.
-        { idempotencyKey: `recurring_occurrence_${b.id}` }
-      );
-      await prisma.booking.update({
-        where: { id: b.id },
-        data: { stripePaymentIntentId: pi.id },
-      });
+      // MONEY LAW: the try/catch around the CHARGE is exactly that wide — once
+      // Stripe reports 'succeeded', no downstream error may ever mark the
+      // attempt failed (a paid clean must never receive a pay-now email).
+      let pi: Awaited<ReturnType<typeof stripe.paymentIntents.create>>;
+      try {
+        pi = await stripe.paymentIntents.create(
+          {
+            amount: amountPence,
+            currency: 'gbp',
+            customer: stripeCustomerId,
+            payment_method: methodId,
+            confirm: true,
+            off_session: true,
+            metadata: { bookingId: b.id, type: 'recurring_occurrence' },
+          },
+          // Single attempt held at the Stripe layer too: a crash-and-rerun
+          // resolves to the SAME PaymentIntent, never a second charge.
+          { idempotencyKey: `recurring_occurrence_${b.id}` }
+        );
+      } catch (chargeErr) {
+        // Declines throw (card_error) — that IS the single failed attempt.
+        const msg = chargeErr instanceof Error ? chargeErr.message : String(chargeErr);
+        await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
+        continue;
+      }
+      await prisma.booking
+        .update({ where: { id: b.id }, data: { stripePaymentIntentId: pi.id } })
+        .catch(() => {});
 
       if (pi.status === 'succeeded') {
-        const { processPaymentSuccess } = await import('@/lib/services/payment-success.service');
-        const chargeId =
-          typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
-        const outcome = await processPaymentSuccess({
-          bookingId: b.id,
-          pi: {
-            id: pi.id,
-            created: pi.created,
-            currency: pi.currency,
-            amountReceived: pi.amount_received,
-            chargeId: chargeId ?? null,
-          },
-        });
-        // eslint-disable-next-line no-console
-        console.log(`[RecurringCharge] T-48h charge SUCCEEDED for occurrence ${b.id} (${outcome})`);
+        // Post-success processing failures are LOUD but never flip the
+        // outcome — the safety-net sweep / webhook replay completes them.
+        try {
+          const { processPaymentSuccess } = await import('@/lib/services/payment-success.service');
+          const chargeId =
+            typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
+          const outcome = await processPaymentSuccess({
+            bookingId: b.id,
+            pi: {
+              id: pi.id,
+              created: Number.isFinite(pi.created) ? pi.created : Math.floor(Date.now() / 1000),
+              currency: pi.currency,
+              amountReceived: pi.amount_received,
+              chargeId: chargeId ?? null,
+            },
+          });
+          // eslint-disable-next-line no-console
+          console.log(
+            `[RecurringCharge] T-48h charge SUCCEEDED for occurrence ${b.id} (${outcome})`
+          );
+        } catch (postErr) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[RecurringCharge] charge SUCCEEDED for ${b.id} but post-processing failed — sweep will complete it:`,
+            postErr
+          );
+        }
       } else {
         // requires_action / processing / anything else: the single off-session
         // attempt did not complete — SCA and friends are handled natively at
@@ -172,9 +194,10 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
         await failAttempt(b.id, `off-session PI status ${pi.status}`);
       }
     } catch (err) {
-      // Declines throw (card_error) — that IS the single failed attempt.
+      // Pre-charge resolution errors only (customer/method lookups) — the
+      // charge itself has its own catch above.
       const msg = err instanceof Error ? err.message : String(err);
-      await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
+      await failAttempt(b.id, `attempt setup threw: ${msg}`).catch(() => {});
     }
   }
   return { processed };
