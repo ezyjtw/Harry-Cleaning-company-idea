@@ -19,8 +19,16 @@ export async function GET() {
       cleaner: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
       bookings: {
-        where: { status: 'SCHEDULED' },
-        select: { date: true },
+        // R1-C: the NEXT occurrence — SCHEDULED (uncharged) or a paid one
+        // (ACCEPTED after its T-48h charge) — so the skip action can target it.
+        where: {
+          OR: [
+            { status: 'SCHEDULED' },
+            { status: { in: ['ACCEPTED', 'CONFIRMED'] }, paymentStatus: 'SUCCEEDED' },
+          ],
+          date: { gte: new Date() },
+        },
+        select: { id: true, date: true, startTime: true, paymentStatus: true },
         orderBy: { date: 'asc' },
         take: 1,
       },
@@ -47,6 +55,9 @@ export async function GET() {
     // cleaners see their net (net-first law).
     amount: a.cleanerId === user.id ? Number(a.cleanerEarnings) : Number(a.totalPrice),
     nextOccurrence: a.bookings[0]?.date.toISOString().split('T')[0] ?? null,
+    nextOccurrenceId: a.bookings[0]?.id ?? null,
+    nextOccurrenceTime: a.bookings[0]?.startTime ?? null,
+    nextOccurrencePaid: a.bookings[0]?.paymentStatus === 'SUCCEEDED',
     endedAt: a.endedAt?.toISOString() ?? null,
     endedBy: a.endedBy,
     createdAt: a.createdAt.toISOString(),

@@ -62,6 +62,9 @@ export async function initiateCleanerCancelRescue(params: {
   bookingId: string;
   cleanerId: string;
   reason?: string;
+  /** R1-C holiday batching: the caller sends ONE batched email per customer
+   *  instead of the per-booking rescue email. Bell + audit are unchanged. */
+  suppressEmail?: boolean;
 }): Promise<{ ok: boolean; reason?: string }> {
   const { bookingId, cleanerId } = params;
 
@@ -113,16 +116,17 @@ export async function initiateCleanerCancelRescue(params: {
 
   // Notify the customer IMMEDIATELY — email (registered or guest-tokened links)
   // + an in-app Notification row (the bell/feed reads these).
-  await sendCleanerCancelledRescue({
-    bookingId,
-    customerName: booking.client?.name || booking.guestName || 'there',
-    customerEmail: booking.client?.email || booking.guestEmail || null,
-    guestToken: booking.client ? null : booking.guestToken,
-    serviceType: booking.serviceType,
-    date: booking.date,
-    startTime: booking.startTime,
-    deadline: effectiveDeadline,
-  }).catch(() => {});
+  if (!params.suppressEmail)
+    await sendCleanerCancelledRescue({
+      bookingId,
+      customerName: booking.client?.name || booking.guestName || 'there',
+      customerEmail: booking.client?.email || booking.guestEmail || null,
+      guestToken: booking.client ? null : booking.guestToken,
+      serviceType: booking.serviceType,
+      date: booking.date,
+      startTime: booking.startTime,
+      deadline: effectiveDeadline,
+    }).catch(() => {});
 
   if (booking.clientId) {
     await prisma.notification

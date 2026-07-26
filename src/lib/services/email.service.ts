@@ -947,6 +947,106 @@ export async function sendOccurrenceLatePaymentRefunded(bookingId: string): Prom
   return sendEmail(to, subject, html);
 }
 
+// R1-C: unpaid occurrence can't-make-it — no-charge choice email. The CTA
+// lands on the booking's choice surface (account detail or guest tokened page).
+export async function sendOccurrenceCantMake(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      startTime: true,
+      clientId: true,
+      guestEmail: true,
+      guestName: true,
+      guestToken: true,
+      client: { select: { name: true, email: true } },
+      cleaner: { select: { name: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const chooseUrl = b.clientId
+    ? `${appUrl}/booking/${bookingId}`
+    : `${appUrl}/booking/guest?token=${encodeURIComponent(b.guestToken ?? '')}`;
+  const { buildOccurrenceCantMake } = await import('./email-templates');
+  const { subject, html } = buildOccurrenceCantMake({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    cleanerName: b.cleaner?.name ?? 'Your cleaner',
+    dateLong: b.date.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    }),
+    time: b.startTime,
+    chooseUrl,
+  });
+  return sendEmail(to, subject, html);
+}
+
+// R1-C: the holiday batch email — one per customer, all their affected cleans.
+export async function sendHolidayBatch(params: {
+  bookingIds: string[];
+  startDate: string;
+  endDate: string;
+}): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const rows = await prisma.booking.findMany({
+    where: { id: { in: params.bookingIds } },
+    select: {
+      id: true,
+      date: true,
+      startTime: true,
+      paymentStatus: true,
+      clientId: true,
+      guestEmail: true,
+      guestName: true,
+      guestToken: true,
+      client: { select: { name: true, email: true } },
+      cleaner: { select: { name: true } },
+    },
+    orderBy: { date: 'asc' },
+  });
+  if (rows.length === 0) return false;
+  const first = rows[0];
+  const to = first.client?.email ?? first.guestEmail;
+  if (!to) return false;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const chooseUrl = first.clientId
+    ? `${appUrl}/account`
+    : `${appUrl}/booking/guest?token=${encodeURIComponent(first.guestToken ?? '')}`;
+  const longDate = (d: string) =>
+    new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    });
+  const { buildHolidayBatch } = await import('./email-templates');
+  const { subject, html } = buildHolidayBatch({
+    customerName: first.client?.name ?? first.guestName ?? 'there',
+    cleanerName: first.cleaner?.name ?? 'Your cleaner',
+    startLong: longDate(params.startDate),
+    endLong: longDate(params.endDate),
+    count: rows.length,
+    cleans: rows.map((r) => ({
+      dateLong: r.date.toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      }),
+      time: r.startTime,
+      paid: r.paymentStatus === 'SUCCEEDED',
+    })),
+    chooseUrl,
+  });
+  return sendEmail(to, subject, html);
+}
+
 // R1-B: the T-24h auto-cancel email — honest copy, agreement survives.
 export async function sendOccurrenceAutoCancelled(bookingId: string): Promise<boolean> {
   const { prisma } = await import('@/lib/db/prisma');

@@ -225,6 +225,12 @@ export default function AvailabilityPage() {
   const [lockingIn, setLockingIn] = useState(false);
   const [lockInResult, setLockInResult] = useState<string | null>(null);
 
+  // R1-C: holiday range — flag regular cleans for the away period.
+  const [holidayFrom, setHolidayFrom] = useState('');
+  const [holidayTo, setHolidayTo] = useState('');
+  const [holidayBusy, setHolidayBusy] = useState(false);
+  const [holidayResult, setHolidayResult] = useState<string | null>(null);
+
   useEffect(() => {
     setLoadError(false);
     fetch('/api/cleaner/availability')
@@ -1413,6 +1419,80 @@ export default function AvailabilityPage() {
 
           {/* R1-A: standing regular clients — renders only when one exists. */}
           <RecurringAgreementsCard role="CLEANER" className="mb-6" />
+
+          {/* R1-C: holiday — flag every regular clean in a range at once. Each
+              affected customer chooses per clean; arrangements are unchanged.
+              (This does NOT block the dates — use Blocked Dates for that.) */}
+          <div
+            className="rounded-xl bg-surface overflow-hidden mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
+          >
+            <div
+              className="px-6 py-4"
+              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
+            >
+              <h2 className="font-newsreader text-lg font-semibold text-ink">Going away?</h2>
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                Flag your regular cleans in a date range — your customers choose per clean
+              </p>
+            </div>
+            <div className="px-6 py-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="font-jost text-sm text-ink-2">
+                  From
+                  <input
+                    type="date"
+                    value={holidayFrom}
+                    onChange={(e) => setHolidayFrom(e.target.value)}
+                    className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06]"
+                  />
+                </label>
+                <label className="font-jost text-sm text-ink-2">
+                  To
+                  <input
+                    type="date"
+                    value={holidayTo}
+                    onChange={(e) => setHolidayTo(e.target.value)}
+                    className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06]"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={holidayBusy || !holidayFrom || !holidayTo}
+                  onClick={async () => {
+                    setHolidayBusy(true);
+                    setHolidayResult(null);
+                    try {
+                      const res = await fetch('/api/cleaner/occurrences/holiday', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ startDate: holidayFrom, endDate: holidayTo }),
+                      });
+                      const data = await res.json().catch(() => null);
+                      setHolidayResult(
+                        res.ok ? data?.message || 'Done.' : data?.error || 'Something went wrong.'
+                      );
+                    } catch {
+                      setHolidayResult('Network error — please try again.');
+                    } finally {
+                      setHolidayBusy(false);
+                    }
+                  }}
+                  className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+                >
+                  {holidayBusy ? 'Flagging…' : 'Flag my regular cleans'}
+                </button>
+              </div>
+              {holidayResult && (
+                <p className="mt-2 font-jost text-sm text-ink-2">{holidayResult}</p>
+              )}
+              <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
+                Paid cleans offer your customer a reschedule, cover, or a full refund; uncharged
+                ones offer a new date or a free skip. Remember to also block the dates below so
+                one-off bookings can&rsquo;t land while you&rsquo;re away.
+              </p>
+            </div>
+          </div>
 
           {/* Blocked dates */}
           <div

@@ -478,6 +478,64 @@ export function buildOccurrenceLatePaymentRefunded(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// R1-C: unpaid occurrence can't-make-it — the no-charge variant of the rescue
+// email. Choices are reschedule or skip; nothing has been charged.
+export function buildOccurrenceCantMake(data: {
+  customerName: string;
+  cleanerName: string;
+  dateLong: string;
+  time: string;
+  chooseUrl: string;
+}): EmailContent {
+  const subject = `${data.cleanerName} can't make your clean on ${data.dateLong}`;
+  const contentHtml =
+    h('One clean needs a new plan') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `${data.cleanerName} can&rsquo;t make your regular clean on ${data.dateLong} at ${data.time}. Nothing has been charged for it, and your regular arrangement is unaffected.`
+    ) +
+    p('Pick a new date with them, or skip this one — it&rsquo;s your choice.') +
+    button(data.chooseUrl, 'Choose what happens') +
+    pMuted(
+      'If you don&rsquo;t choose in time, this one visit is simply skipped — nothing is charged and your next clean goes ahead as normal.'
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R1-C: holiday batch — one honest email per customer covering ALL their
+// affected cleans in the range.
+export function buildHolidayBatch(data: {
+  customerName: string;
+  cleanerName: string;
+  startLong: string;
+  endLong: string;
+  count: number;
+  cleans: Array<{ dateLong: string; time: string; paid: boolean }>;
+  chooseUrl: string;
+}): EmailContent {
+  const plural = data.count > 1;
+  const subject = `${data.cleanerName} is away ${data.startLong} – ${data.endLong}`;
+  const rows = data.cleans.map((c) => [
+    `${c.dateLong} at ${c.time}`,
+    c.paid ? 'paid — full refund if you skip' : 'not yet charged',
+  ]) as [string, string][];
+  const contentHtml =
+    h(`${data.cleanerName} is away`) +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `${data.cleanerName} is away ${data.startLong} &ndash; ${data.endLong} — choose for your ${data.count} affected clean${plural ? 's' : ''}. Your regular arrangement is unaffected.`
+    ) +
+    infoBlock(rows) +
+    p(
+      `For each clean you can pick a new date${plural ? '' : ' with them'}, choose cover, or skip it — paid cleans are refunded in full if you skip.`
+    ) +
+    button(data.chooseUrl, plural ? 'Choose for each clean' : 'Choose what happens') +
+    pMuted(
+      'Anything you don&rsquo;t decide in time resolves safely on its own: paid cleans are refunded in full, uncharged ones are simply skipped.'
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildPasswordReset(token: string): EmailContent {
   const resetLink = `${appUrl()}/reset-password?token=${token}`;
   const subject = 'Reset your password - Rena Cleaning Network';

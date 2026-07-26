@@ -9,6 +9,7 @@ import CleanerAvatar from '@/components/CleanerAvatar';
 import NavLink from '@/components/nav/NavLink';
 import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import RescuePanel from '@/components/RescuePanel';
+import UnpaidOccurrencePanel from '@/components/UnpaidOccurrencePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { formatDate } from '@/lib/utils/formatting';
@@ -29,6 +30,8 @@ interface BookingDetail {
   /** H8: who is looking — rescue choices are the customer's alone. */
   viewer?: 'client' | 'cleaner' | 'backup' | 'admin';
   paymentStatus?: string | null;
+  /** R1-C: present on recurring occurrences — selects the no-charge variant. */
+  agreementId?: string | null;
   cascadePhase?: string | null;
   date: string;
   startTime: string;
@@ -312,25 +315,44 @@ export default function BookingDetailPage() {
       )}
 
       {/* M3 rescue: cleaner cancelled — the customer's refund/rebook choice */}
-      {booking.status === 'CLEANER_CANCELLED' && booking.viewer === 'client' && (
-        <div className="mt-4">
-          <RescuePanel
-            bookingId={booking.id}
-            serviceType={booking.serviceType}
-            date={booking.date.split('T')[0]}
-            time={booking.startTime}
-            duration={Number(booking.duration)}
-            postcode={booking.addressPostcode || booking.address?.postcode || ''}
-            totalPrice={Number(booking.totalPrice)}
-            cancellerId={booking.cleaner?.id ?? null}
-            cancellerName={booking.cleaner?.name ?? null}
-            backupCleanerIds={booking.backupCleanerIds}
-            rescueDeadline={booking.rescueDeadline}
-            initialAction={searchParams.get('rescue')}
-            onResolved={() => window.location.reload()}
-          />
-        </div>
-      )}
+      {/* R1-C: an UNPAID occurrence's can't-make gets the no-charge variant —
+          reschedule with the same cleaner or skip; the paid rescue keeps the
+          full three-way panel below, untouched. */}
+      {booking.status === 'CLEANER_CANCELLED' &&
+        booking.viewer === 'client' &&
+        booking.agreementId &&
+        booking.paymentStatus !== 'SUCCEEDED' && (
+          <div className="mt-4">
+            <UnpaidOccurrencePanel
+              bookingId={booking.id}
+              cleanerName={booking.cleaner?.name ?? null}
+              date={booking.date.split('T')[0]}
+              time={booking.startTime}
+              onResolved={() => window.location.reload()}
+            />
+          </div>
+        )}
+      {booking.status === 'CLEANER_CANCELLED' &&
+        booking.viewer === 'client' &&
+        !(booking.agreementId && booking.paymentStatus !== 'SUCCEEDED') && (
+          <div className="mt-4">
+            <RescuePanel
+              bookingId={booking.id}
+              serviceType={booking.serviceType}
+              date={booking.date.split('T')[0]}
+              time={booking.startTime}
+              duration={Number(booking.duration)}
+              postcode={booking.addressPostcode || booking.address?.postcode || ''}
+              totalPrice={Number(booking.totalPrice)}
+              cancellerId={booking.cleaner?.id ?? null}
+              cancellerName={booking.cleaner?.name ?? null}
+              backupCleanerIds={booking.backupCleanerIds}
+              rescueDeadline={booking.rescueDeadline}
+              initialAction={searchParams.get('rescue')}
+              onResolved={() => window.location.reload()}
+            />
+          </div>
+        )}
 
       <div className="mt-4 rounded-2xl border border-line bg-surface p-6">
         {/* Cleaner */}

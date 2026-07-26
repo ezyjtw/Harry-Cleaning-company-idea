@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { cascadeSentence } from '@/components/BookingStatusChip';
 import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import RescuePanel from '@/components/RescuePanel';
+import UnpaidOccurrencePanel from '@/components/UnpaidOccurrencePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
 
@@ -28,6 +29,8 @@ interface Booking {
   totalPrice: number;
   status: string;
   cascadePhase?: string | null;
+  paymentStatus?: string | null;
+  agreementId?: string | null;
   rescueDeadline?: string | null;
   backupCleanerIds?: string[];
   postcode?: string;
@@ -45,6 +48,10 @@ interface GuestActiveAgreement {
   dayOfWeek: number;
   startTime: string;
   nextOccurrence: string | null;
+  nextOccurrenceId: string | null;
+  nextOccurrenceTime: string | null;
+  nextOccurrencePaid: boolean;
+  nextOccurrenceToken: string | null;
 }
 
 const AGREEMENT_DAY_NAMES = [
@@ -251,6 +258,10 @@ function GuestBookingContent() {
   const [endingAgreement, setEndingAgreement] = useState(false);
   const [endError, setEndError] = useState<string | null>(null);
   const [agreementEnded, setAgreementEnded] = useState(false);
+  // R1-C: skip-next-clean state.
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+  const [skipMessage, setSkipMessage] = useState<string | null>(null);
 
   // H69: the tokened dispute CASE VIEW — status, description, BOTH parties'
   // evidence (both-see-all rule) and a working photo upload. Replaces the old
@@ -580,26 +591,44 @@ function GuestBookingContent() {
         )}
 
         {/* M3 rescue: cleaner cancelled — the tokened choice panel (F5 pattern) */}
-        {booking.status === 'CLEANER_CANCELLED' && token && (
-          <div className="mb-6">
-            <RescuePanel
-              bookingId={booking.id}
-              guestToken={token}
-              serviceType={booking.serviceType}
-              date={booking.date}
-              time={booking.time}
-              duration={booking.duration}
-              postcode={booking.postcode || ''}
-              totalPrice={booking.totalPrice}
-              cancellerId={booking.cleanerId ?? null}
-              cancellerName={booking.cleanerName ?? null}
-              backupCleanerIds={booking.backupCleanerIds}
-              rescueDeadline={booking.rescueDeadline}
-              initialAction={searchParams.get('rescue')}
-              onResolved={() => fetchBooking()}
-            />
-          </div>
-        )}
+        {/* R1-C: unpaid occurrence can't-make → the no-charge variant. */}
+        {booking.status === 'CLEANER_CANCELLED' &&
+          token &&
+          booking.agreementId &&
+          booking.paymentStatus !== 'SUCCEEDED' && (
+            <div className="mb-6">
+              <UnpaidOccurrencePanel
+                bookingId={booking.id}
+                guestToken={token}
+                cleanerName={booking.cleanerName}
+                date={booking.date}
+                time={booking.time}
+                onResolved={() => fetchBooking()}
+              />
+            </div>
+          )}
+        {booking.status === 'CLEANER_CANCELLED' &&
+          token &&
+          !(booking.agreementId && booking.paymentStatus !== 'SUCCEEDED') && (
+            <div className="mb-6">
+              <RescuePanel
+                bookingId={booking.id}
+                guestToken={token}
+                serviceType={booking.serviceType}
+                date={booking.date}
+                time={booking.time}
+                duration={booking.duration}
+                postcode={booking.postcode || ''}
+                totalPrice={booking.totalPrice}
+                cancellerId={booking.cleanerId ?? null}
+                cancellerName={booking.cleanerName ?? null}
+                backupCleanerIds={booking.backupCleanerIds}
+                rescueDeadline={booking.rescueDeadline}
+                initialAction={searchParams.get('rescue')}
+                onResolved={() => fetchBooking()}
+              />
+            </div>
+          )}
 
         {/* Status Timeline */}
         <div className="mb-8 rounded-2xl border border-line bg-surface p-6">
@@ -787,6 +816,81 @@ function GuestBookingContent() {
                 </>
               )}
             </p>
+            {/* R1-C: skip the next occurrence (its own token authorizes). */}
+            {activeAgreement.nextOccurrenceId &&
+              activeAgreement.nextOccurrenceToken &&
+              !confirmingEnd && (
+                <div className="mt-2">
+                  {!confirmingSkip ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingSkip(true)}
+                      className="mr-4 font-jost text-[12px] text-ink-3 underline transition hover:text-ink"
+                    >
+                      Skip next clean
+                    </button>
+                  ) : (
+                    <div className="mt-2 rounded-[10px] border border-line bg-page p-4">
+                      <p className="font-jost text-sm text-ink">
+                        {!activeAgreement.nextOccurrencePaid
+                          ? 'Skip this clean? Nothing has been charged for it — skipping is free, and your regular arrangement carries on as normal.'
+                          : new Date(
+                                `${activeAgreement.nextOccurrence}T${activeAgreement.nextOccurrenceTime || '00:00'}:00`
+                              ).getTime() -
+                                Date.now() <=
+                              24 * 60 * 60 * 1000
+                            ? "Skip this clean? Inside 24 hours the charge stands — your cleaner committed this time. You can still skip, but this clean won't be refunded."
+                            : "Skip this clean? You'll be refunded in full, and your regular arrangement carries on as normal."}
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={skipping}
+                          onClick={async () => {
+                            setSkipping(true);
+                            setEndError(null);
+                            try {
+                              const res = await fetch(
+                                `/api/bookings/${activeAgreement.nextOccurrenceId}/skip`,
+                                {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    token: activeAgreement.nextOccurrenceToken,
+                                  }),
+                                }
+                              );
+                              const data = await res.json().catch(() => null);
+                              if (!res.ok) throw new Error(data?.error || 'Could not skip.');
+                              setSkipMessage(data?.message ?? 'Skipped.');
+                              fetchBooking();
+                            } catch (e) {
+                              setEndError(e instanceof Error ? e.message : 'Could not skip.');
+                            } finally {
+                              setSkipping(false);
+                              setConfirmingSkip(false);
+                            }
+                          }}
+                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white disabled:opacity-50"
+                        >
+                          {skipping ? 'Skipping…' : 'Yes, skip it'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={skipping}
+                          onClick={() => setConfirmingSkip(false)}
+                          className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink"
+                        >
+                          Keep it
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {skipMessage && (
+                    <p className="mt-2 font-jost text-sm text-trust">{skipMessage}</p>
+                  )}
+                </div>
+              )}
             {!confirmingEnd ? (
               <button
                 type="button"

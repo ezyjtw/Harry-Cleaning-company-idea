@@ -54,8 +54,21 @@ export async function GET(request: NextRequest) {
           dayOfWeek: true,
           startTime: true,
           bookings: {
-            where: { status: 'SCHEDULED' },
-            select: { date: true },
+            // R1-C: next occurrence (uncharged or paid) — skip target.
+            where: {
+              OR: [
+                { status: 'SCHEDULED' },
+                { status: { in: ['ACCEPTED', 'CONFIRMED'] }, paymentStatus: 'SUCCEEDED' },
+              ],
+              date: { gte: new Date() },
+            },
+            select: {
+              id: true,
+              date: true,
+              startTime: true,
+              paymentStatus: true,
+              guestToken: true,
+            },
             orderBy: { date: 'asc' },
             take: 1,
           },
@@ -71,6 +84,12 @@ export async function GET(request: NextRequest) {
           dayOfWeek: activeAgreement.dayOfWeek,
           startTime: activeAgreement.startTime,
           nextOccurrence: activeAgreement.bookings[0]?.date.toISOString().split('T')[0] ?? null,
+          // R1-C: the skip action targets the next occurrence (its OWN token
+          // authorizes the skip — per-occurrence tokened links, guest parity).
+          nextOccurrenceId: activeAgreement.bookings[0]?.id ?? null,
+          nextOccurrenceTime: activeAgreement.bookings[0]?.startTime ?? null,
+          nextOccurrencePaid: activeAgreement.bookings[0]?.paymentStatus === 'SUCCEEDED',
+          nextOccurrenceToken: activeAgreement.bookings[0]?.guestToken ?? null,
         }
       : null,
     booking: {
@@ -103,6 +122,8 @@ export async function GET(request: NextRequest) {
       status: booking.status,
       cascadePhase: booking.cascadePhase,
       paymentStatus: booking.paymentStatus,
+      // R1-C: occurrences select the no-charge can't-make variant.
+      agreementId: booking.agreementId,
       // M3 rescue: the tokened tracking page renders the refund/rebook panel.
       rescueDeadline: booking.rescueDeadline ? booking.rescueDeadline.toISOString() : null,
       backupCleanerIds: booking.backupCleanerIds,
