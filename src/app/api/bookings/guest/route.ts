@@ -5,10 +5,13 @@ import { prisma } from '@/lib/db/prisma';
 import { executeCancellation, previewCancellation } from '@/lib/services/cancellation.service';
 import { bookingFullAddress } from '@/lib/utils/booking-address';
 
-// UUID-like format validation (accepts standard UUID v4 format)
+// Token format validation. Two legitimate shapes exist: checkout guest tokens
+// are UUIDs (crypto.randomUUID), and R1-A occurrence tokens are 48-char hex
+// (randomBytes(24)) — the per-occurrence tokened links of recurring guests.
 function isValidToken(token: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(token);
+  const hexRegex = /^[0-9a-f]{48}$/i;
+  return uuidRegex.test(token) || hexRegex.test(token);
 }
 
 export async function GET(request: NextRequest) {
