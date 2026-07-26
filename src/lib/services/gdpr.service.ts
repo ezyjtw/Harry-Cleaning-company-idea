@@ -173,6 +173,45 @@ export class GdprService {
   }
 
   /**
+   * H103 follow-up (James-ruled): the same hole existed identically on the
+   * CLIENT side — a customer deleting mid-booking strands a cleaner's
+   * committed slot. Same door, same engine, role-appropriate blockers.
+   */
+  static async getClientDeletionBlockers(userId: string): Promise<string[]> {
+    const { BookingStatus } = await import('@prisma/client');
+    const LIVE_STATUSES = [
+      BookingStatus.PENDING,
+      BookingStatus.AWAITING_CLEANER,
+      BookingStatus.CONFIRMED,
+      BookingStatus.ACCEPTED,
+      BookingStatus.EN_ROUTE,
+      BookingStatus.IN_PROGRESS,
+      // A rescue-in-flight clean is live for the customer too — their money
+      // and their choice (reschedule/cover/refund) are both still open.
+      BookingStatus.CLEANER_CANCELLED,
+    ];
+    const [liveBookings, activeAgreements, openDisputes] = await Promise.all([
+      prisma.booking.count({ where: { clientId: userId, status: { in: LIVE_STATUSES } } }),
+      prisma.recurringAgreement.count({ where: { clientId: userId, status: 'ACTIVE' } }),
+      prisma.dispute.count({
+        where: { booking: { clientId: userId }, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+      }),
+    ]);
+
+    const blockers: string[] = [];
+    if (liveBookings > 0) {
+      blockers.push(`${liveBookings} upcoming clean(s) — complete or cancel them first`);
+    }
+    if (activeAgreements > 0) {
+      blockers.push(`${activeAgreements} regular arrangement(s) — end them first`);
+    }
+    if (openDisputes > 0) {
+      blockers.push(`${openDisputes} open dispute(s) — they must resolve first`);
+    }
+    return blockers;
+  }
+
+  /**
    * Submit a data deletion request (GDPR right to erasure)
    */
   static async requestDataDeletion(params: { userId: string; email: string; reason?: string }) {
@@ -298,14 +337,19 @@ export class GdprService {
       where: { id: userId },
       select: { role: true, cleanerProfile: { select: { id: true, stripeAccountId: true } } },
     });
-    if (requestUser?.role === 'CLEANER') {
-      const blockers = await this.getCleanerDeletionBlockers(userId);
+    if (requestUser?.role === 'CLEANER' || requestUser?.role === 'CLIENT') {
+      const blockers =
+        requestUser.role === 'CLEANER'
+          ? await this.getCleanerDeletionBlockers(userId)
+          : await this.getClientDeletionBlockers(userId);
       if (blockers.length > 0) {
         await prisma.dataDeletionRequest.updateMany({
           where: { id: params.requestId, status: 'IN_PROGRESS' },
           data: { status: 'APPROVED' },
         });
-        throw new Error(`Cleaner has live state — cannot erase yet: ${blockers.join('; ')}`);
+        throw new Error(
+          `${requestUser.role === 'CLEANER' ? 'Cleaner' : 'Customer'} has live state — cannot erase yet: ${blockers.join('; ')}`
+        );
       }
     }
 
