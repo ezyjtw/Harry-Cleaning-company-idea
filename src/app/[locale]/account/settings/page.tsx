@@ -49,6 +49,9 @@ export default function SettingsPage() {
   // Delete account state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  // H103: password re-entry rides with type-to-confirm — a stolen session
+  // alone must not be able to file the deletion request.
+  const [deletePassword, setDeletePassword] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -220,7 +223,11 @@ export default function SettingsPage() {
       const res = await fetch('/api/gdpr/deletion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: profile.id, email: profile.email }),
+        body: JSON.stringify({
+          userId: profile.id,
+          email: profile.email,
+          password: deletePassword,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -541,9 +548,9 @@ export default function SettingsPage() {
             <h3 className="font-newsreader text-xl font-semibold text-danger">Delete account</h3>
             <p className="mt-2 text-sm text-ink-2">
               Your account will be <strong>deactivated immediately</strong> and you&rsquo;ll be
-              signed out everywhere. Your personal data will be erased within 30 days &mdash;
-              except records we&rsquo;re legally required to keep, such as booking and tax records.
-              This cannot be undone.
+              signed out everywhere. Your personal data will be erased within 30 days &mdash; except
+              records we&rsquo;re legally required to keep, such as booking and tax records. This
+              cannot be undone.
             </p>
             <p className="mt-3 text-sm text-ink-2">
               Type <span className="font-mono font-bold text-danger">DELETE</span> to confirm:
@@ -553,6 +560,16 @@ export default function SettingsPage() {
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="Type DELETE"
+              className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
+            />
+            {/* H103: password re-entry — server-verified alongside the word. */}
+            <p className="mt-3 text-sm text-ink-2">Re-enter your password:</p>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Your password"
+              autoComplete="current-password"
               className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
             />
             {deleteError && <p className="mt-2 text-sm text-danger">{deleteError}</p>}
@@ -568,6 +585,8 @@ export default function SettingsPage() {
                 onClick={() => {
                   setShowDeleteModal(false);
                   setDeleteConfirmText('');
+                  setDeletePassword('');
+                  setDeleteError('');
                 }}
                 className={BTN_OUTLINE}
               >

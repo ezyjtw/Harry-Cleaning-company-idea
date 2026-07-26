@@ -112,6 +112,67 @@ export class GdprService {
   }
 
   /**
+   * H103 (James-ruled spec): a CLEANER may not enter the deletion pipeline
+   * while anything live hangs off their account. Every blocker is STRUCTURAL —
+   * checked server-side against the data, never UI trust — and each names the
+   * action that clears it. Checked at request time AND again at execution.
+   */
+  static async getCleanerDeletionBlockers(userId: string): Promise<string[]> {
+    const { BookingStatus } = await import('@prisma/client');
+    const LIVE_STATUSES = [
+      BookingStatus.PENDING,
+      BookingStatus.AWAITING_CLEANER,
+      BookingStatus.CONFIRMED,
+      BookingStatus.ACCEPTED,
+      BookingStatus.EN_ROUTE,
+      BookingStatus.IN_PROGRESS,
+      BookingStatus.CLEANER_CANCELLED,
+    ];
+    const [liveJobs, activeAgreements, moneyInFlight, openDisputes, pendingTopups] =
+      await Promise.all([
+        prisma.booking.count({ where: { cleanerId: userId, status: { in: LIVE_STATUSES } } }),
+        prisma.recurringAgreement.count({ where: { cleanerId: userId, status: 'ACTIVE' } }),
+        prisma.booking.count({
+          where: {
+            cleanerId: userId,
+            status: { in: ['COMPLETED', 'REVIEWED'] },
+            transferStatus: 'PENDING',
+          },
+        }),
+        prisma.dispute.count({
+          where: { booking: { cleanerId: userId }, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+        }),
+        prisma.topupRecord.count({
+          where: { booking: { cleanerId: userId }, status: 'PENDING' },
+        }),
+      ]);
+
+    const blockers: string[] = [];
+    if (liveJobs > 0) {
+      blockers.push(
+        `${liveJobs} upcoming or in-progress booking(s) — complete or cancel them first`
+      );
+    }
+    if (activeAgreements > 0) {
+      blockers.push(
+        `${activeAgreements} active regular-clean arrangement(s) — end them first (your customers are told honestly)`
+      );
+    }
+    if (moneyInFlight > 0) {
+      blockers.push(
+        `${moneyInFlight} completed clean(s) with your payout still in flight — wait for release`
+      );
+    }
+    if (openDisputes > 0) {
+      blockers.push(`${openDisputes} open dispute(s) — they must resolve first`);
+    }
+    if (pendingTopups > 0) {
+      blockers.push(`${pendingTopups} pending payment adjustment(s) — they must settle first`);
+    }
+    return blockers;
+  }
+
+  /**
    * Submit a data deletion request (GDPR right to erasure)
    */
   static async requestDataDeletion(params: { userId: string; email: string; reason?: string }) {
@@ -228,7 +289,25 @@ export class GdprService {
     if (claim.count === 0) throw new Error('Request already being processed');
 
     const userId = request.userId;
-    const manifest: Record<string, number> = {};
+    const manifest: Record<string, number | string | boolean> = {};
+
+    // H103: the blockers are re-checked at EXECUTION time — state can change
+    // between request and admin approval (a new booking, a reopened dispute).
+    // Refusal reverts the claim so the admin can retry once clear.
+    const requestUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, cleanerProfile: { select: { id: true, stripeAccountId: true } } },
+    });
+    if (requestUser?.role === 'CLEANER') {
+      const blockers = await this.getCleanerDeletionBlockers(userId);
+      if (blockers.length > 0) {
+        await prisma.dataDeletionRequest.updateMany({
+          where: { id: params.requestId, status: 'IN_PROGRESS' },
+          data: { status: 'APPROVED' },
+        });
+        throw new Error(`Cleaner has live state — cannot erase yet: ${blockers.join('; ')}`);
+      }
+    }
 
     // 1) Identity documents. photo_id/selfie/insurance destroyed now (real R2
     //    delete via destroyDocument). right_to_work + dbs_certificate are under
@@ -279,6 +358,42 @@ export class GdprService {
     const addresses = await prisma.address.deleteMany({ where: { userId } });
     manifest.addressesDeleted = addresses.count;
 
+    // 5b) H103 cleaner legs — profile RETIRED, not deleted (the row anchors
+    //     booking history; the user tombstone below already removes it from
+    //     search/matching structurally via eligibleCleanerWhere's user gate).
+    if (requestUser?.role === 'CLEANER' && requestUser.cleanerProfile) {
+      const profileId = requestUser.cleanerProfile.id;
+      const [slots, overrides, dateSlots] = await Promise.all([
+        prisma.availabilitySlot.deleteMany({ where: { cleanerProfileId: profileId } }),
+        prisma.availabilityOverride.deleteMany({ where: { cleanerProfileId: profileId } }),
+        prisma.availabilityDateSlot.deleteMany({ where: { cleanerProfileId: profileId } }),
+      ]);
+      manifest.availabilityRowsDeleted = slots.count + overrides.count + dateSlots.count;
+      // Stripe Express: the account is THEIRS — we never delete it at Stripe
+      // (Stripe keeps its own KYC retention; account.application.deauthorized
+      // handles their side). We DETACH: the money blocker guarantees zero in
+      // flight, and the old id is recorded here for the audit trail.
+      manifest.stripeAccountDetached = requestUser.cleanerProfile.stripeAccountId ?? 'none';
+      await prisma.cleanerProfile.update({
+        where: { id: profileId },
+        data: {
+          bio: null,
+          stripeAccountId: null,
+          stripeChargesEnabled: false,
+          stripePayoutsEnabled: false,
+        },
+      });
+    }
+
+    // 5c) H103 session kill — bump passwordChangedAt (the F6 field): every
+    //     session and bearer token issued before this moment dies at the next
+    //     check, and the native app goes silent with its tokens gone.
+    const [deviceTokens, pushSubs] = await Promise.all([
+      prisma.deviceToken.deleteMany({ where: { userId } }),
+      prisma.pushSubscription.deleteMany({ where: { userId } }),
+    ]);
+    manifest.deviceTokensDeleted = deviceTokens.count + pushSubs.count;
+
     // 6) User identity — tombstone (row retained for booking/payment FK
     //    integrity under the 6-year tax/legal hold). This also anonymises the
     //    author of any retained reviews/messages.
@@ -293,6 +408,7 @@ export class GdprService {
         isDeleted: true,
         deletedAt: new Date(),
         accountStatus: 'DEACTIVATED',
+        passwordChangedAt: new Date(),
       },
     });
 

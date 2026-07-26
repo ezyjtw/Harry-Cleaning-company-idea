@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, email, reason } = body;
+    const { userId, email, reason, password } = body;
 
     if (!userId || !email) {
       return NextResponse.json({ error: 'userId and email are required' }, { status: 400 });
@@ -23,6 +23,59 @@ export async function POST(request: NextRequest) {
 
     if (userId !== requester.id && requester.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+
+    const { prisma: db } = await import('@/lib/db/prisma');
+
+    // H103: self-serve deletion requires the PASSWORD re-entered alongside the
+    // type-to-confirm — a stolen session alone must not be able to file it.
+    // (Admin-filed requests skip this; accounts without a password can't
+    // re-enter one, so the session + type-to-confirm stand alone there.)
+    if (userId === requester.id) {
+      const account = await db.user.findUnique({
+        where: { id: userId },
+        select: { passwordHash: true },
+      });
+      if (account?.passwordHash) {
+        const bcrypt = (await import('bcryptjs')).default;
+        const okPw =
+          typeof password === 'string' && (await bcrypt.compare(password, account.passwordHash));
+        if (!okPw) {
+          return NextResponse.json(
+            { error: 'Please re-enter your password correctly to confirm.' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    // H103: one open request at a time — a duplicate would double-deactivate
+    // and clutter the admin queue.
+    const open = await db.dataDeletionRequest.findFirst({
+      where: { userId, status: { in: ['PENDING', 'APPROVED', 'IN_PROGRESS'] } },
+      select: { id: true },
+    });
+    if (open) {
+      return NextResponse.json(
+        { error: 'A deletion request for this account is already in progress.' },
+        { status: 409 }
+      );
+    }
+
+    // H103: cleaner blockers — structural, named, checked BEFORE anything is
+    // deactivated (deactivating a cleaner with live jobs would strand
+    // customers). Each names the action that clears it.
+    if (requester.role === 'CLEANER' && userId === requester.id) {
+      const blockers = await GdprService.getCleanerDeletionBlockers(userId);
+      if (blockers.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Your account can't be deleted yet: ${blockers.join('; ')}.`,
+            blockers,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const deletionRequest = await GdprService.requestDataDeletion({
