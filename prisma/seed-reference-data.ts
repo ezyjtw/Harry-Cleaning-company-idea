@@ -56,9 +56,13 @@ const FIXED_PRICES: Record<
     { propertySize: 'STUDIO', estimatedHours: 4, customerPrice: 175 },
     { propertySize: 'ONE_BED', estimatedHours: 5, customerPrice: 220 },
     { propertySize: 'TWO_BED', estimatedHours: 6, customerPrice: 280 },
-    { propertySize: 'THREE_BED', estimatedHours: 8, customerPrice: 350 },
-    { propertySize: 'FOUR_BED', estimatedHours: 10, customerPrice: 430 },
-    { propertySize: 'FIVE_PLUS', estimatedHours: 13, customerPrice: 550 },
+    // LB-6 gate (James-adjusted): these are the REAL calendar holds now, so the
+    // larger sizes came down to fit real working days (3-bed 8→7, 4-bed 10→9,
+    // 5+ 13→11). "Team cleans" is the ledgered honest answer to jobs that
+    // still exceed a single cleaner's day.
+    { propertySize: 'THREE_BED', estimatedHours: 7, customerPrice: 350 },
+    { propertySize: 'FOUR_BED', estimatedHours: 9, customerPrice: 430 },
+    { propertySize: 'FIVE_PLUS', estimatedHours: 11, customerPrice: 550 },
   ],
   airbnb: [
     { propertySize: 'STUDIO', estimatedHours: 1.5, customerPrice: 55 },
@@ -84,9 +88,21 @@ const ADDONS: Record<string, Array<{ name: string; price: number }>> = {
 };
 
 const PLATFORM_CONFIG = [
-  { key: 'cleaner_fee_pct', value: '0.10', description: 'Platform fee deducted from cleaner payout (10%)' },
-  { key: 'customer_fee_pct', value: '0.06', description: 'Service fee added on top for customer (6%)' },
-  { key: 'same_day_multiplier', value: '1.30', description: 'Urgency multiplier for same-day bookings' },
+  {
+    key: 'cleaner_fee_pct',
+    value: '0.10',
+    description: 'Platform fee deducted from cleaner payout (10%)',
+  },
+  {
+    key: 'customer_fee_pct',
+    value: '0.06',
+    description: 'Service fee added on top for customer (6%)',
+  },
+  {
+    key: 'same_day_multiplier',
+    value: '1.30',
+    description: 'Urgency multiplier for same-day bookings',
+  },
   { key: 'one_off_multiplier', value: '1.10', description: 'One-off booking surge' },
   { key: 'fortnightly_multiplier', value: '1.05', description: 'Fortnightly vs weekly premium' },
   {
@@ -95,8 +111,16 @@ const PLATFORM_CONFIG = [
     description:
       'Deep clean labour intensity premium — also applied to derive cleaner deep rate for EOT/Airbnb',
   },
-  { key: 'min_cleaner_rate', value: '14.00', description: 'Minimum advertised cleaner hourly rate' },
-  { key: 'max_cleaner_rate', value: '35.00', description: 'Maximum advertised cleaner hourly rate' },
+  {
+    key: 'min_cleaner_rate',
+    value: '14.00',
+    description: 'Minimum advertised cleaner hourly rate',
+  },
+  {
+    key: 'max_cleaner_rate',
+    value: '35.00',
+    description: 'Maximum advertised cleaner hourly rate',
+  },
 ];
 
 // Operational marker for the daily compliance-job day-guard (see
@@ -161,7 +185,10 @@ async function main() {
         where: { serviceTypeId: serviceType.id, name: addon.name },
       });
       if (existing) {
-        await prisma.serviceAddon.update({ where: { id: existing.id }, data: { price: addon.price } });
+        await prisma.serviceAddon.update({
+          where: { id: existing.id },
+          data: { price: addon.price },
+        });
       } else {
         await prisma.serviceAddon.create({
           data: { serviceTypeId: serviceType.id, name: addon.name, price: addon.price },
