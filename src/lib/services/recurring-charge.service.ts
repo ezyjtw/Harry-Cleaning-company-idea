@@ -68,6 +68,9 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
       agreement: { status: 'ACTIVE' },
       // Window: start within 48h. Past-start stragglers are the cancel
       // sweep's problem, not a late charge.
+      // Deviation, by design (James-accepted): the filter compares the DATE
+      // (UTC midnight), so late-start occurrences enter the window a few hours
+      // before exactly T-48h — the charge fires early, never late.
       date: {
         lte: new Date(now + CHARGE_WINDOW_HOURS * HOUR_MS),
         gte: new Date(now - 24 * HOUR_MS),

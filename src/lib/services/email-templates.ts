@@ -459,6 +459,25 @@ export function buildOccurrenceAutoCancelled(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// R1-B race fix (James-ruled copy): payment landed just as the T-24h sweep
+// cancelled the visit — full automatic refund, honestly explained.
+export function buildOccurrenceLatePaymentRefunded(data: {
+  customerName: string;
+  cleanerName: string;
+  dateLong: string;
+  amount: number;
+}): EmailContent {
+  const subject = `Refunded in full — your clean on ${data.dateLong}`;
+  const contentHtml =
+    h('Refunded in full') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `Your payment of &pound;${data.amount.toFixed(2)} for the clean with ${data.cleanerName} on ${data.dateLong} went through just as this visit was being cancelled — we&rsquo;ve refunded it in full. <strong>Your regular slot is unaffected.</strong>`
+    ) +
+    p('The refund will appear in your account within 5-10 business days.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildPasswordReset(token: string): EmailContent {
   const resetLink = `${appUrl()}/reset-password?token=${token}`;
   const subject = 'Reset your password - Rena Cleaning Network';

@@ -913,6 +913,40 @@ export async function sendOccurrencePayNow(bookingId: string): Promise<boolean> 
   return sendEmail(to, subject, html);
 }
 
+// R1-B race fix: full-refund notice when a payment landed on an
+// already-cancelled occurrence. ESSENTIAL — it explains money movement.
+export async function sendOccurrenceLatePaymentRefunded(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      totalAmountCharged: true,
+      totalPrice: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { name: true, email: true } },
+      cleaner: { select: { name: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const { buildOccurrenceLatePaymentRefunded } = await import('./email-templates');
+  const { subject, html } = buildOccurrenceLatePaymentRefunded({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    cleanerName: b.cleaner?.name ?? 'your cleaner',
+    dateLong: b.date.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    }),
+    amount: Number(b.totalAmountCharged ?? b.totalPrice),
+  });
+  return sendEmail(to, subject, html);
+}
+
 // R1-B: the T-24h auto-cancel email — honest copy, agreement survives.
 export async function sendOccurrenceAutoCancelled(bookingId: string): Promise<boolean> {
   const { prisma } = await import('@/lib/db/prisma');
