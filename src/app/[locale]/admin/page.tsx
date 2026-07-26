@@ -96,14 +96,15 @@ async function getAdminMetrics() {
     prisma.booking.count({
       where: { createdAt: { gte: startOfLastMonth, lt: startOfMonth } },
     }),
-    prisma.user.count({
-      where: { role: 'CLEANER', accountStatus: 'ACTIVE', isSuspended: false },
+    // B1.1: profile-based — a CleanerProfile row only exists once signup
+    // completes, so step-0 accounts never inflate the cleaner count. "New this
+    // week" keys on profile createdAt (the completion date).
+    prisma.cleanerProfile.count({
+      where: { user: { accountStatus: 'ACTIVE', isSuspended: false } },
     }),
-    prisma.user.count({
+    prisma.cleanerProfile.count({
       where: {
-        role: 'CLEANER',
-        accountStatus: 'ACTIVE',
-        isSuspended: false,
+        user: { accountStatus: 'ACTIVE', isSuspended: false },
         createdAt: { gte: startOfWeek },
       },
     }),
