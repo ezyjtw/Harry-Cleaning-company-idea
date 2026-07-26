@@ -1242,10 +1242,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   <DateTimePicker
                     cleanerId={params.id}
                     durationHours={form.duration}
+                    // R1-A find (pre-existing defect): the picker is fully
+                    // value-controlled, so a date-only selection must still
+                    // round-trip — gating on form.time made the picker forget
+                    // the date on click and the time list could never render.
                     value={
-                      form.date && form.time
-                        ? { date: form.date, time: form.time, time24: form.time }
-                        : null
+                      form.date ? { date: form.date, time: form.time, time24: form.time } : null
                     }
                     onChange={(sel: DateTimeSelection | null) => {
                       if (sel && sel.date && sel.time24) {

@@ -17,7 +17,8 @@ export type BookingStatus =
   | 'Cancelled'
   | 'Under review'
   | 'No cleaner available'
-  | 'Cleaner cancelled — action needed';
+  | 'Cleaner cancelled — action needed'
+  | 'Scheduled — regular clean';
 
 export const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-warning/10 text-warning border-warning/20',
@@ -38,6 +39,8 @@ export const statusStyles: Record<BookingStatus, string> = {
   'Under review': 'bg-warning/10 text-warning border-warning/20',
   'No cleaner available': 'bg-danger/10 text-danger border-danger/20',
   'Cleaner cancelled — action needed': 'bg-danger/10 text-danger border-danger/20',
+  // R1-A: a future recurring occurrence — calm, promised, not yet charged.
+  'Scheduled — regular clean': 'bg-primary-soft text-primary border-primary/15',
 };
 
 /** Collapse a raw API status (+ cascade phase) into the customer-facing label.
@@ -49,6 +52,8 @@ export function mapStatus(apiStatus: string, cascadePhase?: string | null): Book
   // F6a: a reaped never-paid booking reads with the same honest H53 label an
   // unpaid PENDING row already wears — no new visual language.
   if (s === 'ABANDONED') return 'Payment incomplete';
+  // R1-A: future occurrences read as the standing arrangement they are.
+  if (s === 'SCHEDULED') return 'Scheduled — regular clean';
   if (s === 'AWAITING_CLEANER') {
     switch (cascadePhase) {
       case 'PRIMARY_OFFER':

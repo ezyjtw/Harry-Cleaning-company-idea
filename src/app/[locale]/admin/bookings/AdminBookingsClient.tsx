@@ -163,6 +163,7 @@ export default function AdminBookingsClient({
     cancelled: 'bg-danger/10 text-danger',
     // F6a: quiet neutral — nobody cancelled anything, checkout just stopped.
     abandoned: 'bg-page text-ink-3',
+    scheduled: 'bg-primary-soft text-primary',
     disputed: 'bg-purple-100 text-purple-700',
   };
 
@@ -226,6 +227,7 @@ export default function AdminBookingsClient({
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
           <option value="abandoned">Abandoned (never paid)</option>
+          <option value="scheduled">Scheduled (regular)</option>
           <option value="disputed">Disputed</option>
         </select>
         <select

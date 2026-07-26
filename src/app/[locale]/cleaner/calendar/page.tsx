@@ -22,6 +22,9 @@ interface CalendarBooking {
   earnings: number;
   customerFirstName: string;
   postcodeArea: string;
+  // R1-A: SCHEDULED occurrence of a recurring agreement — rendered as a
+  // blocked slot labelled "Regular client", not a clickable job.
+  isRegular?: boolean;
 }
 
 // H56 polish: per-day ghost availability — the cleaner's own remaining open
@@ -153,23 +156,43 @@ export default function CleanerCalendarPage() {
     [monthAnchor]
   );
 
-  const BookingBlock = ({ b }: { b: CalendarBooking }) => (
-    <NavLink
-      surface="cleaner-calendar"
-      href={`/cleaner/jobs?tab=${JOBS_TAB_FOR_STATUS[b.status] ?? 'pending'}#job-${b.id}`}
-      className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3 transition hover:border-primary/50"
-    >
-      <p className="font-jost text-[13px] font-medium text-primary">
-        {b.startTime} · {b.duration}h
-      </p>
-      <p className="truncate font-jost text-[12px] text-ink">
-        {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
-      </p>
-      <p className="font-jost text-[11px] font-light text-ink-3">
-        {b.postcodeArea && `${b.postcodeArea} · `}£{b.earnings.toFixed(2)}
-      </p>
-    </NavLink>
-  );
+  const BookingBlock = ({ b }: { b: CalendarBooking }) => {
+    // R1-A: SCHEDULED occurrences are slot-blockers, not jobs — no deep link
+    // (they're hidden from the Jobs surface by law), a "Regular client" label
+    // instead of workflow affordances.
+    if (b.isRegular) {
+      return (
+        <div className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3">
+          <p className="font-jost text-[13px] font-medium text-primary">
+            {b.startTime} · {b.duration}h
+          </p>
+          <p className="truncate font-jost text-[12px] text-ink">
+            {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
+          </p>
+          <p className="font-jost text-[11px] font-light text-ink-3">
+            Regular client{b.postcodeArea && ` · ${b.postcodeArea}`}
+          </p>
+        </div>
+      );
+    }
+    return (
+      <NavLink
+        surface="cleaner-calendar"
+        href={`/cleaner/jobs?tab=${JOBS_TAB_FOR_STATUS[b.status] ?? 'pending'}#job-${b.id}`}
+        className="block space-y-1 rounded-[10px] border border-primary/20 bg-primary-soft p-3 transition hover:border-primary/50"
+      >
+        <p className="font-jost text-[13px] font-medium text-primary">
+          {b.startTime} · {b.duration}h
+        </p>
+        <p className="truncate font-jost text-[12px] text-ink">
+          {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
+        </p>
+        <p className="font-jost text-[11px] font-light text-ink-3">
+          {b.postcodeArea && `${b.postcodeArea} · `}£{b.earnings.toFixed(2)}
+        </p>
+      </NavLink>
+    );
+  };
 
   // Ghost availability slot — the "open for work" fill on days without (or
   // around) bookings. Faint, dashed, never clickable: it's context, not a CTA.
@@ -182,10 +205,27 @@ export default function CleanerCalendarPage() {
   // Day summary for column headers: jobs+£ on work days, Available/Off
   // otherwise. Past days stay quiet — yesterday's openness is not a fact worth
   // asserting either way.
+  // R1-A (amended, James-ruled): SCHEDULED occurrences are uncharged until
+  // Phase B's T-48h charge, so their money NEVER rides the headline figure —
+  // it's shown separately as "scheduled" (F9's honesty law, cleaner-side).
   const daySummary = (ymd: string, dayBookings: CalendarBooking[]): string => {
     if (dayBookings.length > 0) {
-      const net = dayBookings.reduce((s, b) => s + b.earnings, 0);
-      return `${dayBookings.length} job${dayBookings.length > 1 ? 's' : ''} · £${fmtPounds(net)}`;
+      const confirmed = dayBookings.filter((b) => !b.isRegular);
+      const scheduled = dayBookings.filter((b) => b.isRegular);
+      const parts: string[] = [];
+      if (confirmed.length > 0) {
+        const net = confirmed.reduce((s, b) => s + b.earnings, 0);
+        return [
+          `${confirmed.length} job${confirmed.length > 1 ? 's' : ''} · £${fmtPounds(net)}`,
+          ...(scheduled.length > 0
+            ? [`£${fmtPounds(scheduled.reduce((s, b) => s + b.earnings, 0))} scheduled`]
+            : []),
+        ].join(' · ');
+      }
+      if (scheduled.length > 0) {
+        parts.push(`£${fmtPounds(scheduled.reduce((s, b) => s + b.earnings, 0))} scheduled`);
+      }
+      return parts.join(' · ');
     }
     if (ymd < todayYMD) return '—';
     const info = days[ymd];
@@ -193,12 +233,23 @@ export default function CleanerCalendarPage() {
   };
 
   // The week summary bar — the numbers cleaners actually care about (net-first).
+  // R1-A (amended): confirmed money leads; scheduled (uncharged) money is a
+  // separate figure, never folded into "expected".
   const weekSummary = useMemo(() => {
     const weekBookings = weekDays.flatMap((d) => byDay.get(d.ymd) ?? []);
-    const jobs = weekBookings.length;
-    const hrs = weekBookings.reduce((s, b) => s + b.duration, 0);
-    const net = weekBookings.reduce((s, b) => s + b.earnings, 0);
-    return { jobs, hrs: Number(hrs.toFixed(1)), net };
+    const confirmed = weekBookings.filter((b) => !b.isRegular);
+    const scheduled = weekBookings.filter((b) => b.isRegular);
+    const jobs = confirmed.length;
+    const hrs = confirmed.reduce((s, b) => s + b.duration, 0);
+    const net = confirmed.reduce((s, b) => s + b.earnings, 0);
+    const scheduledNet = scheduled.reduce((s, b) => s + b.earnings, 0);
+    return {
+      jobs,
+      hrs: Number(hrs.toFixed(1)),
+      net,
+      scheduledCount: scheduled.length,
+      scheduledNet,
+    };
   }, [weekDays, byDay]);
 
   // Month view: a compact grid — each day shows its booking count as dots;
@@ -309,6 +360,15 @@ export default function CleanerCalendarPage() {
               <span className="font-medium text-ink">
                 {weekSummary.jobs} job{weekSummary.jobs > 1 ? 's' : ''} · {weekSummary.hrs} hrs · £
                 {fmtPounds(weekSummary.net)} expected
+              </span>
+            )}
+            {/* R1-A (amended): scheduled regulars are UNCHARGED until T-48h —
+                their money reads separately, never as earned/expected. */}
+            {weekSummary.scheduledCount > 0 && (
+              <span className="font-light text-ink-3">
+                {' '}
+                · £{fmtPounds(weekSummary.scheduledNet)} scheduled (regular clients, not yet
+                charged)
               </span>
             )}
           </div>

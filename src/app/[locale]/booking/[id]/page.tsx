@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import NavLink from '@/components/nav/NavLink';
+import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
@@ -413,6 +414,14 @@ export default function BookingDetailPage() {
           <p className="font-jost text-[14px] font-medium text-trust">{confirmResult.message}</p>
         </div>
       )}
+
+      {/* R1-A (amended): post-completion regular-clean offer — the card
+          self-gates on the offer endpoint (completed + open slots + no active
+          agreement), so it renders nothing for anyone else. */}
+      {booking.viewer === 'client' &&
+        (booking.status === 'COMPLETED' || booking.status === 'REVIEWED') && (
+          <RegularCleanOfferCard bookingId={id} className="mt-4" />
+        )}
 
       {/* H40: report-a-problem door — customer only, work happened/happening,
           no dispute already open. The friendly label stays; the flow behind it

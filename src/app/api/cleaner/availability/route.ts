@@ -7,6 +7,9 @@ import prisma from '@/lib/db/prisma';
 interface TimeSlot {
   start: string;
   end: string;
+  // R1-A: "Open to regular clients" — rides with the slot payload. Optional so
+  // older clients that omit it never clobber a saved flag (see PUT).
+  recurringEligible?: boolean;
 }
 
 type DayName = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -89,7 +92,11 @@ export async function GET() {
   for (const slot of profile.availabilitySlots) {
     const dayName = NUMBER_TO_DAY[slot.dayOfWeek];
     if (dayName) {
-      weeklySlots[dayName].push({ start: slot.startTime, end: slot.endTime });
+      weeklySlots[dayName].push({
+        start: slot.startTime,
+        end: slot.endTime,
+        recurringEligible: slot.recurringEligible,
+      });
     }
   }
 
@@ -189,6 +196,19 @@ export async function PUT(request: NextRequest) {
   // Use a transaction to update slots and overrides
   await prisma.$transaction(async (tx) => {
     if (weeklySlots) {
+      // R1-A: this is a delete-and-recreate write, so the recurringEligible
+      // flag must be carried across the rewrite. Payload wins when the slot
+      // says so explicitly; otherwise the previous flag for the same
+      // day+start+end survives (an older client that doesn't know the field
+      // can never silently close a slot to regular clients).
+      const previous = await tx.availabilitySlot.findMany({
+        where: { cleanerProfileId: profile.id },
+        select: { dayOfWeek: true, startTime: true, endTime: true, recurringEligible: true },
+      });
+      const previousFlags = new Map(
+        previous.map((s) => [`${s.dayOfWeek}|${s.startTime}|${s.endTime}`, s.recurringEligible])
+      );
+
       // Delete existing slots
       await tx.availabilitySlot.deleteMany({
         where: { cleanerProfileId: profile.id },
@@ -200,17 +220,23 @@ export async function PUT(request: NextRequest) {
         dayOfWeek: number;
         startTime: string;
         endTime: string;
+        recurringEligible: boolean;
       }> = [];
 
       for (const day of VALID_DAYS) {
         const slots = weeklySlots[day];
         if (Array.isArray(slots)) {
           for (const slot of slots) {
+            const dayNumber = DAY_TO_NUMBER[day];
             slotData.push({
               cleanerProfileId: profile.id,
-              dayOfWeek: DAY_TO_NUMBER[day],
+              dayOfWeek: dayNumber,
               startTime: slot.start,
               endTime: slot.end,
+              recurringEligible:
+                typeof slot.recurringEligible === 'boolean'
+                  ? slot.recurringEligible
+                  : (previousFlags.get(`${dayNumber}|${slot.start}|${slot.end}`) ?? false),
             });
           }
         }

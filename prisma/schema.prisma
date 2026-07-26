@@ -43,6 +43,12 @@ enum BookingStatus {
   // auto-refunded by the scheduler sweep. Excluded from every cleaner-facing
   // job/availability query (the slot frees immediately).
   CLEANER_CANCELLED
+  // R1-A (James-ruled): a future occurrence of a recurring agreement —
+  // pre-payment, pre-offer. A real Booking row riding every existing law
+  // (occurrences ARE bookings), but excluded from offer flows/jobs/badges
+  // until its T-48h charge confirms it. Blocks the cleaner's slot (that's
+  // the point) and shows on their calendar as a regular client.
+  SCHEDULED
   // F6a (James-ruled): never-paid bookings are their own terminal species —
   // NOT CANCELLED. Nobody cancelled anything: checkout was abandoned before
   // payment. No offer ever fired, no notification ever sent, no money moved.
@@ -233,54 +239,56 @@ model VerificationToken {
 // ─── Core Models ─────────────────────────────────────────────────────────────
 
 model User {
-  id               String        @id @default(cuid())
-  email            String        @unique
-  passwordHash     String?
-  name             String?
-  phone            String?
-  role             Role          @default(CLIENT)
-  emailVerified    DateTime?
-  image            String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  accountStatus    AccountStatus @default(ACTIVE)
-  isDeleted        Boolean       @default(false)
-  deletedAt        DateTime?
-  lastLoginAt      DateTime?
-  emailVerifiedAt  DateTime?
-  failedLoginCount Int           @default(0)
+  id                String        @id @default(cuid())
+  email             String        @unique
+  passwordHash      String?
+  name              String?
+  phone             String?
+  role              Role          @default(CLIENT)
+  emailVerified     DateTime?
+  image             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  accountStatus     AccountStatus @default(ACTIVE)
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  lastLoginAt       DateTime?
+  emailVerifiedAt   DateTime?
+  failedLoginCount  Int           @default(0)
   // F6: bumped on every password change — sessions/tokens issued before this
   // moment are invalidated (checked in getSessionUser / verifyBearerToken).
   passwordChangedAt DateTime?
-  isSuspended      Boolean       @default(false)
-  lockedUntil      DateTime?
+  isSuspended       Boolean       @default(false)
+  lockedUntil       DateTime?
 
   // Stripe
-  stripeCustomerId String?       @unique
+  stripeCustomerId String? @unique
 
-  accounts            Account[]
-  sessions            Session[]
-  cleanerProfile      CleanerProfile?
-  addresses           Address[]
-  bookingsAsClient    Booking[]             @relation("ClientBookings")
-  bookingsAsCleaner   Booking[]             @relation("CleanerBookings")
-  reviewsGiven        Review[]              @relation("ReviewsGiven")
-  reviewsReceived     Review[]              @relation("ReviewsReceived")
-  sentMessages        Message[]             @relation("SentMessages")
-  receivedMessages    Message[]             @relation("ReceivedMessages")
-  blocksMade          UserBlock[]           @relation("BlocksMade")
-  blocksReceived      UserBlock[]           @relation("BlocksReceived")
-  reportsFiled        MessageReport[]       @relation("ReportsFiled")
-  reportsAgainst      MessageReport[]       @relation("ReportsAgainst")
-  notifications       Notification[]
-  disputesRaised      Dispute[]             @relation("DisputesRaised")
-  ownedCompany        Company?              @relation("CompanyOwner")
-  teamMemberships     TeamMember[]
-  complaints          Complaint[]           @relation("ComplaintsFiled")
-  cleanerQueueEntries BookingCleanerQueue[] @relation("CleanerQueueEntries")
-  pushSubscriptions   PushSubscription[]
-  deviceTokens        DeviceToken[]
-  importedReviews     ImportedReview[]      @relation("ImportedReviews")
+  accounts               Account[]
+  sessions               Session[]
+  cleanerProfile         CleanerProfile?
+  addresses              Address[]
+  bookingsAsClient       Booking[]               @relation("ClientBookings")
+  bookingsAsCleaner      Booking[]               @relation("CleanerBookings")
+  agreementsAsClient     RecurringAgreement[]    @relation("ClientAgreements")
+  agreementsAsCleaner    RecurringAgreement[]    @relation("CleanerAgreements")
+  reviewsGiven           Review[]                @relation("ReviewsGiven")
+  reviewsReceived        Review[]                @relation("ReviewsReceived")
+  sentMessages           Message[]               @relation("SentMessages")
+  receivedMessages       Message[]               @relation("ReceivedMessages")
+  blocksMade             UserBlock[]             @relation("BlocksMade")
+  blocksReceived         UserBlock[]             @relation("BlocksReceived")
+  reportsFiled           MessageReport[]         @relation("ReportsFiled")
+  reportsAgainst         MessageReport[]         @relation("ReportsAgainst")
+  notifications          Notification[]
+  disputesRaised         Dispute[]               @relation("DisputesRaised")
+  ownedCompany           Company?                @relation("CompanyOwner")
+  teamMemberships        TeamMember[]
+  complaints             Complaint[]             @relation("ComplaintsFiled")
+  cleanerQueueEntries    BookingCleanerQueue[]   @relation("CleanerQueueEntries")
+  pushSubscriptions      PushSubscription[]
+  deviceTokens           DeviceToken[]
+  importedReviews        ImportedReview[]        @relation("ImportedReviews")
   notificationPreference NotificationPreference?
 
   @@index([email])
@@ -288,17 +296,17 @@ model User {
 }
 
 model CleanerProfile {
-  id                    String      @id @default(cuid())
-  userId                String      @unique
-  bio                   String?     @db.Text
-  specialties           String[]
-  languages             String[]
-  serviceTypes          String[]
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  bio          String?  @db.Text
+  specialties  String[]
+  languages    String[]
+  serviceTypes String[]
 
   // Per-service hourly rates (null = doesn't offer this service)
-  hourlyRateRegular     Decimal?    @db.Decimal(10, 2)
-  hourlyRateDeep        Decimal?    @db.Decimal(10, 2)
-  hourlyRateSameDay     Decimal?    @db.Decimal(10, 2) // @deprecated — same-day feature disabled; kept for future re-enable
+  hourlyRateRegular Decimal? @db.Decimal(10, 2)
+  hourlyRateDeep    Decimal? @db.Decimal(10, 2)
+  hourlyRateSameDay Decimal? @db.Decimal(10, 2) // @deprecated — same-day feature disabled; kept for future re-enable
 
   // Fixed-price services — JSON with property-size keys
   eotPrices             Json?
@@ -311,38 +319,38 @@ model CleanerProfile {
   backgroundCheckPassed Boolean     @default(false)
 
   // DBS certificate — destroyed after verification, only metadata retained
-  dbsCertVerified     Boolean            @default(false)
-  dbsCertNumber       String? // retained after destruction
-  dbsCertIssueDate    DateTime? // retained after destruction
-  dbsCertDestroyedAt  DateTime? // when the actual file was destroyed
+  dbsCertVerified    Boolean   @default(false)
+  dbsCertNumber      String? // retained after destruction
+  dbsCertIssueDate   DateTime? // retained after destruction
+  dbsCertDestroyedAt DateTime? // when the actual file was destroyed
   // DEPRECATED: dual-written from homePostcode for backward compatibility with matching service.
   // Future PR will migrate matching to homeLatitude/homeLongitude/maxTravelMinutes
   // and drop these legacy fields. Do not write to these directly — set home* fields instead.
-  location            String?
-  latitude            Float?
-  longitude           Float?
-  radius              Int                @default(10)
-  travelMode          String             @default("public_transport")
-  availableNow        Boolean            @default(false)
-  responseTime        Int? // average response time in minutes
-  completedJobs       Int                @default(0)
-  rating              Decimal            @default(0) @db.Decimal(3, 2)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  serviceRadius       Int                @default(10) // @deprecated — replaced by maxTravelMinutes; kept for rollback
-  travelFee           Decimal            @default(0) @db.Decimal(10, 2)
-  cancellationRate    Decimal            @default(0) @db.Decimal(5, 2)
-  completionRate      Decimal            @default(100) @db.Decimal(5, 2)
-  responseSpeed       Int? // average response speed in seconds
+  location           String?
+  latitude           Float?
+  longitude          Float?
+  radius             Int       @default(10)
+  travelMode         String    @default("public_transport")
+  availableNow       Boolean   @default(false)
+  responseTime       Int? // average response time in minutes
+  completedJobs      Int       @default(0)
+  rating             Decimal   @default(0) @db.Decimal(3, 2)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  serviceRadius      Int       @default(10) // @deprecated — replaced by maxTravelMinutes; kept for rollback
+  travelFee          Decimal   @default(0) @db.Decimal(10, 2)
+  cancellationRate   Decimal   @default(0) @db.Decimal(5, 2)
+  completionRate     Decimal   @default(100) @db.Decimal(5, 2)
+  responseSpeed      Int? // average response speed in seconds
   // DEPRECATED: dual-written from homePostcode. See location/latitude/longitude deprecation above.
-  postcode            String?
-  ryftAccountId       String?
+  postcode           String?
+  ryftAccountId      String?
 
   // Stripe Connect
-  stripeAccountId       String?   @unique
-  stripeChargesEnabled  Boolean   @default(false)
-  stripePayoutsEnabled  Boolean   @default(false)
-  stripeOnboardedAt     DateTime?
+  stripeAccountId      String?   @unique
+  stripeChargesEnabled Boolean   @default(false)
+  stripePayoutsEnabled Boolean   @default(false)
+  stripeOnboardedAt    DateTime?
 
   verificationStatus  VerificationStatus @default(UNVERIFIED)
   identityVerifiedAt  DateTime?
@@ -392,12 +400,12 @@ model CleanerProfile {
   // Two-stage verification (James-ruled): identity verification (verified) and
   // go-live (insurance approved + Stripe complete) are distinct moments. The
   // "you're live" email sends exactly once — stamped here by maybeMarkLive().
-  liveNotifiedAt       DateTime?
+  liveNotifiedAt DateTime?
 
   // F-B: permanent founding badge for the first N cleaners to go live
   // (auto-set by maybeMarkLive while under the founding_cleaner_limit
   // PlatformConfig; admin-togglable per cleaner). Never expires.
-  foundingCleaner      Boolean            @default(false)
+  foundingCleaner Boolean @default(false)
 
   providerId String?
 
@@ -453,52 +461,52 @@ model Address {
 }
 
 model Booking {
-  id                 String        @id @default(cuid())
-  clientId           String?
-  cleanerId          String
-  addressId          String?
+  id                   String        @id @default(cuid())
+  clientId             String?
+  cleanerId            String
+  addressId            String?
   // A12: structured address captured at booking time, stored directly on the
   // booking (Option A). This is the SINGLE SOURCE OF TRUTH for "where the clean
   // happens" — works uniformly for guests AND registered users (no Address-model
   // ownership question). The legacy `addressId`/`address` relation is kept for
   // back-compat but reads should use these columns. Populated from the
   // getAddress.io autocomplete selection (or a copied saved address).
-  addressLine1       String?
-  addressLine2       String?
-  addressCity        String?
-  addressPostcode    String?
-  guestEmail         String?
-  guestName          String?
-  guestPhone         String?
-  guestToken         String?       @unique
-  serviceType        String // e.g. "standard", "deep", "end-of-tenancy", "move-in"
-  status             BookingStatus @default(PENDING)
-  date               DateTime
-  startTime          String // e.g. "09:00"
-  duration           Decimal       @db.Decimal(4, 2) // hours
-  rooms              Json? // { "bedrooms": 2, "bathrooms": 1, "kitchen": true, ... }
-  extras             String[] // e.g. ["oven", "fridge", "windows"]
-  frequency          String? // e.g. "one-off", "weekly", "fortnightly", "monthly"
-  totalPrice         Decimal       @db.Decimal(10, 2)
-  platformFee        Decimal       @db.Decimal(10, 2)
-  cleanerEarnings    Decimal       @db.Decimal(10, 2)
-  notes              String?       @db.Text
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  acceptedAt         DateTime?
-  checkedInAt        DateTime?
-  completedAt        DateTime?
-  cancelledAt        DateTime?
-  cancellationReason String?       @db.Text
+  addressLine1         String?
+  addressLine2         String?
+  addressCity          String?
+  addressPostcode      String?
+  guestEmail           String?
+  guestName            String?
+  guestPhone           String?
+  guestToken           String?       @unique
+  serviceType          String // e.g. "standard", "deep", "end-of-tenancy", "move-in"
+  status               BookingStatus @default(PENDING)
+  date                 DateTime
+  startTime            String // e.g. "09:00"
+  duration             Decimal       @db.Decimal(4, 2) // hours
+  rooms                Json? // { "bedrooms": 2, "bathrooms": 1, "kitchen": true, ... }
+  extras               String[] // e.g. ["oven", "fridge", "windows"]
+  frequency            String? // e.g. "one-off", "weekly", "fortnightly", "monthly"
+  totalPrice           Decimal       @db.Decimal(10, 2)
+  platformFee          Decimal       @db.Decimal(10, 2)
+  cleanerEarnings      Decimal       @db.Decimal(10, 2)
+  notes                String?       @db.Text
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  acceptedAt           DateTime?
+  checkedInAt          DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?       @db.Text
   // M3 rescue flow (cleaner-cancel): the choice deadline (min(cancel+48h, start))
   // and a PERSISTENT stamp of who cancelled — survives rebooking (when cleanerId
   // is replaced) so reliability stats count every cleaner cancellation.
   rescueDeadline       DateTime?
   cancelledByCleanerId String?
-  cleanerNotes       String?       @db.Text
-  adminNotes         String?       @db.Text
-  checklistCompleted Boolean       @default(false)
-  arrivalConfirmed   Boolean       @default(false)
+  cleanerNotes         String?       @db.Text
+  adminNotes           String?       @db.Text
+  checklistCompleted   Boolean       @default(false)
+  arrivalConfirmed     Boolean       @default(false)
 
   providerId String?
 
@@ -517,71 +525,75 @@ model Booking {
   stuckJobCase  StuckJobCase?
 
   // ─── Pricing snapshot (captured at booking creation) ─────
-  propertySize              PropertySize?
-  bookingFrequency          BookingFrequency?
-  cleanerPayoutAmount       Decimal?  @db.Decimal(10, 2)
-  platformCommissionAmount  Decimal?  @db.Decimal(10, 2)
-  platformFeeAmount         Decimal?  @db.Decimal(10, 2)
-  totalAmountCharged        Decimal?  @db.Decimal(10, 2)
-  customerSubtotal          Float?
-  customerServiceFee        Float?
-  renaEarns                 Float?
+  propertySize             PropertySize?
+  bookingFrequency         BookingFrequency?
+  cleanerPayoutAmount      Decimal?          @db.Decimal(10, 2)
+  platformCommissionAmount Decimal?          @db.Decimal(10, 2)
+  platformFeeAmount        Decimal?          @db.Decimal(10, 2)
+  totalAmountCharged       Decimal?          @db.Decimal(10, 2)
+  customerSubtotal         Float?
+  customerServiceFee       Float?
+  renaEarns                Float?
 
   // ─── Stripe Payment ─────
-  stripePaymentIntentId  String?        @unique
-  stripeChargeId         String?        @unique
-  paymentStatus          PaymentStatus  @default(PENDING)
+  stripePaymentIntentId String?       @unique
+  stripeChargeId        String?       @unique
+  paymentStatus         PaymentStatus @default(PENDING)
 
   // A16b-1: client-supplied idempotency key for booking+payment creation. A
   // double-click / retry replays the same booking + PaymentIntent instead of
   // creating duplicates. Unique so concurrent submits collide at the DB layer.
-  idempotencyKey         String?        @unique
+  idempotencyKey String? @unique
 
   // ─── Transfer / fund release ─────
-  stripeTransferId       String?        @unique
-  transferStatus         String         @default("PENDING")
-  transferAttempt        Int            @default(0)
-  transferFailureReason  String?
-  releaseDueAt           DateTime?
-  completionConfirmedAt  DateTime?
+  stripeTransferId      String?   @unique
+  transferStatus        String    @default("PENDING")
+  transferAttempt       Int       @default(0)
+  transferFailureReason String?
+  releaseDueAt          DateTime?
+  completionConfirmedAt DateTime?
 
   // ─── Backup cleaners ─────
   // Ordered list of backup cleaner User.ids (same id type as cleanerId).
   // If the primary cleaner declines, cascade logic (A5) can activate the next backup.
-  backupCleanerIds   String[]
+  backupCleanerIds String[]
   // Customer delegates backup selection to Rena ("Provide me an appropriate cleaner" toggle)
-  autoAssignBackup   Boolean @default(false)
+  autoAssignBackup Boolean  @default(false)
 
   // ─── Cascade offer tracking (A5.1) ─────
-  cascadePhase            CascadePhase?
-  cascadeExpiresAt        DateTime?
-  cascadeBackupExpiresAt  DateTime?
-  declinedCleanerIds      String[]     @default([])
+  cascadePhase           CascadePhase?
+  cascadeExpiresAt       DateTime?
+  cascadeBackupExpiresAt DateTime?
+  declinedCleanerIds     String[]      @default([])
   // B3: one entry per decline — [{ cleanerId, reason, at }]. Reasons come from
   // the shell's decline sheet (too_far | bad_time | pay_too_low | other) and
   // feed future cascade analytics. Additive, nullable.
-  declineReasons          Json?
+  declineReasons         Json?
 
   // ─── Price reconciliation (A5.3) ─────
-  provisionalCleanerId   String?
-  provisionalPrice       Decimal?  @db.Decimal(10, 2)
-  topupAmount            Decimal?  @db.Decimal(10, 2)
-  approvalExpiresAt      DateTime?
-  topupApproved          Boolean   @default(false)
-  topupRecords           TopupRecord[]
+  provisionalCleanerId String?
+  provisionalPrice     Decimal?      @db.Decimal(10, 2)
+  topupAmount          Decimal?      @db.Decimal(10, 2)
+  approvalExpiresAt    DateTime?
+  topupApproved        Boolean       @default(false)
+  topupRecords         TopupRecord[]
 
   // ─── Phase 2 reserves (A5.3 Stage 2) ─────
-  reserveCleanerIds      String[]  @default([])
-  phase2Entered          Boolean   @default(false)
+  reserveCleanerIds String[] @default([])
+  phase2Entered     Boolean  @default(false)
 
   // ─── Admin reassign / provisional source + revert state (A5.3 Stage 3) ─────
-  provisionalSource          String?         // 'CASCADE' | 'ADMIN_REASSIGN' — discriminates decline/expiry routing
-  reassignPreviousStatus     BookingStatus?  // restored by revertAdminReassign on customer decline
-  reassignPreviousCleanerId  String?         // explicit revert anchor (not relying on cleanerId-untouched invariant)
+  provisionalSource         String? // 'CASCADE' | 'ADMIN_REASSIGN' — discriminates decline/expiry routing
+  reassignPreviousStatus    BookingStatus? // restored by revertAdminReassign on customer decline
+  reassignPreviousCleanerId String? // explicit revert anchor (not relying on cleanerId-untouched invariant)
 
   // ─── Top 3 Queue & Escrow ─────
-  isQueuedBooking    Boolean @default(false)
-  acceptedFromQueue  Boolean @default(false)
+  // R1-A: set when this booking is an occurrence of a recurring agreement.
+  agreementId String?
+  agreement   RecurringAgreement? @relation("AgreementOccurrences", fields: [agreementId], references: [id])
+
+  isQueuedBooking   Boolean @default(false)
+  acceptedFromQueue Boolean @default(false)
 
   @@index([clientId])
   @@index([cleanerId])
@@ -870,16 +882,69 @@ model Dispute {
 }
 
 model AvailabilitySlot {
-  id               String @id @default(cuid())
-  cleanerProfileId String
-  dayOfWeek        Int // 0 = Sunday, 6 = Saturday
-  startTime        String // e.g. "09:00"
-  endTime          String // e.g. "17:00"
+  id                String  @id @default(cuid())
+  cleanerProfileId  String
+  dayOfWeek         Int // 0 = Sunday, 6 = Saturday
+  startTime         String // e.g. "09:00"
+  endTime           String // e.g. "17:00"
+  // R1-A: "open to regular clients" — recurring agreements may only anchor to
+  // slots the cleaner explicitly opened. Default off: recurring is opt-in.
+  recurringEligible Boolean @default(false)
 
   cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
 
   @@index([cleanerProfileId])
   @@index([dayOfWeek])
+}
+
+// R1-A (James-ruled design): the standing weekly/fortnightly arrangement.
+// The agreement is the SCHEDULE; every occurrence is a real Booking row
+// (occurrences-are-bookings law — no parallel species). Money fields are the
+// per-occurrence snapshot taken from the first booking's quote; splits are
+// the platform's existing arithmetic, never recomputed here.
+enum RecurringFrequency {
+  WEEKLY
+  FORTNIGHTLY
+}
+
+enum AgreementStatus {
+  ACTIVE
+  ENDED
+}
+
+model RecurringAgreement {
+  id              String             @id @default(cuid())
+  clientId        String?
+  client          User?              @relation("ClientAgreements", fields: [clientId], references: [id])
+  guestEmail      String?
+  guestName       String?
+  cleanerId       String
+  cleaner         User               @relation("CleanerAgreements", fields: [cleanerId], references: [id])
+  serviceType     String
+  frequency       RecurringFrequency
+  dayOfWeek       Int
+  startTime       String
+  duration        Decimal            @db.Decimal(4, 2)
+  addressLine1    String
+  addressLine2    String?
+  addressCity     String?
+  addressPostcode String
+  rooms           Json?
+  notes           String?
+  totalPrice      Decimal            @db.Decimal(10, 2)
+  platformFee     Decimal            @db.Decimal(10, 2)
+  cleanerEarnings Decimal            @db.Decimal(10, 2)
+
+  status  AgreementStatus @default(ACTIVE)
+  endedAt DateTime?
+  endedBy String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[] @relation("AgreementOccurrences")
+
+  @@index([cleanerId, status])
+  @@index([clientId])
 }
 
 model AvailabilityOverride {
@@ -900,12 +965,12 @@ model AvailabilityOverride {
 }
 
 model AvailabilityDateSlot {
-  id               String         @id @default(cuid())
+  id               String   @id @default(cuid())
   cleanerProfileId String
-  date             DateTime       @db.Date
+  date             DateTime @db.Date
   startTime        String // "HH:MM"
   endTime          String // "HH:MM"
-  createdAt        DateTime       @default(now())
+  createdAt        DateTime @default(now())
 
   cleanerProfile CleanerProfile @relation(fields: [cleanerProfileId], references: [id], onDelete: Cascade)
 
@@ -1507,9 +1572,9 @@ model ImportedReview {
   cleanerId          String
   rating             Decimal              @db.Decimal(2, 1) // 1.0 - 5.0, overall only
   text               String?              @db.Text
-  source             String               // e.g. "Google", "Checkatrade", "Personal Reference"
+  source             String // e.g. "Google", "Checkatrade", "Personal Reference"
   reviewerName       String?
-  evidenceUrl        String?              // R2 object key for encrypted screenshot/evidence
+  evidenceUrl        String? // R2 object key for encrypted screenshot/evidence
   referenceContacts  String?              @db.Text // contact info for admin to verify personal references
   verificationStatus ImportedReviewStatus @default(PENDING)
   adminNotes         String?              @db.Text
@@ -1543,14 +1608,14 @@ model StripeWebhookEvent {
 // plaintext access/refresh tokens never touch the DB or the client. Singleton:
 // enforced by the unique `key` (always "primary"); a reconnect upserts the row.
 model XeroConnection {
-  id              String   @id @default(cuid())
-  key             String   @unique @default("primary") // singleton guard
-  tenantId        String // Xero organisation (tenant) id
-  tenantName      String? // org name, for display in admin
-  accessTokenEnc  String   @db.Text // encrypted access token (base64)
-  refreshTokenEnc String   @db.Text // encrypted refresh token (base64)
-  expiresAt       DateTime // access-token expiry (drives refresh)
-  keyId           String // document-encryption key id used for these tokens
+  id                String   @id @default(cuid())
+  key               String   @unique @default("primary") // singleton guard
+  tenantId          String // Xero organisation (tenant) id
+  tenantName        String? // org name, for display in admin
+  accessTokenEnc    String   @db.Text // encrypted access token (base64)
+  refreshTokenEnc   String   @db.Text // encrypted refresh token (base64)
+  expiresAt         DateTime // access-token expiry (drives refresh)
+  keyId             String // document-encryption key id used for these tokens
   connectedByUserId String?
 
   // A13-Xero-b: account mappings from James's own chart of accounts — never
@@ -1563,10 +1628,10 @@ model XeroConnection {
   //   commissionAccountCode— Rena's commission → INCOME
   //   feeAccountCode       — the 6% platform fee → INCOME
   //   clearingAccountCode  — cleaner's net held on their behalf → LIABILITY/clearing
-  bankAccountCode       String?
-  commissionAccountCode String?
-  feeAccountCode        String?
-  clearingAccountCode   String?
+  bankAccountCode           String?
+  commissionAccountCode     String?
+  feeAccountCode            String?
+  clearingAccountCode       String?
   // A13-Xero reconciliation:
   //   stripeFeeAccountCode      — Stripe's processing fee → EXPENSE (account CODE).
   //                               Booked as a negative line on PAYMENT_RECEIVED so
@@ -1586,8 +1651,8 @@ model XeroConnection {
   // Found-or-created on first push, then reused. Cleared on disconnect with the row.
   platformContactId String?
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // A13-Xero-c: idempotency ledger for bank-transaction pushes. One row per
@@ -1598,13 +1663,13 @@ model XeroConnection {
 // actually catches duplicates — Postgres treats NULLs as distinct, which would
 // otherwise let two identical payment pushes both insert.
 model XeroPushLog {
-  id          String   @id @default(cuid())
-  bookingId   String // for STRIPE_PAYOUT this holds the Stripe payout id
-  event       String // PAYMENT_RECEIVED | PAYOUT | REFUND | STRIPE_PAYOUT
-  externalRef String   @default("") // stripeRefundId for REFUND; "" otherwise
-  xeroId      String? // returned Xero BankTransactionID(s)/BankTransferID, comma-joined
-  status      String   @default("PENDING") // PENDING | COMPLETED | FAILED
-  lastError   String?  @db.Text
+  id             String   @id @default(cuid())
+  bookingId      String // for STRIPE_PAYOUT this holds the Stripe payout id
+  event          String // PAYMENT_RECEIVED | PAYOUT | REFUND | STRIPE_PAYOUT
+  externalRef    String   @default("") // stripeRefundId for REFUND; "" otherwise
+  xeroId         String? // returned Xero BankTransactionID(s)/BankTransferID, comma-joined
+  status         String   @default("PENDING") // PENDING | COMPLETED | FAILED
+  lastError      String?  @db.Text
   // STRIPE_PAYOUT: JSON summary of the balance-transaction bundle the deposit
   // settles (payout id + constituent transaction ids) — the audit trail tying a
   // bank deposit to the individual charges/refunds/transfers it bundles.
@@ -1612,8 +1677,8 @@ model XeroPushLog {
   // Stamped from the runtime Stripe key at push time (always true — pushes are
   // hard-blocked in test mode — but recorded so a stray test entry is auditable).
   stripeLivemode Boolean?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([bookingId, event, externalRef])
   @@index([bookingId])

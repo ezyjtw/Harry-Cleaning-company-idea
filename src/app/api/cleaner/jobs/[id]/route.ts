@@ -436,6 +436,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // eslint-disable-next-line no-console
       console.error(`[ReviewRequest] Failed for booking ${updated.id}:`, e);
     });
+
+    // R1-A (amended): guests get no review request (parked ruling), so their
+    // regular-clean offer travels in a dedicated completion email — sent only
+    // when the pair is offer-eligible (the sender logs a named skip otherwise).
+    const { sendGuestCompletionOffer } = await import('@/lib/services/email.service');
+    await sendGuestCompletionOffer(updated.id).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.error(`[RegularOffer] Guest completion email failed for ${updated.id}:`, e);
+    });
   }
 
   return NextResponse.json({

@@ -38,7 +38,41 @@ export async function GET(request: NextRequest) {
   const { resolveProfileImageUrl } = await import('@/lib/storage/r2-client');
   const cleanerImage = await resolveProfileImageUrl(booking.cleaner.image);
 
+  // R1-A (amended, guest-end ruling): the tokened page is the guest's end
+  // surface, so expose their ACTIVE agreement with this cleaner (covers both
+  // the trial booking's token and any occurrence's token — same guestEmail).
+  const activeAgreement = booking.guestEmail
+    ? await prisma.recurringAgreement.findFirst({
+        where: {
+          cleanerId: booking.cleanerId,
+          status: 'ACTIVE',
+          guestEmail: { equals: booking.guestEmail, mode: 'insensitive' },
+        },
+        select: {
+          id: true,
+          frequency: true,
+          dayOfWeek: true,
+          startTime: true,
+          bookings: {
+            where: { status: 'SCHEDULED' },
+            select: { date: true },
+            orderBy: { date: 'asc' },
+            take: 1,
+          },
+        },
+      })
+    : null;
+
   return NextResponse.json({
+    activeAgreement: activeAgreement
+      ? {
+          id: activeAgreement.id,
+          frequency: activeAgreement.frequency,
+          dayOfWeek: activeAgreement.dayOfWeek,
+          startTime: activeAgreement.startTime,
+          nextOccurrence: activeAgreement.bookings[0]?.date.toISOString().split('T')[0] ?? null,
+        }
+      : null,
     booking: {
       id: booking.id,
       // P3 (ledger): a claimed booking (guest→account conversion backfilled
@@ -58,6 +92,14 @@ export async function GET(request: NextRequest) {
       totalPrice: Number(booking.totalPrice),
       // A12: guests see their own address (read from booking columns, guest-safe).
       address: bookingFullAddress(booking),
+      // R1-A (amended): structured address for the regular-clean setup page —
+      // the agreement checkout re-submits the SAME address the guest already
+      // gave us (their own data, token-authorized).
+      addressLine1: booking.addressLine1 || '',
+      addressLine2: booking.addressLine2 || '',
+      addressCity: booking.addressCity || '',
+      addressPostcode: booking.addressPostcode || '',
+      guestPhone: booking.guestPhone || '',
       status: booking.status,
       cascadePhase: booking.cascadePhase,
       paymentStatus: booking.paymentStatus,

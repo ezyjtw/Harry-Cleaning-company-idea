@@ -22,14 +22,18 @@ export async function GET(request: NextRequest) {
 
   // F6a: ABANDONED (never-paid) is NOT cleaner business — no offer ever fired.
   // It can neither be requested explicitly nor ride the unfiltered default.
+  // F6a + R1-A: ABANDONED (never-paid) and SCHEDULED (future occurrence,
+  // pre-charge) are NOT cleaner-jobs business — neither requestable nor
+  // riding the unfiltered default. SCHEDULED lives on the calendar instead.
+  const HIDDEN_FROM_JOBS = ['ABANDONED', 'SCHEDULED'];
   const statusIn = statusFilter
     ? statusFilter
         .split(',')
         .map((s) => s.trim().toUpperCase())
-        .filter((s) => s !== 'ABANDONED')
+        .filter((s) => !HIDDEN_FROM_JOBS.includes(s))
     : undefined;
 
-  const baseStatusFilter = statusIn ? { in: statusIn } : { not: 'ABANDONED' as const };
+  const baseStatusFilter = statusIn ? { in: statusIn } : { notIn: HIDDEN_FROM_JOBS as never[] };
 
   // Primary path: bookings assigned to this cleaner, excluding those that moved
   // past their cascade phase (BACKUP_OFFER means primary's turn is over)

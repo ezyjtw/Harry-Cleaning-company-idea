@@ -286,8 +286,54 @@ export async function sendReviewRequest(
   user: UserEmailData,
   userId?: string | null
 ): Promise<boolean> {
-  const { subject, html } = buildReviewRequest(booking, user);
+  // R1-A (amended): the completion email is the recurring entry point — when
+  // this pair is offer-eligible (completed clean + open slots + no active
+  // agreement), the review request carries the "make it regular" section.
+  // Resolution failure never blocks the review email itself.
+  let offer: Parameters<typeof buildReviewRequest>[2] = undefined;
+  try {
+    const { getRegularCleanOffer } = await import('@/lib/services/regular-offer.service');
+    const o = await getRegularCleanOffer(booking.id);
+    if (o.eligible && o.cleanerId) {
+      offer = {
+        cleanerName: o.cleanerName ?? 'your cleaner',
+        usualSlot: o.usualSlot ?? null,
+        ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network'}/regular-clean/${o.cleanerId}?from=${booking.id}`,
+      };
+    }
+  } catch {
+    offer = undefined;
+  }
+  const { subject, html } = buildReviewRequest(booking, user, offer);
   return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
+}
+
+// R1-A (amended): guest completion email. Guests get NO review request (parked
+// ruling — reviews need an account), so this dedicated email exists ONLY to
+// carry the regular-clean offer, and only when the pair is offer-eligible.
+// Not eligible → no email at all (named skip in the caller's log).
+export async function sendGuestCompletionOffer(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { guestEmail: true, guestName: true, guestToken: true, clientId: true },
+  });
+  if (!b || b.clientId || !b.guestEmail || !b.guestToken) return false;
+  const { getRegularCleanOffer } = await import('@/lib/services/regular-offer.service');
+  const offer = await getRegularCleanOffer(bookingId);
+  if (!offer.eligible || !offer.cleanerId) {
+    // eslint-disable-next-line no-console
+    console.log(`[RegularOffer] Guest completion email skipped for ${bookingId} — ${offer.reason}`);
+    return false;
+  }
+  const { buildGuestCompletionOffer } = await import('./email-templates');
+  const { subject, html } = buildGuestCompletionOffer({
+    guestName: b.guestName ?? 'there',
+    cleanerName: offer.cleanerName ?? 'your cleaner',
+    usualSlot: offer.usualSlot ?? null,
+    ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network'}/regular-clean/${offer.cleanerId}?token=${encodeURIComponent(b.guestToken)}`,
+  });
+  return sendEmail(b.guestEmail, subject, html);
 }
 
 // ─── Dispute Emails ─────────────────────────────────────────
@@ -773,6 +819,56 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
     userId: b.cleaner.id,
     attachments: [{ filename: `rena-clean-${dateStr}.ics`, content: ics }],
   });
+}
+
+// R1-A: agreement-ended notice to the AFFECTED party (the other side gets a
+// bell from the recurring service). Cleaner ended → customer/guest email;
+// customer ended → cleaner email. Guest parity: guest agreements have
+// guestEmail on the agreement row itself.
+export async function sendAgreementEnded(
+  agreementId: string,
+  endedBy: 'CLEANER' | 'CUSTOMER'
+): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const a = await prisma.recurringAgreement.findUnique({
+    where: { id: agreementId },
+    include: {
+      cleaner: { select: { id: true, name: true, email: true } },
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!a) return false;
+  const { serviceLabelFromSlug } = await import('@/lib/constants/services');
+  const { buildAgreementEnded } = await import('./email-templates');
+
+  const frequencyLabel = a.frequency === 'WEEKLY' ? 'weekly' : 'fortnightly';
+  const serviceLabel = serviceLabelFromSlug(a.serviceType);
+
+  let to: string | null;
+  let recipientName: string;
+  let otherPartyName: string;
+  let userId: string | undefined;
+  if (endedBy === 'CLEANER') {
+    to = a.client?.email ?? a.guestEmail;
+    recipientName = a.client?.name ?? a.guestName ?? 'there';
+    otherPartyName = a.cleaner.name || 'Your cleaner';
+    userId = a.client?.id;
+  } else {
+    to = a.cleaner.email;
+    recipientName = a.cleaner.name || 'there';
+    otherPartyName = a.client?.name ?? a.guestName ?? 'Your client';
+    userId = a.cleaner.id;
+  }
+  if (!to) return false;
+
+  const { subject, html } = buildAgreementEnded({
+    recipientName,
+    endedBy,
+    otherPartyName,
+    serviceLabel,
+    frequencyLabel,
+  });
+  return sendEmail(to, subject, html, userId ? { userId } : undefined);
 }
 
 // ─── X1 cascade milestone emails ───────────────────────────

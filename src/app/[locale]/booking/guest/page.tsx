@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, Suspense } from 'react';
 
 import { cascadeSentence } from '@/components/BookingStatusChip';
+import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import RescuePanel from '@/components/RescuePanel';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
@@ -35,6 +36,26 @@ interface Booking {
   notes: string;
   createdAt: string;
 }
+
+// R1-A (amended): the guest's ACTIVE regular agreement with this cleaner —
+// the tokened page is the guest's end surface (James-ruled placement).
+interface GuestActiveAgreement {
+  id: string;
+  frequency: 'WEEKLY' | 'FORTNIGHTLY';
+  dayOfWeek: number;
+  startTime: string;
+  nextOccurrence: string | null;
+}
+
+const AGREEMENT_DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
 
 // 4.6 (James-ruled): EN_ROUTE and IN_PROGRESS are one customer-visible
 // "On the way" moment — the timeline shows the same three post-accept beats
@@ -224,6 +245,12 @@ function GuestBookingContent() {
   const [submittingDispute, setSubmittingDispute] = useState(false);
   const [disputeError, setDisputeError] = useState<string | null>(null);
   const [disputeFiled, setDisputeFiled] = useState(false);
+  // R1-A (amended): guest end-agreement surface state.
+  const [activeAgreement, setActiveAgreement] = useState<GuestActiveAgreement | null>(null);
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const [endingAgreement, setEndingAgreement] = useState(false);
+  const [endError, setEndError] = useState<string | null>(null);
+  const [agreementEnded, setAgreementEnded] = useState(false);
 
   // H69: the tokened dispute CASE VIEW — status, description, BOTH parties'
   // evidence (both-see-all rule) and a working photo upload. Replaces the old
@@ -302,6 +329,7 @@ function GuestBookingContent() {
       }
       const data = await res.json();
       setBooking(data.booking);
+      setActiveAgreement(data.activeAgreement ?? null);
     } catch {
       setError('Failed to load booking. Please try again later.');
     } finally {
@@ -725,6 +753,110 @@ function GuestBookingContent() {
                 {previewError && <p className="mt-2 text-sm text-danger">{previewError}</p>}
               </>
             )}
+          </div>
+        )}
+
+        {/* R1-A (amended): post-completion regular-clean offer — self-gated by
+            the offer endpoint (completed + open slots + no active agreement). */}
+        {token &&
+          !activeAgreement &&
+          (booking.status === 'COMPLETED' || booking.status === 'REVIEWED') && (
+            <RegularCleanOfferCard bookingId={booking.id} guestToken={token} className="mb-6" />
+          )}
+
+        {/* R1-A (amended, James-ruled placement): the guest's end surface —
+            their tokened page shows the standing arrangement and can end it.
+            No lock-in; the token IS the authorization. */}
+        {activeAgreement && !agreementEnded && (
+          <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+            <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+              Your regular clean
+            </p>
+            <p className="mt-1 font-jost text-sm text-ink">
+              {activeAgreement.frequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'} with{' '}
+              {booking.cleanerName} &middot; {AGREEMENT_DAY_NAMES[activeAgreement.dayOfWeek]}s at{' '}
+              {activeAgreement.startTime}
+              {activeAgreement.nextOccurrence && (
+                <>
+                  {' '}
+                  &middot; next clean{' '}
+                  {new Date(`${activeAgreement.nextOccurrence}T00:00:00`).toLocaleDateString(
+                    'en-GB',
+                    { weekday: 'short', day: 'numeric', month: 'short' }
+                  )}
+                </>
+              )}
+            </p>
+            {!confirmingEnd ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingEnd(true)}
+                className="mt-2 font-jost text-[12px] text-ink-3 underline transition hover:text-danger"
+              >
+                End my regular clean
+              </button>
+            ) : (
+              <div className="mt-3 rounded-[10px] border border-danger/25 bg-danger/5 p-4">
+                <p className="font-jost text-sm text-ink">
+                  End this regular clean? All upcoming scheduled cleans are cancelled and nothing
+                  further is charged. Your cleaner will be told. Any clean that already happened is
+                  unaffected.
+                </p>
+                {endError && <p className="mt-2 font-jost text-sm text-danger">{endError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={endingAgreement}
+                    onClick={async () => {
+                      setEndingAgreement(true);
+                      setEndError(null);
+                      try {
+                        const res = await fetch(`/api/agreements/${activeAgreement.id}/end`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ token }),
+                        });
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => null);
+                          throw new Error(
+                            data?.error || 'Could not end the agreement — please try again.'
+                          );
+                        }
+                        setAgreementEnded(true);
+                      } catch (e) {
+                        setEndError(
+                          e instanceof Error
+                            ? e.message
+                            : 'Could not end the agreement — please try again.'
+                        );
+                      } finally {
+                        setEndingAgreement(false);
+                        setConfirmingEnd(false);
+                      }
+                    }}
+                    className="rounded-[10px] bg-danger px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {endingAgreement ? 'Ending…' : 'Yes, end it'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={endingAgreement}
+                    onClick={() => setConfirmingEnd(false)}
+                    className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
+                  >
+                    Keep it
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {agreementEnded && (
+          <div className="mb-6 rounded-xl border border-trust/30 bg-green-50 p-4">
+            <p className="font-jost text-sm font-medium text-trust">
+              Your regular clean has ended. Upcoming scheduled cleans are cancelled — nothing
+              further will be charged.
+            </p>
           </div>
         )}
 
