@@ -14,6 +14,8 @@
 
 import { randomBytes } from 'crypto';
 
+import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
+import { timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
 
 /** Rolling mint horizon (James-ruled: 8 weeks, extended weekly). */
@@ -63,6 +65,41 @@ export async function mintOccurrences(
     const key = d.toISOString().slice(0, 10);
     if (existing.has(key)) continue;
     if (d.getTime() < Date.now()) continue; // never mint into the past
+
+    // R1 confirmation fix (belt-and-braces behind the API's 8-week cap): the
+    // mint used to create blindly — if anyone had booked the cleaner into
+    // this slot before the horizon reached it, the mint double-booked
+    // silently. Check the H63 blocking set for a time-overlap and SKIP
+    // LOUDLY instead; the slot was honestly taken first.
+    const dayStart = new Date(d);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(d);
+    dayEnd.setHours(23, 59, 59, 999);
+    const sameDay = await prisma.booking.findMany({
+      where: {
+        cleanerId: agreement.cleanerId,
+        date: { gte: dayStart, lte: dayEnd },
+        AND: [blocksCleanerSlotWhere()],
+      },
+      select: { id: true, startTime: true, duration: true },
+    });
+    const occStart = timeToMinutes(agreement.startTime);
+    const occEnd = occStart + Number(agreement.duration) * 60;
+    const clash = sameDay.find((b) => {
+      const bStart = timeToMinutes(b.startTime);
+      // Unparseable ("Flexible") times can't be placed — treat as clashing.
+      if (Number.isNaN(bStart) || Number.isNaN(occStart)) return true;
+      const bEnd = bStart + Number(b.duration) * 60;
+      return occStart < bEnd && bStart < occEnd;
+    });
+    if (clash) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[Recurring] mint SKIPPED for agreement ${agreement.id} on ${key} — slot conflict with booking ${clash.id} (booked before the window reached this date)`
+      );
+      continue;
+    }
+
     await prisma.booking.create({
       data: {
         agreementId: agreement.id,

@@ -201,6 +201,14 @@ export async function PUT(request: NextRequest) {
       // says so explicitly; otherwise the previous flag for the same
       // day+start+end survives (an older client that doesn't know the field
       // can never silently close a slot to regular clients).
+      //
+      // F18 follow-up (James-ruled): preservation is per-DAY, not per exact
+      // times — a flag-blind client shifting Tuesday 9–5 to 10–6 used to
+      // silently close the slot to regulars (the exact-key lookup missed).
+      // Exact match still wins; otherwise a time-edited range inherits the
+      // day's previous opt-in. The flag only ever SURVIVES — a day that was
+      // never opted in can't gain the flag here (consent stays the
+      // cleaner's explicit choice).
       const previous = await tx.availabilitySlot.findMany({
         where: { cleanerProfileId: profile.id },
         select: { dayOfWeek: true, startTime: true, endTime: true, recurringEligible: true },
@@ -208,6 +216,10 @@ export async function PUT(request: NextRequest) {
       const previousFlags = new Map(
         previous.map((s) => [`${s.dayOfWeek}|${s.startTime}|${s.endTime}`, s.recurringEligible])
       );
+      const previousDayFlags = new Map<number, boolean>();
+      for (const s of previous) {
+        if (s.recurringEligible) previousDayFlags.set(s.dayOfWeek, true);
+      }
 
       // Delete existing slots
       await tx.availabilitySlot.deleteMany({
@@ -236,7 +248,9 @@ export async function PUT(request: NextRequest) {
               recurringEligible:
                 typeof slot.recurringEligible === 'boolean'
                   ? slot.recurringEligible
-                  : (previousFlags.get(`${dayNumber}|${slot.start}|${slot.end}`) ?? false),
+                  : (previousFlags.get(`${dayNumber}|${slot.start}|${slot.end}`) ??
+                    previousDayFlags.get(dayNumber) ??
+                    false),
             });
           }
         }
