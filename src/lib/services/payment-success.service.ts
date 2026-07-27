@@ -15,6 +15,7 @@ import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import { computeCascadeWindows } from '@/lib/services/cascade.service';
 import {
+  sendBackupOfferEmails,
   sendBookingConfirmation,
   sendCleanerAssignment,
   sendGuestBookingConfirmation,
@@ -300,6 +301,12 @@ export async function processPaymentSuccess(
         })
         .catch(() => {});
     }
+    // F13 (James-ruled): the bell alone was the hole HERE too — F11 wired the
+    // offer email into every cascade advance but not this fourth entry path,
+    // so short-runway (COMBINED_OFFER) bookings offered their backups by bell
+    // only. Same list the bells use, same F11 sanitised email (now carrying
+    // F12's Accept/Decline row). Zero new cascade logic.
+    await sendBackupOfferEmails(bookingId, booking.backupCleanerIds).catch(() => {});
   }
 
   return 'PROCESSED';
