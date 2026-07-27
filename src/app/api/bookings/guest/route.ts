@@ -111,8 +111,6 @@ export async function GET(request: NextRequest) {
       date: booking.date.toISOString().split('T')[0],
       time: booking.startTime,
       duration: Number(booking.duration),
-      // LB-7: the setup page re-submits / displays the trial's supplies answer.
-      suppliesProvided: booking.suppliesProvided,
       totalPrice: Number(booking.totalPrice),
       // A12: guests see their own address (read from booking columns, guest-safe).
       address: bookingFullAddress(booking),

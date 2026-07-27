@@ -1,19 +1,19 @@
 /**
- * LB-7 (James-ruled): one copy source for the supplies answer on every
- * surface — job detail, offer view, offer email, .ics. true = the customer
- * provides supplies and equipment; false = the cleaner brings their own;
- * null/undefined = the booking predates the question, so the honest
- * fallback renders instead of a silent blank or a guessed default.
+ * LB-8 (James-corrected): the supplies answer is DERIVED from the +£5
+ * products addon — the booking flow asks nothing. One copy source for every
+ * cleaner-facing surface — job detail, offer view, offer email, .ics.
+ * false = the addon was ticked (the customer paid the products fee, the
+ * cleaner brings products); true = no addon (the customer provides);
+ * null/undefined = the booking predates the field, so the honest fallback
+ * renders instead of a silent blank or a guessed default.
  */
 export function suppliesLabel(v: boolean | null | undefined): string {
-  if (v === true) return 'Supplies provided by the customer';
-  if (v === false) return 'Bring your own supplies';
+  if (v === true) return 'Customer provides supplies';
+  if (v === false) return 'Bring cleaning products (customer has paid the products fee)';
   return 'Not specified — check with your customer';
 }
 
-/** Short calendar one-liner for the .ics description. */
+/** Calendar one-liner for the .ics description — same ruled copy. */
 export function suppliesIcsLine(v: boolean | null | undefined): string {
-  if (v === true) return 'Supplies provided';
-  if (v === false) return 'Bring supplies';
-  return 'Supplies: not specified — check with your customer';
+  return suppliesLabel(v);
 }

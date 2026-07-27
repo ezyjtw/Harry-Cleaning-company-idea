@@ -214,15 +214,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // LB-7 (James-ruled): the supplies question is REQUIRED — a cleaner
-    // without a kit can't accept a bring-your-own booking, so the answer must
-    // exist before the offer can. Boolean only; no default is ever guessed.
-    if (body.suppliesProvided !== true && body.suppliesProvided !== false) {
-      return NextResponse.json(
-        { error: 'Please tell us whether cleaning supplies will be provided.' },
-        { status: 400 }
-      );
-    }
+    // LB-8 (James-corrected): the booking flow asks NOTHING about supplies —
+    // the +£5 products addon is the sole signal, exactly as it always was.
+    // suppliesProvided is DERIVED server-side from the addon (ticked → the
+    // cleaner brings paid-for products; not ticked → the customer provides)
+    // and feeds only the cleaner-facing surfaces. Client-sent values are
+    // ignored — derivation is the single source.
+    const addonListForSupplies: string[] = body.extras?.length ? body.extras : body.addons || [];
+    body.suppliesProvided = !addonListForSupplies.includes('products');
 
     // 1a. Email format — the confirmation + reminder emails depend on it. Reject
     // a malformed address at the door rather than storing an unreachable one.

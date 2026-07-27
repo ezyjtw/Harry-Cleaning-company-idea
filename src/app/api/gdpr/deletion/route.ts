@@ -62,11 +62,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // H103: cleaner blockers — structural, named, checked BEFORE anything is
-    // deactivated (deactivating a cleaner with live jobs would strand
-    // customers). Each names the action that clears it.
-    if (requester.role === 'CLEANER' && userId === requester.id) {
-      const blockers = await GdprService.getCleanerDeletionBlockers(userId);
+    // H103: role-appropriate blockers — structural, named, checked BEFORE
+    // anything is deactivated (a cleaner with live jobs strands customers; a
+    // client mid-booking strands a cleaner's committed slot the same way).
+    // Each names the action that clears it.
+    if (userId === requester.id && (requester.role === 'CLEANER' || requester.role === 'CLIENT')) {
+      const blockers =
+        requester.role === 'CLEANER'
+          ? await GdprService.getCleanerDeletionBlockers(userId)
+          : await GdprService.getClientDeletionBlockers(userId);
       if (blockers.length > 0) {
         return NextResponse.json(
           {
