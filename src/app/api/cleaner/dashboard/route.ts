@@ -267,7 +267,8 @@ export async function GET() {
     // H75 (Harry-ruled, money-safety): pre-complete jobs whose scheduled slot
     // has already ended. Completion is the ONLY payout trigger — no
     // auto-complete exists and the release scheduler only fires on
-    // releaseDueAt, which only completion/confirm/review set — so an unmarked
+    // releaseDueAt, which only completion/confirm set (F16: review never
+    // moves money) — so an unmarked
     // job is an unpaid cleaner. Date-bounded to today-or-earlier here; the
     // end-time arithmetic (date + start + duration) is pure CPU below.
     prisma.booking.findMany({

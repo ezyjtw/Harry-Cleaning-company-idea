@@ -10,6 +10,7 @@ import NavLink from '@/components/nav/NavLink';
 import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import RescuePanel from '@/components/RescuePanel';
 import UnpaidOccurrencePanel from '@/components/UnpaidOccurrencePanel';
+import { bookingCloseState } from '@/lib/booking/close-state';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { formatDate } from '@/lib/utils/formatting';
@@ -52,6 +53,7 @@ interface BookingDetail {
   dispute?: { id: string } | null;
   transferStatus?: string | null;
   completionConfirmedAt?: string | null;
+  releaseDueAt?: string | null;
   cleaner: {
     id: string;
     name: string | null;
@@ -229,6 +231,13 @@ export default function BookingDetailPage() {
     .filter(Boolean)
     .join(', ');
 
+  // F16: whole hours until the auto-release clock fires (null when the clock
+  // isn't armed or has already passed — copy falls back to the generic line).
+  const releaseEtaMs = booking.releaseDueAt
+    ? new Date(booking.releaseDueAt).getTime() - Date.now()
+    : 0;
+  const releaseEtaHours = releaseEtaMs > 0 ? Math.max(1, Math.ceil(releaseEtaMs / 3600_000)) : null;
+
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start justify-between gap-4 py-3">
       <span className="font-jost text-[13px] text-ink-3">{label}</span>
@@ -405,19 +414,26 @@ export default function BookingDetailPage() {
         )}
       </div>
 
-      {/* H42: confirm-release door — customer only, COMPLETED, funds still
-          held (PENDING), not yet confirmed, no dispute. Gone the moment any
-          of that changes. Wires to the existing confirm-complete machinery. */}
+      {/* H42 + F16: confirm-release door — customer only, funds still HOLDABLE
+          (that's the whole predicate: transferStatus PENDING and not yet
+          confirmed), no dispute. F16 fix: the old status==='COMPLETED' gate
+          made the button vanish when a REVIEW flipped the booking to REVIEWED
+          while funds were still held — review and release are independent
+          axes, so the door now keys on money-state truth alone and disappears
+          the instant funds release by ANY path. Release logic unchanged. */}
       {booking.viewer === 'client' &&
-        booking.status === 'COMPLETED' &&
+        (booking.status === 'COMPLETED' || booking.status === 'REVIEWED') &&
         booking.transferStatus === 'PENDING' &&
         !booking.completionConfirmedAt &&
         !booking.dispute && (
           <div className="mt-4 rounded-2xl border border-line bg-surface p-5">
-            <p className="font-jost text-[14px] font-medium text-ink">Happy with your clean?</p>
+            <p className="font-jost text-[14px] font-medium text-ink">
+              {booking.status === 'REVIEWED' ? 'Thanks for your review!' : 'Happy with your clean?'}
+            </p>
             <p className="mt-1 font-jost text-[13px] text-ink-2">
-              Confirm you&rsquo;re satisfied and we&rsquo;ll release payment to your cleaner right
-              away. If you do nothing, it releases automatically 24 hours after completion.
+              {booking.status === 'REVIEWED'
+                ? `Payment releases automatically${releaseEtaHours ? ` in about ${releaseEtaHours}h` : ' after the completion hold'} — or release it to your cleaner now.`
+                : 'Confirm you’re satisfied and we’ll release payment to your cleaner right away. If you do nothing, it releases automatically after the completion hold (24 hours for a first booking).'}
             </p>
             {confirmResult && !confirmResult.ok && (
               <p className="mt-2 font-jost text-[13px] text-danger">{confirmResult.message}</p>
@@ -434,6 +450,30 @@ export default function BookingDetailPage() {
       {booking.viewer === 'client' && confirmResult?.ok && (
         <div className="mt-4 rounded-2xl border border-trust/30 bg-green-50 p-5">
           <p className="font-jost text-[14px] font-medium text-trust">{confirmResult.message}</p>
+        </div>
+      )}
+
+      {/* F16: honest close-state line. CLOSED needs BOTH — funds released AND
+          review left, in either order; the partial states say exactly which
+          half is outstanding. Derived from the two truths, no new state. */}
+      {booking.viewer === 'client' &&
+        !booking.dispute &&
+        bookingCloseState(booking) === 'released-awaiting-review' && (
+          <div className="mt-4 rounded-2xl border border-line bg-surface p-5">
+            <p className="font-jost text-[14px] font-medium text-ink">
+              Payment released — awaiting your review
+            </p>
+            <p className="mt-1 font-jost text-[13px] text-ink-2">
+              Your cleaner has been paid. Leaving a review closes this booking off and helps the
+              next customer choose.
+            </p>
+          </div>
+        )}
+      {booking.viewer === 'client' && bookingCloseState(booking) === 'closed' && (
+        <div className="mt-4 rounded-2xl border border-trust/30 bg-green-50 p-5">
+          <p className="font-jost text-[14px] font-medium text-trust">
+            All done — payment released and your review is in
+          </p>
         </div>
       )}
 

@@ -340,8 +340,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
     // X3 (James-ruled): repeat-customer self-completion hold is 6h (was 2h) —
     // widens the customer's dispute window. First booking stays 24h; instant
-    // release on customer confirm / review is unchanged (those set releaseDueAt
-    // to now directly in their own routes).
+    // release on customer confirm is unchanged (confirm-complete sets
+    // releaseDueAt to now in its own route). F16: a review never moves money —
+    // this hold clock is the only auto-release timer.
     const holdHours = priorCompleted > 0 ? 6 : 24;
     updateData.releaseDueAt = new Date(Date.now() + holdHours * 3600_000);
   }
