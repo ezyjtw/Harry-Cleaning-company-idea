@@ -128,13 +128,24 @@ function getDayName(d: Date): DayOfWeek {
   return names[d.getDay()];
 }
 
-type Tab = 'week' | 'recurring';
+// F19 (James-ruled final structure): three pills. PRESERVATION LAW — the
+// internal keys 'week' and 'recurring' are UNCHANGED (only display labels
+// were retitled); 'repeat' is additive. ?tab= deep-links are new with F19
+// (the audit found zero pre-existing ones), and unknown values fall through
+// to the default, never a dead tab.
+type Tab = 'week' | 'recurring' | 'repeat';
+
+function initialTab(): Tab {
+  if (typeof window === 'undefined') return 'week';
+  const t = new URLSearchParams(window.location.search).get('tab');
+  return t === 'recurring' || t === 'repeat' || t === 'week' ? t : 'week';
+}
 
 export default function AvailabilityPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [tab, setTab] = useState<Tab>('week');
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   // Recurring weekly template
   const [weeklyRanges, setWeeklyRanges] = useState<Record<DayOfWeek, TimeSlot[]>>(() => {
@@ -346,16 +357,63 @@ export default function AvailabilityPage() {
     setValidationError(null);
   };
 
-  // R1-A: per-slot "Open to regular clients" toggle.
-  const toggleRecurringEligible = (day: DayOfWeek, index: number) => {
-    setWeeklyRanges((prev) => {
-      const ranges = [...prev[day]];
-      ranges[index] = { ...ranges[index], recurringEligible: !ranges[index].recurringEligible };
-      return { ...prev, [day]: ranges };
-    });
-    setDirty(true);
-    setSaved(false);
-    setValidationError(null);
+  // F19: the regulars room. One flag, several doors — the per-day toggles and
+  // the bulk action write the SAME recurringEligible flag the L2 day-sheet
+  // checkbox writes, saved immediately via the same PUT (explicit flags, so
+  // the f4d644b preservation rules see a deliberate choice every time).
+  const anyRegularFlags = daysOfWeek.some((d) => weeklyRanges[d].some((r) => r.recurringEligible));
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('rena.regularsNudgeDismissed') === '1';
+  });
+  const dismissNudge = () => {
+    setNudgeDismissed(true);
+    try {
+      window.localStorage.setItem('rena.regularsNudgeDismissed', '1');
+    } catch {
+      /* storage unavailable — dismissal lasts the session */
+    }
+  };
+  const [flagsSaving, setFlagsSaving] = useState(false);
+  const [firstTickSeen, setFirstTickSeen] = useState(false);
+  const saveFlags = async (next: Record<DayOfWeek, TimeSlot[]>) => {
+    const hadNone = !anyRegularFlags;
+    setWeeklyRanges(next);
+    setFlagsSaving(true);
+    try {
+      const weeklySlots: Record<string, TimeSlot[]> = {};
+      for (const d of daysOfWeek) {
+        weeklySlots[dayToApi[d]] = next[d].map((r) => ({
+          ...r,
+          recurringEligible: !!r.recurringEligible,
+        }));
+      }
+      const res = await fetch('/api/cleaner/availability', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weeklySlots }),
+      });
+      if (res.ok && hadNone && daysOfWeek.some((d) => next[d].some((r) => r.recurringEligible))) {
+        setFirstTickSeen(true);
+      }
+    } finally {
+      setFlagsSaving(false);
+    }
+  };
+  const toggleDayRegulars = (day: DayOfWeek) => {
+    const dayOn = weeklyRanges[day].some((r) => r.recurringEligible);
+    const next = {
+      ...weeklyRanges,
+      [day]: weeklyRanges[day].map((r) => ({ ...r, recurringEligible: !dayOn })),
+    };
+    void saveFlags(next);
+  };
+  const openAllRegulars = () => {
+    const next = {} as Record<DayOfWeek, TimeSlot[]>;
+    for (const d of daysOfWeek) {
+      next[d] = weeklyRanges[d].map((r) => ({ ...r, recurringEligible: true }));
+    }
+    void saveFlags(next);
   };
 
   const removeRange = (day: DayOfWeek, index: number) => {
@@ -689,23 +747,33 @@ export default function AvailabilityPage() {
       >
         <button
           onClick={() => setTab('week')}
-          className={`flex-1 rounded-md px-4 py-2 font-jost text-sm transition-all ${
+          className={`flex-1 rounded-md px-3 py-2 font-jost text-sm transition-all ${
             tab === 'week'
               ? 'bg-surface text-ink shadow-sm font-normal'
               : 'text-ink-3 font-light hover:text-ink'
           }`}
         >
-          This Week
+          This week
         </button>
         <button
           onClick={() => setTab('recurring')}
-          className={`flex-1 rounded-md px-4 py-2 font-jost text-sm transition-all ${
+          className={`flex-1 rounded-md px-3 py-2 font-jost text-sm transition-all ${
             tab === 'recurring'
               ? 'bg-surface text-ink shadow-sm font-normal'
               : 'text-ink-3 font-light hover:text-ink'
           }`}
         >
-          Recurring Schedule
+          Recurring schedule
+        </button>
+        <button
+          onClick={() => setTab('repeat')}
+          className={`flex-1 rounded-md px-3 py-2 font-jost text-sm transition-all ${
+            tab === 'repeat'
+              ? 'bg-surface text-ink shadow-sm font-normal'
+              : 'text-ink-3 font-light hover:text-ink'
+          }`}
+        >
+          Repeat bookings
         </button>
       </div>
 
@@ -790,6 +858,45 @@ export default function AvailabilityPage() {
       {/* ─── WEEK VIEW TAB ─────────────────────────────── */}
       {tab === 'week' && (
         <>
+          {/* F19 nudge: zero-flags only, one dismissal is permanent (localStorage). */}
+          {!anyRegularFlags && !nudgeDismissed && !loading && (
+            <div
+              className="mb-6 flex items-start justify-between gap-3 rounded-xl bg-primary-soft p-4"
+              style={{ border: '1px solid rgb(var(--color-border))' }}
+              data-testid="regulars-nudge"
+            >
+              <div className="min-w-0">
+                <p className="font-jost text-sm text-ink">
+                  None of your slots are open to regular clients yet.
+                </p>
+                <p className="mt-0.5 font-jost text-[13px] font-light text-ink-2">
+                  Regulars mean the same customer in the same slot every week — guaranteed income,
+                  no chasing jobs.
+                </p>
+                <button
+                  onClick={() => setTab('repeat')}
+                  className="mt-2 rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover"
+                >
+                  Open slots to regulars
+                </button>
+              </div>
+              <button
+                onClick={dismissNudge}
+                aria-label="Dismiss"
+                className="shrink-0 rounded-lg p-1.5 text-ink-3 transition hover:bg-page hover:text-ink"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+
           {/* Week navigation */}
           <div className="flex items-center justify-between mb-6">
             <button
@@ -895,6 +1002,17 @@ export default function AvailabilityPage() {
                           Custom day
                         </span>
                       ) : null}
+                      {/* F19: ●R — this weekday's template has regular-open slot(s). */}
+                      {!blocked &&
+                        !isDateSpecific &&
+                        weeklyRanges[dayName as DayOfWeek]?.some((r) => r.recurringEligible) && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 font-jost text-[11px] font-medium text-primary"
+                            data-testid="regular-open-marker"
+                          >
+                            ●R Regulars
+                          </span>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1376,17 +1494,14 @@ export default function AvailabilityPage() {
                                 />
                               </svg>
                             </button>
-                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={!!range.recurringEligible}
-                                onChange={() => toggleRecurringEligible(day, idx)}
-                                className="h-3.5 w-3.5 rounded border-ink/20 text-primary focus:ring-primary/30"
-                              />
-                              <span className="font-jost text-xs font-light text-ink-3">
-                                Open to regular clients
+                            {/* F19: the "Open to regular clients" control moved
+                                to the Repeat bookings pill (regulars-specific);
+                                a quiet ●R still marks flagged ranges here. */}
+                            {range.recurringEligible && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 font-jost text-[11px] font-medium text-primary">
+                                ●R
                               </span>
-                            </label>
+                            )}
                           </div>
                         ))}
                         <button
@@ -1417,82 +1532,8 @@ export default function AvailabilityPage() {
             </div>
           </div>
 
-          {/* R1-A: standing regular clients — renders only when one exists. */}
-          <RecurringAgreementsCard role="CLEANER" className="mb-6" />
-
-          {/* R1-C: holiday — flag every regular clean in a range at once. Each
-              affected customer chooses per clean; arrangements are unchanged.
-              (This does NOT block the dates — use Blocked Dates for that.) */}
-          <div
-            className="rounded-xl bg-surface overflow-hidden mb-6"
-            style={{ border: '1px solid rgb(var(--color-border))' }}
-          >
-            <div
-              className="px-6 py-4"
-              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
-            >
-              <h2 className="font-newsreader text-lg font-semibold text-ink">Going away?</h2>
-              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-                Flag your regular cleans in a date range — your customers choose per clean
-              </p>
-            </div>
-            <div className="px-6 py-4">
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="font-jost text-sm text-ink-2">
-                  From
-                  <input
-                    type="date"
-                    value={holidayFrom}
-                    onChange={(e) => setHolidayFrom(e.target.value)}
-                    className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06]"
-                  />
-                </label>
-                <label className="font-jost text-sm text-ink-2">
-                  To
-                  <input
-                    type="date"
-                    value={holidayTo}
-                    onChange={(e) => setHolidayTo(e.target.value)}
-                    className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06]"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={holidayBusy || !holidayFrom || !holidayTo}
-                  onClick={async () => {
-                    setHolidayBusy(true);
-                    setHolidayResult(null);
-                    try {
-                      const res = await fetch('/api/cleaner/occurrences/holiday', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ startDate: holidayFrom, endDate: holidayTo }),
-                      });
-                      const data = await res.json().catch(() => null);
-                      setHolidayResult(
-                        res.ok ? data?.message || 'Done.' : data?.error || 'Something went wrong.'
-                      );
-                    } catch {
-                      setHolidayResult('Network error — please try again.');
-                    } finally {
-                      setHolidayBusy(false);
-                    }
-                  }}
-                  className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
-                >
-                  {holidayBusy ? 'Flagging…' : 'Flag my regular cleans'}
-                </button>
-              </div>
-              {holidayResult && (
-                <p className="mt-2 font-jost text-sm text-ink-2">{holidayResult}</p>
-              )}
-              <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
-                Paid cleans offer your customer a reschedule, cover, or a full refund; uncharged
-                ones offer a new date or a free skip. The dates are also blocked in your
-                availability automatically — unblock them any time under Blocked Dates.
-              </p>
-            </div>
-          </div>
+          {/* F19: RecurringAgreementsCard and the "Going away?" holiday card
+              MOVED to the Repeat bookings pill (regulars-specific content). */}
 
           {/* Blocked dates */}
           <div
@@ -1634,6 +1675,178 @@ export default function AvailabilityPage() {
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
+          </div>
+        </>
+      )}
+
+      {/* ─── REPEAT BOOKINGS TAB (F19) — the regulars room ─────────────── */}
+      {tab === 'repeat' && (
+        <>
+          {/* Proposition header */}
+          <div
+            className="rounded-xl bg-primary-soft p-6 mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
+          >
+            <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+              Repeat bookings
+            </p>
+            <h2 className="mt-1 font-newsreader text-xl font-semibold text-ink">
+              Open your slots to regular weekly clients
+            </h2>
+            <p className="mt-1 font-jost text-sm font-light text-ink-2">
+              Same customer, same slot, every week. Guaranteed income, no chasing jobs.
+            </p>
+            <button
+              onClick={openAllRegulars}
+              disabled={flagsSaving || loading}
+              className="mt-4 rounded-[10px] bg-primary px-5 py-2.5 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+              data-testid="open-all-regulars"
+            >
+              {flagsSaving ? 'Saving…' : 'Open all my slots to regulars'}
+            </button>
+            {firstTickSeen && (
+              <p className="mt-3 font-jost text-sm text-trust" data-testid="first-tick-line">
+                Done — customers can now ask to make these slots their regular clean. You approve
+                each arrangement, and you can close a slot again any time.
+              </p>
+            )}
+          </div>
+
+          {/* Per-day toggles — same recurringEligible flag as the app's
+              day-sheet checkbox. Two doors, one flag; saves immediately. */}
+          <div
+            className="rounded-xl bg-surface overflow-hidden mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
+          >
+            <div
+              className="px-6 py-4"
+              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
+            >
+              <h2 className="font-newsreader text-lg font-semibold text-ink">
+                Which days are open to regulars?
+              </h2>
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                Only days on your weekly schedule can be opened
+              </p>
+            </div>
+            <div className="divide-y divide-ink/[0.04]">
+              {daysOfWeek.map((day) => {
+                const ranges = weeklyRanges[day];
+                const hasHours = ranges.length > 0;
+                const dayOn = ranges.some((r) => r.recurringEligible);
+                return (
+                  <div key={day} className="px-6 py-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p
+                        className={`font-jost text-sm ${hasHours ? 'font-normal text-ink' : 'font-light text-ink-3'}`}
+                      >
+                        {day}
+                      </p>
+                      <p className="font-jost text-xs font-light text-ink-3">
+                        {hasHours
+                          ? ranges
+                              .map((r) => `${formatTime(r.start)}–${formatTime(r.end)}`)
+                              .join(' · ')
+                          : 'Not on your weekly schedule'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => toggleDayRegulars(day)}
+                      disabled={!hasHours || flagsSaving}
+                      data-testid={`regulars-toggle-${day.toLowerCase()}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${
+                        dayOn ? 'bg-primary' : 'bg-ink-3/30'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
+                          dayOn ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* R1-A: standing regular clients — renders only when one exists.
+              (F19: moved here from the Recurring schedule tab.) */}
+          <RecurringAgreementsCard role="CLEANER" className="mb-6" />
+
+          {/* R1-C: holiday — flag every regular clean in a range at once. Each
+              affected customer chooses per clean; arrangements are unchanged.
+              (F19: moved here — regulars-specific. Does NOT block the dates;
+              use Blocked Dates on Recurring schedule for that.) */}
+          <div
+            className="rounded-xl bg-surface overflow-hidden mb-6"
+            style={{ border: '1px solid rgb(var(--color-border))' }}
+          >
+            <div
+              className="px-6 py-4"
+              style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
+            >
+              <h2 className="font-newsreader text-lg font-semibold text-ink">Going away?</h2>
+              <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
+                Flag your regular cleans in a date range — your customers choose per clean
+              </p>
+            </div>
+            <div className="px-6 py-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="font-jost text-sm text-ink-2">
+                  From
+                  <input
+                    type="date"
+                    value={holidayFrom}
+                    onChange={(e) => setHolidayFrom(e.target.value)}
+                    className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06]"
+                  />
+                </label>
+                <label className="font-jost text-sm text-ink-2">
+                  To
+                  <input
+                    type="date"
+                    value={holidayTo}
+                    onChange={(e) => setHolidayTo(e.target.value)}
+                    className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06]"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={holidayBusy || !holidayFrom || !holidayTo}
+                  onClick={async () => {
+                    setHolidayBusy(true);
+                    setHolidayResult(null);
+                    try {
+                      const res = await fetch('/api/cleaner/occurrences/holiday', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ startDate: holidayFrom, endDate: holidayTo }),
+                      });
+                      const data = await res.json().catch(() => null);
+                      setHolidayResult(
+                        res.ok ? data?.message || 'Done.' : data?.error || 'Something went wrong.'
+                      );
+                    } catch {
+                      setHolidayResult('Network error — please try again.');
+                    } finally {
+                      setHolidayBusy(false);
+                    }
+                  }}
+                  className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+                >
+                  {holidayBusy ? 'Flagging…' : 'Flag my regular cleans'}
+                </button>
+              </div>
+              {holidayResult && (
+                <p className="mt-2 font-jost text-sm text-ink-2">{holidayResult}</p>
+              )}
+              <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
+                Paid cleans offer your customer a reschedule, cover, or a full refund; uncharged
+                ones offer a new date or a free skip. The dates are also blocked in your
+                availability automatically — unblock them any time under Blocked Dates.
+              </p>
+            </div>
           </div>
         </>
       )}
