@@ -476,7 +476,15 @@ export default function CleanerJobsPage() {
                 key={job.id}
                 id={`job-${job.id}`}
                 onClick={(e) => {
-                  if ((e.target as HTMLElement).closest('button, a')) return;
+                  // F15: inputs/textareas (completion notes, cancel reason) and their
+                  // panels must WIN over the card click — a tap on them was
+                  // bubbling to navigation, so a cleaner couldn't type the note.
+                  if (
+                    (e.target as HTMLElement).closest(
+                      'button, a, input, textarea, select, label, [data-card-interactive]'
+                    )
+                  )
+                    return;
                   router.push(`/cleaner/jobs/${job.id}`);
                 }}
                 className={`cursor-pointer rounded-xl border border-line bg-surface p-5 transition-colors hover:bg-page/40 target:ring-2 target:ring-primary ${highlightId === job.id ? 'ring-2 ring-primary' : ''}`}
@@ -636,7 +644,7 @@ export default function CleanerJobsPage() {
                       {ds === 'on-the-way' && (
                         <>
                           {showNotesFor === job.id ? (
-                            <div className="w-full flex flex-col gap-2">
+                            <div data-card-interactive className="w-full flex flex-col gap-2">
                               <textarea
                                 value={completionNotes[job.id] || ''}
                                 onChange={(e) =>
@@ -678,6 +686,7 @@ export default function CleanerJobsPage() {
                     <div
                       className="mt-3 rounded-[10px] border border-danger/25 bg-surface p-3"
                       data-testid="cant-make-it-confirm"
+                      data-card-interactive
                     >
                       <p className="font-jost text-[13px] leading-relaxed text-ink-2">
                         Cancel this job? {job.clientName} will be told straight away and offered a

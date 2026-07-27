@@ -829,7 +829,15 @@ export default function CleanerDashboard() {
               <div
                 key={job.id}
                 onClick={(e) => {
-                  if ((e.target as HTMLElement).closest('button, a')) return;
+                  // F15: inputs/textareas (completion notes, cancel reason) and their
+                  // panels must WIN over the card click — a tap on them was
+                  // bubbling to navigation, so a cleaner couldn't type the note.
+                  if (
+                    (e.target as HTMLElement).closest(
+                      'button, a, input, textarea, select, label, [data-card-interactive]'
+                    )
+                  )
+                    return;
                   router.push(`/cleaner/jobs/${job.id}`);
                 }}
                 className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-page/30 transition-colors"

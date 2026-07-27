@@ -40,7 +40,6 @@ export async function POST(request: Request) {
         clientId: true,
         cleanerId: true,
         status: true,
-        completionConfirmedAt: true,
         transferStatus: true,
       },
     });
@@ -79,11 +78,18 @@ export async function POST(request: Request) {
 
     const sanitizedText = text ? sanitizeInput(String(text)).substring(0, 2000) : null;
 
-    // Money-adjacent: the satisfaction confirm/release-trigger (completionConfirmedAt
-    // + releaseDueAt), the review.create, the booking→REVIEWED flip AND the cleaner
-    // rating recalc all commit or all roll back in ONE interactive transaction. No
-    // crash-between-writes can leave releaseDueAt set without a review row, a review
-    // without REVIEWED, or a review uncounted in the stored rating.
+    // F16 (James-ruled): review and release are INDEPENDENT — a review NEVER
+    // releases or holds funds. This route used to set completionConfirmedAt +
+    // releaseDueAt (instant release on review); that coupling paid the cleaner
+    // at the exact moment a customer might be unhappy. Removed: the release
+    // clock is armed at completion (Mark Complete → releaseDueAt = +hold) and
+    // accelerated only by the explicit release button (confirm-complete). This
+    // transaction touches no money fields.
+    //
+    // The review.create, the booking→REVIEWED flip AND the cleaner rating
+    // recalc all commit or all roll back in ONE interactive transaction. No
+    // crash-between-writes can leave a review without REVIEWED, or a review
+    // uncounted in the stored rating.
     //
     // Race-safety vs. a concurrently-filed dispute: dispute-filing flips the booking
     // COMPLETED→DISPUTED via its own guarded updateMany on the same booking row. Our
@@ -106,19 +112,6 @@ export async function POST(request: Request) {
         });
         if (liveDispute) {
           throw new ReviewConflict('Cannot review a booking with an open dispute.');
-        }
-
-        // Confirm/release-trigger — only if not already confirmed (no double-set of
-        // releaseDueAt when "I'm satisfied" already did it). Status-guarded so a
-        // booking that has slipped to DISPUTED can never have funds released here.
-        if (!booking.completionConfirmedAt) {
-          await tx.booking.updateMany({
-            where: { id: bookingId, completionConfirmedAt: null, status: 'COMPLETED' },
-            data: {
-              completionConfirmedAt: new Date(),
-              releaseDueAt: new Date(),
-            },
-          });
         }
 
         const created = await tx.review.create({
