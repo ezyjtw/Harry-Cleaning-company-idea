@@ -789,13 +789,52 @@ export async function POST(request: NextRequest) {
           startTime: { lte: reqTime },
           endTime: { gt: reqTime },
         },
-        select: { id: true },
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          cleanerProfile: { select: { bookingBufferMinutes: true } },
+        },
       });
       if (!slot) {
         return NextResponse.json(
           { error: 'That cleaner has not opened this slot to regular clients.' },
           { status: 400 }
         );
+      }
+      // F20 item 3: the chosen duration + the cleaner's buffer must FIT the
+      // regulars window — honest error naming the day's real capacity, never
+      // a clamp. One number chosen once: this same duration prices the quote,
+      // blocks the slot on every minted occurrence, and is what T-48h charges.
+      {
+        const toMin = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        const bufferMins = slot.cleanerProfile?.bookingBufferMinutes ?? 30;
+        const fitMins = toMin(slot.endTime) - toMin(reqTime) - bufferMins;
+        if (Number(body.duration) * 60 > fitMins) {
+          const dayName = [
+            'Sunday',
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+          ][reqDay];
+          const maxH = Math.max(0, Math.floor(fitMins / 30) / 2);
+          const cleanerRow = await prisma.user.findUnique({
+            where: { id: body.cleanerId },
+            select: { name: true },
+          });
+          return NextResponse.json(
+            {
+              error: `${cleanerRow?.name || 'This cleaner'}'s regular slot on ${dayName}s fits up to ${maxH} hours — choose fewer hours or a different slot.`,
+            },
+            { status: 400 }
+          );
+        }
       }
       // The completed-clean requirement is STRUCTURAL (James-ruled amendment —
       // no config flag): accounts match on clientId, guests on their booking

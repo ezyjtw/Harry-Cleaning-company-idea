@@ -376,44 +376,170 @@ export default function AvailabilityPage() {
   };
   const [flagsSaving, setFlagsSaving] = useState(false);
   const [firstTickSeen, setFirstTickSeen] = useState(false);
-  const saveFlags = async (next: Record<DayOfWeek, TimeSlot[]>) => {
+
+  // F20 items 1+2: each day exposes a regulars WINDOW (which hours of the day
+  // are open to regular clients), edited locally and committed by an explicit
+  // Save — one PUT, explicit flags (f4d644b explicit-wins). Saving rides the
+  // existing per-range machinery: the day's working block is split into
+  // flagged/unflagged ranges, so eligibility, the offer service and the L2
+  // day-sheet all keep reading the same rows.
+  type RepeatWindow = { open: boolean; from: string; to: string };
+  const [repeatDraft, setRepeatDraft] = useState<Record<DayOfWeek, RepeatWindow | null> | null>(
+    null
+  );
+  const [repeatDirty, setRepeatDirty] = useState(false);
+  const [repeatErrors, setRepeatErrors] = useState<Record<string, string>>({});
+
+  const mergedBlocks = (ranges: TimeSlot[]): { start: string; end: string }[] => {
+    const sorted = [...ranges].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+    const blocks: { start: string; end: string }[] = [];
+    for (const r of sorted) {
+      const last = blocks[blocks.length - 1];
+      if (last && timeToMinutes(r.start) <= timeToMinutes(last.end)) {
+        if (timeToMinutes(r.end) > timeToMinutes(last.end)) last.end = r.end;
+      } else {
+        blocks.push({ start: r.start, end: r.end });
+      }
+    }
+    return blocks;
+  };
+  const biggestBlock = (blocks: { start: string; end: string }[]) =>
+    blocks.reduce((a, b) =>
+      timeToMinutes(b.end) - timeToMinutes(b.start) > timeToMinutes(a.end) - timeToMinutes(a.start)
+        ? b
+        : a
+    );
+
+  // Derive the draft from saved state whenever there are no local edits.
+  useEffect(() => {
+    if (repeatDirty) return;
+    const d = {} as Record<DayOfWeek, RepeatWindow | null>;
+    for (const day of daysOfWeek) {
+      const blocks = mergedBlocks(weeklyRanges[day]);
+      if (blocks.length === 0) {
+        d[day] = null;
+        continue;
+      }
+      const flagged = weeklyRanges[day].filter((r) => r.recurringEligible);
+      const big = biggestBlock(blocks);
+      if (flagged.length === 0) {
+        d[day] = { open: false, from: big.start, to: big.end };
+      } else {
+        const from = flagged.reduce((m, r) => (r.start < m ? r.start : m), flagged[0].start);
+        const to = flagged.reduce((m, r) => (r.end > m ? r.end : m), flagged[0].end);
+        d[day] = { open: true, from, to };
+      }
+    }
+    setRepeatDraft(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weeklyRanges, repeatDirty]);
+
+  const editRepeatDay = (day: DayOfWeek, patch: Partial<RepeatWindow>) => {
+    setRepeatDraft((prev) => {
+      const current = prev?.[day];
+      return prev && current ? { ...prev, [day]: { ...current, ...patch } } : prev;
+    });
+    setRepeatDirty(true);
+    setRepeatErrors({});
+  };
+  // Bulk action: draft every scheduled day's FULL hours open — applied on Save.
+  const openAllRegulars = () => {
+    setRepeatDraft((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev };
+      for (const day of daysOfWeek) {
+        const blocks = mergedBlocks(weeklyRanges[day]);
+        if (blocks.length > 0) {
+          const big = biggestBlock(blocks);
+          next[day] = { open: true, from: big.start, to: big.end };
+        }
+      }
+      return next;
+    });
+    setRepeatDirty(true);
+    setRepeatErrors({});
+  };
+
+  const saveRepeat = async () => {
+    if (!repeatDraft || flagsSaving) return;
+    // Item 1 law: the window must sit WITHIN the day's working hours — honest
+    // inline error, never a silent clamp.
+    const errors: Record<string, string> = {};
+    for (const day of daysOfWeek) {
+      const w = repeatDraft[day];
+      if (!w || !w.open) continue;
+      if (timeToMinutes(w.to) - timeToMinutes(w.from) < 30) {
+        errors[day] = 'The regulars window needs at least 30 minutes.';
+        continue;
+      }
+      const blocks = mergedBlocks(weeklyRanges[day]);
+      const host = blocks.find(
+        (b) =>
+          timeToMinutes(w.from) >= timeToMinutes(b.start) &&
+          timeToMinutes(w.to) <= timeToMinutes(b.end)
+      );
+      if (!host) {
+        const hoursList = blocks
+          .map((b) => `${formatTime(b.start)}–${formatTime(b.end)}`)
+          .join(', ');
+        errors[day] = `Regulars hours must sit within your working hours (${hoursList}).`;
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setRepeatErrors(errors);
+      return;
+    }
     const hadNone = !anyRegularFlags;
-    setWeeklyRanges(next);
     setFlagsSaving(true);
     try {
-      const weeklySlots: Record<string, TimeSlot[]> = {};
-      for (const d of daysOfWeek) {
-        weeklySlots[dayToApi[d]] = next[d].map((r) => ({
-          ...r,
-          recurringEligible: !!r.recurringEligible,
-        }));
+      const nextRanges = {} as Record<DayOfWeek, TimeSlot[]>;
+      for (const day of daysOfWeek) {
+        const blocks = mergedBlocks(weeklyRanges[day]);
+        const w = repeatDraft[day];
+        const out: TimeSlot[] = [];
+        for (const bl of blocks) {
+          const hosts =
+            !!w &&
+            w.open &&
+            timeToMinutes(w.from) >= timeToMinutes(bl.start) &&
+            timeToMinutes(w.to) <= timeToMinutes(bl.end);
+          if (hosts && w) {
+            if (timeToMinutes(w.from) > timeToMinutes(bl.start)) {
+              out.push({ start: bl.start, end: w.from, recurringEligible: false });
+            }
+            out.push({ start: w.from, end: w.to, recurringEligible: true });
+            if (timeToMinutes(w.to) < timeToMinutes(bl.end)) {
+              out.push({ start: w.to, end: bl.end, recurringEligible: false });
+            }
+          } else {
+            out.push({ start: bl.start, end: bl.end, recurringEligible: false });
+          }
+        }
+        nextRanges[day] = out;
       }
+      const weeklySlots: Record<string, TimeSlot[]> = {};
+      for (const d of daysOfWeek) weeklySlots[dayToApi[d]] = nextRanges[d];
       const res = await fetch('/api/cleaner/availability', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weeklySlots }),
       });
-      if (res.ok && hadNone && daysOfWeek.some((d) => next[d].some((r) => r.recurringEligible))) {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setRepeatErrors({
+          _global: (data as { error?: string }).error || 'Could not save — try again.',
+        });
+        return;
+      }
+      setWeeklyRanges(nextRanges);
+      setRepeatDirty(false);
+      // Item 2: the first-tick confirmation fires ON SAVE, when flags first go on.
+      if (hadNone && daysOfWeek.some((d) => nextRanges[d].some((r) => r.recurringEligible))) {
         setFirstTickSeen(true);
       }
     } finally {
       setFlagsSaving(false);
     }
-  };
-  const toggleDayRegulars = (day: DayOfWeek) => {
-    const dayOn = weeklyRanges[day].some((r) => r.recurringEligible);
-    const next = {
-      ...weeklyRanges,
-      [day]: weeklyRanges[day].map((r) => ({ ...r, recurringEligible: !dayOn })),
-    };
-    void saveFlags(next);
-  };
-  const openAllRegulars = () => {
-    const next = {} as Record<DayOfWeek, TimeSlot[]>;
-    for (const d of daysOfWeek) {
-      next[d] = weeklyRanges[d].map((r) => ({ ...r, recurringEligible: true }));
-    }
-    void saveFlags(next);
   };
 
   const removeRange = (day: DayOfWeek, index: number) => {
@@ -1702,18 +1828,23 @@ export default function AvailabilityPage() {
               className="mt-4 rounded-[10px] bg-primary px-5 py-2.5 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
               data-testid="open-all-regulars"
             >
-              {flagsSaving ? 'Saving…' : 'Open all my slots to regulars'}
+              Open all my slots to regulars
             </button>
+            <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
+              Opens each day&rsquo;s full working hours — narrow any day below, then save.
+            </p>
             {firstTickSeen && (
               <p className="mt-3 font-jost text-sm text-trust" data-testid="first-tick-line">
-                Done — customers can now ask to make these slots their regular clean. You approve
+                Saved — customers can now ask to make these slots their regular clean. You approve
                 each arrangement, and you can close a slot again any time.
               </p>
             )}
           </div>
 
-          {/* Per-day toggles — same recurringEligible flag as the app's
-              day-sheet checkbox. Two doors, one flag; saves immediately. */}
+          {/* F20 item 1: per-day WINDOWS — which hours of each day are open to
+              regulars. Same recurringEligible flag as the app's day-sheet
+              checkbox (saving splits the working block into flagged/unflagged
+              ranges). Edits are local until Save Changes below (item 2). */}
           <div
             className="rounded-xl bg-surface overflow-hidden mb-6"
             style={{ border: '1px solid rgb(var(--color-border))' }}
@@ -1723,51 +1854,114 @@ export default function AvailabilityPage() {
               style={{ borderBottom: '1px solid rgb(var(--color-border))' }}
             >
               <h2 className="font-newsreader text-lg font-semibold text-ink">
-                Which days are open to regulars?
+                Which hours are open to regulars?
               </h2>
               <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3 mt-0.5">
-                Only days on your weekly schedule can be opened
+                Per day — the window must sit within your working hours
               </p>
             </div>
             <div className="divide-y divide-ink/[0.04]">
               {daysOfWeek.map((day) => {
-                const ranges = weeklyRanges[day];
-                const hasHours = ranges.length > 0;
-                const dayOn = ranges.some((r) => r.recurringEligible);
+                const blocks = mergedBlocks(weeklyRanges[day]);
+                const hasHours = blocks.length > 0;
+                const w = repeatDraft?.[day] ?? null;
                 return (
-                  <div key={day} className="px-6 py-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p
-                        className={`font-jost text-sm ${hasHours ? 'font-normal text-ink' : 'font-light text-ink-3'}`}
-                      >
-                        {day}
-                      </p>
-                      <p className="font-jost text-xs font-light text-ink-3">
-                        {hasHours
-                          ? ranges
-                              .map((r) => `${formatTime(r.start)}–${formatTime(r.end)}`)
-                              .join(' · ')
-                          : 'Not on your weekly schedule'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => toggleDayRegulars(day)}
-                      disabled={!hasHours || flagsSaving}
-                      data-testid={`regulars-toggle-${day.toLowerCase()}`}
-                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${
-                        dayOn ? 'bg-primary' : 'bg-ink-3/30'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
-                          dayOn ? 'translate-x-6' : 'translate-x-1'
+                  <div key={day} className="px-6 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p
+                          className={`font-jost text-sm ${hasHours ? 'font-normal text-ink' : 'font-light text-ink-3'}`}
+                        >
+                          {day}
+                        </p>
+                        <p className="font-jost text-xs font-light text-ink-3">
+                          {hasHours
+                            ? `Works ${blocks
+                                .map((b) => `${formatTime(b.start)}–${formatTime(b.end)}`)
+                                .join(' · ')}`
+                            : 'Not on your weekly schedule'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => w && editRepeatDay(day, { open: !w.open })}
+                        disabled={!hasHours || flagsSaving}
+                        data-testid={`regulars-toggle-${day.toLowerCase()}`}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${
+                          w?.open ? 'bg-primary' : 'bg-ink-3/30'
                         }`}
-                      />
-                    </button>
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
+                            w?.open ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    {w?.open && (
+                      <div className="mt-2.5 flex items-center gap-2 sm:ml-1">
+                        <span className="font-jost text-xs font-light text-ink-3">
+                          Open to regulars
+                        </span>
+                        <select
+                          value={w.from}
+                          onChange={(e) => editRepeatDay(day, { from: e.target.value })}
+                          data-testid={`regulars-from-${day.toLowerCase()}`}
+                          className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                          {TIME_OPTIONS.map((t) => (
+                            <option key={t} value={t}>
+                              {formatTime(t)}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="font-jost text-xs text-ink-3">to</span>
+                        <select
+                          value={w.to}
+                          onChange={(e) => editRepeatDay(day, { to: e.target.value })}
+                          data-testid={`regulars-to-${day.toLowerCase()}`}
+                          className="rounded-lg px-2 py-1.5 font-jost text-sm font-light text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                          {TIME_OPTIONS.map((t) => (
+                            <option key={t} value={t}>
+                              {formatTime(t)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {repeatErrors[day] && (
+                      <p
+                        className="mt-2 font-jost text-[12px] text-danger"
+                        data-testid={`regulars-error-${day.toLowerCase()}`}
+                      >
+                        {repeatErrors[day]}
+                      </p>
+                    )}
                   </div>
                 );
               })}
             </div>
+          </div>
+
+          {/* F20 item 2: explicit save — one write, matching the Recurring
+              schedule tab's model. */}
+          <div className="flex items-center justify-end gap-3 mb-6">
+            {repeatErrors._global && (
+              <span className="font-jost text-[12px] font-light text-danger">
+                {repeatErrors._global}
+              </span>
+            )}
+            {repeatDirty && Object.keys(repeatErrors).length === 0 && (
+              <span className="font-jost text-[12px] font-light text-warning">Unsaved changes</span>
+            )}
+            <button
+              onClick={saveRepeat}
+              disabled={flagsSaving || !repeatDirty}
+              data-testid="repeat-save"
+              className="rounded-full px-8 py-2.5 bg-primary text-white font-jost text-[13px] font-light shadow-sm hover:bg-primary-hover transition disabled:opacity-50"
+            >
+              {flagsSaving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
 
           {/* R1-A: standing regular clients — renders only when one exists.
