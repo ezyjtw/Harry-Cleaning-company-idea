@@ -169,6 +169,9 @@ export async function updateAvailability(
   await prisma.$transaction(async (tx) => {
     // R1-A: delete-and-recreate must not clobber "open to regular clients" —
     // carry the flag across for slots that survive with the same day+times.
+    // F18 follow-up (James-ruled): time-edits of the same day inherit the
+    // day's previous opt-in (exact match first). Survives only — a day never
+    // opted in can't gain the flag here.
     const previous = await tx.availabilitySlot.findMany({
       where: { cleanerProfileId: profile.id },
       select: { dayOfWeek: true, startTime: true, endTime: true, recurringEligible: true },
@@ -176,6 +179,10 @@ export async function updateAvailability(
     const previousFlags = new Map(
       previous.map((s) => [`${s.dayOfWeek}|${s.startTime}|${s.endTime}`, s.recurringEligible])
     );
+    const previousDayFlags = new Map<number, boolean>();
+    for (const s of previous) {
+      if (s.recurringEligible) previousDayFlags.set(s.dayOfWeek, true);
+    }
 
     await tx.availabilitySlot.deleteMany({
       where: { cleanerProfileId: profile.id },
@@ -188,7 +195,10 @@ export async function updateAvailability(
         dayOfWeek,
         startTime: slot.start,
         endTime: slot.end,
-        recurringEligible: previousFlags.get(`${dayOfWeek}|${slot.start}|${slot.end}`) ?? false,
+        recurringEligible:
+          previousFlags.get(`${dayOfWeek}|${slot.start}|${slot.end}`) ??
+          previousDayFlags.get(dayOfWeek) ??
+          false,
       };
     });
 
