@@ -32,7 +32,10 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Not your booking' }, { status: 403 });
   }
 
-  if (booking.status !== 'COMPLETED') {
+  // F16/F17: REVIEWED is confirmable too — a review no longer releases funds,
+  // so a reviewed-but-held booking legitimately arrives at this door. DISPUTED
+  // (and everything else) still bounces.
+  if (booking.status !== 'COMPLETED' && booking.status !== 'REVIEWED') {
     return NextResponse.json(
       { error: 'Only completed bookings can be confirmed' },
       { status: 422 }
@@ -50,7 +53,9 @@ export async function POST(_request: Request, context: RouteContext) {
   const claimed = await prisma.booking.updateMany({
     where: {
       id: bookingId,
-      status: 'COMPLETED',
+      // Race-safe: a dispute filed in the gap flips status away from both, so
+      // this claim matches 0 rows and no funds move.
+      status: { in: ['COMPLETED', 'REVIEWED'] },
       transferStatus: 'PENDING',
       completionConfirmedAt: null,
     },
@@ -65,10 +70,13 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   // H74: never a silent catch — a thrown review-request must say so in prod.
-  await EnhancedNotificationService.sendReviewRequest(bookingId).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[ReviewRequest] Failed for booking ${bookingId}:`, e);
-  });
+  // F17: skip the nudge when the review already exists (REVIEWED path).
+  if (booking.status !== 'REVIEWED') {
+    await EnhancedNotificationService.sendReviewRequest(bookingId).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.error(`[ReviewRequest] Failed for booking ${bookingId}:`, e);
+    });
+  }
 
   return NextResponse.json({ message: 'Completion confirmed — funds will be released shortly' });
 }

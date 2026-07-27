@@ -305,9 +305,21 @@ export async function sendReviewRequest(
         usualSlot: o.usualSlot ?? null,
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network'}/regular-clean/${o.cleanerId}?from=${booking.id}`,
       };
+      // eslint-disable-next-line no-console
+      console.log(`[RegularOffer] review email carries the offer section for ${booking.id}`);
+    } else {
+      // F18 loudness (no silent send-leg): a suppressed offer section must
+      // name its reason — "no-open-slots" here is how we learned real
+      // cleaners never had recurringEligible flagged.
+      // eslint-disable-next-line no-console
+      console.log(
+        `[RegularOffer] review email section suppressed for ${booking.id} — ${o.reason ?? 'ineligible'}`
+      );
     }
-  } catch {
+  } catch (e) {
     offer = undefined;
+    // eslint-disable-next-line no-console
+    console.error(`[RegularOffer] offer resolution failed for ${booking.id}:`, e);
   }
   const { subject, html } = buildReviewRequest(booking, user, offer);
   return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 
 import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
+import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
@@ -30,6 +31,7 @@ interface Booking {
   topupAmount: number | null;
   hasDispute: boolean;
   completionConfirmed: boolean;
+  fundsHeld: boolean;
   hasReview: boolean;
 }
 
@@ -122,6 +124,9 @@ function toBookingItem(b: Record<string, unknown>): Booking {
     topupAmount: b.topupAmount ? Number(b.topupAmount) : null,
     hasDispute: !!(b.dispute || (b as Record<string, unknown>).hasDispute),
     completionConfirmed: !!b.completionConfirmedAt,
+    // F17: money-state truth for the release button (F16 law — the button
+    // keys on funds actually being holdable, not on review state).
+    fundsHeld: String(b.transferStatus || 'PENDING') === 'PENDING',
     hasReview: !!b.review,
   };
 }
@@ -174,18 +179,23 @@ export default function BookingsPage() {
       const res = await fetch(`/api/bookings/${fullId}/confirm-complete`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        // F17: progress, don't loop — mark the funds released (the scheduler
+        // completes the transfer within its tick) and DO NOT auto-open the
+        // review form. The review invite stays as a passive button; pre-F16
+        // the auto-open made sense (reviewing doubled as the satisfaction
+        // confirm) but review and release are independent now.
         setBookings((prev) =>
-          prev.map((b) => (b.fullId === fullId ? { ...b, completionConfirmed: true } : b))
+          prev.map((b) =>
+            b.fullId === fullId ? { ...b, completionConfirmed: true, fundsHeld: false } : b
+          )
         );
         setConfirmResult((prev) => ({
           ...prev,
           [fullId]: {
             ok: true,
-            message:
-              data.message || 'Confirmed — payment will be released to your cleaner shortly.',
+            message: data.message || 'Payment released to your cleaner.',
           },
         }));
-        setReviewingId(fullId);
       } else {
         setConfirmResult((prev) => ({
           ...prev,
@@ -712,7 +722,10 @@ export default function BookingsPage() {
                       Message cleaner
                     </Link>
 
-                    {booking.rawStatus === 'COMPLETED' && (
+                    {/* F17: the block covers REVIEWED too — a review no longer
+                        implies release (F16), so a reviewed-but-held booking
+                        still needs its release door here. */}
+                    {(booking.rawStatus === 'COMPLETED' || booking.rawStatus === 'REVIEWED') && (
                       <>
                         {confirmResult[booking.fullId] && (
                           <span
@@ -723,17 +736,21 @@ export default function BookingsPage() {
                           </span>
                         )}
 
-                        {!booking.completionConfirmed && !confirmResult[booking.fullId] && (
-                          <button
-                            onClick={() => confirmComplete(booking.fullId)}
-                            disabled={confirmingId === booking.fullId}
-                            className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
-                          >
-                            {confirmingId === booking.fullId
-                              ? 'Confirming…'
-                              : "I'm satisfied — release payment"}
-                          </button>
-                        )}
+                        {/* F16 law: the button keys on money truth — funds still
+                            holdable — and vanishes on release by any path. */}
+                        {booking.fundsHeld &&
+                          !booking.completionConfirmed &&
+                          !confirmResult[booking.fullId] && (
+                            <button
+                              onClick={() => confirmComplete(booking.fullId)}
+                              disabled={confirmingId === booking.fullId}
+                              className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
+                            >
+                              {confirmingId === booking.fullId
+                                ? 'Confirming…'
+                                : "I'm satisfied — release payment"}
+                            </button>
+                          )}
 
                         {reviewResult[booking.fullId] && (
                           <span
@@ -746,13 +763,13 @@ export default function BookingsPage() {
 
                         {/* H72: no completionConfirmed gate — auto-release after the
                             hold never sets it, which left late-returning customers
-                            with no review door at all. Reviewing implies satisfaction
-                            (the API records the confirmation in the same transaction);
-                            the form says so when confirmation hasn't happened yet. */}
+                            with no review door at all. F17: the invite stays visible
+                            after a satisfied tap (it used to hide behind the old
+                            auto-opened form) — one passive button, never a re-fired
+                            prompt. */}
                         {!booking.hasReview &&
                           !reviewResult[booking.fullId]?.ok &&
-                          reviewingId !== booking.fullId &&
-                          !confirmResult[booking.fullId]?.ok && (
+                          reviewingId !== booking.fullId && (
                             <button
                               onClick={() => setReviewingId(booking.fullId)}
                               className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
@@ -766,12 +783,6 @@ export default function BookingsPage() {
                             <span className="text-sm font-medium text-ink">
                               How was your clean?
                             </span>
-                            {!booking.completionConfirmed && (
-                              <span className="text-xs text-ink-3">
-                                Submitting a review also confirms you&apos;re happy for payment to
-                                be released to your cleaner.
-                              </span>
-                            )}
 
                             <div>
                               <span className="mb-1 block text-xs text-ink-2">Overall rating</span>
@@ -859,6 +870,12 @@ export default function BookingsPage() {
                           </div>
                         )}
                       </>
+                    )}
+
+                    {/* F18: regular-clean offer front door on the bookings list —
+                        self-gates on eligibility, renders nothing otherwise. */}
+                    {(booking.rawStatus === 'COMPLETED' || booking.rawStatus === 'REVIEWED') && (
+                      <RegularCleanOfferCard bookingId={booking.fullId} className="w-full" />
                     )}
 
                     {booking.status === 'Price approval needed' && (

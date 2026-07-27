@@ -127,13 +127,19 @@ export default function BookingDetailPage() {
       const res = await fetch(`/api/bookings/${id}/confirm-complete`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        // F17: progress the page to the released state in place — the door
+        // predicate goes false and the released-awaiting-review card takes
+        // over (the scheduler completes the actual transfer within its tick).
+        // No re-fired review prompt: the card carries the single review invite.
         setBooking((prev) =>
-          prev ? { ...prev, completionConfirmedAt: new Date().toISOString() } : prev
+          prev
+            ? {
+                ...prev,
+                completionConfirmedAt: new Date().toISOString(),
+                transferStatus: 'RELEASED',
+              }
+            : prev
         );
-        setConfirmResult({
-          ok: true,
-          message: data.message || 'Confirmed — payment will be released to your cleaner shortly.',
-        });
       } else {
         setConfirmResult({ ok: false, message: data.error || 'Could not confirm completion.' });
       }
@@ -447,12 +453,6 @@ export default function BookingDetailPage() {
             </button>
           </div>
         )}
-      {booking.viewer === 'client' && confirmResult?.ok && (
-        <div className="mt-4 rounded-2xl border border-trust/30 bg-green-50 p-5">
-          <p className="font-jost text-[14px] font-medium text-trust">{confirmResult.message}</p>
-        </div>
-      )}
-
       {/* F16: honest close-state line. CLOSED needs BOTH — funds released AND
           review left, in either order; the partial states say exactly which
           half is outstanding. Derived from the two truths, no new state. */}
@@ -467,6 +467,12 @@ export default function BookingDetailPage() {
               Your cleaner has been paid. Leaving a review closes this booking off and helps the
               next customer choose.
             </p>
+            <Link
+              href="/account/bookings"
+              className="mt-3 inline-flex items-center justify-center rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover"
+            >
+              Leave a review
+            </Link>
           </div>
         )}
       {booking.viewer === 'client' && bookingCloseState(booking) === 'closed' && (
