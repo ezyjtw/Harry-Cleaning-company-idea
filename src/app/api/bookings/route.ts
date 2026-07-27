@@ -249,6 +249,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // R1 confirmation fix: the picker caps at 56 days but the API never did —
+    // a crafted request could book beyond the recurring occurrence horizon
+    // (also 8 weeks) and a future mint would land on top of it. Server-side
+    // cap = picker cap = occurrence horizon, so nobody can reach past the
+    // window the mint maintains.
+    const maxAdvance = new Date(today);
+    maxAdvance.setDate(maxAdvance.getDate() + 56);
+    if (bookingDate > maxAdvance) {
+      return NextResponse.json(
+        { error: 'Bookings can be made up to 8 weeks in advance.' },
+        { status: 400 }
+      );
+    }
+
     if (!SAME_DAY_FEATURE_ENABLED && body.serviceType === 'same-day') {
       return NextResponse.json(
         { error: 'Same-day bookings are not currently available.' },
