@@ -206,6 +206,18 @@ export async function POST(request: NextRequest) {
       );
     };
 
+    // F20 item 4: an account holder's email comes from their SESSION — never
+    // demanded from the body. The regular-clean setup POSTs before its
+    // client-side session-fill can race in, and the required-check below was
+    // rejecting a signed-in customer with "email is required". Session wins
+    // for authed users (identity can't be body-spoofed either); guests keep
+    // the required field exactly as it was.
+    const earlySession = await getSessionUser();
+    if (earlySession?.email) {
+      body.email = earlySession.email;
+      if (!body.name && earlySession.name) body.name = earlySession.name;
+    }
+
     // 1. Validate required fields
     const required = ['cleanerId', 'name', 'email', 'date', 'time', 'duration', 'serviceType'];
     for (const field of required) {
