@@ -175,7 +175,10 @@ export async function middleware(request: NextRequest) {
 
   if (isProtectedRoute && !isAuthenticated) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
+    // F12: carry the QUERY through login too — the offer email's decline link
+    // (?decline=1) must survive the round-trip so the confirm beat still
+    // renders after sign-in. Pathname-only dropped it.
+    loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 

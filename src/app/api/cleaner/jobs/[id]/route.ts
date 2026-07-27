@@ -186,6 +186,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           ? ((booking.rooms as Record<string, unknown>)?.keyAccessNote as string | undefined)
           : undefined,
       cleanerNotes: booking.cleanerNotes,
+      // F12: cascade-state copy for the decline confirm ("offered to backups"
+      // vs "we'll find the customer another cleaner"). A boolean, no ids.
+      hasBackups: booking.backupCleanerIds.length > 0,
       // LB-7: supplies is DECISION-relevant, not sensitive — a cleaner without
       // a kit can't take a bring-your-own job. Unlike address/notes it is in
       // the sanitised PRE-ACCEPT safe set, alongside date/time/area/pay.

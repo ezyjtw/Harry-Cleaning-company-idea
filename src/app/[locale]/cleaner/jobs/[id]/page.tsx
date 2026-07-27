@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
@@ -32,6 +32,7 @@ interface JobDetail {
   keyAccess?: string;
   keyAccessNote?: string;
   suppliesProvided?: boolean | null;
+  hasBackups?: boolean;
   bedrooms?: number;
   extras: string[];
 }
@@ -82,9 +83,32 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function CleanerJobDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  // F12: the email's Decline link lands HERE with ?decline=1 — a confirm beat,
+  // never an instant decline (mis-tap and multi-recipient safe). Dismissable.
+  const [showDeclineConfirm, setShowDeclineConfirm] = useState(searchParams.get('decline') === '1');
+  const [declineError, setDeclineError] = useState<string | null>(null);
+
+  async function declineJob() {
+    setActing(true);
+    setDeclineError(null);
+    try {
+      const res = await fetch(`/api/cleaner/jobs/${params.id}/decline`, { method: 'POST' });
+      if (res.ok) {
+        router.push('/cleaner/jobs');
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setDeclineError(d.error || 'Could not decline — try again.');
+        setActing(false);
+      }
+    } catch {
+      setDeclineError('Could not decline — try again.');
+      setActing(false);
+    }
+  }
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/cleaner/jobs/${params.id}`);
@@ -172,6 +196,36 @@ export default function CleanerJobDetailPage() {
         </h1>
         <BookingStatusChip rawStatus={job.status} />
       </div>
+
+      {/* F12: decline confirm beat — the email link lands here; the decline
+          only fires on this explicit confirm. Renders only while the job is
+          still an open offer (the real decline route enforces the same). */}
+      {showDeclineConfirm && (job.status === 'AWAITING_CLEANER' || job.status === 'CONFIRMED') && (
+        <div className="mt-4 rounded-xl border border-danger/25 bg-danger/[0.05] p-5">
+          <p className="font-newsreader text-lg font-semibold text-ink">Decline this job?</p>
+          <p className="mt-1 font-jost text-sm font-light text-ink-2">
+            {job.hasBackups
+              ? 'It’ll be offered to the customer’s backup cleaners.'
+              : 'We’ll find the customer another cleaner.'}
+          </p>
+          {declineError && <p className="mt-2 font-jost text-sm text-danger">{declineError}</p>}
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button
+              onClick={declineJob}
+              disabled={acting}
+              className="rounded-[10px] bg-danger px-4 py-2.5 font-jost text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            >
+              {acting ? 'Declining…' : 'Decline job'}
+            </button>
+            <button
+              onClick={() => setShowDeclineConfirm(false)}
+              className="rounded-[10px] border border-line bg-surface px-4 py-2.5 font-jost text-sm font-semibold text-ink-2 transition-colors hover:bg-page"
+            >
+              Keep looking at it
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-5 space-y-4">
         <Section title="When">

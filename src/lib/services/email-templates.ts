@@ -326,8 +326,12 @@ export function buildCleanerAssignment(
   cleaner: CleanerEmailData
 ): EmailContent {
   const detailLink = `${appUrl()}/cleaner/jobs/${booking.id}`;
+  // F12: the decline path deep-links to the SAME authenticated job page with a
+  // confirm beat — same auth as Accept, no token auto-decline, so a forwarded
+  // email can never decline as this cleaner.
+  const declineLink = `${appUrl()}/cleaner/jobs/${booking.id}?decline=1`;
   const subject = `New job offer - ${booking.date} at ${booking.time}`;
-  const contentHtml =
+  const contentHtml = `${
     h('New job offer') +
     p(`Hi ${cleaner.name},`) +
     p(`You&rsquo;ve been offered a ${serviceLabelFromSlug(booking.serviceType)} job.`) +
@@ -346,10 +350,12 @@ export function buildCleanerAssignment(
           ][])
         : []),
     ]) +
-    button(detailLink, 'Accept this job') +
-    pMuted(
-      'The full address and any customer notes are shown once you accept. Not signed in? The link takes you through login and straight back to this job.'
-    );
+    button(detailLink, 'Accept this job')
+    // F12: Decline is the QUIETER option — a muted link, never a peer button.
+    // It lands on a confirm ("Decline this job?"), not an instant decline.
+  }<p style="${FONT_BODY}font-size:13px;line-height:1.6;color:#7A8A9E;margin:-8px 0 14px;">Can&rsquo;t take this one? <a href="${declineLink}" style="color:#7A8A9E;text-decoration:underline;">Decline it</a> so it moves on quickly.</p>${pMuted(
+    'The full address and any customer notes are shown once you accept. Not signed in? The link takes you through login and straight back to this job.'
+  )}`;
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
