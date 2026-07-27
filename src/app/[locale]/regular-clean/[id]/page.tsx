@@ -36,9 +36,6 @@ interface BookingContext {
   email: string;
   phone: string;
   isGuest: boolean;
-  // LB-7: the trial booking's supplies answer — occurrences inherit it. Null
-  // when the trial predates the question (the page then asks it).
-  suppliesProvided: boolean | null;
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -88,9 +85,6 @@ export default function RegularCleanSetupPage() {
   const [time, setTime] = useState<string>('');
   const [quoteTotal, setQuoteTotal] = useState<number | null>(null);
 
-  // LB-7: fallback answer for trials that predate the supplies question —
-  // when the trial HAS an answer, it is inherited and this stays unused.
-  const [suppliesFallback, setSuppliesFallback] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -135,7 +129,6 @@ export default function RegularCleanSetupPage() {
             email: b.guestEmail || '',
             phone: b.guestPhone || '',
             isGuest: true,
-            suppliesProvided: typeof b.suppliesProvided === 'boolean' ? b.suppliesProvided : null,
           });
           return;
         }
@@ -159,7 +152,6 @@ export default function RegularCleanSetupPage() {
             email: '', // filled server-side from the session for account holders
             phone: b.client?.phone || '',
             isGuest: false,
-            suppliesProvided: typeof b.suppliesProvided === 'boolean' ? b.suppliesProvided : null,
           });
           return;
         }
@@ -236,16 +228,8 @@ export default function RegularCleanSetupPage() {
     );
   }, [slots, context]);
 
-  // LB-7: the answer that rides the agreement — inherited from the trial
-  // when it has one, otherwise asked on this page (required either way).
-  const effectiveSupplies = context ? (context.suppliesProvided ?? suppliesFallback) : null;
-
   const confirm = async () => {
     if (!context || !selectedSlot || !time || !firstDate || submitting) return;
-    if (effectiveSupplies === null) {
-      setSubmitError('Please tell us whether cleaning supplies will be provided.');
-      return;
-    }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -265,7 +249,6 @@ export default function RegularCleanSetupPage() {
           time,
           duration: context.duration,
           serviceType: QUOTE_SLUG[context.serviceType] || 'regular',
-          suppliesProvided: effectiveSupplies,
           ...(quoteTotal !== null ? { totalPrice: quoteTotal } : {}),
           isGuest: context.isGuest,
           recurring: { frequency },
@@ -518,48 +501,7 @@ export default function RegularCleanSetupPage() {
               <span className="font-normal text-ink">&pound;{quoteTotal.toFixed(2)}</span>
             </div>
           )}
-          {/* LB-7: the inherited supplies answer, shown so the customer knows
-              every future clean carries it ("as before"). */}
-          {context.suppliesProvided !== null && (
-            <div className="flex justify-between">
-              <span className="text-ink-3">Supplies</span>
-              <span className="font-normal text-ink">
-                {context.suppliesProvided
-                  ? 'you provide — as before'
-                  : 'cleaner brings — as before'}
-              </span>
-            </div>
-          )}
         </div>
-        {/* LB-7: a trial from before the question existed has no answer to
-            inherit — ask it here (required, no guessed default). */}
-        {context.suppliesProvided === null && (
-          <div className="mt-3">
-            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Will cleaning supplies be provided?
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {(
-                [
-                  { value: true, label: 'I’ll provide supplies and equipment' },
-                  { value: false, label: 'Please bring your own supplies' },
-                ] as { value: boolean; label: string }[]
-              ).map((opt) => (
-                <button
-                  key={String(opt.value)}
-                  type="button"
-                  onClick={() => setSuppliesFallback(opt.value)}
-                  className={`px-4 py-2 font-jost text-sm transition ${
-                    suppliesFallback === opt.value ? 'bg-primary text-white' : 'bg-page text-ink-2'
-                  }`}
-                  style={{ border: '0.5px solid #E4E9F0' }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <p className="mt-3 font-jost text-[12px] font-light text-ink-3">
           You pay for the first clean now. Each future clean is confirmed and paid closer to the
           date. No lock-in — you or {cleanerName} can end the arrangement at any time, and anything
