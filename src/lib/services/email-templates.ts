@@ -108,6 +108,18 @@ function button(href: string, label: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;"><tr><td align="center" bgcolor="#16296b" style="border-radius:10px;"><a href="${href}" style="display:inline-block;padding:12px 28px;${FONT_BODY}font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a></td></tr></table>`;
 }
 
+// F12: two equal thumb-tappable table-buttons in one row — primary navy fill,
+// secondary outline on muted fill. display:block anchors make the whole cell
+// the tap target; table-based so Outlook renders both.
+function buttonRow(
+  primary: { href: string; label: string },
+  secondary: { href: string; label: string }
+): string {
+  const cellA = `<td width="49%" align="center" bgcolor="#16296b" style="border-radius:10px;"><a href="${primary.href}" style="display:block;padding:12px 10px;${FONT_BODY}font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">${primary.label}</a></td>`;
+  const cellB = `<td width="49%" align="center" bgcolor="#f7f8fb" style="border-radius:10px;border:1.5px solid #C7D0DC;"><a href="${secondary.href}" style="display:block;padding:12px 10px;${FONT_BODY}font-size:14px;font-weight:bold;color:#3D5170;text-decoration:none;border-radius:10px;">${secondary.label}</a></td>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;"><tr>${cellA}<td width="2%" style="font-size:1px;">&nbsp;</td>${cellB}</tr></table>`;
+}
+
 // Info block for booking details / amounts (bg #f7f8fb, 8px radius). Each row is
 // a [label, value] pair; the value is emphasised in ink bold.
 function infoBlock(rows: Array<[string, string]>): string {
@@ -326,8 +338,12 @@ export function buildCleanerAssignment(
   cleaner: CleanerEmailData
 ): EmailContent {
   const detailLink = `${appUrl()}/cleaner/jobs/${booking.id}`;
+  // F12: the decline path deep-links to the SAME authenticated job page with a
+  // confirm beat — same auth as Accept, no token auto-decline, so a forwarded
+  // email can never decline as this cleaner.
+  const declineLink = `${appUrl()}/cleaner/jobs/${booking.id}?decline=1`;
   const subject = `New job offer - ${booking.date} at ${booking.time}`;
-  const contentHtml =
+  const contentHtml = `${
     h('New job offer') +
     p(`Hi ${cleaner.name},`) +
     p(`You&rsquo;ve been offered a ${serviceLabelFromSlug(booking.serviceType)} job.`) +
@@ -346,10 +362,19 @@ export function buildCleanerAssignment(
           ][])
         : []),
     ]) +
-    button(detailLink, 'Accept this job') +
+    // F12 (final spec): decision facts above, then BOTH choices as equals in
+    // one thumb-tappable row — Accept the navy primary, Decline a real
+    // secondary button (outline, equally sized) so a fast "no" advances the
+    // cascade instead of burning the window. Decline lands on a confirm, so
+    // the prominent button stays mis-tap-safe.
+    buttonRow(
+      { href: detailLink, label: 'Accept this job' },
+      { href: declineLink, label: 'Decline' }
+    ) +
     pMuted(
-      'The full address and any customer notes are shown once you accept. Not signed in? The link takes you through login and straight back to this job.'
-    );
+      'The full address and any customer notes are shown once you accept. Not signed in? Either link takes you through login and straight back to this job.'
+    )
+  }`;
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
