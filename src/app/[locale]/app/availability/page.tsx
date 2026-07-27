@@ -11,6 +11,10 @@ import { haptic } from '@/components/app/job-cards';
 interface TimeSlot {
   start: string;
   end: string;
+  // F18: "Open to regular clients" — rides the same GET/PUT payload as the
+  // portal page. Absent on date-slots (that API has no flag). Opt-in stays
+  // the cleaner's choice; this screen just finally exposes the switch.
+  recurringEligible?: boolean;
 }
 interface BlockedDate {
   date: string;
@@ -819,6 +823,31 @@ export default function AvailabilityAppPage() {
                         setEditError(null);
                       }}
                     />
+                    {/* F18: the recurring opt-in was web-portal-only — a cleaner
+                        living in the app could never open a slot to regular
+                        clients, which silently suppressed the customer-facing
+                        offer everywhere. Weekly ranges only (the date-slots API
+                        carries no flag). */}
+                    {editing.kind === 'day' && (
+                      <label className="mt-2.5 flex items-center gap-2 select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!slot.recurringEligible}
+                          onChange={() => {
+                            haptic('light');
+                            setEditSlots((prev) =>
+                              prev.map((s, j) =>
+                                j === i ? { ...s, recurringEligible: !s.recurringEligible } : s
+                              )
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-ink/20 text-primary focus:ring-primary/30"
+                        />
+                        <span className="font-jost text-[13px] text-ink-2">
+                          Open to regular clients
+                        </span>
+                      </label>
+                    )}
                     {editSlots.length > 1 && (
                       <button
                         type="button"

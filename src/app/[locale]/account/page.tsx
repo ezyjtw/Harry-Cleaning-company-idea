@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import RecurringAgreementsCard from '@/components/RecurringAgreementsCard';
+import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
@@ -80,6 +81,8 @@ export default function AccountHome() {
   const [approvalBookings, setApprovalBookings] = useState<Booking[]>([]);
   const [recentCleaners, setRecentCleaners] = useState<RecentCleaner[]>([]);
   const [unreviewedBookings, setUnreviewedBookings] = useState<Booking[]>([]);
+  // F18: most recent completed booking — anchor for the regular-clean offer card.
+  const [offerBookingId, setOfferBookingId] = useState<string | null>(null);
   const [mostRecentCleaner, setMostRecentCleaner] = useState<{ id: string; name: string } | null>(
     null
   );
@@ -143,6 +146,10 @@ export default function AccountHome() {
 
         const completed = completedData.data;
         setUnreviewedBookings(completed.filter((b) => b.status === 'COMPLETED' && !b.review));
+        // F18: the regular-clean offer gets a front door on the account home —
+        // anchored to the most recent completed clean (the card self-gates on
+        // the offer endpoint, so ineligible pairs render nothing).
+        setOfferBookingId(completed.length > 0 ? completed[0].id : null);
 
         const seen = new Set<string>();
         const cleaners: RecentCleaner[] = [];
@@ -416,6 +423,12 @@ export default function AccountHome() {
 
       {/* R1-A: standing regular cleans — renders only when one exists. */}
       <RecurringAgreementsCard role="CUSTOMER" />
+
+      {/* F18: the regular-clean offer's account-home front door — previously
+          the card lived only on the booking detail page (a door nobody opens
+          unprompted). Self-gates on eligibility; an active agreement
+          suppresses it, so it never stacks with the agreements card. */}
+      {offerBookingId && <RegularCleanOfferCard bookingId={offerBookingId} />}
 
       {/* Your Cleaners — teaser into the My Cleaners tab */}
       {recentCleaners.length > 0 && (
