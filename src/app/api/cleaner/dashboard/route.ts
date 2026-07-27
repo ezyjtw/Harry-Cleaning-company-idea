@@ -414,8 +414,12 @@ export async function GET() {
       id: j.id,
       clientName: j.client?.name || j.guestName || 'Guest',
       // A12: read from booking columns (legacy relation fallback in helper).
+      // F14: the F1/H104 area-only law, one more consumer — the card gated
+      // only on PENDING, so an AWAITING_CLEANER offer (the real pre-accept
+      // state) leaked the full street. Pre-accept is postcode-only SERVER-side;
+      // the street flips in on accept.
       address:
-        j.status === 'PENDING'
+        j.status === 'PENDING' || j.status === 'AWAITING_CLEANER'
           ? bookingPostcode(j) || 'TBD'
           : `${bookingLine1(j)}, ${bookingPostcode(j)}`,
       date: j.date.toISOString().split('T')[0],
