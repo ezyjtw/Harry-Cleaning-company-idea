@@ -725,10 +725,21 @@ export async function sendCleanerAcceptedBooking(bookingId: string): Promise<boo
 // passes the already-pruned active set, so the H63 corpse law holds: no email
 // to declined/excluded/unavailable cleaners.
 export async function sendBackupOfferEmails(bookingId: string, backupIds: string[]): Promise<void> {
-  if (backupIds.length === 0) return;
+  // F13 loudness law (James-ruled): NO silent send-leg. The old silent
+  // early-return made "not called" and "called with zero recipients"
+  // indistinguishable in the logs — exactly what stalled the F13 trace.
+  if (backupIds.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[Cascade] backup-offer emails attempted for ${bookingId}: 0 of 0 (no backups)`);
+    return;
+  }
   const { prisma } = await import('@/lib/db/prisma');
   const b = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!b) return;
+  if (!b) {
+    // eslint-disable-next-line no-console
+    console.error(`[Cascade] backup-offer emails SKIPPED for ${bookingId}: booking not found`);
+    return;
+  }
   const { serviceLabelFromSlug, normalizeToPricingSlug, propertySizeEnumToSlug } =
     await import('@/lib/constants/services');
   const { pricingService } = await import('@/lib/services/pricing.service');
