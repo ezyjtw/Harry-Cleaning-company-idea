@@ -128,6 +128,7 @@ export function CantMakeIt({
     <div
       className="mt-3 rounded-[10px] border border-danger/25 bg-surface p-3"
       data-testid="cant-make-it-confirm"
+      data-card-interactive
     >
       <p className="font-jost text-[13px] leading-relaxed text-ink-2">
         Cancel this job? {job.clientName} will be told straight away and offered a full refund or a
@@ -234,7 +235,12 @@ export function HeroJob({
     // the same layering as stopPropagation on every control, but unmissable.
     <div
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button, a')) return;
+        if (
+          (e.target as HTMLElement).closest(
+            'button, a, input, textarea, select, label, [data-card-interactive]'
+          )
+        )
+          return;
         router.push(`/app/offer/${job.id}`);
       }}
       className={`cursor-pointer rounded-2xl bg-primary p-5 text-white shadow-sm transition-opacity active:opacity-90 ${
@@ -331,7 +337,12 @@ export function JobCard({
     // F3: whole-card click target; inner buttons/links win via the ancestor guard.
     <div
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button, a')) return;
+        if (
+          (e.target as HTMLElement).closest(
+            'button, a, input, textarea, select, label, [data-card-interactive]'
+          )
+        )
+          return;
         router.push(`/app/offer/${job.id}`);
       }}
       className="cursor-pointer rounded-2xl border border-line bg-surface p-4 transition-colors active:bg-page"
