@@ -12,6 +12,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const profile = await prisma.cleanerProfile.findUnique({
     where: { userId: cleanerUserId },
     select: {
+      // F20 item 3: the hours selector's fit check mirrors the server's
+      // duration+buffer rule — expose the buffer (a number, nothing personal).
+      bookingBufferMinutes: true,
       availabilitySlots: {
         where: { recurringEligible: true },
         select: { dayOfWeek: true, startTime: true, endTime: true },
@@ -26,6 +29,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({
     cleanerId: cleanerUserId,
+    bufferMinutes: profile.bookingBufferMinutes,
     slots: profile.availabilitySlots.map((s) => ({
       dayOfWeek: s.dayOfWeek,
       start: s.startTime,

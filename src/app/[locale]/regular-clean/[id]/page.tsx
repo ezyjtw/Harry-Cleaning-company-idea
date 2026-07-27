@@ -84,6 +84,10 @@ export default function RegularCleanSetupPage() {
   const [slotIndex, setSlotIndex] = useState<number | null>(null);
   const [time, setTime] = useState<string>('');
   const [quoteTotal, setQuoteTotal] = useState<number | null>(null);
+  // F20 item 3: the customer chooses hours — defaults to the trial clean's
+  // duration once context loads; the server quote and fit check both key on it.
+  const [hours, setHours] = useState<number | null>(null);
+  const [bufferMinutes, setBufferMinutes] = useState<number>(30);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -101,7 +105,10 @@ export default function RegularCleanSetupPage() {
     if (!cleanerId) return;
     fetch(`/api/cleaners/${cleanerId}/recurring-slots`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setSlots(data?.slots ?? []))
+      .then((data) => {
+        setSlots(data?.slots ?? []);
+        if (typeof data?.bufferMinutes === 'number') setBufferMinutes(data.bufferMinutes);
+      })
       .catch(() => setSlots([]));
   }, [cleanerId]);
 
@@ -189,34 +196,52 @@ export default function RegularCleanSetupPage() {
     setTime(usualIdx >= 0 ? context.startTime : slots[idx].start);
   }, [slots, context, slotIndex]);
 
-  // Per-clean price — the server's own quote (the checkout re-computes it, so
-  // this can never drift past the API's tolerance).
+  // F20 item 3: hours default to the trial clean's duration, freely changeable.
   useEffect(() => {
-    if (!context) return;
+    if (context && hours === null) setHours(context.duration);
+  }, [context, hours]);
+
+  // Per-clean price — the server's own quote (the checkout re-computes it, so
+  // this can never drift past the API's tolerance). Re-quotes on every hours
+  // change; no client arithmetic anywhere.
+  useEffect(() => {
+    if (!context || hours === null) return;
+    setQuoteTotal(null);
     fetch('/api/pricing/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         cleanerId,
         serviceSlug: QUOTE_SLUG[context.serviceType] || 'regular',
-        hours: context.duration,
+        hours,
       }),
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setQuoteTotal(data?.customerTotal ?? null))
       .catch(() => {});
-  }, [cleanerId, context]);
+  }, [cleanerId, context, hours]);
 
   const selectedSlot = slotIndex !== null && slots ? slots[slotIndex] : null;
 
+  // F20 item 3: start times that leave room for the chosen hours PLUS the
+  // cleaner's buffer inside the regulars window (mirrors the server's rule).
   const timeOptions = useMemo(() => {
-    if (!selectedSlot || !context) return [];
+    if (!selectedSlot || !context || hours === null) return [];
     const startM = timeToMinutes(selectedSlot.start);
-    const endM = timeToMinutes(selectedSlot.end) - context.duration * 60;
+    const endM = timeToMinutes(selectedSlot.end) - hours * 60 - bufferMinutes;
     const opts: string[] = [];
     for (let m = startM; m <= endM; m += 30) opts.push(minutesToTime(m));
     return opts;
-  }, [selectedSlot, context]);
+  }, [selectedSlot, context, hours, bufferMinutes]);
+
+  // Honest fit error — the slot's true capacity, never a clamp.
+  const slotFitsMaxHours = useMemo(() => {
+    if (!selectedSlot) return null;
+    const cap = timeToMinutes(selectedSlot.end) - timeToMinutes(selectedSlot.start) - bufferMinutes;
+    return Math.max(0, Math.floor(cap / 30) / 2);
+  }, [selectedSlot, bufferMinutes]);
+  const hoursDontFit =
+    hours !== null && selectedSlot !== null && timeOptions.length === 0 && slots !== null;
 
   const firstDate = selectedSlot ? nextDateFor(selectedSlot.dayOfWeek) : null;
 
@@ -228,8 +253,17 @@ export default function RegularCleanSetupPage() {
     );
   }, [slots, context]);
 
+  // Hours changes can invalidate the picked start time — snap to a valid one,
+  // never submit a time the fit rule rejects.
+  useEffect(() => {
+    if (!time || timeOptions.length === 0) return;
+    if (!timeOptions.includes(time)) setTime(timeOptions[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeOptions]);
+
   const confirm = async () => {
-    if (!context || !selectedSlot || !time || !firstDate || submitting) return;
+    if (!context || !selectedSlot || !time || !firstDate || submitting || hours === null) return;
+    if (hoursDontFit) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -247,7 +281,7 @@ export default function RegularCleanSetupPage() {
           addressPostcode: context.addressPostcode,
           date: firstDate,
           time,
-          duration: context.duration,
+          duration: hours,
           serviceType: QUOTE_SLUG[context.serviceType] || 'regular',
           ...(quoteTotal !== null ? { totalPrice: quoteTotal } : {}),
           isGuest: context.isGuest,
@@ -458,6 +492,33 @@ export default function RegularCleanSetupPage() {
           ))}
         </div>
 
+        {/* F20 item 3: the customer chooses hours — the booking wizard's
+            control, defaulting to the trial clean's duration. */}
+        <div className="mt-4">
+          <label className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+            How many hours?
+          </label>
+          <select
+            value={hours ?? context.duration}
+            onChange={(e) => setHours(Number(e.target.value))}
+            data-testid="regular-hours"
+            className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((h) => (
+              <option key={h} value={h}>
+                {h} hour{h !== 1 ? 's' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        {hoursDontFit && (
+          <p className="mt-2 font-jost text-[13px] text-danger" data-testid="hours-fit-error">
+            {cleanerName}&rsquo;s regular slot on{' '}
+            {selectedSlot ? DAY_NAMES[selectedSlot.dayOfWeek] : ''}s fits up to {slotFitsMaxHours}{' '}
+            hours — choose fewer hours or a different slot.
+          </p>
+        )}
+
         {selectedSlot && timeOptions.length > 0 && (
           <div className="mt-4">
             <label className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -495,10 +556,13 @@ export default function RegularCleanSetupPage() {
               {frequency === 'WEEKLY' ? 'every week' : 'every two weeks'}, same slot
             </span>
           </div>
-          {quoteTotal !== null && (
+          {quoteTotal !== null && hours !== null && (
             <div className="flex justify-between">
               <span className="text-ink-3">Per clean</span>
-              <span className="font-normal text-ink">&pound;{quoteTotal.toFixed(2)}</span>
+              <span className="font-normal text-ink" data-testid="per-clean-summary">
+                &pound;{quoteTotal.toFixed(2)} &middot; {hours} hour{hours !== 1 ? 's' : ''},{' '}
+                {frequency === 'WEEKLY' ? 'every week' : 'every two weeks'}
+              </span>
             </div>
           )}
         </div>
@@ -510,7 +574,7 @@ export default function RegularCleanSetupPage() {
         {submitError && <p className="mt-2 font-jost text-sm text-danger">{submitError}</p>}
         <button
           type="button"
-          disabled={submitting || !selectedSlot || !time}
+          disabled={submitting || !selectedSlot || !time || hoursDontFit}
           onClick={confirm}
           className="mt-4 w-full rounded-[10px] bg-primary px-6 py-3 font-jost text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
