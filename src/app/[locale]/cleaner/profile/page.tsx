@@ -702,9 +702,11 @@ export default function CleanerProfilePage() {
                 {visibleInDirectory ? 'Your profile is visible' : 'Your profile is hidden'}
               </p>
               <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
+                {/* F26.1 (James-ruled): the rescue/cover exclusion is stated,
+                    not implied — hidden means out of those pools too. */}
                 {visibleInDirectory
                   ? 'New customers can find and book you in search, the cleaner directory, and quotes.'
-                  : 'New customers can’t find or book you. Your existing bookings, regular clients, and account are unaffected.'}
+                  : 'New customers can’t find or book you. Your existing bookings, regular clients, and account are unaffected. You also won’t receive rescue or cover offers while hidden.'}
               </p>
             </div>
             <button
