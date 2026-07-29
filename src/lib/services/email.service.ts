@@ -901,6 +901,128 @@ export async function sendAgreementEnded(
   return sendEmail(to, subject, html, userId ? { userId } : undefined);
 }
 
+// ─── F23: arrangement request / accept / close emails ───────────────────────
+// All ESSENTIAL: a pending request, a charge, and a "no money moved" notice
+// are transactional facts, never marketing.
+
+const DAY_NAMES_LONG = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+function arrangementLineOf(a: { dayOfWeek: number; startTime: string; duration: unknown }): string {
+  return `every ${DAY_NAMES_LONG[a.dayOfWeek]} at ${a.startTime}, ${Number(a.duration)}h`;
+}
+
+function longDate(d: Date): string {
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
+}
+
+/** F23: tell the cleaner a regular arrangement request is waiting (48h). */
+export async function sendArrangementRequest(agreementId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const a = await prisma.recurringAgreement.findUnique({
+    where: { id: agreementId },
+    include: {
+      cleaner: { select: { id: true, name: true, email: true } },
+      client: { select: { name: true } },
+    },
+  });
+  if (!a || !a.cleaner.email || !a.proposedStartDate || !a.respondBy) return false;
+  const { buildArrangementRequest } = await import('./email-templates');
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const { displayName } = await import('@/lib/utils/name');
+  const respondByLong = `${longDate(a.respondBy)}, ${a.respondBy.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })} (UTC)`;
+  const { subject, html } = buildArrangementRequest({
+    cleanerName: a.cleaner.name || 'there',
+    customerName: displayName(a.client?.name) || displayName(a.guestName) || 'A customer',
+    arrangementLine: arrangementLineOf(a),
+    frequencyLabel: a.frequency === 'WEEKLY' ? 'weekly' : 'fortnightly',
+    startDateLong: longDate(a.proposedStartDate),
+    netPerClean: Number(a.cleanerEarnings).toFixed(2),
+    respondByLong,
+    ctaUrl: `${appUrl}/cleaner/availability`,
+  });
+  return sendEmail(a.cleaner.email, subject, html, {
+    userId: a.cleaner.id,
+    category: 'ESSENTIAL',
+  });
+}
+
+/** F23: tell the customer the cleaner accepted — honest about whether the
+ *  first clean's charge went through (the pay-now email covers the failure). */
+export async function sendArrangementAccepted(
+  agreementId: string,
+  chargeOutcome: 'succeeded' | 'failed' | 'skipped'
+): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const a = await prisma.recurringAgreement.findUnique({
+    where: { id: agreementId },
+    include: {
+      cleaner: { select: { name: true } },
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!a || !a.proposedStartDate) return false;
+  const to = a.client?.email ?? a.guestEmail;
+  if (!to) return false;
+  const { buildArrangementAccepted } = await import('./email-templates');
+  const { subject, html } = buildArrangementAccepted({
+    customerName: a.client?.name ?? a.guestName ?? 'there',
+    cleanerName: a.cleaner.name || 'Your cleaner',
+    frequencyLabel: a.frequency === 'WEEKLY' ? 'weekly' : 'fortnightly',
+    arrangementLine: arrangementLineOf(a),
+    startDateLong: longDate(a.proposedStartDate),
+    amount: Number(a.totalPrice).toFixed(2),
+    firstChargeTaken: chargeOutcome === 'succeeded',
+  });
+  return sendEmail(to, subject, html, {
+    userId: a.client?.id ?? null,
+    category: 'ESSENTIAL',
+  });
+}
+
+/** F23: the honest no — cleaner declined, or the 48h window expired. In both,
+ *  no money ever moved and the email says so plainly. */
+export async function sendArrangementDeclined(
+  agreementId: string,
+  kind: 'DECLINED' | 'EXPIRED'
+): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const a = await prisma.recurringAgreement.findUnique({
+    where: { id: agreementId },
+    include: {
+      cleaner: { select: { name: true } },
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!a) return false;
+  const to = a.client?.email ?? a.guestEmail;
+  if (!to) return false;
+  const { buildArrangementClosed } = await import('./email-templates');
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const { subject, html } = buildArrangementClosed({
+    customerName: a.client?.name ?? a.guestName ?? 'there',
+    cleanerName: a.cleaner.name || 'Your cleaner',
+    kind,
+    findUrl: `${appUrl}/cleaners`,
+  });
+  return sendEmail(to, subject, html, {
+    userId: a.client?.id ?? null,
+    category: 'ESSENTIAL',
+  });
+}
+
 // R1-B: the single-attempt failure email — "pay now to keep your slot". The
 // link is the occurrence's ON-SESSION checkout (/pay/[id]); guests carry their
 // token. ESSENTIAL category — a payment problem is never opt-out-able.

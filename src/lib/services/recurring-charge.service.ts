@@ -11,6 +11,11 @@
 //     email; the cleaner is told the slot is free; the AGREEMENT SURVIVES —
 //     one missed payment kills one occurrence, never the schedule.
 //   · Three-consecutive-failures agreement pause: LEDGERED, not built.
+// F23 (James-ruled): the SAME single attempt now also fires at cleaner-accept
+// for the FIRST occurrence ("the first clean charges now") — one shared money
+// path, attemptOccurrenceCharge(), never two. With no checkout first-clean
+// any more, the saved-card anchor falls back to the agreement's TRIAL booking
+// (the completed clean the proposal was made from — the F7 card that paid it).
 // Occurrences are BOOKINGS: payment success rides processPaymentSuccess's
 // occurrence claim (SCHEDULED→ACCEPTED), so Xero, receipts and lifecycle all
 // ride the existing laws — no parallel money path.
@@ -53,6 +58,151 @@ async function failAttempt(bookingId: string, reason: string): Promise<void> {
   await sendPayNow(bookingId);
 }
 
+/**
+ * THE single off-session attempt for one occurrence — shared by the T-48h
+ * sweep and the F23 accept-time first charge. Loads the row fresh and guards
+ * on SCHEDULED + paymentStatus PENDING, so both callers are idempotent against
+ * each other (whichever runs second finds the attempt marker and skips).
+ */
+export async function attemptOccurrenceCharge(
+  bookingId: string
+): Promise<'succeeded' | 'failed' | 'skipped'> {
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      client: { select: { id: true, stripeCustomerId: true } },
+      agreement: {
+        select: {
+          id: true,
+          trialBookingId: true,
+          bookings: {
+            where: { paymentStatus: 'SUCCEEDED', stripePaymentIntentId: { not: null } },
+            select: { stripePaymentIntentId: true },
+            orderBy: { createdAt: 'asc' },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+  if (!b || !b.agreement) return 'skipped';
+  if (b.status !== 'SCHEDULED' || b.paymentStatus !== 'PENDING') return 'skipped';
+
+  try {
+    // Guests structurally have no saved card — the single attempt is an
+    // immediate failure into the pay-now flow (their tokened checkout).
+    const stripeCustomerId = b.client?.stripeCustomerId ?? null;
+    if (!stripeCustomerId) {
+      await failAttempt(b.id, 'no Stripe customer (guest or never saved)');
+      return 'failed';
+    }
+
+    // The saved method is the one that paid the agreement's first clean — or,
+    // F23, the TRIAL clean the proposal was made from (no checkout first-clean
+    // exists any more). Not reusable / missing → single attempt fails.
+    let anchorPiId = b.agreement.bookings[0]?.stripePaymentIntentId ?? null;
+    if (!anchorPiId && b.agreement.trialBookingId) {
+      const trial = await prisma.booking.findUnique({
+        where: { id: b.agreement.trialBookingId },
+        select: { stripePaymentIntentId: true, paymentStatus: true },
+      });
+      if (trial?.paymentStatus === 'SUCCEEDED') anchorPiId = trial.stripePaymentIntentId;
+    }
+    if (!anchorPiId) {
+      await failAttempt(b.id, 'no anchor payment intent on the agreement');
+      return 'failed';
+    }
+    const anchorPi = await stripe.paymentIntents.retrieve(anchorPiId);
+    const methodId =
+      typeof anchorPi.payment_method === 'string'
+        ? anchorPi.payment_method
+        : anchorPi.payment_method?.id;
+    let reusable = false;
+    if (methodId) {
+      try {
+        const method = await stripe.paymentMethods.retrieve(methodId);
+        reusable = method.customer === stripeCustomerId;
+      } catch {
+        reusable = false;
+      }
+    }
+    if (!reusable || !methodId) {
+      await failAttempt(b.id, 'saved card not reusable');
+      return 'failed';
+    }
+
+    const amountPence = Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100);
+    // MONEY LAW: the try/catch around the CHARGE is exactly that wide — once
+    // Stripe reports 'succeeded', no downstream error may ever mark the
+    // attempt failed (a paid clean must never receive a pay-now email).
+    let pi: Awaited<ReturnType<typeof stripe.paymentIntents.create>>;
+    try {
+      pi = await stripe.paymentIntents.create(
+        {
+          amount: amountPence,
+          currency: 'gbp',
+          customer: stripeCustomerId,
+          payment_method: methodId,
+          confirm: true,
+          off_session: true,
+          metadata: { bookingId: b.id, type: 'recurring_occurrence' },
+        },
+        // Single attempt held at the Stripe layer too: a crash-and-rerun
+        // resolves to the SAME PaymentIntent, never a second charge.
+        { idempotencyKey: `recurring_occurrence_${b.id}` }
+      );
+    } catch (chargeErr) {
+      // Declines throw (card_error) — that IS the single failed attempt.
+      const msg = chargeErr instanceof Error ? chargeErr.message : String(chargeErr);
+      await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
+      return 'failed';
+    }
+    await prisma.booking
+      .update({ where: { id: b.id }, data: { stripePaymentIntentId: pi.id } })
+      .catch(() => {});
+
+    if (pi.status === 'succeeded') {
+      // Post-success processing failures are LOUD but never flip the
+      // outcome — the safety-net sweep / webhook replay completes them.
+      try {
+        const { processPaymentSuccess } = await import('@/lib/services/payment-success.service');
+        const chargeId =
+          typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
+        const outcome = await processPaymentSuccess({
+          bookingId: b.id,
+          pi: {
+            id: pi.id,
+            created: Number.isFinite(pi.created) ? pi.created : Math.floor(Date.now() / 1000),
+            currency: pi.currency,
+            amountReceived: pi.amount_received,
+            chargeId: chargeId ?? null,
+          },
+        });
+        // eslint-disable-next-line no-console
+        console.log(`[RecurringCharge] charge SUCCEEDED for occurrence ${b.id} (${outcome})`);
+      } catch (postErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[RecurringCharge] charge SUCCEEDED for ${b.id} but post-processing failed — sweep will complete it:`,
+          postErr
+        );
+      }
+      return 'succeeded';
+    }
+    // requires_action / processing / anything else: the single off-session
+    // attempt did not complete — SCA and friends are handled natively at
+    // the on-session pay-now checkout (James-ruled; no special handling).
+    await failAttempt(b.id, `off-session PI status ${pi.status}`);
+    return 'failed';
+  } catch (err) {
+    // Pre-charge resolution errors only (customer/method lookups) — the
+    // charge itself has its own catch above.
+    const msg = err instanceof Error ? err.message : String(err);
+    await failAttempt(b.id, `attempt setup threw: ${msg}`).catch(() => {});
+    return 'failed';
+  }
+}
+
 /** T-48h sweep: one off-session attempt per due occurrence. Idempotent — only
  *  paymentStatus PENDING occurrences are candidates; any outcome (SUCCEEDED /
  *  FAILED) removes them from the pool. Stripe-side idempotencyKey pins the
@@ -76,20 +226,7 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
         gte: new Date(now - 24 * HOUR_MS),
       },
     },
-    include: {
-      client: { select: { id: true, stripeCustomerId: true } },
-      agreement: {
-        select: {
-          id: true,
-          bookings: {
-            where: { paymentStatus: 'SUCCEEDED', stripePaymentIntentId: { not: null } },
-            select: { stripePaymentIntentId: true },
-            orderBy: { createdAt: 'asc' },
-            take: 1,
-          },
-        },
-      },
-    },
+    select: { id: true, date: true, startTime: true },
     take: 20,
   });
 
@@ -100,111 +237,7 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
     // F22: the precise charge window — startTime-based, same clock as cancel.
     if (startMs - now > CHARGE_WINDOW_HOURS * HOUR_MS) continue; // not yet due
     processed++;
-    try {
-      // Guests structurally have no saved card — the single attempt is an
-      // immediate failure into the pay-now flow (their tokened checkout).
-      const stripeCustomerId = b.client?.stripeCustomerId ?? null;
-      if (!stripeCustomerId) {
-        await failAttempt(b.id, 'no Stripe customer (guest or never saved)');
-        continue;
-      }
-
-      // The saved method is the one that paid the agreement's FIRST clean —
-      // the F7 machinery's card. Not reusable / missing → single attempt fails.
-      const anchorPiId = b.agreement?.bookings[0]?.stripePaymentIntentId;
-      if (!anchorPiId) {
-        await failAttempt(b.id, 'no anchor payment intent on the agreement');
-        continue;
-      }
-      const anchorPi = await stripe.paymentIntents.retrieve(anchorPiId);
-      const methodId =
-        typeof anchorPi.payment_method === 'string'
-          ? anchorPi.payment_method
-          : anchorPi.payment_method?.id;
-      let reusable = false;
-      if (methodId) {
-        try {
-          const method = await stripe.paymentMethods.retrieve(methodId);
-          reusable = method.customer === stripeCustomerId;
-        } catch {
-          reusable = false;
-        }
-      }
-      if (!reusable || !methodId) {
-        await failAttempt(b.id, 'saved card not reusable');
-        continue;
-      }
-
-      const amountPence = Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100);
-      // MONEY LAW: the try/catch around the CHARGE is exactly that wide — once
-      // Stripe reports 'succeeded', no downstream error may ever mark the
-      // attempt failed (a paid clean must never receive a pay-now email).
-      let pi: Awaited<ReturnType<typeof stripe.paymentIntents.create>>;
-      try {
-        pi = await stripe.paymentIntents.create(
-          {
-            amount: amountPence,
-            currency: 'gbp',
-            customer: stripeCustomerId,
-            payment_method: methodId,
-            confirm: true,
-            off_session: true,
-            metadata: { bookingId: b.id, type: 'recurring_occurrence' },
-          },
-          // Single attempt held at the Stripe layer too: a crash-and-rerun
-          // resolves to the SAME PaymentIntent, never a second charge.
-          { idempotencyKey: `recurring_occurrence_${b.id}` }
-        );
-      } catch (chargeErr) {
-        // Declines throw (card_error) — that IS the single failed attempt.
-        const msg = chargeErr instanceof Error ? chargeErr.message : String(chargeErr);
-        await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
-        continue;
-      }
-      await prisma.booking
-        .update({ where: { id: b.id }, data: { stripePaymentIntentId: pi.id } })
-        .catch(() => {});
-
-      if (pi.status === 'succeeded') {
-        // Post-success processing failures are LOUD but never flip the
-        // outcome — the safety-net sweep / webhook replay completes them.
-        try {
-          const { processPaymentSuccess } = await import('@/lib/services/payment-success.service');
-          const chargeId =
-            typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
-          const outcome = await processPaymentSuccess({
-            bookingId: b.id,
-            pi: {
-              id: pi.id,
-              created: Number.isFinite(pi.created) ? pi.created : Math.floor(Date.now() / 1000),
-              currency: pi.currency,
-              amountReceived: pi.amount_received,
-              chargeId: chargeId ?? null,
-            },
-          });
-          // eslint-disable-next-line no-console
-          console.log(
-            `[RecurringCharge] T-48h charge SUCCEEDED for occurrence ${b.id} (${outcome})`
-          );
-        } catch (postErr) {
-          // eslint-disable-next-line no-console
-          console.error(
-            `[RecurringCharge] charge SUCCEEDED for ${b.id} but post-processing failed — sweep will complete it:`,
-            postErr
-          );
-        }
-      } else {
-        // requires_action / processing / anything else: the single off-session
-        // attempt did not complete — SCA and friends are handled natively at
-        // the on-session pay-now checkout (James-ruled; no special handling).
-        await failAttempt(b.id, `off-session PI status ${pi.status}`);
-      }
-    } catch (err) {
-      // Pre-charge resolution errors only (customer/method lookups) — the
-      // charge itself has its own catch above.
-      const msg = err instanceof Error ? err.message : String(err);
-      await failAttempt(b.id, `attempt setup threw: ${msg}`).catch(() => {});
-    }
+    await attemptOccurrenceCharge(b.id);
   }
   return { processed };
 }

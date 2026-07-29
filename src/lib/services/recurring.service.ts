@@ -29,9 +29,13 @@ function strideDays(frequency: 'WEEKLY' | 'FORTNIGHTLY'): number {
 
 /**
  * Mint missing SCHEDULED occurrences for one agreement up to the horizon.
- * Anchored on the agreement's FIRST booking date (so fortnightly parity is
- * stable forever). Idempotent: existing occurrence dates are skipped, so the
- * weekly extension re-run is safe.
+ * F23 agreements (proposedStartDate set) anchor on the CUSTOMER-CHOSEN start
+ * date, INCLUSIVE — the first clean is occurrence #1, minted here and charged
+ * at cleaner-accept; no checkout booking exists any more. Legacy agreements
+ * keep the original law: anchored on the first PAID checkout booking,
+ * exclusive (that booking already covers the anchor date). Idempotent:
+ * existing occurrence dates are skipped, so the weekly extension re-run is
+ * safe.
  */
 export async function mintOccurrences(
   agreementId: string
@@ -47,10 +51,20 @@ export async function mintOccurrences(
   });
   if (!agreement) return { skipped: 'agreement not found' };
   if (agreement.status !== 'ACTIVE') return { skipped: `agreement ${agreement.status}` };
-  // The anchor is the first PAID occurrence — an agreement whose first checkout
-  // was abandoned never mints (the H53/F6a spirit: no payment, nothing real).
-  const anchor = agreement.bookings.find((b) => b.paymentStatus === 'SUCCEEDED')?.date;
-  if (!anchor) return { skipped: 'no paid anchor booking yet' };
+  // F23: acceptance IS the commitment — proposedStartDate anchors the series
+  // and the start date itself is minted (first = d0, not d0 + stride). For
+  // legacy agreements the anchor stays the first PAID occurrence — an
+  // agreement whose first checkout was abandoned never mints (the H53/F6a
+  // spirit: no payment, nothing real).
+  let anchor: Date | null = null;
+  let mintAnchorItself = false;
+  if (agreement.proposedStartDate) {
+    anchor = agreement.proposedStartDate;
+    mintAnchorItself = true;
+  } else {
+    anchor = agreement.bookings.find((b) => b.paymentStatus === 'SUCCEEDED')?.date ?? null;
+    if (!anchor) return { skipped: 'no paid anchor booking yet' };
+  }
 
   const horizon = new Date(Date.now() + OCCURRENCE_WINDOW_WEEKS * 7 * DAY_MS);
   const existing = new Set(agreement.bookings.map((b) => b.date.toISOString().slice(0, 10)));
@@ -58,7 +72,9 @@ export async function mintOccurrences(
 
   let minted = 0;
   for (
-    let d = new Date(anchor.getTime() + stride * DAY_MS);
+    let d = mintAnchorItself
+      ? new Date(anchor.getTime())
+      : new Date(anchor.getTime() + stride * DAY_MS);
     d <= horizon;
     d = new Date(d.getTime() + stride * DAY_MS)
   ) {

@@ -61,6 +61,10 @@ export async function GET() {
     endedAt: a.endedAt?.toISOString() ?? null,
     endedBy: a.endedBy,
     createdAt: a.createdAt.toISOString(),
+    // F23: the proposal fields — the request card (cleaner seat) and the
+    // waiting row (customer seat) render from these.
+    proposedStartDate: a.proposedStartDate?.toISOString().split('T')[0] ?? null,
+    respondBy: a.respondBy?.toISOString() ?? null,
   });
 
   return NextResponse.json({
