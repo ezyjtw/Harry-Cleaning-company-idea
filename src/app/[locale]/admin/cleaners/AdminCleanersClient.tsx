@@ -24,6 +24,32 @@ export default function AdminCleanersClient({
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string } | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  // F26: local overrides after a Hide/Show toggle (server rows are static).
+  const [visibility, setVisibility] = useState<Record<string, boolean>>({});
+  const [visibilityBusy, setVisibilityBusy] = useState<string | null>(null);
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
+
+  async function toggleVisibility(id: string, visible: boolean) {
+    setVisibilityBusy(id);
+    setVisibilityError(null);
+    try {
+      const res = await fetch(`/api/admin/cleaners/${id}/visibility`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visible }),
+      });
+      if (res.ok) {
+        setVisibility((prev) => ({ ...prev, [id]: visible }));
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setVisibilityError(d.error || 'Could not update visibility.');
+      }
+    } catch {
+      setVisibilityError('Network error — please try again.');
+    } finally {
+      setVisibilityBusy(null);
+    }
+  }
 
   async function removeIncomplete(id: string) {
     setRemoving(id);
@@ -134,6 +160,12 @@ export default function AdminCleanersClient({
           <option value="unverified">Unverified</option>
         </select>
       </div>
+
+      {visibilityError && (
+        <div className="mb-4 rounded-lg bg-danger/10 px-4 py-3 font-jost text-sm text-danger">
+          {visibilityError}
+        </div>
+      )}
 
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
@@ -267,6 +299,37 @@ export default function AdminCleanersClient({
                           ? 'Signup incomplete'
                           : cleaner.status.charAt(0).toUpperCase() + cleaner.status.slice(1)}
                     </span>
+                    {/* F26: the admin visibility door — Hidden badge + toggle.
+                        Same flag as the cleaner's own control, last-write-wins. */}
+                    {cleaner.visibleInDirectory !== null &&
+                      (() => {
+                        const visible = visibility[cleaner.fullId] ?? cleaner.visibleInDirectory;
+                        return (
+                          <span className="ml-2 inline-flex items-center gap-1.5">
+                            {!visible && (
+                              <span
+                                data-testid="admin-hidden-badge"
+                                className="inline-flex items-center rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink-2"
+                              >
+                                Hidden
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              data-testid="admin-visibility-toggle"
+                              disabled={visibilityBusy === cleaner.fullId}
+                              onClick={() => toggleVisibility(cleaner.fullId, !visible)}
+                              className="rounded px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-50"
+                            >
+                              {visibilityBusy === cleaner.fullId
+                                ? 'Saving…'
+                                : visible
+                                  ? 'Hide'
+                                  : 'Show'}
+                            </button>
+                          </span>
+                        );
+                      })()}
                     {cleaner.status === 'signup-incomplete' && (
                       <button
                         type="button"

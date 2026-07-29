@@ -12,6 +12,9 @@ export async function GET(_request: Request, { params }: { params: { id: string 
         insuranceVerified: true,
         stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
+        // F26: hidden profiles are not served by direct URL either — the
+        // switch means gone from discovery, not merely delisted.
+        visibleInDirectory: true,
       },
       include: {
         user: {

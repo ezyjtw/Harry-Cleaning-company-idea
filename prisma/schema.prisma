@@ -363,6 +363,11 @@ model CleanerProfile {
   insuranceExpiresAt  DateTime?
   insuranceVerifiedAt DateTime?
 
+  // F26: the discovery switch — one flag, two doors (cleaner control + admin
+  // toggle, last-write-wins). false = hidden from directory/search/matching
+  // via eligibleCleanerWhere; existing bookings/agreements/logins untouched.
+  visibleInDirectory Boolean @default(true)
+
   // Right to work verification
   rightToWorkStatus     VerificationStatus @default(UNVERIFIED)
   rightToWorkDocType    String? // "uk_passport", "brp", "eu_settled", "eu_pre_settled", "share_code", "visa"

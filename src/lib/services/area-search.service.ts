@@ -28,6 +28,12 @@ export function eligibleCleanerWhere(now: Date): Record<string, unknown> {
     insuranceVerified: true,
     stripeChargesEnabled: true,
     stripePayoutsEnabled: true,
+    // F26: the visibility switch — hidden profiles leave every discovery
+    // surface (directory, search, area pages, quotes, matching/cascade
+    // candidate searches) through this single predicate. Existing bookings,
+    // agreements, and already-issued cascade offers are untouched: they hold
+    // cleaner ids, they don't re-discover.
+    visibleInDirectory: true,
     user: { accountStatus: 'ACTIVE', isDeleted: false },
     OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
     // Coverage gate: a cleaner with no geocoded location or no travel radius

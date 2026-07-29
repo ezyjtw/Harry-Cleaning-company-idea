@@ -58,6 +58,32 @@ export default function CleanerProfilePage() {
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // F26: the visibility switch saves ON CLICK (the B1 buffer precedent) — a
+  // hidden/shown state must never sit unsaved behind the form's Save button.
+  const [visibleInDirectory, setVisibleInDirectory] = useState(true);
+  const [visibilityState, setVisibilityState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    'idle'
+  );
+
+  const saveVisibility = useCallback(async (next: boolean) => {
+    setVisibilityState('saving');
+    const prev = !next;
+    setVisibleInDirectory(next);
+    try {
+      const res = await fetch('/api/cleaner/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibleInDirectory: next }),
+      });
+      if (!res.ok) throw new Error();
+      setVisibilityState('saved');
+      setTimeout(() => setVisibilityState('idle'), 3000);
+    } catch {
+      setVisibleInDirectory(prev);
+      setVisibilityState('error');
+    }
+  }, []);
+
   const [showWebcam, setShowWebcam] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -97,6 +123,7 @@ export default function CleanerProfilePage() {
         setSelectedSpecialties(data.specialties || []);
         setHomePostcode(data.homePostcode || data.postcode || '');
         setMaxTravelMinutes(String(data.maxTravelMinutes || 30));
+        setVisibleInDirectory(data.visibleInDirectory !== false);
         setPhoto(data.image || null);
         if (data.languages && data.languages.length > 0) {
           setSelectedLanguages(data.languages);
@@ -660,6 +687,53 @@ export default function CleanerProfilePage() {
               Only customers within this travel time will see your profile
             </p>
           </div>
+        </div>
+
+        {/* F26: Profile visibility — the cleaner's own door on the discovery
+            switch. Honest copy both ways; saves on click, never behind the
+            form's Save button. */}
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">
+            Profile visibility
+          </h2>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-jost text-sm text-ink">
+                {visibleInDirectory ? 'Your profile is visible' : 'Your profile is hidden'}
+              </p>
+              <p className="mt-1 font-jost text-[13px] font-light text-ink-2">
+                {visibleInDirectory
+                  ? 'New customers can find and book you in search, the cleaner directory, and quotes.'
+                  : 'New customers can’t find or book you. Your existing bookings, regular clients, and account are unaffected.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              data-testid="profile-visibility-toggle"
+              disabled={visibilityState === 'saving'}
+              onClick={() => saveVisibility(!visibleInDirectory)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${
+                visibleInDirectory ? 'bg-primary' : 'bg-ink-3/30'
+              }`}
+              aria-label={visibleInDirectory ? 'Hide my profile' : 'Show my profile'}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
+                  visibleInDirectory ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          {visibilityState === 'saved' && (
+            <p className="mt-2 font-jost text-[12px] text-trust" data-testid="visibility-saved">
+              Saved.
+            </p>
+          )}
+          {visibilityState === 'error' && (
+            <p className="mt-2 font-jost text-[12px] text-danger">
+              Couldn&apos;t save — please try again.
+            </p>
+          )}
         </div>
 
         {/* U2 (James-ruled): the dashboard is the ONLY insurance surface. No

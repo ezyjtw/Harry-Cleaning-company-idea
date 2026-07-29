@@ -66,6 +66,10 @@ export type AuditAction =
   // F-B founding badge
   | 'CLEANER_FOUNDING_GRANTED'
   | 'CLEANER_FOUNDING_REVOKED'
+  // F26 visibility switch (admin door; the cleaner door logs via
+  // CLEANER_PROFILE_UPDATED with visibleInDirectory in updatedFields)
+  | 'ADMIN_CLEANER_HIDDEN'
+  | 'ADMIN_CLEANER_SHOWN'
   // Compliance actions
   | 'DATA_BREACH_DETECTED'
   | 'DATA_BREACH_REPORTED_ICO'

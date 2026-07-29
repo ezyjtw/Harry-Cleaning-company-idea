@@ -67,6 +67,7 @@ interface DashboardData {
     maxTravelMinutes: number | null;
     availabilitySlotsCount: number;
     noAvailabilityThisWeek: boolean;
+    visibleInDirectory: boolean;
     importedReviewCount: number;
   };
   stats: {
@@ -87,6 +88,8 @@ export default function CleanerDashboard() {
   const { isLoading: authLoading, isAuthenticated, isCleaner, isAdmin } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  // F26: [Show profile] in-flight state for the hidden banner.
+  const [showingProfile, setShowingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Inline, non-fatal error for accept/decline actions — the top-level `error`
   // takes over the whole page, which must NOT happen for a failed job action.
@@ -759,6 +762,48 @@ export default function CleanerDashboard() {
           >
             Respond now
           </Link>
+        </div>
+      )}
+
+      {/* F26: persistent hidden-state banner — as long as the profile is
+          hidden, the cleaner is told so every time they land here, with the
+          way back (one click, same flag either door writes). */}
+      {data.profile.visibleInDirectory === false && (
+        <div
+          data-testid="profile-hidden-banner"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
+        >
+          <p className="font-jost text-sm text-amber-900">
+            Your profile is hidden — new customers can&apos;t find you. Existing bookings and
+            regular clients are unaffected.
+          </p>
+          <button
+            type="button"
+            data-testid="show-profile-button"
+            disabled={showingProfile}
+            onClick={async () => {
+              setShowingProfile(true);
+              try {
+                const res = await fetch('/api/cleaner/profile', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ visibleInDirectory: true }),
+                });
+                if (res.ok) {
+                  setData((prev) =>
+                    prev
+                      ? { ...prev, profile: { ...prev.profile, visibleInDirectory: true } }
+                      : prev
+                  );
+                }
+              } finally {
+                setShowingProfile(false);
+              }
+            }}
+            className="shrink-0 rounded-[10px] bg-amber-600 px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-amber-700 disabled:opacity-60"
+          >
+            {showingProfile ? 'Showing…' : 'Show profile'}
+          </button>
         </div>
       )}
 
