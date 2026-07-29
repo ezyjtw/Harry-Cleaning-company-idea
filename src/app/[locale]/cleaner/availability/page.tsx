@@ -135,17 +135,21 @@ function getDayName(d: Date): DayOfWeek {
 // to the default, never a dead tab.
 type Tab = 'week' | 'recurring' | 'repeat';
 
-function initialTab(): Tab {
-  if (typeof window === 'undefined') return 'week';
-  const t = new URLSearchParams(window.location.search).get('tab');
-  return t === 'recurring' || t === 'repeat' || t === 'week' ? t : 'week';
-}
-
 export default function AvailabilityPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>('week');
+
+  // F27 root cause: the ?tab= read used to live in the useState INITIALIZER,
+  // which runs during render — on a client-side navigation that's BEFORE
+  // Next.js commits pushState, so it read the PREVIOUS page's URL and locked
+  // onto 'week' while the address bar showed ?tab=repeat. A mount effect runs
+  // after the URL commit (the H56 jobs-page pattern, drive-verified).
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t === 'recurring' || t === 'repeat' || t === 'week') setTab(t);
+  }, []);
 
   // Recurring weekly template
   const [weeklyRanges, setWeeklyRanges] = useState<Record<DayOfWeek, TimeSlot[]>>(() => {

@@ -479,7 +479,7 @@ export function buildArrangementRequest(data: {
         `You&rsquo;d earn <strong>&pound;${data.netPerClean}</strong> per clean.`
     ) +
     p(
-      `Accept or decline from your availability page — please respond by ${data.respondByLong}. ` +
+      `Accept or decline from your Jobs page — please respond by ${data.respondByLong}. ` +
         'If you don&rsquo;t respond in time the request expires and the customer is told.'
     ) +
     button(data.ctaUrl, 'Respond to the request') +

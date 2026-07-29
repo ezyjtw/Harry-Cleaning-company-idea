@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
         userId: cleanerId,
         type: 'SYSTEM',
         title: 'New regular arrangement request',
-        body: `${trial.clientId ? 'A client' : trial.guestName || 'A customer'} wants a regular slot with you — respond within 48 hours from your availability page.`,
+        body: `${trial.clientId ? 'A client' : trial.guestName || 'A customer'} wants a regular slot with you — respond within 48 hours from your Jobs page.`,
         data: { agreementId: agreement.id },
       },
     })

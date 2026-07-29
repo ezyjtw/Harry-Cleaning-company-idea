@@ -76,8 +76,6 @@ export default function RecurringAgreementsCard({
   const [skippingId, setSkippingId] = useState<string | null>(null);
   const [skipMsg, setSkipMsg] = useState<string | null>(null);
 
-  // F23: cleaner answers a pending request from here.
-  const [respondingId, setRespondingId] = useState<string | null>(null);
   // LR-1: customer withdraws their own pending request.
   const [confirmingWithdrawId, setConfirmingWithdrawId] = useState<string | null>(null);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
@@ -100,25 +98,6 @@ export default function RecurringAgreementsCard({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
-
-  const respond = async (id: string, action: 'ACCEPT' | 'DECLINE') => {
-    setRespondingId(id);
-    setError(null);
-    try {
-      const res = await fetch(`/api/cleaner/arrangements/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || 'Could not respond — please try again.');
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not respond — please try again.');
-    } finally {
-      setRespondingId(null);
-    }
-  };
 
   const withdraw = async (id: string) => {
     setWithdrawingId(id);
@@ -177,54 +156,24 @@ export default function RecurringAgreementsCard({
                 // decline card; customer seat the honest waiting row. This is
                 // the soft-hold: visible as pending, blocking nothing.
                 role === 'CLEANER' ? (
-                  <div data-testid="arrangement-request">
+                  // F27 (James-ruled): the respond surface moved to the Jobs
+                  // page (canonical). This seat keeps an honest pointer so a
+                  // cleaner who lands here still finds the request.
+                  <div data-testid="arrangement-request-pointer">
                     <p className="font-jost text-sm text-ink">
-                      Regular arrangement request from {a.otherPartyName}
+                      Regular arrangement request from {a.otherPartyName} waiting
                     </p>
                     <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
                       {a.frequency === 'WEEKLY' ? 'Every week' : 'Every two weeks'} &middot;{' '}
                       {DAY_NAMES[a.dayOfWeek]}s at {a.startTime} &middot; {a.duration}h
                       {a.proposedStartDate && <> &middot; from {formatNext(a.proposedStartDate)}</>}
                     </p>
-                    <p className="mt-1 font-jost text-sm text-ink">
-                      You earn <span className="font-medium">£{a.amount.toFixed(2)}</span> per clean
-                    </p>
-                    {a.respondBy && (
-                      <p className="mt-0.5 font-jost text-[12px] text-ink-3">
-                        Respond by{' '}
-                        {new Date(a.respondBy).toLocaleString('en-GB', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}{' '}
-                        — after that the request expires and the customer is told.
-                      </p>
-                    )}
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        data-testid="arrangement-accept"
-                        disabled={respondingId === a.id}
-                        onClick={() => respond(a.id, 'ACCEPT')}
-                        className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
-                      >
-                        {respondingId === a.id ? 'Working…' : 'Accept'}
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="arrangement-decline"
-                        disabled={respondingId === a.id}
-                        onClick={() => respond(a.id, 'DECLINE')}
-                        className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
-                      >
-                        Decline
-                      </button>
-                    </div>
-                    <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
-                      Nothing is charged to {a.otherPartyName} unless you accept.
-                    </p>
+                    <a
+                      href="/cleaner/jobs"
+                      className="mt-2 inline-block rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover"
+                    >
+                      Respond from My Jobs
+                    </a>
                   </div>
                 ) : (
                   <div data-testid="arrangement-waiting">

@@ -108,7 +108,10 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         const data = res.ok ? await res.json().catch(() => null) : null;
         if (stop || !data) return;
         if (Array.isArray(data.offerIds)) {
-          setUnseenOffers(data.offerIds.length);
+          // F27: arrangement requests respond from the Jobs page — same
+          // time-boxed urgency as offers, same badge.
+          const arrangements = Array.isArray(data.arrangementIds) ? data.arrangementIds.length : 0;
+          setUnseenOffers(data.offerIds.length + arrangements);
         }
         if (Array.isArray(data.disputeIds)) {
           setUnseenDisputes(data.disputeIds.length);

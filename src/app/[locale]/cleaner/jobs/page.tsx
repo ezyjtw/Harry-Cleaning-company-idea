@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
 import RegularCleanChip from '@/components/cleaner/RegularCleanChip';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
@@ -186,31 +187,31 @@ export default function CleanerJobsPage() {
   }, [fetchJobs, activeTab]);
 
   // Fetch counts for all tabs on mount
-  useEffect(() => {
-    async function fetchCounts() {
-      const allStatuses =
-        'PENDING,AWAITING_CLEANER,CONFIRMED,ACCEPTED,EN_ROUTE,IN_PROGRESS,COMPLETED,REVIEWED';
-      const res = await fetch(`/api/cleaner/jobs?status=${allStatuses}&limit=200`);
-      if (res.status === 401) {
-        signOut({ callbackUrl: '/login' });
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
-      const c: Record<JobStatus, number> = {
-        pending: 0,
-        upcoming: 0,
-        'on-the-way': 0,
-        completed: 0,
-      };
-      for (const j of data.jobs) {
-        const ds = toDisplayStatus(j.status);
-        c[ds]++;
-      }
-      setCounts(c);
+  const fetchCounts = useCallback(async () => {
+    const allStatuses =
+      'PENDING,AWAITING_CLEANER,CONFIRMED,ACCEPTED,EN_ROUTE,IN_PROGRESS,COMPLETED,REVIEWED';
+    const res = await fetch(`/api/cleaner/jobs?status=${allStatuses}&limit=200`);
+    if (res.status === 401) {
+      signOut({ callbackUrl: '/login' });
+      return;
     }
+    if (!res.ok) return;
+    const data = await res.json();
+    const c: Record<JobStatus, number> = {
+      pending: 0,
+      upcoming: 0,
+      'on-the-way': 0,
+      completed: 0,
+    };
+    for (const j of data.jobs) {
+      const ds = toDisplayStatus(j.status);
+      c[ds]++;
+    }
+    setCounts(c);
+  }, []);
+  useEffect(() => {
     fetchCounts();
-  }, [router]);
+  }, [fetchCounts]);
 
   useEffect(() => {
     setLoading(true);
@@ -364,6 +365,19 @@ export default function CleanerJobsPage() {
           Manage your cleaning bookings
         </p>
       </div>
+
+      {/* F27: regular arrangement request cards — ABOVE the tabs so no tab
+          state can ever hide a live request (the old availability-tab home
+          did exactly that). Accepting mints occurrences, so both the list
+          and the tab counts refetch. */}
+      <ArrangementRequests
+        variant="portal"
+        className="mb-6"
+        onResolved={() => {
+          fetchJobs(activeTab);
+          fetchCounts();
+        }}
+      />
 
       {/* Tabs */}
       <div className="mb-6 border-b border-line">
