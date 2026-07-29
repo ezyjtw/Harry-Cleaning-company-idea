@@ -363,7 +363,8 @@ export async function sendGuestCompletionOffer(bookingId: string): Promise<boole
     guestName: b.guestName ?? 'there',
     cleanerName: offer.cleanerName ?? 'your cleaner',
     usualSlot: offer.usualSlot ?? null,
-    ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network'}/regular-clean/${offer.cleanerId}?token=${encodeURIComponent(b.guestToken)}`,
+    // LR-3: the account door — the tokened setup path is closed to guests.
+    ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network'}/signup`,
   });
   return sendEmail(b.guestEmail, subject, html);
 }

@@ -950,13 +950,19 @@ export function buildGuestCompletionOffer(data: {
   const slotLine = data.usualSlot
     ? `your ${OFFER_DAY_NAMES[data.usualSlot.dayOfWeek]} ${data.usualSlot.start} slot is open`
     : 'they have slots open';
+  // LR-3 (James-ruled): recurring is account-holders only — the guest CTA is
+  // the account door. Signing up with the booking email + verifying carries
+  // the completed clean (and its make-it-regular eligibility) over.
   const contentHtml =
     h('Loved your clean?') +
     p(`Hi ${data.guestName},`) +
     p(
       `Your clean with ${data.cleanerName} is complete. If you&rsquo;d like to make it regular, ${slotLine} for weekly or fortnightly cleans — same cleaner, same standard, no lock-in.`
     ) +
-    button(data.ctaUrl, 'Set up a regular clean') +
+    p(
+      `Regular cleans are managed from a free account. Sign up with this email address and your completed clean carries over — the set-up option then appears on your account home.`
+    ) +
+    button(data.ctaUrl, 'Create a free account to set up your regular clean') +
     pMuted('You can end a regular arrangement at any time — nothing is charged beyond each clean.');
   return { subject, html: renderEmail({ contentHtml }) };
 }

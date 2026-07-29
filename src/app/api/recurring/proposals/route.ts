@@ -67,28 +67,22 @@ export async function POST(request: NextRequest) {
   const guestToken = typeof body.guestToken === 'string' ? body.guestToken : null;
   const fromBookingId = typeof body.fromBookingId === 'string' ? body.fromBookingId : null;
 
-  let trial = null;
-  if (guestToken) {
-    trial = await prisma.booking.findFirst({
-      where: { guestToken },
-      select: {
-        id: true,
-        cleanerId: true,
-        status: true,
-        clientId: true,
-        guestEmail: true,
-        guestName: true,
-        serviceType: true,
-        addressLine1: true,
-        addressLine2: true,
-        addressCity: true,
-        addressPostcode: true,
-        rooms: true,
-        notes: true,
-        suppliesProvided: true,
+  // LR-3 (James-ruled): recurring is ACCOUNT-HOLDERS ONLY. The guest tokened
+  // path closes with an honest refusal — creating a free account with the
+  // booking's email carries the completed clean (and its eligibility) over
+  // automatically once the email is verified (A16b-2b claim).
+  if (guestToken && !sessionUser) {
+    return NextResponse.json(
+      {
+        error:
+          'Regular cleans need a free account. Create one with the email from your booking — your completed clean carries over and you can set up your regular from there.',
       },
-    });
-  } else if (sessionUser && fromBookingId) {
+      { status: 403 }
+    );
+  }
+
+  let trial = null;
+  if (sessionUser && fromBookingId) {
     trial = await prisma.booking.findFirst({
       where: { id: fromBookingId, clientId: sessionUser.id },
       select: {

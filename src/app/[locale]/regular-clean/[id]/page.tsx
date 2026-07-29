@@ -338,6 +338,34 @@ export default function RegularCleanSetupPage() {
     );
   }
 
+  // LR-3 (James-ruled): recurring is account-holders only — a tokened guest
+  // link gets the honest account door, never a form that would 403 at submit.
+  if (guestToken) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-20 bg-page">
+        <div
+          className="rounded-2xl border border-line bg-surface p-8 text-center"
+          data-testid="guest-account-needed"
+        >
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">
+            Create a free account to set up your regular clean
+          </h1>
+          <p className="mt-3 font-jost text-sm font-light text-ink-2">
+            Regular cleans are managed from an account. Sign up with the same email you used for
+            your booking — your completed clean with {cleanerName} carries over automatically once
+            you verify your email, and the set-up option appears on your account home.
+          </p>
+          <a
+            href="/signup"
+            className="mt-5 inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
+          >
+            Create a free account
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (loadError) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-page">

@@ -86,12 +86,12 @@ export function renderStatementPdf(input: RenderInput): Promise<Buffer> {
       doc.fillColor(INK).fontSize(9).font(FONT_BOLD);
       doc.text('Date', COLS.date.x, yy, { width: COLS.date.w });
       doc.text('Service', COLS.service.x, yy, { width: COLS.service.w });
-      doc.text('Your service price', COLS.price.x, yy, { width: COLS.price.w, align: 'right' });
+      doc.text('Your rate', COLS.price.x, yy, { width: COLS.price.w, align: 'right' });
       doc.text('Rena commission', COLS.commission.x, yy, {
         width: COLS.commission.w,
         align: 'right',
       });
-      doc.text('Your net earnings', COLS.net.x, yy, { width: COLS.net.w, align: 'right' });
+      doc.text('You received', COLS.net.x, yy, { width: COLS.net.w, align: 'right' });
       doc
         .strokeColor(LINE)
         .lineWidth(0.5)
@@ -126,12 +126,27 @@ export function renderStatementPdf(input: RenderInput): Promise<Buffer> {
       });
       doc.fillColor(INK);
       doc.text(label, COLS.date.x, y, { width: COLS.date.w });
-      doc.text(prettyService(row.service), COLS.service.x, y, { width: COLS.service.w });
-      doc.text(money(row.servicePrice), COLS.price.x, y, { width: COLS.price.w, align: 'right' });
-      doc.text(money(row.commission), COLS.commission.x, y, {
-        width: COLS.commission.w,
-        align: 'right',
-      });
+      // LR-2: the supplies £4.50 rides its own sub-label so the arithmetic
+      // reads whole: rate − commission + supplies = received.
+      const serviceLabel =
+        row.suppliesNet > 0
+          ? `${prettyService(row.service)} (+ supplies ${money(row.suppliesNet)})`
+          : prettyService(row.service);
+      doc.text(serviceLabel, COLS.service.x, y, { width: COLS.service.w });
+      // LR-2 reconcile-or-withhold: a null rate means the stored numbers do
+      // not reconcile to the penny — the row shows the labelled net ONLY.
+      if (row.rate !== null && row.fee !== null && row.feePct !== null) {
+        doc.text(money(row.rate), COLS.price.x, y, { width: COLS.price.w, align: 'right' });
+        doc.text(`−${money(row.fee)} (${row.feePct}%)`, COLS.commission.x, y, {
+          width: COLS.commission.w,
+          align: 'right',
+        });
+      } else {
+        doc.fillColor(MUTED);
+        doc.text('—', COLS.price.x, y, { width: COLS.price.w, align: 'right' });
+        doc.text('—', COLS.commission.x, y, { width: COLS.commission.w, align: 'right' });
+        doc.fillColor(INK);
+      }
       doc.text(money(row.net), COLS.net.x, y, { width: COLS.net.w, align: 'right' });
       y += 18;
     }
@@ -146,11 +161,11 @@ export function renderStatementPdf(input: RenderInput): Promise<Buffer> {
     y += 10;
     doc.font(FONT_BOLD).fontSize(9).fillColor(INK);
     doc.text('Totals', COLS.date.x, y, { width: COLS.date.w + COLS.service.w });
-    doc.text(money(data.totals.servicePrice), COLS.price.x, y, {
+    doc.text(money(data.totals.rate), COLS.price.x, y, {
       width: COLS.price.w,
       align: 'right',
     });
-    doc.text(money(data.totals.commission), COLS.commission.x, y, {
+    doc.text(`−${money(data.totals.fee)}`, COLS.commission.x, y, {
       width: COLS.commission.w,
       align: 'right',
     });
@@ -169,6 +184,11 @@ export function renderStatementPdf(input: RenderInput): Promise<Buffer> {
     // ─── Footer notes ─────────────────────────────────────────
     doc.font(FONT_REGULAR).fontSize(8).fillColor(MUTED);
     const notes = [
+      ...(data.hasWithheldRows
+        ? [
+            'Rows marked "—" predate detailed rate records or carry an adjusted amount — the "You received" figure on those rows is exact; only the rate/commission split is unavailable.',
+          ]
+        : []),
       'This statement is provided for your own records and self-assessment. You are self-employed; Rena is not your employer and does not deduct tax or National Insurance on your behalf.',
       'Figures cover jobs whose funds were released to you within the period, based on the job completion date.',
       `Generated on ${generatedOn.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
