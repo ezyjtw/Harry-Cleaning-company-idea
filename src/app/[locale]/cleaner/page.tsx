@@ -27,15 +27,6 @@ interface UpcomingJob {
   bedrooms?: number;
   // F24.1: non-null = a recurring occurrence (WEEKLY | FORTNIGHTLY).
   recurringFrequency?: string | null;
-  // F24.3 (money-display law): the cleaner's OWN arithmetic, server-built from
-  // the stored snapshot; null → render the labelled net only.
-  earningsBreakdown?: {
-    rate: number;
-    feePct: number;
-    fee: number;
-    productsNet: number;
-    receive: number;
-  } | null;
 }
 
 interface RecentReview {
@@ -894,36 +885,13 @@ export default function CleanerDashboard() {
                             : 'AirBnB Turnover'}{' '}
                           {'—'} {bedroomsLabel(job.bedrooms)}
                         </p>
-                        {/* F24.3 (money-display law): the cleaner's own
-                            arithmetic — the customer's 6%-inclusive total
-                            never renders on a cleaner surface. */}
-                        {job.earningsBreakdown ? (
-                          <>
-                            <p className="font-jost text-[11px] font-light text-ink-2 mt-0.5">
-                              Your rate: {'£'}
-                              {job.earningsBreakdown.rate.toFixed(2)}
-                            </p>
-                            <p className="font-jost text-[11px] font-light text-ink-2 mt-0.5">
-                              Rena fee ({job.earningsBreakdown.feePct}%): {'−£'}
-                              {job.earningsBreakdown.fee.toFixed(2)}
-                            </p>
-                            {job.earningsBreakdown.productsNet > 0 && (
-                              <p className="font-jost text-[11px] font-light text-ink-2 mt-0.5">
-                                Supplies: {'+£'}
-                                {job.earningsBreakdown.productsNet.toFixed(2)}
-                              </p>
-                            )}
-                            <p className="font-jost text-[11px] font-medium text-primary mt-0.5">
-                              You receive: {'£'}
-                              {job.earningsBreakdown.receive.toFixed(2)}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="font-jost text-[11px] font-medium text-primary mt-0.5">
-                            You receive: {'£'}
-                            {job.cleanerEarnings.toFixed(2)}
-                          </p>
-                        )}
+                        {/* F24.3 (James-amended): fixed-price money renders
+                            IDENTICALLY to hourly — one labelled line, no
+                            arithmetic, never the customer's total. */}
+                        <p className="font-jost text-[11px] font-medium text-primary mt-0.5">
+                          {job.isOffer ? 'You\u2019d earn' : 'You receive'}: {'£'}
+                          {job.cleanerEarnings.toFixed(2)}
+                        </p>
                       </div>
                     )}
                   {job.isOffer && (

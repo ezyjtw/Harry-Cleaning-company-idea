@@ -35,24 +35,6 @@ interface Job {
   isProvisional?: boolean;
   isReserve?: boolean;
   viewerEarnings?: number | null;
-  earningsBreakdown?: EarningsBreakdown | null;
-  viewerBreakdown?: EarningsBreakdown | null;
-}
-
-// F24.3 (money-display law): the cleaner's OWN arithmetic — server-built from
-// the stored snapshot, null when the numbers don't reconcile to the penny.
-interface EarningsBreakdown {
-  rate: number;
-  feePct: number;
-  fee: number;
-  productsNet: number;
-  receive: number;
-}
-
-/** "Your rate £X − Rena fee (N%) £Y" — the subline under the net figure. */
-function breakdownLine(bd: EarningsBreakdown): string {
-  const products = bd.productsNet > 0 ? ` + supplies £${bd.productsNet.toFixed(2)}` : '';
-  return `Your rate £${bd.rate.toFixed(2)} − Rena fee (${bd.feePct}%) £${bd.fee.toFixed(2)}${products}`;
 }
 
 const statusMap: Record<string, JobStatus> = {
@@ -568,13 +550,9 @@ export default function CleanerJobsPage() {
                         <p className="font-newsreader text-2xl font-medium text-ink">
                           &pound;{job.viewerEarnings.toFixed(2)}
                         </p>
-                        {/* F24.3: the cleaner's OWN arithmetic — the customer
-                            total (6%-inclusive) never renders on this seat. */}
-                        <p className="font-jost text-[11px] text-ink-3">
-                          {job.viewerBreakdown
-                            ? breakdownLine(job.viewerBreakdown)
-                            : 'You’d receive'}
-                        </p>
+                        {/* F24.3 (amended): one labelled line, no arithmetic —
+                            the customer total never renders on this seat. */}
+                        <p className="font-jost text-[11px] text-ink-3">You&rsquo;d earn</p>
                       </div>
                     ) : (
                       <div className="text-right">
@@ -582,9 +560,7 @@ export default function CleanerJobsPage() {
                           &pound;{job.cleanerEarnings.toFixed(2)}
                         </p>
                         <p className="font-jost text-[11px] text-ink-3">
-                          {job.earningsBreakdown
-                            ? breakdownLine(job.earningsBreakdown)
-                            : 'You receive'}
+                          {ds === 'pending' ? 'You\u2019d earn' : 'You receive'}
                         </p>
                       </div>
                     )}
@@ -598,47 +574,21 @@ export default function CleanerJobsPage() {
                               : 'AirBnB Turnover'}{' '}
                             — {bedroomsLabel(job.bedrooms)}
                           </p>
-                          {/* F24.3 (money-display law): the fixed-price box
-                              carries the cleaner's own arithmetic in the same
-                              format hourly jobs use — never the customer's
-                              6%-inclusive total. */}
-                          {(() => {
-                            const bd =
-                              !job.isPrimary && job.viewerBreakdown
-                                ? job.viewerBreakdown
-                                : job.earningsBreakdown;
-                            const net =
-                              !job.isPrimary &&
-                              job.viewerEarnings !== null &&
-                              job.viewerEarnings !== undefined
-                                ? job.viewerEarnings
-                                : job.cleanerEarnings;
-                            return bd ? (
-                              <div className="mt-2 space-y-0.5" data-testid="fixed-breakdown">
-                                <p className="font-jost text-sm font-light text-ink-2">
-                                  Your rate: &pound;{bd.rate.toFixed(2)}
-                                </p>
-                                <p className="font-jost text-sm font-light text-ink-2">
-                                  Rena fee ({bd.feePct}%): &minus;&pound;{bd.fee.toFixed(2)}
-                                </p>
-                                {bd.productsNet > 0 && (
-                                  <p className="font-jost text-sm font-light text-ink-2">
-                                    Supplies: +&pound;{bd.productsNet.toFixed(2)}
-                                  </p>
-                                )}
-                                <p className="mt-1 font-jost text-sm font-medium text-primary">
-                                  You receive: &pound;{bd.receive.toFixed(2)}
-                                </p>
-                              </div>
-                            ) : (
-                              <p
-                                className="mt-2 font-jost text-sm font-medium text-primary"
-                                data-testid="fixed-breakdown"
-                              >
-                                You receive: &pound;{net.toFixed(2)}
-                              </p>
-                            );
-                          })()}
+                          {/* F24.3 (James-amended): fixed-price money renders
+                              IDENTICALLY to hourly — one labelled line, no
+                              arithmetic, never the customer's total. */}
+                          <p
+                            className="mt-2 font-jost text-sm font-medium text-primary"
+                            data-testid="fixed-breakdown"
+                          >
+                            {ds === 'pending' ? 'You\u2019d earn' : 'You receive'}: &pound;
+                            {(!job.isPrimary &&
+                            job.viewerEarnings !== null &&
+                            job.viewerEarnings !== undefined
+                              ? job.viewerEarnings
+                              : job.cleanerEarnings
+                            ).toFixed(2)}
+                          </p>
                         </div>
                       )}
 
