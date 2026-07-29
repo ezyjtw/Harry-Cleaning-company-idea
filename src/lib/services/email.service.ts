@@ -223,7 +223,22 @@ export async function sendCleanerAssignment(
   },
   cleaner: CleanerEmailData
 ): Promise<boolean> {
-  const { subject, html } = buildCleanerAssignment(booking, cleaner);
+  // F24.1: an offered recurring occurrence says so (reachable via the
+  // cleaner-cancel rescue path — a cancelled occurrence re-offers with its
+  // agreement intact). Resolved here so every caller gets it for free.
+  const { prisma } = await import('@/lib/db/prisma');
+  const withAgreement = await prisma.booking
+    .findUnique({
+      where: { id: booking.id },
+      select: { agreement: { select: { frequency: true } } },
+    })
+    .catch(() => null);
+  const recurringLabel = withAgreement?.agreement
+    ? withAgreement.agreement.frequency === 'WEEKLY'
+      ? 'Weekly'
+      : 'Every two weeks'
+    : null;
+  const { subject, html } = buildCleanerAssignment({ ...booking, recurringLabel }, cleaner);
   return sendEmail(cleaner.email, subject, html);
 }
 
@@ -810,9 +825,18 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
   const { prisma } = await import('@/lib/db/prisma');
   const b = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { cleaner: { select: { id: true, name: true, email: true } } },
+    include: {
+      cleaner: { select: { id: true, name: true, email: true } },
+      // F24.1: occurrences must be visibly recurring — email AND .ics.
+      agreement: { select: { frequency: true } },
+    },
   });
   if (!b?.cleaner?.email) return false;
+  const recurringLabel = b.agreement
+    ? b.agreement.frequency === 'WEEKLY'
+      ? 'weekly'
+      : 'every two weeks'
+    : null;
   const { serviceLabelFromSlug } = await import('@/lib/constants/services');
   const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
   const { buildJobIcs } = await import('@/lib/services/job-ics');
@@ -836,6 +860,7 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
     cleanerEarnings: earnings,
     detailUrl,
     suppliesProvided: b.suppliesProvided,
+    recurringLabel,
   });
   const { subject, html } = buildCleanerJobAccepted({
     cleanerName: b.cleaner.name || 'there',
@@ -844,6 +869,7 @@ export async function sendCleanerJobAccepted(bookingId: string): Promise<boolean
     time: b.startTime,
     earnings,
     detailUrl,
+    recurringLabel,
   });
   return sendEmail(b.cleaner.email, subject, html, {
     userId: b.cleaner.id,

@@ -6,7 +6,8 @@ import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
-import { serviceLabelFromSlug } from '@/lib/constants/services';
+import RegularCleanChip from '@/components/cleaner/RegularCleanChip';
+import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 
 // 4.6 (James-ruled): EN_ROUTE and IN_PROGRESS collapse to one cleaner-visible
 // "On the way" state; legacy in-flight rows render there too.
@@ -20,22 +21,20 @@ interface Job {
   date: string;
   time: string;
   serviceType: string;
-  totalPrice: number;
   cleanerEarnings: number;
-  platformFee: number;
   status: string;
   duration: number;
   notes?: string;
   cleanerNotes?: string;
   bedrooms?: number;
   extras?: string[];
+  // F24.1: non-null = a recurring occurrence (WEEKLY | FORTNIGHTLY).
+  recurringFrequency?: string | null;
   cascadePhase?: string | null;
   isPrimary?: boolean;
   isProvisional?: boolean;
   isReserve?: boolean;
   viewerEarnings?: number | null;
-  viewerTotal?: number | null;
-  viewerPlatformFee?: number | null;
 }
 
 const statusMap: Record<string, JobStatus> = {
@@ -503,6 +502,8 @@ export default function CleanerJobsPage() {
                         {serviceLabelFromSlug(job.serviceType)}
                       </span>
                       {getStatusBadge(job)}
+                      {/* F24.1: recurring occurrences are visibly recurring. */}
+                      <RegularCleanChip frequency={job.recurringFrequency} />
                     </div>
                     <p className="font-jost text-sm text-ink">
                       {job.clientName} &middot; {job.date} at {job.time} ({job.duration}h)
@@ -549,12 +550,9 @@ export default function CleanerJobsPage() {
                         <p className="font-newsreader text-2xl font-medium text-ink">
                           &pound;{job.viewerEarnings.toFixed(2)}
                         </p>
-                        <p className="font-jost text-[11px] text-ink-3">
-                          You&apos;d earn
-                          {job.viewerTotal !== null && job.viewerTotal !== undefined && (
-                            <> of &pound;{job.viewerTotal.toFixed(2)} total</>
-                          )}
-                        </p>
+                        {/* F24.3 (amended): one labelled line, no arithmetic —
+                            the customer total never renders on this seat. */}
+                        <p className="font-jost text-[11px] text-ink-3">You&rsquo;d earn</p>
                       </div>
                     ) : (
                       <div className="text-right">
@@ -562,7 +560,7 @@ export default function CleanerJobsPage() {
                           &pound;{job.cleanerEarnings.toFixed(2)}
                         </p>
                         <p className="font-jost text-[11px] text-ink-3">
-                          of &pound;{job.totalPrice.toFixed(2)} total
+                          {ds === 'pending' ? 'You\u2019d earn' : 'You receive'}
                         </p>
                       </div>
                     )}
@@ -574,28 +572,23 @@ export default function CleanerJobsPage() {
                             {job.serviceType === 'end-of-tenancy'
                               ? 'End of Tenancy'
                               : 'AirBnB Turnover'}{' '}
-                            — {job.bedrooms === 0 ? 'Studio' : `${job.bedrooms} bed`}
+                            — {bedroomsLabel(job.bedrooms)}
                           </p>
-                          <div className="mt-2 space-y-0.5">
-                            <p className="font-jost text-sm font-light text-ink-2">
-                              Customer pays: &pound;
-                              {(!job.isPrimary &&
-                              job.viewerTotal !== null &&
-                              job.viewerTotal !== undefined
-                                ? job.viewerTotal
-                                : job.totalPrice
-                              ).toFixed(2)}
-                            </p>
-                            <p className="mt-1 font-jost text-sm font-medium text-primary">
-                              You receive: &pound;
-                              {(!job.isPrimary &&
-                              job.viewerEarnings !== null &&
-                              job.viewerEarnings !== undefined
-                                ? job.viewerEarnings
-                                : job.cleanerEarnings
-                              ).toFixed(2)}
-                            </p>
-                          </div>
+                          {/* F24.3 (James-amended): fixed-price money renders
+                              IDENTICALLY to hourly — one labelled line, no
+                              arithmetic, never the customer's total. */}
+                          <p
+                            className="mt-2 font-jost text-sm font-medium text-primary"
+                            data-testid="fixed-breakdown"
+                          >
+                            {ds === 'pending' ? 'You\u2019d earn' : 'You receive'}: &pound;
+                            {(!job.isPrimary &&
+                            job.viewerEarnings !== null &&
+                            job.viewerEarnings !== undefined
+                              ? job.viewerEarnings
+                              : job.cleanerEarnings
+                            ).toFixed(2)}
+                          </p>
                         </div>
                       )}
 

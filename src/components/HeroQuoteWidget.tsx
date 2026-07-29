@@ -6,6 +6,7 @@ import {
   BEDROOMS_TO_EOT_SIZE,
   BEDROOMS_TO_AIRBNB_SIZE,
   minimumHoursForService,
+  bedroomsLabel,
 } from '@/lib/constants/services';
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
@@ -668,7 +669,7 @@ export default function HeroQuoteWidget() {
                   if (!slug) return `${b} bed`;
                   return PROPERTY_SIZE_LABELS[slug] ?? slug;
                 })()
-              : `${bedrooms} bed · ${bathrooms} bath`}
+              : `${bedroomsLabel(bedrooms ?? 1)} · ${bathrooms} bath`}
           </span>
           <span
             className="rounded-md px-3 py-1.5 font-jost text-[11px] text-ink-2"

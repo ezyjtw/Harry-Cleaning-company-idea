@@ -65,7 +65,10 @@ const FIXED_PRICES: Record<
     { propertySize: 'FIVE_PLUS', estimatedHours: 11, customerPrice: 550 },
   ],
   airbnb: [
-    { propertySize: 'STUDIO', estimatedHours: 1.5, customerPrice: 55 },
+    // F24.4b (James-ruled): 2h is the honest middle for a full changeover —
+    // 1.5h was the aggressive end, and under-blocking is the failure mode
+    // already paid for once (LB-6).
+    { propertySize: 'STUDIO', estimatedHours: 2, customerPrice: 55 },
     { propertySize: 'ONE_BED', estimatedHours: 2, customerPrice: 75 },
     { propertySize: 'TWO_BED', estimatedHours: 2.5, customerPrice: 95 },
     { propertySize: 'THREE_BED', estimatedHours: 3.5, customerPrice: 120 },

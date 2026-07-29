@@ -7,11 +7,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
+import RegularCleanChip from '@/components/cleaner/RegularCleanChip';
 import ProfilePhotoNudge from '@/components/ProfilePhotoNudge';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
-import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 
 interface UpcomingJob {
   id: string;
@@ -20,11 +21,12 @@ interface UpcomingJob {
   date: string;
   time: string;
   serviceType: string;
-  price: number;
   cleanerEarnings: number;
   status: string;
   isOffer: boolean;
   bedrooms?: number;
+  // F24.1: non-null = a recurring occurrence (WEEKLY | FORTNIGHTLY).
+  recurringFrequency?: string | null;
 }
 
 interface RecentReview {
@@ -854,6 +856,8 @@ export default function CleanerDashboard() {
                   <div className="flex items-center gap-2">
                     <p className="font-jost text-sm font-normal text-ink">{job.clientName}</p>
                     <CleanerStatusChip status={job.status} />
+                    {/* F24.1: recurring occurrences are visibly recurring. */}
+                    <RegularCleanChip frequency={job.recurringFrequency} />
                   </div>
                   <p className="font-jost text-sm font-light text-ink-3 mt-0.5">{job.address}</p>
                   <div className="flex items-center gap-3 mt-1 font-jost text-sm font-light text-ink-3">
@@ -879,14 +883,13 @@ export default function CleanerDashboard() {
                           {job.serviceType === 'end-of-tenancy'
                             ? 'End of Tenancy'
                             : 'AirBnB Turnover'}{' '}
-                          {'—'} {job.bedrooms === 0 ? 'Studio' : `${job.bedrooms} bed`}
+                          {'—'} {bedroomsLabel(job.bedrooms)}
                         </p>
-                        <p className="font-jost text-[11px] font-light text-ink-2 mt-0.5">
-                          Customer pays: {'£'}
-                          {job.price.toFixed(2)}
-                        </p>
+                        {/* F24.3 (James-amended): fixed-price money renders
+                            IDENTICALLY to hourly — one labelled line, no
+                            arithmetic, never the customer's total. */}
                         <p className="font-jost text-[11px] font-medium text-primary mt-0.5">
-                          You receive: {'£'}
+                          {job.isOffer ? 'You\u2019d earn' : 'You receive'}: {'£'}
                           {job.cleanerEarnings.toFixed(2)}
                         </p>
                       </div>

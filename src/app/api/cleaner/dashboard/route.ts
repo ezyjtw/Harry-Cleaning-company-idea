@@ -6,6 +6,7 @@ import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking'
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
+import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
 import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 import { displayName } from '@/lib/utils/name';
 
@@ -172,6 +173,8 @@ export async function GET() {
       include: {
         client: { select: { name: true } },
         address: { select: { line1: true, postcode: true } },
+        // F24.1: occurrences must be visibly recurring on every surface.
+        agreement: { select: { frequency: true } },
       },
       orderBy: { date: 'asc' },
       take: 5,
@@ -426,13 +429,22 @@ export async function GET() {
       date: j.date.toISOString().split('T')[0],
       time: j.startTime,
       serviceType: j.serviceType,
-      price: Number(j.totalPrice),
+      // F24.3: the customer total (6%-inclusive) no longer rides to cleaner
+      // surfaces at all — the card renders the cleaner's OWN arithmetic.
       cleanerEarnings: Number(j.cleanerEarnings),
+      earningsBreakdown: cleanerEarningsBreakdown({
+        serviceType: j.serviceType,
+        customerSubtotal: j.customerSubtotal,
+        cleanerEarnings: Number(j.cleanerEarnings),
+        extras: j.extras,
+      }),
       status: j.status.toLowerCase(),
       // A live offer the cleaner can Accept (only AWAITING_CLEANER rows reach
       // here, and the query already restricted those to active primary phases).
       isOffer: j.status === 'AWAITING_CLEANER',
       bedrooms: (j.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
+      // F24.1: non-null frequency marks a recurring occurrence.
+      recurringFrequency: j.agreement?.frequency ?? null,
     })),
     recentReviews: recentReviews.map((r) => ({
       id: r.id,

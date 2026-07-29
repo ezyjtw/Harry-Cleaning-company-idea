@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
-import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { propertySizeEnumLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface BookingDetail {
@@ -1546,7 +1546,8 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
         <Section title="Booking">
           <dl className="grid grid-cols-2 gap-x-4">
             <Field label="Service" value={serviceLabelFromSlug(b.serviceType)} />
-            <Field label="Property Size" value={b.propertySize} />
+            {/* F24.4a: human label, never the raw enum ("STUDIO"). */}
+            <Field label="Property Size" value={propertySizeEnumLabel(b.propertySize)} />
             <Field label="Date" value={b.date?.split('T')[0]} />
             <Field label="Time" value={b.startTime} />
             <Field label="Duration" value={`${n(b.duration)}h`} />

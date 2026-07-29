@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { suppliesLabel } from '@/lib/booking/supplies';
+import { bedroomsLabel } from '@/lib/constants/services';
 
 interface Offer {
   assigned?: boolean;
@@ -395,7 +396,8 @@ export default function OfferPage({ params }: { params: { id: string } }) {
               can't take a bring-your-own job. Sits with date/area/pay. */}
           <Row label="Supplies" value={suppliesLabel(offer.suppliesProvided)} />
           {typeof offer.bedrooms === 'number' && (
-            <Row label="Property" value={`${offer.bedrooms} bed`} />
+            // F24.4a: 0 is a Studio — never "0 bed".
+            <Row label="Property" value={bedroomsLabel(offer.bedrooms)} />
           )}
           <Row label="Customer" value={offer.clientName} />
         </div>

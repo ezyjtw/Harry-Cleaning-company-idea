@@ -105,6 +105,31 @@ export function airbnbSizeLabel(slug: AirbnbSizeSlug): string {
   return AIRBNB_SIZE_LABELS[slug];
 }
 
+// F24.4a: THE human label for a bedrooms count — 0 is a Studio, never "0 bed".
+// Every surface rendering rooms.bedrooms goes through this; hand-rolled
+// `=== 0 ? 'Studio'` ternaries and raw `${bedrooms} bed` strings are the leak
+// this replaces.
+export function bedroomsLabel(bedrooms: number): string {
+  if (bedrooms === 0) return 'Studio';
+  return `${bedrooms} bed`;
+}
+
+// F24.4a: human label for the PropertySize ENUM (admin surfaces stored the raw
+// enum value into the UI — "STUDIO" where "Studio" belongs).
+const PROPERTY_SIZE_ENUM_LABELS: Record<string, string> = {
+  STUDIO: 'Studio',
+  ONE_BED: '1 Bed',
+  TWO_BED: '2 Bed',
+  THREE_BED: '3 Bed',
+  FOUR_BED: '4 Bed',
+  FIVE_PLUS: '5 Bed+',
+};
+
+export function propertySizeEnumLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return PROPERTY_SIZE_ENUM_LABELS[value] ?? value;
+}
+
 // Maps UI labels (from legacy pricing page) to canonical slugs
 const EOT_SIZE_FROM_LABEL: Record<string, EotSizeSlug> = {
   Studio: 'studio',

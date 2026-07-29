@@ -4,8 +4,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import BookingStatusChip from '@/components/BookingStatusChip';
+import RegularCleanChip, { recurringFrequencyLabel } from '@/components/cleaner/RegularCleanChip';
 import { suppliesLabel } from '@/lib/booking/supplies';
-import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 import { buildGoogleCalendarLink } from '@/lib/services/job-ics';
 
 // H104 item 5: the job's home — every cleaner job row/card clicks through to
@@ -35,6 +36,8 @@ interface JobDetail {
   hasBackups?: boolean;
   bedrooms?: number;
   extras: string[];
+  // F24.1: non-null = a recurring occurrence (WEEKLY | FORTNIGHTLY).
+  recurringFrequency?: string | null;
 }
 
 const KEY_ACCESS_LABELS: Record<string, string> = {
@@ -194,7 +197,11 @@ export default function CleanerJobDetailPage() {
         <h1 className="font-newsreader text-2xl font-semibold text-ink">
           {serviceLabelFromSlug(job.serviceType)} for {job.clientName}
         </h1>
-        <BookingStatusChip rawStatus={job.status} />
+        <div className="flex items-center gap-2">
+          {/* F24.1: recurring occurrences are visibly recurring. */}
+          <RegularCleanChip frequency={job.recurringFrequency} />
+          <BookingStatusChip rawStatus={job.status} />
+        </div>
       </div>
 
       {/* F12: decline confirm beat — the email link lands here; the decline
@@ -232,6 +239,13 @@ export default function CleanerJobDetailPage() {
           <Row label="Date" value={dateLabel} />
           <Row label="Time" value={job.time} />
           <Row label="Duration" value={`${job.duration} hours`} />
+          {/* F24.1: a recurring occurrence says so, with its frequency. */}
+          {job.recurringFrequency && (
+            <Row
+              label="Repeats"
+              value={`${recurringFrequencyLabel(job.recurringFrequency)} — regular client`}
+            />
+          )}
           {/* F8: calendar actions — assigned-only (the .ics carries the full
               address; the serving route enforces the same law server-side). */}
           {job.assigned && (
@@ -277,7 +291,8 @@ export default function CleanerJobDetailPage() {
         <Section title="What">
           <Row label="Service" value={serviceLabelFromSlug(job.serviceType)} />
           {typeof job.bedrooms === 'number' && (
-            <Row label="Property" value={`${job.bedrooms} bed`} />
+            // F24.4a: 0 is a Studio — never "0 bed".
+            <Row label="Property" value={bedroomsLabel(job.bedrooms)} />
           )}
           {(job.extras ?? []).length > 0 && (
             <Row label="Extras" value={(job.extras ?? []).join(', ')} />
