@@ -750,8 +750,11 @@ export default function CleanerDashboard() {
               </>
             )}
           </p>
+          {/* F27: requests live on the Jobs page now — the canonical respond
+              surface (the old ?tab=repeat door lost its tab on client-side
+              navigation). */}
           <Link
-            href="/cleaner/availability?tab=repeat"
+            href="/cleaner/jobs"
             className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
           >
             Respond now

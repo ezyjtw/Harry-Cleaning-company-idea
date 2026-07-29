@@ -978,7 +978,9 @@ export async function sendArrangementRequest(agreementId: string): Promise<boole
     startDateLong: longDate(a.proposedStartDate),
     netPerClean: Number(a.cleanerEarnings).toFixed(2),
     respondByLong,
-    ctaUrl: `${appUrl}/cleaner/availability`,
+    // F27: the request card lives on the Jobs page (canonical respond
+    // surface) — the old availability link landed on a tab without the card.
+    ctaUrl: `${appUrl}/cleaner/jobs`,
   });
   return sendEmail(a.cleaner.email, subject, html, {
     userId: a.cleaner.id,

@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [primaryOffers, backupOffers, messages, disputes] = await Promise.all([
+  const [primaryOffers, backupOffers, messages, disputes, arrangements] = await Promise.all([
     // Live offers where this cleaner is the current primary holder — mirrors
     // the dashboard's offer semantics (cascade.service is the source of truth).
     // H10: cascadePhase null included (legacy/rescue-rebooked direct offers).
@@ -66,6 +66,14 @@ export async function GET() {
       select: { id: true },
       take: 50,
     }),
+    // F27: open regular-arrangement requests — they live on the Jobs page and
+    // are time-boxed like offers, so they count into the Jobs badge (F10 law:
+    // clears only when answered, never on viewing).
+    prisma.recurringAgreement.findMany({
+      where: { cleanerId: user.id, status: 'PENDING_CLEANER_ACCEPTANCE' },
+      select: { id: true },
+      take: 50,
+    }),
   ]);
 
   // offerIds / disputeIds (additive — the native shell ignores them) let the
@@ -73,9 +81,14 @@ export async function GET() {
   // for new ones.
   const offerIds = Array.from(new Set([...primaryOffers, ...backupOffers].map((b) => b.id)));
   const disputeIds = disputes.map((d) => d.id);
+  const arrangementIds = arrangements.map((a) => a.id);
   return NextResponse.json({
-    offers: offerIds.length,
+    // F27: `offers` drives the native Jobs tab badge — arrangement requests
+    // now respond from that surface, so they count here too. The web sidebar
+    // sums the two id arrays itself.
+    offers: offerIds.length + arrangementIds.length,
     offerIds,
+    arrangementIds,
     messages,
     openDisputes: disputeIds.length,
     disputeIds,

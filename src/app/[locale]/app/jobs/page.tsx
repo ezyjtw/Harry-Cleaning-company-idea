@@ -16,6 +16,7 @@ import {
   haptic,
   isoOf,
 } from '@/components/app/job-cards';
+import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
 
 type Filter = 'upcoming' | 'done';
 
@@ -184,6 +185,11 @@ export default function AppJobsPage() {
           <p className="text-sm text-ink-2">{actionError}</p>
         </div>
       )}
+
+      {/* F27: regular arrangement request cards — same canonical surface as
+          the web jobs list, above everything and independent of the filter
+          chips, so a live request can never be hidden by view state. */}
+      <ArrangementRequests variant="app" className="mb-5" onResolved={() => fetchJobs(filter)} />
 
       {loading ? (
         <div className="space-y-3">
