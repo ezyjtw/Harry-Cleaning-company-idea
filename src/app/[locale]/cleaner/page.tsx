@@ -41,6 +41,8 @@ interface DashboardData {
   // H75: pre-complete jobs whose scheduled slot has ended — money-blocking
   // until the cleaner marks them complete (no auto-complete exists).
   overdueJobs?: { id: string; date: string; startTime: string; serviceType: string }[];
+  // LR-4: open arrangement requests — count + most urgent respondBy.
+  pendingArrangements?: { count: number; respondBy: string | null };
   profile: {
     name: string;
     rating: number;
@@ -721,6 +723,41 @@ export default function CleanerDashboard() {
           </Link>
         </div>
       ))}
+
+      {/* LR-4 (James-ruled): open arrangement requests — F10 law: survives
+          being looked at, clears only when every request is answered
+          (accept / decline / withdraw / expiry). */}
+      {data.pendingArrangements && data.pendingArrangements.count > 0 && (
+        <div
+          data-testid="arrangement-requests-banner"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary-soft px-5 py-4"
+        >
+          <p className="font-jost text-sm text-ink">
+            {data.pendingArrangements.count === 1
+              ? '1 regular arrangement request waiting'
+              : `${data.pendingArrangements.count} regular arrangement requests waiting`}
+            {data.pendingArrangements.respondBy && (
+              <>
+                {' '}
+                &middot; respond by{' '}
+                {new Date(data.pendingArrangements.respondBy).toLocaleString('en-GB', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </>
+            )}
+          </p>
+          <Link
+            href="/cleaner/availability?tab=repeat"
+            className="shrink-0 rounded-[10px] bg-primary px-4 py-2 font-jost text-[11px] uppercase tracking-[0.1em] text-white transition hover:bg-primary-hover"
+          >
+            Respond now
+          </Link>
+        </div>
+      )}
 
       {/* H34 (James-ruled): quiet amber nudge when the CURRENT week has zero
           availability set — same timesheet truth as search (see dashboard API). */}

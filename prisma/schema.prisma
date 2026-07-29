@@ -919,9 +919,11 @@ enum AgreementStatus {
   PENDING_CLEANER_ACCEPTANCE
   ACTIVE
   // F23 terminal pre-acceptance states: the cleaner said no / the 48h window
-  // lapsed. In both, NO money ever moved — that is the whole point.
+  // lapsed / the customer withdrew (LR-1). In all three, NO money ever moved
+  // — that is the whole point.
   DECLINED
   EXPIRED
+  WITHDRAWN
   ENDED
 }
 

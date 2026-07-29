@@ -78,6 +78,9 @@ export default function RecurringAgreementsCard({
 
   // F23: cleaner answers a pending request from here.
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  // LR-1: customer withdraws their own pending request.
+  const [confirmingWithdrawId, setConfirmingWithdrawId] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
 
   const refresh = async () => {
     const data = await fetch('/api/agreements').then((r) => (r.ok ? r.json() : null));
@@ -114,6 +117,24 @@ export default function RecurringAgreementsCard({
       setError(e instanceof Error ? e.message : 'Could not respond — please try again.');
     } finally {
       setRespondingId(null);
+    }
+  };
+
+  const withdraw = async (id: string) => {
+    setWithdrawingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agreements/${id}/withdraw`, { method: 'POST' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Could not withdraw — please try again.');
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not withdraw — please try again.');
+      // The world may have moved (e.g. the cleaner accepted) — show the truth.
+      await refresh();
+    } finally {
+      setWithdrawingId(null);
+      setConfirmingWithdrawId(null);
     }
   };
 
@@ -219,6 +240,42 @@ export default function RecurringAgreementsCard({
                       Nothing is charged unless they accept — we&rsquo;ll email you either way
                       within 48 hours.
                     </p>
+                    {/* LR-1: the customer's own exit while the request is open. */}
+                    {confirmingWithdrawId !== a.id ? (
+                      <button
+                        type="button"
+                        data-testid="arrangement-withdraw"
+                        onClick={() => setConfirmingWithdrawId(a.id)}
+                        className="mt-2 font-jost text-[12px] text-ink-3 underline transition hover:text-danger"
+                      >
+                        Withdraw request
+                      </button>
+                    ) : (
+                      <div className="mt-3 rounded-[10px] border border-line bg-page p-4">
+                        <p className="font-jost text-sm text-ink">
+                          Withdraw your request to {a.otherPartyName}? Nothing has been charged.
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            data-testid="arrangement-withdraw-confirm"
+                            disabled={withdrawingId === a.id}
+                            onClick={() => withdraw(a.id)}
+                            className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+                          >
+                            {withdrawingId === a.id ? 'Withdrawing…' : 'Yes, withdraw it'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={withdrawingId === a.id}
+                            onClick={() => setConfirmingWithdrawId(null)}
+                            className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
+                          >
+                            Keep it
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               ) : (
