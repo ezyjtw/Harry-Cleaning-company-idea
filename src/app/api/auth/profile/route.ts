@@ -75,9 +75,21 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
+    // LR-3 (James-ruled copy): an unverified user who has guest bookings on
+    // their address gets the plain next step — "verify and your completed
+    // clean carries over". Read-only count, the same predicate the A16b-2b
+    // claim will use at verification.
+    let claimableGuestBookings = 0;
+    if (!user.emailVerified && user.email) {
+      claimableGuestBookings = await prisma.booking.count({
+        where: { clientId: null, guestEmail: { equals: user.email, mode: 'insensitive' } },
+      });
+    }
+
     return NextResponse.json({
       ...user,
       image: await resolveProfileImageUrl(user.image),
+      claimableGuestBookings,
     });
   } catch {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });

@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 export default function VerifyEmailBanner() {
   const [email, setEmail] = useState<string | null>(null);
   const [unverified, setUnverified] = useState(false);
+  // LR-3: guest-history signal — the banner then says the carry-over plainly.
+  const [claimable, setClaimable] = useState(0);
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -23,6 +25,7 @@ export default function VerifyEmailBanner() {
         if (u && u.email && !u.emailVerified) {
           setEmail(u.email);
           setUnverified(true);
+          setClaimable(Number(data.claimableGuestBookings ?? u.claimableGuestBookings ?? 0));
         }
       })
       .catch(() => {});
@@ -54,6 +57,13 @@ export default function VerifyEmailBanner() {
         <span className="font-medium">Verify your email.</span> We sent a link to{' '}
         <span className="font-medium">{email}</span> — verifying protects your account and makes
         sure job and payout emails reach you.{' '}
+        {claimable > 0 && (
+          <span data-testid="carry-over-line">
+            {' '}
+            Verify your email and your completed clean carries over — then set up your regular clean
+            from your account home.
+          </span>
+        )}{' '}
         <span className="text-amber-900/70">
           Can&apos;t find it? Check your junk or spam folder — and mark us &apos;not junk&apos; so
           future emails reach you.
