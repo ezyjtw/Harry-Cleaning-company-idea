@@ -64,7 +64,15 @@ export default function DisputesPage() {
 
   useEffect(() => {
     fetch('/api/disputes')
-      .then((r) => (r.ok ? r.json() : { disputes: [] }))
+      .then((r) => {
+        // F25 belt-and-braces: an expired session must read as "sign in",
+        // never as an empty case list over a real dispute.
+        if (r.status === 401) {
+          window.location.href = `/login?callbackUrl=${encodeURIComponent('/disputes')}`;
+          return { disputes: [] };
+        }
+        return r.ok ? r.json() : { disputes: [] };
+      })
       .then((data) => {
         const list = data.disputes || [];
         setDisputes(list);

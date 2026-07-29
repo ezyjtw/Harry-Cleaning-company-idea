@@ -86,6 +86,12 @@ const protectedRoutes = [
   '/cleaner',
   '/messages',
   '/notifications',
+  // F25: the dispute emails' landing page. Unwalled, a logged-out click got
+  // the page shell, the API 401'd, and the swallow rendered "No disputes"
+  // over a REAL case. Guests never land here (their emails carry tokened
+  // case links, H69) — this wall only routes account holders through login
+  // and back with the path+query intact.
+  '/disputes',
 ];
 const authRoutes = ['/login', '/register', '/forgot-password'];
 
