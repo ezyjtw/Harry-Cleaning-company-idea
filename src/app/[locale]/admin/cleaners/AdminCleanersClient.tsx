@@ -317,6 +317,7 @@ export default function AdminCleanersClient({
                             <button
                               type="button"
                               data-testid="admin-visibility-toggle"
+                              title="Hidden cleaners leave search, quotes, and matching, and won't receive rescue or cover offers. Existing bookings are unaffected."
                               disabled={visibilityBusy === cleaner.fullId}
                               onClick={() => toggleVisibility(cleaner.fullId, !visible)}
                               className="rounded px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-50"

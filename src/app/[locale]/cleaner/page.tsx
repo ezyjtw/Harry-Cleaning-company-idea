@@ -773,9 +773,10 @@ export default function CleanerDashboard() {
           data-testid="profile-hidden-banner"
           className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
         >
+          {/* F26.1 (James-ruled): rescue/cover exclusion named. */}
           <p className="font-jost text-sm text-amber-900">
-            Your profile is hidden — new customers can&apos;t find you. Existing bookings and
-            regular clients are unaffected.
+            Your profile is hidden — new customers can&apos;t find you, and you won&apos;t receive
+            rescue or cover offers. Existing bookings and regular clients are unaffected.
           </p>
           <button
             type="button"
