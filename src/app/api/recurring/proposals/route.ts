@@ -232,34 +232,51 @@ export async function POST(request: NextRequest) {
   }
 
   const respondBy = new Date(Date.now() + ARRANGEMENT_RESPONSE_HOURS * 60 * 60 * 1000);
-  const agreement = await prisma.recurringAgreement.create({
-    data: {
-      clientId: trial.clientId,
-      guestEmail: trial.clientId ? null : trial.guestEmail,
-      guestName: trial.clientId ? null : trial.guestName,
-      cleanerId,
-      serviceType: serviceSlug,
-      frequency,
-      dayOfWeek: reqDay,
-      startTime: time,
-      duration,
-      addressLine1: trial.addressLine1 || '',
-      addressLine2: trial.addressLine2,
-      addressCity: trial.addressCity,
-      addressPostcode: trial.addressPostcode || '',
-      rooms: trial.rooms ?? undefined,
-      notes: trial.notes,
-      // LB-7: occurrences inherit the trial clean's supplies answer.
-      suppliesProvided: trial.suppliesProvided,
-      totalPrice: quote.customerTotal,
-      platformFee: quote.customerPlatformFee,
-      cleanerEarnings: quote.cleanerPayout,
-      status: 'PENDING_CLEANER_ACCEPTANCE',
-      proposedStartDate: start,
-      respondBy,
-      trialBookingId: trial.id,
-    },
-  });
+  // LR-5: the DB invariant (partial unique index — one open arrangement per
+  // pair) backstops the read-guard above. Two simultaneous proposals race the
+  // check; whichever creates second hits the index and gets the same honest
+  // 409 the read-guard would have given.
+  let agreement;
+  try {
+    agreement = await prisma.recurringAgreement.create({
+      data: {
+        clientId: trial.clientId,
+        guestEmail: trial.clientId ? null : trial.guestEmail,
+        guestName: trial.clientId ? null : trial.guestName,
+        cleanerId,
+        serviceType: serviceSlug,
+        frequency,
+        dayOfWeek: reqDay,
+        startTime: time,
+        duration,
+        addressLine1: trial.addressLine1 || '',
+        addressLine2: trial.addressLine2,
+        addressCity: trial.addressCity,
+        addressPostcode: trial.addressPostcode || '',
+        rooms: trial.rooms ?? undefined,
+        notes: trial.notes,
+        // LB-7: occurrences inherit the trial clean's supplies answer.
+        suppliesProvided: trial.suppliesProvided,
+        totalPrice: quote.customerTotal,
+        platformFee: quote.customerPlatformFee,
+        cleanerEarnings: quote.cleanerPayout,
+        status: 'PENDING_CLEANER_ACCEPTANCE',
+        proposedStartDate: start,
+        respondBy,
+        trialBookingId: trial.id,
+      },
+    });
+  } catch (err) {
+    if ((err as { code?: string }).code === 'P2002') {
+      return NextResponse.json(
+        {
+          error: `You already have a request waiting for ${cleanerRow?.name || 'this cleaner'} — they have 48 hours to respond.`,
+        },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
 
   // eslint-disable-next-line no-console
   console.log(
