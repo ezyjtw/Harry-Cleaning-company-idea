@@ -192,6 +192,62 @@ export async function declineArrangement(
 }
 
 /**
+ * LR-1 (James-ruled): the CUSTOMER withdraws their own pending request.
+ * Atomic claim PENDING → WITHDRAWN — a withdraw racing the cleaner's accept
+ * resolves to whichever claims first; the loser's claim matches zero rows and
+ * gets the honest answer. Soft bell to the cleaner, no email storm — nothing
+ * was ever charged pre-accept, so there is no money side at all.
+ */
+export async function withdrawArrangement(
+  agreementId: string,
+  clientUserId: string
+): Promise<RespondResult> {
+  const agreement = await prisma.recurringAgreement.findUnique({
+    where: { id: agreementId },
+    select: { id: true, status: true, clientId: true, cleanerId: true },
+  });
+  if (!agreement || agreement.clientId !== clientUserId) {
+    return { ok: false, error: 'Request not found.', status: 404 };
+  }
+  const claimed = await prisma.recurringAgreement.updateMany({
+    where: { id: agreementId, status: 'PENDING_CLEANER_ACCEPTANCE' },
+    data: { status: 'WITHDRAWN', endedAt: new Date(), endedBy: 'CUSTOMER' },
+  });
+  if (claimed.count === 0) {
+    // The world moved first — say which way, honestly.
+    const nowRow = await prisma.recurringAgreement.findUnique({
+      where: { id: agreementId },
+      select: { status: true },
+    });
+    return {
+      ok: false,
+      error:
+        nowRow?.status === 'ACTIVE'
+          ? 'Your cleaner has already accepted — your regular clean is on. You can end the arrangement instead.'
+          : 'This request is no longer open.',
+      status: 409,
+    };
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`[Arrangement] WITHDRAWN ${agreementId} by customer — no charge, cleaner notified`);
+
+  await prisma.notification
+    .create({
+      data: {
+        userId: agreement.cleanerId,
+        type: 'SYSTEM',
+        title: 'Regular arrangement request withdrawn',
+        body: 'The customer withdrew their regular arrangement request. No action needed — the request card has cleared.',
+        data: { agreementId },
+      },
+    })
+    .catch(() => {});
+
+  return { ok: true };
+}
+
+/**
  * Scheduler leg: expire un-answered arrangements past their 48h respondBy.
  * The claim is atomic (status guard) so overlapping ticks never double-fire.
  * Replaces the retired cascade-expiry-refund path: the terminal state of an

@@ -61,6 +61,7 @@ export async function GET() {
     h34DateSlots,
     h34Overrides,
     overdueRaw,
+    pendingArrangementsRaw,
   ] = await Promise.all([
     // Cleaner profile
     prisma.cleanerProfile.findUnique({
@@ -285,6 +286,15 @@ export async function GET() {
       select: { id: true, date: true, startTime: true, duration: true, serviceType: true },
       orderBy: { date: 'asc' },
     }),
+
+    // LR-4: open arrangement requests — the dashboard notice card. F10 law:
+    // it survives being looked at and clears only when each request is
+    // answered (accept/decline/withdraw/expiry all leave PENDING).
+    prisma.recurringAgreement.findMany({
+      where: { cleanerId: user.id, status: 'PENDING_CLEANER_ACCEPTANCE' },
+      select: { respondBy: true },
+      orderBy: { respondBy: 'asc' },
+    }),
   ]);
 
   if (!profile) {
@@ -365,6 +375,11 @@ export async function GET() {
 
   return NextResponse.json({
     overdueJobs,
+    // LR-4: count + the most urgent deadline.
+    pendingArrangements: {
+      count: pendingArrangementsRaw.length,
+      respondBy: pendingArrangementsRaw[0]?.respondBy?.toISOString() ?? null,
+    },
     profile: {
       name: displayName(user.name),
       rating: Number(profile.rating),
