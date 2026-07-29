@@ -87,6 +87,7 @@ export async function GET() {
         stripePayoutsEnabled: true,
         homePostcode: true,
         maxTravelMinutes: true,
+        visibleInDirectory: true,
         acknowledgmentVersion: true,
         // Setup-checklist: count of availability slots (no "availability set" flag
         // existed before; this derives one for the checklist item).
@@ -407,6 +408,8 @@ export async function GET() {
         profile._count.availabilitySlots + profile._count.availabilityDateSlots,
       // H34 banner predicate (see computation above)
       noAvailabilityThisWeek,
+      // F26: hidden-state banner predicate.
+      visibleInDirectory: profile.visibleInDirectory,
       importedReviewCount,
       insuranceSubmitted: insuranceDocCount > 0,
       // F8: the NEWEST doc of each type decides (docs arrive createdAt desc) —

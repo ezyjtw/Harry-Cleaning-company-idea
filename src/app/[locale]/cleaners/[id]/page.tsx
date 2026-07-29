@@ -24,9 +24,15 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
-    select: { location: true, bio: true, user: { select: { name: true } } },
+    select: {
+      location: true,
+      bio: true,
+      visibleInDirectory: true,
+      user: { select: { name: true } },
+    },
   });
-  if (!profile) return {};
+  // F26: hidden profiles publish no metadata either — nothing to index.
+  if (!profile || !profile.visibleInDirectory) return {};
   const name = displayName(profile.user?.name) || 'Cleaner';
   const area = profile.location || 'north-east London';
   const title = `${name} — Cleaner in ${area}`;
@@ -70,6 +76,27 @@ export default async function CleanerProfilePage({
     },
   });
   if (!profile) notFound();
+
+  // F26: a hidden profile's direct URL stays honest — no details, no booking
+  // door, just the truth and a way back to cleaners who ARE taking work.
+  if (!profile.visibleInDirectory) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="font-newsreader text-2xl font-semibold text-ink">
+          This cleaner isn&rsquo;t taking new customers right now
+        </h1>
+        <p className="mt-3 font-jost text-sm font-light text-ink-2">
+          They may have paused their profile. You can browse other vetted cleaners in your area.
+        </p>
+        <a
+          href="/cleaners"
+          className="mt-6 inline-block rounded-[10px] bg-primary px-6 py-2.5 font-jost text-sm font-medium text-white transition hover:bg-primary-hover"
+        >
+          Browse cleaners
+        </a>
+      </div>
+    );
+  }
 
   const reviews = await prisma.review.findMany({
     where: { cleanerId: params.id, visibility: 'VISIBLE' },

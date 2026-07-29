@@ -91,6 +91,9 @@ export async function GET() {
     rightToWorkExpiresAt: profile.rightToWorkExpiresAt,
     identityVerifiedAt: profile.identityVerifiedAt,
     availableNow: profile.availableNow,
+    // F26: the discovery switch — the profile page's visibility control and
+    // the dashboard hidden-banner both read this.
+    visibleInDirectory: profile.visibleInDirectory,
     reviewCount: profile.user.reviewsReceived.length,
     testimonials: profile.testimonials || [],
     onboardingComplete,
@@ -128,6 +131,7 @@ export async function PUT(request: NextRequest) {
     testimonials,
     homePostcode,
     maxTravelMinutes,
+    visibleInDirectory,
   } = body;
 
   const profile = await prisma.cleanerProfile.findUnique({
@@ -308,6 +312,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Maximum 3 testimonials allowed' }, { status: 400 });
     }
     profileUpdate.testimonials = testimonials;
+  }
+  // F26: the cleaner's own visibility door. One flag, last-write-wins with the
+  // admin door — no precedence, no separate admin lock.
+  if (visibleInDirectory !== undefined) {
+    if (typeof visibleInDirectory !== 'boolean') {
+      return NextResponse.json({ error: 'visibleInDirectory must be a boolean' }, { status: 400 });
+    }
+    profileUpdate.visibleInDirectory = visibleInDirectory;
   }
 
   // Validate + upload a new profile photo (data URL) BEFORE the transaction, so

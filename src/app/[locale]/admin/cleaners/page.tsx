@@ -18,6 +18,8 @@ export interface CleanerRow {
   hasSelfie: boolean;
   emailVerified: boolean;
   status: 'active' | 'suspended' | 'pending-approval' | 'signup-incomplete';
+  // F26: discovery switch — null for signup-incomplete rows (no profile).
+  visibleInDirectory: boolean | null;
 }
 
 async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }> {
@@ -38,6 +40,7 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
           rating: true,
           verified: true,
           completedJobs: true,
+          visibleInDirectory: true,
         },
       },
       _count: {
@@ -105,6 +108,7 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
       hasSelfie: docInfo?.hasSelfie || false,
       emailVerified: !!c.emailVerified,
       status,
+      visibleInDirectory: c.cleanerProfile ? c.cleanerProfile.visibleInDirectory : null,
     };
   });
 
