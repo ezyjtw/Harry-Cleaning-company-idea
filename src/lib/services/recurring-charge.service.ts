@@ -66,13 +66,13 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
       status: 'SCHEDULED',
       paymentStatus: 'PENDING',
       agreement: { status: 'ACTIVE' },
-      // Window: start within 48h. Past-start stragglers are the cancel
-      // sweep's problem, not a late charge.
-      // Deviation, by design (James-accepted): the filter compares the DATE
-      // (UTC midnight), so late-start occurrences enter the window a few hours
-      // before exactly T-48h — the charge fires early, never late.
+      // F22 (James-ruled): BOTH sweeps window on the occurrence's actual
+      // startTime — this date filter is only an indexable prefilter (a day of
+      // margin each side); the precise T-48h gate is occurrenceStart() below,
+      // the SAME expression the cancel sweep cuts on. Charge and cancel can
+      // never again read different clocks across a night.
       date: {
-        lte: new Date(now + CHARGE_WINDOW_HOURS * HOUR_MS),
+        lte: new Date(now + (CHARGE_WINDOW_HOURS + 24) * HOUR_MS),
         gte: new Date(now - 24 * HOUR_MS),
       },
     },
@@ -95,7 +95,10 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
 
   let processed = 0;
   for (const b of due) {
-    if (occurrenceStart(b.date, b.startTime) < now) continue; // past — cancel sweep owns it
+    const startMs = occurrenceStart(b.date, b.startTime);
+    if (startMs < now) continue; // past — cancel sweep owns it
+    // F22: the precise charge window — startTime-based, same clock as cancel.
+    if (startMs - now > CHARGE_WINDOW_HOURS * HOUR_MS) continue; // not yet due
     processed++;
     try {
       // Guests structurally have no saved card — the single attempt is an
@@ -231,11 +234,21 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
 
   let processed = 0;
   for (const b of unpaid) {
+    // F22: cancel cuts on the occurrence's actual startTime — the SAME
+    // occurrenceStart() expression the charge sweep windows on.
     if (occurrenceStart(b.date, b.startTime) - now > CANCEL_CUTOFF_HOURS * HOUR_MS) continue;
     processed++;
 
+    // F22 (James-ruled): the claim itself re-asserts UNPAID — a payment that
+    // lands between the read above and this write makes the claim match zero
+    // rows instead of cancelling a paid clean. A paid occurrence inside the
+    // T-24h window is a confirmed clean, never a cancellation candidate.
     const claimed = await prisma.booking.updateMany({
-      where: { id: b.id, status: 'SCHEDULED' },
+      where: {
+        id: b.id,
+        status: 'SCHEDULED',
+        paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION'] },
+      },
       data: {
         status: 'CANCELLED',
         paymentStatus: 'CANCELED',
@@ -243,7 +256,22 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
         cancellationReason: 'Payment not received for this occurrence',
       },
     });
-    if (claimed.count === 0) continue;
+    if (claimed.count === 0) {
+      // Somebody changed the row under us. If it is now PAID, say so LOUDLY —
+      // with the guard above this line firing is itself a finding to
+      // investigate, never noise (F22 watched-log law).
+      const nowRow = await prisma.booking.findUnique({
+        where: { id: b.id },
+        select: { paymentStatus: true, status: true },
+      });
+      if (nowRow?.paymentStatus === 'SUCCEEDED') {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[RecurringCharge] CANCEL SWEEP MET A PAID OCCURRENCE ${b.id} inside the T-24h window (status ${nowRow.status}) — skipped, INVESTIGATE how it got here`
+        );
+      }
+      continue;
+    }
 
     // Best-effort PI teardown (H53 spirit — no dangling authorizations).
     if (b.stripePaymentIntentId && b.paymentStatus !== 'SUCCEEDED') {
