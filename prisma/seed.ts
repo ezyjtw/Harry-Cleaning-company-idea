@@ -191,7 +191,12 @@ async function main() {
       create: {
         userId: user.id,
         bio: data.bio,
-        hourlyRate: data.hourlyRate,
+        // LR-6a: hourlyRate was dropped when cleaner-set rates split per
+        // service — dev seed now writes the real columns (regular rate as
+        // given; deep derived like the app's own onboarding suggestion).
+        hourlyRateRegular: data.hourlyRate,
+        hourlyRateDeep: Math.round(data.hourlyRate * 1.45 * 2) / 2,
+        serviceTypes: ['regular', 'deep'],
         specialties: data.specialties,
         location: data.location,
         postcode: data.postcode,
