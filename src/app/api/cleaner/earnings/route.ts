@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     select: {
       id: true,
       serviceType: true,
-      totalPrice: true,
+      // LR-2/F24.3 payload law: no customer figure is even SELECTED here.
       cleanerEarnings: true,
       platformFee: true,
       completedAt: true,

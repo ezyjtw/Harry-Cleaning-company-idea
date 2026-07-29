@@ -1,20 +1,32 @@
 import { prisma } from '@/lib/db/prisma';
+import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
 
-// A13: cleaner self-serve earnings statements (remittance for self-assessment).
-// Figures are the cleaner's OWN business only — service price, Rena commission,
-// net — and reconcile: servicePrice - commission = net. No customer-paid total.
+// A13 + LR-2 (James-ruled): cleaner self-serve earnings statements. Figures
+// are the cleaner's OWN business only — "Your rate £X · Rena commission (N%)
+// −£Y · You received £Z" (+ supplies £4.50 when the products add-on rode).
+// Rows ride cleanerEarningsBreakdown: the reconcile-or-withhold law stands —
+// a row whose stored numbers don't reconcile to the penny (promo-adjusted
+// commission, admin price adjustment, legacy shape) shows the labelled net
+// ONLY, never arithmetic that doesn't add up. No customer-paid figure exists
+// anywhere in this pipeline.
 
 export interface StatementRow {
   date: string; // completedAt (income date), YYYY-MM-DD
   service: string;
-  servicePrice: number; // customerSubtotal (the cleaner's listed price)
-  commission: number; // platformCommissionAmount (Rena's cut)
+  /** null = breakdown withheld (non-reconciling row) — render the net only. */
+  rate: number | null;
+  feePct: number | null;
+  fee: number | null;
+  /** +£4.50 when the products add-on rode; 0 otherwise. */
+  suppliesNet: number;
   net: number; // cleanerPayoutAmount ?? cleanerEarnings (actually received)
 }
 
 export interface StatementData {
   rows: StatementRow[];
-  totals: { servicePrice: number; commission: number; net: number };
+  totals: { rate: number; fee: number; net: number };
+  /** True when any row withheld its breakdown — the PDF footnotes it. */
+  hasWithheldRows: boolean;
 }
 
 export interface StatementPeriod {
@@ -85,48 +97,45 @@ export async function getStatementData(
       serviceType: true,
       completedAt: true,
       customerSubtotal: true,
-      platformCommissionAmount: true,
       cleanerPayoutAmount: true,
-      // Legacy fallbacks (older bookings pre-date the A3/A4 fee fields).
       cleanerEarnings: true,
-      platformFee: true,
+      extras: true,
     },
     orderBy: { completedAt: 'asc' },
   });
 
   const rows: StatementRow[] = bookings.map((b) => {
-    // Net actually received.
+    // Net actually received — always shown, always the stored payout figure.
     const net = round2(
       b.cleanerPayoutAmount !== null ? Number(b.cleanerPayoutAmount) : Number(b.cleanerEarnings)
     );
-    // Rena commission.
-    const commission = round2(
-      b.platformCommissionAmount !== null
-        ? Number(b.platformCommissionAmount)
-        : Number(b.platformFee)
-    );
-    // Service price = the cleaner's listed price. Falls back to net + commission
-    // so the row always reconciles (servicePrice - commission = net).
-    const servicePrice = round2(
-      b.customerSubtotal !== null ? Number(b.customerSubtotal) : net + commission
-    );
+    // LR-2: the same helper every surface trusts — identity checked to the
+    // penny, withheld (nulls) when the stored numbers don't reconcile.
+    const bd = cleanerEarningsBreakdown({
+      serviceType: b.serviceType,
+      customerSubtotal: b.customerSubtotal,
+      cleanerEarnings: net,
+      extras: b.extras,
+    });
     return {
       date: (b.completedAt ?? new Date(0)).toISOString().split('T')[0],
       service: b.serviceType,
-      servicePrice,
-      commission,
+      rate: bd ? bd.rate : null,
+      feePct: bd ? bd.feePct : null,
+      fee: bd ? bd.fee : null,
+      suppliesNet: bd ? bd.productsNet : 0,
       net,
     };
   });
 
   const totals = rows.reduce(
     (acc, r) => ({
-      servicePrice: round2(acc.servicePrice + r.servicePrice),
-      commission: round2(acc.commission + r.commission),
+      rate: round2(acc.rate + (r.rate ?? 0)),
+      fee: round2(acc.fee + (r.fee ?? 0)),
       net: round2(acc.net + r.net),
     }),
-    { servicePrice: 0, commission: 0, net: 0 }
+    { rate: 0, fee: 0, net: 0 }
   );
 
-  return { rows, totals };
+  return { rows, totals, hasWithheldRows: rows.some((r) => r.rate === null) };
 }
