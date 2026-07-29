@@ -229,21 +229,27 @@ export default function AccountHome() {
             Your bookings, cleaners and account — all in one place.
           </p>
         </div>
-        {mostRecentCleaner ? (
+        {/* F24.2 (James-ruled): the generic booking door is ALWAYS present and
+            prominent — the person-specific rebook sits alongside it, never
+            replacing it. Distinct from the recurring offer card below. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {mostRecentCleaner && (
+            <Link
+              href={`/book/${mostRecentCleaner.id}`}
+              data-testid="rebook-cta"
+              className="inline-flex items-center justify-center rounded-[10px] border border-line bg-surface px-6 py-3 font-jost text-[13px] font-medium text-ink transition-colors hover:bg-page"
+            >
+              Book {mostRecentCleaner.name.split(' ')[0]} again
+            </Link>
+          )}
           <Link
-            href={`/book/${mostRecentCleaner.id}`}
+            href="/services"
+            data-testid="book-cleaner-cta"
             className="inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
           >
-            Book {mostRecentCleaner.name.split(' ')[0]} again
+            Book a cleaner
           </Link>
-        ) : (
-          <Link
-            href="/cleaners"
-            className="inline-flex items-center justify-center rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover"
-          >
-            Find a cleaner
-          </Link>
-        )}
+        </div>
       </div>
 
       {/* H57: pending price-change approvals — same action-needed grammar as

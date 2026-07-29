@@ -334,6 +334,8 @@ export function buildCleanerAssignment(
     area: string;
     cleanerEarnings?: number;
     suppliesProvided?: boolean | null;
+    // F24.1: a recurring occurrence says so — 'Weekly' | 'Every two weeks'.
+    recurringLabel?: string | null;
   },
   cleaner: CleanerEmailData
 ): EmailContent {
@@ -360,6 +362,10 @@ export function buildCleanerAssignment(
             string,
             string,
           ][])
+        : []),
+      // F24.1: recurring occurrences are decision-relevant — say so.
+      ...(booking.recurringLabel
+        ? ([['Repeats', `${booking.recurringLabel} (regular client)`]] as [string, string][])
         : []),
     ]) +
     // F12 (final spec): decision facts above, then BOTH choices as equals in
@@ -388,6 +394,8 @@ export function buildCleanerJobAccepted(data: {
   time: string;
   earnings: number;
   detailUrl: string;
+  // F24.1: a recurring occurrence says so — 'weekly' | 'every two weeks'.
+  recurringLabel?: string | null;
 }): EmailContent {
   const subject = `You're booked - ${data.date} at ${data.time}`;
   const contentHtml =
@@ -397,6 +405,11 @@ export function buildCleanerJobAccepted(data: {
       `Your ${data.serviceLabel} on ${data.date} at ${data.time} is confirmed. ` +
         `You earn &pound;${data.earnings.toFixed(2)}.`
     ) +
+    (data.recurringLabel
+      ? p(
+          `This is a <strong>regular clean</strong> — it repeats ${data.recurringLabel} with the same customer.`
+        )
+      : '') +
     p('The attached calendar file adds it to your calendar with the address and timings.') +
     button(data.detailUrl, 'Open the job') +
     pMuted(

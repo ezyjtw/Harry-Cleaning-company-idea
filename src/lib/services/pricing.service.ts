@@ -33,6 +33,74 @@ export const PRODUCTS_FEE_COMMISSION_RATE = 0.1;
 
 export const PRICE_ABSORPTION_THRESHOLD = 3.0;
 
+// ─── F24.3 (James-ruled): the cleaner-facing earnings breakdown ────────────
+// The banked money-display law (H104, sharpened): the cleaner sees THEIR OWN
+// arithmetic — "Your rate £X − Rena fee (N%) £Y = You receive £Z" — and the
+// customer's 6% service fee appears NOWHERE on any cleaner surface. This
+// helper builds that breakdown from the booking's STORED money snapshot
+// (customerSubtotal = the cleaner's listed price; cleanerEarnings = the payout
+// function's number). Never re-derived in a display layer: the identity
+// rate − fee (+ products £4.50 net) === receive is checked to the penny, and
+// when it does not hold (legacy row, admin adjustment) the breakdown is
+// withheld — callers then render the lawful minimum, a labelled
+// "You receive £Z" — so a wrong number can never be shown.
+
+export interface CleanerEarningsBreakdown {
+  /** The cleaner's own price for this job (hourly rate × hours, or their fixed price). */
+  rate: number;
+  /** Commission percentage for the service — 10 hourly, 15 fixed. */
+  feePct: number;
+  fee: number;
+  /** +£4.50 when the products add-on rides (the £5 fee minus its 10% commission). */
+  productsNet: number;
+  /** The payout number — ALWAYS the stored cleanerEarnings, never recomputed. */
+  receive: number;
+}
+
+/** Booking.serviceType carries url-slug variants; map to pricing slugs. */
+function commissionSlug(serviceType: string): ServiceSlug | null {
+  const map: Record<string, ServiceSlug> = {
+    regular: 'regular',
+    deep: 'deep',
+    'same-day': 'same-day',
+    same_day: 'same-day',
+    eot: 'eot',
+    'end-of-tenancy': 'eot',
+    end_of_tenancy: 'eot',
+    airbnb: 'airbnb',
+  };
+  return map[serviceType] ?? null;
+}
+
+export function cleanerEarningsBreakdown(input: {
+  serviceType: string;
+  customerSubtotal: number | null | undefined;
+  cleanerEarnings: number;
+  extras?: unknown;
+}): CleanerEarningsBreakdown | null {
+  const slug = commissionSlug(input.serviceType);
+  const rate = Number(input.customerSubtotal);
+  const receive = Number(input.cleanerEarnings);
+  if (!slug || !Number.isFinite(rate) || rate <= 0 || !Number.isFinite(receive)) return null;
+
+  const pct = COMMISSION_RATES[slug];
+  const fee = new Decimal(rate).mul(pct).toDecimalPlaces(2).toNumber();
+  const hasProducts = Array.isArray(input.extras) && input.extras.includes(PRODUCTS_ADDON_ID);
+  const productsNet = hasProducts
+    ? new Decimal(PRODUCTS_FEE)
+        .mul(1 - PRODUCTS_FEE_COMMISSION_RATE)
+        .toDecimalPlaces(2)
+        .toNumber()
+    : 0;
+
+  // The penny identity — if the stored numbers don't reconcile, show no
+  // breakdown rather than a wrong one.
+  const expected = new Decimal(rate).minus(fee).plus(productsNet).toDecimalPlaces(2).toNumber();
+  if (Math.abs(expected - receive) > 0.011) return null;
+
+  return { rate, feePct: Math.round(pct * 100), fee, productsNet, receive };
+}
+
 export const EOT_PRICE_FLOORS: Record<EotPropertySize, number> = {
   studio: 75,
   '1bed': 95,

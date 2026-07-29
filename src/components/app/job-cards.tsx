@@ -9,6 +9,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+// F24.1: recurring occurrences are visibly recurring on the shell too.
+function recurringSuffix(job: { recurringFrequency?: string | null }): string {
+  if (!job.recurringFrequency) return '';
+  return ` · Regular clean (${job.recurringFrequency === 'WEEKLY' ? 'weekly' : 'every two weeks'})`;
+}
+
 export interface AppJob {
   id: string;
   clientName: string;
@@ -19,6 +25,8 @@ export interface AppJob {
   serviceType: string;
   cleanerEarnings: number;
   viewerEarnings: number | null;
+  // F24.1: non-null = a recurring occurrence (WEEKLY | FORTNIGHTLY).
+  recurringFrequency?: string | null;
   status: string; // lowercase
   duration: number;
 }
@@ -276,7 +284,7 @@ export function HeroJob({
             {job.address}
           </a>
           <p className="mt-1 font-jost text-[13px] text-white/60">
-            {serviceLabel(job.serviceType)} · {job.duration}h
+            {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)}
           </p>
         </div>
         <p className="shrink-0 font-newsreader text-[28px] font-medium leading-none">
@@ -366,7 +374,7 @@ export function JobCard({
             {job.address}
           </a>
           <p className="mt-1 font-jost text-[13px] text-ink-3">
-            {serviceLabel(job.serviceType)} · {job.duration}h
+            {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -449,7 +457,7 @@ export function OfferCard({ job }: { job: AppJob }) {
           </p>
           <p className="mt-0.5 truncate font-jost text-sm text-ink-2">{job.address}</p>
           <p className="mt-1 font-jost text-[13px] text-ink-3">
-            {serviceLabel(job.serviceType)} · {job.duration}h
+            {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)}
           </p>
         </div>
         <p className="shrink-0 font-newsreader text-xl font-medium text-primary">

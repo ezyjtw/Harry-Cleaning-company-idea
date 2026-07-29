@@ -25,6 +25,9 @@ interface CalendarBooking {
   // R1-A: SCHEDULED occurrence of a recurring agreement — rendered as a
   // blocked slot labelled "Regular client", not a clickable job.
   isRegular?: boolean;
+  // F24.1: non-null = a recurring occurrence (WEEKLY | FORTNIGHTLY). Unlike
+  // isRegular, this survives the T-48h charge that flips SCHEDULED→ACCEPTED.
+  recurringFrequency?: string | null;
 }
 
 // H56 polish: per-day ghost availability — the cleaner's own remaining open
@@ -175,7 +178,10 @@ export default function CleanerCalendarPage() {
             {b.customerFirstName} · {serviceLabelFromSlug(b.serviceType)}
           </p>
           <p className="font-jost text-[11px] font-light text-ink-3">
-            Regular client{b.postcodeArea && ` · ${b.postcodeArea}`}
+            Regular client
+            {b.recurringFrequency &&
+              ` · ${b.recurringFrequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'}`}
+            {b.postcodeArea && ` · ${b.postcodeArea}`}
           </p>
           {!confirming ? (
             <button
@@ -244,6 +250,13 @@ export default function CleanerCalendarPage() {
         <p className="font-jost text-[11px] font-light text-ink-3">
           {b.postcodeArea && `${b.postcodeArea} · `}£{b.earnings.toFixed(2)}
         </p>
+        {/* F24.1: a charged (ACCEPTED) occurrence is still a regular clean —
+            the label must not vanish when isRegular (SCHEDULED-only) does. */}
+        {b.recurringFrequency && (
+          <p className="font-jost text-[11px] font-light text-primary">
+            Regular clean · {b.recurringFrequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'}
+          </p>
+        )}
       </NavLink>
     );
   };

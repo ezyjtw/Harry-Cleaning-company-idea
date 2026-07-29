@@ -25,6 +25,7 @@ import {
   minimumHoursForService,
   propertySizeSlugToEnum,
   serviceLabelFromSlug as serviceMinLabel,
+  bedroomsLabel,
 } from '@/lib/constants/services';
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
@@ -1503,7 +1504,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   <p className="font-jost font-light text-sm text-ink-2">
                     We recommend{' '}
                     <span className="font-normal text-ink">{suggestedHours} hours</span> for your{' '}
-                    {rooms.bedrooms} bedroom, {rooms.bathrooms} bathroom home.
+                    {rooms.bedrooms === 0 ? 'studio' : `${rooms.bedrooms} bedroom`},{' '}
+                    {rooms.bathrooms} bathroom home.
                   </p>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -1881,7 +1883,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   {postcode && <SummaryRow label="Postcode" value={postcode} />}
                   <SummaryRow
                     label="Space"
-                    value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
+                    value={`${bedroomsLabel(rooms.bedrooms)}, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
                   />
                   <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
                   <SummaryRow
@@ -3521,7 +3523,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               <SummaryRow label="Postcode" value={postcode} />
               <SummaryRow
                 label="Space"
-                value={`${rooms.bedrooms} bed, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
+                value={`${bedroomsLabel(rooms.bedrooms)}, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
               />
               <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
               <SummaryRow label="Frequency" value="One-off" />

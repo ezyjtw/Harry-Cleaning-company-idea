@@ -6,7 +6,7 @@ import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking'
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import type { ServiceSlug } from '@/lib/services/pricing.service';
-import { pricingService } from '@/lib/services/pricing.service';
+import { cleanerEarningsBreakdown, pricingService } from '@/lib/services/pricing.service';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export async function GET(request: NextRequest) {
@@ -99,6 +99,8 @@ export async function GET(request: NextRequest) {
       include: {
         client: { select: { name: true } },
         address: { select: { line1: true, city: true, postcode: true } },
+        // F24.1: occurrences must be visibly recurring on every surface.
+        agreement: { select: { frequency: true } },
       },
       orderBy: { date: 'desc' },
       skip: (page - 1) * limit,
@@ -116,8 +118,8 @@ export async function GET(request: NextRequest) {
       const isReserve = (b.reserveCleanerIds ?? []).includes(user.id);
 
       let viewerEarnings: number | null = null;
-      let viewerTotal: number | null = null;
-      let viewerPlatformFee: number | null = null;
+      // F24.3: the viewer's own breakdown (backup seat prices at THEIR rates).
+      let viewerBreakdown: ReturnType<typeof cleanerEarningsBreakdown> = null;
 
       const isRenaFind = b.cascadePhase === 'RENA_FIND' && b.backupCleanerIds.includes(user.id);
 
@@ -135,8 +137,12 @@ export async function GET(request: NextRequest) {
             addons: b.extras,
           });
           viewerEarnings = quote.cleanerPayout;
-          viewerTotal = quote.customerTotal;
-          viewerPlatformFee = quote.customerPlatformFee;
+          viewerBreakdown = cleanerEarningsBreakdown({
+            serviceType: b.serviceType,
+            customerSubtotal: quote.cleanerListedPrice,
+            cleanerEarnings: quote.cleanerPayout,
+            extras: b.extras,
+          });
         } catch {
           // If quoting fails, fall back to stored values — better than hiding the job
         }
@@ -160,9 +166,21 @@ export async function GET(request: NextRequest) {
         date: b.date.toISOString().split('T')[0],
         time: b.startTime,
         serviceType: b.serviceType,
-        totalPrice: Number(b.totalPrice),
+        // F24.3: customer-side money (total, 6% service fee) no longer rides
+        // to cleaner clients at all — the breakdown below is the cleaner's own
+        // arithmetic and the only money this payload carries.
         cleanerEarnings: Number(b.cleanerEarnings),
-        platformFee: Number(b.platformFee),
+        // F24.1: non-null frequency marks a recurring occurrence.
+        recurringFrequency: b.agreement?.frequency ?? null,
+        // F24.3: the cleaner's own arithmetic from the stored snapshot —
+        // "Your rate £X − Rena fee (N%) £Y = You receive £Z". Null when the
+        // stored numbers don't reconcile to the penny (render labelled net).
+        earningsBreakdown: cleanerEarningsBreakdown({
+          serviceType: b.serviceType,
+          customerSubtotal: b.customerSubtotal,
+          cleanerEarnings: Number(b.cleanerEarnings),
+          extras: b.extras,
+        }),
         status: b.status.toLowerCase(),
         paymentStatus: b.paymentStatus,
         duration: Number(b.duration),
@@ -175,8 +193,7 @@ export async function GET(request: NextRequest) {
         isProvisional,
         isReserve,
         viewerEarnings,
-        viewerTotal,
-        viewerPlatformFee,
+        viewerBreakdown,
       };
     })
   );

@@ -30,6 +30,11 @@ export interface JobIcsInput {
   // LB-7: the supplies answer — logistics, not sensitive, so it MAY ride the
   // calendar (unlike notes/access). Null renders the honest not-specified line.
   suppliesProvided?: boolean | null;
+  // F24.1: a recurring occurrence says so in the event description —
+  // 'weekly' | 'every two weeks'. (No RRULE: occurrences are individually
+  // minted bookings with their own UIDs; a calendar-side recurrence rule
+  // would drift from the real schedule on skips/cancellations.)
+  recurringLabel?: string | null;
 }
 
 // RFC 5545 text escaping: backslash, semicolon, comma, newline.
@@ -74,8 +79,9 @@ export function buildJobIcs(job: JobIcsInput): string {
     .replace(/[-:]/g, '')
     .replace(/\.\d{3}/, '');
   const description =
-    `${job.serviceLabel} · ${job.durationHours} hours\n` +
-    `${suppliesIcsLine(job.suppliesProvided)}\n` +
+    `${job.serviceLabel} · ${job.durationHours} hours\n${
+      job.recurringLabel ? `Regular clean — repeats ${job.recurringLabel}\n` : ''
+    }${suppliesIcsLine(job.suppliesProvided)}\n` +
     `You earn £${job.cleanerEarnings.toFixed(2)}\n` +
     `Entry details and customer notes: ${job.detailUrl}`;
 

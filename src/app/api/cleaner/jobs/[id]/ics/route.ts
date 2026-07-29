@@ -30,6 +30,8 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       status: { in: [...POST_ACCEPT_STATUSES] },
       ...paidVisibleWhere(),
     },
+    // F24.1: occurrences must be visibly recurring — the .ics says so too.
+    include: { agreement: { select: { frequency: true } } },
   });
   if (!booking) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
@@ -55,6 +57,11 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
     detailUrl: `${appUrl}/cleaner/jobs/${booking.id}`,
     suppliesProvided: booking.suppliesProvided,
+    recurringLabel: booking.agreement
+      ? booking.agreement.frequency === 'WEEKLY'
+        ? 'weekly'
+        : 'every two weeks'
+      : null,
   });
 
   return new NextResponse(ics, {

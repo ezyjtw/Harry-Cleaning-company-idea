@@ -73,6 +73,8 @@ export async function GET(request: NextRequest) {
         client: { select: { name: true } },
         guestName: true,
         address: { select: { postcode: true } },
+        // F24.1: occurrences must be visibly recurring on every surface.
+        agreement: { select: { frequency: true } },
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       take: 200,
@@ -143,7 +145,11 @@ export async function GET(request: NextRequest) {
         // Postcode AREA only (outward code) — the calendar is a glance surface.
         postcodeArea: postcode.split(' ')[0] || '',
         // R1-A: lets the calendar label the slot "Regular client".
+        // (Load-bearing for the paid/unpaid money split — do NOT redefine.)
         isRegular: b.status === 'SCHEDULED',
+        // F24.1: the truth about recurrence — survives the charge that flips
+        // SCHEDULED → ACCEPTED (isRegular does not, by design).
+        recurringFrequency: b.agreement?.frequency ?? null,
       };
     }),
     days,

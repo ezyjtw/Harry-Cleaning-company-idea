@@ -72,6 +72,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     include: {
       client: { select: { name: true, email: true } },
       address: true,
+      // F24.1: occurrences must be visibly recurring on every surface.
+      agreement: { select: { frequency: true } },
     },
   });
 
@@ -157,7 +159,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       time: booking.startTime,
       duration: Number(booking.duration),
       serviceType: booking.serviceType,
-      totalPrice: Number(booking.totalPrice),
+      // F24.1: non-null frequency marks a recurring occurrence.
+      recurringFrequency: booking.agreement?.frequency ?? null,
+      // F24.3: the customer total (6%-inclusive) is not the cleaner's business
+      // and no longer rides this payload.
       // H104 money law: the figure shown is THE payout function's figure —
       // getTransferAmountPence is the single source of the transfer amount.
       cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
