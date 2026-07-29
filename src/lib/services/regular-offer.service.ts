@@ -84,7 +84,8 @@ export async function getRegularCleanOffer(bookingId: string): Promise<RegularCl
   const existing = await prisma.recurringAgreement.findFirst({
     where: {
       cleanerId: booking.cleanerId,
-      status: 'ACTIVE',
+      // F23: an open request counts too — never re-offer while one is pending.
+      status: { in: ['ACTIVE', 'PENDING_CLEANER_ACCEPTANCE'] },
       ...(booking.clientId
         ? { clientId: booking.clientId }
         : { guestEmail: { equals: booking.guestEmail ?? '', mode: 'insensitive' } }),

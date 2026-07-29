@@ -120,6 +120,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    // F23 (James-ruled): the checkout-first recurring entry is RETIRED — a
+    // regular clean is now PROPOSED via POST /api/recurring/proposals and only
+    // goes live when the cleaner ACCEPTS. Refuse recurring payloads BEFORE any
+    // other validation: this path must be unreachable regardless of what else
+    // the body carries, and never silently books a one-off instead.
+    if (body.recurring) {
+      return NextResponse.json(
+        {
+          error:
+            'Regular cleans are now set up as a request your cleaner accepts — please refresh the page and try again.',
+        },
+        { status: 400 }
+      );
+    }
+
     if (body.duration !== undefined) {
       const dur = Number(body.duration);
       if (!isSaneDurationHours(dur)) {
@@ -757,106 +773,6 @@ export async function POST(request: NextRequest) {
     });
     if (replayExisting) return buildReplay(replayExisting);
 
-    // R1-A (amended): recurring entry is POST-COMPLETION only. The completed
-    // clean is STRUCTURAL — a recurring checkout is refused unless the customer
-    // already shares a completed clean with this cleaner. The first occurrence
-    // is THIS normal checkout; the agreement is created alongside it and future
-    // occurrences mint only after this booking's payment succeeds.
-    let recurringRequest: { frequency: 'WEEKLY' | 'FORTNIGHTLY' } | null = null;
-    if (body.recurring) {
-      const freq = String(body.recurring.frequency || '').toUpperCase();
-      if (freq !== 'WEEKLY' && freq !== 'FORTNIGHTLY') {
-        return NextResponse.json(
-          { error: 'Recurring frequency must be weekly or fortnightly.' },
-          { status: 400 }
-        );
-      }
-      if (!body.cleanerId || body.cleanerId === 'auto-assign') {
-        return NextResponse.json(
-          { error: 'A regular clean needs a chosen cleaner.' },
-          { status: 400 }
-        );
-      }
-      // The chosen slot must be one the cleaner explicitly opened to regular
-      // clients (recurringEligible) and cover the requested weekday + time.
-      const reqDay = new Date(`${body.date}T00:00:00Z`).getUTCDay();
-      const reqTime = String(body.time);
-      const slot = await prisma.availabilitySlot.findFirst({
-        where: {
-          cleanerProfile: { userId: body.cleanerId },
-          recurringEligible: true,
-          dayOfWeek: reqDay,
-          startTime: { lte: reqTime },
-          endTime: { gt: reqTime },
-        },
-        select: {
-          id: true,
-          startTime: true,
-          endTime: true,
-          cleanerProfile: { select: { bookingBufferMinutes: true } },
-        },
-      });
-      if (!slot) {
-        return NextResponse.json(
-          { error: 'That cleaner has not opened this slot to regular clients.' },
-          { status: 400 }
-        );
-      }
-      // F20 item 3: the chosen duration + the cleaner's buffer must FIT the
-      // regulars window — honest error naming the day's real capacity, never
-      // a clamp. One number chosen once: this same duration prices the quote,
-      // blocks the slot on every minted occurrence, and is what T-48h charges.
-      {
-        const toMin = (t: string) => {
-          const [h, m] = t.split(':').map(Number);
-          return (h || 0) * 60 + (m || 0);
-        };
-        const bufferMins = slot.cleanerProfile?.bookingBufferMinutes ?? 30;
-        const fitMins = toMin(slot.endTime) - toMin(reqTime) - bufferMins;
-        if (Number(body.duration) * 60 > fitMins) {
-          const dayName = [
-            'Sunday',
-            'Monday',
-            'Tuesday',
-            'Wednesday',
-            'Thursday',
-            'Friday',
-            'Saturday',
-          ][reqDay];
-          const maxH = Math.max(0, Math.floor(fitMins / 30) / 2);
-          const cleanerRow = await prisma.user.findUnique({
-            where: { id: body.cleanerId },
-            select: { name: true },
-          });
-          return NextResponse.json(
-            {
-              error: `${cleanerRow?.name || 'This cleaner'}'s regular slot on ${dayName}s fits up to ${maxH} hours — choose fewer hours or a different slot.`,
-            },
-            { status: 400 }
-          );
-        }
-      }
-      // The completed-clean requirement is STRUCTURAL (James-ruled amendment —
-      // no config flag): accounts match on clientId, guests on their booking
-      // email. A trial clean must exist and be complete before any agreement.
-      const done = await prisma.booking.count({
-        where: {
-          cleanerId: body.cleanerId,
-          status: { in: ['COMPLETED', 'REVIEWED'] },
-          ...(sessionUser
-            ? { clientId: sessionUser.id }
-            : { guestEmail: { equals: String(body.email || ''), mode: 'insensitive' } }),
-        },
-      });
-      if (done === 0) {
-        return NextResponse.json(
-          { error: 'Book one clean with this cleaner first — then make it regular.' },
-          { status: 400 }
-        );
-      }
-      recurringRequest = { frequency: freq };
-    }
-
     // 8. Create Booking record FIRST with paymentStatus: PENDING.
     // A16b-1: if a concurrent submit with the same idempotencyKey wins the race,
     // the unique constraint throws P2002 here — return the winner's booking.
@@ -922,45 +838,6 @@ export async function POST(request: NextRequest) {
         if (existing) return buildReplay(existing);
       }
       throw err;
-    }
-
-    // R1-A: mint the agreement now the first booking exists — snapshot the
-    // MONEY from the booking row itself (the quote the customer is paying),
-    // never recomputed. Future occurrences stay unminted until payment
-    // succeeds (the mint anchor requires a PAID booking).
-    if (recurringRequest) {
-      const agreement = await prisma.recurringAgreement.create({
-        data: {
-          clientId: sessionUser?.id || null,
-          guestEmail: sessionUser ? null : booking.guestEmail,
-          guestName: sessionUser ? null : booking.guestName,
-          cleanerId: body.cleanerId,
-          serviceType: booking.serviceType,
-          frequency: recurringRequest.frequency,
-          dayOfWeek: new Date(`${body.date}T00:00:00Z`).getUTCDay(),
-          startTime: booking.startTime,
-          duration: booking.duration,
-          addressLine1: booking.addressLine1 || '',
-          addressLine2: booking.addressLine2,
-          addressCity: booking.addressCity,
-          addressPostcode: booking.addressPostcode || '',
-          rooms: booking.rooms ?? undefined,
-          notes: booking.notes,
-          // LB-7: occurrences inherit the first booking's supplies answer.
-          suppliesProvided: booking.suppliesProvided,
-          totalPrice: booking.totalPrice,
-          platformFee: booking.platformFee,
-          cleanerEarnings: booking.cleanerEarnings,
-        },
-      });
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { agreementId: agreement.id },
-      });
-      // eslint-disable-next-line no-console
-      console.log(
-        `[Recurring] agreement ${agreement.id} created (${recurringRequest.frequency}) — first occurrence ${booking.id}`
-      );
     }
 
     // 9. Create Stripe PaymentIntent

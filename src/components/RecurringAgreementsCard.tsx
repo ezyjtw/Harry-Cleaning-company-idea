@@ -26,7 +26,15 @@ interface AgreementRow {
   nextOccurrenceId: string | null;
   nextOccurrenceTime: string | null;
   nextOccurrencePaid: boolean;
+  // F23: proposal fields — the request card / waiting row render from these.
+  proposedStartDate: string | null;
+  respondBy: string | null;
 }
+
+// F23: statuses this surface shows. PENDING renders as the cleaner's request
+// card (accept/decline — the soft-hold's visible face) or the customer's
+// waiting row; DECLINED/EXPIRED/ENDED rows never render here.
+const VISIBLE_STATUSES = new Set(['ACTIVE', 'PENDING_CLEANER_ACCEPTANCE']);
 
 // R1-C skip policy copy (James-ruled): unpaid free at any distance; paid free
 // before 24h; inside 24h the charge stands.
@@ -68,16 +76,46 @@ export default function RecurringAgreementsCard({
   const [skippingId, setSkippingId] = useState<string | null>(null);
   const [skipMsg, setSkipMsg] = useState<string | null>(null);
 
+  // F23: cleaner answers a pending request from here.
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const data = await fetch('/api/agreements').then((r) => (r.ok ? r.json() : null));
+    if (!data) return;
+    const rows: AgreementRow[] = role === 'CLEANER' ? data.asCleaner : data.asCustomer;
+    setAgreements((rows || []).filter((a) => VISIBLE_STATUSES.has(a.status)));
+  };
+
   useEffect(() => {
     fetch('/api/agreements')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data) return;
         const rows: AgreementRow[] = role === 'CLEANER' ? data.asCleaner : data.asCustomer;
-        setAgreements((rows || []).filter((a) => a.status === 'ACTIVE'));
+        setAgreements((rows || []).filter((a) => VISIBLE_STATUSES.has(a.status)));
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
+
+  const respond = async (id: string, action: 'ACCEPT' | 'DECLINE') => {
+    setRespondingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cleaner/arrangements/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Could not respond — please try again.');
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not respond — please try again.');
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   const endAgreement = async (id: string) => {
     setEndingId(id);
@@ -113,124 +151,200 @@ export default function RecurringAgreementsCard({
         <div>
           {agreements.map((a, i) => (
             <div key={a.id} className={`px-6 py-4 ${i > 0 ? 'border-t border-line' : ''}`}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-jost text-sm text-ink">
-                    {serviceLabelFromSlug(a.serviceType)} with {a.otherPartyName}
-                  </p>
-                  <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
-                    {a.frequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'} &middot;{' '}
-                    {DAY_NAMES[a.dayOfWeek]}s at {a.startTime}
-                    {formatNext(a.nextOccurrence) && (
-                      <> &middot; next clean {formatNext(a.nextOccurrence)}</>
+              {a.status === 'PENDING_CLEANER_ACCEPTANCE' ? (
+                // F23: the pending request — cleaner seat gets the accept/
+                // decline card; customer seat the honest waiting row. This is
+                // the soft-hold: visible as pending, blocking nothing.
+                role === 'CLEANER' ? (
+                  <div data-testid="arrangement-request">
+                    <p className="font-jost text-sm text-ink">
+                      Regular arrangement request from {a.otherPartyName}
+                    </p>
+                    <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
+                      {a.frequency === 'WEEKLY' ? 'Every week' : 'Every two weeks'} &middot;{' '}
+                      {DAY_NAMES[a.dayOfWeek]}s at {a.startTime} &middot; {a.duration}h
+                      {a.proposedStartDate && <> &middot; from {formatNext(a.proposedStartDate)}</>}
+                    </p>
+                    <p className="mt-1 font-jost text-sm text-ink">
+                      You earn <span className="font-medium">£{a.amount.toFixed(2)}</span> per clean
+                    </p>
+                    {a.respondBy && (
+                      <p className="mt-0.5 font-jost text-[12px] text-ink-3">
+                        Respond by{' '}
+                        {new Date(a.respondBy).toLocaleString('en-GB', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}{' '}
+                        — after that the request expires and the customer is told.
+                      </p>
                     )}
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <p className="font-newsreader text-lg font-medium text-ink">
-                    £{a.amount.toFixed(2)}
-                  </p>
-                  {role === 'CUSTOMER' &&
-                    a.nextOccurrenceId &&
-                    confirmingSkipId !== a.id &&
-                    confirmingId !== a.id && (
+                    <div className="mt-3 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setConfirmingSkipId(a.id)}
-                        className="font-jost text-[12px] text-ink-3 underline transition hover:text-ink"
+                        data-testid="arrangement-accept"
+                        disabled={respondingId === a.id}
+                        onClick={() => respond(a.id, 'ACCEPT')}
+                        className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
                       >
-                        Skip next clean
+                        {respondingId === a.id ? 'Working…' : 'Accept'}
                       </button>
-                    )}
-                  {confirmingId !== a.id && confirmingSkipId !== a.id && (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingId(a.id)}
-                      className="font-jost text-[12px] text-ink-3 underline transition hover:text-danger"
-                    >
-                      {role === 'CLEANER' ? 'End arrangement' : 'End regular clean'}
-                    </button>
+                      <button
+                        type="button"
+                        data-testid="arrangement-decline"
+                        disabled={respondingId === a.id}
+                        onClick={() => respond(a.id, 'DECLINE')}
+                        className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                    <p className="mt-2 font-jost text-[12px] font-light text-ink-3">
+                      Nothing is charged to {a.otherPartyName} unless you accept.
+                    </p>
+                  </div>
+                ) : (
+                  <div data-testid="arrangement-waiting">
+                    <p className="font-jost text-sm text-ink">
+                      Waiting for {a.otherPartyName} to accept
+                    </p>
+                    <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
+                      {a.frequency === 'WEEKLY' ? 'Every week' : 'Every two weeks'} &middot;{' '}
+                      {DAY_NAMES[a.dayOfWeek]}s at {a.startTime}
+                      {a.proposedStartDate && <> &middot; from {formatNext(a.proposedStartDate)}</>}
+                    </p>
+                    <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                      Nothing is charged unless they accept — we&rsquo;ll email you either way
+                      within 48 hours.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-jost text-sm text-ink">
+                        {serviceLabelFromSlug(a.serviceType)} with {a.otherPartyName}
+                      </p>
+                      <p className="mt-0.5 font-jost text-sm font-light text-ink-3">
+                        {a.frequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'} &middot;{' '}
+                        {DAY_NAMES[a.dayOfWeek]}s at {a.startTime}
+                        {formatNext(a.nextOccurrence) && (
+                          <> &middot; next clean {formatNext(a.nextOccurrence)}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <p className="font-newsreader text-lg font-medium text-ink">
+                        £{a.amount.toFixed(2)}
+                      </p>
+                      {role === 'CUSTOMER' &&
+                        a.nextOccurrenceId &&
+                        confirmingSkipId !== a.id &&
+                        confirmingId !== a.id && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingSkipId(a.id)}
+                            className="font-jost text-[12px] text-ink-3 underline transition hover:text-ink"
+                          >
+                            Skip next clean
+                          </button>
+                        )}
+                      {confirmingId !== a.id && confirmingSkipId !== a.id && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(a.id)}
+                          className="font-jost text-[12px] text-ink-3 underline transition hover:text-danger"
+                        >
+                          {role === 'CLEANER' ? 'End arrangement' : 'End regular clean'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {confirmingSkipId === a.id && (
+                    <div className="mt-3 rounded-[10px] border border-line bg-page p-4">
+                      <p className="font-jost text-sm text-ink">{skipCopy(a)}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={skippingId === a.id}
+                          onClick={async () => {
+                            setSkippingId(a.id);
+                            setError(null);
+                            try {
+                              const res = await fetch(`/api/bookings/${a.nextOccurrenceId}/skip`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: '{}',
+                              });
+                              const data = await res.json().catch(() => null);
+                              if (!res.ok) throw new Error(data?.error || 'Could not skip.');
+                              setSkipMsg(data?.message ?? 'Skipped.');
+                              // refresh next-occurrence info
+                              const ref = await fetch('/api/agreements').then((r) =>
+                                r.ok ? r.json() : null
+                              );
+                              if (ref) {
+                                const rows: AgreementRow[] =
+                                  role === 'CLEANER' ? ref.asCleaner : ref.asCustomer;
+                                setAgreements(
+                                  (rows || []).filter((x) => VISIBLE_STATUSES.has(x.status))
+                                );
+                              }
+                            } catch (e) {
+                              setError(e instanceof Error ? e.message : 'Could not skip.');
+                            } finally {
+                              setSkippingId(null);
+                              setConfirmingSkipId(null);
+                            }
+                          }}
+                          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+                        >
+                          {skippingId === a.id ? 'Skipping…' : 'Yes, skip it'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={skippingId === a.id}
+                          onClick={() => setConfirmingSkipId(null)}
+                          className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
+                        >
+                          Keep it
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </div>
-              </div>
-              {confirmingSkipId === a.id && (
-                <div className="mt-3 rounded-[10px] border border-line bg-page p-4">
-                  <p className="font-jost text-sm text-ink">{skipCopy(a)}</p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      disabled={skippingId === a.id}
-                      onClick={async () => {
-                        setSkippingId(a.id);
-                        setError(null);
-                        try {
-                          const res = await fetch(`/api/bookings/${a.nextOccurrenceId}/skip`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: '{}',
-                          });
-                          const data = await res.json().catch(() => null);
-                          if (!res.ok) throw new Error(data?.error || 'Could not skip.');
-                          setSkipMsg(data?.message ?? 'Skipped.');
-                          // refresh next-occurrence info
-                          const ref = await fetch('/api/agreements').then((r) =>
-                            r.ok ? r.json() : null
-                          );
-                          if (ref) {
-                            const rows: AgreementRow[] =
-                              role === 'CLEANER' ? ref.asCleaner : ref.asCustomer;
-                            setAgreements((rows || []).filter((x) => x.status === 'ACTIVE'));
-                          }
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : 'Could not skip.');
-                        } finally {
-                          setSkippingId(null);
-                          setConfirmingSkipId(null);
-                        }
-                      }}
-                      className="rounded-[10px] bg-primary px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
-                    >
-                      {skippingId === a.id ? 'Skipping…' : 'Yes, skip it'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={skippingId === a.id}
-                      onClick={() => setConfirmingSkipId(null)}
-                      className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
-                    >
-                      Keep it
-                    </button>
-                  </div>
-                </div>
-              )}
-              {confirmingId === a.id && (
-                <div className="mt-3 rounded-[10px] border border-danger/25 bg-danger/5 p-4">
-                  <p className="font-jost text-sm text-ink">
-                    End this regular clean? All upcoming scheduled cleans are cancelled and nothing
-                    further is charged.{' '}
-                    {role === 'CLEANER'
-                      ? 'Your client will be told, and these slots reopen for other bookings.'
-                      : 'Your cleaner will be told. Any clean that already happened is unaffected.'}
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      disabled={endingId === a.id}
-                      onClick={() => endAgreement(a.id)}
-                      className="rounded-[10px] bg-danger px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                    >
-                      {endingId === a.id ? 'Ending…' : 'Yes, end it'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={endingId === a.id}
-                      onClick={() => setConfirmingId(null)}
-                      className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
-                    >
-                      Keep it
-                    </button>
-                  </div>
-                </div>
+                  {confirmingId === a.id && (
+                    <div className="mt-3 rounded-[10px] border border-danger/25 bg-danger/5 p-4">
+                      <p className="font-jost text-sm text-ink">
+                        End this regular clean? All upcoming scheduled cleans are cancelled and
+                        nothing further is charged.{' '}
+                        {role === 'CLEANER'
+                          ? 'Your client will be told, and these slots reopen for other bookings.'
+                          : 'Your cleaner will be told. Any clean that already happened is unaffected.'}
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={endingId === a.id}
+                          onClick={() => endAgreement(a.id)}
+                          className="rounded-[10px] bg-danger px-4 py-2 font-jost text-[12px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                        >
+                          {endingId === a.id ? 'Ending…' : 'Yes, end it'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={endingId === a.id}
+                          onClick={() => setConfirmingId(null)}
+                          className="rounded-[10px] border border-line bg-surface px-4 py-2 font-jost text-[12px] text-ink transition hover:bg-page"
+                        >
+                          Keep it
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}

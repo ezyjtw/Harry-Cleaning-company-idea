@@ -445,6 +445,96 @@ export function buildAgreementEnded(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// F23: the arrangement REQUEST to the cleaner — accept/decline within 48h.
+// Net-first law: the cleaner sees their net per clean, nothing else.
+export function buildArrangementRequest(data: {
+  cleanerName: string;
+  customerName: string;
+  arrangementLine: string; // "every Tuesday at 10:00, 2h"
+  frequencyLabel: string; // 'weekly' | 'fortnightly'
+  startDateLong: string; // "Tuesday 4 August"
+  netPerClean: string; // "36.00"
+  respondByLong: string; // "Thursday 31 July, 4:00pm"
+  ctaUrl: string;
+}): EmailContent {
+  const subject = `${data.customerName} wants a regular slot with you`;
+  const contentHtml =
+    h('New regular arrangement request') +
+    p(`Hi ${data.cleanerName},`) +
+    p(
+      `${data.customerName} wants a regular ${data.frequencyLabel} slot with you: ${data.arrangementLine}, starting ${data.startDateLong}. ` +
+        `You&rsquo;d earn <strong>&pound;${data.netPerClean}</strong> per clean.`
+    ) +
+    p(
+      `Accept or decline from your availability page — please respond by ${data.respondByLong}. ` +
+        'If you don&rsquo;t respond in time the request expires and the customer is told.'
+    ) +
+    button(data.ctaUrl, 'Respond to the request') +
+    pMuted('Nothing is charged to the customer unless you accept.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// F23: acceptance notice to the customer. The first clean charged at accept
+// (or, if the saved card failed, the pay-now email follows separately — this
+// one stays honest about which happened).
+export function buildArrangementAccepted(data: {
+  customerName: string;
+  cleanerName: string;
+  frequencyLabel: string;
+  arrangementLine: string;
+  startDateLong: string;
+  amount: string; // "42.40"
+  firstChargeTaken: boolean;
+}): EmailContent {
+  const subject = `${data.cleanerName} accepted — your regular clean is on`;
+  const contentHtml =
+    h('Your regular clean is on') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `${data.cleanerName} accepted your regular ${data.frequencyLabel} arrangement: ${data.arrangementLine}, starting ${data.startDateLong}.`
+    ) +
+    (data.firstChargeTaken
+      ? p(
+          `Your first clean has been charged to your saved card (&pound;${data.amount}). Future cleans are charged 48 hours before each visit.`
+        )
+      : p(
+          `We couldn&rsquo;t charge your saved card for the first clean — check your inbox for a payment link to keep the slot. Future cleans are charged 48 hours before each visit.`
+        )) +
+    pMuted(
+      `No lock-in — you or ${data.cleanerName} can end the arrangement at any time, and anything not yet charged is simply cancelled.`
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// F23: the honest no — decline and 48h-expiry share one shape. NO charge was
+// ever taken; say so plainly, and point at the browse page (James-ruled CTA:
+// "find another regular").
+export function buildArrangementClosed(data: {
+  customerName: string;
+  cleanerName: string;
+  kind: 'DECLINED' | 'EXPIRED';
+  findUrl: string;
+}): EmailContent {
+  const subject =
+    data.kind === 'DECLINED'
+      ? `${data.cleanerName} couldn't commit to a regular slot`
+      : 'Your regular clean request expired';
+  const contentHtml =
+    h(data.kind === 'DECLINED' ? 'They couldn&rsquo;t commit this time' : 'Your request expired') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      data.kind === 'DECLINED'
+        ? `${data.cleanerName} couldn&rsquo;t commit to a regular slot right now.`
+        : `${data.cleanerName} didn&rsquo;t respond to your regular clean request within 48 hours, so it has expired.`
+    ) +
+    p(
+      '<strong>You haven&rsquo;t been charged anything</strong> — nothing was set up, so there&rsquo;s nothing to undo.'
+    ) +
+    button(data.findUrl, 'Find another regular') +
+    pMuted('You can also keep booking one-off cleans exactly as before.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 // R1-B: the single-attempt failure email — James-ruled copy. The link is the
 // normal ON-SESSION checkout for this occurrence (SCA handled natively there).
 export function buildOccurrencePayNow(data: {

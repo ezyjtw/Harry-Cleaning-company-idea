@@ -30,6 +30,7 @@ export interface SchedulerSummary {
   recurringWindows: HandlerResult;
   recurringCharges: HandlerResult;
   recurringCancels: HandlerResult;
+  arrangementTimeouts: HandlerResult;
   incompleteSignups: HandlerResult;
 }
 
@@ -403,6 +404,20 @@ async function processRecurringCancels(): Promise<HandlerResult> {
   }
 }
 
+// F23: expire un-answered arrangement requests at 48h — loud, watched-set.
+// This is the replacement for the retired cascade-expiry-refund path: the
+// terminal state of an unanswered proposal is "expired, no charge".
+async function processArrangementTimeouts(): Promise<HandlerResult> {
+  try {
+    const { expirePendingArrangements } = await import('./arrangement.service');
+    return await expirePendingArrangements();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[Arrangement] expiry sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 // LB-3: 30-day auto-expiry of incomplete cleaner signups. Same structural
 // guard as the admin broom (removeIncompleteSignup is the shared core); the
 // sweep only adds the age cutoff. Converges to zero; audit rows say swept:true.
@@ -432,6 +447,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const recurringWindows = await processRecurringWindows();
   const recurringCharges = await processRecurringCharges();
   const recurringCancels = await processRecurringCancels();
+  const arrangementTimeouts = await processArrangementTimeouts();
   const incompleteSignups = await processIncompleteSignups();
 
   return {
@@ -450,6 +466,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     recurringWindows,
     recurringCharges,
     recurringCancels,
+    arrangementTimeouts,
     incompleteSignups,
   };
 }

@@ -914,7 +914,14 @@ enum RecurringFrequency {
 }
 
 enum AgreementStatus {
+  // F23 (James-ruled): agreements start as a PROPOSAL — nothing charged,
+  // nothing minted, until the cleaner explicitly accepts within the window.
+  PENDING_CLEANER_ACCEPTANCE
   ACTIVE
+  // F23 terminal pre-acceptance states: the cleaner said no / the 48h window
+  // lapsed. In both, NO money ever moved — that is the whole point.
+  DECLINED
+  EXPIRED
   ENDED
 }
 
@@ -948,12 +955,25 @@ model RecurringAgreement {
   endedAt DateTime?
   endedBy String?
 
+  // F23: the proposal fields. proposedStartDate is the CUSTOMER-CHOSEN first
+  // clean date (replaces next-weekday auto-derivation); occurrences mint from
+  // it, inclusive. respondBy is the cleaner's 48h acceptance deadline — the
+  // expiry sweep cuts on it. trialBookingId is the completed clean the
+  // proposal reuses (address/service context AND the F7 saved-card anchor for
+  // the accept-time first charge). Nullable: pre-F23 agreements have none.
+  proposedStartDate DateTime? @db.Date
+  respondBy         DateTime?
+  acceptedAt        DateTime?
+  trialBookingId    String?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   bookings  Booking[] @relation("AgreementOccurrences")
 
   @@index([cleanerId, status])
   @@index([clientId])
+  // F23: the expiry sweep's cut — PENDING rows past their respondBy.
+  @@index([status, respondBy])
 }
 
 model AvailabilityOverride {

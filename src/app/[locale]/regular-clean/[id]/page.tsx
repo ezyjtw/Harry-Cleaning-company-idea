@@ -1,20 +1,18 @@
 'use client';
 
-// R1-A (amended): "Set up your regular clean" — the post-completion landing
+// F23 (James-ruled): "Set up your regular clean" — the post-completion landing
 // for the make-it-regular CTA. [id] is the CLEANER. Context comes from the
 // completed booking (?from=bookingId for account holders, ?token= for guests):
-// service, duration and address are REUSED from the clean they just had — this
-// page only collects frequency + slot, then runs the NORMAL checkout (the
-// first occurrence is a plain paid booking; the agreement rides alongside it
-// server-side, occurrences mint on payment success).
+// service and address are REUSED from the clean they just had; the customer
+// chooses frequency + slot + hours + START DATE. Submitting sends a REQUEST
+// (PENDING_CLEANER_ACCEPTANCE) — NOTHING is charged and nothing is booked
+// until the cleaner accepts within 48 hours. On accept the first clean is
+// charged to the saved card; decline/timeout → honest email, no money moved.
 
-import { Elements } from '@stripe/react-stripe-js';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import StripeCheckoutForm from '@/components/booking/StripeCheckoutForm';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
-import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 
 interface EligibleSlot {
   dayOfWeek: number;
@@ -47,6 +45,11 @@ const QUOTE_SLUG: Record<string, string> = {
   same_day: 'regular',
 };
 
+// Mirrors the server's proposal rules: first clean at least 3 days out (the
+// cleaner has 48h to accept), at most 8 weeks (the R1 cap).
+const MIN_START_DAYS = 3;
+const MAX_START_DAYS = 56;
+
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
@@ -54,18 +57,29 @@ function timeToMinutes(t: string): number {
 function minutesToTime(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
-
-/** Next date (YYYY-MM-DD, local) falling on dayOfWeek, strictly after today. */
-function nextDateFor(dayOfWeek: number): string {
-  const d = new Date();
-  d.setHours(12, 0, 0, 0);
-  do {
-    d.setDate(d.getDate() + 1);
-  } while (d.getDay() !== dayOfWeek);
+function toYmd(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** F23: the customer-chosen start date — every date on this weekday inside
+ *  the [3 days, 8 weeks] window. */
+function candidateStartDates(dayOfWeek: number): string[] {
+  const out: string[] = [];
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + MIN_START_DAYS);
+  while (d.getDay() !== dayOfWeek) d.setDate(d.getDate() + 1);
+  const limit = new Date();
+  limit.setHours(12, 0, 0, 0);
+  limit.setDate(limit.getDate() + MAX_START_DAYS);
+  while (d <= limit) {
+    out.push(toYmd(d));
+    d.setDate(d.getDate() + 7);
+  }
+  return out;
 }
 
 export default function RegularCleanSetupPage() {
@@ -88,17 +102,12 @@ export default function RegularCleanSetupPage() {
   // duration once context loads; the server quote and fit check both key on it.
   const [hours, setHours] = useState<number | null>(null);
   const [bufferMinutes, setBufferMinutes] = useState<number>(30);
+  // F23: the customer chooses the first-clean date.
+  const [startDate, setStartDate] = useState<string>('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [customerSessionSecret, setCustomerSessionSecret] = useState<string | null>(null);
-  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
-  const [createdBooking, setCreatedBooking] = useState<{
-    id: string;
-    guestToken: string | null;
-  } | null>(null);
-  const [saveCard, setSaveCard] = useState(true);
+  const [sentRespondBy, setSentRespondBy] = useState<string | null>(null);
 
   // The cleaner's open slots (public read — same source the offer used).
   useEffect(() => {
@@ -156,7 +165,7 @@ export default function RegularCleanSetupPage() {
             addressCity: b.addressCity || b.address?.city || '',
             addressPostcode: b.addressPostcode || b.address?.postcode || '',
             name: b.client?.name || 'there',
-            email: '', // filled server-side from the session for account holders
+            email: '',
             phone: b.client?.phone || '',
             isGuest: false,
           });
@@ -168,21 +177,6 @@ export default function RegularCleanSetupPage() {
       }
     })();
   }, [fromBookingId, guestToken]);
-
-  // Account holders: the POST requires an email — read the session.
-  useEffect(() => {
-    if (guestToken) return;
-    fetch('/api/auth/session')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((s) => {
-        if (s?.user?.email) {
-          setContext((prev) =>
-            prev ? { ...prev, email: s.user.email, name: s.user.name || prev.name } : prev
-          );
-        }
-      })
-      .catch(() => {});
-  }, [guestToken]);
 
   // Default slot: the one covering the clean they just had, else the first.
   useEffect(() => {
@@ -201,9 +195,9 @@ export default function RegularCleanSetupPage() {
     if (context && hours === null) setHours(context.duration);
   }, [context, hours]);
 
-  // Per-clean price — the server's own quote (the checkout re-computes it, so
-  // this can never drift past the API's tolerance). Re-quotes on every hours
-  // change; no client arithmetic anywhere.
+  // Per-clean price — the server's own quote (the proposal re-computes it, so
+  // this can never drift). Re-quotes on every hours change; no client
+  // arithmetic anywhere.
   useEffect(() => {
     if (!context || hours === null) return;
     setQuoteTotal(null);
@@ -243,7 +237,18 @@ export default function RegularCleanSetupPage() {
   const hoursDontFit =
     hours !== null && selectedSlot !== null && timeOptions.length === 0 && slots !== null;
 
-  const firstDate = selectedSlot ? nextDateFor(selectedSlot.dayOfWeek) : null;
+  // F23: the start-date choices for the selected slot's weekday.
+  const startDateOptions = useMemo(
+    () => (selectedSlot ? candidateStartDates(selectedSlot.dayOfWeek) : []),
+    [selectedSlot]
+  );
+
+  // Slot changes can invalidate the chosen date — snap to the first valid one.
+  useEffect(() => {
+    if (startDateOptions.length === 0) return;
+    if (!startDateOptions.includes(startDate)) setStartDate(startDateOptions[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDateOptions]);
 
   const usualSlotIndex = useMemo(() => {
     if (!slots || !context) return -1;
@@ -262,46 +267,29 @@ export default function RegularCleanSetupPage() {
   }, [timeOptions]);
 
   const confirm = async () => {
-    if (!context || !selectedSlot || !time || !firstDate || submitting || hours === null) return;
+    if (!context || !selectedSlot || !time || !startDate || submitting || hours === null) return;
     if (hoursDontFit) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch('/api/bookings', {
+      const res = await fetch('/api/recurring/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cleanerId,
-          name: context.name,
-          email: context.email,
-          phone: context.phone || undefined,
-          addressLine1: context.addressLine1,
-          addressLine2: context.addressLine2 || undefined,
-          addressCity: context.addressCity,
-          addressPostcode: context.addressPostcode,
-          date: firstDate,
+          frequency,
+          startDate,
           time,
           duration: hours,
-          serviceType: QUOTE_SLUG[context.serviceType] || 'regular',
-          ...(quoteTotal !== null ? { totalPrice: quoteTotal } : {}),
-          isGuest: context.isGuest,
-          recurring: { frequency },
+          ...(guestToken ? { guestToken } : { fromBookingId: context.id }),
         }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error || `Something went wrong (${res.status}).`);
       }
-      setCreatedBooking(
-        data.booking ? { id: data.booking.id, guestToken: data.booking.guestToken ?? null } : null
-      );
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        setCustomerSessionSecret(data.customerSessionClientSecret || null);
-        setPaymentIntentId(data.booking?.stripePaymentIntentId || '');
-      } else {
-        throw new Error('Payment could not be started — please try again.');
-      }
+      // Empty string = sent but respondBy missing — still show the sent state.
+      setSentRespondBy(typeof data?.respondBy === 'string' ? data.respondBy : '');
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
@@ -309,71 +297,43 @@ export default function RegularCleanSetupPage() {
     }
   };
 
-  // ── Payment step: the normal checkout (F7 saved-card tile for accounts) ──
-  if (clientSecret) {
+  // ── Sent state: the request is with the cleaner — nothing charged. ──
+  if (sentRespondBy !== null) {
+    const respondByLabel = sentRespondBy
+      ? new Date(sentRespondBy).toLocaleString('en-GB', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : null;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-page">
-        <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
-          Confirm your first regular clean
-        </h1>
-        <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
-          You&rsquo;re paying for the first clean now — future cleans are confirmed and paid closer
-          to each date.
-        </p>
-        <div className="mt-6 bg-primary-soft p-5" style={{ border: '0.5px solid #E4E9F0' }}>
-          <div className="grid gap-2 font-jost text-sm font-light">
-            <div className="flex justify-between">
-              <span className="text-ink-3">Cleaner</span>
-              <span className="font-normal text-ink">{cleanerName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-3">Repeats</span>
-              <span className="font-normal text-ink">
-                {frequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-3">First clean</span>
-              <span className="font-normal text-ink">
-                {firstDate} at {time}
-              </span>
-            </div>
-            {quoteTotal !== null && (
-              <div
-                className="flex justify-between pt-2 mt-2"
-                style={{ borderTop: '0.5px solid #E4E9F0' }}
-              >
-                <span className="font-normal text-ink">Per clean</span>
-                <span className="font-newsreader text-2xl font-medium text-primary">
-                  &pound;{quoteTotal.toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-        <Elements
-          stripe={stripePromise}
-          options={{
-            clientSecret,
-            appearance: stripeAppearance,
-            fonts: stripeFonts,
-            // F7: present → PaymentElement shows the customer's saved cards.
-            ...(customerSessionSecret
-              ? { customerSessionClientSecret: customerSessionSecret }
-              : {}),
-          }}
+        <div
+          className="rounded-2xl border border-line bg-surface p-8 text-center"
+          data-testid="proposal-sent"
         >
-          <StripeCheckoutForm
-            total={quoteTotal ?? 0}
-            bookingId={createdBooking?.id || ''}
-            paymentIntentId={paymentIntentId}
-            saveCard={saveCard}
-            onSaveCardChange={setSaveCard}
-            isGuest={!!guestToken}
-            guestToken={createdBooking?.guestToken ?? null}
-            onBack={() => setClientSecret(null)}
-          />
-        </Elements>
+          <h1 className="font-newsreader text-3xl font-semibold text-ink">
+            Request sent to {cleanerName}
+          </h1>
+          <p className="mt-3 font-jost text-sm font-light text-ink-2">
+            {cleanerName} has 48 hours to accept your regular clean
+            {respondByLabel ? ` (by ${respondByLabel})` : ''}. We&rsquo;ll email you either way.
+          </p>
+          <p className="mt-3 font-jost text-sm font-light text-ink-2">
+            <strong>Nothing has been charged.</strong> If {cleanerName} accepts, your first clean on{' '}
+            {startDate
+              ? new Date(`${startDate}T00:00:00`).toLocaleDateString('en-GB', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                })
+              : 'the chosen date'}{' '}
+            is charged to your saved card then, and future cleans are charged 48 hours before each
+            visit. If they can&rsquo;t commit, no money moves.
+          </p>
+        </div>
       </div>
     );
   }
@@ -537,16 +497,41 @@ export default function RegularCleanSetupPage() {
             </select>
           </div>
         )}
+
+        {/* F23: the customer chooses the FIRST clean's date. */}
+        {selectedSlot && startDateOptions.length > 0 && (
+          <div className="mt-4">
+            <label className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              First clean on
+            </label>
+            <select
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              data-testid="regular-start-date"
+              className="mt-1 block rounded-lg px-3 py-2 font-jost text-sm text-ink bg-page ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              {startDateOptions.map((d) => (
+                <option key={d} value={d}>
+                  {new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                  })}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Summary + confirm */}
+      {/* Summary + send request */}
       <div className="mt-4 p-4" style={{ border: '0.5px solid #E4E9F0' }}>
         <div className="grid gap-1.5 font-jost text-sm font-light">
           <div className="flex justify-between">
             <span className="text-ink-3">First clean</span>
             <span className="font-normal text-ink">
-              {firstDate
-                ? `${new Date(`${firstDate}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${time}`
+              {startDate
+                ? `${new Date(`${startDate}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${time}`
                 : '—'}
             </span>
           </div>
@@ -567,18 +552,20 @@ export default function RegularCleanSetupPage() {
           )}
         </div>
         <p className="mt-3 font-jost text-[12px] font-light text-ink-3">
-          You pay for the first clean now. Each future clean is confirmed and paid closer to the
-          date. No lock-in — you or {cleanerName} can end the arrangement at any time, and anything
-          not yet charged is simply cancelled.
+          Nothing is charged now. {cleanerName} has 48 hours to accept your request — if they do,
+          your first clean is charged to your saved card and future cleans are charged 48 hours
+          before each visit. If they can&rsquo;t commit, we&rsquo;ll tell you straight away and no
+          money moves. No lock-in — either of you can end the arrangement at any time.
         </p>
         {submitError && <p className="mt-2 font-jost text-sm text-danger">{submitError}</p>}
         <button
           type="button"
-          disabled={submitting || !selectedSlot || !time || hoursDontFit}
+          data-testid="send-request"
+          disabled={submitting || !selectedSlot || !time || !startDate || hoursDontFit}
           onClick={confirm}
           className="mt-4 w-full rounded-[10px] bg-primary px-6 py-3 font-jost text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
-          {submitting ? 'Setting up…' : 'Continue to payment'}
+          {submitting ? 'Sending…' : `Send request to ${cleanerName}`}
         </button>
       </div>
     </div>
