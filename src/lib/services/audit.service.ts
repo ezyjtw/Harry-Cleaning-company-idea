@@ -70,6 +70,8 @@ export type AuditAction =
   // CLEANER_PROFILE_UPDATED with visibleInDirectory in updatedFields)
   | 'ADMIN_CLEANER_HIDDEN'
   | 'ADMIN_CLEANER_SHOWN'
+  // F28: admin re-sends the welcome-verify email to an incomplete signup
+  | 'ADMIN_RESEND_VERIFICATION'
   // Compliance actions
   | 'DATA_BREACH_DETECTED'
   | 'DATA_BREACH_REPORTED_ICO'
