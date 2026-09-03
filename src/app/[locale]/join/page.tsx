@@ -15,7 +15,7 @@ import {
   serviceTypeLabel,
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
-import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { setAnalyticsUserId, useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import {
   dataUrlBytes,
@@ -932,6 +932,9 @@ export default function JoinAsCleanerPage() {
   // H99 ①: the account is born when step 0 completes. Persisted with the
   // draft so a resumed run never re-creates (409s) its own account.
   const [accountCreated, setAccountCreated] = useState(false);
+  // F29 (James-ruled): once the account exists, wizard analytics events carry
+  // its userId — persisted with the draft so a resumed run stays attributed.
+  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [accountExists, setAccountExists] = useState(false);
   const [webcamTarget, setWebcamTarget] = useState<'profilePhoto' | 'selfiePhoto' | null>(null);
@@ -987,7 +990,14 @@ export default function JoinAsCleanerPage() {
         // H99 ①: the account survives abandonment — the resumed draft must not
         // try to create it again (its own 409). The final submit attaches the
         // profile to the existing account under session proof.
-        if (parsed.accountCreated === true) setAccountCreated(true);
+        if (parsed.accountCreated === true) {
+          setAccountCreated(true);
+          // F29: a resumed run keeps its attribution.
+          if (typeof parsed.userId === 'string' && parsed.userId) {
+            setAccountUserId(parsed.userId);
+            setAnalyticsUserId(parsed.userId);
+          }
+        }
         if (typeof parsed.currentStep === 'number') {
           const savedStep = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
           // maxReachedStep keeps their real progress (all steps stay tappable)…
@@ -1035,12 +1045,12 @@ export default function JoinAsCleanerPage() {
       };
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ form: persistable, currentStep, accountCreated })
+        JSON.stringify({ form: persistable, currentStep, accountCreated, userId: accountUserId })
       );
     } catch {
       /* quota exceeded – ignore */
     }
-  }, [form, currentStep, mounted, accountCreated]);
+  }, [form, currentStep, mounted, accountCreated, accountUserId]);
 
   /* ---- Field updater helpers ---- */
   const set = useCallback(
@@ -1273,8 +1283,15 @@ export default function JoinAsCleanerPage() {
           setErrors({ email: (data.error as string) || 'Something went wrong. Please try again.' });
           return;
         }
+        const created = await res.json().catch(() => null);
         setAccountCreated(true);
         setAccountExists(false);
+        // F29: the account exists from this moment — analytics events from
+        // here on carry its userId (everything earlier stays anonymous).
+        if (typeof created?.userId === 'string' && created.userId) {
+          setAccountUserId(created.userId);
+          setAnalyticsUserId(created.userId);
+        }
         // Establish the session so the final submit can attach the profile to
         // THIS account under ownership proof (no unauthenticated attach).
         await signIn('credentials', {
