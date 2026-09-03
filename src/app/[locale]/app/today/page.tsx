@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import HiddenProfileBanner from '@/components/app/HiddenProfileBanner';
 import {
   type AppJob as Job,
   HeroJob,
@@ -236,6 +237,8 @@ export default function TodayPage() {
 
   return (
     <div>
+      {/* F26 app-scope ruling: banner-only hidden-state parity, F26.1 copy. */}
+      <HiddenProfileBanner className="mb-4" />
       <header className="mb-5">
         <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
           {dateEyebrow()}
