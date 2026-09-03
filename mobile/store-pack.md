@@ -1,7 +1,7 @@
 # Rena Pro — Store Submission Pack (DRAFT for James)
 
 Documents only — nothing here is submitted until James edits and approves. Working
-app name: **RENA Cleaners** (James finalises). Bundle ID `uk.co.renacleaning.pro`.
+app name: **Rena Pro** (James-ruled 3 Sep 2026). Bundle ID `uk.co.renacleaning.pro`.
 Privacy policy URL: **https://www.renacleaning.co.uk/en/privacy**
 Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleaning.co.uk
 
@@ -11,29 +11,25 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 
 ### App name / subtitle
 
-- **App name:** `RENA Cleaners` — **WORKING PLACEHOLDER, NOT LOCKED.**
+- **App name:** `Rena Pro` — **James-ruled 3 Sep 2026** as the working name
+  everywhere (app.json `expo.name` already carries it; store records use it when
+  created). Changeable until first release if James revisits. _Parked note: the
+  ruling was written "RENA PRO" — if the all-caps rendering is wanted as the
+  store display name (rather than emphasis), say the word and it changes
+  consistently._
 - **App Store subtitle** (≤30 chars): `Cleaning jobs, on your terms`
 - **Play short description** (≤80 chars): `Get cleaning jobs near you, set your own rates, and earn on your terms.`
 
-> **⚠️ App-name decision (final call at the P4 gate, before submission)**
-> James's logo draft says "RENA Cleaners", but he's weighing a
-> customer-confusion risk: a _customer_ downloading the cleaner app by mistake.
->
-> - **Candidates:** `RENA Cleaners` (current logo draft) · `Rena Pro` · open to
->   alternatives.
-> - **Mitigations if we keep "RENA Cleaners":** the App Store **subtitle**
->   disambiguates ("Cleaning jobs, on your terms" — clearly for cleaners, not
->   customers); the reviewer/store copy states "for verified self-employed
->   cleaners"; and when the **customer** app ships, it becomes plain **"RENA"**,
->   leaving "RENA Cleaners" unambiguously the pro app.
-> - **Decide before submitting** and set it consistently across both stores +
->   `app.json` `expo.name`.
+> **App-name decision — RESOLVED (James, 3 Sep 2026): `Rena Pro`.** The
+> customer-confusion risk decided it — "RENA Cleaners" reads ambiguously to a
+> customer browsing the store; Rena Pro is unambiguously the worker app, and
+> the customer app can later take plain "RENA".
 
 ### Full description ("earn on your terms" positioning)
 
 > **Your cleaning work, your way.**
 >
-> RENA Cleaners is the app for independent cleaners on the Rena network. Get matched
+> Rena Pro is the app for independent cleaners on the Rena network. Get matched
 > with customers near you, accept the jobs that suit you, and keep 90% of what you
 > earn — you set your own rates and hours.
 >
@@ -56,7 +52,7 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 > - Every customer is verified; payments are handled securely.
 > - Face ID keeps your account private on your phone.
 >
-> RENA Cleaners is for vetted, self-employed cleaners on the Rena network. New to
+> Rena Pro is for vetted, self-employed cleaners on the Rena network. New to
 > Rena? Apply at renacleaning.co.uk/join.
 
 ### Keywords
@@ -77,21 +73,21 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 
 ### What data the app actually touches
 
-| Data                                                           | Where it's used                                            | Notes                                                                       |
-| -------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **Account identity** — name, email, phone                      | Login; shown in profile/portal                             | Stored server-side (User). Login sends email+password to `/api/auth/login`. |
-| **Bookings** — customer name, address, date/time, service, pay | Today + Offer + portal                                     | The cleaner sees the jobs assigned/offered to them.                         |
-| **Messages** — cleaner ↔ customer                              | Messages tab (portal)                                      | First-party, between the two parties to a booking.                          |
-| **Push token** — Expo device token                             | Registered on login to send job offers                     | Stored (DeviceToken); deleted on logout.                                    |
-| **Session cookie** — NextAuth session                          | Kept in the WebView to stay signed in                      | HttpOnly; on-device only. Bearer token in the Keychain for native calls.    |
-| **Home postcode + travel time**                                | Entered by the cleaner (text) to define their service area | **User-typed text, not device location.**                                   |
-| **First-party analytics** — funnel/usage events                | Product analytics on the web app                           | First-party only; no third-party ad/tracking SDKs.                          |
+| Data                                                           | Where it's used                                            | Notes                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Account identity** — name, email, phone                      | Login; shown in profile/portal                             | Stored server-side (User). Login sends email+password to `/api/auth/login`.                                                                                                                                                             |
+| **Bookings** — customer name, address, date/time, service, pay | Today + Offer + portal                                     | The cleaner sees the jobs assigned/offered to them.                                                                                                                                                                                     |
+| **Messages** — cleaner ↔ customer                              | Messages tab (portal)                                      | First-party, between the two parties to a booking.                                                                                                                                                                                      |
+| **Push token** — Expo device token                             | Registered on login to send job offers                     | Stored (DeviceToken); deleted on logout. **James-ruled 3 Sep 2026: declared in the labels NOW** (forward-honest) — the shipped binary is push-capable but registers no token until C7 activation; the label never needs touching again. |
+| **Session cookie** — NextAuth session                          | Kept in the WebView to stay signed in                      | HttpOnly; on-device only. Bearer token in the Keychain for native calls.                                                                                                                                                                |
+| **Home postcode + travel time**                                | Entered by the cleaner (text) to define their service area | **User-typed text, not device location.**                                                                                                                                                                                               |
+| **First-party analytics** — funnel/usage events                | Product analytics on the web app                           | First-party only; no third-party ad/tracking SDKs.                                                                                                                                                                                      |
 
 ### Does any of it constitute "tracking" (Apple's definition)? **No.**
 
 Apple defines tracking as linking user/device data with **third-party** data for
-targeted advertising or measurement, or sharing with a **data broker**. RENA
-Cleaners does **none** of that: no ad SDKs, no third-party analytics/attribution
+targeted advertising or measurement, or sharing with a **data broker**. Rena
+Pro does **none** of that: no ad SDKs, no third-party analytics/attribution
 SDKs, no data brokers. Payments run through **Stripe** (the customer side, on the
 web); the app processes no card data natively. **No device location** is accessed
 (the service-area postcode is typed text). Therefore **"Data Used to Track You: None."**
@@ -133,7 +129,7 @@ web); the app processes no card data natively. **No device location** is accesse
 
 ### Reviewer paragraph
 
-> RENA Cleaners is the companion app for **verified, self-employed cleaners** on the
+> Rena Pro is the companion app for **verified, self-employed cleaners** on the
 > Rena Cleaning Network (a UK cleaning marketplace). Cleaners use it to see their
 > day's jobs, receive and accept/decline new job offers via push, manage their
 > availability and earnings, and message customers. Account management and detailed
@@ -150,27 +146,23 @@ web); the app processes no card data natively. **No device location** is accesse
 > biometric access — not a repackaged website. The Today and Offer screens and push
 > are the core native experience.
 
-### Demo test-account plan (James creates this pre-submission)
+### Reviewer account — STAGED FAMILY ACCOUNT (James-ruled 3 Sep 2026; seed script struck)
 
-The reviewer must be able to _exercise_ the flow, so a static empty account won't
-pass. Provide a seeded demo cleaner that has, at review time:
+No seed script. The reviewer logs into a designated **family account — Charlie,
+unless James says otherwise** — staged immediately before submission:
 
-- A **verified, active, Stripe-enabled** cleaner profile (so it isn't gated out),
-  with a home postcode + travel time set (coverage).
-- **At least 2 jobs dated "today"** in ACCEPTED/EN_ROUTE state → so **Today** shows
-  rows with the lifecycle buttons the reviewer can tap (I'm on my way → Start).
-- **At least 1 live offer** in an offer phase (PRIMARY_OFFER) with a **future
-  `cascadeExpiresAt`** (e.g. hours out) → so `/app/offer/[id]` shows a running
-  countdown and working **Accept/Decline** (against a throwaway booking).
-- Login: email + password in the App Review Information fields.
-- Practical note: because offers expire, either (a) seed the offer with a long
-  window and refresh it shortly before submitting, or (b) give the reviewer a
-  second standing offer. Keep a couple of spare "today" jobs so the board isn't
-  empty if one gets completed during review.
-
-_(How to seed: a small admin/seed script that creates the demo cleaner + these
-bookings — James/dev sets it up on the environment the TestFlight/production build
-points at, i.e. production `baseUrl`.)_
+- The account is already a **verified, active, Stripe-enabled** cleaner with
+  coverage set — nothing to build.
+- **Pre-submission staging step (owner: Fable, fired on James's word):**
+  immediately before submission, stage on Charlie's account —
+  **2 fresh today-jobs** in lifecycle states (ACCEPTED/EN_ROUTE) so Today shows
+  tappable "I'm on my way → Start" rows, and **1 live offer** (PRIMARY_OFFER)
+  with a **future `cascadeExpiresAt`** so `/app/offer/[id]` shows a running
+  countdown with working Accept/Decline (against throwaway bookings).
+- Login: Charlie's email + password in the App Review Information fields.
+- Practical note: offers expire — stage as close to the submission click as
+  possible, keep a spare today-job in case one gets completed during review,
+  and re-stage on any resubmission.
 
 ---
 
@@ -213,11 +205,16 @@ Device sizes required:
 
 ## Checklist before James submits
 
-- [ ] Finalise the app name (RENA Cleaners vs Rena Pro) — consistent both stores.
+- [x] App name: **Rena Pro** (ruled 3 Sep 2026) — set consistently in both stores when records are created.
 - [ ] Edit the description + subtitle + keywords into James's voice.
-- [ ] Fill the Apple App Privacy + Play Data Safety forms from §2 (confirm the
-      Stripe/financial classification).
-- [ ] Create + verify the demo cleaner with today's jobs + a live offer; put its
-      credentials in App Review notes.
-- [ ] Produce the icon + splash + screenshots (§4) from the P1 build.
+- [ ] Fill the Apple App Privacy + Play Data Safety forms from §2 — push token
+      DECLARED now per the 3 Sep ruling (option a, forward-honest); confirm the
+      Stripe/financial classification.
+- [ ] **Stage the reviewer account (owner: Fable, on James's pre-submission
+      word):** Charlie's account gets 2 fresh today-jobs in lifecycle states +
+      1 live offer with future expiry, staged immediately before the submission
+      click (§3). James puts Charlie's credentials in App Review notes.
+- [x] Splash re-exported 1284×2778 (3 Sep 2026). Icon + adaptive icon already
+      committed.
+- [ ] Screenshots (§4) from the P1 build on the staged account.
 - [ ] Confirm the privacy-policy + support URLs resolve.
