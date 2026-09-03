@@ -13,10 +13,10 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 
 - **App name:** `Rena Pro` — **James-ruled 3 Sep 2026** as the working name
   everywhere (app.json `expo.name` already carries it; store records use it when
-  created). Changeable until first release if James revisits. _Parked note: the
-  ruling was written "RENA PRO" — if the all-caps rendering is wanted as the
-  store display name (rather than emphasis), say the word and it changes
-  consistently._
+  created). Changeable until first release if James revisits. **Casing ruled
+  (same day): title case "Rena Pro" everywhere the store displays it** — the
+  all-caps in the ruling was emphasis, not specification (all-caps
+  pattern-matches to shouting, per the email display-name reasoning).
 - **App Store subtitle** (≤30 chars): `Cleaning jobs, on your terms`
 - **Play short description** (≤80 chars): `Get cleaning jobs near you, set your own rates, and earn on your terms.`
 
