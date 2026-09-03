@@ -39,6 +39,18 @@ function getBrowser(): string {
   return 'Other';
 }
 
+// F29 (James-ruled): attribution. The cleaner-signup wizard knows who the
+// visitor is the moment step 0 creates the account, but events were always
+// sent anonymous. The wizard sets the id at that moment (and on draft
+// resume); every event sent AFTER carries it. The API route and the
+// AnalyticsEvent schema have always accepted userId — this only starts
+// sending it. Pre-step-0 events stay anonymous by construction: nothing
+// sets the id until an account exists.
+let analyticsUserId: string | null = null;
+export function setAnalyticsUserId(id: string | null) {
+  analyticsUserId = id;
+}
+
 async function sendEvent(payload: Record<string, unknown>) {
   try {
     await fetch('/api/analytics/events', {
@@ -46,6 +58,7 @@ async function sendEvent(payload: Record<string, unknown>) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: getSessionId(),
+        userId: analyticsUserId ?? undefined,
         deviceType: getDeviceType(),
         browser: getBrowser(),
         page: typeof window !== 'undefined' ? window.location.pathname : undefined,
@@ -78,6 +91,9 @@ export function useAnalytics(funnel?: FunnelType) {
         // Use sendBeacon for reliable delivery on page close
         const payload = JSON.stringify({
           sessionId: getSessionId(),
+          // F29: the unload beacon is the abandonment record — it carries the
+          // same attribution as every other post-step-0 event.
+          userId: analyticsUserId ?? undefined,
           eventType: 'DROP_OFF',
           funnel,
           funnelStep: currentStep.current.step,
