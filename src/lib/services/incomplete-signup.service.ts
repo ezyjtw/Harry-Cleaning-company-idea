@@ -14,7 +14,9 @@ import { AuditService } from '@/lib/services/audit.service';
  * the two doors can never drift apart on what "incomplete" means.
  */
 
-const SWEEP_AGE_DAYS = 30;
+// Exported so the admin dossier (F28) can show the exact auto-expiry date —
+// the sweep window has one definition, not a copy in the UI.
+export const SWEEP_AGE_DAYS = 30;
 const SWEEP_BATCH_LIMIT = 50;
 
 export type RemoveIncompleteResult =
