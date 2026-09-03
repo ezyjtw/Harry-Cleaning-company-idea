@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -80,6 +82,49 @@ const TABS = [
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'shell';
 
+// ─── C7 binary trio (James-ruled: BUILT, NOT ACTIVATED) ──────────────────────
+// The store binary ships push-capable — aps-environment entitlement, remote-
+// notification background mode, the expo-notifications module, deep-link
+// routing, and icon-badge sync — but NOTHING here prompts for notification
+// permission or registers a push token. Offer-push ACTIVATION (permission ask,
+// token registration with the server, actual sends) holds for James's separate
+// explicit word once real cleaners are live. Until then no push ever arrives,
+// so the handlers below are dormant plumbing, and the iOS icon badge stays
+// invisible (badge display rides the notification permission that activation
+// will request).
+
+// How an arriving notification presents if the app is foregrounded — set once
+// at module scope per expo-notifications docs. Inert until pushes exist.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: true,
+  }),
+});
+
+/**
+ * C7 deep links: resolve any of our URL shapes to a shell tab key —
+ * renapro://jobs, renapro://app/jobs, https://www.renacleaning.co.uk/en/app/jobs,
+ * and notification payloads carrying data.url in those shapes. Unknown URLs
+ * resolve to null and are ignored (never a crash, never a wrong screen).
+ */
+function tabForUrl(url: string): string | null {
+  try {
+    const parsed = Linking.parse(url);
+    const segments = [parsed.hostname, ...(parsed.path ? parsed.path.split('/') : [])]
+      .filter(Boolean)
+      .map((s) => String(s).toLowerCase());
+    for (const seg of segments) {
+      if (TABS.some((t) => t.key === seg)) return seg;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // THE HAPTICS MAP (law — native and web bridge both follow it):
 //   light   → navigation taps: tabs, chips, steppers, opening sheets/links
 //   medium  → committing an action: lifecycle advance, accept/decline, copy-to-weekdays
@@ -139,6 +184,44 @@ function RootView() {
     boot();
   }, [boot]);
 
+  // ── C7 deep links: a link can arrive before the shell is up (cold start
+  // lands on the lock screen) — park the resolved tab and apply on shell entry.
+  const pendingTab = useRef<string | null>(null);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+
+  const applyLink = useCallback((url: string | null | undefined) => {
+    if (!url) return;
+    const tab = tabForUrl(url);
+    if (!tab) return;
+    if (phaseRef.current === 'shell') setActiveTab(tab);
+    else pendingTab.current = tab;
+  }, []);
+
+  useEffect(() => {
+    Linking.getInitialURL()
+      .then(applyLink)
+      .catch(() => {});
+    const linkSub = Linking.addEventListener('url', (e) => applyLink(e.url));
+    // Notification taps route through the same resolver — dormant until C7
+    // activation sends the first push, harmless meanwhile.
+    const noteSub = Notifications.addNotificationResponseReceivedListener((resp) => {
+      const data = resp.notification.request.content.data as { url?: unknown } | null;
+      if (data && typeof data.url === 'string') applyLink(data.url);
+    });
+    return () => {
+      linkSub.remove();
+      noteSub.remove();
+    };
+  }, [applyLink]);
+
+  useEffect(() => {
+    if (phase === 'shell' && pendingTab.current) {
+      setActiveTab(pendingTab.current);
+      pendingTab.current = null;
+    }
+  }, [phase]);
+
   // C5: Face-ID-first. The lock screen (lockup + one Unlock button) is the
   // returning-user arrival; Face ID fires immediately on top of it. A failed or
   // cancelled prompt just settles onto the same screen with a quiet note (the
@@ -188,6 +271,8 @@ function RootView() {
 
   const logout = useCallback(async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // C7: a signed-out app must not keep a stale count on the icon.
+    Notifications.setBadgeCountAsync(0).catch(() => {});
     setBridgeUrl(null);
     setPhase('login');
   }, []);
@@ -555,6 +640,11 @@ function ShellScreen({
         const d = await res.json().catch(() => null);
         if (alive && d && typeof d.offers === 'number') {
           setBadges({ offers: d.offers, messages: d.messages ?? 0 });
+          // C7: mirror the tab-badge total onto the app icon. Built now, but
+          // iOS only DISPLAYS icon badges once notification permission is
+          // granted — which is C7 activation's job — so this is invisible
+          // until James's activation word. Fail-soft like the poll itself.
+          Notifications.setBadgeCountAsync(d.offers + (d.messages ?? 0)).catch(() => {});
         }
       } catch {
         /* fail-soft */

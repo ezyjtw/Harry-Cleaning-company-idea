@@ -17,7 +17,11 @@
       "supportsTablet": false,
       "bundleIdentifier": "uk.co.renacleaning.pro",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Rena Pro uses Face ID to keep your account and jobs secure."
+        "NSFaceIDUsageDescription": "Rena Pro uses Face ID to keep your account and jobs secure.",
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "entitlements": {
+        "aps-environment": "production"
       }
     },
     "android": {
@@ -27,7 +31,11 @@
         "backgroundColor": "#FAFBFC"
       }
     },
-    "plugins": ["expo-secure-store", "expo-local-authentication"],
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      ["expo-notifications", { "color": "#16296b" }]
+    ],
     "extra": {
       "baseUrl": "https://www.renacleaning.co.uk",
       "eas": { "projectId": "REPLACE_WITH_EAS_PROJECT_ID" }
