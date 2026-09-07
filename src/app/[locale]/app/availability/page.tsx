@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import InboxBell from '@/components/app/InboxBell';
 import { haptic } from '@/components/app/job-cards';
 
 interface TimeSlot {
@@ -644,9 +645,12 @@ export default function AvailabilityAppPage() {
   return (
     <div>
       <header className="mb-5">
-        <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
-          Availability
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+            Availability
+          </h1>
+          <InboxBell className="mt-1" />
+        </div>
         <p className="mt-1 font-jost text-sm text-ink-2">
           {weeklyHours}h a week on your usual schedule
         </p>

@@ -16,6 +16,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import InboxBell from '@/components/app/InboxBell';
 import { haptic } from '@/components/app/job-cards';
 
 type Period = 'week' | 'month' | 'year';
@@ -177,9 +178,12 @@ export default function AppEarningsPage() {
   return (
     <div>
       <header className="mb-5">
-        <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
-          Earnings
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+            Earnings
+          </h1>
+          <InboxBell className="mt-1" />
+        </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['week', 'month', 'year'] as const).map((p) => (
             <button

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import HiddenProfileBanner from '@/components/app/HiddenProfileBanner';
+import InboxBell from '@/components/app/InboxBell';
 import {
   type AppJob as Job,
   HeroJob,
@@ -145,6 +146,40 @@ export default function TodayPage() {
       .sort((a, b) => a.start - b.start)[0]?.j;
   }, [jobs, now]);
 
+  // W1 (James-ruled): the day's rhythm. Morning = jobs exist, none started —
+  // the preview. Evening = last job completed (earned-based, never clock-based)
+  // — the flip. The live-day view between them is untouched.
+  const tomorrowIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return isoOf(d);
+  }, []);
+  const morning = useMemo(
+    () =>
+      !loading &&
+      activeToday.length > 0 &&
+      doneToday.length === 0 &&
+      todayJobs.every((j) => j.status === 'accepted' || j.status === 'confirmed'),
+    [loading, activeToday, doneToday, todayJobs]
+  );
+  const evening = useMemo(
+    () => !loading && todayJobs.length > 0 && activeToday.length === 0 && doneToday.length > 0,
+    [loading, todayJobs, activeToday, doneToday]
+  );
+  const expectedToday = useMemo(
+    () => todayJobs.filter((j) => j.status !== 'cancelled').reduce((s, j) => s + pay(j), 0),
+    [todayJobs]
+  );
+  const tomorrowFirst = useMemo(
+    () =>
+      jobs
+        .filter(
+          (j) => j.date === tomorrowIso && j.status !== 'completed' && j.status !== 'cancelled'
+        )
+        .sort((a, b) => a.time.localeCompare(b.time))[0],
+    [jobs, tomorrowIso]
+  );
+
   const weekByDay = useMemo(() => {
     const days: { iso: string; label: string; isToday: boolean; jobs: Job[] }[] = [];
     for (let i = 0; i < 7; i++) {
@@ -249,35 +284,33 @@ export default function TodayPage() {
               ? 'Your day'
               : todayJobs.length === 0
                 ? 'Day off'
-                : activeToday.length === 0
-                  ? 'All done today'
-                  : `${activeToday.length} job${activeToday.length === 1 ? '' : 's'} today`}
+                : evening
+                  ? `All done — £${earnedToday.toFixed(2)} today`
+                  : morning
+                    ? 'Morning'
+                    : activeToday.length === 0
+                      ? 'All done today'
+                      : `${activeToday.length} job${activeToday.length === 1 ? '' : 's'} today`}
           </h1>
           {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
-              the focus/visibility refetch make it redundant. B4: the bell
-              (→ /app/inbox) takes its place, top-right of the Today header. */}
-          <Link
-            href="/app/inbox"
-            aria-label="Inbox"
-            onClick={() => haptic('light')}
-            className="mt-1 shrink-0 rounded-full border border-line bg-surface p-2 text-ink-2 active:bg-page"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
-              />
-            </svg>
-          </Link>
+              the focus/visibility refetch make it redundant. W2: the bell is
+              the shared header component now, dot included. */}
+          <InboxBell className="mt-1" />
         </div>
-        {!loading && earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
+        {morning && (
+          <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="morning-preview">
+            First job {todayJobs[0]?.time} — {todayJobs[0]?.clientName} · {activeToday.length} job
+            {activeToday.length === 1 ? '' : 's'}, £{expectedToday.toFixed(2)} expected today
+          </p>
+        )}
+        {evening && (
+          <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="evening-flip">
+            {tomorrowFirst
+              ? `Tomorrow: ${tomorrowFirst.time}, ${tomorrowFirst.clientName}, ${tomorrowFirst.address}`
+              : 'Nothing booked tomorrow yet — keep your availability fresh.'}
+          </p>
+        )}
+        {!loading && earnedToday > 0 && !evening && <EarnedTicker amount={earnedToday} />}
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (
             <button
