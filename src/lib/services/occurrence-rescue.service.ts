@@ -145,10 +145,15 @@ export async function cantMakeOccurrence(params: {
 
 /** Cleaner holiday: flag every occurrence in the range, across ALL their
  *  agreements — ONE batched email per affected customer. */
-export async function holidayCantMake(params: {
+/**
+ * W6: count-only preview of holidayCantMake — the SAME validation and the SAME
+ * occurrence query, but nothing is flagged and nobody is emailed. The app's
+ * Time-off card shows its warning from this before the cleaner commits.
+ */
+export async function previewHolidayCantMake(params: {
   cleanerId: string;
-  startDate: string; // YYYY-MM-DD inclusive
-  endDate: string; // YYYY-MM-DD inclusive
+  startDate: string;
+  endDate: string;
 }): Promise<{ ok: boolean; status: number; error?: string; flagged?: number; customers?: number }> {
   const start = new Date(`${params.startDate}T00:00:00.000Z`);
   const end = new Date(`${params.endDate}T23:59:59.999Z`);
@@ -158,11 +163,20 @@ export async function holidayCantMake(params: {
   if (end.getTime() - start.getTime() > 92 * 86400000) {
     return { ok: false, status: 400, error: 'Range too large (max 92 days)' };
   }
+  const occurrences = await flaggableOccurrencesInRange(params.cleanerId, start, end);
+  const byCustomer = new Set(
+    occurrences.map((o) => o.clientId ?? `guest:${(o.guestEmail ?? '').toLowerCase()}`)
+  );
+  return { ok: true, status: 200, flagged: occurrences.length, customers: byCustomer.size };
+}
 
-  // Every occurrence of theirs in range still in a flaggable state.
-  const occurrences = await prisma.booking.findMany({
+/** The one definition of "occurrences a holiday range touches" — preview and
+ *  the real holidayCantMake read the same rows, so the warning can never
+ *  promise something the commit does differently. */
+async function flaggableOccurrencesInRange(cleanerId: string, start: Date, end: Date) {
+  return prisma.booking.findMany({
     where: {
-      cleanerId: params.cleanerId,
+      cleanerId,
       agreementId: { not: null },
       date: { gte: start, lte: end },
       OR: [
@@ -178,6 +192,24 @@ export async function holidayCantMake(params: {
     },
     orderBy: { date: 'asc' },
   });
+}
+
+export async function holidayCantMake(params: {
+  cleanerId: string;
+  startDate: string; // YYYY-MM-DD inclusive
+  endDate: string; // YYYY-MM-DD inclusive
+}): Promise<{ ok: boolean; status: number; error?: string; flagged?: number; customers?: number }> {
+  const start = new Date(`${params.startDate}T00:00:00.000Z`);
+  const end = new Date(`${params.endDate}T23:59:59.999Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return { ok: false, status: 400, error: 'Invalid date range' };
+  }
+  if (end.getTime() - start.getTime() > 92 * 86400000) {
+    return { ok: false, status: 400, error: 'Range too large (max 92 days)' };
+  }
+
+  // Every occurrence of theirs in range still in a flaggable state.
+  const occurrences = await flaggableOccurrencesInRange(params.cleanerId, start, end);
   if (occurrences.length === 0) {
     return { ok: true, status: 200, flagged: 0, customers: 0 };
   }
