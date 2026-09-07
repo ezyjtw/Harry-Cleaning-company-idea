@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import InboxBell from '@/components/app/InboxBell';
 import {
   type AppJob as Job,
   JobCard,
@@ -15,6 +16,7 @@ import {
   OfferCard,
   haptic,
   isoOf,
+  pay,
 } from '@/components/app/job-cards';
 import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
 
@@ -22,6 +24,13 @@ type Filter = 'upcoming' | 'done';
 
 const UPCOMING_STATUSES = 'AWAITING_CLEANER,ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS';
 const DONE_STATUSES = 'COMPLETED,REVIEWED';
+
+// W3: Monday-start week key for the quiet separators between weeks.
+function mondayOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return isoOf(d);
+}
 
 function dayLabel(iso: string): string {
   const today = new Date();
@@ -160,7 +169,10 @@ export default function AppJobsPage() {
   return (
     <div>
       <header className="mb-5">
-        <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">Jobs</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">Jobs</h1>
+          <InboxBell className="mt-1" />
+        </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['upcoming', 'done'] as const).map((f) => (
             <button
@@ -217,29 +229,62 @@ export default function AppJobsPage() {
             </div>
           )}
 
-          {byDay.map((d) => (
-            <div key={d.iso}>
-              <h2
-                className={`mb-2 font-newsreader text-base font-semibold ${
-                  d.iso === isoOf(new Date()) ? 'text-primary' : 'text-ink'
-                }`}
-              >
-                {dayLabel(d.iso)}
-              </h2>
-              <div className="space-y-3">
-                {d.jobs.map((job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    now={now}
-                    processing={processingId === job.id}
-                    onAdvance={() => advance(job)}
-                    onCancelled={() => fetchJobs(filter)}
-                  />
-                ))}
+          {byDay.map((d, i) => {
+            // W3 (James-ruled): a quiet divider row between weeks in Upcoming —
+            // count and money per week, nothing folded (collapse-weeks-beyond-
+            // next is LEDGERED: trigger = real cleaners with 15+ upcoming jobs
+            // or anyone asking for a shorter list).
+            const week = mondayOf(d.iso);
+            const prevWeek = i > 0 ? mondayOf(byDay[i - 1].iso) : null;
+            const thisWeek = mondayOf(isoOf(new Date()));
+            const showDivider = filter === 'upcoming' && week !== thisWeek && week !== prevWeek;
+            let divider: string | null = null;
+            if (showDivider) {
+              const weekGroups = byDay.filter((g) => mondayOf(g.iso) === week);
+              const weekJobs = weekGroups
+                .flatMap((g) => g.jobs)
+                .filter((j) => j.status !== 'cancelled');
+              const money = weekJobs.reduce((sum, j) => sum + pay(j), 0);
+              const nextWeek = mondayOf(isoOf(new Date(Date.now() + 7 * 86400000)));
+              const label =
+                week === nextWeek
+                  ? 'Next week'
+                  : `Week of ${new Date(`${week}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+              divider = `${label} · ${weekJobs.length} job${weekJobs.length === 1 ? '' : 's'} · £${money.toFixed(2)}`;
+            }
+            return (
+              <div key={d.iso}>
+                {divider && (
+                  <div className="mb-3 mt-2 flex items-center gap-3" data-testid="week-divider">
+                    <span className="h-px flex-1 bg-line" />
+                    <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+                      {divider}
+                    </span>
+                    <span className="h-px flex-1 bg-line" />
+                  </div>
+                )}
+                <h2
+                  className={`mb-2 font-newsreader text-base font-semibold ${
+                    d.iso === isoOf(new Date()) ? 'text-primary' : 'text-ink'
+                  }`}
+                >
+                  {dayLabel(d.iso)}
+                </h2>
+                <div className="space-y-3">
+                  {d.jobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      now={now}
+                      processing={processingId === job.id}
+                      onAdvance={() => advance(job)}
+                      onCancelled={() => fetchJobs(filter)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

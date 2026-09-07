@@ -383,6 +383,9 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         />
       </div>
 
+      {/* W4: the day at a glance */}
+      <OfferDayStrip offer={offer} />
+
       {/* Details */}
       <div className="mt-3 rounded-2xl border border-line bg-surface p-5">
         <div className="space-y-2 font-jost text-sm">
@@ -478,15 +481,15 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           <div className="w-full rounded-t-2xl bg-surface p-5 pb-8">
             <p className="font-newsreader text-lg font-semibold text-ink">Why not this one?</p>
             <p className="mt-0.5 font-jost text-[13px] text-ink-3">
-              One tap — this declines the offer.
+              Optional — the customer never sees this. One tap declines either way.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               {(
                 [
-                  ['too_far', 'Too far'],
-                  ['bad_time', 'Bad time'],
-                  ['pay_too_low', 'Pay too low'],
-                  ['other', 'Other'],
+                  ['too_far', 'Too far away'],
+                  ['bad_time', "Time doesn't work"],
+                  ['pay_too_low', 'Pay too low for the job'],
+                  ['other', "Just can't this time"],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -505,8 +508,20 @@ export default function OfferPage({ params }: { params: { id: string } }) {
             </div>
             <button
               type="button"
+              data-testid="decline-skip"
+              disabled={!!processing}
+              onClick={() => {
+                setShowDeclineSheet(false);
+                respond('decline');
+              }}
+              className="mt-2 w-full rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink-2 active:bg-page disabled:opacity-50"
+            >
+              Decline without saying
+            </button>
+            <button
+              type="button"
               onClick={() => setShowDeclineSheet(false)}
-              className="mt-3 w-full rounded-[12px] px-4 py-3 font-jost text-sm font-medium text-ink-3"
+              className="mt-2 w-full rounded-[12px] px-4 py-3 font-jost text-sm font-medium text-ink-3"
             >
               Keep the offer
             </button>
@@ -537,6 +552,97 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── W4 (James-ruled): the day strip — the fit is SEEN, not remembered. One
+// 8am–6pm line: this offer in teal, existing jobs that day in purple, gaps
+// visible. Jobs outside the scale clamp to its edges. Everything else on the
+// screen untouched.
+const STRIP_START = 8 * 60;
+const STRIP_END = 18 * 60;
+
+function stripPos(time: string, durationH: number) {
+  const [h, m] = time.split(':').map(Number);
+  const start = Math.max(STRIP_START, Math.min(h * 60 + m, STRIP_END));
+  const end = Math.max(STRIP_START, Math.min(h * 60 + m + durationH * 60, STRIP_END));
+  const span = STRIP_END - STRIP_START;
+  return {
+    left: ((start - STRIP_START) / span) * 100,
+    width: Math.max(2, ((end - start) / span) * 100),
+  };
+}
+
+function OfferDayStrip({ offer }: { offer: Offer }) {
+  const [dayJobs, setDayJobs] = useState<{ id: string; time: string; duration: number }[] | null>(
+    null
+  );
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS&limit=100'
+        );
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (!alive) return;
+        const jobs = (Array.isArray(data?.jobs) ? data.jobs : []) as {
+          id: string;
+          date: string;
+          time: string;
+          duration: number;
+        }[];
+        setDayJobs(jobs.filter((j) => j.date === offer.date && j.id !== offer.id));
+      } catch {
+        /* strip is best-effort — the offer stands without it */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [offer.date, offer.id]);
+
+  if (dayJobs === null) return null;
+  const dayName = new Date(`${offer.date}T00:00:00`).toLocaleDateString('en-GB', {
+    weekday: 'long',
+  });
+  const thisPos = stripPos(offer.time, Number(offer.duration) || 1);
+  return (
+    <div
+      className="mt-3 rounded-2xl border border-line bg-surface p-5"
+      data-testid="offer-day-strip"
+    >
+      <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+        Your {dayName}
+      </p>
+      <div className="relative mt-3 h-8 rounded-lg bg-page ring-1 ring-line">
+        {dayJobs.map((j) => {
+          const pos = stripPos(j.time, Number(j.duration) || 1);
+          return (
+            <span
+              key={j.id}
+              className="absolute inset-y-1 rounded-md bg-purple-500/80"
+              style={{ left: `${pos.left}%`, width: `${pos.width}%` }}
+            />
+          );
+        })}
+        <span
+          className="absolute inset-y-1 rounded-md bg-teal-600 ring-2 ring-teal-600/30"
+          style={{ left: `${thisPos.left}%`, width: `${thisPos.width}%` }}
+        />
+      </div>
+      <div className="mt-1 flex justify-between font-jost text-[9px] uppercase tracking-[0.08em] text-ink-3">
+        <span>8am</span>
+        <span>1pm</span>
+        <span>6pm</span>
+      </div>
+      <p className="mt-2 font-jost text-[12px] text-ink-3">
+        <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-teal-600 align-middle" /> This job
+        <span className="ml-3 mr-1 inline-block h-2 w-2 rounded-sm bg-purple-500/80 align-middle" />
+        {dayJobs.length === 0 ? 'No other jobs that day' : 'Your other jobs'}
+      </p>
     </div>
   );
 }
