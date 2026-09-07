@@ -62,9 +62,33 @@ export async function GET(request: NextRequest) {
       platformFee: true,
       completedAt: true,
       transferStatus: true,
+      releaseDueAt: true,
+      // W7: the customer NAME only (never a figure) — the app's per-job rows
+      // carry an initial-avatar and the person, like the rest of the shell.
+      client: { select: { name: true } },
+      guestName: true,
     },
     orderBy: { completedAt: 'desc' },
   });
+
+  // W7: the truthful "paid" day. Booking has no releasedAt column; the
+  // FUNDS_RELEASED audit row is written at transfer time, so its createdAt IS
+  // release day. releaseDueAt is the fallback (release runs within ~5 min of
+  // due) for the rare booking whose audit write was lost (audit is
+  // fire-and-forget by design).
+  const releasedIds = completedBookings
+    .filter((b) => b.transferStatus === 'RELEASED')
+    .map((b) => b.id);
+  const paidAtById = new Map<string, Date>();
+  if (releasedIds.length > 0) {
+    const auditRows = await prisma.auditLog.findMany({
+      where: { action: 'FUNDS_RELEASED', entityType: 'Booking', entityId: { in: releasedIds } },
+      select: { entityId: true, createdAt: true },
+    });
+    for (const r of auditRows) {
+      if (!paidAtById.has(r.entityId)) paidAtById.set(r.entityId, r.createdAt);
+    }
+  }
 
   // Summary — M6: this endpoint reports the cleaner's NET earnings only. The
   // customer's 6% service fee was previously summed here and returned mislabeled
@@ -121,7 +145,25 @@ export async function GET(request: NextRequest) {
       bookingCount: d.count,
     }));
 
+  // W7: per-job rows for the app's On-its-way / Paid lists. Same ledger, no
+  // new truth — released rows carry the audit-backed paid day, pending rows
+  // carry releaseDueAt for the "~{day}" line.
+  const jobs = completedBookings.map((b) => ({
+    id: b.id,
+    customerName: b.client?.name || b.guestName || 'Customer',
+    serviceType: b.serviceType,
+    amount: round2(Number(b.cleanerEarnings)),
+    completedAt: b.completedAt ? b.completedAt.toISOString() : null,
+    released: b.transferStatus === 'RELEASED',
+    releaseDueAt: b.releaseDueAt ? b.releaseDueAt.toISOString() : null,
+    paidAt:
+      b.transferStatus === 'RELEASED'
+        ? ((paidAtById.get(b.id) ?? b.releaseDueAt ?? b.completedAt)?.toISOString() ?? null)
+        : null,
+  }));
+
   return NextResponse.json({
+    jobs,
     totalEarnings: round2(totalEarnings),
     netEarnings: round2(totalEarnings),
     paidOut: round2(paidOut),
