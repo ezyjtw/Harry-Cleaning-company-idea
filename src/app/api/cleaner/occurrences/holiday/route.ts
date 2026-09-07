@@ -19,8 +19,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { holidayCantMake, blockHolidayDates } =
+  const { holidayCantMake, blockHolidayDates, previewHolidayCantMake } =
     await import('@/lib/services/occurrence-rescue.service');
+
+  // W6: the app's Time-off card asks before it acts — preview counts the
+  // affected occurrences via the SAME query, flags nothing, emails nobody.
+  if (body?.preview === true) {
+    const p = await previewHolidayCantMake({ cleanerId: user.id, startDate, endDate });
+    if (!p.ok) return NextResponse.json({ error: p.error }, { status: p.status });
+    return NextResponse.json({ preview: true, flagged: p.flagged, customers: p.customers });
+  }
+
   const result = await holidayCantMake({ cleanerId: user.id, startDate, endDate });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

@@ -325,6 +325,11 @@ export default function AvailabilityAppPage() {
 
   const [showCalendar, setShowCalendar] = useState(false);
 
+  // W6: time off + the two settings rows (buffer, same-day).
+  const [buffer, setBuffer] = useState<30 | 60>(30);
+  const [sameDay, setSameDay] = useState(true);
+  const [settingBusy, setSettingBusy] = useState<'buffer' | 'sameDay' | null>(null);
+
   const fetchAll = useCallback(async () => {
     setLoadError(false);
     try {
@@ -347,6 +352,9 @@ export default function AvailabilityAppPage() {
       setWeekly(next);
       setDateSlots(data.dateSlots || {});
       setBlocked(data.blockedDates || []);
+      // W6: the two settings rows read the same GET; saves are per-field PUTs.
+      setSameDay(data.availableNow ?? true);
+      setBuffer(data.bookingBufferMinutes === 60 ? 60 : 30);
     } catch {
       setLoadError(true);
     } finally {
@@ -563,6 +571,34 @@ export default function AvailabilityAppPage() {
     commit(weekly, next);
   };
 
+  // W6: save exactly one settings field (B1-safe — nothing else rides the PUT).
+  const saveSetting = async (
+    field: 'bookingBufferMinutes' | 'availableNow',
+    value: number | boolean
+  ) => {
+    haptic('light');
+    setSettingBusy(field === 'availableNow' ? 'sameDay' : 'buffer');
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/cleaner/availability', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) throw new Error('Could not save');
+      if (field === 'availableNow') setSameDay(value as boolean);
+      else setBuffer(value as 30 | 60);
+      haptic('success');
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2000);
+    } catch {
+      haptic('error');
+      setSaveError('Could not save — try again');
+    } finally {
+      setSettingBusy(null);
+    }
+  };
+
   // ── Render ──
   if (accessDenied) {
     return (
@@ -721,6 +757,9 @@ export default function AvailabilityAppPage() {
         </div>
       </section>
 
+      {/* ── W6: Time off (Shape 1) — one card, one commit, regulars warned ── */}
+      <TimeOffCard onDone={fetchAll} />
+
       {/* ── Blocked dates ── */}
       <section className="overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
@@ -773,6 +812,61 @@ export default function AvailabilityAppPage() {
                 ))}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* ── W6: settings rows beneath the Time-off card ── */}
+      <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="border-b border-line px-5 py-3.5">
+          <h2 className="font-newsreader text-lg font-semibold text-ink">Booking settings</h2>
+        </div>
+        <div className="divide-y divide-line/60">
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <div>
+              <p className="font-jost text-[15px] text-ink">Gap between jobs</p>
+              <p className="font-jost text-[12px] text-ink-3">
+                Travel time kept clear around bookings
+              </p>
+            </div>
+            <div className="inline-flex rounded-full border border-line bg-page p-0.5">
+              {([30, 60] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  disabled={settingBusy === 'buffer'}
+                  onClick={() => v !== buffer && saveSetting('bookingBufferMinutes', v)}
+                  className={`rounded-full px-3.5 py-1.5 font-jost text-[13px] font-medium transition-colors disabled:opacity-60 ${
+                    buffer === v ? 'bg-primary text-white' : 'text-ink-2'
+                  }`}
+                >
+                  {v} min
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <div>
+              <p className="font-jost text-[15px] text-ink">Same-day bookings</p>
+              <p className="font-jost text-[12px] text-ink-3">Customers can book you for today</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={sameDay}
+              aria-label="Same-day bookings"
+              disabled={settingBusy === 'sameDay'}
+              onClick={() => saveSetting('availableNow', !sameDay)}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+                sameDay ? 'bg-primary' : 'bg-ink-3/30'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
+                  sameDay ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -946,6 +1040,157 @@ export default function AvailabilityAppPage() {
         />
       )}
     </div>
+  );
+}
+
+// ── W6: Time off card (Shape 1, James-ruled) ──────────────────────────────────
+// From/To → a live preview of affected regular cleans (count-only, nothing
+// sent), then ONE commit driving the same holiday endpoint as the web: flags
+// the occurrences, emails each affected customer once, and blocks the range.
+function TimeOffCard({ onDone }: { onDone: () => void }) {
+  const todayIso = isoOf(new Date());
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [preview, setPreview] = useState<{ flagged: number; customers: number } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const rangeValid = !!from && !!to && from >= todayIso && to >= from;
+
+  useEffect(() => {
+    // result is NOT cleared here — the success line must survive this effect
+    // re-running (the date onChange handlers clear it when a new range starts).
+    setPreview(null);
+    setError(null);
+    if (!rangeValid) return;
+    let cancelled = false;
+    setPreviewing(true);
+    (async () => {
+      try {
+        const res = await fetch('/api/cleaner/occurrences/holiday', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate: from, endDate: to, preview: true }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data?.preview) {
+          setPreview({ flagged: data.flagged ?? 0, customers: data.customers ?? 0 });
+        }
+      } catch {
+        /* preview is best-effort — the commit re-checks server-side */
+      } finally {
+        if (!cancelled) setPreviewing(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [from, to, rangeValid]);
+
+  const commit = async () => {
+    if (!rangeValid || committing) return;
+    haptic('medium');
+    setCommitting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/cleaner/occurrences/holiday', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate: from, endDate: to }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Could not block that time off');
+      haptic('success');
+      // Fields stay filled — the cleaner sees exactly what was blocked, and
+      // the commit button locks until they start a new range.
+      setResult(data?.message || 'Time off blocked.');
+      onDone();
+    } catch (e) {
+      haptic('error');
+      setError(e instanceof Error ? e.message : 'Could not block that time off');
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  const inputCls =
+    'w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-primary/20';
+
+  return (
+    <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="border-b border-line px-5 py-3.5">
+        <h2 className="font-newsreader text-lg font-semibold text-ink">Time off</h2>
+        <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+          Going away? Block the whole stretch in one go
+        </p>
+      </div>
+      <div className="px-5 py-4">
+        <div className="flex gap-3">
+          <label className="flex-1">
+            <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              From
+            </span>
+            <input
+              type="date"
+              value={from}
+              min={todayIso}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setResult(null);
+              }}
+              className={inputCls}
+            />
+          </label>
+          <label className="flex-1">
+            <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+              To
+            </span>
+            <input
+              type="date"
+              value={to}
+              min={from || todayIso}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setResult(null);
+              }}
+              className={inputCls}
+            />
+          </label>
+        </div>
+
+        {rangeValid && preview !== null && !result && (
+          <p
+            className={`mt-3 font-jost text-[13px] ${preview.flagged > 0 ? 'text-amber-700' : 'text-ink-2'}`}
+            data-testid="timeoff-preview"
+          >
+            {preview.flagged > 0
+              ? `${preview.flagged} regular clean${preview.flagged === 1 ? '' : 's'} fall${
+                  preview.flagged === 1 ? 's' : ''
+                } in this time — your customer${preview.customers === 1 ? ' will' : 's will'} be told.`
+              : 'No regular cleans fall in this time.'}
+          </p>
+        )}
+
+        {error && <p className="mt-3 font-jost text-[13px] text-danger">{error}</p>}
+        {result && (
+          <p className="mt-3 font-jost text-[13px] text-trust" data-testid="timeoff-result">
+            {result}
+          </p>
+        )}
+
+        <button
+          type="button"
+          data-testid="timeoff-commit"
+          disabled={!rangeValid || previewing || committing || !!result}
+          onClick={commit}
+          className="mt-4 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-sm font-semibold text-white active:opacity-80 disabled:opacity-50"
+        >
+          {committing ? 'Blocking…' : 'Block this time off'}
+        </button>
+      </div>
+    </section>
   );
 }
 
