@@ -19,6 +19,14 @@ import { AuditService } from '@/lib/services/audit.service';
 export const SWEEP_AGE_DAYS = 30;
 const SWEEP_BATCH_LIMIT = 50;
 
+// James-ruled 7 Sep 2026: these two real incomplete signups are EXEMPT from
+// the auto-expiry sweep until James confirms he has called them — their
+// accounts and wizard progress stay alive past their 12/16 Sep windows.
+// Sweep-only: the admin broom still works on them deliberately. Remove an
+// email from this list (on James's word) and the normal 30-day rule resumes
+// for it on the next sweep tick.
+export const SWEEP_EXEMPT_EMAILS = ['macoveanu_cory@yahoo.com', 'cleanandrefine@gmail.com'];
+
 export type RemoveIncompleteResult =
   | { ok: true; email: string }
   | { ok: false; error: string; status: number };
@@ -97,6 +105,7 @@ export async function sweepIncompleteSignups(): Promise<{ processed: number }> {
       createdAt: { lt: cutoff },
       bookingsAsClient: { none: {} },
       bookingsAsCleaner: { none: {} },
+      email: { notIn: SWEEP_EXEMPT_EMAILS },
     },
     select: { id: true },
     take: SWEEP_BATCH_LIMIT,

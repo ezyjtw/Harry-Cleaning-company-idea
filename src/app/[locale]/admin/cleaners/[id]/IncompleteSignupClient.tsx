@@ -94,8 +94,9 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
       </div>
       <p className="text-sm text-ink-3 mb-6">
         Started the cleaner signup wizard but never submitted — there is no cleaner profile yet.
-        This account is removed automatically on {formatDate(signup.sweepAt)} if the signup stays
-        unfinished.
+        {signup.sweepExempt
+          ? ' Auto-removal is paused for this account.'
+          : ` This account is removed automatically on ${formatDate(signup.sweepAt)} if the signup stays unfinished.`}
       </p>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -145,7 +146,11 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-ink-3">Auto-removal</dt>
-              <dd className="text-ink text-right">{formatDate(signup.sweepAt)} (30-day sweep)</dd>
+              <dd className="text-ink text-right">
+                {signup.sweepExempt
+                  ? 'Paused — exempt from the sweep (James ruling, until contact confirmed)'
+                  : `${formatDate(signup.sweepAt)} (30-day sweep)`}
+              </dd>
             </div>
           </dl>
 

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { prisma } from '@/lib/db/prisma';
-import { SWEEP_AGE_DAYS } from '@/lib/services/incomplete-signup.service';
+import { SWEEP_AGE_DAYS, SWEEP_EXEMPT_EMAILS } from '@/lib/services/incomplete-signup.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
 
@@ -205,6 +205,8 @@ export interface IncompleteSignupDetail {
   verifyTokenExpires: string | null;
   /** When the LB-3 30-day sweep will remove this account. */
   sweepAt: string;
+  /** James-ruled sweep exemption (7 Sep 2026) — auto-removal is paused. */
+  sweepExempt: boolean;
   funnel: {
     /** cleaner_signup analytics sessions time-matched to this account. */
     matchedSessions: number;
@@ -323,6 +325,7 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
     sweepAt: new Date(
       user.createdAt.getTime() + SWEEP_AGE_DAYS * 24 * 60 * 60 * 1000
     ).toISOString(),
+    sweepExempt: SWEEP_EXEMPT_EMAILS.includes(user.email),
     funnel,
   };
 }
