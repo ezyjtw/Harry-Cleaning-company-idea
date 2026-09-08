@@ -16,6 +16,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import AccountMenu from '@/components/app/AccountMenu';
 import InboxBell from '@/components/app/InboxBell';
 import { haptic } from '@/components/app/job-cards';
 
@@ -182,7 +183,10 @@ export default function AppEarningsPage() {
           <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
             Earnings
           </h1>
-          <InboxBell className="mt-1" />
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <AccountMenu />
+            <InboxBell />
+          </div>
         </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['week', 'month', 'year'] as const).map((p) => (

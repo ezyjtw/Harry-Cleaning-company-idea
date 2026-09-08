@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import AccountMenu from '@/components/app/AccountMenu';
 import HiddenProfileBanner from '@/components/app/HiddenProfileBanner';
 import InboxBell from '@/components/app/InboxBell';
 import {
@@ -295,7 +296,10 @@ export default function TodayPage() {
           {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
               the focus/visibility refetch make it redundant. W2: the bell is
               the shared header component now, dot included. */}
-          <InboxBell className="mt-1" />
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <AccountMenu />
+            <InboxBell />
+          </div>
         </div>
         {morning && (
           <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="morning-preview">
