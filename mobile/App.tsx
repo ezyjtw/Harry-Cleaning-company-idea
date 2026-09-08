@@ -47,11 +47,11 @@ const SURFACE = '#ffffff';
 const LINE = '#E4E9F0';
 const INK2 = '#3D5170';
 const MUTED = '#7A8A9E';
-// DELIBERATE DECISION (James-ruled): the teal in "Cleaner" is a brand colour that
-// appears in EXACTLY ONE place — the logo lockup. It is intentionally NOT a UI
-// accent: no teal buttons, links, chips, or highlights anywhere in the app. Do
-// not introduce a teal token unless James rules otherwise. Primary UI accent is
-// INK (#16296b).
+// Pro Navy design law (James-ruled, supersedes the earlier no-teal ruling):
+// teal-green holds MONEY, and only money — the web money surfaces use the teal
+// token for figures in motion. The shell itself renders no money natively, so
+// no teal constant lives here; the lockup's teal stays confined to the logo.
+// Primary UI accent is INK (#16296b).
 
 // Brand typography — Pro Navy design law: bold geometric sans (Jost) app-wide,
 // Newsreader retired from the app entirely. Loaded from the committed OFL TTFs
@@ -554,7 +554,7 @@ function LoginScreen({
         </Pressable>
         {/* A4: in-shell forgot-password (chrome hidden, same as /join) */}
         <Pressable onPress={onForgot} hitSlop={8} style={{ marginTop: 16, alignSelf: 'center' }}>
-          <Text style={{ fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14 }}>
+          <Text style={{ fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14, lineHeight: 20 }}>
             Forgot password?
           </Text>
         </Pressable>
@@ -959,7 +959,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   pressed: { opacity: 0.85 },
-  mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13 },
+  mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13, lineHeight: 18 },
 
   // Arrival overlay (light, matches the OS splash + Start screen)
   arrival: {
@@ -985,6 +985,7 @@ const styles = StyleSheet.create({
   startEyebrow: {
     fontFamily: SANS_SEMI,
     fontSize: 12,
+    lineHeight: 17,
     letterSpacing: 2.2,
     color: MUTED,
   },
@@ -1000,7 +1001,7 @@ const styles = StyleSheet.create({
 
   // C5 lock screen
   lockHero: { alignItems: 'center', justifyContent: 'center' },
-  lockTitle: { fontFamily: SANS_SEMI, fontSize: 24, color: INK, marginTop: 18 },
+  lockTitle: { fontFamily: SANS_SEMI, fontSize: 24, lineHeight: 32, color: INK, marginTop: 18 },
   lockLinksRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1008,8 +1009,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 6,
   },
-  lockLink: { fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14, paddingVertical: 6 },
-  lockLinkDot: { fontFamily: SANS, color: MUTED, fontSize: 14 },
+  lockLink: {
+    fontFamily: SANS_MEDIUM,
+    color: INK2,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 6,
+  },
+  lockLinkDot: { fontFamily: SANS, color: MUTED, fontSize: 14, lineHeight: 20 },
 
   // WebView seam-kill loader
   webLoader: {
@@ -1030,6 +1037,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 24,
     fontSize: 15,
+    lineHeight: 21,
   },
   input: {
     borderWidth: 1,
@@ -1039,11 +1047,12 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     fontFamily: SANS,
     fontSize: 16,
+    lineHeight: 20,
     color: INK,
     marginBottom: 12,
     backgroundColor: SURFACE,
   },
-  error: { fontFamily: SANS, color: '#dc2626', marginBottom: 12, fontSize: 13 },
+  error: { fontFamily: SANS, color: '#dc2626', marginBottom: 12, fontSize: 13, lineHeight: 18 },
   pwRow: { position: 'relative' },
   pwInput: { paddingRight: 44 },
   pwEye: { position: 'absolute', right: 14, top: 15 },
@@ -1051,7 +1060,7 @@ const styles = StyleSheet.create({
   // Join header
   joinHeader: { backgroundColor: PAGE, paddingHorizontal: 16, paddingBottom: 8 },
   backRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-  backText: { fontFamily: SANS, color: INK2, fontSize: 16, marginLeft: 2 },
+  backText: { fontFamily: SANS, color: INK2, fontSize: 16, lineHeight: 22, marginLeft: 2 },
 
   // Buttons
   primaryBtn: {
@@ -1060,7 +1069,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
   },
-  primaryBtnText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 16 },
+  primaryBtnText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 16, lineHeight: 22 },
   secondaryBtn: {
     backgroundColor: SURFACE,
     borderWidth: 1,
@@ -1069,10 +1078,16 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
   },
-  secondaryBtnText: { fontFamily: SANS_SEMI, color: INK, fontSize: 16 },
+  secondaryBtnText: { fontFamily: SANS_SEMI, color: INK, fontSize: 16, lineHeight: 22 },
   retryBtn: { marginTop: 18, paddingHorizontal: 28 },
 
-  offlineTitle: { fontFamily: SANS_SEMI, fontSize: 20, color: INK, marginBottom: 6 },
+  offlineTitle: {
+    fontFamily: SANS_SEMI,
+    fontSize: 20,
+    lineHeight: 27,
+    color: INK,
+    marginBottom: 6,
+  },
 
   // Tab bar
   tabBar: {
@@ -1083,7 +1098,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
-  tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, color: MUTED },
+  tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, lineHeight: 15, color: MUTED },
   tabBadge: {
     position: 'absolute',
     top: -4,
@@ -1096,6 +1111,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  tabBadgeText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 9.5 },
+  tabBadgeText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 9.5, lineHeight: 13 },
   tabTextActive: { fontFamily: SANS_SEMI, color: INK },
 });
