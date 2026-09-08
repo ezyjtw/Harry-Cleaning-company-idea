@@ -185,6 +185,10 @@ unless James says otherwise** — staged immediately before submission:
 
 ### Store screenshot shot-list (capture once P1 is walkable on-device)
 
+_P1 source build: EAS production build 6 (`b758f0c2-4338-4a98-95cb-e7971eeccd4a`),
+uploaded to TestFlight 8 Sep 2026. Capture is now unblocked — take these once
+build 6 finishes Apple's processing and installs from TestFlight._
+
 Take these on the demo account (real data):
 
 1. **Today — a full day** ("You have 3 jobs today") with the lifecycle buttons.
@@ -216,5 +220,6 @@ Device sizes required:
       click (§3). James puts Charlie's credentials in App Review notes.
 - [x] Splash re-exported 1284×2778 (3 Sep 2026). Icon + adaptive icon already
       committed.
-- [ ] Screenshots (§4) from the P1 build on the staged account.
+- [ ] Screenshots (§4) from the P1 build (EAS build 6, `b758f0c2`, in TestFlight
+      as of 8 Sep 2026 — capture now unblocked) on the staged account.
 - [ ] Confirm the privacy-policy + support URLs resolve.
