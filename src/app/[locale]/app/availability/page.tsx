@@ -503,6 +503,24 @@ export default function AvailabilityAppPage() {
     }
   };
 
+  // "Clear This Week" (James-ruled): blanks every remaining row of the visible
+  // week — staged like all edits, SET MY WEEK commits, no confirm (staging is
+  // the safety net). Recurring days stage as blocked (the only per-date off);
+  // one-off and blank days stage empty.
+  const clearThisWeek = () => {
+    haptic('light');
+    setDoneFlash(null);
+    setPlan((p) => {
+      const next = { ...p };
+      for (const d of week) {
+        if (d.isPast) continue;
+        if (effWeekly[d.day].length > 0) next[d.iso] = { off: true, ranges: d.eff.ranges };
+        else next[d.iso] = { off: false, ranges: [] };
+      }
+      return next;
+    });
+  };
+
   const openDate = (iso: string, day: ApiDay) => {
     haptic('light');
     const d = week.find((w) => w.iso === iso);
@@ -754,10 +772,27 @@ export default function AvailabilityAppPage() {
         </div>
       )}
 
-      {/* ── 2. "Two Ways To Be Open" explainer ── */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
+      {/* ── 2. "Two Ways To Be Open" explainer (option B, James-ruled: white
+             card, 4px navy left spine, info-circle beside the title, tightened
+             copy as drawn) ── */}
+      <section className="mb-6 overflow-hidden rounded-2xl border border-line border-l-4 border-l-primary bg-surface">
         <div className="px-5 pb-4 pt-4">
-          <h2 className="font-jost text-lg font-semibold text-ink">Two Ways To Be Open</h2>
+          <div className="flex items-center gap-2">
+            <svg
+              className="h-[18px] w-[18px] shrink-0 text-primary"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+              />
+            </svg>
+            <h2 className="font-jost text-lg font-semibold text-ink">Two Ways To Be Open</h2>
+          </div>
           <div className="mt-3 space-y-2.5">
             <div className="flex items-start gap-2.5">
               <svg
@@ -774,7 +809,7 @@ export default function AvailabilityAppPage() {
                 />
               </svg>
               <p className="font-jost text-[13px] leading-snug text-ink-2">
-                This week&apos;s hours — one-off time you&apos;re free. Good for jobs as they come.
+                This week&apos;s hours — one-off time you&apos;re free.
               </p>
             </div>
             <div className="flex items-start gap-2.5">
@@ -782,15 +817,14 @@ export default function AvailabilityAppPage() {
                 ↻
               </span>
               <p className="font-jost text-[13px] leading-snug text-ink-2">
-                Regular slots — hours you keep every week. Clients can book these as their standing
-                clean.
+                Regular slots — kept every week; clients book them as standing cleans.
               </p>
             </div>
           </div>
         </div>
         <div className="bg-primary-soft px-5 py-2.5">
           <p className="font-jost text-[12px] font-medium text-primary">
-            Regular clients are steady money — set at least a few ↻ hours if you can.
+            Steady money lives in the ↻ hours.
           </p>
         </div>
       </section>
@@ -943,9 +977,17 @@ export default function AvailabilityAppPage() {
         onClick={setMyWeek}
         disabled={!anyDirty || weekSaving}
         data-testid="set-my-week"
-        className="mb-6 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white active:opacity-80 disabled:opacity-40"
+        className="mb-3 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white active:opacity-80 disabled:opacity-40"
       >
         {weekSaving ? 'Saving…' : `Set My Week — ${hrsStr(weekHoursOpen)} Hrs Open`}
+      </button>
+      <button
+        type="button"
+        onClick={clearThisWeek}
+        data-testid="clear-week"
+        className="mb-6 w-full py-2 text-center font-jost text-[13px] font-medium text-ink-3 active:opacity-70"
+      >
+        Clear This Week
       </button>
 
       {/* ── 6. W6: settings rows ── */}
@@ -1366,7 +1408,7 @@ function TimeOffCard({
     });
 
   const inputCls =
-    'w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-primary/20';
+    'w-full min-w-0 rounded-[10px] border border-line bg-surface px-3.5 py-3 font-jost text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-primary/20';
 
   return (
     <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
@@ -1377,8 +1419,8 @@ function TimeOffCard({
         </p>
       </div>
       <div className="px-5 py-4">
-        <div className="flex gap-3">
-          <label className="flex-1">
+        <div className="flex gap-4">
+          <label className="min-w-0 flex-1">
             <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               From
             </span>
@@ -1393,7 +1435,7 @@ function TimeOffCard({
               className={inputCls}
             />
           </label>
-          <label className="flex-1">
+          <label className="min-w-0 flex-1">
             <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               Until
             </span>
