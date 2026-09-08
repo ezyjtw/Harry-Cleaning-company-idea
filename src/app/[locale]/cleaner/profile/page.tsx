@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
 import { recordNav } from '@/lib/nav/nav-trace';
+import { isShellUA } from '@/lib/shell';
 import {
   isBrowserDisplayableImage,
   resizeProfilePhoto,
@@ -740,13 +741,17 @@ export default function CleanerProfilePage() {
 
         {/* U2 (James-ruled): the dashboard is the ONLY insurance surface. No
             insurance SECTION here — just this one-line signpost. */}
-        <p className="px-1 font-jost text-[13px] font-light text-ink-3">
-          Looking for insurance? Manage it from your{' '}
-          <Link href="/cleaner" className="text-primary underline">
-            dashboard
-          </Link>
-          .
-        </p>
+        {/* James-ruled escape-hatch seal: the dashboard signpost points at the
+            portal home, which doesn't exist inside the shell — hidden there. */}
+        {!isShellUA() && (
+          <p className="px-1 font-jost text-[13px] font-light text-ink-3">
+            Looking for insurance? Manage it from your{' '}
+            <Link href="/cleaner" className="text-primary underline">
+              dashboard
+            </Link>
+            .
+          </p>
+        )}
 
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">
