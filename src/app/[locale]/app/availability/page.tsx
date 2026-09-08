@@ -89,16 +89,24 @@ function fmt(t: string): string {
   const disp = h === 0 ? 12 : h <= 12 ? h : h - 12;
   return mS === '00' ? `${disp}${suffix}` : `${disp}:${mS}${suffix}`;
 }
-// Readback voice ("Done — free 8:30–11:30 & 1:00–3:00") — James's exact format.
-function wordTime(t: string): string {
-  if (t === '23:59') return '12:00';
-  const [hS, mS] = t.split(':');
-  let h = parseInt(hS, 10) % 12;
-  if (h === 0) h = 12;
-  return `${h}:${mS}`;
+// The one voice (James-amended ruling): compact am/pm everywhere in this card
+// and sheet — "8:30am–11:30am & 1–3pm". Suffix always on the range end;
+// minutes dropped when :00; a bare-hour start sharing the end's suffix drops
+// its own. The suffix-less form is retired (ambiguous across noon). The web
+// portal keeps its own voice — untouched.
+function suffixOf(t: string): 'am' | 'pm' {
+  if (t === '23:59') return 'am'; // rendered 12am
+  return parseInt(t.split(':')[0], 10) < 12 ? 'am' : 'pm';
 }
-function wordRanges(ranges: TimeSlot[]): string {
-  return ranges.map((r) => `${wordTime(r.start)}–${wordTime(r.end)}`).join(' & ');
+function rangeVoice(r: TimeSlot): string {
+  let startS = fmt(r.start);
+  if (suffixOf(r.start) === suffixOf(r.end) && !startS.includes(':')) {
+    startS = startS.slice(0, -2);
+  }
+  return `${startS}–${fmt(r.end)}`;
+}
+function rangesVoice(ranges: TimeSlot[]): string {
+  return ranges.map(rangeVoice).join(' & ');
 }
 function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -136,7 +144,7 @@ function validateRanges(ranges: TimeSlot[]): string | null {
 // Row voice: ≤2 ranges printed in full, 3+ compressed (James-ruled).
 function rowText(ranges: TimeSlot[]): string {
   if (ranges.length === 0) return 'Off';
-  if (ranges.length <= 2) return ranges.map((r) => `${fmt(r.start)}–${fmt(r.end)}`).join(' & ');
+  if (ranges.length <= 2) return rangesVoice(ranges);
   return `${ranges.length} times · ${hrsStr(hoursOf(ranges))} hrs`;
 }
 
@@ -446,7 +454,7 @@ export default function AvailabilityAppPage() {
         [editing.date]: { off: false, ranges: editSlots.map((s) => ({ ...s })) },
       }));
       haptic('success');
-      setDoneFlash(`Done — free ${wordRanges(editSlots)}`);
+      setDoneFlash(`Done — free ${rangesVoice(editSlots)}`);
       setEditing(null);
       return;
     }
@@ -458,7 +466,7 @@ export default function AvailabilityAppPage() {
         setEditError('Could not save — try again');
         return;
       }
-      setDoneFlash(`Done — free ${wordRanges(editSlots)}`);
+      setDoneFlash(`Done — free ${rangesVoice(editSlots)}`);
       setEditing(null);
     } finally {
       setEditSaving(false);

@@ -204,6 +204,9 @@ on James's explicit word after he confirms contact.** The exported broom stays.
 - **Native chat rebuild for Messages** — out of scope; Messages stays the
   wrapped web page (in-shell skin only). Pulled when real usage demands it
   (James-ruled, App Review Batch 1).
+- **"Copy to weekdays"** — retired with the P2 drag-slider sheet; Usual Hours
+  is the pattern-setter. Re-addable if setting the week day-by-day proves
+  tedious in practice (James-ruled, App Review Batch 1).
 - **Jo/Pete incident** — closed permanently by James; drop it from ledgers.
 
 ## 9. First moves for a fresh session
