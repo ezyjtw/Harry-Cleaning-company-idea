@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
+import { isShellUA } from '@/lib/shell';
 import { detectContactInfo } from '@/lib/utils/pii';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -348,7 +349,9 @@ export default function MessagesPage() {
             the way home — a cleaner with no conversations yet had no back
             link at all. Same role-aware link as the list header. */}
         <Link
-          href={currentUserRole === 'cleaner' ? '/cleaner' : '/account'}
+          href={
+            currentUserRole === 'cleaner' ? (isShellUA() ? '/app/today' : '/cleaner') : '/account'
+          }
           className="mb-6 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
         >
           <svg
@@ -360,7 +363,11 @@ export default function MessagesPage() {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
           </svg>
-          {currentUserRole === 'cleaner' ? 'Back to dashboard' : 'Back to my account'}
+          {currentUserRole === 'cleaner'
+            ? isShellUA()
+              ? 'Back to Today'
+              : 'Back to dashboard'
+            : 'Back to my account'}
         </Link>
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
           <svg
@@ -398,7 +405,9 @@ export default function MessagesPage() {
           {/* Role home DIRECTLY — never via the /dashboard junction (legacy
               links only since the junction batch). */}
           <Link
-            href={currentUserRole === 'cleaner' ? '/cleaner' : '/account'}
+            href={
+              currentUserRole === 'cleaner' ? (isShellUA() ? '/app/today' : '/cleaner') : '/account'
+            }
             className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
           >
             <svg
@@ -410,7 +419,11 @@ export default function MessagesPage() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
             </svg>
-            {currentUserRole === 'cleaner' ? 'Back to dashboard' : 'Back to my account'}
+            {currentUserRole === 'cleaner'
+              ? isShellUA()
+                ? 'Back to Today'
+                : 'Back to dashboard'
+              : 'Back to my account'}
           </Link>
           <h1 className="font-newsreader text-xl font-semibold text-ink">Messages</h1>
         </div>

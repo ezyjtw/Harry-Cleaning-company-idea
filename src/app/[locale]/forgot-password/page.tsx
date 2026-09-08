@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { isShellUA } from '@/lib/shell';
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -47,12 +49,20 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-10 text-center">
-          <Link
-            href="/"
-            className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
-          >
-            RENA
-          </Link>
+          {/* James-ruled escape-hatch seal: in-shell the wordmark keeps its
+              face but loses its road to the marketing home. */}
+          {isShellUA() ? (
+            <span className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink">
+              RENA
+            </span>
+          ) : (
+            <Link
+              href="/"
+              className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
+            >
+              RENA
+            </Link>
+          )}
         </div>
 
         {submitted ? (
