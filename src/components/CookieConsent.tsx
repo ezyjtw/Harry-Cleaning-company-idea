@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useState, useEffect, useCallback } from 'react';
 
+import { isShellUA } from '@/lib/shell';
+
 interface CookiePreferences {
   essential: boolean;
   analytics: boolean;
@@ -92,6 +94,9 @@ export default function CookieConsent() {
     saveConsent(preferences);
   }, [preferences, saveConsent]);
 
+  // James-ruled chrome strip: the cookie banner never renders inside the Rena
+  // Pro shell. Client-only UA check — browser visitors' HTML is untouched.
+  if (isShellUA()) return null;
   if (!visible) return null;
 
   return (

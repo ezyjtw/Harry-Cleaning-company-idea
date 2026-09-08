@@ -3,13 +3,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { isShellUA } from '@/lib/shell';
+
 // H88: launch-time stand-in for the live-chat FAB — same position, same
 // footprint (the H50 mobile padding law assumes a bottom-right FAB), but it
 // opens the contact form instead of a chat panel. Hidden on /contact itself,
-// where the form is already the page.
+// where the form is already the page. Never renders inside the Rena Pro shell
+// (James-ruled chrome strip) — the UA check is client-only, so browser
+// visitors' HTML is untouched.
 export default function ContactFab() {
   const pathname = usePathname();
   if (pathname === '/contact') return null;
+  if (isShellUA()) return null;
 
   return (
     <Link

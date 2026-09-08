@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+import { isShellUA } from '@/lib/shell';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -163,6 +165,11 @@ export default function AIChatWidget() {
     }
   };
 
+  // James-ruled chrome strip: the floating chat/contact affordance never
+  // renders inside the Rena Pro shell. Client-only UA check — browser
+  // visitors' HTML is untouched.
+  if (isShellUA()) return null;
+
   return (
     <>
       {/* Chat Panel */}
@@ -181,7 +188,9 @@ export default function AIChatWidget() {
             </div>
             <div>
               <h3 className="font-jost text-sm font-medium text-white">Rena Assistant</h3>
-              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-white/60">Online</p>
+              <p className="font-jost text-[10px] uppercase tracking-[0.1em] text-white/60">
+                Online
+              </p>
             </div>
           </div>
           <button
