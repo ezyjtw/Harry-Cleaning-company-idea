@@ -41,6 +41,13 @@ export const LIFECYCLE_ACTION: Record<string, { label: string; next: string } | 
   in_progress: { label: 'MARK COMPLETE', next: 'COMPLETED' },
 };
 
+// James-ruled guard: no card ever offers a road its underlying state can't
+// honour — terminal statuses never navigate into the offer machinery.
+const TERMINAL_STATUSES = ['completed', 'reviewed', 'cancelled'];
+function isTerminal(status: string): boolean {
+  return TERMINAL_STATUSES.includes(status.toLowerCase());
+}
+
 // Pro Navy law: status chips died — state lives in the button and row style.
 
 /** 4.6 meta narration — the card states the consequence of the last tap. */
@@ -230,6 +237,7 @@ export function HeroJob({
           )
         )
           return;
+        if (isTerminal(job.status)) return;
         router.push(`/app/offer/${job.id}`);
       }}
       className={`cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-colors active:bg-page ${
@@ -325,6 +333,7 @@ export function JobCard({
           )
         )
           return;
+        if (isTerminal(job.status)) return;
         router.push(`/app/offer/${job.id}`);
       }}
       className="cursor-pointer rounded-2xl border border-line bg-surface p-4 transition-colors active:bg-page"
