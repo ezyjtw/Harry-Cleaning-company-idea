@@ -291,8 +291,7 @@ export default function AvailabilityAppPage() {
 
   // W6: the two settings rows (buffer, same-day).
   const [buffer, setBuffer] = useState<30 | 60>(30);
-  const [sameDay, setSameDay] = useState(true);
-  const [settingBusy, setSettingBusy] = useState<'buffer' | 'sameDay' | null>(null);
+  const [settingBusy, setSettingBusy] = useState<'buffer' | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoadError(false);
@@ -318,8 +317,7 @@ export default function AvailabilityAppPage() {
       setBlocked(data.blockedDates || []);
       setPlan({});
       setStagedWeekly({});
-      // W6: the two settings rows read the same GET; saves are per-field PUTs.
-      setSameDay(data.availableNow ?? true);
+      // W6: the buffer row reads the same GET; saves are per-field PUTs.
       setBuffer(data.bookingBufferMinutes === 60 ? 60 : 30);
     } catch {
       setLoadError(true);
@@ -596,12 +594,12 @@ export default function AvailabilityAppPage() {
   };
 
   // W6: save exactly one settings field (B1-safe — nothing else rides the PUT).
-  const saveSetting = async (
-    field: 'bookingBufferMinutes' | 'availableNow',
-    value: number | boolean
-  ) => {
+  // P2.5 (James-ruled): the same-day row is hidden in-shell — availableNow
+  // governs no bookable capability today (directory badge/sort only), so this
+  // screen no longer surfaces it. Server setting and website untouched.
+  const saveSetting = async (field: 'bookingBufferMinutes', value: number) => {
     haptic('light');
-    setSettingBusy(field === 'availableNow' ? 'sameDay' : 'buffer');
+    setSettingBusy('buffer');
     setSaveError(null);
     try {
       const res = await fetch('/api/cleaner/availability', {
@@ -610,8 +608,7 @@ export default function AvailabilityAppPage() {
         body: JSON.stringify({ [field]: value }),
       });
       if (!res.ok) throw new Error('Could not save');
-      if (field === 'availableNow') setSameDay(value as boolean);
-      else setBuffer(value as 30 | 60);
+      setBuffer(value as 30 | 60);
       haptic('success');
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
@@ -933,29 +930,6 @@ export default function AvailabilityAppPage() {
                 </button>
               ))}
             </div>
-          </div>
-          <div className="flex items-center justify-between px-5 py-3.5">
-            <div>
-              <p className="font-jost text-[15px] text-ink">Same-day bookings</p>
-              <p className="font-jost text-[12px] text-ink-3">Customers can book you for today</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={sameDay}
-              aria-label="Same-day bookings"
-              disabled={settingBusy === 'sameDay'}
-              onClick={() => saveSetting('availableNow', !sameDay)}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
-                sameDay ? 'bg-primary' : 'bg-ink-3/30'
-              }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
-                  sameDay ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
           </div>
         </div>
       </section>
