@@ -287,6 +287,8 @@ export default function AvailabilityAppPage() {
   // that template day on Done. Data stays per-range; this surface sets them
   // together.
   const [editRegular, setEditRegular] = useState(false);
+  // Option B confirm beat for "Stop Repeating This Day".
+  const [stopConfirm, setStopConfirm] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   // W6: the two settings rows (buffer, same-day).
@@ -513,9 +515,30 @@ export default function AvailabilityAppPage() {
     const recurringNow = !!d?.recurring;
     setEditScope(recurringNow ? 'every' : 'week');
     setEditRegular(recurringNow ? effWeekly[day].some((s) => s.recurringEligible) : false);
+    setStopConfirm(false);
     setEditError(null);
     setDoneFlash(null);
     setEditing({ date: iso, day });
+  };
+
+  // Option B (James-ruled): remove the day from the standing template — the
+  // only affordance that un-repeats a day. Stages template[day] = []; every
+  // week's copy of the day goes blank via effWeekly; saved one-off date slots
+  // are untouched. Commits with SET MY WEEK like everything else.
+  const stopRepeating = () => {
+    if (!editing) return;
+    haptic('medium');
+    setStagedWeekly((p) => ({ ...p, [editing.day]: [] }));
+    // Drop any staged plan for this date that was mirroring the template —
+    // otherwise it would commit as a one-off resurrection of the dead day.
+    setPlan((p) => {
+      const next = { ...p };
+      delete next[editing.date];
+      return next;
+    });
+    setDoneFlash(`${DAY_LABEL[editing.day]} no longer repeats — saved when you set your week.`);
+    setStopConfirm(false);
+    setEditing(null);
   };
 
   // Sheet Done: everything stages; SET MY WEEK commits.
@@ -1143,6 +1166,59 @@ export default function AvailabilityAppPage() {
                   }`}
                 />
               </button>
+            </div>
+          )}
+
+          {/* Option B (James-ruled): the only way OFF the standing template.
+              ↻ days only; confirm beat; regular-client slots named plainly. */}
+          {effWeekly[editing.day].length > 0 && !stopConfirm && (
+            <button
+              type="button"
+              data-testid="stop-repeating"
+              onClick={() => {
+                haptic('light');
+                setStopConfirm(true);
+              }}
+              className="mt-4 w-full text-center font-jost text-[13px] font-medium text-danger"
+            >
+              Stop Repeating This Day
+            </button>
+          )}
+          {stopConfirm && (
+            <div className="mt-4 rounded-xl border border-danger/30 bg-danger/5 p-4">
+              <p className="font-jost text-[14px] font-semibold text-ink">
+                Stop Repeating {DAY_LABEL[editing.day]}?
+              </p>
+              <p className="mt-1 font-jost text-[13px] text-ink-2">
+                Your usual {DAY_LABEL[editing.day]} hours come off every week. One-off hours
+                you&apos;ve set on single days stay.
+              </p>
+              {effWeekly[editing.day].some((s) => s.recurringEligible) && (
+                <p className="mt-2 font-jost text-[13px] font-medium text-danger">
+                  {DAY_LABEL[editing.day]} is open to regular clients — stopping it closes that
+                  standing slot.
+                </p>
+              )}
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  data-testid="stop-repeating-confirm"
+                  onClick={stopRepeating}
+                  className="w-full rounded-[12px] bg-danger px-4 py-2.5 font-jost text-sm font-semibold text-white active:opacity-80"
+                >
+                  Stop Repeating {DAY_LABEL[editing.day]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic('light');
+                    setStopConfirm(false);
+                  }}
+                  className="w-full rounded-[12px] px-4 py-2.5 font-jost text-sm font-medium text-ink-2 active:bg-page"
+                >
+                  Keep It
+                </button>
+              </div>
             </div>
           )}
 
