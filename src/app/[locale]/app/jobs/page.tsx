@@ -15,6 +15,7 @@ import {
   JobCard,
   LIFECYCLE_ACTION,
   OfferCard,
+  ReceiptRow,
   haptic,
   isoOf,
   pay,
@@ -272,18 +273,28 @@ export default function AppJobsPage() {
                 >
                   {dayLabel(d.iso)}
                 </h2>
-                <div className="space-y-3">
-                  {d.jobs.map((job) => (
-                    <JobCard
-                      key={job.id}
-                      job={job}
-                      now={now}
-                      processing={processingId === job.id}
-                      onAdvance={() => advance(job)}
-                      onCancelled={() => fetchJobs(filter)}
-                    />
-                  ))}
-                </div>
+                {filter === 'done' ? (
+                  /* James-ruled: completed jobs are receipt rows — tick, time,
+                     name, money, no button, no offer click-through. */
+                  <div className="rounded-2xl border border-line bg-surface px-4 py-1">
+                    {d.jobs.map((job) => (
+                      <ReceiptRow key={job.id} job={job} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {d.jobs.map((job) => (
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        now={now}
+                        processing={processingId === job.id}
+                        onAdvance={() => advance(job)}
+                        onCancelled={() => fetchJobs(filter)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
