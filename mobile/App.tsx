@@ -330,6 +330,7 @@ function RootView() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           bridgeUrl={bridgeUrl}
+          onBridged={() => setBridgeUrl(null)}
           onSessionLost={logout}
         />
       )}
@@ -605,11 +606,13 @@ function ShellScreen({
   activeTab,
   setActiveTab,
   bridgeUrl,
+  onBridged,
   onSessionLost,
 }: {
   activeTab: string;
   setActiveTab: (k: string) => void;
   bridgeUrl: string | null;
+  onBridged: () => void;
   onSessionLost: () => void;
 }) {
   const selectTab = useCallback(
@@ -675,6 +678,7 @@ function ShellScreen({
                 uri={uri}
                 injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
                 onSessionLost={onSessionLost}
+                onBridged={tab.key === 'today' ? onBridged : undefined}
               />
             </TabPane>
           );
@@ -740,11 +744,13 @@ function SeamlessWebView({
   uri,
   injectBefore,
   onSessionLost,
+  onBridged,
   loaderTone = 'light',
 }: {
   uri: string;
   injectBefore: string;
   onSessionLost?: () => void;
+  onBridged?: () => void;
   loaderTone?: 'light' | 'navy';
 }) {
   const [offline, setOffline] = useState(false);
@@ -765,6 +771,19 @@ function SeamlessWebView({
   const onNav = (nav: WebViewNavigation) => {
     if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
       onSessionLost();
+    }
+    // Fix: the Today tab boots on the single-use session-bridge URL, which
+    // redirects here to /app/today. Once we've landed past the bridge, clear
+    // bridgeUrl so Today reverts to loading its route directly like every other
+    // tab — otherwise a reload / tab-switch / resume re-requests the spent code
+    // and renders the bridge's "invalid or expired or already-used code" 401.
+    // Honours the "Null once bridged" contract the shell always intended.
+    if (
+      onBridged &&
+      /\/app\/today(\?|#|$)/.test(nav.url) &&
+      !nav.url.includes('/api/auth/session-bridge')
+    ) {
+      onBridged();
     }
   };
 
