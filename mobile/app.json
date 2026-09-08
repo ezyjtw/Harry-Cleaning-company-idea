@@ -8,6 +8,10 @@
     "icon": "./assets/icon.png",
     "scheme": "renapro",
     "userInterfaceStyle": "light",
+    "runtimeVersion": { "policy": "fingerprint" },
+    "updates": {
+      "url": "https://u.expo.dev/b62e3a93-8175-42dd-b1b9-dc7d657856d0"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
