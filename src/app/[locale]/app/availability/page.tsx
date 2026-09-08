@@ -449,7 +449,30 @@ export default function AvailabilityAppPage() {
     const staged = stagedWeekly[d];
     return !!staged && !rangesEqual(staged, weekly[d]);
   });
-  const anyDirty = week.some((d) => d.dirty) || Object.keys(plan).length > 0 || templateDirty;
+
+  // EVERY staged date, whichever week it sits in — the commit must never walk
+  // only the visible week (a pager flip before SET MY WEEK silently dropped
+  // the other week's staged edits; caught by the V2 gate drive).
+  const stagedDays = useMemo(
+    () =>
+      Object.entries(plan).map(([iso, eff]) => {
+        const day = JS_DAY_TO_API[new Date(`${iso}T00:00:00`).getDay()];
+        const isBlocked = blocked.some((b) => b.date === iso);
+        const savedCustom = (dateSlots[iso]?.length ?? 0) > 0;
+        const baseline: DayPlan = {
+          off: isBlocked,
+          ranges: savedCustom ? dateSlots[iso] : effWeekly[day],
+        };
+        return {
+          iso,
+          day,
+          eff,
+          dirty: eff.off !== baseline.off || !rangesEqual(eff.ranges, baseline.ranges),
+        };
+      }),
+    [plan, blocked, dateSlots, effWeekly]
+  );
+  const anyDirty = stagedDays.some((d) => d.dirty) || templateDirty;
   const weekHoursOpen = week.reduce(
     (s, d) => s + (d.eff.off || d.isPast ? 0 : hoursOf(d.eff.ranges)),
     0
@@ -530,7 +553,7 @@ export default function AvailabilityAppPage() {
       // 1) Template + blocked-date changes ride ONE PUT.
       let blockedNext = [...blocked];
       let blockedChanged = false;
-      for (const d of week) {
+      for (const d of stagedDays) {
         if (!d.dirty) continue;
         const wasBlocked = blocked.some((b) => b.date === d.iso);
         if (d.eff.off && !wasBlocked) {
@@ -546,7 +569,7 @@ export default function AvailabilityAppPage() {
       // 2) Per-date overrides: differs from template → POST; matches template
       //    (or cleared) → DELETE any saved date slot.
       const nextDateSlots = { ...dateSlots };
-      for (const d of week) {
+      for (const d of stagedDays) {
         if (!d.dirty || d.eff.off) continue;
         const sameAsTemplate = rangesEqual(d.eff.ranges, effWeekly[d.day]);
         const hadCustom = (dateSlots[d.iso]?.length ?? 0) > 0;
