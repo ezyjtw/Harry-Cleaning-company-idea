@@ -4,13 +4,15 @@
 // GET/PUT /api/cleaner/availability, POST/DELETE /api/cleaner/availability/date-slots
 // — the portal page is untouched. Served only inside the shell (/app layout gate).
 //
-// P2 (James-ruled, App Review Batch 1): "Your Week Ahead" is the front page —
-// seven rows pre-filled from usual hours, toggles flip days off, tap a time →
-// the sheet (chips + native wheels in 30-min steps). Changes STAGE locally and
-// commit together on "Set My Week". Usual hours demotes to a secondary card,
-// edited with the same sheet (immediate save — it's the standing template).
-// The drag-slider editor is retired. Same endpoints as before — no booking
-// mechanics touched.
+// P2.5 AVAILABILITY V2 (James-ruled, App Review Batch 1): ONE calendar. The
+// standing-week template has no UI surface of its own — the sheet's
+// "Just This Week / Every [Dayname]" segmented choice is the only way to touch
+// it. Weeks start blank: recurring (template) days arrive pre-filled wearing ↻,
+// everything else reads "+ Add Hours". Untouched week = only recurring hours
+// open — the intended opt-in model. All edits STAGE locally and commit together
+// on SET MY WEEK. Blocked Dates card retired into the Time Off card (same
+// override machinery). Data mapping is EXACTLY the timesheet core's precedence
+// (date slots ELSE template, minus overrides) — no mechanics change anywhere.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -21,9 +23,9 @@ import { haptic } from '@/components/app/job-cards';
 interface TimeSlot {
   start: string;
   end: string;
-  // F18: "Open to regular clients" — rides the same GET/PUT payload as the
-  // portal page. Absent on date-slots (that API has no flag). Opt-in stays
-  // the cleaner's choice; this screen just finally exposes the switch.
+  // F18: "Open To Regular Clients" — rides the same GET/PUT payload as the
+  // portal page. Weekly (template) ranges only; the date-slots API has no flag,
+  // so just-this-week hours can never be regular slots (James-ruled).
   recurringEligible?: boolean;
 }
 interface BlockedDate {
@@ -89,11 +91,9 @@ function fmt(t: string): string {
   const disp = h === 0 ? 12 : h <= 12 ? h : h - 12;
   return mS === '00' ? `${disp}${suffix}` : `${disp}:${mS}${suffix}`;
 }
-// The one voice (James-amended ruling): compact am/pm everywhere in this card
-// and sheet — "8:30am–11:30am & 1–3pm". Suffix always on the range end;
-// minutes dropped when :00; a bare-hour start sharing the end's suffix drops
-// its own. The suffix-less form is retired (ambiguous across noon). The web
-// portal keeps its own voice — untouched.
+// The one voice (James-ruled bf6116d): compact am/pm — "8:30am–11:30am & 1–3pm".
+// Suffix always on the range end; minutes dropped when :00; a bare-hour start
+// sharing the end's suffix drops its own. Web portal keeps its own voice.
 function suffixOf(t: string): 'am' | 'pm' {
   if (t === '23:59') return 'am'; // rendered 12am
   return parseInt(t.split(':')[0], 10) < 12 ? 'am' : 'pm';
@@ -148,9 +148,18 @@ function rowText(ranges: TimeSlot[]): string {
   return `${ranges.length} times · ${hrsStr(hoursOf(ranges))} hrs`;
 }
 
+// The ↻ recurring mark (small, navy, before the hours).
+function RecurMark() {
+  return (
+    <span aria-label="Repeats every week" className="mr-1 font-jost text-[13px] text-primary">
+      ↻
+    </span>
+  );
+}
+
 // ── Native time wheels (30-min steps) ─────────────────────────────────────────
-// Plain <select>s: iOS renders them as native wheel pickers inside the WebView,
-// which is exactly the ruled control. 06:00 → 24:00 in 30-min steps.
+// Plain <select>s: iOS renders them as native wheel pickers inside the WebView
+// — the ruled control, kept as shipped (chip-strip alternative is ledgered).
 const START_OPTIONS: string[] = [];
 for (let m = TRACK_START; m < TRACK_END; m += SNAP) START_OPTIONS.push(toTime(m));
 const END_OPTIONS: string[] = [];
@@ -230,11 +239,15 @@ function Sheet({
   );
 }
 
-// Editing target: a specific date (staged into the week plan) or a weekday
-// template (saved immediately — it's the standing usual).
-type EditTarget = { kind: 'date'; date: string; day: ApiDay } | { kind: 'day'; day: ApiDay };
+// One-calendar model: the sheet always edits a DATE; the segmented choice
+// decides whether Done stages just that date or the standing template.
+interface EditTarget {
+  date: string;
+  day: ApiDay;
+}
 
-// The staged shape of one Week-Ahead day.
+// The staged shape of one week-card day. off=true → full-day block staged.
+// off=false with ranges=[] → day cleared back to blank (one-off removed).
 interface DayPlan {
   off: boolean;
   ranges: TimeSlot[];
@@ -253,24 +266,30 @@ export default function AvailabilityAppPage() {
   const [dateSlots, setDateSlots] = useState<Record<string, TimeSlot[]>>({});
   const [blocked, setBlocked] = useState<BlockedDate[]>([]);
 
-  // P2 staging: touched Week-Ahead days, keyed by ISO date. Committed as one
-  // batch by "Set My Week"; cleared on every fresh fetch.
+  // Staged changes. `plan` = per-date; `stagedWeekly` = template days edited
+  // via "Every [Dayname]" (invisible template, committed with SET MY WEEK).
   const [plan, setPlan] = useState<Record<string, DayPlan>>({});
+  const [stagedWeekly, setStagedWeekly] = useState<Partial<Record<ApiDay, TimeSlot[]>>>({});
   const [weekSaving, setWeekSaving] = useState(false);
+
+  // Week pager: 0 = week commencing this Monday, 1 = next week. Max one ahead.
+  const [weekOffset, setWeekOffset] = useState<0 | 1>(0);
 
   const [savedFlash, setSavedFlash] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // "Done — free 8:30–11:30 & 1:00–3:00" (James's exact readback voice).
   const [doneFlash, setDoneFlash] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [editSlots, setEditSlots] = useState<TimeSlot[]>([]);
+  // Segmented choice: 'week' = Just This Week (date slot), 'every' = template.
+  const [editScope, setEditScope] = useState<'week' | 'every'>('week');
+  // F18 switch (shown only under "Every [Day]"): applied to every range of
+  // that template day on Done. Data stays per-range; this surface sets them
+  // together.
+  const [editRegular, setEditRegular] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [editSaving, setEditSaving] = useState(false);
 
-  const [showCalendar, setShowCalendar] = useState(false);
-
-  // W6: time off + the two settings rows (buffer, same-day).
+  // W6: the two settings rows (buffer, same-day).
   const [buffer, setBuffer] = useState<30 | 60>(30);
   const [sameDay, setSameDay] = useState(true);
   const [settingBusy, setSettingBusy] = useState<'buffer' | 'sameDay' | null>(null);
@@ -298,6 +317,7 @@ export default function AvailabilityAppPage() {
       setDateSlots(data.dateSlots || {});
       setBlocked(data.blockedDates || []);
       setPlan({});
+      setStagedWeekly({});
       // W6: the two settings rows read the same GET; saves are per-field PUTs.
       setSameDay(data.availableNow ?? true);
       setBuffer(data.bookingBufferMinutes === 60 ? 60 : 30);
@@ -322,9 +342,9 @@ export default function AvailabilityAppPage() {
   }, [fetchAll]);
 
   // PUT only what this screen edits (weekly + blocked). Settings this screen
-  // has no UI for (availableNow, bookingBufferMinutes) are deliberately NOT
-  // sent — the API treats absent fields as untouched, and echoing them back
-  // from a stale snapshot could clobber a value saved elsewhere (B1).
+  // has separate UI for (availableNow, bookingBufferMinutes) are deliberately
+  // NOT sent — the API treats absent fields as untouched, and echoing them
+  // back from a stale snapshot could clobber a value saved elsewhere (B1).
   const putAll = useCallback(
     async (weeklyNext: Record<ApiDay, TimeSlot[]>, blockedNext: BlockedDate[]) => {
       setSaveError(null);
@@ -346,6 +366,8 @@ export default function AvailabilityAppPage() {
     []
   );
 
+  // Immediate commit path — used by the Time Off card's block removal (the
+  // week card itself stages and commits via SET MY WEEK).
   const commit = useCallback(
     async (weeklyNext: Record<ApiDay, TimeSlot[]>, blockedNext: BlockedDate[]) => {
       const prevWeekly = weekly;
@@ -367,121 +389,147 @@ export default function AvailabilityAppPage() {
     [weekly, blocked, putAll]
   );
 
-  // ── Week Ahead data: the next 7 days, baseline from DB, overlay from plan ──
+  // Template with staged "Every [Day]" edits applied.
+  const effWeekly = useMemo(() => {
+    const next = { ...weekly };
+    for (const d of API_DAYS) {
+      const staged = stagedWeekly[d];
+      if (staged) next[d] = staged;
+    }
+    return next;
+  }, [weekly, stagedWeekly]);
+
+  const todayIso = isoOf(new Date());
+
+  // ── The week card: Monday-commencing calendar week + offset ──
   const week = useMemo(() => {
+    const monday = new Date();
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + weekOffset * 7);
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
       const iso = isoOf(d);
       const day = JS_DAY_TO_API[d.getDay()];
+      const isPast = iso < todayIso;
       const isBlocked = blocked.some((b) => b.date === iso);
-      const custom = (dateSlots[iso]?.length ?? 0) > 0;
+      const savedCustom = (dateSlots[iso]?.length ?? 0) > 0;
       const baseline: DayPlan = {
         off: isBlocked,
-        ranges: custom ? dateSlots[iso] : weekly[day],
+        ranges: savedCustom ? dateSlots[iso] : effWeekly[day],
       };
       const eff = plan[iso] ?? baseline;
+      // ↻ = these hours ARE the standing template's (no date-slot, no staged
+      // one-off differing from it).
+      const recurring =
+        !eff.off &&
+        eff.ranges.length > 0 &&
+        !savedCustom &&
+        effWeekly[day].length > 0 &&
+        rangesEqual(eff.ranges, effWeekly[day]);
       return {
         iso,
         day,
-        label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : DAY_LABEL[day],
-        dateShort: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        label: DAY_LABEL[day],
+        isToday: iso === todayIso,
+        isPast,
         baseline,
         eff,
-        // Tinted = this day differs from the usual template (James: "tweaked
-        // days tinted") — whether saved as a date-slot or freshly staged.
-        tweaked: !eff.off && !rangesEqual(eff.ranges, weekly[day]),
+        recurring,
+        blank: !eff.off && eff.ranges.length === 0,
         dirty: eff.off !== baseline.off || !rangesEqual(eff.ranges, baseline.ranges),
       };
     });
-  }, [blocked, dateSlots, weekly, plan]);
+  }, [weekOffset, todayIso, blocked, dateSlots, effWeekly, plan]);
 
-  const weekDirty = week.some((d) => d.dirty);
-  const weekHoursOpen = week.reduce((s, d) => s + (d.eff.off ? 0 : hoursOf(d.eff.ranges)), 0);
+  const weekCommencing = useMemo(() => {
+    const monday = new Date();
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + weekOffset * 7);
+    return monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+  }, [weekOffset]);
 
-  const weeklyHours = useMemo(
-    () => API_DAYS.reduce((sum, d) => sum + hoursOf(weekly[d]), 0),
-    [weekly]
+  const templateDirty = API_DAYS.some((d) => {
+    const staged = stagedWeekly[d];
+    return !!staged && !rangesEqual(staged, weekly[d]);
+  });
+  const anyDirty = week.some((d) => d.dirty) || Object.keys(plan).length > 0 || templateDirty;
+  const weekHoursOpen = week.reduce(
+    (s, d) => s + (d.eff.off || d.isPast ? 0 : hoursOf(d.eff.ranges)),
+    0
   );
 
-  // ── Week Ahead interactions (all staged) ──
+  // ── Week-card interactions (all staged) ──
   const toggleWeekDay = (iso: string) => {
     haptic('light');
     setDoneFlash(null);
     const d = week.find((w) => w.iso === iso);
-    if (!d) return;
+    if (!d || d.isPast) return;
     if (d.eff.off) {
+      // Off → back on with what it had (or the template).
       const ranges = d.eff.ranges.length
         ? d.eff.ranges
-        : weekly[d.day].length
-          ? weekly[d.day].map((s) => ({ ...s }))
-          : [{ start: '09:00', end: '17:00' }];
+        : effWeekly[d.day].length
+          ? effWeekly[d.day].map((s) => ({ ...s }))
+          : [];
       setPlan((p) => ({ ...p, [iso]: { off: false, ranges } }));
-    } else {
+    } else if (d.recurring) {
+      // Recurring day off = full-day block for THIS date only (template kept).
       setPlan((p) => ({ ...p, [iso]: { off: true, ranges: d.eff.ranges } }));
+    } else {
+      // One-off day off = clear it back to blank (removes the date slot).
+      setPlan((p) => ({ ...p, [iso]: { off: false, ranges: [] } }));
     }
   };
 
   const openDate = (iso: string, day: ApiDay) => {
     haptic('light');
     const d = week.find((w) => w.iso === iso);
-    const slots = (d && d.eff.ranges.length ? d.eff.ranges : weekly[day]).map((s) => ({ ...s }));
+    const current = d && !d.eff.off ? d.eff.ranges : [];
+    const slots = (current.length ? current : effWeekly[day]).map((s) => ({ ...s }));
     setEditSlots(slots.length ? slots : [{ start: '09:00', end: '17:00' }]);
+    // Truthful default: a day whose hours ARE the template opens on
+    // "Every [Day]" (that's what it is); blank and one-off days open on
+    // "Just This Week".
+    const recurringNow = !!d?.recurring;
+    setEditScope(recurringNow ? 'every' : 'week');
+    setEditRegular(recurringNow ? effWeekly[day].some((s) => s.recurringEligible) : false);
     setEditError(null);
     setDoneFlash(null);
-    setEditing({ kind: 'date', date: iso, day });
-  };
-  const openDay = (day: ApiDay) => {
-    haptic('light');
-    const slots = weekly[day].map((s) => ({ ...s }));
-    setEditSlots(slots.length ? slots : [{ start: '09:00', end: '17:00' }]);
-    setEditError(null);
-    setDoneFlash(null);
-    setEditing({ kind: 'day', day });
+    setEditing({ date: iso, day });
   };
 
-  // Sheet Done: date edits stage into the plan; day (usual) edits save now.
-  const saveSheet = async () => {
+  // Sheet Done: everything stages; SET MY WEEK commits.
+  const saveSheet = () => {
     if (!editing) return;
     const err = validateRanges(editSlots);
     if (err) {
       setEditError(err);
       return;
     }
-    if (editing.kind === 'date') {
-      setPlan((p) => ({
-        ...p,
-        [editing.date]: { off: false, ranges: editSlots.map((s) => ({ ...s })) },
-      }));
-      haptic('success');
-      setDoneFlash(`Done — free ${rangesVoice(editSlots)}`);
-      setEditing(null);
-      return;
+    const ranges = editSlots.map((s) => ({ ...s }));
+    if (editScope === 'every') {
+      // Update the standing template invisibly; F18 applies to every range.
+      const flagged = ranges.map((s) => ({ ...s, recurringEligible: editRegular }));
+      setStagedWeekly((p) => ({ ...p, [editing.day]: flagged }));
+      // This date follows its template: stage it equal so any saved date-slot
+      // override is deleted on commit.
+      setPlan((p) => ({ ...p, [editing.date]: { off: false, ranges: flagged } }));
+    } else {
+      setPlan((p) => ({ ...p, [editing.date]: { off: false, ranges } }));
     }
-    setEditSaving(true);
-    setEditError(null);
-    try {
-      const ok = await commit({ ...weekly, [editing.day]: editSlots }, blocked);
-      if (!ok) {
-        setEditError('Could not save — try again');
-        return;
-      }
-      setDoneFlash(`Done — free ${rangesVoice(editSlots)}`);
-      setEditing(null);
-    } finally {
-      setEditSaving(false);
-    }
+    haptic('success');
+    setDoneFlash(`Done — free ${rangesVoice(ranges)}`);
+    setEditing(null);
   };
 
-  // ── Set My Week: commit every staged day through the existing endpoints ──
+  // ── SET MY WEEK: commit every staged change through the existing endpoints ──
   const setMyWeek = async () => {
-    if (!weekDirty || weekSaving) return;
+    if (!anyDirty || weekSaving) return;
     haptic('medium');
     setWeekSaving(true);
     setSaveError(null);
     setDoneFlash(null);
     try {
-      // 1) Blocked-date changes ride one PUT (weekly untouched by this screen).
+      // 1) Template + blocked-date changes ride ONE PUT.
       let blockedNext = [...blocked];
       let blockedChanged = false;
       for (const d of week) {
@@ -495,15 +543,16 @@ export default function AvailabilityAppPage() {
           blockedChanged = true;
         }
       }
-      if (blockedChanged) await putAll(weekly, blockedNext);
+      if (blockedChanged || templateDirty) await putAll(effWeekly, blockedNext);
 
-      // 2) Per-date overrides: differs from usual → POST; back to usual → DELETE.
+      // 2) Per-date overrides: differs from template → POST; matches template
+      //    (or cleared) → DELETE any saved date slot.
       const nextDateSlots = { ...dateSlots };
       for (const d of week) {
         if (!d.dirty || d.eff.off) continue;
-        const sameAsUsual = rangesEqual(d.eff.ranges, weekly[d.day]);
+        const sameAsTemplate = rangesEqual(d.eff.ranges, effWeekly[d.day]);
         const hadCustom = (dateSlots[d.iso]?.length ?? 0) > 0;
-        if (!sameAsUsual) {
+        if (!sameAsTemplate && d.eff.ranges.length > 0) {
           const res = await fetch('/api/cleaner/availability/date-slots', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -528,9 +577,11 @@ export default function AvailabilityAppPage() {
         }
       }
 
+      setWeekly(effWeekly);
       setBlocked(blockedNext);
       setDateSlots(nextDateSlots);
       setPlan({});
+      setStagedWeekly({});
       haptic('success');
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
@@ -542,24 +593,6 @@ export default function AvailabilityAppPage() {
     } finally {
       setWeekSaving(false);
     }
-  };
-
-  const toggleDay = (day: ApiDay) => {
-    haptic('light');
-    const next = {
-      ...weekly,
-      [day]: weekly[day].length ? [] : [{ start: '09:00', end: '17:00' }],
-    };
-    commit(next, blocked);
-  };
-
-  const toggleBlockedDate = (iso: string) => {
-    haptic('light');
-    const isBlocked = blocked.some((b) => b.date === iso);
-    const next = isBlocked
-      ? blocked.filter((b) => b.date !== iso)
-      : [...blocked, { date: iso, reason: 'Unavailable' }];
-    commit(weekly, next);
   };
 
   // W6: save exactly one settings field (B1-safe — nothing else rides the PUT).
@@ -596,7 +629,7 @@ export default function AvailabilityAppPage() {
     setEditError(null);
     if (!editing) return;
     if (chip === 'usual') {
-      const usual = weekly[editing.day].map((s) => ({ ...s }));
+      const usual = effWeekly[editing.day].map((s) => ({ ...s }));
       setEditSlots(usual.length ? usual : [{ start: '09:00', end: '17:00' }]);
     } else if (chip === 'morning') {
       setEditSlots([{ start: '08:00', end: '12:00' }]);
@@ -639,14 +672,15 @@ export default function AvailabilityAppPage() {
     return (
       <div className="space-y-3">
         <div className="h-8 w-48 animate-pulse rounded-lg bg-line" />
+        <div className="h-28 animate-pulse rounded-2xl bg-line" />
         <div className="h-72 animate-pulse rounded-2xl bg-line" />
-        <div className="h-48 animate-pulse rounded-2xl bg-line" />
       </div>
     );
   }
 
   return (
     <div>
+      {/* ── 1. Header ── */}
       <header className="mb-5">
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
@@ -657,9 +691,6 @@ export default function AvailabilityAppPage() {
             <InboxBell />
           </div>
         </div>
-        <p className="mt-1 font-jost text-sm text-ink-2">
-          {hrsStr(weeklyHours)}h a week on your usual schedule
-        </p>
       </header>
 
       {(saveError || savedFlash) && (
@@ -680,43 +711,165 @@ export default function AvailabilityAppPage() {
         </div>
       )}
 
-      {/* ── Your Week Ahead: the front page ── */}
+      {/* ── 2. "Two Ways To Be Open" explainer ── */}
       <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="border-b border-line px-5 py-3.5">
-          <h2 className="font-jost text-lg font-semibold text-ink">Your Week Ahead</h2>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            The next seven days · tap a time to change it
+        <div className="px-5 pb-4 pt-4">
+          <h2 className="font-jost text-lg font-semibold text-ink">Two Ways To Be Open</h2>
+          <div className="mt-3 space-y-2.5">
+            <div className="flex items-start gap-2.5">
+              <svg
+                className="mt-0.5 h-4 w-4 shrink-0 text-ink-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                />
+              </svg>
+              <p className="font-jost text-[13px] leading-snug text-ink-2">
+                This week&apos;s hours — one-off time you&apos;re free. Good for jobs as they come.
+              </p>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <span className="mt-[-1px] w-4 shrink-0 text-center font-jost text-[15px] leading-none text-primary">
+                ↻
+              </span>
+              <p className="font-jost text-[13px] leading-snug text-ink-2">
+                Regular slots — hours you keep every week. Clients can book these as their standing
+                clean.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-primary-soft px-5 py-2.5">
+          <p className="font-jost text-[12px] font-medium text-primary">
+            Regular clients are steady money — set at least a few ↻ hours if you can.
           </p>
         </div>
+      </section>
+
+      {/* ── 3. Week header — stacked, pagers flanking ── */}
+      <div className="mb-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            if (weekOffset === 1) {
+              haptic('light');
+              setWeekOffset(0);
+            }
+          }}
+          disabled={weekOffset === 0}
+          aria-label="Previous week"
+          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+        <div className="text-center">
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+            Week Commencing
+          </p>
+          <p className="font-jost text-[22px] font-bold leading-tight text-primary">
+            {weekCommencing}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (weekOffset === 0) {
+              haptic('light');
+              setWeekOffset(1);
+            }
+          }}
+          disabled={weekOffset === 1}
+          aria-label="Next week"
+          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+
+      {/* ── 4. The week card ── */}
+      <section className="mb-4 overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="divide-y divide-line/60">
           {week.map((d) => {
-            const on = !d.eff.off;
+            const on = !d.eff.off && d.eff.ranges.length > 0;
+            if (d.isPast) {
+              return (
+                <div key={d.iso} className="flex items-center justify-between px-5 py-3 opacity-40">
+                  <div className="min-h-[44px] flex-1 py-1">
+                    <span className="font-jost text-[15px] text-ink-3">{d.label}</span>
+                    <span className="block font-jost text-[13px] text-ink-3">
+                      {on ? rowText(d.eff.ranges) : 'Off'}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+            if (d.blank) {
+              return (
+                <button
+                  key={d.iso}
+                  type="button"
+                  onClick={() => openDate(d.iso, d.day)}
+                  className="flex w-full items-center justify-between px-5 py-3 text-left active:bg-page"
+                >
+                  <div className="min-h-[44px] flex-1 py-1">
+                    <span className="font-jost text-[15px] text-ink-3">{d.label}</span>
+                    <span className="block font-jost text-[13px] font-medium text-primary">
+                      + Add Hours
+                    </span>
+                  </div>
+                </button>
+              );
+            }
             return (
               <div
                 key={d.iso}
                 className={`flex items-center justify-between px-5 py-3 ${
-                  d.tweaked ? 'bg-primary-soft/40' : ''
+                  d.dirty ? 'bg-primary-soft/40' : ''
                 }`}
               >
                 <button
                   type="button"
                   onClick={() => (on ? openDate(d.iso, d.day) : toggleWeekDay(d.iso))}
-                  className="min-h-[44px] flex-1 text-left"
+                  className="min-h-[44px] flex-1 py-1 text-left"
                 >
-                  <span className="flex items-baseline gap-2">
-                    <span
-                      className={`font-jost text-[15px] ${on ? 'font-medium text-ink' : 'text-ink-3'}`}
-                    >
-                      {d.label}
-                    </span>
-                    <span className="font-jost text-[11px] uppercase tracking-[0.08em] text-ink-3">
-                      {d.dateShort}
-                    </span>
+                  <span
+                    className={`font-jost text-[15px] ${on ? 'font-medium text-ink' : 'text-ink-3'}`}
+                  >
+                    {d.label}
                   </span>
                   <span
                     className={`block font-jost text-[13px] ${on ? 'text-ink-2' : 'text-ink-3'}`}
                   >
-                    {on ? rowText(d.eff.ranges) : 'Off'}
+                    {on ? (
+                      <>
+                        {d.recurring && <RecurMark />}
+                        {rowText(d.eff.ranges)}
+                      </>
+                    ) : (
+                      'Off'
+                    )}
                   </span>
                 </button>
                 <button
@@ -724,7 +877,7 @@ export default function AvailabilityAppPage() {
                   onClick={() => toggleWeekDay(d.iso)}
                   role="switch"
                   aria-checked={on}
-                  aria-label={`${d.label} ${d.dateShort} availability`}
+                  aria-label={`${d.label} availability`}
                   className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
                     on ? 'bg-primary' : 'bg-ink-3/30'
                   }`}
@@ -739,128 +892,21 @@ export default function AvailabilityAppPage() {
             );
           })}
         </div>
-        <div className="border-t border-line p-4">
-          <button
-            type="button"
-            onClick={setMyWeek}
-            disabled={!weekDirty || weekSaving}
-            data-testid="set-my-week"
-            className="w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white active:opacity-80 disabled:opacity-40"
-          >
-            {weekSaving ? 'Saving…' : `Set My Week — ${hrsStr(weekHoursOpen)} hrs open`}
-          </button>
-        </div>
       </section>
 
-      {/* ── Usual hours: the secondary card (same sheet edits it) ── */}
+      {/* ── 5. SET MY WEEK ── */}
+      <button
+        type="button"
+        onClick={setMyWeek}
+        disabled={!anyDirty || weekSaving}
+        data-testid="set-my-week"
+        className="mb-6 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white active:opacity-80 disabled:opacity-40"
+      >
+        {weekSaving ? 'Saving…' : `Set My Week — ${hrsStr(weekHoursOpen)} Hrs Open`}
+      </button>
+
+      {/* ── 6. W6: settings rows ── */}
       <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="border-b border-line px-5 py-3.5">
-          <h2 className="font-jost text-lg font-semibold text-ink">Usual Hours</h2>
-          <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-            Repeats every week · tap a day to set hours
-          </p>
-        </div>
-        <div className="divide-y divide-line/60">
-          {API_DAYS.map((day) => {
-            const on = weekly[day].length > 0;
-            return (
-              <div key={day} className="flex items-center justify-between px-5 py-3">
-                <button
-                  type="button"
-                  onClick={() => (on ? openDay(day) : toggleDay(day))}
-                  className="min-h-[44px] flex-1 text-left"
-                >
-                  <span
-                    className={`font-jost text-[15px] ${on ? 'font-medium text-ink' : 'text-ink-3'}`}
-                  >
-                    {DAY_LABEL[day]}
-                  </span>
-                  <span className="ml-3 font-jost text-[13px] text-ink-3">
-                    {on ? rowText(weekly[day]) : 'Off'}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleDay(day)}
-                  role="switch"
-                  aria-checked={on}
-                  aria-label={`${DAY_LABEL[day]} availability`}
-                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    on ? 'bg-primary' : 'bg-ink-3/30'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
-                      on ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ── W6: Time off (Shape 1) — one card, one commit, regulars warned ── */}
-      <TimeOffCard onDone={fetchAll} />
-
-      {/* ── Blocked dates ── */}
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          <div>
-            <h2 className="font-jost text-lg font-semibold text-ink">Blocked Dates</h2>
-            <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Days off, holidays
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              haptic('light');
-              setShowCalendar(true);
-            }}
-            className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white active:opacity-80"
-          >
-            Choose dates
-          </button>
-        </div>
-        <div className="px-5 py-3.5">
-          {blocked.length === 0 ? (
-            <p className="font-jost text-sm text-ink-3">No blocked dates.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {[...blocked]
-                .sort((a, b) => a.date.localeCompare(b.date))
-                .map((b) => (
-                  <button
-                    key={b.date}
-                    type="button"
-                    onClick={() => toggleBlockedDate(b.date)}
-                    className="flex items-center gap-1.5 rounded-full border border-line bg-page px-3 py-1.5 font-jost text-[13px] text-ink-2 active:bg-line"
-                  >
-                    {new Date(`${b.date}T00:00:00`).toLocaleDateString('en-GB', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                    <svg
-                      className="h-3.5 w-3.5 text-ink-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── W6: settings rows beneath the Time-off card ── */}
-      <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="border-b border-line px-5 py-3.5">
           <h2 className="font-jost text-lg font-semibold text-ink">Booking Settings</h2>
         </div>
@@ -914,23 +960,18 @@ export default function AvailabilityAppPage() {
         </div>
       </section>
 
-      {/* ── Day editor sheet: chips + native wheels (the ruled sheet) ── */}
+      {/* ── 7. Time Off (absorbs Blocked Dates — same override machinery) ── */}
+      <TimeOffCard blocked={blocked} weekly={weekly} onCommit={commit} onDone={fetchAll} />
+
+      {/* ── Day editor sheet ── */}
       {editing && (
         <Sheet
-          title={
-            editing.kind === 'date'
-              ? new Date(`${editing.date}T00:00:00`).toLocaleDateString('en-GB', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                })
-              : `Every ${DAY_LABEL[editing.day]}`
-          }
-          subtitle={
-            editing.kind === 'date'
-              ? 'This date only — saved when you set your week'
-              : 'Part of your usual week — saves straight away'
-          }
+          title={new Date(`${editing.date}T00:00:00`).toLocaleDateString('en-GB', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          })}
+          subtitle="Saved when you set your week"
           onClose={() => setEditing(null)}
         >
           {/* Chips */}
@@ -1023,31 +1064,6 @@ export default function AvailabilityAppPage() {
                     </button>
                   )}
                 </div>
-                {/* F18: the recurring opt-in was web-portal-only — a cleaner
-                    living in the app could never open a slot to regular
-                    clients, which silently suppressed the customer-facing
-                    offer everywhere. Weekly ranges only (the date-slots API
-                    carries no flag). */}
-                {editing.kind === 'day' && (
-                  <label className="mt-2.5 flex items-center gap-2 select-none">
-                    <input
-                      type="checkbox"
-                      checked={!!slot.recurringEligible}
-                      onChange={() => {
-                        haptic('light');
-                        setEditSlots((prev) =>
-                          prev.map((s, j) =>
-                            j === i ? { ...s, recurringEligible: !s.recurringEligible } : s
-                          )
-                        );
-                      }}
-                      className="h-4 w-4 rounded border-ink/20 text-primary focus:ring-primary/30"
-                    />
-                    <span className="font-jost text-[13px] text-ink-2">
-                      Open to regular clients
-                    </span>
-                  </label>
-                )}
               </div>
             ))}
           </div>
@@ -1072,46 +1088,111 @@ export default function AvailabilityAppPage() {
             + Add Another Time
           </button>
 
+          {/* Segmented choice — the sheet's last element (one-calendar model) */}
+          <div className="mt-5 rounded-xl border border-line bg-page p-1">
+            <div className="grid grid-cols-2 gap-1">
+              {(
+                [
+                  ['week', 'Just This Week'],
+                  ['every', `Every ${DAY_LABEL[editing.day]}`],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    haptic('light');
+                    setEditScope(key);
+                  }}
+                  aria-pressed={editScope === key}
+                  className={`rounded-lg px-3 py-2 font-jost text-[13px] font-medium transition-colors ${
+                    editScope === key ? 'bg-primary text-white' : 'text-ink-2'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* F18 — only when the hours repeat weekly (template ranges carry the
+              flag; date slots can't). */}
+          {editScope === 'every' && (
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
+              <div>
+                <p className="font-jost text-[14px] font-medium text-ink">
+                  Open To Regular Clients
+                </p>
+                <p className="font-jost text-[12px] text-ink-3">
+                  Customers can book this as their standing weekly slot
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={editRegular}
+                aria-label="Open to regular clients"
+                onClick={() => {
+                  haptic('light');
+                  setEditRegular((v) => !v);
+                }}
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                  editRegular ? 'bg-primary' : 'bg-ink-3/30'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
+                    editRegular ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
           {editError && <p className="mt-3 font-jost text-[13px] text-danger">{editError}</p>}
 
           <button
             type="button"
             onClick={saveSheet}
-            disabled={editSaving}
             data-testid="sheet-done"
-            className="mt-5 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white active:opacity-80 disabled:opacity-50"
+            className="mt-5 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white active:opacity-80"
           >
-            {editSaving ? 'Saving…' : 'Done'}
+            Done
           </button>
         </Sheet>
-      )}
-
-      {/* ── Blocked-dates calendar sheet ── */}
-      {showCalendar && (
-        <CalendarSheet
-          blocked={blocked}
-          onToggle={toggleBlockedDate}
-          onClose={() => setShowCalendar(false)}
-        />
       )}
     </div>
   );
 }
 
-// ── W6: Time off card (Shape 1, James-ruled) ──────────────────────────────────
-// From/To → a live preview of affected regular cleans (count-only, nothing
-// sent), then ONE commit driving the same holiday endpoint as the web: flags
-// the occurrences, emails each affected customer once, and blocks the range.
-function TimeOffCard({ onDone }: { onDone: () => void }) {
+// ── Time Off card V2 (absorbs Blocked Dates — James-ruled P2.5 #5) ────────────
+// From/Until → live preview of affected regular cleans → ONE commit driving the
+// same holiday endpoint as the web (flags occurrences, emails each affected
+// customer once, blocks the range). Below it, COMING UP lists every future
+// block (grouped into contiguous runs) with an × that removes it through the
+// existing blockedDates PUT — no mechanics change.
+function TimeOffCard({
+  blocked,
+  weekly,
+  onCommit,
+  onDone,
+}: {
+  blocked: BlockedDate[];
+  weekly: Record<ApiDay, TimeSlot[]>;
+  onCommit: (w: Record<ApiDay, TimeSlot[]>, b: BlockedDate[]) => Promise<boolean>;
+  onDone: () => void;
+}) {
   const todayIso = isoOf(new Date());
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [preview, setPreview] = useState<{ flagged: number; customers: number } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Same date in both pickers = a single day off (James-ruled).
   const rangeValid = !!from && !!to && from >= todayIso && to >= from;
 
   useEffect(() => {
@@ -1144,7 +1225,7 @@ function TimeOffCard({ onDone }: { onDone: () => void }) {
     };
   }, [from, to, rangeValid]);
 
-  const commit = async () => {
+  const commitTimeOff = async () => {
     if (!rangeValid || committing) return;
     haptic('medium');
     setCommitting(true);
@@ -1169,6 +1250,47 @@ function TimeOffCard({ onDone }: { onDone: () => void }) {
       setCommitting(false);
     }
   };
+
+  // COMING UP: future blocks grouped into contiguous runs.
+  const upcoming = useMemo(() => {
+    const dates = blocked
+      .map((b) => b.date)
+      .filter((d) => d >= todayIso)
+      .sort();
+    const runs: { start: string; end: string; dates: string[] }[] = [];
+    for (const iso of dates) {
+      const last = runs[runs.length - 1];
+      if (last) {
+        const next = new Date(`${last.end}T00:00:00`);
+        next.setDate(next.getDate() + 1);
+        if (isoOf(next) === iso) {
+          last.end = iso;
+          last.dates.push(iso);
+          continue;
+        }
+      }
+      runs.push({ start: iso, end: iso, dates: [iso] });
+    }
+    return runs;
+  }, [blocked, todayIso]);
+
+  const removeRun = async (run: { dates: string[] }) => {
+    haptic('light');
+    setRemoving(run.dates[0]);
+    try {
+      const next = blocked.filter((b) => !run.dates.includes(b.date));
+      await onCommit(weekly, next);
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  const fmtDay = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
 
   const inputCls =
     'w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-primary/20';
@@ -1200,7 +1322,7 @@ function TimeOffCard({ onDone }: { onDone: () => void }) {
           </label>
           <label className="flex-1">
             <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              To
+              Until
             </span>
             <input
               type="date"
@@ -1239,125 +1361,52 @@ function TimeOffCard({ onDone }: { onDone: () => void }) {
           type="button"
           data-testid="timeoff-commit"
           disabled={!rangeValid || previewing || committing || !!result}
-          onClick={commit}
-          className="mt-4 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-sm font-semibold text-white active:opacity-80 disabled:opacity-50"
+          onClick={commitTimeOff}
+          className="mt-4 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-sm font-semibold uppercase tracking-[0.04em] text-white active:opacity-80 disabled:opacity-50"
         >
-          {committing ? 'Blocking…' : 'Block this time off'}
+          {committing ? 'Blocking…' : 'Block This Time Off'}
         </button>
+
+        {upcoming.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+              Coming Up
+            </p>
+            <div className="divide-y divide-line/60 rounded-xl border border-line">
+              {upcoming.map((run) => (
+                <div
+                  key={run.start}
+                  className="flex items-center justify-between px-4 py-2.5"
+                  data-testid="timeoff-upcoming-row"
+                >
+                  <span className="font-jost text-[14px] text-ink">
+                    {run.start === run.end
+                      ? fmtDay(run.start)
+                      : `${fmtDay(run.start)} – ${fmtDay(run.end)}`}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove time off ${fmtDay(run.start)}`}
+                    disabled={removing === run.dates[0]}
+                    onClick={() => removeRun(run)}
+                    className="rounded-full border border-line p-1.5 text-ink-3 active:bg-page disabled:opacity-40"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
-  );
-}
-
-// ── Month calendar for blocking dates ─────────────────────────────────────────
-function CalendarSheet({
-  blocked,
-  onToggle,
-  onClose,
-}: {
-  blocked: BlockedDate[];
-  onToggle: (iso: string) => void;
-  onClose: () => void;
-}) {
-  const [monthOffset, setMonthOffset] = useState(0);
-  const todayIso = isoOf(new Date());
-
-  const view = useMemo(() => {
-    const base = new Date();
-    base.setDate(1);
-    base.setMonth(base.getMonth() + monthOffset);
-    const year = base.getFullYear();
-    const month = base.getMonth();
-    const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Monday-first
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cells: (string | null)[] = Array.from({ length: firstDow }, () => null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(isoOf(new Date(year, month, d)));
-    return {
-      label: base.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
-      cells,
-    };
-  }, [monthOffset]);
-
-  return (
-    <Sheet
-      title="Blocked dates"
-      subtitle="Tap a date to block or unblock it — saves straight away"
-      onClose={onClose}
-    >
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setMonthOffset((m) => m - 1)}
-          disabled={monthOffset === 0}
-          aria-label="Previous month"
-          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-        <p className="font-jost text-base font-semibold text-ink">{view.label}</p>
-        <button
-          type="button"
-          onClick={() => setMonthOffset((m) => m + 1)}
-          aria-label="Next month"
-          className="rounded-full border border-line p-2 text-ink-2 active:bg-page"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-7 gap-1 text-center">
-        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-          <span key={i} className="py-1 font-jost text-[11px] uppercase text-ink-3">
-            {d}
-          </span>
-        ))}
-        {view.cells.map((iso, i) => {
-          if (!iso) return <span key={`pad-${i}`} />;
-          const isPast = iso < todayIso;
-          const isBlocked = blocked.some((b) => b.date === iso);
-          return (
-            <button
-              key={iso}
-              type="button"
-              disabled={isPast}
-              onClick={() => onToggle(iso)}
-              className={`aspect-square rounded-lg font-jost text-sm ${
-                isBlocked
-                  ? 'bg-danger/10 font-semibold text-danger ring-1 ring-danger/30'
-                  : isPast
-                    ? 'text-ink-3/40'
-                    : 'text-ink active:bg-page'
-              }`}
-            >
-              {Number(iso.slice(8))}
-            </button>
-          );
-        })}
-      </div>
-
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-5 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white active:opacity-80"
-      >
-        Done
-      </button>
-    </Sheet>
   );
 }
