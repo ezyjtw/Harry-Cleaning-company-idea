@@ -204,9 +204,23 @@ on James's explicit word after he confirms contact.** The exported broom stays.
 - **Native chat rebuild for Messages** — out of scope; Messages stays the
   wrapped web page (in-shell skin only). Pulled when real usage demands it
   (James-ruled, App Review Batch 1).
-- **"Copy to weekdays"** — retired with the P2 drag-slider sheet; Usual Hours
-  is the pattern-setter. Re-addable if setting the week day-by-day proves
-  tedious in practice (James-ruled, App Review Batch 1).
+- **"Copy to weekdays"** — retired with the P2 drag-slider sheet. Re-addable
+  if setting the week day-by-day proves tedious in practice (James-ruled,
+  App Review Batch 1).
+- **Wheel alternative (horizontal chip-strip time picker)** — unbuilt,
+  awaiting James's on-device verdict on the native drums. No change without
+  his word (P2.5 #8).
+- **Platform question, outside the app batch**: `availableNow` drives a public
+  "Available now" badge + sort on the cleaner directory while same-day booking
+  is "coming soon" — should a badge advertising an unoffered capability exist
+  at all? For another day, under the website's own rules (James, P2.5).
+- **Real support-thread mechanism** (staff user + Message-schema work or a
+  SupportThread model + admin reply tooling) — pulled-when-real-usage-demands,
+  same shelf as the native chat rebuild. Contact Rena ships on the existing
+  /api/contact intake instead (James-ruled, P3).
+- **/join in-shell intro screen** — if the F29 funnel ever shows the intro
+  screen bleeding applicants, deleting it (straight to Step 1) is the ruled
+  fallback (James, P3 wizard shape B).
 - **Jo/Pete incident** — closed permanently by James; drop it from ledgers.
 
 ## 9. First moves for a fresh session
