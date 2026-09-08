@@ -19,7 +19,8 @@
       "bundleIdentifier": "uk.co.renacleaning.pro",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Rena Pro uses Face ID to keep your account and jobs secure.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "aps-environment": "production"
