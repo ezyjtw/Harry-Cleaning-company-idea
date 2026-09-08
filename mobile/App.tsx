@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
-  tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, lineHeight: 15, color: MUTED },
+  tabText: { fontFamily: SANS_SEMI, fontSize: 10.5, lineHeight: 15, color: MUTED },
   tabBadge: {
     position: 'absolute',
     top: -4,
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#dc2626',
+    backgroundColor: INK,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
