@@ -201,6 +201,9 @@ on James's explicit word after he confirms contact.** The exported broom stays.
   `pay_too_low`, `other`) is stable.
 - **C7 push activation** and **reviewer staging** — armed, each on its own
   explicit word (§3, §4).
+- **Native chat rebuild for Messages** — out of scope; Messages stays the
+  wrapped web page (in-shell skin only). Pulled when real usage demands it
+  (James-ruled, App Review Batch 1).
 - **Jo/Pete incident** — closed permanently by James; drop it from ledgers.
 
 ## 9. First moves for a fresh session
