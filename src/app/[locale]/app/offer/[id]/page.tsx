@@ -336,15 +336,13 @@ export default function OfferPage({ params }: { params: { id: string } }) {
 
   return (
     <div>
-      {/* Navy hero — service + context; the pay figure moved into the ring */}
-      <div className="rounded-2xl bg-primary p-5 text-white shadow-sm">
-        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
+      {/* Pro Navy law (James-ruled): the navy hero block retired — the offer is
+          a flat white card like everything else. */}
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
           New job offer
         </p>
-        {/* Explicit on-navy colour: the base layer paints h1..h6 text-gray-900,
-            which beats the card's inherited text-white — without this class the
-            title renders near-black on brand navy. */}
-        <h1 className="mt-1 font-jost text-2xl font-semibold text-white">
+        <h1 className="mt-1 font-jost text-2xl font-semibold text-ink">
           {serviceLabel(offer.serviceType)}
         </h1>
         {/* B3: context line — travel half from home-point→postcode crow-flies
@@ -352,7 +350,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
             on that date. Either half omits itself if unavailable. */}
         {((offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined) ||
           offer.context) && (
-          <p className="mt-3 font-jost text-[13px] text-white/70">
+          <p className="mt-3 font-jost text-[13px] text-ink-2">
             {[
               offer.context?.travelMinutes !== null && offer.context?.travelMinutes !== undefined
                 ? `~${offer.context.travelMinutes} min from home`
