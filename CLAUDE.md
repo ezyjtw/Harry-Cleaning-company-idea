@@ -38,6 +38,30 @@ shell gate → the incognito-diff statement.
 - **L3 — wrapped portal**: existing portal pages rendered inside the shell,
   possibly with a shell-gated skin, until an L2 replacement earns its place.
 
+## EAS Update / OTA (binding)
+
+The shell (`mobile/`) has EAS Update configured: `expo-updates`, `updates.url`
+to the EAS endpoint, channels `preview`→`preview` and `production`→`production`.
+Pure shell-JS changes (App.tsx and its logic) ship OTA with `eas update
+--channel production` instead of a TestFlight build. L2 `/app/*` pages are plain
+web on Railway and update on deploy — they need neither a build nor an OTA.
+
+- **Version-bump law (manual, do not forget).** `runtimeVersion` uses the
+  **`appVersion`** policy — runtimeVersion IS `app.json` `version` (e.g.
+  `1.0.0`). An OTA update only targets binaries whose runtimeVersion matches, so
+  **before ANY native change** (new/upgraded native module or config plugin,
+  entitlements/Info.plist, icon/splash, bundle id, deployment target) you MUST
+  bump `version` in the same change, and cut a fresh build for that version,
+  before publishing OTA against it. Shipping shell JS that assumes a native
+  change onto an older binary of the same version will crash it.
+- **Why manual and not automatic:** the `fingerprint` policy (which detects
+  native changes and gates OTA automatically) computed a different runtime
+  version on the local machine than on the EAS builder and broke the Configure-
+  expo-updates build phase, so it was replaced with `appVersion`. The safety
+  fingerprint gave for free is now a discipline a human/session must hold.
+- A native change with no version bump is a defect even if it builds. Every
+  session touching `mobile/` native config re-reads this before shipping.
+
 ## Settled rulings (James — do not relitigate)
 
 - **Net-first earnings**: everywhere cleaner-facing, show net figures first.
