@@ -113,9 +113,12 @@ plan is a **staged family account ("Charlie")** — no seed script. Staging is
 owned by this seat and fires **only on James's pre-submission word**: 2 fresh
 today-jobs + 1 live offer created immediately before submission.
 
-Remaining blockers, in order: (1) Apple Developer enrollment — James; (2)
-first TestFlight build — see §3; (3) real-device screenshots for the listing —
-after the build exists; (4) reviewer staging on the word; (5) submission.
+Blockers cleared 8 Sep 2026: (1) Apple Developer enrollment — **DONE** (James,
+Organization team A6B9BGJQR5); (2) first TestFlight build — **DONE** (EAS
+production build 6, id `b758f0c2-4338-4a98-95cb-e7971eeccd4a`, uploaded to
+TestFlight and processing on Apple's side). Remaining, in order: (3)
+real-device screenshots for the listing — now unblocked, capture once build 6
+finishes processing; (4) reviewer staging on the word; (5) submission.
 
 ## 5. Standing checks (armed — do not disarm without a word)
 
