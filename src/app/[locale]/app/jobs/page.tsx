@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import AccountMenu from '@/components/app/AccountMenu';
 import InboxBell from '@/components/app/InboxBell';
 import {
   type AppJob as Job,
@@ -171,7 +172,10 @@ export default function AppJobsPage() {
       <header className="mb-5">
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">Jobs</h1>
-          <InboxBell className="mt-1" />
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <AccountMenu />
+            <InboxBell />
+          </div>
         </div>
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['upcoming', 'done'] as const).map((f) => (
