@@ -94,7 +94,7 @@ function JobRow({ job, line, lineClass }: { job: EarningsJob; line: string; line
         <p className="truncate font-jost text-sm font-medium text-ink">{job.customerName}</p>
         <p className={`font-jost text-[12px] ${lineClass}`}>{line}</p>
       </div>
-      <p className="font-newsreader text-lg font-medium text-ink">£{job.amount.toFixed(2)}</p>
+      <p className="font-jost text-lg font-semibold text-ink">£{job.amount.toFixed(2)}</p>
     </div>
   );
 }
@@ -158,7 +158,7 @@ export default function AppEarningsPage() {
   if (!loading && loadError && !data) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">
+        <h1 className="font-jost text-xl font-semibold text-ink">
           Couldn&apos;t load your earnings
         </h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
@@ -180,9 +180,7 @@ export default function AppEarningsPage() {
     <div>
       <header className="mb-5">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
-            Earnings
-          </h1>
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Earnings</h1>
           <div className="mt-1 flex shrink-0 items-center gap-2">
             <AccountMenu />
             <InboxBell />
@@ -220,7 +218,7 @@ export default function AppEarningsPage() {
             <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
               Earned {PERIOD_PHRASE[period]}
             </p>
-            <p className="mt-1 font-newsreader text-[40px] font-semibold leading-none">
+            <p className="mt-1 font-jost text-[34px] font-bold leading-none">
               £{data.netEarnings.toFixed(2)}
             </p>
             <p className="mt-2 font-jost text-[13px] text-white/70">
@@ -250,15 +248,15 @@ export default function AppEarningsPage() {
               <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
                 Paid to you
               </p>
-              <p className="mt-1 font-newsreader text-2xl font-semibold text-ink">
+              <p className="mt-1 font-jost text-2xl font-semibold text-ink">
                 £{data.paidOut.toFixed(2)}
               </p>
             </div>
-            <div className="rounded-2xl border border-teal-600/25 bg-teal-600/5 p-4">
-              <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            <div className="rounded-2xl border border-teal/25 bg-teal/5 p-4">
+              <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-teal">
                 On its way
               </p>
-              <p className="mt-1 font-newsreader text-2xl font-semibold text-teal-700">
+              <p className="mt-1 font-jost text-2xl font-semibold text-teal">
                 £{data.pendingRelease.toFixed(2)}
               </p>
             </div>
@@ -267,10 +265,10 @@ export default function AppEarningsPage() {
           {/* On its way — money-in-motion rows */}
           {onItsWay.length > 0 && (
             <div>
-              <h2 className="mb-2 font-newsreader text-base font-semibold text-ink">On its way</h2>
-              <div className="divide-y divide-line/60 rounded-2xl border border-teal-600/25 bg-surface">
+              <h2 className="mb-2 font-jost text-base font-semibold text-ink">On Its Way</h2>
+              <div className="divide-y divide-line/60 rounded-2xl border border-teal/25 bg-surface">
                 {onItsWay.map((j) => (
-                  <JobRow key={j.id} job={j} line={releaseLine(j)} lineClass="text-teal-700" />
+                  <JobRow key={j.id} job={j} line={releaseLine(j)} lineClass="text-teal" />
                 ))}
               </div>
             </div>
@@ -278,7 +276,7 @@ export default function AppEarningsPage() {
 
           {/* Paid — release is what we know, release is what we say */}
           <div>
-            <h2 className="mb-2 font-newsreader text-base font-semibold text-ink">Paid</h2>
+            <h2 className="mb-2 font-jost text-base font-semibold text-ink">Paid</h2>
             {paid.length === 0 ? (
               <p className="rounded-2xl border border-line bg-surface p-4 font-jost text-sm text-ink-3">
                 Nothing paid {PERIOD_PHRASE[period]} yet.
@@ -304,7 +302,7 @@ export default function AppEarningsPage() {
           {/* Service breakdown bar list */}
           {data.breakdown.length > 0 && (
             <div>
-              <h2 className="mb-2 font-newsreader text-base font-semibold text-ink">By service</h2>
+              <h2 className="mb-2 font-jost text-base font-semibold text-ink">By Service</h2>
               <div className="space-y-2 rounded-2xl border border-line bg-surface p-4">
                 {data.breakdown.map((b) => {
                   const maxAmt = Math.max(...data.breakdown.map((x) => x.amount), 1);

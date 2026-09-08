@@ -83,9 +83,7 @@ export default function AppInboxPage() {
   if (!loading && loadError && items.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">
-          Couldn&apos;t load your inbox
-        </h1>
+        <h1 className="font-jost text-xl font-semibold text-ink">Couldn&apos;t load your inbox</h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -105,7 +103,7 @@ export default function AppInboxPage() {
     <div>
       <header className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">Inbox</h1>
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Inbox</h1>
           {unreadCount > 0 && (
             <p className="mt-0.5 font-jost text-[13px] text-ink-3">{unreadCount} unread</p>
           )}
@@ -129,7 +127,9 @@ export default function AppInboxPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-line bg-surface p-6 text-center">
-          <p className="font-jost text-sm text-ink-2">Nothing here yet — offers and updates land in this inbox.</p>
+          <p className="font-jost text-sm text-ink-2">
+            Nothing here yet — offers and updates land in this inbox.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">

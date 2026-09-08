@@ -92,10 +92,12 @@ function EarnedTicker({ amount }: { amount: number }) {
     return () => cancelAnimationFrame(raf);
   }, [amount]);
   return (
-    <p className="mt-1.5 font-newsreader text-lg font-medium text-ink">
-      £{display.toFixed(2)}{' '}
-      <span className="font-jost text-[13px] font-normal text-ink-3">earned today</span>
-    </p>
+    <div className="mt-6 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5">
+      <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+        Today
+      </span>
+      <span className="font-jost text-xl font-semibold text-teal">£{display.toFixed(2)}</span>
+    </div>
   );
 }
 
@@ -348,9 +350,7 @@ export default function TodayPage() {
   if (!loading && loadError && jobs.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">
-          Couldn&apos;t load your jobs
-        </h1>
+        <h1 className="font-jost text-xl font-semibold text-ink">Couldn&apos;t load your jobs</h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -377,7 +377,7 @@ export default function TodayPage() {
             {dateEyebrow()}
           </p>
           <div className="mt-1 flex items-start justify-between gap-3">
-            <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+            <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
               Almost there
             </h1>
             <div className="mt-1 flex shrink-0 items-center gap-2">
@@ -403,9 +403,7 @@ export default function TodayPage() {
               d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
             />
           </svg>
-          <p className="mt-4 font-newsreader text-lg font-semibold text-ink">
-            Nobody can book you yet
-          </p>
+          <p className="mt-4 font-jost text-lg font-semibold text-ink">Nobody can book you yet</p>
           <p className="mt-1.5 font-jost text-sm text-ink-2">
             Set the hours you&apos;re free and jobs in your area will start finding you.
           </p>
@@ -429,7 +427,7 @@ export default function TodayPage() {
             {dateEyebrow()}
           </p>
           <div className="mt-1 flex items-start justify-between gap-3">
-            <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+            <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
               Ready for work
             </h1>
             <div className="mt-1 flex shrink-0 items-center gap-2">
@@ -469,18 +467,16 @@ export default function TodayPage() {
           {dateEyebrow()}
         </p>
         <div className="mt-1 flex items-start justify-between gap-3">
-          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
             {loading
-              ? 'Your day'
+              ? 'Your Day'
               : todayJobs.length === 0
-                ? 'Day off'
+                ? 'Day Off'
                 : evening
-                  ? `All done — £${earnedToday.toFixed(2)} today`
-                  : morning
-                    ? 'Morning'
-                    : activeToday.length === 0
-                      ? 'All done today'
-                      : `${activeToday.length} job${activeToday.length === 1 ? '' : 's'} today`}
+                  ? 'All Done'
+                  : activeToday.length === 0
+                    ? 'All Done'
+                    : `${activeToday.length} Job${activeToday.length === 1 ? '' : 's'} Today`}
           </h1>
           {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
               the focus/visibility refetch make it redundant. W2: the bell is
@@ -492,18 +488,16 @@ export default function TodayPage() {
         </div>
         {morning && (
           <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="morning-preview">
-            First job {todayJobs[0]?.time} — {todayJobs[0]?.clientName} · {activeToday.length} job
-            {activeToday.length === 1 ? '' : 's'}, £{expectedToday.toFixed(2)} expected today
+            First Job {todayJobs[0]?.time} · £{expectedToday.toFixed(2)} Expected
           </p>
         )}
         {evening && (
           <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="evening-flip">
             {tomorrowFirst
-              ? `Tomorrow: ${tomorrowFirst.time}, ${tomorrowFirst.clientName}, ${tomorrowFirst.address}`
+              ? `Tomorrow: ${tomorrowFirst.time} · ${tomorrowFirst.clientName}`
               : 'Nothing booked tomorrow yet — keep your availability fresh.'}
           </p>
         )}
-        {!loading && earnedToday > 0 && !evening && <EarnedTicker amount={earnedToday} />}
         <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
           {(['today', 'week'] as const).map((v) => (
             <button
@@ -577,8 +571,8 @@ export default function TodayPage() {
         ) : (
           /* C3: living empty state — the day off still tells you what's next */
           <div className="rounded-2xl border border-line bg-surface p-6 text-center">
-            <p className="font-newsreader text-lg font-semibold text-ink">
-              {nextUpcoming ? `Next job ${nextJobLabel(nextUpcoming)}` : 'Nothing booked yet'}
+            <p className="font-jost text-lg font-semibold text-ink">
+              {nextUpcoming ? `Next Job ${nextJobLabel(nextUpcoming)}` : 'Nothing Booked Yet'}
             </p>
             <p className="mt-1 font-jost text-sm text-ink-2">
               {nextUpcoming
@@ -599,7 +593,7 @@ export default function TodayPage() {
           {weekByDay.map((d) => (
             <div key={d.iso}>
               <h2
-                className={`mb-2 font-newsreader text-base font-semibold ${
+                className={`mb-2 font-jost text-base font-semibold ${
                   d.isToday ? 'text-primary' : 'text-ink'
                 }`}
               >
@@ -641,12 +635,15 @@ export default function TodayPage() {
         </div>
       )}
 
+      {/* Pro Navy law: the earned ticker is the bottom row — TODAY caps left,
+          bold money right, still counting. */}
+      {!loading && earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
       {!loading && (
         <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3.5 text-center">
           <span className="font-jost text-[12px] uppercase tracking-[0.12em] text-ink-3">
             This week
           </span>
-          <span className="font-newsreader text-xl font-medium text-ink">
+          <span className="font-jost text-xl font-semibold text-teal">
             £{weekSummary.earned.toFixed(2)}
           </span>
           <span className="font-jost text-[13px] text-ink-3">

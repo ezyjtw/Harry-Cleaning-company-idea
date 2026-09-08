@@ -150,7 +150,7 @@ function PayRing({
         <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
           You&apos;ll earn
         </p>
-        <p className="font-newsreader text-[34px] font-medium leading-tight text-ink">
+        <p className="font-jost text-[34px] font-bold leading-tight text-ink">
           £{amount.toFixed(2)}
         </p>
         {timeLabel && (
@@ -288,9 +288,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   if (loadError) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">
-          Couldn&apos;t load this offer
-        </h1>
+        <h1 className="font-jost text-xl font-semibold text-ink">Couldn&apos;t load this offer</h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -313,9 +311,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-2xl text-ink-3">
           ⏱
         </div>
-        <h1 className="mt-4 font-newsreader text-xl font-semibold text-ink">
-          This offer has expired
-        </h1>
+        <h1 className="mt-4 font-jost text-xl font-semibold text-ink">This offer has expired</h1>
         <p className="mt-2 font-jost text-sm text-ink-2">
           It may have been passed to another cleaner. No action is needed — new offers will appear
           here and on Today.
@@ -348,7 +344,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         {/* Explicit on-navy colour: the base layer paints h1..h6 text-gray-900,
             which beats the card's inherited text-white — without this class the
             title renders near-black on brand navy. */}
-        <h1 className="mt-1 font-newsreader text-2xl font-semibold text-white">
+        <h1 className="mt-1 font-jost text-2xl font-semibold text-white">
           {serviceLabel(offer.serviceType)}
         </h1>
         {/* B3: context line — travel half from home-point→postcode crow-flies
@@ -479,17 +475,17 @@ export default function OfferPage({ params }: { params: { id: string } }) {
           aria-modal="true"
         >
           <div className="w-full rounded-t-2xl bg-surface p-5 pb-8">
-            <p className="font-newsreader text-lg font-semibold text-ink">Why not this one?</p>
+            <p className="font-jost text-lg font-semibold text-ink">Why not this one?</p>
             <p className="mt-0.5 font-jost text-[13px] text-ink-3">
               Optional — the customer never sees this. One tap declines either way.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               {(
                 [
-                  ['too_far', 'Too far away'],
-                  ['bad_time', "Time doesn't work"],
-                  ['pay_too_low', 'Pay too low for the job'],
-                  ['other', "Just can't this time"],
+                  ['too_far', 'Too Far Away'],
+                  ['bad_time', "Time Doesn't Work"],
+                  ['pay_too_low', 'Pay Too Low for the Job'],
+                  ['other', "Just Can't This Time"],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -500,7 +496,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
                     setShowDeclineSheet(false);
                     respond('decline', value);
                   }}
-                  className="rounded-[12px] border border-line bg-page px-4 py-3 font-jost text-sm font-medium text-ink-2 active:bg-line disabled:opacity-50"
+                  className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink shadow-sm active:bg-page disabled:opacity-50"
                 >
                   {label}
                 </button>
@@ -516,21 +512,29 @@ export default function OfferPage({ params }: { params: { id: string } }) {
               }}
               className="mt-2 w-full rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink-2 active:bg-page disabled:opacity-50"
             >
-              Decline without saying
+              Decline Without Saying
             </button>
             <button
               type="button"
               onClick={() => setShowDeclineSheet(false)}
               className="mt-2 w-full rounded-[12px] px-4 py-3 font-jost text-sm font-medium text-ink-3"
             >
-              Keep the offer
+              Keep the Offer
             </button>
           </div>
         </div>
       )}
 
       {!accepted && (
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => respond('accept')}
+            disabled={!!processing}
+            className="w-full rounded-[12px] bg-primary px-4 py-3.5 font-jost text-base font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
+          >
+            {processing === 'accept' ? 'ACCEPTING…' : `ACCEPT £${offer.cleanerEarnings.toFixed(2)}`}
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -538,17 +542,9 @@ export default function OfferPage({ params }: { params: { id: string } }) {
               setShowDeclineSheet(true);
             }}
             disabled={!!processing}
-            className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-base font-medium text-ink-2 transition-colors hover:bg-page active:opacity-80 disabled:opacity-50"
+            className="mt-2 w-full py-2.5 font-jost text-sm font-medium text-ink-2 underline underline-offset-2 active:text-ink disabled:opacity-50"
           >
             {processing === 'decline' ? 'Declining…' : 'Decline'}
-          </button>
-          <button
-            type="button"
-            onClick={() => respond('accept')}
-            disabled={!!processing}
-            className="rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
-          >
-            {processing === 'accept' ? 'Accepting…' : 'Accept'}
           </button>
         </div>
       )}
