@@ -275,7 +275,7 @@ function Sheet({
       <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 pb-8">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-newsreader text-lg font-semibold text-ink">{title}</p>
+            <p className="font-jost text-lg font-semibold text-ink">{title}</p>
             {subtitle && <p className="mt-0.5 font-jost text-[13px] text-ink-3">{subtitle}</p>}
           </div>
           <button
@@ -613,7 +613,7 @@ export default function AvailabilityAppPage() {
   if (!loading && loadError) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">
+        <h1 className="font-jost text-xl font-semibold text-ink">
           Couldn&apos;t load your availability
         </h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
@@ -647,7 +647,7 @@ export default function AvailabilityAppPage() {
     <div>
       <header className="mb-5">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
             Availability
           </h1>
           <div className="mt-1 flex shrink-0 items-center gap-2">
@@ -693,7 +693,7 @@ export default function AvailabilityAppPage() {
                 {d.dayShort}
               </p>
               <p
-                className={`font-newsreader text-xl font-medium ${
+                className={`font-jost text-xl font-medium ${
                   d.isToday ? 'text-primary' : 'text-ink'
                 }`}
               >
@@ -717,7 +717,7 @@ export default function AvailabilityAppPage() {
       {/* ── Recurring schedule: per-day toggles ── */}
       <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="border-b border-line px-5 py-3.5">
-          <h2 className="font-newsreader text-lg font-semibold text-ink">Usual week</h2>
+          <h2 className="font-jost text-lg font-semibold text-ink">Usual Week</h2>
           <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
             Repeats every week · tap a day to set hours
           </p>
@@ -772,7 +772,7 @@ export default function AvailabilityAppPage() {
       <section className="overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <div>
-            <h2 className="font-newsreader text-lg font-semibold text-ink">Blocked dates</h2>
+            <h2 className="font-jost text-lg font-semibold text-ink">Blocked Dates</h2>
             <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               Days off, holidays
             </p>
@@ -826,7 +826,7 @@ export default function AvailabilityAppPage() {
       {/* ── W6: settings rows beneath the Time-off card ── */}
       <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="border-b border-line px-5 py-3.5">
-          <h2 className="font-newsreader text-lg font-semibold text-ink">Booking settings</h2>
+          <h2 className="font-jost text-lg font-semibold text-ink">Booking Settings</h2>
         </div>
         <div className="divide-y divide-line/60">
           <div className="flex items-center justify-between px-5 py-3.5">
@@ -1129,7 +1129,7 @@ function TimeOffCard({ onDone }: { onDone: () => void }) {
   return (
     <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="border-b border-line px-5 py-3.5">
-        <h2 className="font-newsreader text-lg font-semibold text-ink">Time off</h2>
+        <h2 className="font-jost text-lg font-semibold text-ink">Time Off</h2>
         <p className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
           Going away? Block the whole stretch in one go
         </p>
@@ -1255,7 +1255,7 @@ function CalendarSheet({
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </button>
-        <p className="font-newsreader text-base font-semibold text-ink">{view.label}</p>
+        <p className="font-jost text-base font-semibold text-ink">{view.label}</p>
         <button
           type="button"
           onClick={() => setMonthOffset((m) => m + 1)}

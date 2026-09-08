@@ -35,32 +35,13 @@ export interface AppJob {
 // "On my way" → "Mark complete". Start-job is gone; legacy in_progress rows
 // still get a working "Mark complete" so nothing strands mid-flight.
 export const LIFECYCLE_ACTION: Record<string, { label: string; next: string } | undefined> = {
-  accepted: { label: 'On my way', next: 'EN_ROUTE' },
-  confirmed: { label: 'On my way', next: 'EN_ROUTE' },
-  en_route: { label: 'Mark complete', next: 'COMPLETED' },
-  in_progress: { label: 'Mark complete', next: 'COMPLETED' },
+  accepted: { label: 'ON MY WAY', next: 'EN_ROUTE' },
+  confirmed: { label: 'ON MY WAY', next: 'EN_ROUTE' },
+  en_route: { label: 'MARK COMPLETE', next: 'COMPLETED' },
+  in_progress: { label: 'MARK COMPLETE', next: 'COMPLETED' },
 };
 
-// 4.6 state chips: colour lives HERE, never on the primary button —
-// Accepted navy-tinted → On the way amber-tinted → ✓ Complete green-tinted.
-export function StatusChip({ status }: { status: string }) {
-  const s = status.toLowerCase();
-  const onTheWay = s === 'en_route' || s === 'in_progress';
-  const complete = s === 'completed' || s === 'reviewed';
-  const cls = complete
-    ? 'bg-trust/10 text-trust'
-    : onTheWay
-      ? 'bg-warning/10 text-warning'
-      : 'bg-primary-soft text-primary';
-  const label = complete ? '✓ Complete' : onTheWay ? 'On the way' : 'Accepted';
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 font-jost text-[10px] font-semibold uppercase tracking-[0.08em] ${cls}`}
-    >
-      {label}
-    </span>
-  );
-}
+// Pro Navy law: status chips died — state lives in the button and row style.
 
 /** 4.6 meta narration — the card states the consequence of the last tap. */
 export function narration(job: AppJob): string | null {
@@ -251,16 +232,13 @@ export function HeroJob({
           return;
         router.push(`/app/offer/${job.id}`);
       }}
-      className={`cursor-pointer rounded-2xl bg-primary p-5 text-white shadow-sm transition-opacity active:opacity-90 ${
+      className={`cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-colors active:bg-page ${
         warm ? 'ring-2 ring-warning/80' : ''
       }`}
     >
       <div className="flex items-center justify-between">
-        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
-          Next ·{' '}
-          {['en_route', 'in_progress'].includes(job.status)
-            ? 'On the way'
-            : job.status.replace(/_/g, ' ')}
+        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+          Next
         </p>
         {countdown &&
           (warm ? (
@@ -268,55 +246,50 @@ export function HeroJob({
               {countdown}
             </p>
           ) : (
-            <p className="font-jost text-[12px] font-semibold text-white/90">{countdown}</p>
+            <p className="font-jost text-[12px] font-semibold text-ink-2">{countdown}</p>
           ))}
       </div>
 
-      <div className="mt-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-newsreader text-[22px] font-semibold leading-tight">
-            {job.time} · {job.clientName}
-          </p>
-          <a
-            href={mapsHref}
-            className="mt-1 block truncate font-jost text-sm text-white/85 underline"
-          >
-            {job.address}
-          </a>
-          <p className="mt-1 font-jost text-[13px] text-white/60">
-            {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)}
-          </p>
-        </div>
-        <p className="shrink-0 font-newsreader text-[28px] font-medium leading-none">
+      {/* Pro Navy law: numbers are the heroes — time bold navy left, pay bold
+          teal right; one grey supporting line beneath. */}
+      <div className="mt-2 flex items-baseline justify-between gap-3">
+        <p className="font-jost text-[26px] font-semibold leading-tight text-primary">{job.time}</p>
+        <p className="shrink-0 text-right font-jost text-[22px] font-semibold leading-tight text-teal">
           £{pay(job).toFixed(2)}
         </p>
       </div>
+      <p className="mt-1 truncate font-jost text-sm text-ink-2">
+        {job.clientName} · {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)} ·{' '}
+        <a href={mapsHref} className="underline decoration-line underline-offset-2">
+          {job.address}
+        </a>
+      </p>
 
       {narration(job) && (
-        <p className="mt-2 font-jost text-[12.5px] font-light text-white/75">{narration(job)}</p>
+        <p className="mt-2 font-jost text-[12.5px] font-light text-ink-3">{narration(job)}</p>
       )}
 
-      <div className="mt-4 flex items-center gap-2">
-        {action && (
-          <button
-            type="button"
-            onClick={onAdvance}
-            disabled={processing}
-            className="flex-1 rounded-[10px] bg-white px-4 py-3 font-jost text-sm font-semibold text-primary transition-opacity active:opacity-80 disabled:opacity-50"
-          >
-            {processing ? 'Updating…' : action.label}
-          </button>
-        )}
+      {action && (
+        <button
+          type="button"
+          onClick={onAdvance}
+          disabled={processing}
+          className="mt-4 w-full rounded-[10px] bg-primary px-4 py-3 font-jost text-sm font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
+        >
+          {processing ? 'UPDATING…' : action.label}
+        </button>
+      )}
+      <div className="mt-2 flex items-center justify-center gap-4">
         <Link
           href={`/messages?bookingId=${job.id}`}
-          className="rounded-[10px] border border-white/25 px-4 py-3 font-jost text-sm font-medium text-white active:bg-white/10"
+          className="font-jost text-[12px] font-medium text-ink-2 underline underline-offset-2 active:text-ink"
         >
           Message
         </Link>
       </div>
       {/* H3: quiet exit, ACCEPTED-family states only */}
       {['accepted', 'confirmed'].includes(job.status) && onCancelled && (
-        <CantMakeIt job={job} onCancelled={onCancelled} tone="dark" />
+        <CantMakeIt job={job} onCancelled={onCancelled} />
       )}
     </div>
   );
@@ -336,9 +309,10 @@ export function JobCard({
   onAdvance: () => void;
   onCancelled?: () => void;
 }) {
-  const action = LIFECYCLE_ACTION[job.status];
   const router = useRouter();
   void now;
+  void processing;
+  void onAdvance;
   const mapsHref = `https://maps.apple.com/?q=${encodeURIComponent(job.fullAddress || job.address)}`;
 
   return (
@@ -355,58 +329,25 @@ export function JobCard({
       }}
       className="cursor-pointer rounded-2xl border border-line bg-surface p-4 transition-colors active:bg-page"
     >
-      {/* H104 item 5: every job card clicks through to the job detail. */}
-      <Link
-        href={`/app/offer/${job.id}`}
-        className="mb-1 block font-jost text-[11px] uppercase tracking-[0.08em] text-primary"
-      >
-        View details →
-      </Link>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-newsreader text-lg font-semibold text-ink">
-            {job.time} · {job.clientName}
-          </p>
-          <a
-            href={mapsHref}
-            className="mt-0.5 block truncate font-jost text-sm text-primary underline"
-          >
-            {job.address}
-          </a>
-          <p className="mt-1 font-jost text-[13px] text-ink-3">
-            {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="font-newsreader text-lg font-medium text-ink">£{pay(job).toFixed(2)}</p>
-          <span className="mt-1 inline-block">
-            <StatusChip status={job.status} />
-          </span>
-        </div>
+      {/* Pro Navy law: same top row on every variant — time bold navy left,
+          pay bold teal right; one grey supporting line. Non-hero upcoming
+          cards carry NO button (the whole card clicks through, H104/F3). */}
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-jost text-[20px] font-semibold leading-tight text-primary">{job.time}</p>
+        <p className="shrink-0 text-right font-jost text-[18px] font-semibold leading-tight text-teal">
+          £{pay(job).toFixed(2)}
+        </p>
       </div>
+      <p className="mt-1 truncate font-jost text-sm text-ink-2">
+        {job.clientName} · {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)} ·{' '}
+        <a href={mapsHref} className="underline decoration-line underline-offset-2">
+          {job.address}
+        </a>
+      </p>
 
       {narration(job) && (
         <p className="mt-2 font-jost text-[12.5px] font-light text-ink-3">{narration(job)}</p>
       )}
-
-      <div className="mt-3 flex items-center gap-2">
-        {action && (
-          <button
-            type="button"
-            onClick={onAdvance}
-            disabled={processing}
-            className="flex-1 rounded-[10px] bg-primary px-4 py-2.5 font-jost text-sm font-medium text-white transition-colors hover:bg-primary-hover active:opacity-80 disabled:opacity-50"
-          >
-            {processing ? 'Updating…' : action.label}
-          </button>
-        )}
-        <Link
-          href={`/messages?bookingId=${job.id}`}
-          className="rounded-[10px] border border-line px-4 py-2.5 font-jost text-sm font-medium text-ink-2 active:bg-page"
-        >
-          Message
-        </Link>
-      </div>
       {/* H3: quiet exit, ACCEPTED-family states only */}
       {['accepted', 'confirmed'].includes(job.status) && onCancelled && (
         <CantMakeIt job={job} onCancelled={onCancelled} />
@@ -433,9 +374,7 @@ export function ReceiptRow({ job }: { job: AppJob }) {
           {job.time} · {job.clientName}
         </p>
       </div>
-      <p className="shrink-0 font-newsreader text-base font-medium text-ink">
-        £{pay(job).toFixed(2)}
-      </p>
+      <p className="shrink-0 font-jost text-base font-semibold text-teal">£{pay(job).toFixed(2)}</p>
     </div>
   );
 }
@@ -445,25 +384,27 @@ export function OfferCard({ job }: { job: AppJob }) {
   return (
     <Link
       href={`/app/offer/${job.id}`}
-      className="block rounded-2xl border-2 border-primary bg-primary-soft p-4 active:opacity-90"
+      className="block rounded-2xl border-2 border-primary bg-surface p-4 active:opacity-90"
     >
       <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-        New offer · respond now
+        NEW OFFER · RESPOND NOW
       </p>
-      <div className="mt-1 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-newsreader text-lg font-semibold text-ink">
-            {job.date} · {job.time}
-          </p>
-          <p className="mt-0.5 truncate font-jost text-sm text-ink-2">{job.address}</p>
-          <p className="mt-1 font-jost text-[13px] text-ink-3">
-            {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)}
-          </p>
-        </div>
-        <p className="shrink-0 font-newsreader text-xl font-medium text-primary">
+      <div className="mt-1 flex items-baseline justify-between gap-3">
+        <p className="font-jost text-[20px] font-semibold leading-tight text-primary">
+          {new Date(`${job.date}T00:00:00`).toLocaleDateString('en-GB', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+          })}{' '}
+          · {job.time}
+        </p>
+        <p className="shrink-0 text-right font-jost text-[18px] font-semibold leading-tight text-teal">
           £{pay(job).toFixed(2)}
         </p>
       </div>
+      <p className="mt-1 truncate font-jost text-sm text-ink-2">
+        {serviceLabel(job.serviceType)} · {job.duration}h{recurringSuffix(job)} · {job.address}
+      </p>
     </Link>
   );
 }

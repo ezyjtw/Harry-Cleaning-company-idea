@@ -67,9 +67,7 @@ export default function AccountMenu({ className }: { className?: string }) {
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-newsreader text-xl font-semibold text-ink">
-              Sign out of Rena Pro?
-            </h2>
+            <h2 className="font-jost text-xl font-semibold text-ink">Sign out of Rena Pro?</h2>
             <p className="mt-1.5 font-jost text-sm text-ink-2">
               You&apos;ll need your password to get back in.
             </p>

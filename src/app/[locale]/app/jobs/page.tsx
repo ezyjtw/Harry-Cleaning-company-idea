@@ -149,9 +149,7 @@ export default function AppJobsPage() {
   if (!loading && loadError && jobs.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-newsreader text-xl font-semibold text-ink">
-          Couldn&apos;t load your jobs
-        </h1>
+        <h1 className="font-jost text-xl font-semibold text-ink">Couldn&apos;t load your jobs</h1>
         <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
         <button
           type="button"
@@ -171,7 +169,7 @@ export default function AppJobsPage() {
     <div>
       <header className="mb-5">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">Jobs</h1>
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Jobs</h1>
           <div className="mt-1 flex shrink-0 items-center gap-2">
             <AccountMenu />
             <InboxBell />
@@ -268,7 +266,7 @@ export default function AppJobsPage() {
                   </div>
                 )}
                 <h2
-                  className={`mb-2 font-newsreader text-base font-semibold ${
+                  className={`mb-2 font-jost text-base font-semibold ${
                     d.iso === isoOf(new Date()) ? 'text-primary' : 'text-ink'
                   }`}
                 >

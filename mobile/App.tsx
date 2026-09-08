@@ -13,8 +13,10 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -45,24 +47,21 @@ const SURFACE = '#ffffff';
 const LINE = '#E4E9F0';
 const INK2 = '#3D5170';
 const MUTED = '#7A8A9E';
-// DELIBERATE DECISION (James-ruled): the teal in "Cleaner" is a brand colour that
-// appears in EXACTLY ONE place — the logo lockup. It is intentionally NOT a UI
-// accent: no teal buttons, links, chips, or highlights anywhere in the app. Do
-// not introduce a teal token unless James rules otherwise. Primary UI accent is
-// INK (#16296b).
+// Pro Navy design law (James-ruled, supersedes the earlier no-teal ruling):
+// teal-green holds MONEY, and only money — the web money surfaces use the teal
+// token for figures in motion. The shell itself renders no money natively, so
+// no teal constant lives here; the lockup's teal stays confined to the logo.
+// Primary UI accent is INK (#16296b).
 
-// Brand typography — the real Newsreader (serif) + Jost (UI), loaded from the
-// committed OFL TTFs so native text matches the web exactly (no system-font
-// stand-in). Keys match the file family names registered via useFonts().
+// Brand typography — Pro Navy design law: bold geometric sans (Jost) app-wide,
+// Newsreader retired from the app entirely. Loaded from the committed OFL TTFs
+// so native text matches the web exactly (no system-font stand-in). Keys match
+// the file family names registered via useFonts().
 const FONTS = {
-  'Newsreader-Regular': require('./assets/fonts/Newsreader-Regular.ttf'),
-  'Newsreader-Medium': require('./assets/fonts/Newsreader-Medium.ttf'),
-  'Newsreader-SemiBold': require('./assets/fonts/Newsreader-SemiBold.ttf'),
   'Jost-Regular': require('./assets/fonts/Jost-Regular.ttf'),
   'Jost-Medium': require('./assets/fonts/Jost-Medium.ttf'),
   'Jost-SemiBold': require('./assets/fonts/Jost-SemiBold.ttf'),
 };
-const SERIF_SEMI = 'Newsreader-SemiBold';
 const SANS = 'Jost-Regular';
 const SANS_MEDIUM = 'Jost-Medium';
 const SANS_SEMI = 'Jost-SemiBold';
@@ -362,7 +361,11 @@ function useSettle(steps: number) {
   }));
 }
 
-// ─── Arrival Start screen ─────────────────────────────────────────────────────
+// ─── Start screen A (Pro Navy law, James-ruled) ───────────────────────────────
+// Stripped layout: lockup, FOR CLEANERS eyebrow, "Earn on your terms.", navy
+// Log In, outline "Apply to clean with Rena". One-brand-motion: the lockup sits
+// at the same size and optical position as the arrival overlay (and the OS
+// splash behind it), so icon → splash → start reads as one motion, no seam.
 function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => void }) {
   const insets = useSafeAreaInsets();
   const [lockupSettle, taglineSettle, actionsSettle] = useSettle(3);
@@ -374,11 +377,9 @@ function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => v
           style={[styles.startWordmark, lockupSettle]}
           resizeMode="contain"
         />
-        <Animated.View style={taglineSettle}>
-          <Text style={styles.startTitle}>Earn on your terms</Text>
-          <Text style={styles.startSub}>
-            Real cleaning jobs near you. Your rates, your hours, paid fast.
-          </Text>
+        <Animated.View style={[styles.startTaglineBlock, taglineSettle]}>
+          <Text style={styles.startEyebrow}>FOR CLEANERS</Text>
+          <Text style={styles.startTitle}>Earn on your terms.</Text>
         </Animated.View>
       </View>
       <Animated.View
@@ -391,7 +392,7 @@ function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => v
             onLogin();
           }}
         >
-          <Text style={styles.primaryBtnText}>Log in</Text>
+          <Text style={styles.primaryBtnText}>Log In</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
@@ -400,7 +401,7 @@ function StartScreen({ onLogin, onJoin }: { onLogin: () => void; onJoin: () => v
             onJoin();
           }}
         >
-          <Text style={styles.secondaryBtnText}>Become a cleaner</Text>
+          <Text style={styles.secondaryBtnText}>Apply to clean with Rena</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -501,12 +502,23 @@ function LoginScreen({
   };
 
   return (
-    <View style={[styles.flex, styles.loginWrap, { paddingTop: insets.top + 8 }]}>
+    <KeyboardAvoidingView
+      // Login bug (b) fix: without this the keyboard slid OVER the centred
+      // body — the Sign In button and Forgot password sat underneath it with
+      // no way to scroll or dismiss, trapping the screen.
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.flex, styles.loginWrap, { paddingTop: insets.top + 8 }]}
+    >
       <Pressable style={styles.backRow} onPress={onBack} hitSlop={12}>
         <Ionicons name="chevron-back" size={22} color={INK2} />
         <Text style={styles.backText}>Back</Text>
       </Pressable>
-      <View style={styles.loginBody}>
+      <ScrollView
+        contentContainerStyle={styles.loginBody}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
         <Image source={logoLockup} style={styles.loginWordmark} resizeMode="contain" />
         <Text style={styles.loginSub}>Sign in to your cleaner account</Text>
         <TextInput
@@ -538,16 +550,16 @@ function LoginScreen({
           onPress={submit}
           disabled={busy}
         >
-          <Text style={styles.primaryBtnText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+          <Text style={styles.primaryBtnText}>{busy ? 'Signing In…' : 'Sign In'}</Text>
         </Pressable>
         {/* A4: in-shell forgot-password (chrome hidden, same as /join) */}
         <Pressable onPress={onForgot} hitSlop={8} style={{ marginTop: 16, alignSelf: 'center' }}>
-          <Text style={{ fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14 }}>
+          <Text style={{ fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14, lineHeight: 20 }}>
             Forgot password?
           </Text>
         </Pressable>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -577,7 +589,11 @@ function ForgotScreen({ onBack }: { onBack: () => void }) {
 const HIDE_CHROME_JS = `
   (function(){
     var s=document.createElement('style');
-    s.innerHTML='#layout-nav,#layout-footer{display:none!important}';
+    s.innerHTML='#layout-nav,#layout-footer{display:none!important}'
+      /* James-ruled chrome strip: the contact/chat FAB never shows in-shell.
+         (The components also self-suppress via UA; this CSS kills any
+         pre-hydration flash. Selectors target existing markup only.) */
+      + 'a[aria-label="Contact us"],button[aria-label="Open chat"],button[aria-label="Close chat"]{display:none!important}';
     document.documentElement.appendChild(s);
   })(); true;
 `;
@@ -813,7 +829,7 @@ function SeamlessWebView({
             ref.current?.reload();
           }}
         >
-          <Text style={styles.primaryBtnText}>Try again</Text>
+          <Text style={styles.primaryBtnText}>Try Again</Text>
         </Pressable>
       </View>
     );
@@ -943,7 +959,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   pressed: { opacity: 0.85 },
-  mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13 },
+  mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13, lineHeight: 18 },
 
   // Arrival overlay (light, matches the OS splash + Start screen)
   arrival: {
@@ -955,29 +971,37 @@ const styles = StyleSheet.create({
   // Logo lockup is ~1.85:1 (two lines: RENA / Cleaner) — box sized to that ratio.
   arrivalWordmark: { width: 230, height: 124 },
 
-  // Start screen
+  // Start screen A (Pro Navy law) — lockup box identical to the arrival overlay
+  // (230×124, centred) so splash → start is one motion with no seam.
   startWrap: {
     flex: 1,
     backgroundColor: PAGE,
     paddingHorizontal: 28,
     justifyContent: 'space-between',
   },
-  startHero: { flex: 1, justifyContent: 'center' },
-  startWordmark: { width: 244, height: 132, marginBottom: 26 },
-  startTitle: { fontFamily: SERIF_SEMI, fontSize: 34, color: INK, lineHeight: 40 },
-  startSub: {
-    fontFamily: SANS,
-    marginTop: 12,
-    fontSize: 16,
-    lineHeight: 23,
-    color: INK2,
-    maxWidth: 300,
+  startHero: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  startWordmark: { width: 230, height: 124 },
+  startTaglineBlock: { alignItems: 'center', marginTop: 30 },
+  startEyebrow: {
+    fontFamily: SANS_SEMI,
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: 2.2,
+    color: MUTED,
+  },
+  startTitle: {
+    fontFamily: SANS_SEMI,
+    fontSize: 30,
+    color: INK,
+    lineHeight: 38,
+    marginTop: 8,
+    textAlign: 'center',
   },
   startActions: { gap: 12 },
 
   // C5 lock screen
   lockHero: { alignItems: 'center', justifyContent: 'center' },
-  lockTitle: { fontFamily: SERIF_SEMI, fontSize: 26, color: INK, marginTop: 18 },
+  lockTitle: { fontFamily: SANS_SEMI, fontSize: 24, lineHeight: 32, color: INK, marginTop: 18 },
   lockLinksRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -985,8 +1009,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 6,
   },
-  lockLink: { fontFamily: SANS_MEDIUM, color: INK2, fontSize: 14, paddingVertical: 6 },
-  lockLinkDot: { fontFamily: SANS, color: MUTED, fontSize: 14 },
+  lockLink: {
+    fontFamily: SANS_MEDIUM,
+    color: INK2,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 6,
+  },
+  lockLinkDot: { fontFamily: SANS, color: MUTED, fontSize: 14, lineHeight: 20 },
 
   // WebView seam-kill loader
   webLoader: {
@@ -998,7 +1028,7 @@ const styles = StyleSheet.create({
 
   // Login
   loginWrap: { backgroundColor: PAGE, paddingHorizontal: 24 },
-  loginBody: { flex: 1, justifyContent: 'center', paddingBottom: 48 },
+  loginBody: { flexGrow: 1, justifyContent: 'center', paddingBottom: 48 },
   loginWordmark: { width: 196, height: 106, alignSelf: 'center', marginBottom: 4 },
   loginSub: {
     fontFamily: SANS,
@@ -1007,6 +1037,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 24,
     fontSize: 15,
+    lineHeight: 21,
   },
   input: {
     borderWidth: 1,
@@ -1016,11 +1047,12 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     fontFamily: SANS,
     fontSize: 16,
+    lineHeight: 20,
     color: INK,
     marginBottom: 12,
     backgroundColor: SURFACE,
   },
-  error: { fontFamily: SANS, color: '#dc2626', marginBottom: 12, fontSize: 13 },
+  error: { fontFamily: SANS, color: '#dc2626', marginBottom: 12, fontSize: 13, lineHeight: 18 },
   pwRow: { position: 'relative' },
   pwInput: { paddingRight: 44 },
   pwEye: { position: 'absolute', right: 14, top: 15 },
@@ -1028,7 +1060,7 @@ const styles = StyleSheet.create({
   // Join header
   joinHeader: { backgroundColor: PAGE, paddingHorizontal: 16, paddingBottom: 8 },
   backRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-  backText: { fontFamily: SANS, color: INK2, fontSize: 16, marginLeft: 2 },
+  backText: { fontFamily: SANS, color: INK2, fontSize: 16, lineHeight: 22, marginLeft: 2 },
 
   // Buttons
   primaryBtn: {
@@ -1037,7 +1069,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
   },
-  primaryBtnText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 16 },
+  primaryBtnText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 16, lineHeight: 22 },
   secondaryBtn: {
     backgroundColor: SURFACE,
     borderWidth: 1,
@@ -1046,10 +1078,16 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
   },
-  secondaryBtnText: { fontFamily: SANS_SEMI, color: INK, fontSize: 16 },
+  secondaryBtnText: { fontFamily: SANS_SEMI, color: INK, fontSize: 16, lineHeight: 22 },
   retryBtn: { marginTop: 18, paddingHorizontal: 28 },
 
-  offlineTitle: { fontFamily: SERIF_SEMI, fontSize: 20, color: INK, marginBottom: 6 },
+  offlineTitle: {
+    fontFamily: SANS_SEMI,
+    fontSize: 20,
+    lineHeight: 27,
+    color: INK,
+    marginBottom: 6,
+  },
 
   // Tab bar
   tabBar: {
@@ -1060,7 +1098,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
-  tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, color: MUTED },
+  tabText: { fontFamily: SANS_MEDIUM, fontSize: 10.5, lineHeight: 15, color: MUTED },
   tabBadge: {
     position: 'absolute',
     top: -4,
@@ -1073,6 +1111,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  tabBadgeText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 9.5 },
+  tabBadgeText: { fontFamily: SANS_SEMI, color: '#fff', fontSize: 9.5, lineHeight: 13 },
   tabTextActive: { fontFamily: SANS_SEMI, color: INK },
 });
