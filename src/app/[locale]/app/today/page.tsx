@@ -23,6 +23,39 @@ function dateEyebrow(): string {
     .toUpperCase();
 }
 
+// ─── Day-one first-run states (James-ruled) ──────────────────────────────────
+// A cleaner who has NEVER had a job gets a purpose-built Today instead of
+// "Day off": State 1 (no availability set — "Almost there") or State 2
+// (available, nothing booked ever — "Ready for work"). The has-worked probe
+// checks COMPLETED and REVIEWED — completed jobs become REVIEWED after a
+// customer review, which the page's main fetch doesn't include — so an
+// established cleaner's quiet day keeps the existing Day off screen (State 3)
+// untouched. Probes fire only when the jobs list comes back empty, and any
+// probe failure falls back to Day off — never a broken screen.
+const JS_DAY_TO_API = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
+
+interface FreeRow {
+  iso: string;
+  label: string;
+  hours: string;
+}
+interface DayOneState {
+  state: 1 | 2;
+  free: FreeRow[];
+}
+
+function fmtSlotTime(t: string): string {
+  return t.replace(/^0/, '');
+}
+
 // C3: "Day off — next job Thu 10:00" living empty state.
 function nextJobLabel(j: Job): string {
   const d = new Date(`${j.date}T00:00:00`);
@@ -75,6 +108,62 @@ export default function TodayPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [now, setNow] = useState(() => Date.now());
+  const [dayOne, setDayOne] = useState<DayOneState | null>(null);
+
+  // Runs only when the jobs list is empty: decides day-one State 1/2, or null
+  // (has worked before → the existing Day off). Fail-open to null on any error.
+  const resolveDayOne = useCallback(async (): Promise<DayOneState | null> => {
+    try {
+      const [workedRes, availRes] = await Promise.all([
+        fetch('/api/cleaner/jobs?status=COMPLETED,REVIEWED&limit=1'),
+        fetch('/api/cleaner/availability'),
+      ]);
+      if (!workedRes.ok || !availRes.ok) return null;
+      const worked = await workedRes.json().catch(() => null);
+      if (!Array.isArray(worked?.jobs) || worked.jobs.length > 0) return null;
+      const avail = await availRes.json().catch(() => null);
+      if (!avail) return null;
+      const weekly: Record<string, { start: string; end: string }[]> = avail.weeklySlots || {};
+      const dateSlots: Record<string, { start: string; end: string }[]> = avail.dateSlots || {};
+      const blocked = new Set<string>(
+        (Array.isArray(avail.blockedDates) ? avail.blockedDates : []).map(
+          (b: { date: string }) => b.date
+        )
+      );
+      const hasAvailability =
+        Object.values(weekly).some((s) => Array.isArray(s) && s.length > 0) ||
+        Object.values(dateSlots).some((s) => Array.isArray(s) && s.length > 0);
+      if (!hasAvailability) return { state: 1, free: [] };
+      // State 2: her open hours over the rolling next 7 days — date overrides
+      // win, blocked days drop out, empty days simply don't appear (honest,
+      // no nag line).
+      const free: FreeRow[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() + i);
+        const iso = isoOf(d);
+        if (blocked.has(iso)) continue;
+        const slots = dateSlots[iso]?.length
+          ? dateSlots[iso]
+          : weekly[JS_DAY_TO_API[d.getDay()]] || [];
+        if (!slots.length) continue;
+        const label =
+          i === 0
+            ? 'Today'
+            : i === 1
+              ? 'Tomorrow'
+              : d.toLocaleDateString('en-GB', { weekday: 'long' });
+        free.push({
+          iso,
+          label,
+          hours: slots.map((s) => `${fmtSlotTime(s.start)}–${fmtSlotTime(s.end)}`).join(', '),
+        });
+      }
+      return { state: 2, free };
+    } catch {
+      return null;
+    }
+  }, []);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -90,14 +179,20 @@ export default function TodayPage() {
         return;
       }
       const data = await res.json().catch(() => null);
-      setJobs(Array.isArray(data?.jobs) ? data.jobs : []);
+      const list: Job[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      // Day-one discriminator resolves BEFORE loading clears so the first
+      // paint is already the right state (no Day-off flash). It re-runs on
+      // every refetch, so setting availability flips State 1 → 2 on the next
+      // focus, and a first booking clears day-one entirely.
+      setDayOne(list.length === 0 ? await resolveDayOne() : null);
+      setJobs(list);
       setLoadError(false);
     } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resolveDayOne]);
 
   useEffect(() => {
     fetchJobs();
@@ -267,6 +362,100 @@ export default function TodayPage() {
         >
           Retry
         </button>
+      </div>
+    );
+  }
+
+  // ─── Day-one states 1 & 2 (James-ruled). State 3 — has worked before — is
+  // the existing Day off rendering below, untouched, footer included. ─────────
+  if (!loading && dayOne?.state === 1) {
+    return (
+      <div>
+        <HiddenProfileBanner className="mb-4" />
+        <header className="mb-5">
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+            {dateEyebrow()}
+          </p>
+          <div className="mt-1 flex items-start justify-between gap-3">
+            <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+              Almost there
+            </h1>
+            <div className="mt-1 flex shrink-0 items-center gap-2">
+              <AccountMenu />
+              <InboxBell />
+            </div>
+          </div>
+        </header>
+        <div
+          className="flex flex-col items-center px-6 pt-12 text-center"
+          data-testid="day-one-set-availability"
+        >
+          <svg
+            className="h-10 w-10 text-ink-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+            />
+          </svg>
+          <p className="mt-4 font-newsreader text-lg font-semibold text-ink">
+            Nobody can book you yet
+          </p>
+          <p className="mt-1.5 font-jost text-sm text-ink-2">
+            Set the hours you&apos;re free and jobs in your area will start finding you.
+          </p>
+          <Link
+            href="/app/availability"
+            onClick={() => haptic('light')}
+            className="mt-6 inline-block rounded-[10px] bg-primary px-5 py-2.5 font-jost text-sm font-medium text-white"
+          >
+            Set your availability
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  if (!loading && dayOne?.state === 2) {
+    return (
+      <div>
+        <HiddenProfileBanner className="mb-4" />
+        <header className="mb-5">
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+            {dateEyebrow()}
+          </p>
+          <div className="mt-1 flex items-start justify-between gap-3">
+            <h1 className="font-newsreader text-[26px] font-semibold leading-tight text-ink">
+              Ready for work
+            </h1>
+            <div className="mt-1 flex shrink-0 items-center gap-2">
+              <AccountMenu />
+              <InboxBell />
+            </div>
+          </div>
+          <p className="mt-1.5 font-jost text-sm text-ink-2">
+            Nothing booked yet — offers land here as they come.
+          </p>
+        </header>
+        {dayOne.free.length > 0 && (
+          <div data-testid="day-one-free-week">
+            <p className="mb-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+              You&apos;re free this week
+            </p>
+            <div className="divide-y divide-line/60 rounded-2xl border border-line bg-surface px-4">
+              {dayOne.free.map((r) => (
+                <div key={r.iso} className="flex items-baseline justify-between py-3">
+                  <span className="font-jost text-sm font-medium text-ink">{r.label}</span>
+                  <span className="font-jost text-sm text-ink-2">{r.hours}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
