@@ -25,8 +25,8 @@ function dateEyebrow(): string {
 
 // ─── Day-one first-run states (James-ruled) ──────────────────────────────────
 // A cleaner who has NEVER had a job gets a purpose-built Today instead of
-// "Day off": State 1 (no availability set — "Almost there") or State 2
-// (available, nothing booked ever — "Ready for work"). The has-worked probe
+// "Day off": State 1 (no availability set — "Almost There") or State 2
+// (available, nothing booked ever — "Ready for Work"). The has-worked probe
 // checks COMPLETED and REVIEWED — completed jobs become REVIEWED after a
 // customer review, which the page's main fetch doesn't include — so an
 // established cleaner's quiet day keeps the existing Day off screen (State 3)
@@ -378,7 +378,7 @@ export default function TodayPage() {
           </p>
           <div className="mt-1 flex items-start justify-between gap-3">
             <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
-              Almost there
+              Almost There
             </h1>
             <div className="mt-1 flex shrink-0 items-center gap-2">
               <AccountMenu />
@@ -428,7 +428,7 @@ export default function TodayPage() {
           </p>
           <div className="mt-1 flex items-start justify-between gap-3">
             <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
-              Ready for work
+              Ready for Work
             </h1>
             <div className="mt-1 flex shrink-0 items-center gap-2">
               <AccountMenu />
