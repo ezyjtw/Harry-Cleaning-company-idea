@@ -72,7 +72,7 @@ function fmtSlotTime(t: string): string {
 
 // Today V2 quiet-day tile: "Thu 9:00" — always weekday-short + time.
 function nextJobTile(j: Job): string {
-  return `${new Date(`${j.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })} ${j.time}`;
+  return `${new Date(`${j.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })} ${fmtSlotTime(j.time)}`;
 }
 
 // C3: the earned-today serif ticker — counts up to the day's completed total,
@@ -209,13 +209,92 @@ function WeekStrip({ days }: { days: StripDay[] }) {
   );
 }
 
-function ChangeAvailabilityRow() {
+// V3 profile pill — permanent furniture in every state except Almost There.
+// The header person button stays the menu; this is the shortcut carrying state.
+function ProfilePill({
+  name,
+  image,
+  visible,
+}: {
+  name: string | null;
+  image: string | null;
+  visible: boolean | null;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = (name || '')
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <Link
+      href="/app/profile"
+      onClick={() => haptic('light')}
+      className="mb-4 flex items-center gap-3 rounded-full border border-line bg-surface py-2 pl-2 pr-4"
+      data-testid="profile-pill"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-page ring-1 ring-line">
+        {image && !imageFailed ? (
+          /* Presigned R2 URL — plain <img> (F4 pattern). */
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt=""
+            width={36}
+            height={36}
+            onError={() => setImageFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="font-jost text-[12px] font-medium text-ink-2">{initials || '··'}</span>
+        )}
+      </span>
+      <span className="min-w-0 flex-1 truncate font-jost text-[14px] font-medium text-ink">
+        My Profile
+      </span>
+      {visible !== null && (
+        <span
+          className={`shrink-0 font-jost text-[12px] font-semibold ${
+            visible ? 'text-teal' : 'text-danger'
+          }`}
+          data-testid="pill-visibility"
+        >
+          {visible ? 'Visible' : 'Hidden'}
+        </span>
+      )}
+      <svg
+        className="h-4 w-4 shrink-0 text-ink-3"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </Link>
+  );
+}
+
+// V3 one-door rule: one "My Availability" row, always last. The right edge is
+// the nudge — navy "Next Week Not Set" while next week is untouched, else a
+// quiet grey open-hours status. (Plan Next Week card retired everywhere.)
+function AvailabilityDoor({
+  nextWeekTouched,
+  nextWeekOpenHours,
+}: {
+  nextWeekTouched: boolean | null;
+  nextWeekOpenHours: number;
+}) {
+  const hrs = Number.isInteger(nextWeekOpenHours)
+    ? String(nextWeekOpenHours)
+    : nextWeekOpenHours.toFixed(1);
   return (
     <Link
       href="/app/availability"
       onClick={() => haptic('light')}
       className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5"
-      data-testid="change-availability-row"
+      data-testid="availability-door"
     >
       <span className="flex items-center gap-2.5">
         <svg
@@ -231,44 +310,25 @@ function ChangeAvailabilityRow() {
             d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <span className="font-jost text-[15px] font-medium text-ink">Change My Availability</span>
+        <span className="font-jost text-[15px] font-medium text-ink">My Availability</span>
       </span>
-      <svg
-        className="h-4 w-4 text-ink-3"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={2}
-        stroke="currentColor"
+      <span
+        className={`flex items-center gap-1 font-jost text-[13px] font-medium ${
+          nextWeekTouched === false ? 'text-primary' : 'text-ink-3'
+        }`}
+        data-testid="door-hint"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-      </svg>
-    </Link>
-  );
-}
-
-function PlanNextWeekCard() {
-  return (
-    <Link
-      href="/app/availability"
-      onClick={() => haptic('light')}
-      className="mt-3 flex items-center justify-between rounded-2xl bg-primary-soft px-5 py-4"
-      data-testid="plan-next-week"
-    >
-      <span>
-        <span className="block font-jost text-[15px] font-semibold text-primary">
-          Plan Next Week
-        </span>
-        <span className="block font-jost text-[12px] text-ink-2">30 seconds</span>
+        {nextWeekTouched === false ? 'Next Week Not Set' : `${hrs} hrs Open`}
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
       </span>
-      <svg
-        className="h-4 w-4 text-primary"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={2}
-        stroke="currentColor"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-      </svg>
     </Link>
   );
 }
@@ -288,19 +348,28 @@ export default function TodayPage() {
   // Dashboard shape A: greeting name + week-strip/invite data. All
   // best-effort — the dashboard renders fine while (or if) these never land.
   const [firstName, setFirstName] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileVisible, setProfileVisible] = useState<boolean | null>(null);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(() => new Set());
   const [nextWeekTouched, setNextWeekTouched] = useState<boolean | null>(null);
   // Today V2 day-one dashboard: open hours per rolling day + the 7-day total.
   const [openHoursByIso, setOpenHoursByIso] = useState<Record<string, number>>({});
   const [openWeekHours, setOpenWeekHours] = useState(0);
+  const [nextWeekOpenHours, setNextWeekOpenHours] = useState(0);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d?.name) setFirstName(String(d.name).split(' ')[0]);
-        if (d) setProfileVisible(d.visibleInDirectory !== false);
+        if (d?.name) {
+          setFirstName(String(d.name).split(' ')[0]);
+          setFullName(String(d.name));
+        }
+        if (d) {
+          setProfileVisible(d.visibleInDirectory !== false);
+          setProfileImage(d.image || null);
+        }
       })
       .catch(() => {});
     fetch('/api/cleaner/availability')
@@ -350,6 +419,19 @@ export default function TodayPage() {
         }
         setOpenHoursByIso(byIso);
         setOpenWeekHours(Math.round(total * 10) / 10);
+        // V3 one-door hint: next calendar week's open hours.
+        let nextTotal = 0;
+        for (let i = 0; i < 7; i++) {
+          const dd = new Date(mon);
+          dd.setDate(mon.getDate() + i);
+          const iso = isoOf(dd);
+          if (blocked.has(iso)) continue;
+          const slots = dateSlots[iso]?.length
+            ? dateSlots[iso]
+            : weeklySlots[JS_DAY_TO_API[dd.getDay()]] || [];
+          nextTotal += slots.reduce((sum, r) => sum + (toMin(r.end) - toMin(r.start)) / 60, 0);
+        }
+        setNextWeekOpenHours(Math.round(nextTotal * 10) / 10);
       })
       .catch(() => {});
   }, []);
@@ -738,6 +820,7 @@ export default function TodayPage() {
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
         <OfferAlerts offers={offers} now={now} />
+        <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
         {actionError && (
           <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
             <p className="text-sm text-ink-2">{actionError}</p>
@@ -799,20 +882,19 @@ export default function TodayPage() {
         )}
         {earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
         <WeekStrip days={jobStrip} />
-        <ChangeAvailabilityRow />
-        {nextWeekTouched === false && <PlanNextWeekCard />}
+        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
       </div>
     );
   }
 
-  // QUIET DAY (has worked, nothing today): the full dashboard — the old bare
-  // Day Off screen retires (James-ruled Today V2).
-  if (!loading && todayJobs.length === 0 && !dayOne) {
+  // V3 STATE 2 — day off, jobs upcoming (has worked, nothing today).
+  if (!loading && todayJobs.length === 0 && !dayOne && nextUpcoming) {
     return (
       <div>
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
         <OfferAlerts offers={offers} now={now} />
+        <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
         <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
           <div className="rounded-2xl border border-line bg-surface px-3 py-3">
             <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
@@ -827,17 +909,55 @@ export default function TodayPage() {
               Next Job
             </p>
             <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
-              {nextUpcoming ? nextJobTile(nextUpcoming) : '—'}
+              {nextJobTile(nextUpcoming)}
             </p>
           </div>
           {thisWkTile}
         </div>
-        {nextUpcoming && (
-          <JobCard job={nextUpcoming} now={now} processing={false} onAdvance={() => {}} />
-        )}
+        <JobCard job={nextUpcoming} now={now} processing={false} onAdvance={() => {}} />
         <WeekStrip days={jobStrip} />
-        <ChangeAvailabilityRow />
-        {nextWeekTouched === false && <PlanNextWeekCard />}
+        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+      </div>
+    );
+  }
+
+  // V3 STATE 3 — nothing booked at all (has worked; empty pipeline).
+  if (!loading && todayJobs.length === 0 && !dayOne) {
+    return (
+      <div>
+        <HiddenProfileBanner className="mb-4" />
+        {dashHeader}
+        <OfferAlerts offers={offers} now={now} />
+        <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
+        <div className="mb-4 grid grid-cols-2 gap-2" data-testid="stat-tiles">
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Today
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-primary">
+              Day off
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Open This Wk
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
+              {openWeekHours > 0 ? `${openWeekHours} hrs` : 'None set'}
+            </p>
+          </div>
+        </div>
+        <div
+          className="rounded-2xl border border-line bg-surface p-6 text-center"
+          data-testid="nothing-booked"
+        >
+          <p className="font-jost text-lg font-semibold text-ink">Nothing Booked Yet</p>
+          <p className="mt-1 font-jost text-sm text-ink-2">
+            Offers land here as clients book your open hours. More ↻ hours, more regulars.
+          </p>
+        </div>
+        <WeekStrip days={hourStrip} />
+        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
       </div>
     );
   }
@@ -850,7 +970,8 @@ export default function TodayPage() {
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
         <OfferAlerts offers={offers} now={now} />
-        <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
+        <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
+        <div className="mb-4 grid grid-cols-2 gap-2" data-testid="stat-tiles">
           <div className="rounded-2xl border border-line bg-surface px-3 py-3">
             <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
               Status
@@ -867,33 +988,6 @@ export default function TodayPage() {
               {openWeekHours > 0 ? `${openWeekHours} hrs` : '—'}
             </p>
           </div>
-          {profileVisible === false ? (
-            <Link
-              href="/app/profile"
-              onClick={() => haptic('light')}
-              className="rounded-2xl border border-line bg-surface px-3 py-3"
-              data-testid="profile-tile"
-            >
-              <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-                Profile
-              </p>
-              <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-danger">
-                Hidden
-              </p>
-            </Link>
-          ) : (
-            <div
-              className="rounded-2xl border border-line bg-surface px-3 py-3"
-              data-testid="profile-tile"
-            >
-              <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-                Profile
-              </p>
-              <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
-                {profileVisible === true ? 'Visible' : '—'}
-              </p>
-            </div>
-          )}
         </div>
         {/* Hero slot: where the first job will land */}
         <div
@@ -906,7 +1000,7 @@ export default function TodayPage() {
           </p>
         </div>
         <WeekStrip days={hourStrip} />
-        <ChangeAvailabilityRow />
+        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
       </div>
     );
   }
