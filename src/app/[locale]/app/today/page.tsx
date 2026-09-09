@@ -23,6 +23,20 @@ function dateEyebrow(): string {
     .toUpperCase();
 }
 
+// Dashboard shape A (James-ruled): compact eyebrow — "TUE 8 SEPT".
+function dateEyebrowShort(): string {
+  return new Date()
+    .toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    .replace(/,/g, '')
+    .toUpperCase();
+}
+
+// Time-of-day-aware greeting word.
+function greetingWord(): string {
+  const h = new Date().getHours();
+  return h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening';
+}
+
 // ─── Day-one first-run states (James-ruled) ──────────────────────────────────
 // A cleaner who has NEVER had a job gets a purpose-built Today instead of
 // "Day off": State 1 (no availability set — "Almost There") or State 2
@@ -111,6 +125,43 @@ export default function TodayPage() {
   const [actionError, setActionError] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [dayOne, setDayOne] = useState<DayOneState | null>(null);
+
+  // Dashboard shape A: greeting name + week-strip/invite data. All
+  // best-effort — the dashboard renders fine while (or if) these never land.
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [blockedSet, setBlockedSet] = useState<Set<string>>(() => new Set());
+  const [nextWeekTouched, setNextWeekTouched] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/cleaner/profile')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.name) setFirstName(String(d.name).split(' ')[0]);
+      })
+      .catch(() => {});
+    fetch('/api/cleaner/availability')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const blocked = new Set<string>(
+          (Array.isArray(d.blockedDates) ? d.blockedDates : []).map((b: { date: string }) => b.date)
+        );
+        setBlockedSet(blocked);
+        // The "Plan Next Week" invite shows only while next calendar week is
+        // untouched (no per-date edits, no blocks) — the blank-week reminder.
+        const mon = new Date();
+        mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7) + 7);
+        const isos: string[] = [];
+        for (let i = 0; i < 7; i++) {
+          const dd = new Date(mon);
+          dd.setDate(mon.getDate() + i);
+          isos.push(isoOf(dd));
+        }
+        const ds: Record<string, unknown[]> = d.dateSlots || {};
+        setNextWeekTouched(isos.some((iso) => blocked.has(iso) || (ds[iso]?.length ?? 0) > 0));
+      })
+      .catch(() => {});
+  }, []);
 
   // Runs only when the jobs list is empty: decides day-one State 1/2, or null
   // (has worked before → the existing Day off). Fail-open to null on any error.
@@ -453,6 +504,213 @@ export default function TodayPage() {
               ))}
             </div>
           </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Dashboard shape A (James-ruled): the working-day Today. Day-one
+  // states and Day Off keep the original rendering below, untouched. ─────────
+  if (!loading && todayJobs.length > 0) {
+    const nToday = todayJobs.filter((j) => j.status !== 'cancelled').length;
+    const strip: { iso: string; label: string; count: number; off: boolean }[] = [];
+    for (let i = 1; i <= 4; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const iso = isoOf(d);
+      strip.push({
+        iso,
+        label: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+        count: jobs.filter(
+          (j) => j.date === iso && j.status !== 'cancelled' && j.status !== 'completed'
+        ).length,
+        off: blockedSet.has(iso),
+      });
+    }
+    return (
+      <div>
+        <HiddenProfileBanner className="mb-4" />
+        <header className="mb-5">
+          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+            {dateEyebrowShort()}
+          </p>
+          <div className="mt-1 flex items-start justify-between gap-3">
+            <h1 className="font-jost text-[26px] font-semibold leading-tight text-primary">
+              {greetingWord()}
+              {firstName ? `, ${firstName}` : ''}
+            </h1>
+            <div className="mt-1 flex shrink-0 items-center gap-2">
+              <AccountMenu />
+              <InboxBell />
+            </div>
+          </div>
+          {evening && (
+            <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="evening-flip">
+              {tomorrowFirst
+                ? `Tomorrow: ${tomorrowFirst.time} · ${tomorrowFirst.clientName}`
+                : 'Nothing booked tomorrow yet — keep your availability fresh.'}
+            </p>
+          )}
+        </header>
+
+        {actionError && (
+          <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
+            <p className="text-sm text-ink-2">{actionError}</p>
+          </div>
+        )}
+
+        {/* Stat tiles: TODAY navy · EXPECTED green · THIS WK ink */}
+        <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Today
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-primary">
+              {nToday} job{nToday === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Expected
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-teal">
+              £{expectedToday.toFixed(0)}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              This Wk
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
+              £{weekSummary.earned.toFixed(0)}
+            </p>
+          </div>
+        </div>
+
+        {/* Hero + the day's cards — exactly as built */}
+        <div className="space-y-3">
+          {activeToday.map((job, i) =>
+            i === 0 ? (
+              <HeroJob
+                key={job.id}
+                job={job}
+                now={now}
+                processing={processingId === job.id}
+                onAdvance={() => advance(job)}
+                onCancelled={fetchJobs}
+              />
+            ) : (
+              <JobCard
+                key={job.id}
+                job={job}
+                now={now}
+                processing={processingId === job.id}
+                onAdvance={() => advance(job)}
+                onCancelled={fetchJobs}
+              />
+            )
+          )}
+        </div>
+        {doneToday.length > 0 && (
+          <div className={activeToday.length > 0 ? 'mt-5' : ''}>
+            <p className="mb-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+              Done today
+            </p>
+            <div className="rounded-2xl border border-line bg-surface px-4 py-1">
+              {doneToday.map((job) => (
+                <ReceiptRow key={job.id} job={job} />
+              ))}
+            </div>
+          </div>
+        )}
+        {earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
+
+        {/* Week strip: next 4 days, one tap through to Availability */}
+        <Link
+          href="/app/availability"
+          onClick={() => haptic('light')}
+          className="mt-6 grid grid-cols-4 gap-2"
+          data-testid="week-strip"
+        >
+          {strip.map((s) => (
+            <span
+              key={s.iso}
+              className="rounded-2xl border border-line bg-surface px-2 py-2.5 text-center"
+            >
+              <span className="block font-jost text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+                {s.label}
+              </span>
+              <span
+                className={`mt-0.5 block font-jost text-[13px] font-medium ${
+                  s.count > 0 ? 'text-primary' : 'text-ink-3'
+                }`}
+              >
+                {s.count > 0 ? `${s.count} job${s.count === 1 ? '' : 's'}` : s.off ? 'off' : '—'}
+              </span>
+            </span>
+          ))}
+        </Link>
+
+        {/* The explicit road to Availability */}
+        <Link
+          href="/app/availability"
+          onClick={() => haptic('light')}
+          className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5"
+          data-testid="change-availability-row"
+        >
+          <span className="flex items-center gap-2.5">
+            <svg
+              className="h-[18px] w-[18px] text-ink-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-jost text-[15px] font-medium text-ink">
+              Change My Availability
+            </span>
+          </span>
+          <svg
+            className="h-4 w-4 text-ink-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </Link>
+
+        {/* Blank-week reminder — only while next week is untouched, always last */}
+        {nextWeekTouched === false && (
+          <Link
+            href="/app/availability"
+            onClick={() => haptic('light')}
+            className="mt-3 flex items-center justify-between rounded-2xl bg-primary-soft px-5 py-4"
+            data-testid="plan-next-week"
+          >
+            <span>
+              <span className="block font-jost text-[15px] font-semibold text-primary">
+                Plan Next Week
+              </span>
+              <span className="block font-jost text-[12px] text-ink-2">30 seconds</span>
+            </span>
+            <svg
+              className="h-4 w-4 text-primary"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
         )}
       </div>
     );
