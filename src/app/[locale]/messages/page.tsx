@@ -91,6 +91,15 @@ export default function MessagesPage() {
   const composeHandled = useRef(false);
   const [showPiiWarning, setShowPiiWarning] = useState(false);
 
+  // P3 in-shell skin (James-ruled): tag <body> so globals.css re-clothes this
+  // page to the Pro Navy law inside the shell. Effect-only, UA-gated —
+  // browsers never carry the classes, markup byte-identical.
+  useEffect(() => {
+    if (!isShellUA()) return;
+    document.body.classList.add('rena-shell', 'rena-page-messages');
+    return () => document.body.classList.remove('rena-shell', 'rena-page-messages');
+  }, []);
+
   // Fetch current user session
   useEffect(() => {
     fetch('/api/auth/profile')
