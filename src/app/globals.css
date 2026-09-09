@@ -305,3 +305,19 @@ body.rena-shell.rena-page-pricing .font-newsreader,
 body.rena-shell.rena-page-reviews .font-newsreader {
   font-family: var(--font-jost), sans-serif;
 }
+
+/* ─── P3 wizard shape B (James-ruled): /join's seven steps re-clothed in-shell.
+   The page itself adds these body classes only under the RenaPro/ UA (and it
+   renders nothing before mount), so the website is byte-identical. Steps keep
+   their own markup — serif retires, spacing goes app-fit, buttons thumb-sized.
+   The step eyebrow, slim progress bar, white field card and navy Continue are
+   already the page's own shapes. */
+body.rena-shell.rena-page-join .font-newsreader {
+  font-family: var(--font-jost), sans-serif;
+}
+body.rena-shell.rena-page-join main > div {
+  padding-top: 16px;
+}
+body.rena-shell.rena-page-join main button {
+  min-height: 44px;
+}

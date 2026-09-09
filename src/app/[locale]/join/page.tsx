@@ -462,6 +462,59 @@ function DesktopStepper({
   );
 }
 
+/* ---- Wizard shape B (James-ruled): the in-shell intro — one persuasive
+   non-scrolling screen. The earnings card keeps the site's exact maths
+   (hours x GBP15/hr average) behind a draggable slider; three plain reasons;
+   one navy action; the honest footer. Everything else about /join is the
+   wizard itself. ---- */
+function ShellIntro({ onStart }: { onStart: () => void }) {
+  const [hours, setHours] = useState(20);
+  const weekly = hours * 15;
+  return (
+    <div className="flex min-h-[100dvh] flex-col justify-center bg-page px-6 pb-10 pt-6">
+      <h1 className="font-jost text-[30px] font-semibold leading-tight text-ink">
+        Clean With Rena
+      </h1>
+      <div className="mt-6 rounded-2xl bg-primary p-5">
+        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
+          {hours} hrs a week
+        </p>
+        <p className="mt-1 font-jost text-[34px] font-bold leading-tight text-white">
+          {'\u2248'} {'\u00a3'}
+          {weekly}/week
+        </p>
+        <input
+          type="range"
+          min={5}
+          max={50}
+          step={1}
+          value={hours}
+          aria-label="Hours per week"
+          onChange={(e) => setHours(Number(e.target.value))}
+          className="mt-5 h-1 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-white"
+        />
+        <p className="mt-2 font-jost text-[11px] text-white/50">
+          Based on the {'\u00a3'}15/hr average {'\u00b7'} top-rated cleaners earn more
+        </p>
+      </div>
+      <p className="mt-5 text-center font-jost text-[14px] font-medium text-ink-2">
+        Your hours {'\u00b7'} Paid per job {'\u00b7'} Local clients
+      </p>
+      <button
+        type="button"
+        data-testid="start-application"
+        onClick={onStart}
+        className="mt-6 w-full rounded-[12px] bg-primary px-4 py-3.5 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white active:opacity-90"
+      >
+        Start My Application
+      </button>
+      <p className="mt-3 text-center font-jost text-[12px] text-ink-3">
+        5 minutes {'\u00b7'} 7 steps {'\u00b7'} save anytime
+      </p>
+    </div>
+  );
+}
+
 /* ---- Mobile progress — "STEP N OF 7 · {name}" + a slim bar ---- */
 function MobileStepper({ currentStep }: { currentStep: number }) {
   const pct = ((currentStep + 1) / STEPS.length) * 100;
@@ -913,16 +966,23 @@ export default function JoinAsCleanerPage() {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
-  // Camera-crash interim (James-ruled): the binary lacks
-  // NSCameraUsageDescription — camera-path controls hide in-shell until the
-  // 1.0.1 build carries the string. ONLY the profile-photo capture button is
-  // gated (its Upload sibling remains); the H97 selfie stays capture-only by
-  // Harry's rule and is parked separately. Mounted-state gate: SSR/browsers
-  // render exactly as before.
-  const [inShellCameraHidden, setInShellCameraHidden] = useState(false);
+  // Rena Pro shell state (wizard shape B + camera-crash interim, James-ruled).
+  // The page renders nothing until mounted, so this mounted-state gate causes
+  // no SSR mismatch and no flash; browsers never match the UA, so the website
+  // is byte-identical. In-shell it: (a) swaps the marketing landing for the
+  // one-screen intro, (b) tags <body> so globals.css re-clothes the wizard to
+  // the law, (c) hides the profile-photo camera control until the 1.0.1 build
+  // carries NSCameraUsageDescription (the H97 selfie stays capture-only by
+  // Harry's rule and is parked separately).
+  const [inShell, setInShell] = useState(false);
   useEffect(() => {
-    if (isShellUA()) setInShellCameraHidden(true);
+    if (isShellUA()) setInShell(true);
   }, []);
+  useEffect(() => {
+    if (!inShell) return;
+    document.body.classList.add('rena-shell', 'rena-page-join');
+    return () => document.body.classList.remove('rena-shell', 'rena-page-join');
+  }, [inShell]);
   // Wizard step nav (James): furthest step the user has validated into — steps
   // 0..maxReachedStep are tappable; beyond is locked (no skipping required steps).
   const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
@@ -1510,7 +1570,14 @@ export default function JoinAsCleanerPage() {
   if (!mounted) return null;
 
   if (!showForm) {
-    return <JoinLandingPage onApply={() => setShowForm(true)} />;
+    // Wizard shape B (James-ruled): in-shell, /join opens on ONE persuasive
+    // non-scrolling screen — the marketing landing (hero, blurbs, WHY RENA)
+    // never renders in the shell. One tap lands on Step 1.
+    return inShell ? (
+      <ShellIntro onStart={() => setShowForm(true)} />
+    ) : (
+      <JoinLandingPage onApply={() => setShowForm(true)} />
+    );
   }
 
   /* ================================================================ */
@@ -1876,7 +1943,7 @@ export default function JoinAsCleanerPage() {
                           </svg>
                           Take Photo
                         </button>
-                      ) : inShellCameraHidden ? null : (
+                      ) : inShell ? null : (
                         <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line">
                           <svg
                             className="w-4 h-4"
