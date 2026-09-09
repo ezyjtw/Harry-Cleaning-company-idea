@@ -224,8 +224,10 @@ on James's explicit word after he confirms contact.** The exported broom stays.
 - **NSCameraUsageDescription** — the proper camera fix, ledgered NOT built:
   add to `mobile/app.json` infoPlist with the exact string "Rena Pro uses the
   camera to take your profile and job photos." as part of the NEXT native
-  build, whenever one happens — version-bump law applies (1.0.0 → 1.0.1), no
-  dedicated TestFlight round trip for this alone. Un-gate the in-shell
+  build — SCHEDULE MOVED UP (James, 9 Sep): the 1.0.1 build happens when
+  P3's dust settles rather than waiting for an unrelated native need; the
+  build order itself still comes with his word. Version-bump law applies
+  (1.0.0 → 1.0.1). Un-gate the in-shell
   camera-path controls (cleaner/profile + /join profile photo) in the same
   release. Until then: camera controls hidden in-shell where a library
   sibling exists; the /join H97 selfie and both /verify steps stay
