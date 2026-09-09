@@ -1419,8 +1419,19 @@ function TimeOffCard({
         </p>
       </div>
       <div className="px-5 py-4">
-        <div className="flex gap-4">
-          <label className="min-w-0 flex-1">
+        {/* iPhone fix (James-reported, cause-first): iOS WebKit renders
+            <input type=date> with a shadow-DOM control whose INTRINSIC width
+            (~170-185px at this font/padding) exceeds the ~151px each flex
+            column offers at 390pt - and iOS does not shrink that inner
+            control below intrinsic size, so it overflows and the two fields
+            crowd. Chromium's date control is narrower AND clamps, which is
+            why the 16px-gap fix drove green and failed on the phone. The fix
+            removes intrinsic width from the equation: stacked full-width rows
+            on phones (310px each - nothing to fight), two columns only from
+            480px up — at 480px each column is ~197px, clear of the ~185px
+            intrinsic ceiling, so even a 430pt Pro Max stacks. */}
+        <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+          <label className="min-w-0">
             <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               From
             </span>
@@ -1435,7 +1446,7 @@ function TimeOffCard({
               className={inputCls}
             />
           </label>
-          <label className="min-w-0 flex-1">
+          <label className="min-w-0">
             <span className="mb-1 block font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
               Until
             </span>
