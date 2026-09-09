@@ -272,3 +272,36 @@ body.rena-shell.rena-page-jobs main button,
 body.rena-shell.rena-page-earnings main button {
   min-height: 44px;
 }
+
+/* ─── P3 Profile Hub doors (James-ruled): Edit Bio & Photos / My Rates /
+   Reviews — the /cleaner profile, pricing and reviews pages in Pro Navy
+   clothes when viewed inside the shell. Same mechanism, same guarantee: the
+   body classes only exist under the RenaPro/ UA, so browsers are untouched. */
+body.rena-shell.rena-page-profile main > div,
+body.rena-shell.rena-page-pricing main > div,
+body.rena-shell.rena-page-reviews main > div {
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-top: 16px;
+  padding-bottom: 40px;
+}
+body.rena-shell.rena-page-profile main button,
+body.rena-shell.rena-page-pricing main button,
+body.rena-shell.rena-page-reviews main button {
+  min-height: 44px;
+}
+/* Chrome hidden: the portal's mobile ink header (hamburger + wordmark + bell)
+   — the native shell owns chrome, and the hamburger's sidebar is a bundle of
+   escape hatches. The sidebar itself is already off-canvas on phones. */
+body.rena-shell.rena-page-profile .lg\:hidden.bg-ink,
+body.rena-shell.rena-page-pricing .lg\:hidden.bg-ink,
+body.rena-shell.rena-page-reviews .lg\:hidden.bg-ink {
+  display: none;
+}
+/* The law: Newsreader retires in-shell — these pages' serif headings re-set
+   in the sans. Web portal keeps its serif untouched. */
+body.rena-shell.rena-page-profile .font-newsreader,
+body.rena-shell.rena-page-pricing .font-newsreader,
+body.rena-shell.rena-page-reviews .font-newsreader {
+  font-family: var(--font-jost), sans-serif;
+}
