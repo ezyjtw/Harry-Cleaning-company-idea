@@ -92,6 +92,23 @@ export default function CleanerProfilePage() {
     setIsDesktop(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
   }, []);
 
+  // P3 camera-badge deep link (James-ruled): the Profile Hub's camera badge
+  // opens this page at #photo — in-shell only, scroll the photo card into
+  // view. Auto-OPENING the native picker is not achievable (iOS only opens
+  // file pickers on a real user gesture), so the tap lands the cleaner on the
+  // control. Shell-gated AND hash-gated: browsers and normal loads never run
+  // this, markup untouched.
+  useEffect(() => {
+    if (!isShellUA() || window.location.hash !== '#photo') return;
+    const t = setTimeout(() => {
+      document
+        .querySelector('input[type="file"]')
+        ?.closest('div.rounded-2xl')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 600);
+    return () => clearTimeout(t);
+  }, []);
+
   const markDirty = useCallback(() => {
     setDirty(true);
     setSaved(false);
