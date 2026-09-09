@@ -29,6 +29,8 @@ export interface AppJob {
   recurringFrequency?: string | null;
   status: string; // lowercase
   duration: number;
+  // Today V2 offer alert: the live-offer window end (AWAITING_CLEANER only).
+  cascadeExpiresAt?: string | null;
 }
 
 // 4.6 (James-ruled): three cleaner actions only — Accept (at the offer) →

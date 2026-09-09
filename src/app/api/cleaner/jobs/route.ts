@@ -172,6 +172,13 @@ export async function GET(request: NextRequest) {
         cleanerEarnings: Number(b.cleanerEarnings),
         // F24.1: non-null frequency marks a recurring occurrence.
         recurringFrequency: b.agreement?.frequency ?? null,
+        // Today V2 offer alert (James-ruled): the live countdown needs the
+        // offer window's end. Additive read-only field, AWAITING_CLEANER rows
+        // only — no offer/cascade mechanics touched.
+        cascadeExpiresAt:
+          b.status === 'AWAITING_CLEANER' && b.cascadeExpiresAt
+            ? b.cascadeExpiresAt.toISOString()
+            : null,
         // F24.3: the cleaner's own arithmetic from the stored snapshot —
         // "Your rate £X − Rena fee (N%) £Y = You receive £Z". Null when the
         // stored numbers don't reconcile to the penny (render labelled net).
