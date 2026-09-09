@@ -87,6 +87,16 @@ export default function CleanerProfilePage() {
 
   const [showWebcam, setShowWebcam] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  // Camera-crash interim (James-ruled): the binary ships without
+  // NSCameraUsageDescription, so any camera initialization kills the app.
+  // Until the 1.0.1 build carries the string, camera-path controls hide
+  // in-shell (library upload remains). Mounted-state gate: SSR and browsers
+  // render exactly as before; the native sheet's own camera row cannot be
+  // suppressed web-side (OS-controlled) — accepted, library-only in-shell.
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    if (isShellUA()) setInShell(true);
+  }, []);
 
   useEffect(() => {
     setIsDesktop(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
@@ -419,7 +429,7 @@ export default function CleanerProfilePage() {
                     </svg>
                     Take Photo
                   </button>
-                ) : (
+                ) : inShell ? null : (
                   <label
                     className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-page text-ink font-jost text-sm font-light cursor-pointer hover:bg-primary-soft transition-colors"
                     style={{ border: '0.5px solid rgb(var(--color-border))' }}

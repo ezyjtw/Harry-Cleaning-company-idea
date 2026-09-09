@@ -17,6 +17,7 @@ import {
 } from '@/lib/constants/services';
 import { setAnalyticsUserId, useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
+import { isShellUA } from '@/lib/shell';
 import {
   dataUrlBytes,
   DOC_IMAGE_MAX_PX,
@@ -912,6 +913,16 @@ export default function JoinAsCleanerPage() {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
+  // Camera-crash interim (James-ruled): the binary lacks
+  // NSCameraUsageDescription — camera-path controls hide in-shell until the
+  // 1.0.1 build carries the string. ONLY the profile-photo capture button is
+  // gated (its Upload sibling remains); the H97 selfie stays capture-only by
+  // Harry's rule and is parked separately. Mounted-state gate: SSR/browsers
+  // render exactly as before.
+  const [inShellCameraHidden, setInShellCameraHidden] = useState(false);
+  useEffect(() => {
+    if (isShellUA()) setInShellCameraHidden(true);
+  }, []);
   // Wizard step nav (James): furthest step the user has validated into — steps
   // 0..maxReachedStep are tappable; beyond is locked (no skipping required steps).
   const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
@@ -1865,7 +1876,7 @@ export default function JoinAsCleanerPage() {
                           </svg>
                           Take Photo
                         </button>
-                      ) : (
+                      ) : inShellCameraHidden ? null : (
                         <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line">
                           <svg
                             className="w-4 h-4"
