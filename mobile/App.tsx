@@ -81,6 +81,19 @@ const TABS = [
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'shell';
 
+// ─── Cross-tab nav fix (James-ruled): an in-page link to a TAB-ROOT route must
+// switch the native tab, never navigate inside the current tab's WebView (which
+// left e.g. the Today pane showing Availability while the tab bar said Today).
+// Matches ONLY the five tab roots — deeper routes (/app/offer/123, /cleaner/*)
+// stay in-pane by design. Regex, not new URL(): RN's URL polyfill is unreliable.
+function tabRootKey(url: string): string | null {
+  const m = url.match(
+    /^https?:\/\/[^/]+\/(?:en\/)?(?:app\/(today|jobs|availability|earnings)|(messages))\/?(?:[?#].*)?$/
+  );
+  if (!m) return null;
+  return m[1] || 'messages';
+}
+
 // ─── C7 binary trio (James-ruled: BUILT, NOT ACTIVATED) ──────────────────────
 // The store binary ships push-capable — aps-environment entitlement, remote-
 // notification background mode, the expo-notifications module, deep-link
@@ -695,6 +708,8 @@ function ShellScreen({
                 injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
                 onSessionLost={onSessionLost}
                 onBridged={tab.key === 'today' ? onBridged : undefined}
+                tabKey={tab.key}
+                onCrossTab={selectTab}
               />
             </TabPane>
           );
@@ -761,12 +776,18 @@ function SeamlessWebView({
   injectBefore,
   onSessionLost,
   onBridged,
+  tabKey,
+  onCrossTab,
   loaderTone = 'light',
 }: {
   uri: string;
   injectBefore: string;
   onSessionLost?: () => void;
   onBridged?: () => void;
+  /** Which tab this pane belongs to — enables the cross-tab nav intercept. */
+  tabKey?: string;
+  /** Called with the target tab key when an in-page link hits another tab's root. */
+  onCrossTab?: (key: string) => void;
   loaderTone?: 'light' | 'navy';
 }) {
   const [offline, setOffline] = useState(false);
@@ -787,6 +808,19 @@ function SeamlessWebView({
   const onNav = (nav: WebViewNavigation) => {
     if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
       onSessionLost();
+    }
+    // Cross-tab nav fix: Next.js links are SPA pushState navigations, which
+    // onShouldStartLoadWithRequest can't cancel — so when one lands on another
+    // tab's root, switch the native tab and step this pane's history back to
+    // its own route (state preserved; a later onNav for the back-step matches
+    // this pane's own key and no-ops).
+    if (tabKey && onCrossTab) {
+      const target = tabRootKey(nav.url);
+      if (target && target !== tabKey) {
+        onCrossTab(target);
+        ref.current?.injectJavaScript('window.history.back(); true;');
+        return;
+      }
     }
     // Fix: the Today tab boots on the single-use session-bridge URL, which
     // redirects here to /app/today. Once we've landed past the bridge, clear
@@ -870,6 +904,18 @@ function SeamlessWebView({
         allowsBackForwardNavigationGestures
         allowsLinkPreview={false}
         injectedJavaScriptBeforeContentLoaded={injectBefore}
+        // Cross-tab nav fix, full-document half: real document loads CAN be
+        // cancelled here, so the origin pane never leaves its route at all.
+        onShouldStartLoadWithRequest={(req) => {
+          if (tabKey && onCrossTab) {
+            const target = tabRootKey(req.url);
+            if (target && target !== tabKey) {
+              onCrossTab(target);
+              return false;
+            }
+          }
+          return true;
+        }}
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => setLoaded(true)}
