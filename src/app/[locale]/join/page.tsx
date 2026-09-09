@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import ShellCameraNotice from '@/components/ShellCameraNotice';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import SimpleMarkdown, { stripLeadingH1 } from '@/components/ui/SimpleMarkdown';
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
@@ -2522,7 +2523,9 @@ export default function JoinAsCleanerPage() {
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {isDesktop ? (
+                      {inShell ? (
+                        <ShellCameraNotice />
+                      ) : isDesktop ? (
                         <button
                           type="button"
                           onClick={() => setWebcamTarget('selfiePhoto')}

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import ShellCameraNotice from '@/components/ShellCameraNotice';
+import { isShellUA } from '@/lib/shell';
+
 type VerifyStep =
   | 'start'
   | 'document'
@@ -56,6 +59,15 @@ function UnlockedList() {
 
 export default function VerifyPage() {
   const [step, setStep] = useState<VerifyStep>('start');
+  // P3 camera interim (James-ruled): both verify steps are camera-required
+  // (capture-only by design); until the 1.0.1 build carries
+  // NSCameraUsageDescription, the shell shows the venue-moves notice instead
+  // of a control that would crash the app. Mounted-state gate — browsers and
+  // SSR render exactly as before.
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    if (isShellUA()) setInShell(true);
+  }, []);
   const [documentType, setDocumentType] = useState('drivers-license');
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [documentBase64, setDocumentBase64] = useState<string | null>(null);
@@ -424,34 +436,40 @@ export default function VerifyPage() {
           />
 
           <div className="space-y-3">
-            <button
-              onClick={() => docInputRef.current?.click()}
-              className={`w-full rounded-xl border-2 border-dashed p-8 text-center transition ${
-                documentFile
-                  ? 'border-trust/40 bg-trust/[0.06]'
-                  : 'border-line hover:border-primary hover:bg-primary-soft/40'
-              }`}
-            >
-              {documentFile ? (
-                <div>
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-trust/10 text-xl text-trust">
-                    &#10003;
+            {inShell ? (
+              <ShellCameraNotice />
+            ) : (
+              <button
+                onClick={() => docInputRef.current?.click()}
+                className={`w-full rounded-xl border-2 border-dashed p-8 text-center transition ${
+                  documentFile
+                    ? 'border-trust/40 bg-trust/[0.06]'
+                    : 'border-line hover:border-primary hover:bg-primary-soft/40'
+                }`}
+              >
+                {documentFile ? (
+                  <div>
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-trust/10 text-xl text-trust">
+                      &#10003;
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-trust">
+                      {documentFile.name} uploaded
+                    </p>
+                    <p className="text-xs text-trust">Tap to change</p>
                   </div>
-                  <p className="mt-2 text-sm font-medium text-trust">
-                    {documentFile.name} uploaded
-                  </p>
-                  <p className="text-xs text-trust">Tap to change</p>
-                </div>
-              ) : (
-                <div>
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-page text-xl text-ink-3">
-                    &#128196;
+                ) : (
+                  <div>
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-page text-xl text-ink-3">
+                      &#128196;
+                    </div>
+                    <p className="mt-2 text-sm text-ink-3">
+                      Take a photo or upload front of your ID
+                    </p>
+                    <p className="text-xs text-ink-3">Make sure all text is clearly readable</p>
                   </div>
-                  <p className="mt-2 text-sm text-ink-3">Take a photo or upload front of your ID</p>
-                  <p className="text-xs text-ink-3">Make sure all text is clearly readable</p>
-                </div>
-              )}
-            </button>
+                )}
+              </button>
+            )}
           </div>
 
           <button
@@ -486,34 +504,38 @@ export default function VerifyPage() {
             onChange={handleSelfieUpload}
           />
 
-          <button
-            onClick={() => selfieInputRef.current?.click()}
-            className={`w-full rounded-xl border-2 border-dashed p-8 text-center transition ${
-              selfieFile
-                ? 'border-trust/40 bg-trust/[0.06]'
-                : 'border-line hover:border-primary hover:bg-primary-soft/40'
-            }`}
-          >
-            {selfieFile ? (
-              <div>
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-trust/10 text-2xl text-trust">
-                  &#10003;
+          {inShell ? (
+            <ShellCameraNotice />
+          ) : (
+            <button
+              onClick={() => selfieInputRef.current?.click()}
+              className={`w-full rounded-xl border-2 border-dashed p-8 text-center transition ${
+                selfieFile
+                  ? 'border-trust/40 bg-trust/[0.06]'
+                  : 'border-line hover:border-primary hover:bg-primary-soft/40'
+              }`}
+            >
+              {selfieFile ? (
+                <div>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-trust/10 text-2xl text-trust">
+                    &#10003;
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-trust">Selfie captured</p>
+                  <p className="text-xs text-trust">Tap to retake</p>
                 </div>
-                <p className="mt-2 text-sm font-medium text-trust">Selfie captured</p>
-                <p className="text-xs text-trust">Tap to retake</p>
-              </div>
-            ) : (
-              <div>
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-page text-3xl text-ink-3">
-                  &#128247;
+              ) : (
+                <div>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-page text-3xl text-ink-3">
+                    &#128247;
+                  </div>
+                  <p className="mt-2 text-sm text-ink-3">Open camera and take a clear selfie</p>
+                  <p className="text-xs text-ink-3">
+                    Good lighting, face the camera directly, no sunglasses
+                  </p>
                 </div>
-                <p className="mt-2 text-sm text-ink-3">Open camera and take a clear selfie</p>
-                <p className="text-xs text-ink-3">
-                  Good lighting, face the camera directly, no sunglasses
-                </p>
-              </div>
-            )}
-          </button>
+              )}
+            </button>
+          )}
 
           <div className="rounded-[10px] bg-page p-4 text-sm text-ink-2">
             <strong className="text-ink">How face matching works:</strong> Our system compares your
