@@ -218,11 +218,12 @@ export default function ProfileHubPage() {
                 </span>
               )}
             </div>
-            {/* Camera badge — photo editing lives on Edit Bio & Photos. */}
+            {/* Camera badge — photo editing lives on Edit Bio & Photos; #photo
+                deep-links to the photo card there (in-shell scroll-to). */}
             <button
               type="button"
               aria-label="Change photo"
-              onClick={() => go('/cleaner/profile')}
+              onClick={() => go('/cleaner/profile#photo')}
               className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white ring-2 ring-surface active:opacity-80"
             >
               <svg
