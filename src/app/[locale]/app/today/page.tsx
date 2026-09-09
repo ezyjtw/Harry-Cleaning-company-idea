@@ -70,14 +70,9 @@ function fmtSlotTime(t: string): string {
   return t.replace(/^0/, '');
 }
 
-// C3: "Day off — next job Thu 10:00" living empty state.
-function nextJobLabel(j: Job): string {
-  const d = new Date(`${j.date}T00:00:00`);
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const day =
-    j.date === isoOf(tomorrow) ? 'tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short' });
-  return `${day} ${j.time}`;
+// Today V2 quiet-day tile: "Thu 9:00" — always weekday-short + time.
+function nextJobTile(j: Job): string {
+  return `${new Date(`${j.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })} ${j.time}`;
 }
 
 // C3: the earned-today serif ticker — counts up to the day's completed total,
@@ -115,28 +110,197 @@ function EarnedTicker({ amount }: { amount: number }) {
   );
 }
 
+// ─── Today V2 shared pieces (James-ruled) ────────────────────────────────────
+
+// The app's only bordered shout: a live offer, under the greeting in EVERY
+// Today state. No accept/decline here — VIEW OFFER goes to the offer screen.
+function offerCountdown(expiresAt: string | null | undefined, now: number): string | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - now;
+  if (Number.isNaN(ms)) return null;
+  if (ms <= 0) return 'Expiring';
+  const totalS = Math.floor(ms / 1000);
+  const m = Math.floor(totalS / 60);
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m left`;
+  return `${m}:${String(totalS % 60).padStart(2, '0')} left`;
+}
+
+function OfferAlerts({ offers, now }: { offers: Job[]; now: number }) {
+  if (offers.length === 0) return null;
+  return (
+    <div className="mb-4 space-y-3" data-testid="offer-alerts">
+      {offers.map((o) => (
+        <div key={o.id} className="rounded-2xl border-2 border-primary bg-surface p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+              New Offer
+            </p>
+            {offerCountdown(o.cascadeExpiresAt, now) && (
+              <p
+                className="shrink-0 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary"
+                data-testid="offer-countdown"
+              >
+                {offerCountdown(o.cascadeExpiresAt, now)}
+              </p>
+            )}
+          </div>
+          <div className="mt-1 flex items-baseline justify-between gap-3">
+            <p className="font-jost text-[20px] font-semibold leading-tight text-primary">
+              {new Date(`${o.date}T00:00:00`).toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              })}{' '}
+              · {o.time}
+            </p>
+            <p className="shrink-0 text-right font-jost text-[18px] font-semibold leading-tight text-teal">
+              £{pay(o).toFixed(2)}
+            </p>
+          </div>
+          <p className="mt-1 truncate font-jost text-sm text-ink-2">
+            {o.serviceType} · {o.duration}h · {o.address}
+          </p>
+          <Link
+            href={`/app/offer/${o.id}`}
+            onClick={() => haptic('light')}
+            className="mt-3 block w-full rounded-[12px] bg-primary px-4 py-3 text-center font-jost text-sm font-semibold uppercase tracking-[0.04em] text-white active:opacity-80"
+          >
+            View Offer
+          </Link>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface StripDay {
+  iso: string;
+  label: string;
+  value: string;
+  strong: boolean;
+}
+
+function WeekStrip({ days }: { days: StripDay[] }) {
+  return (
+    <Link
+      href="/app/availability"
+      onClick={() => haptic('light')}
+      className="mt-6 grid grid-cols-4 gap-2"
+      data-testid="week-strip"
+    >
+      {days.map((s) => (
+        <span
+          key={s.iso}
+          className="rounded-2xl border border-line bg-surface px-2 py-2.5 text-center"
+        >
+          <span className="block font-jost text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+            {s.label}
+          </span>
+          <span
+            className={`mt-0.5 block font-jost text-[13px] font-medium ${
+              s.strong ? 'text-primary' : 'text-ink-3'
+            }`}
+          >
+            {s.value}
+          </span>
+        </span>
+      ))}
+    </Link>
+  );
+}
+
+function ChangeAvailabilityRow() {
+  return (
+    <Link
+      href="/app/availability"
+      onClick={() => haptic('light')}
+      className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5"
+      data-testid="change-availability-row"
+    >
+      <span className="flex items-center gap-2.5">
+        <svg
+          className="h-[18px] w-[18px] text-ink-2"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.8}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span className="font-jost text-[15px] font-medium text-ink">Change My Availability</span>
+      </span>
+      <svg
+        className="h-4 w-4 text-ink-3"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </Link>
+  );
+}
+
+function PlanNextWeekCard() {
+  return (
+    <Link
+      href="/app/availability"
+      onClick={() => haptic('light')}
+      className="mt-3 flex items-center justify-between rounded-2xl bg-primary-soft px-5 py-4"
+      data-testid="plan-next-week"
+    >
+      <span>
+        <span className="block font-jost text-[15px] font-semibold text-primary">
+          Plan Next Week
+        </span>
+        <span className="block font-jost text-[12px] text-ink-2">30 seconds</span>
+      </span>
+      <svg
+        className="h-4 w-4 text-primary"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </Link>
+  );
+}
+
 export default function TodayPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [view, setView] = useState<'today' | 'week'>('today');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [dayOne, setDayOne] = useState<DayOneState | null>(null);
+  // Today V2 (James-ruled): live offers surface on Today itself, every state.
+  const [offers, setOffers] = useState<Job[]>([]);
 
   // Dashboard shape A: greeting name + week-strip/invite data. All
   // best-effort — the dashboard renders fine while (or if) these never land.
   const [firstName, setFirstName] = useState<string | null>(null);
+  const [profileVisible, setProfileVisible] = useState<boolean | null>(null);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(() => new Set());
   const [nextWeekTouched, setNextWeekTouched] = useState<boolean | null>(null);
+  // Today V2 day-one dashboard: open hours per rolling day + the 7-day total.
+  const [openHoursByIso, setOpenHoursByIso] = useState<Record<string, number>>({});
+  const [openWeekHours, setOpenWeekHours] = useState(0);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.name) setFirstName(String(d.name).split(' ')[0]);
+        if (d) setProfileVisible(d.visibleInDirectory !== false);
       })
       .catch(() => {});
     fetch('/api/cleaner/availability')
@@ -159,6 +323,33 @@ export default function TodayPage() {
         }
         const ds: Record<string, unknown[]> = d.dateSlots || {};
         setNextWeekTouched(isos.some((iso) => blocked.has(iso) || (ds[iso]?.length ?? 0) > 0));
+        // Open hours for the rolling next 7 days (date slots override the
+        // template; blocked days count 0) — the day-one tiles/strip read these.
+        const weeklySlots: Record<string, { start: string; end: string }[]> = d.weeklySlots || {};
+        const dateSlots: Record<string, { start: string; end: string }[]> = d.dateSlots || {};
+        const toMin = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          return t === '23:59' ? 24 * 60 : h * 60 + m;
+        };
+        const byIso: Record<string, number> = {};
+        let total = 0;
+        for (let i = 0; i < 7; i++) {
+          const dd = new Date();
+          dd.setDate(dd.getDate() + i);
+          const iso = isoOf(dd);
+          if (blocked.has(iso)) {
+            byIso[iso] = 0;
+            continue;
+          }
+          const slots = dateSlots[iso]?.length
+            ? dateSlots[iso]
+            : weeklySlots[JS_DAY_TO_API[dd.getDay()]] || [];
+          const h = slots.reduce((sum, r) => sum + (toMin(r.end) - toMin(r.start)) / 60, 0);
+          byIso[iso] = h;
+          total += h;
+        }
+        setOpenHoursByIso(byIso);
+        setOpenWeekHours(Math.round(total * 10) / 10);
       })
       .catch(() => {});
   }, []);
@@ -220,9 +411,22 @@ export default function TodayPage() {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch(
-        '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS,COMPLETED&limit=50'
-      );
+      const [res, offersRes] = await Promise.all([
+        fetch(
+          '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS,COMPLETED&limit=50'
+        ),
+        // Today V2: live offers ride the same jobs API (additive field carries
+        // the window end); best-effort — a failed offers read never breaks Today.
+        fetch('/api/cleaner/jobs?status=AWAITING_CLEANER&limit=10').catch(() => null),
+      ]);
+      if (offersRes?.ok) {
+        const od = await offersRes.json().catch(() => null);
+        const olist: Job[] = Array.isArray(od?.jobs) ? od.jobs : [];
+        olist.sort((a, b) =>
+          String(a.cascadeExpiresAt || '9999').localeCompare(String(b.cascadeExpiresAt || '9999'))
+        );
+        setOffers(olist);
+      }
       if (res.status === 401 || res.status === 403) {
         setAccessDenied(true);
         return;
@@ -269,11 +473,11 @@ export default function TodayPage() {
     };
   }, [fetchJobs]);
 
-  // Live-ticking next-job countdown.
+  // Live-ticking next-job countdown; 1s while an offer countdown is on screen.
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30000);
+    const t = setInterval(() => setNow(Date.now()), offers.length > 0 ? 1000 : 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [offers.length]);
 
   const today = isoOf(new Date());
   const todayJobs = useMemo(
@@ -303,14 +507,6 @@ export default function TodayPage() {
     d.setDate(d.getDate() + 1);
     return isoOf(d);
   }, []);
-  const morning = useMemo(
-    () =>
-      !loading &&
-      activeToday.length > 0 &&
-      doneToday.length === 0 &&
-      todayJobs.every((j) => j.status === 'accepted' || j.status === 'confirmed'),
-    [loading, activeToday, doneToday, todayJobs]
-  );
   const evening = useMemo(
     () => !loading && todayJobs.length > 0 && activeToday.length === 0 && doneToday.length > 0,
     [loading, todayJobs, activeToday, doneToday]
@@ -328,28 +524,6 @@ export default function TodayPage() {
         .sort((a, b) => a.time.localeCompare(b.time))[0],
     [jobs, tomorrowIso]
   );
-
-  const weekByDay = useMemo(() => {
-    const days: { iso: string; label: string; isToday: boolean; jobs: Job[] }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      const iso = isoOf(d);
-      const label =
-        i === 0
-          ? 'Today'
-          : i === 1
-            ? 'Tomorrow'
-            : d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
-      days.push({
-        iso,
-        label,
-        isToday: i === 0,
-        jobs: jobs.filter((j) => j.date === iso).sort((a, b) => a.time.localeCompare(b.time)),
-      });
-    }
-    return days;
-  }, [jobs]);
 
   const weekSummary = useMemo(() => {
     const d = new Date();
@@ -437,6 +611,7 @@ export default function TodayPage() {
             </div>
           </div>
         </header>
+        <OfferAlerts offers={offers} now={now} />
         <div
           className="flex flex-col items-center px-6 pt-12 text-center"
           data-testid="day-one-set-availability"
@@ -469,97 +644,105 @@ export default function TodayPage() {
       </div>
     );
   }
-  if (!loading && dayOne?.state === 2) {
+  // ─── Today V2 (James-ruled): the dashboard in every state. ────────────────
+  const jobStrip: StripDay[] = [];
+  const hourStrip: StripDay[] = [];
+  for (let i = 1; i <= 4; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const iso = isoOf(d);
+    const label = d.toLocaleDateString('en-GB', { weekday: 'short' });
+    const count = jobs.filter(
+      (j) => j.date === iso && j.status !== 'cancelled' && j.status !== 'completed'
+    ).length;
+    const off = blockedSet.has(iso);
+    jobStrip.push({
+      iso,
+      label,
+      value: count > 0 ? `${count} job${count === 1 ? '' : 's'}` : off ? 'off' : '—',
+      strong: count > 0,
+    });
+    const h = openHoursByIso[iso] ?? 0;
+    hourStrip.push({
+      iso,
+      label,
+      value: off ? 'off' : h > 0 ? `${Math.round(h * 10) / 10} hrs` : '—',
+      strong: !off && h > 0,
+    });
+  }
+  const weekBookedCount = jobs.filter((j) => {
+    const d = new Date();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
     return (
-      <div>
-        <HiddenProfileBanner className="mb-4" />
-        <header className="mb-5">
-          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-            {dateEyebrow()}
-          </p>
-          <div className="mt-1 flex items-start justify-between gap-3">
-            <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
-              Ready for Work
-            </h1>
-            <div className="mt-1 flex shrink-0 items-center gap-2">
-              <AccountMenu />
-              <InboxBell />
-            </div>
-          </div>
-          <p className="mt-1.5 font-jost text-sm text-ink-2">
-            Nothing booked yet — offers land here as they come.
-          </p>
-        </header>
-        {dayOne.free.length > 0 && (
-          <div data-testid="day-one-free-week">
-            <p className="mb-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-              You&apos;re free this week
-            </p>
-            <div className="divide-y divide-line/60 rounded-2xl border border-line bg-surface px-4">
-              {dayOne.free.map((r) => (
-                <div key={r.iso} className="flex items-baseline justify-between py-3">
-                  <span className="font-jost text-sm font-medium text-ink">{r.label}</span>
-                  <span className="font-jost text-sm text-ink-2">{r.hours}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      new Date(`${j.date}T00:00:00`) >= monday &&
+      j.status !== 'cancelled' &&
+      j.status !== 'completed'
+    );
+  }).length;
+
+  const dashHeader = (
+    <header className="mb-5">
+      <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+        {dateEyebrowShort()}
+      </p>
+      <div className="mt-1 flex items-start justify-between gap-3">
+        <h1 className="font-jost text-[26px] font-semibold leading-tight text-primary">
+          {greetingWord()}
+          {firstName ? `, ${firstName}` : ''}
+        </h1>
+        <div className="mt-1 flex shrink-0 items-center gap-2">
+          <AccountMenu />
+          <InboxBell />
+        </div>
+      </div>
+      {evening && (
+        <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="evening-flip">
+          {tomorrowFirst
+            ? `Tomorrow: ${tomorrowFirst.time} · ${tomorrowFirst.clientName}`
+            : 'Nothing booked tomorrow yet — keep your availability fresh.'}
+        </p>
+      )}
+    </header>
+  );
+
+  // Adaptive tiles (James-ruled): never £0.00 or "0 jobs" — switch to what is
+  // true and useful. A £0 THIS WK shows the week's booked count instead.
+  const thisWkTile =
+    weekSummary.earned > 0 ? (
+      <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+        <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+          This Wk
+        </p>
+        <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-teal">
+          £{weekSummary.earned.toFixed(0)}
+        </p>
+      </div>
+    ) : (
+      <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+        <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+          This Wk
+        </p>
+        <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
+          {weekBookedCount > 0 ? `${weekBookedCount} booked` : '—'}
+        </p>
       </div>
     );
-  }
 
-  // ─── Dashboard shape A (James-ruled): the working-day Today. Day-one
-  // states and Day Off keep the original rendering below, untouched. ─────────
+  // WORKING DAY: jobs today.
   if (!loading && todayJobs.length > 0) {
     const nToday = todayJobs.filter((j) => j.status !== 'cancelled').length;
-    const strip: { iso: string; label: string; count: number; off: boolean }[] = [];
-    for (let i = 1; i <= 4; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      const iso = isoOf(d);
-      strip.push({
-        iso,
-        label: d.toLocaleDateString('en-GB', { weekday: 'short' }),
-        count: jobs.filter(
-          (j) => j.date === iso && j.status !== 'cancelled' && j.status !== 'completed'
-        ).length,
-        off: blockedSet.has(iso),
-      });
-    }
     return (
       <div>
         <HiddenProfileBanner className="mb-4" />
-        <header className="mb-5">
-          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-            {dateEyebrowShort()}
-          </p>
-          <div className="mt-1 flex items-start justify-between gap-3">
-            <h1 className="font-jost text-[26px] font-semibold leading-tight text-primary">
-              {greetingWord()}
-              {firstName ? `, ${firstName}` : ''}
-            </h1>
-            <div className="mt-1 flex shrink-0 items-center gap-2">
-              <AccountMenu />
-              <InboxBell />
-            </div>
-          </div>
-          {evening && (
-            <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="evening-flip">
-              {tomorrowFirst
-                ? `Tomorrow: ${tomorrowFirst.time} · ${tomorrowFirst.clientName}`
-                : 'Nothing booked tomorrow yet — keep your availability fresh.'}
-            </p>
-          )}
-        </header>
-
+        {dashHeader}
+        <OfferAlerts offers={offers} now={now} />
         {actionError && (
           <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
             <p className="text-sm text-ink-2">{actionError}</p>
           </div>
         )}
-
-        {/* Stat tiles: TODAY navy · EXPECTED green · THIS WK ink */}
         <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
           <div className="rounded-2xl border border-line bg-surface px-3 py-3">
             <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
@@ -577,17 +760,8 @@ export default function TodayPage() {
               £{expectedToday.toFixed(0)}
             </p>
           </div>
-          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
-            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-              This Wk
-            </p>
-            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
-              £{weekSummary.earned.toFixed(0)}
-            </p>
-          </div>
+          {thisWkTile}
         </div>
-
-        {/* Hero + the day's cards — exactly as built */}
         <div className="space-y-3">
           {activeToday.map((job, i) =>
             i === 0 ? (
@@ -624,291 +798,128 @@ export default function TodayPage() {
           </div>
         )}
         {earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
-
-        {/* Week strip: next 4 days, one tap through to Availability */}
-        <Link
-          href="/app/availability"
-          onClick={() => haptic('light')}
-          className="mt-6 grid grid-cols-4 gap-2"
-          data-testid="week-strip"
-        >
-          {strip.map((s) => (
-            <span
-              key={s.iso}
-              className="rounded-2xl border border-line bg-surface px-2 py-2.5 text-center"
-            >
-              <span className="block font-jost text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-                {s.label}
-              </span>
-              <span
-                className={`mt-0.5 block font-jost text-[13px] font-medium ${
-                  s.count > 0 ? 'text-primary' : 'text-ink-3'
-                }`}
-              >
-                {s.count > 0 ? `${s.count} job${s.count === 1 ? '' : 's'}` : s.off ? 'off' : '—'}
-              </span>
-            </span>
-          ))}
-        </Link>
-
-        {/* The explicit road to Availability */}
-        <Link
-          href="/app/availability"
-          onClick={() => haptic('light')}
-          className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5"
-          data-testid="change-availability-row"
-        >
-          <span className="flex items-center gap-2.5">
-            <svg
-              className="h-[18px] w-[18px] text-ink-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span className="font-jost text-[15px] font-medium text-ink">
-              Change My Availability
-            </span>
-          </span>
-          <svg
-            className="h-4 w-4 text-ink-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </Link>
-
-        {/* Blank-week reminder — only while next week is untouched, always last */}
-        {nextWeekTouched === false && (
-          <Link
-            href="/app/availability"
-            onClick={() => haptic('light')}
-            className="mt-3 flex items-center justify-between rounded-2xl bg-primary-soft px-5 py-4"
-            data-testid="plan-next-week"
-          >
-            <span>
-              <span className="block font-jost text-[15px] font-semibold text-primary">
-                Plan Next Week
-              </span>
-              <span className="block font-jost text-[12px] text-ink-2">30 seconds</span>
-            </span>
-            <svg
-              className="h-4 w-4 text-primary"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </svg>
-          </Link>
-        )}
+        <WeekStrip days={jobStrip} />
+        <ChangeAvailabilityRow />
+        {nextWeekTouched === false && <PlanNextWeekCard />}
       </div>
     );
   }
 
+  // QUIET DAY (has worked, nothing today): the full dashboard — the old bare
+  // Day Off screen retires (James-ruled Today V2).
+  if (!loading && todayJobs.length === 0 && !dayOne) {
+    return (
+      <div>
+        <HiddenProfileBanner className="mb-4" />
+        {dashHeader}
+        <OfferAlerts offers={offers} now={now} />
+        <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Today
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-primary">
+              Day off
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Next Job
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
+              {nextUpcoming ? nextJobTile(nextUpcoming) : '—'}
+            </p>
+          </div>
+          {thisWkTile}
+        </div>
+        {nextUpcoming && (
+          <JobCard job={nextUpcoming} now={now} processing={false} onAdvance={() => {}} />
+        )}
+        <WeekStrip days={jobStrip} />
+        <ChangeAvailabilityRow />
+        {nextWeekTouched === false && <PlanNextWeekCard />}
+      </div>
+    );
+  }
+
+  // DAY-ONE STATE 2 (availability set, no jobs ever): the zero-free dashboard
+  // — replaces "Ready For Work" (James-ruled Today V2).
+  if (!loading && dayOne?.state === 2) {
+    return (
+      <div>
+        <HiddenProfileBanner className="mb-4" />
+        {dashHeader}
+        <OfferAlerts offers={offers} now={now} />
+        <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Status
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-primary">
+              Ready
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface px-3 py-3">
+            <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Open This Wk
+            </p>
+            <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
+              {openWeekHours > 0 ? `${openWeekHours} hrs` : '—'}
+            </p>
+          </div>
+          {profileVisible === false ? (
+            <Link
+              href="/app/profile"
+              onClick={() => haptic('light')}
+              className="rounded-2xl border border-line bg-surface px-3 py-3"
+              data-testid="profile-tile"
+            >
+              <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+                Profile
+              </p>
+              <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-danger">
+                Hidden
+              </p>
+            </Link>
+          ) : (
+            <div
+              className="rounded-2xl border border-line bg-surface px-3 py-3"
+              data-testid="profile-tile"
+            >
+              <p className="font-jost text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+                Profile
+              </p>
+              <p className="mt-0.5 font-jost text-lg font-semibold leading-tight text-ink">
+                {profileVisible === true ? 'Visible' : '—'}
+              </p>
+            </div>
+          )}
+        </div>
+        {/* Hero slot: where the first job will land */}
+        <div
+          className="rounded-2xl border border-line bg-surface p-6 text-center"
+          data-testid="first-job-slot"
+        >
+          <p className="font-jost text-lg font-semibold text-ink">Your First Job Lands Here</p>
+          <p className="mt-1 font-jost text-sm text-ink-2">
+            Nothing booked yet — offers land here as they come.
+          </p>
+        </div>
+        <WeekStrip days={hourStrip} />
+        <ChangeAvailabilityRow />
+      </div>
+    );
+  }
+
+  // Only the loading skeleton remains on this path — every real state above
+  // returns its own dashboard (Today V2).
   return (
     <div>
-      {/* F26 app-scope ruling: banner-only hidden-state parity, F26.1 copy. */}
-      <HiddenProfileBanner className="mb-4" />
-      <header className="mb-5">
-        <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-          {dateEyebrow()}
-        </p>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
-            {loading
-              ? 'Your Day'
-              : todayJobs.length === 0
-                ? 'Day Off'
-                : evening
-                  ? 'All Done'
-                  : activeToday.length === 0
-                    ? 'All Done'
-                    : `${activeToday.length} Job${activeToday.length === 1 ? '' : 's'} Today`}
-          </h1>
-          {/* A5: the Refresh pill is gone — pull-to-refresh (__renaRefresh) and
-              the focus/visibility refetch make it redundant. W2: the bell is
-              the shared header component now, dot included. */}
-          <div className="mt-1 flex shrink-0 items-center gap-2">
-            <AccountMenu />
-            <InboxBell />
-          </div>
-        </div>
-        {morning && (
-          <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="morning-preview">
-            First Job {todayJobs[0]?.time} · £{expectedToday.toFixed(2)} Expected
-          </p>
-        )}
-        {evening && (
-          <p className="mt-1.5 font-jost text-sm text-ink-2" data-testid="evening-flip">
-            {tomorrowFirst
-              ? `Tomorrow: ${tomorrowFirst.time} · ${tomorrowFirst.clientName}`
-              : 'Nothing booked tomorrow yet — keep your availability fresh.'}
-          </p>
-        )}
-        <div className="mt-3 inline-flex rounded-full border border-line bg-surface p-0.5">
-          {(['today', 'week'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => {
-                haptic('light');
-                setView(v);
-              }}
-              className={`rounded-full px-4 py-1.5 font-jost text-sm font-medium transition-colors ${
-                view === v ? 'bg-primary text-white' : 'text-ink-2'
-              }`}
-            >
-              {v === 'today' ? 'Today' : 'This week'}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {actionError && (
-        <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
-          <p className="text-sm text-ink-2">{actionError}</p>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="space-y-3">
-          <div className="h-44 animate-pulse rounded-2xl bg-line" />
-          <div className="h-28 animate-pulse rounded-2xl bg-line" />
-        </div>
-      ) : view === 'today' ? (
-        todayJobs.length > 0 ? (
-          <div>
-            <div className="space-y-3">
-              {activeToday.map((job, i) =>
-                i === 0 ? (
-                  <HeroJob
-                    key={job.id}
-                    job={job}
-                    now={now}
-                    processing={processingId === job.id}
-                    onAdvance={() => advance(job)}
-                    onCancelled={fetchJobs}
-                  />
-                ) : (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    now={now}
-                    processing={processingId === job.id}
-                    onAdvance={() => advance(job)}
-                    onCancelled={fetchJobs}
-                  />
-                )
-              )}
-            </div>
-            {/* C3: completed jobs collapse to single-line receipts */}
-            {doneToday.length > 0 && (
-              <div className={activeToday.length > 0 ? 'mt-5' : ''}>
-                <p className="mb-1.5 font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-                  Done today
-                </p>
-                <div className="rounded-2xl border border-line bg-surface px-4 py-1">
-                  {doneToday.map((job) => (
-                    <ReceiptRow key={job.id} job={job} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* C3: living empty state — the day off still tells you what's next */
-          <div className="rounded-2xl border border-line bg-surface p-6 text-center">
-            <p className="font-jost text-lg font-semibold text-ink">
-              {nextUpcoming ? `Next Job ${nextJobLabel(nextUpcoming)}` : 'Nothing Booked Yet'}
-            </p>
-            <p className="mt-1 font-jost text-sm text-ink-2">
-              {nextUpcoming
-                ? `${nextUpcoming.clientName} · ${nextUpcoming.address}`
-                : 'Keep your availability fresh so offers can find you.'}
-            </p>
-            <Link
-              href="/app/availability"
-              onClick={() => haptic('light')}
-              className="mt-4 inline-block rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white"
-            >
-              Update your availability
-            </Link>
-          </div>
-        )
-      ) : (
-        <div className="space-y-5">
-          {weekByDay.map((d) => (
-            <div key={d.iso}>
-              <h2
-                className={`mb-2 font-jost text-base font-semibold ${
-                  d.isToday ? 'text-primary' : 'text-ink'
-                }`}
-              >
-                {d.label}
-                {d.isToday && d.jobs.length > 0 && (
-                  <span className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 align-middle font-jost text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
-                    {d.jobs.length}
-                  </span>
-                )}
-              </h2>
-              {d.jobs.length === 0 ? (
-                <p className="font-jost text-sm font-light text-ink-3/70">No jobs</p>
-              ) : (
-                <div className="space-y-3">
-                  {d.jobs
-                    .filter((job) => job.status !== 'completed')
-                    .map((job) => (
-                      <JobCard
-                        key={job.id}
-                        job={job}
-                        now={now}
-                        processing={false}
-                        onAdvance={() => {}}
-                      />
-                    ))}
-                  {d.jobs.some((job) => job.status === 'completed') && (
-                    <div className="rounded-2xl border border-line bg-surface px-4 py-1">
-                      {d.jobs
-                        .filter((job) => job.status === 'completed')
-                        .map((job) => (
-                          <ReceiptRow key={job.id} job={job} />
-                        ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pro Navy law: the earned ticker is the bottom row — TODAY caps left,
-          bold money right, still counting. */}
-      {!loading && earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
-      {!loading && (
-        <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3.5 text-center">
-          <span className="font-jost text-[12px] uppercase tracking-[0.12em] text-ink-3">
-            This week
-          </span>
-          <span className="font-jost text-xl font-semibold text-teal">
-            £{weekSummary.earned.toFixed(2)}
-          </span>
-          <span className="font-jost text-[13px] text-ink-3">
-            · {weekSummary.count} job{weekSummary.count === 1 ? '' : 's'}
-          </span>
-        </div>
-      )}
+      <div className="space-y-3">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-line" />
+        <div className="h-24 animate-pulse rounded-2xl bg-line" />
+        <div className="h-44 animate-pulse rounded-2xl bg-line" />
+      </div>
     </div>
   );
 }
