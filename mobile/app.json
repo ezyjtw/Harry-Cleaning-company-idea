@@ -3,19 +3,21 @@
     "name": "Rena Pro",
     "slug": "rena-pro",
     "owner": "harryw84",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "renapro",
     "userInterfaceStyle": "light",
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/b62e3a93-8175-42dd-b1b9-dc7d657856d0"
     },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FAFBFC"
+      "backgroundColor": "#EBEBEB"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -23,6 +25,7 @@
       "bundleIdentifier": "uk.co.renacleaning.pro",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Rena Pro uses Face ID to keep your account and jobs secure.",
+        "NSCameraUsageDescription": "Rena Pro uses the camera to take your profile and job photos.",
         "UIBackgroundModes": ["remote-notification"],
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -40,11 +43,18 @@
     "plugins": [
       "expo-secure-store",
       "expo-local-authentication",
-      ["expo-notifications", { "color": "#16296b" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#16296b"
+        }
+      ]
     ],
     "extra": {
       "baseUrl": "https://www.renacleaning.co.uk",
-      "eas": { "projectId": "b62e3a93-8175-42dd-b1b9-dc7d657856d0" }
+      "eas": {
+        "projectId": "b62e3a93-8175-42dd-b1b9-dc7d657856d0"
+      }
     }
   }
 }

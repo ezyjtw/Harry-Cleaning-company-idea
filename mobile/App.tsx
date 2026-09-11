@@ -39,6 +39,34 @@ const SHELL_HEADER = {
 };
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
 const TOKEN_KEY = 'rena.pro.bearer';
+// C7 activation (1.0.1 cargo): the device's registered Expo push token —
+// stored so re-registration is a no-op and logout can deregister it.
+const PUSH_TOKEN_KEY = 'rena.pro.pushtoken';
+
+// C7 ACTIVATION (1.0.1 cargo — James's activation word SPENT for this build):
+// deregistration rides every path that clears the bearer. Fires BEFORE the
+// bearer is deleted (the endpoint is authed); fail-soft — a missed
+// deregister only leaves a dormant token row, never a broken logout.
+async function deregisterPush(): Promise<void> {
+  try {
+    const pushToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
+    if (!pushToken) return;
+    const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
+    if (!bearer) return;
+    await fetch(`${BASE_URL}/api/push/expo/deregister`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${bearer}`,
+        ...SHELL_HEADER,
+      },
+      body: JSON.stringify({ expoPushToken: pushToken }),
+    });
+  } catch {
+    /* fail-soft */
+  }
+}
 
 // Design tokens (light theme, mirrors the web).
 const INK = '#16296b';
@@ -282,6 +310,7 @@ function RootView() {
   }, []);
 
   const logout = useCallback(async () => {
+    await deregisterPush();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // C7: a signed-out app must not keep a stale count on the icon.
     Notifications.setBadgeCountAsync(0).catch(() => {});
@@ -292,17 +321,62 @@ function RootView() {
   // C5: leaving the lock screen for the password form or another account clears
   // the stored bearer either way; the destinations differ.
   const goToPasswordLogin = useCallback(async () => {
+    await deregisterPush();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setBridgeUrl(null);
     setLockFailed(false);
     setPhase('login');
   }, []);
   const switchAccount = useCallback(async () => {
+    await deregisterPush();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setBridgeUrl(null);
     setLockFailed(false);
     setPhase('start');
   }, []);
+
+  // C7 ACTIVATION (1.0.1 cargo — James's activation word SPENT for this
+  // build): the one clean permission ask, fired on arrival in the shell,
+  // then Expo-token registration to the signed-in account. Idempotent (the
+  // stored token short-circuits) and fail-soft throughout — activation must
+  // never break the shell. iOS grants the ask exactly one clean chance, so
+  // it lands here: in a binary that also carries the camera string, one
+  // coherent release (James's reasoning, on the record).
+  const registerPush = useCallback(async () => {
+    try {
+      const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
+      if (!bearer) return;
+      const current = await Notifications.getPermissionsAsync();
+      let status = current.status;
+      if (status !== 'granted' && current.canAskAgain !== false) {
+        status = (await Notifications.requestPermissionsAsync()).status;
+      }
+      if (status !== 'granted') return;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+      const expo = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+      if (!expo?.data) return;
+      const stored = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
+      if (stored === expo.data) return; // this device is already registered
+      const res = await fetch(`${BASE_URL}/api/push/expo/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${bearer}`,
+          ...SHELL_HEADER,
+        },
+        body: JSON.stringify({
+          expoPushToken: expo.data,
+          platform: Platform.OS === 'android' ? 'android' : 'ios',
+        }),
+      });
+      if (res.ok) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, expo.data);
+    } catch {
+      /* fail-soft */
+    }
+  }, []);
+  useEffect(() => {
+    if (phase === 'shell') registerPush();
+  }, [phase, registerPush]);
 
   return (
     <View style={styles.root}>

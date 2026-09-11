@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
 import { recordNav } from '@/lib/nav/nav-trace';
-import { isShellUA } from '@/lib/shell';
+import { isShellUA, shellCameraCapable } from '@/lib/shell';
 import {
   isBrowserDisplayableImage,
   resizeProfilePhoto,
@@ -93,9 +93,12 @@ export default function CleanerProfilePage() {
   // in-shell (library upload remains). Mounted-state gate: SSR and browsers
   // render exactly as before; the native sheet's own camera row cannot be
   // suppressed web-side (OS-controlled) — accepted, library-only in-shell.
-  const [inShell, setInShell] = useState(false);
+  // 1.0.1 cargo (James-sealed): camera controls un-gate for shells that
+  // carry NSCameraUsageDescription — version-aware, fail-closed. The 1.0.0
+  // binary keeps the interim behaviour; 1.0.1+ gets the real controls.
+  const [cameraBlocked, setCameraBlocked] = useState(false);
   useEffect(() => {
-    if (isShellUA()) setInShell(true);
+    if (isShellUA() && !shellCameraCapable()) setCameraBlocked(true);
   }, []);
 
   useEffect(() => {
@@ -429,7 +432,7 @@ export default function CleanerProfilePage() {
                     </svg>
                     Take Photo
                   </button>
-                ) : inShell ? null : (
+                ) : cameraBlocked ? null : (
                   <label
                     className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-page text-ink font-jost text-sm font-light cursor-pointer hover:bg-primary-soft transition-colors"
                     style={{ border: '0.5px solid rgb(var(--color-border))' }}

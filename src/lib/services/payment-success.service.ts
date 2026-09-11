@@ -20,6 +20,7 @@ import {
   sendCleanerAssignment,
   sendGuestBookingConfirmation,
 } from '@/lib/services/email.service';
+import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 import { enqueueXeroPush } from '@/lib/services/xero-push.service';
 import stripe from '@/lib/stripe';
 
@@ -285,6 +286,11 @@ export async function processPaymentSuccess(
         },
       })
       .catch(() => {});
+    // 1.0.1 cargo (James-sealed): the native offer push rides every offer
+    // entry point. Push-only (the bell above stands); inert without tokens.
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, booking.cleanerId).catch(
+      () => {}
+    );
   }
 
   if (cascadeData?.initialPhase === 'COMBINED_OFFER') {
@@ -300,6 +306,10 @@ export async function processPaymentSuccess(
           },
         })
         .catch(() => {});
+    }
+    for (const backupId of booking.backupCleanerIds) {
+      // 1.0.1 cargo: native offer push per combined-offer recipient.
+      await EnhancedNotificationService.sendNewOfferPush(bookingId, backupId).catch(() => {});
     }
     // F13 (James-ruled): the bell alone was the hole HERE too — F11 wired the
     // offer email into every cascade advance but not this fourth entry path,

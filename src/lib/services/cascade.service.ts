@@ -29,6 +29,7 @@ import {
   sendRenaFindConcierge,
   sendTopupApprovalRequest,
 } from './email.service';
+import { EnhancedNotificationService } from './enhanced-notification.service';
 import { MatchingService } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
@@ -195,6 +196,11 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
   // offer email (sanitised, their own figure, Accept deep link). activeBackups
   // is already pruned of declined/unavailable — the corpse law holds.
   await sendBackupOfferEmails(bookingId, activeBackups).catch(() => {});
+  // 1.0.1 cargo (James-sealed): native offer push per recipient — push-only
+  // rider on the bells above; inert without registered tokens.
+  for (const backupId of activeBackups) {
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, backupId).catch(() => {});
+  }
 
   const clientBooking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -1081,6 +1087,10 @@ async function reopenToBackups(
   // F11 extension (James-ruled): the Phase-2 reopen is an offer — same email
   // as every other offer, to the same pruned active set.
   await sendBackupOfferEmails(bookingId, activeBackups).catch(() => {});
+  // 1.0.1 cargo: native offer push per reopened-offer recipient.
+  for (const backupId of activeBackups) {
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, backupId).catch(() => {});
+  }
 
   if (booking.clientId) {
     await prisma.notification
@@ -1786,6 +1796,10 @@ async function enterRenaFind(
   // cleaner who'd get an email as a backup gets the same one as a broadcast
   // recipient. qualifiedIds is the pruned, qualified set.
   await sendBackupOfferEmails(bookingId, qualifiedIds).catch(() => {});
+  // 1.0.1 cargo: native offer push per broadcast recipient.
+  for (const cid of qualifiedIds) {
+    await EnhancedNotificationService.sendNewOfferPush(bookingId, cid).catch(() => {});
+  }
 
   if (booking.clientId) {
     await prisma.notification

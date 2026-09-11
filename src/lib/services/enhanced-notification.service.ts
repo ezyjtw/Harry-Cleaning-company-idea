@@ -153,7 +153,8 @@ export class EnhancedNotificationService {
   /**
    * Send the Rena Pro NEW-OFFER push to a cleaner. Category ESSENTIAL — never
    * suppressible by preference toggles (standing ruling); only logout stops it.
-   * Delivers IN_APP + EXPO_PUSH; the payload deep-links to /app/offer/[id].
+   * Queues EXPO_PUSH only (the offer entry points own their bell rows); the
+   * payload deep-links to /app/offer/[id].
    *
    * COPY PACK (James-ruled, 11 Sep) — phase-aware, driven by the payload's
    * REAL phase and cascadeExpiresAt:
@@ -166,8 +167,9 @@ export class EnhancedNotificationService {
    * Money is THE payout function's figure (H104 law); area is the sanitised
    * city (F1 law), postcode fallback.
    *
-   * ⚠️ DORMANT — not called anywhere yet. Wiring the cascade offer to call this
-   * is HELD until James spends the C7 activation word in the 1.0.1 build.
+   * WIRED (1.0.1 cargo — the C7 activation word is SPENT): called from every
+   * offer entry point. Inert until a device registers a token, which only
+   * the 1.0.1 binary does.
    */
   static async sendNewOfferPush(bookingId: string, cleanerId: string) {
     const booking = await prisma.booking.findUnique({
@@ -199,14 +201,18 @@ export class EnhancedNotificationService {
         : ''
       : 'First to accept gets it.';
 
-    await this.send({
+    // Wired as a push RIDER (1.0.1 cargo): every offer entry point already
+    // writes its own bell row, so this queues ONLY the native push — no
+    // duplicate bell. ESSENTIAL passes the preference gate by design; a
+    // cleaner with no registered device is a no-op inside queueExpoPush.
+    if (!(await shouldSend(cleanerId, 'ESSENTIAL', 'EXPO_PUSH'))) return;
+    await this.queueExpoPush({
       userId: cleanerId,
       type: 'BOOKING_REQUEST',
       title: `New job — ${pay}`,
       body: tail ? `${facts}. ${tail}` : `${facts}.`,
       data: { bookingId, url: `/app/offer/${bookingId}` },
       category: 'ESSENTIAL',
-      channels: ['IN_APP', 'EXPO_PUSH'],
     });
   }
 
@@ -218,9 +224,10 @@ export class EnhancedNotificationService {
    * Money is THE payout function's figure (H104 law). Category ESSENTIAL,
    * same channel machinery as the offer push.
    *
-   * ⚠️ DORMANT — not called anywhere yet. Wiring the release paths (scheduler
-   * sweep + customer confirm-complete) to call this is HELD until James
-   * spends the C7 activation word in the 1.0.1 build.
+   * WIRED (1.0.1 cargo — the C7 activation word is SPENT): called from
+   * releaseBookingFunds after the money moves (covers the scheduler sweep,
+   * customer confirm, admin and dispute triggers alike). Inert until a
+   * device registers a token, which only the 1.0.1 binary does.
    */
   static async sendMoneyReleasePush(bookingId: string) {
     const booking = await prisma.booking.findUnique({

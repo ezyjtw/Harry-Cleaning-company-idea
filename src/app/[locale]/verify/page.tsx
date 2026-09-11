@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import ShellCameraNotice from '@/components/ShellCameraNotice';
-import { isShellUA } from '@/lib/shell';
+import { isShellUA, shellCameraCapable } from '@/lib/shell';
 
 type VerifyStep =
   | 'start'
@@ -64,9 +64,12 @@ export default function VerifyPage() {
   // NSCameraUsageDescription, the shell shows the venue-moves notice instead
   // of a control that would crash the app. Mounted-state gate — browsers and
   // SSR render exactly as before.
-  const [inShell, setInShell] = useState(false);
+  // 1.0.1 cargo (James-sealed): camera controls un-gate for shells that
+  // carry NSCameraUsageDescription — version-aware, fail-closed. The 1.0.0
+  // binary keeps the interim behaviour; 1.0.1+ gets the real controls.
+  const [cameraBlocked, setCameraBlocked] = useState(false);
   useEffect(() => {
-    if (isShellUA()) setInShell(true);
+    if (isShellUA() && !shellCameraCapable()) setCameraBlocked(true);
   }, []);
   const [documentType, setDocumentType] = useState('drivers-license');
   const [documentFile, setDocumentFile] = useState<File | null>(null);
@@ -436,7 +439,7 @@ export default function VerifyPage() {
           />
 
           <div className="space-y-3">
-            {inShell ? (
+            {cameraBlocked ? (
               <ShellCameraNotice />
             ) : (
               <button
@@ -504,7 +507,7 @@ export default function VerifyPage() {
             onChange={handleSelfieUpload}
           />
 
-          {inShell ? (
+          {cameraBlocked ? (
             <ShellCameraNotice />
           ) : (
             <button
