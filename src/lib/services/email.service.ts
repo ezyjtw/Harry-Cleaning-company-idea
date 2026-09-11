@@ -179,9 +179,10 @@ export async function sendBookingConfirmation(
 export async function sendBookingReminder(
   booking: BookingEmailData,
   user: UserEmailData,
-  userId?: string | null
+  userId?: string | null,
+  dayWord?: string
 ): Promise<boolean> {
-  const { subject, html } = buildBookingReminder(booking, user);
+  const { subject, html } = buildBookingReminder(booking, user, dayWord);
   return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
 }
 
@@ -602,9 +603,10 @@ export async function sendGuestBookingReminder(
   booking: BookingEmailData,
   email: string,
   guestName: string,
-  guestToken: string
+  guestToken: string,
+  dayWord?: string
 ): Promise<boolean> {
-  const { subject, html } = buildGuestBookingReminder(booking, guestName, guestToken);
+  const { subject, html } = buildGuestBookingReminder(booking, guestName, guestToken, dayWord);
   return sendEmail(email, subject, html);
 }
 
