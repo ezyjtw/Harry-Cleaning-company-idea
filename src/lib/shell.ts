@@ -1,20 +1,27 @@
-// ─── Rena Pro app-shell detection ────────────────────────────────────────────
+// ─── Rena app-shell detection ────────────────────────────────────────────────
 //
-// The native shell identifies itself two ways (belt-and-suspenders — custom
-// headers can be stripped on some sub-requests, the UA suffix survives more
-// reliably):
-//   • request header  `x-rena-shell: pro-ios/<build>`  (or pro-android/…)
-//   • User-Agent suffix `… RenaPro/<version>`
+// TWO native shells exist and must never trigger each other's skins:
+//   • Rena Pro (cleaners):  header `x-rena-shell: pro-ios/<build>`,
+//     UA suffix `… RenaPro/<version>`
+//   • Rena (customers):     header `x-rena-shell: app-ios/<build>`,
+//     UA suffix `… RenaApp/<version>`
 //
-// The web uses this to: hide marketing chrome inside the app (the native tab bar
-// replaces it) and serve /app/* only to the shell.
+// Each shell identifies itself two ways (belt-and-suspenders — custom headers
+// can be stripped on some sub-requests, the UA suffix survives more reliably).
+// The web uses this to: hide marketing chrome inside the app (the native tab
+// bar replaces it) and serve /app/* only to the Pro shell.
 
 export const SHELL_HEADER = 'x-rena-shell';
 
-/** True if the request originates from the Rena Pro native shell. */
+/**
+ * True if the request originates from the Rena PRO native shell. The header
+ * check is value-aware (`pro-…` only) — the customer shell's `app-…` header
+ * must never open Pro's server gates (every shipped Pro binary sends
+ * `pro-<os>/<version>`, so this tightening changes nothing for Pro).
+ */
 export function isRenaShell(headers: { get(name: string): string | null }): boolean {
   const shellHeader = headers.get(SHELL_HEADER);
-  if (shellHeader && shellHeader.trim().length > 0) return true;
+  if (shellHeader && /^pro-/i.test(shellHeader.trim())) return true;
 
   const ua = headers.get('user-agent') || '';
   return /\bRenaPro\//i.test(ua);
@@ -28,6 +35,26 @@ export function isRenaShell(headers: { get(name: string): string | null }): bool
  */
 export function isShellUA(): boolean {
   return typeof navigator !== 'undefined' && /\bRenaPro\//i.test(navigator.userAgent);
+}
+
+/**
+ * Client-side CUSTOMER-shell detection (the Rena customer app appends
+ * `RenaApp/<version>` to its WebView User-Agent). Matches RenaApp/ ONLY —
+ * never a loosened regex (James-ruled): the two shells' skins must be
+ * provably independent. Always false during SSR, same byte-identity
+ * guarantee as isShellUA().
+ */
+export function isCustomerShellUA(): boolean {
+  return typeof navigator !== 'undefined' && /\bRenaApp\//i.test(navigator.userAgent);
+}
+
+/**
+ * Either shell — for the few GENUINELY shared in-shell rules (cookie banner,
+ * chat widget, contact FAB suppress inside any native shell). Composed from
+ * the two exact matchers, never a loosened regex (James-ruled).
+ */
+export function isAnyShellUA(): boolean {
+  return isShellUA() || isCustomerShellUA();
 }
 
 /**
