@@ -66,3 +66,19 @@ export function deferToMorningLondon(d: Date): Date {
   // …then corrected by the real offset on that morning.
   return new Date(target.getTime() - londonOffsetMs(target));
 }
+
+/**
+ * NOTIFICATION COPY PACK (James-ruled, 11 Sep): a stated day must be provably
+ * true AT DELIVERY — quiet-hours deferral means a "12h before" send often
+ * lands morning-of, so static "tomorrow" copy was frequently a lie. Compares
+ * the booking's calendar date (stored as a UTC-midnight date) against the
+ * send moment's London date: "Today", "Tomorrow", or — for sends delayed
+ * further out (outage replays) — the honest weekday name.
+ */
+export function londonDayWord(bookingDate: Date, now: Date): string {
+  const iso = (d: Date, tz: string) => d.toLocaleDateString('en-CA', { timeZone: tz });
+  const target = iso(bookingDate, 'UTC');
+  if (target === iso(now, LONDON_TZ)) return 'Today';
+  if (target === iso(new Date(now.getTime() + 24 * 3600_000), LONDON_TZ)) return 'Tomorrow';
+  return bookingDate.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+}

@@ -26,6 +26,33 @@ export interface NotificationPayload {
   category?: NotificationCategory;
 }
 
+// Copy-pack voice helpers (James-ruled, 11 Sep): human-formatted values —
+// £ without trailing zeros where natural (£54, £54.50), London wall-clock
+// times in the compact am/pm voice (3:15pm, 9am), "Sarah J." style names.
+function fmtPoundsShort(n: number): string {
+  return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
+}
+
+function fmtLondonClock(d: Date): string {
+  const s = d
+    .toLocaleTimeString('en-GB', {
+      timeZone: 'Europe/London',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+    .replace(/\s/g, '')
+    .toLowerCase();
+  return s.replace(/:00([ap]m)$/, '$1'); // 3:00pm → 3pm, per the compact voice
+}
+
+function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
 export interface SMSConfig {
   to: string;
   body: string;
@@ -128,20 +155,92 @@ export class EnhancedNotificationService {
    * suppressible by preference toggles (standing ruling); only logout stops it.
    * Delivers IN_APP + EXPO_PUSH; the payload deep-links to /app/offer/[id].
    *
+   * COPY PACK (James-ruled, 11 Sep) — phase-aware, driven by the payload's
+   * REAL phase and cascadeExpiresAt:
+   *  - PRIMARY_OFFER (exclusive window): "Reserved for you until 3:15pm." —
+   *    the time computed from the booking's actual cascadeExpiresAt, never a
+   *    fixed number; no expiry on record → the deadline sentence is omitted
+   *    (a stated deadline must be provably true).
+   *  - every shared phase (combined/backup/reserve/Rena-Find): "First to
+   *    accept gets it."
+   * Money is THE payout function's figure (H104 law); area is the sanitised
+   * city (F1 law), postcode fallback.
+   *
    * ⚠️ DORMANT — not called anywhere yet. Wiring the cascade offer to call this
-   * is HELD until the P1 build is signed off (so no offer push can fire before
-   * the app exists to receive it).
+   * is HELD until James spends the C7 activation word in the 1.0.1 build.
    */
   static async sendNewOfferPush(bookingId: string, cleanerId: string) {
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      // A12 legacy fallback: older rows carry address on the relation, not
+      // the booking columns — same fallback the address helpers use.
+      include: { address: { select: { city: true, postcode: true } } },
+    });
     if (!booking) return;
+
+    const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
+    const pay = fmtPoundsShort(getTransferAmountPence(Number(booking.cleanerEarnings)) / 100);
+    const day = booking.date.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
+    const time = booking.startTime.replace(/^0/, '');
+    const area =
+      booking.addressCity ||
+      booking.address?.city ||
+      booking.addressPostcode ||
+      booking.address?.postcode ||
+      '';
+    const facts = `${day} ${time} · ${serviceLabelFromSlug(booking.serviceType)}${area ? ` · ${area}` : ''}`;
+
+    const isExclusive = booking.cascadePhase === 'PRIMARY_OFFER';
+    const deadline =
+      isExclusive && booking.cascadeExpiresAt ? fmtLondonClock(booking.cascadeExpiresAt) : null;
+    const tail = isExclusive
+      ? deadline
+        ? `Reserved for you until ${deadline}.`
+        : ''
+      : 'First to accept gets it.';
 
     await this.send({
       userId: cleanerId,
       type: 'BOOKING_REQUEST',
-      title: 'New job offer',
-      body: `${serviceLabelFromSlug(booking.serviceType)} · £${Number(booking.cleanerEarnings).toFixed(2)} · ${new Date(booking.date).toLocaleDateString('en-GB')} at ${booking.startTime}`,
+      title: `New job — ${pay}`,
+      body: tail ? `${facts}. ${tail}` : `${facts}.`,
       data: { bookingId, url: `/app/offer/${bookingId}` },
+      category: 'ESSENTIAL',
+      channels: ['IN_APP', 'EXPO_PUSH'],
+    });
+  }
+
+  /**
+   * MONEY-RELEASE push (James-ruled, 11 Sep): fires when a booking's funds
+   * release to the cleaner (the F16 clock ending, or customer confirm).
+   * "£54 on its way to you" / "Wednesday's clean with Sarah J." — nothing
+   * about banks or timing; the Earnings screen carries the fuller honesty.
+   * Money is THE payout function's figure (H104 law). Category ESSENTIAL,
+   * same channel machinery as the offer push.
+   *
+   * ⚠️ DORMANT — not called anywhere yet. Wiring the release paths (scheduler
+   * sweep + customer confirm-complete) to call this is HELD until James
+   * spends the C7 activation word in the 1.0.1 build.
+   */
+  static async sendMoneyReleasePush(bookingId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { client: { select: { name: true } } },
+    });
+    if (!booking?.cleanerId) return;
+
+    const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
+    const pay = fmtPoundsShort(getTransferAmountPence(Number(booking.cleanerEarnings)) / 100);
+    const weekday = booking.date.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+    const who = shortName(booking.client?.name || booking.guestName || '');
+
+    await this.send({
+      userId: booking.cleanerId,
+      type: 'PAYMENT_SENT',
+      title: `${pay} on its way to you`,
+      // shortName may already end in "." (Sarah J.) — never double it.
+      body: (who ? `${weekday}'s clean with ${who}` : `${weekday}'s clean`).replace(/\.?$/, '.'),
+      data: { bookingId, url: `/app/earnings` },
       category: 'ESSENTIAL',
       channels: ['IN_APP', 'EXPO_PUSH'],
     });

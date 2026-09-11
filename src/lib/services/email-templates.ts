@@ -256,14 +256,20 @@ export function buildBookingReminder(booking: BookingEmailData, user: UserEmailD
 
 export function buildCleanerReminder(
   booking: BookingEmailData,
-  cleaner: CleanerEmailData
+  cleaner: CleanerEmailData,
+  // Copy pack (James-ruled, 11 Sep): the day is computed at SEND time
+  // ("Today"/"Tomorrow"/weekday) — quiet-hours deferral means this email
+  // often lands morning-of, and the old static "tomorrow" lied.
+  dayWord: string = 'Tomorrow'
 ): EmailContent {
-  const subject = 'You have a job tomorrow';
+  const dayPhrase =
+    dayWord === 'Today' ? 'today' : dayWord === 'Tomorrow' ? 'tomorrow' : `on ${dayWord}`;
+  const subject = `You have a job ${dayPhrase}`;
   const contentHtml =
-    h('You have a job tomorrow') +
+    h(`You have a job ${dayPhrase}`) +
     p(`Hi ${cleaner.name},`) +
     p(
-      `A reminder that you have a ${serviceLabelFromSlug(booking.serviceType)} cleaning job tomorrow.`
+      `A reminder that you have a ${serviceLabelFromSlug(booking.serviceType)} cleaning job ${dayPhrase}.`
     ) +
     infoBlock([
       ['Date', booking.date],
