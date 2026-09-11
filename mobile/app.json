@@ -54,7 +54,8 @@
       "baseUrl": "https://www.renacleaning.co.uk",
       "eas": {
         "projectId": "b62e3a93-8175-42dd-b1b9-dc7d657856d0"
-      }
+      },
+      "customerStoreUrl": ""
     }
   }
 }

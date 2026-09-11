@@ -39,6 +39,9 @@ const SHELL_HEADER = {
 };
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
 const TOKEN_KEY = 'rena.pro.bearer';
+// Where the customer app lives when it isn't installed. Empty until its App
+// Store listing exists — the wrong-app door shows guidance text instead.
+const CUSTOMER_STORE_URL: string = (Constants.expoConfig?.extra?.customerStoreUrl as string) || '';
 // C7 activation (1.0.1 cargo): the device's registered Expo push token —
 // stored so re-registration is a no-op and logout can deregister it.
 const PUSH_TOKEN_KEY = 'rena.pro.pushtoken';
@@ -107,7 +110,7 @@ const TABS = [
   { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
-type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'shell';
+type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'wrongApp' | 'shell';
 
 // ─── Cross-tab nav fix (James-ruled): an in-page link to a TAB-ROOT route must
 // switch the native tab, never navigate inside the current tab's WebView (which
@@ -405,10 +408,12 @@ function RootView() {
       {phase === 'login' && (
         <LoginScreen
           onLoggedIn={onLoggedIn}
+          onWrongApp={() => setPhase('wrongApp')}
           onBack={() => setPhase('start')}
           onForgot={() => setPhase('forgot')}
         />
       )}
+      {phase === 'wrongApp' && <WrongAppScreen onSwitchAccount={() => setPhase('login')} />}
       {phase === 'join' && <JoinScreen onBack={() => setPhase('start')} />}
       {phase === 'forgot' && <ForgotScreen onBack={() => setPhase('login')} />}
       {phase === 'shell' && (
@@ -550,10 +555,12 @@ function LockScreen({
 // ─── Native login ─────────────────────────────────────────────────────────────
 function LoginScreen({
   onLoggedIn,
+  onWrongApp,
   onBack,
   onForgot,
 }: {
   onLoggedIn: (token: string, bridgeCode: string) => void;
+  onWrongApp: () => void;
   onBack: () => void;
   onForgot: () => void;
 }) {
@@ -575,6 +582,16 @@ function LoginScreen({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.token && data?.bridgeCode) {
+        // Mirror role gate (James-ruled): a CLIENT login never enters the
+        // cleaner shell — the bearer is NOT stored; the door screen points at
+        // the Rena customer app. Kills the old silent-blank-shell behaviour
+        // (a CLIENT used to bridge into /app/today with every cleaner API
+        // returning 401 and nothing on screen).
+        if (data?.user?.role === 'CLIENT') {
+          fireHaptic('warning');
+          onWrongApp();
+          return;
+        }
         fireHaptic('success');
         onLoggedIn(data.token, data.bridgeCode);
       } else {
@@ -647,6 +664,78 @@ function LoginScreen({
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+// ─── Mirror role gate door (James-ruled: friendly, never a dead end) ─────────
+// Shown when a CLIENT account signs in here. Offers the Rena customer-app
+// deep link (or guidance while its store listing doesn't exist) and a
+// different-account door. No session was stored — login is a clean slate.
+function WrongAppScreen({ onSwitchAccount }: { onSwitchAccount: () => void }) {
+  const insets = useSafeAreaInsets();
+  const [lockupSettle, bodySettle, actionsSettle] = useSettle(3);
+  const [renaMissing, setRenaMissing] = useState(false);
+
+  const openRena = useCallback(async () => {
+    fireHaptic('light');
+    // openURL directly (no canOpenURL): the rena:// scheme is not declared in
+    // LSApplicationQueriesSchemes, and adding it would be a native change —
+    // openURL needs no declaration and rejects when the app isn't installed.
+    try {
+      await Linking.openURL('rena://');
+      return;
+    } catch {
+      /* fall through to guidance */
+    }
+    if (CUSTOMER_STORE_URL) {
+      Linking.openURL(CUSTOMER_STORE_URL).catch(() => setRenaMissing(true));
+    } else {
+      setRenaMissing(true);
+    }
+  }, []);
+
+  return (
+    <View style={[styles.startWrap, { paddingTop: insets.top + 24 }]}>
+      <View style={[styles.startHero, styles.lockHero]}>
+        <Animated.Image
+          source={logoLockup}
+          style={[styles.startWordmark, lockupSettle]}
+          resizeMode="contain"
+        />
+        <Animated.View style={[{ alignItems: 'center', paddingHorizontal: 8 }, bodySettle]}>
+          <Text style={styles.lockTitle}>This is the app cleaners use</Text>
+          <Text style={[styles.mutedSmall, { textAlign: 'center' }]}>
+            Book your cleans on Rena — the app for customers.
+          </Text>
+          {renaMissing && (
+            <Text style={[styles.mutedSmall, { textAlign: 'center' }]}>
+              The Rena app is on its way to the App Store. Until then, book your cleans at
+              renacleaning.co.uk.
+            </Text>
+          )}
+        </Animated.View>
+      </View>
+      <Animated.View
+        style={[styles.startActions, { paddingBottom: insets.bottom + 16 }, actionsSettle]}
+      >
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          onPress={openRena}
+        >
+          <Text style={styles.primaryBtnText}>Open Rena</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            fireHaptic('light');
+            onSwitchAccount();
+          }}
+          hitSlop={8}
+          style={{ alignSelf: 'center', paddingVertical: 8 }}
+        >
+          <Text style={styles.lockLink}>Log in with a different account</Text>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
