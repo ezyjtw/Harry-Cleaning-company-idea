@@ -11,17 +11,28 @@
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": [
       "warn",
-      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/consistent-type-imports": ["warn", { "prefer": "type-imports" }],
+    "@typescript-eslint/consistent-type-imports": [
+      "warn",
+      {
+        "prefer": "type-imports"
+      }
+    ],
     "@typescript-eslint/no-non-null-assertion": "warn",
     "import/order": [
       "warn",
       {
         "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
         "newlines-between": "always",
-        "alphabetize": { "order": "asc", "caseInsensitive": true }
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
       }
     ],
     "import/no-duplicates": "error",
@@ -55,7 +66,12 @@
       }
     },
     {
-      "files": ["mobile/**/*.ts", "mobile/**/*.tsx"],
+      "files": [
+        "mobile/**/*.ts",
+        "mobile/**/*.tsx",
+        "mobile-customer/**/*.ts",
+        "mobile-customer/**/*.tsx"
+      ],
       "rules": {
         "@typescript-eslint/no-require-imports": "off",
         "jsx-a11y/alt-text": "off"

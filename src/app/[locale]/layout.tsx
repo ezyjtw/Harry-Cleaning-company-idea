@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 import AIChatWidget from '@/components/AIChatWidget';
 import ContactFab from '@/components/ContactFab';
 import CookieConsent from '@/components/CookieConsent';
+import CustomerShellChrome from '@/components/CustomerShellChrome';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
 import NavProgress from '@/components/nav/NavProgress';
@@ -93,6 +94,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             </a>
             <ServiceWorkerRegistration />
             <NavProgress />
+            <CustomerShellChrome />
             <div id="layout-nav">
               <Navbar />
             </div>

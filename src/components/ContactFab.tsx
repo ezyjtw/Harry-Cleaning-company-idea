@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { isShellUA } from '@/lib/shell';
+import { isAnyShellUA } from '@/lib/shell';
 
 // H88: launch-time stand-in for the live-chat FAB — same position, same
 // footprint (the H50 mobile padding law assumes a bottom-right FAB), but it
 // opens the contact form instead of a chat panel. Hidden on /contact itself,
-// where the form is already the page. Never renders inside the Rena Pro shell
-// (James-ruled chrome strip). The shell check is a POST-MOUNT effect, not an
+// where the form is already the page. Never renders inside EITHER native shell
+// — Rena Pro or the Rena customer app (James-ruled chrome strip, a genuinely
+// shared rule via isAnyShellUA). The shell check is a POST-MOUNT effect, not an
 // in-render read: a render-time isShellUA() only removed the server-rendered
 // FAB when some other hydration mismatch happened to force a client re-render
 // (P2.5 finding). SSR and the hydration pass render the link exactly as before
@@ -20,7 +21,7 @@ export default function ContactFab() {
   const pathname = usePathname();
   const [inShell, setInShell] = useState(false);
   useEffect(() => {
-    if (isShellUA()) setInShell(true);
+    if (isAnyShellUA()) setInShell(true);
   }, []);
   if (pathname === '/contact') return null;
   if (inShell) return null;

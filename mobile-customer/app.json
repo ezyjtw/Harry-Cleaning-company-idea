@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Rena",
+    "slug": "rena",
+    "owner": "harryw84",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "rena",
+    "userInterfaceStyle": "light",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#1F2C4C"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "uk.co.renacleaning.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Rena uses Face ID to keep your account secure.",
+        "UIBackgroundModes": ["remote-notification"],
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["renapro"]
+      },
+      "entitlements": {
+        "aps-environment": "production"
+      }
+    },
+    "android": {
+      "package": "uk.co.renacleaning.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1F2C4C"
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      [
+        "expo-notifications",
+        {
+          "color": "#16296b"
+        }
+      ]
+    ],
+    "extra": {
+      "baseUrl": "https://www.renacleaning.co.uk",
+      "proStoreUrl": ""
+    }
+  }
+}

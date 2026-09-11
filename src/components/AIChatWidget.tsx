@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-import { isShellUA } from '@/lib/shell';
+import { isAnyShellUA } from '@/lib/shell';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -166,9 +166,10 @@ export default function AIChatWidget() {
   };
 
   // James-ruled chrome strip: the floating chat/contact affordance never
-  // renders inside the Rena Pro shell. Client-only UA check — browser
-  // visitors' HTML is untouched.
-  if (isShellUA()) return null;
+  // renders inside either native shell (Pro or the customer app — a genuinely
+  // shared rule via isAnyShellUA). Client-only UA check — browser visitors'
+  // HTML is untouched.
+  if (isAnyShellUA()) return null;
 
   return (
     <>

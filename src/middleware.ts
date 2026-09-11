@@ -166,6 +166,27 @@ export async function middleware(request: NextRequest) {
     return redirect;
   }
 
+  // Rena CUSTOMER shell preview (Phase 1, mirrors the Pro bypass): ?shell=1 on
+  // any NON-/app route persists `rena-customer-preview`, which makes
+  // CustomerShellChrome add the rena-customer-shell body class in a plain
+  // browser — James's preview of the customer chrome-hide. Client-read only
+  // (no server render depends on it), same redirect-to-strip pattern.
+  if (
+    !pathnameWithoutLocale.startsWith('/app') &&
+    request.nextUrl.searchParams.get('shell') === '1'
+  ) {
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.searchParams.delete('shell');
+    const redirect = NextResponse.redirect(cleanUrl);
+    redirect.cookies.set('rena-customer-preview', '1', {
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return redirect;
+  }
+
   // Auth protection — validate the session via NextAuth's getToken, which
   // verifies the JWT and is aware of the `__Secure-`/`__Host-` cookie prefixes
   // and chunked (…session-token.0/.1) cookies. The previous raw check for two

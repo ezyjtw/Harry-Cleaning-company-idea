@@ -250,6 +250,19 @@
   body.admin-active #layout-footer {
     display: none;
   }
+
+  /* Rena CUSTOMER shell chrome rule (Phase 1, James-ruled): inside the
+     customer app the native tab bar owns the chrome — nav + footer hide,
+     page content whole. The body class is added by CustomerShellChrome
+     ONLY under the RenaApp/ UA (or the ?shell=1 preview cookie), so a
+     normal browser never matches and the public site is untouched. This
+     also hides every recruitment door in-shell: the join-as-cleaner links
+     live exclusively in the Navbar and Footer (swept — no others on
+     customer-reachable pages). */
+  body.rena-customer-shell #layout-nav,
+  body.rena-customer-shell #layout-footer {
+    display: none;
+  }
 }
 
 /* ─── Rena Pro shell-skin (item 6) ────────────────────────────────────────────
