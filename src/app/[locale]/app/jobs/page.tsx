@@ -6,6 +6,7 @@
 // /app/offer/[id]. Two chips: Upcoming / Done. The portal jobs page is
 // untouched for browsers — the native tab bar points here in-shell.
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import AccountMenu from '@/components/app/AccountMenu';
@@ -434,10 +435,17 @@ export default function AppJobsPage() {
                 className="mt-2 font-jost text-[13px] font-medium text-ink-2"
                 data-testid="receipt-payment"
               >
+                {/* James-amended: three states. A cleaner owed money that
+                    didn't move must never read "soon" — FAILED (or anything
+                    unrecognised) goes loud and links the contact door. */}
                 {receipt.transferStatus === 'RELEASED' ? (
                   <span className="text-trust">Paid</span>
-                ) : (
+                ) : receipt.transferStatus === 'PENDING' ? (
                   'Releasing soon'
+                ) : (
+                  <Link href="/app/contact" className="font-medium text-danger underline">
+                    Payment delayed — contact Rena
+                  </Link>
                 )}
               </p>
             </div>
