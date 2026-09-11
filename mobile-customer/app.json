@@ -11,6 +11,9 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
+    "updates": {
+      "url": "https://u.expo.dev/a1858734-d8e5-4cda-b56f-e8082eb7312d"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "cover",
@@ -35,7 +38,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1F2C4C"
-      }
+      },
+      "permissions": ["android.permission.USE_BIOMETRIC", "android.permission.USE_FINGERPRINT"]
     },
     "plugins": [
       "expo-secure-store",
@@ -49,7 +53,10 @@
     ],
     "extra": {
       "baseUrl": "https://www.renacleaning.co.uk",
-      "proStoreUrl": ""
+      "proStoreUrl": "",
+      "eas": {
+        "projectId": "a1858734-d8e5-4cda-b56f-e8082eb7312d"
+      }
     }
   }
 }

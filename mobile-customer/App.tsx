@@ -460,7 +460,7 @@ function StartScreen({ onLogin, onSignup }: { onLogin: () => void; onSignup: () 
           tintColor={INK}
         />
         <Animated.View style={[styles.startTaglineBlock, taglineSettle]}>
-          <Text style={styles.startEyebrow}>CLEANING NETWORK</Text>
+          <Text style={styles.startEyebrow}>HOME CLEANING</Text>
           <Text style={styles.startTitle}>Your home, sorted.</Text>
         </Animated.View>
       </View>
