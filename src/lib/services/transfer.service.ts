@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
+import { EnhancedNotificationService } from './enhanced-notification.service';
 import { getTransferAmountPence } from './transfer-amount';
 import { enqueueXeroPush } from './xero-push.service';
 
@@ -175,7 +176,8 @@ export async function releaseBookingFunds(
     for (const t of existing.data) {
       alreadyPence += t.amount;
       existingIds.push(t.id);
-      const src = typeof t.source_transaction === 'string' ? t.source_transaction : t.source_transaction?.id;
+      const src =
+        typeof t.source_transaction === 'string' ? t.source_transaction : t.source_transaction?.id;
       if (src && src === booking.stripeChargeId) anchoredAlreadyPence += t.amount;
     }
   } catch (err) {
@@ -197,6 +199,10 @@ export async function releaseBookingFunds(
       occurredAt: new Date().toISOString(),
     }).catch(() => {});
     await auditFundsReleased(bookingId, joined, transferPence, audit, true);
+    // 1.0.1 cargo (James-sealed): the money-release push — fires AFTER the
+    // money has moved and the row is RELEASED; additive and fail-soft, never
+    // touches the transfer itself. Inert until a device registers a token.
+    await EnhancedNotificationService.sendMoneyReleasePush(bookingId).catch(() => {});
     return { status: 'RELEASED', transferId: joined };
   }
 
@@ -282,6 +288,9 @@ export async function releaseBookingFunds(
     occurredAt: new Date().toISOString(),
   }).catch(() => {});
   await auditFundsReleased(bookingId, allIds, transferPence, audit, existingIds.length > 0);
+  // 1.0.1 cargo (James-sealed): the money-release push — after the money
+  // moved. Additive, fail-soft; inert until a device registers a token.
+  await EnhancedNotificationService.sendMoneyReleasePush(bookingId).catch(() => {});
   return { status: 'RELEASED', transferId: allIds };
 }
 

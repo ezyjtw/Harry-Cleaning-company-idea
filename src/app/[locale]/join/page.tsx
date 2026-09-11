@@ -18,7 +18,7 @@ import {
 } from '@/lib/constants/services';
 import { setAnalyticsUserId, useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
-import { isShellUA } from '@/lib/shell';
+import { isShellUA, shellCameraCapable } from '@/lib/shell';
 import {
   dataUrlBytes,
   DOC_IMAGE_MAX_PX,
@@ -978,6 +978,13 @@ export default function JoinAsCleanerPage() {
   const [inShell, setInShell] = useState(false);
   useEffect(() => {
     if (isShellUA()) setInShell(true);
+  }, []);
+  // 1.0.1 cargo (James-sealed): camera controls un-gate for shells that
+  // carry NSCameraUsageDescription — version-aware, fail-closed. The 1.0.0
+  // binary keeps the interim behaviour; 1.0.1+ gets the real controls.
+  const [cameraBlocked, setCameraBlocked] = useState(false);
+  useEffect(() => {
+    if (isShellUA() && !shellCameraCapable()) setCameraBlocked(true);
   }, []);
   useEffect(() => {
     if (!inShell) return;
@@ -1944,7 +1951,7 @@ export default function JoinAsCleanerPage() {
                           </svg>
                           Take Photo
                         </button>
-                      ) : inShell ? null : (
+                      ) : cameraBlocked ? null : (
                         <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-[10px] px-4 py-2 font-jost text-[13px] font-light text-ink transition hover:bg-page border border-line">
                           <svg
                             className="w-4 h-4"
@@ -2523,7 +2530,7 @@ export default function JoinAsCleanerPage() {
                       hats. We&apos;ll compare this with your photo ID to verify your identity.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {inShell ? (
+                      {cameraBlocked ? (
                         <ShellCameraNotice />
                       ) : isDesktop ? (
                         <button
