@@ -291,9 +291,27 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   // Superseded by POST /api/cleaner/jobs/[id]/accept — kept as fallback for direct PATCH callers
   // For ACCEPTED, use the atomic cascade-aware accept
   if (status === 'ACCEPTED') {
-    const acceptResult = await atomicAccept(id, user.id);
-    if (!acceptResult.success) {
-      return NextResponse.json({ error: acceptResult.reason }, { status: 409 });
+    // 4a (James-ruled, Option 1): a CONFIRMED booking is this cleaner's own
+    // pinned, admin-placed job — no live offer, no cascade to claim — so
+    // atomicAccept's AWAITING_CLEANER guard 409s it on both surfaces. The
+    // fork is EXPLICIT on current status: CONFIRMED takes a plain guarded
+    // status write (+ acceptedAt, matching atomicAccept's bookkeeping);
+    // every other origin — the live-offer path included — routes through
+    // atomicAccept exactly as before. The guarded updateMany re-checks
+    // status at write time, so a live offer can never reach this branch.
+    if (booking.status === 'CONFIRMED') {
+      const claimed = await prisma.booking.updateMany({
+        where: { id, cleanerId: user.id, status: 'CONFIRMED' },
+        data: { status: 'ACCEPTED', acceptedAt: new Date() },
+      });
+      if (claimed.count === 0) {
+        return NextResponse.json({ error: 'Booking is no longer available' }, { status: 409 });
+      }
+    } else {
+      const acceptResult = await atomicAccept(id, user.id);
+      if (!acceptResult.success) {
+        return NextResponse.json({ error: acceptResult.reason }, { status: 409 });
+      }
     }
 
     const accepted = await prisma.booking.findUnique({

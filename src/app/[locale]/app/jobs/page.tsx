@@ -126,22 +126,35 @@ export default function AppJobsPage() {
     haptic('medium');
     setProcessingId(job.id);
     setActionError('');
+    // 4a (James-ruled, portal parity): same chain as Today — one ON MY WAY
+    // tap on a CONFIRMED job walks CONFIRMED → ACCEPTED → EN_ROUTE. Second
+    // PATCH fails → loud banner + refetch lands the job at ACCEPTED with
+    // ON MY WAY still offered — never silent limbo.
+    const steps =
+      job.status === 'confirmed' && action.next === 'EN_ROUTE'
+        ? ['ACCEPTED', 'EN_ROUTE']
+        : [action.next];
     try {
-      const res = await fetch(`/api/cleaner/jobs/${job.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: action.next }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok) {
-        haptic('success');
-        await fetchJobs(filter);
-      } else {
-        haptic('error');
-        setActionError(data?.error || 'Could not update the job.');
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const res = await fetch(`/api/cleaner/jobs/${job.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: step }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          haptic('error');
+          setActionError(data?.error || 'Could not update the job.');
+          if (i > 0) await fetchJobs(filter);
+          return;
+        }
       }
+      haptic('success');
+      await fetchJobs(filter);
     } catch {
       setActionError('Network error — please try again.');
+      await fetchJobs(filter).catch(() => {});
     } finally {
       setProcessingId(null);
     }

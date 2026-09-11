@@ -624,22 +624,39 @@ export default function TodayPage() {
     haptic('medium');
     setProcessingId(job.id);
     setActionError('');
+    // 4a (James-ruled, portal parity): the server's transition map is law and
+    // CONFIRMED may not jump to EN_ROUTE — the lifecycle walks CONFIRMED →
+    // ACCEPTED → EN_ROUTE, so one ON MY WAY tap on a CONFIRMED job walks the
+    // same two PATCHes. If the first succeeds and the second fails, fail
+    // LOUDLY: the error banner shows and the refetch lands the job at
+    // ACCEPTED with ON MY WAY still offered — never silent limbo. (The
+    // customer's compressed accepted+on-the-way double notification is
+    // portal-parity, accepted.)
+    const steps =
+      job.status === 'confirmed' && action.next === 'EN_ROUTE'
+        ? ['ACCEPTED', 'EN_ROUTE']
+        : [action.next];
     try {
-      const res = await fetch(`/api/cleaner/jobs/${job.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: action.next }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok) {
-        haptic('success');
-        await fetchJobs();
-      } else {
-        haptic('error');
-        setActionError(data?.error || 'Could not update the job.');
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const res = await fetch(`/api/cleaner/jobs/${job.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: step }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          haptic('error');
+          setActionError(data?.error || 'Could not update the job.');
+          if (i > 0) await fetchJobs();
+          return;
+        }
       }
+      haptic('success');
+      await fetchJobs();
     } catch {
       setActionError('Network error — please try again.');
+      await fetchJobs().catch(() => {});
     } finally {
       setProcessingId(null);
     }

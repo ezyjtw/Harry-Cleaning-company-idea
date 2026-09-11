@@ -18,6 +18,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   const booking = await prisma.booking.findUnique({
     where: { id },
     select: {
+      status: true,
       cleanerId: true,
       clientId: true,
       serviceType: true,
@@ -39,6 +40,53 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
+  // 4a (James-ruled, Option 1): a CONFIRMED booking is this cleaner's own
+  // pinned, admin-placed job — no live offer, no cascade, nothing for
+  // reconciliation to price — so the atomicAccept inside
+  // acceptWithReconciliation would 409 it. Same EXPLICIT fork as the PATCH
+  // route: CONFIRMED-and-assigned-to-this-cleaner takes a plain guarded
+  // status write (+ acceptedAt) and the same customer notification; every
+  // other origin — the live-offer path included — routes through
+  // reconciliation exactly as before. The guarded updateMany re-checks
+  // status and ownership at write time, so a live offer can never land here.
+  if (booking.status === 'CONFIRMED' && booking.cleanerId === user.id) {
+    const claimed = await prisma.booking.updateMany({
+      where: { id, cleanerId: user.id, status: 'CONFIRMED' },
+      data: { status: 'ACCEPTED', acceptedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      return NextResponse.json({ error: 'Booking is no longer available' }, { status: 409 });
+    }
+
+    const accepted = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        cleaner: { select: { name: true } },
+      },
+    });
+
+    if (accepted?.clientId) {
+      await prisma.notification
+        .create({
+          data: {
+            userId: accepted.clientId,
+            type: 'BOOKING_CONFIRMED',
+            title: 'Booking accepted',
+            body: `Good news — ${accepted.cleaner?.name ?? 'your cleaner'} has taken your booking for ${accepted.date.toLocaleDateString('en-GB')}.`,
+            data: { bookingId: accepted.id },
+          },
+        })
+        .catch(() => {});
+    }
+
+    return NextResponse.json({
+      message: 'Job accepted',
+      job: { id, status: 'ACCEPTED' },
+      outcome: 'CONFIRMED',
+    });
   }
 
   const result = await acceptWithReconciliation(id, user.id, {

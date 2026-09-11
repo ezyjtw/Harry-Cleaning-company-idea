@@ -234,6 +234,19 @@ on James's explicit word after he confirms contact.** The exported broom stays.
   capture-only (crash-on-tap on the current binary — accepted pending
   James's word on those steps); the native file-sheet's own camera row is
   not suppressible web-side (James-accepted, library-only in-shell).
+- **4a follow-ons (James, 11 Sep)** — two items ledgered with the Option-1
+  fix, untouched: (a) the TOCTOU footnote in `enterAdminPriceAdjust`
+  (`reassignPreviousStatus` records the status read BEFORE the atomic claim,
+  so an admin flip between read and claim restores the stale value — both
+  values in the claimable set, edge-of-edge) and the dead, uncalled
+  `updateBookingStatus` in `booking.service.ts`. (b) **Option 2 — retiring
+  the CONFIRMED status entirely** — optional post-launch cleanup, priority
+  LOW. Evidence base: the 9-11 Sep 4a investigation (CONFIRMED originates
+  only from the admin override tool; the topup fallback `?? 'CONFIRMED'` is
+  defensively unreachable; ~20 server + ~15 client read-side refs
+  enumerated in the session report). Cost: producers (admin override map,
+  topup fallback), a data migration incl. stored `reassignPreviousStatus`
+  values, optional read-side cleanup; keep the enum value, retire usage.
 - **Jo/Pete incident** — closed permanently by James; drop it from ledgers.
 
 ## 9. First moves for a fresh session
