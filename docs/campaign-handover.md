@@ -247,6 +247,14 @@ on James's explicit word after he confirms contact.** The exported broom stays.
   enumerated in the session report). Cost: producers (admin override map,
   topup fallback), a data migration incl. stored `reassignPreviousStatus`
   values, optional read-side cleanup; keep the enum value, retire usage.
+- **Android adaptive-icon still carries the old mark — redo before any
+  Android build ever happens.** (James, 11 Sep — iOS-only campaign, no work
+  spent there.)
+- **1.0.1 runbook correction (James, 11 Sep, on the record):** the build
+  runbook ends at TestFlight and the on-device checks (camera on all three
+  doors, the single permission ask, a real offer push, Face ID unchanged).
+  Store submission is a SEPARATE, future word that does not ride this
+  runbook or any other.
 - **Jo/Pete incident** — closed permanently by James; drop it from ledgers.
 
 ## 9. First moves for a fresh session
