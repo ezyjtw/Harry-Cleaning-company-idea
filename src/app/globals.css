@@ -295,7 +295,14 @@ body.rena-shell.rena-page-reviews main button {
    escape hatches. The sidebar itself is already off-canvas on phones. */
 body.rena-shell.rena-page-profile .lg\:hidden.bg-ink,
 body.rena-shell.rena-page-pricing .lg\:hidden.bg-ink,
-body.rena-shell.rena-page-reviews .lg\:hidden.bg-ink {
+body.rena-shell.rena-page-reviews .lg\:hidden.bg-ink,
+/* James's on-device find (11 Sep): the Statements & tax door lands on
+   /cleaner/earnings, where this header (and its hamburger's sidebar of
+   escape hatches) still rendered — the original item-6 skin predated the
+   chrome-hide rule and never got it. Earnings + jobs join the hide; same
+   guarantee as ever: these classes exist only under the RenaPro/ UA. */
+body.rena-shell.rena-page-earnings .lg\:hidden.bg-ink,
+body.rena-shell.rena-page-jobs .lg\:hidden.bg-ink {
   display: none;
 }
 /* The law: Newsreader retires in-shell — these pages' serif headings re-set

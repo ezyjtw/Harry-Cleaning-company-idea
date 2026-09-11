@@ -870,6 +870,15 @@ function SeamlessWebView({
   const [loaded, setLoaded] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
   const ref = useRef<WebView>(null);
+  // Cold-start false-alarm fix (James, on-device): iOS regularly fails the
+  // very FIRST request after a cold open while the network path is still
+  // waking — an INDETERMINATE state, not a confirmed dead connection. A
+  // single onError therefore never declares offline any more: up to two
+  // silent retries run behind the loader (0.6s / 1.2s back-off), and only a
+  // third consecutive failure shows the offline screen. A successful load
+  // resets the budget, so mid-session blips get the same treatment.
+  const retryBudget = useRef(0);
+  const retryPending = useRef(false);
 
   useEffect(() => {
     if (loaded) {
@@ -951,6 +960,7 @@ function SeamlessWebView({
         <Pressable
           style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
           onPress={() => {
+            retryBudget.current = 0; // fresh silent-retry budget for the manual retry
             setOffline(false);
             setLoaded(false);
             fade.setValue(1);
@@ -992,8 +1002,25 @@ function SeamlessWebView({
         }}
         onNavigationStateChange={onNav}
         onMessage={onMessage}
-        onLoadEnd={() => setLoaded(true)}
-        onError={() => setOffline(true)}
+        onLoadEnd={() => {
+          if (retryPending.current) return; // silent retry in flight — keep the loader up
+          retryBudget.current = 0; // real load landed — reset the silent-retry budget
+          setLoaded(true);
+        }}
+        onError={() => {
+          if (retryBudget.current < 2) {
+            retryBudget.current += 1;
+            retryPending.current = true;
+            setLoaded(false);
+            fade.setValue(1);
+            setTimeout(() => {
+              retryPending.current = false;
+              ref.current?.reload();
+            }, 600 * retryBudget.current);
+            return;
+          }
+          setOffline(true);
+        }}
         onHttpError={(e) => {
           // A9: a 5xx on OUR origin gets the designed interstitial; sub-resource
           // and third-party errors stay with the web pages' own states.
