@@ -7,7 +7,7 @@ import {
   sendGuestBookingReminder,
   sendReviewRequest,
 } from '@/lib/services/email.service';
-import { deferToMorningLondon } from '@/lib/utils/quiet-hours';
+import { deferToMorningLondon, londonDayWord } from '@/lib/utils/quiet-hours';
 
 export interface ReminderSchedule {
   bookingId: string;
@@ -163,7 +163,10 @@ export class BookingReminderService {
       await sendCleanerReminder(
         emailData,
         { name: booking.cleaner.name ?? 'Cleaner', email: booking.cleaner.email },
-        recipientId
+        recipientId,
+        // Copy pack (James-ruled, 11 Sep): day word computed at send time —
+        // deferral means "tomorrow" is often really "today".
+        londonDayWord(booking.date, new Date())
       );
       return;
     }

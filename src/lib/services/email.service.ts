@@ -188,9 +188,10 @@ export async function sendBookingReminder(
 export async function sendCleanerReminder(
   booking: BookingEmailData,
   cleaner: CleanerEmailData,
-  userId?: string | null
+  userId?: string | null,
+  dayWord?: string
 ): Promise<boolean> {
-  const { subject, html } = buildCleanerReminder(booking, cleaner);
+  const { subject, html } = buildCleanerReminder(booking, cleaner, dayWord);
   return sendEmail(cleaner.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
 }
 

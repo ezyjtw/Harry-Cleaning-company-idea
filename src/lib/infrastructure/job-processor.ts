@@ -5,11 +5,12 @@
  */
 import type { Prisma } from '@prisma/client';
 
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import { BookingReminderService } from '@/lib/services/booking-reminder.service';
 import { shouldSend } from '@/lib/services/notification-preferences.service';
 import { processXeroPush, type XeroPushPayload } from '@/lib/services/xero-push.service';
-import { deferToMorningLondon, isQuietHoursLondon } from '@/lib/utils/quiet-hours';
+import { deferToMorningLondon, isQuietHoursLondon, londonDayWord } from '@/lib/utils/quiet-hours';
 
 // Copy for each scheduled reminder type (title, body). Category is REMINDER for
 // all of them, so delivery honours the user's reminder + push preferences.
@@ -18,10 +19,10 @@ const REMINDER_COPY: Record<string, { title: string; body: string }> = {
     title: 'Your cleaning is tomorrow',
     body: 'A reminder that your Rena cleaning is coming up. Tap to view the details.',
   },
-  cleaner_reminder: {
-    title: 'You have a job tomorrow',
-    body: 'A reminder about your upcoming Rena cleaning job. Tap to view the details.',
-  },
+  // cleaner_reminder: NO static entry — copy pack (James-ruled, 11 Sep): its
+  // copy is computed at DELIVERY time in the handler ("Today:"/"Tomorrow:"
+  // per the send moment), because quiet-hours deferral often lands the
+  // 12h-before send morning-of and static "tomorrow" copy lied.
   arrival_alert: {
     title: 'Your cleaner is arriving soon',
     body: 'Your cleaner should arrive in about 30 minutes.',
@@ -221,7 +222,19 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
   // live state at fire time). Applies to guests too ("send unless cancelled").
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { status: true },
+    select: {
+      status: true,
+      date: true,
+      startTime: true,
+      serviceType: true,
+      duration: true,
+      addressCity: true,
+      addressPostcode: true,
+      // A12 legacy fallback: older rows carry address on the relation.
+      address: { select: { city: true, postcode: true } },
+      client: { select: { name: true } },
+      guestName: true,
+    },
   });
   if (!booking || booking.status === 'CANCELLED' || booking.status === 'CASCADE_EXHAUSTED') {
     return;
@@ -247,10 +260,31 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
   // not suppress an allowed email, and vice-versa. Push is account-holders only
   // (guests have no userId/subscription). All reminder types are category REMINDER.
   if (recipientId && (await shouldSend(recipientId, 'REMINDER', 'PUSH'))) {
-    const copy = (reminderType && REMINDER_COPY[reminderType]) || {
-      title: 'Reminder',
-      body: 'You have an upcoming booking.',
-    };
+    // Copy pack (James-ruled, 11 Sep): the cleaner reminder is built at
+    // delivery time — "Today: Sarah at 9:00" / "Tomorrow: Sarah at 9:00"
+    // (weekday name for a delayed replay), body "Deep Clean · 3h · Highams
+    // Park." — so the stated day is provably true at the moment it lands.
+    const copy =
+      reminderType === 'cleaner_reminder'
+        ? (() => {
+            const dayWord = londonDayWord(booking.date, now);
+            const first = (booking.client?.name || booking.guestName || 'Customer').split(' ')[0];
+            const time = booking.startTime.replace(/^0/, '');
+            const area =
+              booking.addressCity ||
+              booking.address?.city ||
+              booking.addressPostcode ||
+              booking.address?.postcode ||
+              '';
+            return {
+              title: `${dayWord}: ${first} at ${time}`,
+              body: `${serviceLabelFromSlug(booking.serviceType)} · ${Number(booking.duration)}h${area ? ` · ${area}` : ''}.`,
+            };
+          })()
+        : (reminderType && REMINDER_COPY[reminderType]) || {
+            title: 'Reminder',
+            body: 'You have an upcoming booking.',
+          };
     const pushHandler = jobHandlers.get('SEND_EMAIL');
     if (pushHandler) {
       await pushHandler({
