@@ -235,8 +235,16 @@ export function buildBookingConfirmation(
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
-export function buildBookingReminder(booking: BookingEmailData, user: UserEmailData): EmailContent {
-  const subject = 'Your cleaning is tomorrow';
+export function buildBookingReminder(
+  booking: BookingEmailData,
+  user: UserEmailData,
+  // Copy pack follow-up (James-ruled, 11 Sep): day word computed at SEND time
+  // — same delivery-time honesty as the cleaner reminder.
+  dayWord: string = 'Tomorrow'
+): EmailContent {
+  const dayPhrase =
+    dayWord === 'Today' ? 'today' : dayWord === 'Tomorrow' ? 'tomorrow' : `on ${dayWord}`;
+  const subject = `Your cleaning is ${dayPhrase}`;
   const rows: Array<[string, string]> = [
     ['Date', booking.date],
     ['Time', booking.time],
@@ -244,9 +252,9 @@ export function buildBookingReminder(booking: BookingEmailData, user: UserEmailD
   ];
   if (booking.cleanerName) rows.push(['Cleaner', booking.cleanerName]);
   const contentHtml =
-    h('Your cleaning is tomorrow') +
+    h(`Your cleaning is ${dayPhrase}`) +
     p(`Hi ${user.name},`) +
-    p('This is a friendly reminder that your Rena cleaning is booked for tomorrow.') +
+    p(`This is a friendly reminder that your Rena cleaning is booked for ${dayPhrase}.`) +
     infoBlock(rows) +
     p(
       `Need to reschedule? You can manage your booking any time from ${inlineLink(`${appUrl()}/account/bookings`, 'your bookings')}, or let us know at least 4 hours in advance.`
@@ -1040,10 +1048,14 @@ export function buildGuestBookingConfirmation(
 export function buildGuestBookingReminder(
   booking: BookingEmailData,
   guestName: string,
-  guestToken: string
+  guestToken: string,
+  // Copy pack follow-up (James-ruled, 11 Sep): same delivery-time day word.
+  dayWord: string = 'Tomorrow'
 ): EmailContent {
   const manageLink = `${appUrl()}/booking/guest?token=${guestToken}`;
-  const subject = 'Your cleaning is tomorrow';
+  const dayPhrase =
+    dayWord === 'Today' ? 'today' : dayWord === 'Tomorrow' ? 'tomorrow' : `on ${dayWord}`;
+  const subject = `Your cleaning is ${dayPhrase}`;
   const rows: Array<[string, string]> = [
     ['Date', booking.date],
     ['Time', booking.time],
@@ -1051,9 +1063,9 @@ export function buildGuestBookingReminder(
   ];
   if (booking.cleanerName) rows.push(['Cleaner', booking.cleanerName]);
   const contentHtml =
-    h('Your cleaning is tomorrow') +
+    h(`Your cleaning is ${dayPhrase}`) +
     p(`Hi ${guestName},`) +
-    p('This is a friendly reminder that your Rena cleaning is booked for tomorrow.') +
+    p(`This is a friendly reminder that your Rena cleaning is booked for ${dayPhrase}.`) +
     infoBlock(rows) +
     p('You can view, reschedule, or cancel your booking here:') +
     button(manageLink, 'Manage Booking') +

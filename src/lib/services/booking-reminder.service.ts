@@ -176,7 +176,13 @@ export class BookingReminderService {
       // Account-holder — gated by the recipient's REMINDER/EMAIL preference.
       const user = { name: booking.client.name ?? 'Customer', email: booking.client.email };
       if (reminderType === 'customer_reminder') {
-        await sendBookingReminder(emailData, user, recipientId);
+        // Copy pack follow-up (James-ruled, 11 Sep): same delivery-time day word.
+        await sendBookingReminder(
+          emailData,
+          user,
+          recipientId,
+          londonDayWord(booking.date, new Date())
+        );
       } else {
         await sendReviewRequest(emailData, user, recipientId);
       }
@@ -192,7 +198,8 @@ export class BookingReminderService {
         emailData,
         booking.guestEmail,
         booking.guestName ?? 'there',
-        booking.guestToken
+        booking.guestToken,
+        londonDayWord(booking.date, new Date())
       );
     }
   }

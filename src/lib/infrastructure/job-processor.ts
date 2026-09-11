@@ -15,14 +15,11 @@ import { deferToMorningLondon, isQuietHoursLondon, londonDayWord } from '@/lib/u
 // Copy for each scheduled reminder type (title, body). Category is REMINDER for
 // all of them, so delivery honours the user's reminder + push preferences.
 const REMINDER_COPY: Record<string, { title: string; body: string }> = {
-  customer_reminder: {
-    title: 'Your cleaning is tomorrow',
-    body: 'A reminder that your Rena cleaning is coming up. Tap to view the details.',
-  },
-  // cleaner_reminder: NO static entry — copy pack (James-ruled, 11 Sep): its
-  // copy is computed at DELIVERY time in the handler ("Today:"/"Tomorrow:"
-  // per the send moment), because quiet-hours deferral often lands the
-  // 12h-before send morning-of and static "tomorrow" copy lied.
+  // customer_reminder + cleaner_reminder: NO static entries — copy pack
+  // (James-ruled, 11 Sep): their copy is computed at DELIVERY time in the
+  // handler ("today"/"tomorrow"/weekday per the send moment), because
+  // quiet-hours deferral often lands a send morning-of and static
+  // "tomorrow" copy lied.
   arrival_alert: {
     title: 'Your cleaner is arriving soon',
     body: 'Your cleaner should arrive in about 30 minutes.',
@@ -265,26 +262,36 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
     // (weekday name for a delayed replay), body "Deep Clean · 3h · Highams
     // Park." — so the stated day is provably true at the moment it lands.
     const copy =
-      reminderType === 'cleaner_reminder'
+      reminderType === 'customer_reminder'
         ? (() => {
             const dayWord = londonDayWord(booking.date, now);
-            const first = (booking.client?.name || booking.guestName || 'Customer').split(' ')[0];
-            const time = booking.startTime.replace(/^0/, '');
-            const area =
-              booking.addressCity ||
-              booking.address?.city ||
-              booking.addressPostcode ||
-              booking.address?.postcode ||
-              '';
+            const dayPhrase =
+              dayWord === 'Today' ? 'today' : dayWord === 'Tomorrow' ? 'tomorrow' : `on ${dayWord}`;
             return {
-              title: `${dayWord}: ${first} at ${time}`,
-              body: `${serviceLabelFromSlug(booking.serviceType)} · ${Number(booking.duration)}h${area ? ` · ${area}` : ''}.`,
+              title: `Your cleaning is ${dayPhrase}`,
+              body: 'A reminder that your Rena cleaning is coming up. Tap to view the details.',
             };
           })()
-        : (reminderType && REMINDER_COPY[reminderType]) || {
-            title: 'Reminder',
-            body: 'You have an upcoming booking.',
-          };
+        : reminderType === 'cleaner_reminder'
+          ? (() => {
+              const dayWord = londonDayWord(booking.date, now);
+              const first = (booking.client?.name || booking.guestName || 'Customer').split(' ')[0];
+              const time = booking.startTime.replace(/^0/, '');
+              const area =
+                booking.addressCity ||
+                booking.address?.city ||
+                booking.addressPostcode ||
+                booking.address?.postcode ||
+                '';
+              return {
+                title: `${dayWord}: ${first} at ${time}`,
+                body: `${serviceLabelFromSlug(booking.serviceType)} · ${Number(booking.duration)}h${area ? ` · ${area}` : ''}.`,
+              };
+            })()
+          : (reminderType && REMINDER_COPY[reminderType]) || {
+              title: 'Reminder',
+              body: 'You have an upcoming booking.',
+            };
     const pushHandler = jobHandlers.get('SEND_EMAIL');
     if (pushHandler) {
       await pushHandler({
