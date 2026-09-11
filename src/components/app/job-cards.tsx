@@ -31,6 +31,17 @@ export interface AppJob {
   duration: number;
   // Today V2 offer alert: the live-offer window end (AWAITING_CLEANER only).
   cascadeExpiresAt?: string | null;
+  // (3) James-ruled receipt detail: the cleaner's own arithmetic + release
+  // state (DONE rows only) — all read-only payload fields.
+  earningsBreakdown?: {
+    rate: number;
+    feePct: number;
+    fee: number;
+    productsNet: number;
+    receive: number;
+  } | null;
+  transferStatus?: string | null;
+  releaseDueAt?: string | null;
 }
 
 // 4.6 (James-ruled): three cleaner actions only — Accept (at the offer) →

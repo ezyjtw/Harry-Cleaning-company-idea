@@ -190,6 +190,15 @@ export async function GET(request: NextRequest) {
         }),
         status: b.status.toLowerCase(),
         paymentStatus: b.paymentStatus,
+        // (3) James-ruled receipt detail: release state for DONE rows only —
+        // additive read-only fields; the app renders "Paid" (RELEASED) vs
+        // "Releasing soon". No release mechanics touched.
+        transferStatus:
+          b.status === 'COMPLETED' || b.status === 'REVIEWED' ? b.transferStatus : null,
+        releaseDueAt:
+          (b.status === 'COMPLETED' || b.status === 'REVIEWED') && b.releaseDueAt
+            ? b.releaseDueAt.toISOString()
+            : null,
         duration: Number(b.duration),
         notes: b.notes,
         cleanerNotes: b.cleanerNotes,

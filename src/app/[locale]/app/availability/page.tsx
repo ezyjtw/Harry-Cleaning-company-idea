@@ -272,8 +272,12 @@ export default function AvailabilityAppPage() {
   const [stagedWeekly, setStagedWeekly] = useState<Partial<Record<ApiDay, TimeSlot[]>>>({});
   const [weekSaving, setWeekSaving] = useState(false);
 
-  // Week pager: 0 = week commencing this Monday, 1 = next week. Max one ahead.
-  const [weekOffset, setWeekOffset] = useState<0 | 1>(0);
+  // Week pager (James-amended on-device): 0 = week commencing this Monday,
+  // forward chevron walks up to FOUR weeks ahead. Back stays dead at the
+  // current week; the blank-week opt-in model is unchanged — the cap is
+  // purely how far forward the chevron walks.
+  const MAX_WEEK_OFFSET = 4;
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const [savedFlash, setSavedFlash] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -289,6 +293,10 @@ export default function AvailabilityAppPage() {
   const [editRegular, setEditRegular] = useState(false);
   // Option B confirm beat for "Stop Repeating This Day".
   const [stopConfirm, setStopConfirm] = useState(false);
+  // 4b (James-ruled): saving "Every [Day]" with Time Off ahead on that weekday
+  // surfaces the conflicting dates in one confirm beat, with a lift option.
+  // Time Off keeps precedence — this is visibility, not mechanics.
+  const [everyBlockConfirm, setEveryBlockConfirm] = useState<string[] | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
   // W6: the two settings rows (buffer, same-day).
@@ -480,6 +488,18 @@ export default function AvailabilityAppPage() {
     0
   );
 
+  // 4a: a day is "shadowed" when a STORED block hides hours the day would
+  // otherwise have (template or saved date-slot) and nothing is staged on it.
+  const shadowedByBlock = (d: { iso: string; eff: DayPlan; dirty: boolean; baseline: DayPlan }) =>
+    d.eff.off && !d.dirty && blocked.some((b) => b.date === d.iso) && d.baseline.ranges.length > 0;
+
+  const goToTimeOff = () => {
+    haptic('light');
+    document
+      .getElementById('time-off-card')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   // ── Week-card interactions (all staged) ──
   const toggleWeekDay = (iso: string) => {
     haptic('light');
@@ -559,6 +579,31 @@ export default function AvailabilityAppPage() {
     setEditing(null);
   };
 
+  // The "Every [Day]" staging body — shared by the plain save and both
+  // confirm-beat choices. liftDates: stored-block dates on this weekday the
+  // cleaner chose to lift (staged open; SET MY WEEK removes the blocks).
+  const commitEverySave = (ranges: { start: string; end: string }[], liftDates: string[]) => {
+    if (!editing) return;
+    const flagged = ranges.map((s) => ({ ...s, recurringEligible: editRegular }));
+    setStagedWeekly((p) => ({ ...p, [editing.day]: flagged }));
+    // This date follows its template: stage it equal so any saved date-slot
+    // override is deleted on commit.
+    setPlan((p) => {
+      const next = { ...p, [editing.date]: { off: false, ranges: flagged } };
+      for (const iso of liftDates)
+        next[iso] = { off: false, ranges: flagged.map((s) => ({ ...s })) };
+      return next;
+    });
+    setEveryBlockConfirm(null);
+    haptic('success');
+    setDoneFlash(
+      liftDates.length
+        ? `Done — free ${rangesVoice(ranges)}; time off lifted on ${liftDates.length} day${liftDates.length === 1 ? '' : 's'}.`
+        : `Done — free ${rangesVoice(ranges)}`
+    );
+    setEditing(null);
+  };
+
   // Sheet Done: everything stages; SET MY WEEK commits.
   const saveSheet = () => {
     if (!editing) return;
@@ -569,18 +614,25 @@ export default function AvailabilityAppPage() {
     }
     const ranges = editSlots.map((s) => ({ ...s }));
     if (editScope === 'every') {
-      // Update the standing template invisibly; F18 applies to every range.
-      const flagged = ranges.map((s) => ({ ...s, recurringEligible: editRegular }));
-      setStagedWeekly((p) => ({ ...p, [editing.day]: flagged }));
-      // This date follows its template: stage it equal so any saved date-slot
-      // override is deleted on commit.
-      setPlan((p) => ({ ...p, [editing.date]: { off: false, ranges: flagged } }));
+      // 4b: Time Off ahead on this weekday? Surface it once before saving.
+      const conflicts = blocked
+        .map((b) => b.date)
+        .filter((iso) => iso >= todayIso && iso !== editing.date)
+        .filter((iso) => JS_DAY_TO_API[new Date(`${iso}T00:00:00`).getDay()] === editing.day)
+        .filter((iso) => (plan[iso] ? plan[iso].off : true))
+        .sort();
+      if (conflicts.length > 0 && everyBlockConfirm === null) {
+        haptic('light');
+        setEveryBlockConfirm(conflicts);
+        return;
+      }
+      commitEverySave(ranges, []);
     } else {
       setPlan((p) => ({ ...p, [editing.date]: { off: false, ranges } }));
+      haptic('success');
+      setDoneFlash(`Done — free ${rangesVoice(ranges)}`);
+      setEditing(null);
     }
-    haptic('success');
-    setDoneFlash(`Done — free ${rangesVoice(ranges)}`);
-    setEditing(null);
   };
 
   // ── SET MY WEEK: commit every staged change through the existing endpoints ──
@@ -834,9 +886,9 @@ export default function AvailabilityAppPage() {
         <button
           type="button"
           onClick={() => {
-            if (weekOffset === 1) {
+            if (weekOffset > 0) {
               haptic('light');
-              setWeekOffset(0);
+              setWeekOffset((o) => o - 1);
             }
           }}
           disabled={weekOffset === 0}
@@ -864,12 +916,12 @@ export default function AvailabilityAppPage() {
         <button
           type="button"
           onClick={() => {
-            if (weekOffset === 0) {
+            if (weekOffset < MAX_WEEK_OFFSET) {
               haptic('light');
-              setWeekOffset(1);
+              setWeekOffset((o) => o + 1);
             }
           }}
-          disabled={weekOffset === 1}
+          disabled={weekOffset === MAX_WEEK_OFFSET}
           aria-label="Next week"
           className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
         >
@@ -928,7 +980,13 @@ export default function AvailabilityAppPage() {
               >
                 <button
                   type="button"
-                  onClick={() => (on ? openDate(d.iso, d.day) : toggleWeekDay(d.iso))}
+                  onClick={() =>
+                    on
+                      ? openDate(d.iso, d.day)
+                      : shadowedByBlock(d)
+                        ? goToTimeOff()
+                        : toggleWeekDay(d.iso)
+                  }
                   className="min-h-[44px] flex-1 py-1 text-left"
                 >
                   <span
@@ -944,6 +1002,14 @@ export default function AvailabilityAppPage() {
                         {d.recurring && <RecurMark />}
                         {rowText(d.eff.ranges)}
                       </>
+                    ) : shadowedByBlock(d) ? (
+                      /* 4a (James-ruled): a stored block shadowing real hours
+                         says WHY the day is off, and the tap goes to the block
+                         (the lift path), not the toggle. Time Off precedence
+                         untouched — visibility only. */
+                      <span className="font-medium text-primary" data-testid="off-blocked">
+                        Off — Blocked ›
+                      </span>
                     ) : (
                       'Off'
                     )}
@@ -1023,7 +1089,9 @@ export default function AvailabilityAppPage() {
       </section>
 
       {/* ── 7. Time Off (absorbs Blocked Dates — same override machinery) ── */}
-      <TimeOffCard blocked={blocked} weekly={weekly} onCommit={commit} onDone={fetchAll} />
+      <div id="time-off-card">
+        <TimeOffCard blocked={blocked} weekly={weekly} onCommit={commit} onDone={fetchAll} />
+      </div>
 
       {/* ── Day editor sheet ── */}
       {editing && (
@@ -1265,6 +1333,63 @@ export default function AvailabilityAppPage() {
           )}
 
           {editError && <p className="mt-3 font-jost text-[13px] text-danger">{editError}</p>}
+
+          {/* 4b (James-ruled): Time Off ahead on this weekday, surfaced once.
+              Time Off keeps precedence — lifting is the cleaner's explicit
+              choice, staged like everything else; SET MY WEEK commits. */}
+          {everyBlockConfirm && (
+            <div
+              className="mt-4 rounded-xl border border-primary/30 bg-primary-soft/40 p-4"
+              data-testid="every-block-confirm"
+            >
+              <p className="font-jost text-[14px] font-semibold text-ink">
+                {DAY_LABEL[editing.day]} has Time Off ahead
+              </p>
+              <p className="mt-1 font-jost text-[13px] text-ink-2">
+                {everyBlockConfirm
+                  .map((iso) =>
+                    new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                    })
+                  )
+                  .join(', ')}{' '}
+                {everyBlockConfirm.length === 1 ? 'is' : 'are'} blocked, so your every-week hours
+                won&apos;t show there. Keep the time off, or lift it and open{' '}
+                {everyBlockConfirm.length === 1 ? 'that day' : 'those days'}.
+              </p>
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  data-testid="every-block-keep"
+                  onClick={() => {
+                    haptic('light');
+                    commitEverySave(
+                      editSlots.map((r) => ({ ...r })),
+                      []
+                    );
+                  }}
+                  className="w-full rounded-[12px] bg-primary px-4 py-2.5 font-jost text-sm font-semibold text-white active:opacity-80"
+                >
+                  Keep Time Off
+                </button>
+                <button
+                  type="button"
+                  data-testid="every-block-lift"
+                  onClick={() => {
+                    haptic('light');
+                    commitEverySave(
+                      editSlots.map((r) => ({ ...r })),
+                      everyBlockConfirm
+                    );
+                  }}
+                  className="w-full rounded-[12px] border border-primary px-4 py-2.5 font-jost text-sm font-semibold text-primary active:bg-primary-soft"
+                >
+                  Lift &amp; Open {everyBlockConfirm.length === 1 ? 'That Day' : 'Those Days'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <button
             type="button"
