@@ -1,3 +1,4 @@
+import { CustomerCleanersSwitch } from '@/components/app/CustomerCleaners';
 import { listDirectoryCleaners } from '@/lib/services/area-search.service';
 
 import CleanersDirectory from './CleanersDirectory';
@@ -17,5 +18,12 @@ export default async function CleanersPage() {
   } catch {
     initialCleaners = null; // client fetch takes over — never break the page
   }
-  return <CleanersDirectory initialCleaners={initialCleaners} />;
+  // Customer-shell switch (Phase 2): browsers get the directory exactly as
+  // before (the switch renders children verbatim — SSR byte-identical); the
+  // Rena customer shell gets the ruled row view after mount.
+  return (
+    <CustomerCleanersSwitch>
+      <CleanersDirectory initialCleaners={initialCleaners} />
+    </CustomerCleanersSwitch>
+  );
 }

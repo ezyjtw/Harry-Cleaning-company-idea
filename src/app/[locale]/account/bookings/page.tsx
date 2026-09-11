@@ -3,10 +3,18 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
+import {
+  CustomerAvatar,
+  dayPhrase,
+  fmtPounds,
+  fmtSlotTime,
+  NoCleansCard,
+} from '@/components/app/customer';
 import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { isCustomerShellUA } from '@/lib/shell';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
 
@@ -33,6 +41,8 @@ interface Booking {
   completionConfirmed: boolean;
   fundsHeld: boolean;
   hasReview: boolean;
+  /** Phase 2 (additive): non-null agreement frequency — the ↻ marker. */
+  recurring: boolean;
 }
 
 // Raw booking statuses the cancel endpoint accepts (mirrors the server's
@@ -128,6 +138,7 @@ function toBookingItem(b: Record<string, unknown>): Booking {
     // keys on funds actually being holdable, not on review state).
     fundsHeld: String(b.transferStatus || 'PENDING') === 'PENDING',
     hasReview: !!b.review,
+    recurring: !!(b.agreement as { frequency?: string | null } | null)?.frequency,
   };
 }
 
@@ -140,6 +151,19 @@ export default function BookingsPage() {
   const [generalPage, setGeneralPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // My Cleans in-shell skin (Phase 2, James-ruled: option A, plain-title
+  // header per the correction). Mount-gated on the customer shell (RenaApp UA
+  // or the preview cookie) — SSR and hydration render the browser page for
+  // everyone, so browser HTML is byte-identical; the in-shell branch swaps
+  // the RENDER only. Every action reuses the browser page's own handlers —
+  // cancel keeps today's confirm + POST path exactly (skin, not mechanics).
+  const [inShell, setInShell] = useState(false);
+  const [mcTab, setMcTab] = useState<'upcoming' | 'past'>('upcoming');
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setInShell(true);
+  }, []);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -491,6 +515,351 @@ export default function BookingsPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <p className="text-sm text-ink-3">Loading bookings...</p>
+      </div>
+    );
+  }
+
+  // ─── My Cleans (in-shell render — same data, same handlers, new clothes) ───
+  if (inShell) {
+    const UPCOMING_RAW = [
+      'PENDING',
+      'AWAITING_CLEANER',
+      'CONFIRMED',
+      'ACCEPTED',
+      'EN_ROUTE',
+      'IN_PROGRESS',
+      'CASCADE_EXHAUSTED',
+      'CLEANER_CANCELLED',
+    ];
+    const upcoming = bookings
+      .filter((b) => UPCOMING_RAW.includes(b.rawStatus))
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const past = bookings
+      .filter((b) => !UPCOMING_RAW.includes(b.rawStatus))
+      .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    const reviewTarget = reviewingId ? bookings.find((b) => b.fullId === reviewingId) : null;
+
+    return (
+      <div data-testid="my-cleans">
+        <h2 className="font-jost text-[26px] font-semibold leading-tight text-ink">My Cleans</h2>
+
+        {/* Segmented control */}
+        <div
+          className="mt-4 grid grid-cols-2 rounded-[10px] border border-line bg-surface p-1"
+          data-testid="mc-tabs"
+        >
+          {(['upcoming', 'past'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setMcTab(t)}
+              className={`rounded-[8px] py-2 font-jost text-[12px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                mcTab === t ? 'bg-primary text-white' : 'text-ink-2'
+              }`}
+            >
+              {t === 'upcoming' ? 'Upcoming' : 'Past'}
+            </button>
+          ))}
+        </div>
+
+        {mcTab === 'upcoming' && (
+          <div className="mt-4 space-y-3">
+            {upcoming.length === 0 ? (
+              <NoCleansCard />
+            ) : (
+              <>
+                {upcoming.map((b) => (
+                  <div
+                    key={b.fullId}
+                    className="rounded-xl border border-line bg-surface p-4"
+                    data-testid="mc-card"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="font-jost text-[18px] font-semibold text-primary">
+                        {dayPhrase(b.date)}, {fmtSlotTime(b.time)}
+                      </p>
+                      <p className="font-jost text-[18px] font-semibold text-ink">
+                        {fmtPounds(b.price)}
+                      </p>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3">
+                      <CustomerAvatar photo={b.cleanerImage} name={b.cleanerName} size={36} />
+                      <div className="min-w-0">
+                        <p className="truncate font-jost text-[15px] font-medium text-ink">
+                          {b.cleanerName}
+                        </p>
+                        <p className="font-jost text-[13px] text-ink-3">
+                          {serviceLabelFromSlug(b.serviceType)}
+                          {b.duration > 0 &&
+                            ` · ${b.duration} ${b.duration === 1 ? 'hour' : 'hours'}`}
+                          {b.recurring && ' · ↻'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action-needed states stay unmissable in-shell too. */}
+                    {b.rawStatus === 'CLEANER_CANCELLED' && (
+                      <Link
+                        href={`/booking/${b.fullId}`}
+                        className="mt-3 block rounded-[10px] border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-danger"
+                      >
+                        Your cleaner had to cancel — choose what happens next ›
+                      </Link>
+                    )}
+                    {b.cascadePhase === 'PROVISIONAL_APPROVAL' && (
+                      <Link
+                        href={`/booking/${b.fullId}/approve-topup`}
+                        className="mt-3 block rounded-[10px] border border-warning/30 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-warning"
+                      >
+                        Price change awaiting your review ›
+                      </Link>
+                    )}
+
+                    <div className="mt-3.5 flex items-center gap-2.5">
+                      <Link
+                        href={`/messages?bookingId=${b.fullId}`}
+                        className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-ink active:bg-page"
+                      >
+                        Message
+                      </Link>
+                      {canShowCancel(b) && (
+                        <button
+                          type="button"
+                          onClick={() => startCancel(b.fullId)}
+                          data-testid="mc-cancel"
+                          className="flex-1 rounded-[10px] border border-danger/30 py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-danger active:bg-danger/[0.06]"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Cancel confirm — today's beat, today's copy, same POST. */}
+                    {cancelId === b.fullId && (
+                      <div
+                        className="mt-3 flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3"
+                        data-testid="mc-cancel-confirm"
+                      >
+                        {previewing ? (
+                          <span className="font-jost text-xs text-ink-2">
+                            Checking your refund…
+                          </span>
+                        ) : cancelError ? (
+                          <span className="font-jost text-xs text-danger">{cancelError}</span>
+                        ) : preview && !preview.canCancel ? (
+                          <span className="font-jost text-xs text-danger">
+                            {preview.reason || 'This booking can no longer be cancelled.'}
+                          </span>
+                        ) : preview ? (
+                          <span className="font-jost text-xs text-ink-2">
+                            Cancel this booking? {refundMessage(preview)}
+                          </span>
+                        ) : null}
+                        <div className="flex flex-wrap gap-2">
+                          {preview?.canCancel && !cancelError && (
+                            <button
+                              onClick={() => confirmCancel(b.fullId)}
+                              disabled={cancelling}
+                              className="rounded-[10px] bg-danger px-3 py-2 font-jost text-xs font-medium text-white disabled:opacity-50"
+                            >
+                              {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                            </button>
+                          )}
+                          <button
+                            onClick={dismissCancel}
+                            disabled={cancelling}
+                            className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-xs font-medium text-ink-2 disabled:opacity-50"
+                          >
+                            {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <Link
+                  href="/app/book"
+                  className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3.5 active:bg-page"
+                  data-testid="mc-book-another"
+                >
+                  <span className="font-jost text-[15px] font-medium text-ink">
+                    Book Another Clean
+                  </span>
+                  <span className="font-jost text-[15px] font-semibold text-primary">›</span>
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+
+        {mcTab === 'past' && (
+          <div className="mt-4">
+            {past.length === 0 ? (
+              <p className="py-10 text-center font-jost text-sm text-ink-3">
+                Completed cleans will live here.
+              </p>
+            ) : (
+              <div className="divide-y divide-line/60 rounded-xl border border-line bg-surface">
+                {past.map((b) => {
+                  const done = b.rawStatus === 'COMPLETED' || b.rawStatus === 'REVIEWED';
+                  const dateLabel = new Date(`${b.date}T00:00:00`).toLocaleDateString('en-GB', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  });
+                  return (
+                    <div
+                      key={b.fullId}
+                      className="flex items-center gap-3 px-4 py-3.5"
+                      data-testid="mc-receipt"
+                    >
+                      {done ? (
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-trust/10">
+                          <svg
+                            className="h-3.5 w-3.5 text-trust"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2.5}
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span className="h-6 w-6 shrink-0" />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-jost text-[14px] font-medium text-ink">
+                          {dateLabel} · {b.cleanerName}
+                        </span>
+                        {!done && (
+                          <span className="block font-jost text-[12px] text-ink-3">Cancelled</span>
+                        )}
+                      </span>
+                      <span
+                        className={`shrink-0 font-jost text-[14px] font-semibold ${done ? 'text-ink' : 'text-ink-3 line-through'}`}
+                      >
+                        {fmtPounds(b.price)}
+                      </span>
+                      {done && (
+                        <Link
+                          href={`/booking/${b.fullId}`}
+                          className="shrink-0 font-jost text-[13px] font-semibold text-primary"
+                        >
+                          Receipt ›
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {generalPage < totalPages && (
+              <div className="pt-3 text-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="rounded-[10px] border border-line bg-surface px-5 py-2 font-jost text-sm font-medium text-ink-2 disabled:opacity-50"
+                >
+                  {loadingMore ? 'Loading…' : 'Load older cleans'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Review sheet — the Home card's ?review= deep link (H72) lands here:
+            the browser page's own review state + submit, in sheet clothes. */}
+        {reviewTarget && !reviewTarget.hasReview && (
+          <div
+            className="fixed inset-0 z-[60] flex items-end bg-ink/40"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Leave a review"
+            onClick={() => !reviewSubmitting && dismissReview()}
+          >
+            <div
+              className="mx-auto w-full max-w-lg rounded-t-2xl border-t border-line bg-surface px-5 pt-6"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
+              onClick={(e) => e.stopPropagation()}
+              data-testid="mc-review-sheet"
+            >
+              <h2 className="font-jost text-xl font-semibold text-ink">How Was Your Clean?</h2>
+              <p className="mt-1 font-jost text-[13px] text-ink-3">
+                {reviewTarget.cleanerName} · {serviceLabelFromSlug(reviewTarget.serviceType)}
+              </p>
+              <div className="mt-4 flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="text-4xl focus:outline-none"
+                  >
+                    <span className={star <= reviewRating ? 'text-rating' : 'text-ink-3/40'}>
+                      &#9733;
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ['Thoroughness', reviewThoroughness, setReviewThoroughness],
+                    ['Punctuality', reviewPunctuality, setReviewPunctuality],
+                    ['Communication', reviewCommunication, setReviewCommunication],
+                  ] as const
+                ).map(([label, value, setter]) => (
+                  <div key={label} className="text-center">
+                    <span className="mb-1 block font-jost text-[11px] text-ink-3">{label}</span>
+                    <div className="flex justify-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => (setter as (v: number) => void)(star)}
+                          className="text-sm focus:outline-none"
+                        >
+                          <span className={star <= value ? 'text-rating' : 'text-ink-3/40'}>
+                            &#9733;
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <textarea
+                rows={3}
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                placeholder="Tell us about your experience (optional)"
+                maxLength={2000}
+                className="mt-4 w-full resize-none rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => submitReview(reviewTarget.fullId)}
+                disabled={reviewSubmitting || reviewRating < 1}
+                className="mt-4 w-full rounded-[10px] bg-primary py-3 font-jost text-sm font-medium text-white active:opacity-90 disabled:opacity-50"
+              >
+                {reviewSubmitting ? 'Submitting…' : 'Submit Review'}
+              </button>
+              <button
+                type="button"
+                onClick={dismissReview}
+                disabled={reviewSubmitting}
+                className="mt-1 w-full py-3 font-jost text-sm font-medium text-ink-2 active:opacity-70 disabled:opacity-60"
+              >
+                Not Now
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
