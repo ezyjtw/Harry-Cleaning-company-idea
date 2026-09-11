@@ -297,6 +297,24 @@ export default function AvailabilityAppPage() {
   // surfaces the conflicting dates in one confirm beat, with a lift option.
   // Time Off keeps precedence — this is visibility, not mechanics.
   const [everyBlockConfirm, setEveryBlockConfirm] = useState<string[] | null>(null);
+  // ── MONTH VIEW (James-ruled, mockup spec) ──
+  const [view, setView] = useState<'week' | 'month'>('week');
+  const [monthOffset, setMonthOffset] = useState(0);
+  // Green job dots: the jobs the app already fetches elsewhere — same
+  // endpoint, read-only, best-effort (a failed read = no dots, never a
+  // broken grid).
+  const [jobDays, setJobDays] = useState<Record<string, true>>({});
+  useEffect(() => {
+    fetch('/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS&limit=100')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!Array.isArray(d?.jobs)) return;
+        const m: Record<string, true> = {};
+        for (const j of d.jobs as { date: string; status: string }[]) m[j.date] = true;
+        setJobDays(m);
+      })
+      .catch(() => {});
+  }, []);
   const [editError, setEditError] = useState<string | null>(null);
 
   // W6: the two settings rows (buffer, same-day).
@@ -408,6 +426,17 @@ export default function AvailabilityAppPage() {
   }, [weekly, stagedWeekly]);
 
   const todayIso = isoOf(new Date());
+
+  // The editing cap: the Sunday of week offset 4 — the same law as the week
+  // pager. Month cells beyond it render but are dead.
+  const capIso = useMemo(() => {
+    const mon = new Date();
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7) + 4 * 7);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return isoOf(sun);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayIso]);
 
   // ── The week card: Monday-commencing calendar week + offset ──
   const week = useMemo(() => {
@@ -541,19 +570,54 @@ export default function AvailabilityAppPage() {
     });
   };
 
+  // Month view: the same day-state resolution the week memo uses, for any
+  // date — plan ?? (blocked → off, date-slot ?? template). One precedence
+  // rule, two views.
+  const dayInfo = (iso: string) => {
+    const day = JS_DAY_TO_API[new Date(`${iso}T00:00:00`).getDay()];
+    const isBlockedStored = blocked.some((b) => b.date === iso);
+    const savedCustom = (dateSlots[iso]?.length ?? 0) > 0;
+    const baseline: DayPlan = {
+      off: isBlockedStored,
+      ranges: savedCustom ? dateSlots[iso] : effWeekly[day],
+    };
+    const eff = plan[iso] ?? baseline;
+    const recurring =
+      !eff.off &&
+      eff.ranges.length > 0 &&
+      !savedCustom &&
+      effWeekly[day].length > 0 &&
+      rangesEqual(eff.ranges, effWeekly[day]);
+    return {
+      day,
+      eff,
+      baseline,
+      recurring,
+      isBlockedStored,
+      dirty: eff.off !== baseline.off || !rangesEqual(eff.ranges, baseline.ranges),
+    };
+  };
+
   const openDate = (iso: string, day: ApiDay) => {
     haptic('light');
-    const d = week.find((w) => w.iso === iso);
-    const current = d && !d.eff.off ? d.eff.ranges : [];
+    // Generalised for the month view: derive the day's state directly (the
+    // week array only covers the visible week). Identical values for week-
+    // view isos — same resolver the week memo uses.
+    const info = dayInfo(iso);
+    const current = !info.eff.off ? info.eff.ranges : [];
     const slots = (current.length ? current : effWeekly[day]).map((s) => ({ ...s }));
     setEditSlots(slots.length ? slots : [{ start: '09:00', end: '17:00' }]);
     // Truthful default: a day whose hours ARE the template opens on
     // "Every [Day]" (that's what it is); blank and one-off days open on
     // "Just This Week".
-    const recurringNow = !!d?.recurring;
+    const recurringNow = info.recurring;
     setEditScope(recurringNow ? 'every' : 'week');
     setEditRegular(recurringNow ? effWeekly[day].some((s) => s.recurringEligible) : false);
     setStopConfirm(false);
+    // Bug-fix (found building month view): a confirm beat abandoned via the
+    // sheet's X left everyBlockConfirm armed, so the NEXT every-save would
+    // skip its confirm. Every sheet open starts clean.
+    setEveryBlockConfirm(null);
     setEditError(null);
     setDoneFlash(null);
     setEditing({ date: iso, day });
@@ -806,6 +870,29 @@ export default function AvailabilityAppPage() {
         </div>
       </header>
 
+      {/* ── Month view (James-ruled): Week / Month segmented toggle — Week is
+             the default and the existing screen, untouched. ── */}
+      <div
+        className="mb-4 inline-flex rounded-full border border-line bg-surface p-0.5"
+        data-testid="view-toggle"
+      >
+        {(['week', 'month'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => {
+              haptic('light');
+              setView(v);
+            }}
+            className={`rounded-full px-4 py-1.5 font-jost text-sm font-medium transition-colors ${
+              view === v ? 'bg-primary text-white' : 'text-ink-2'
+            }`}
+          >
+            {v === 'week' ? 'Week' : 'Month'}
+          </button>
+        ))}
+      </div>
+
       {(saveError || savedFlash) && (
         <div
           className={`mb-4 rounded-lg px-4 py-2.5 font-jost text-sm ${
@@ -824,237 +911,293 @@ export default function AvailabilityAppPage() {
         </div>
       )}
 
-      {/* ── 2. "Two Ways To Be Open" explainer (option B, James-ruled: white
+      {view === 'week' && (
+        <>
+          {/* ── 2. "Two Ways To Be Open" explainer (option B, James-ruled: white
              card, 4px navy left spine, info-circle beside the title, tightened
              copy as drawn) ── */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-line border-l-4 border-l-primary bg-surface">
-        <div className="px-5 pb-4 pt-4">
-          <div className="flex items-center gap-2">
-            <svg
-              className="h-[18px] w-[18px] shrink-0 text-primary"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
+          <section className="mb-6 overflow-hidden rounded-2xl border border-line border-l-4 border-l-primary bg-surface">
+            <div className="px-5 pb-4 pt-4">
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-[18px] w-[18px] shrink-0 text-primary"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.8}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                  />
+                </svg>
+                <h2 className="font-jost text-lg font-semibold text-ink">Two Ways To Be Open</h2>
+              </div>
+              <div className="mt-3 space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <svg
+                    className="mt-0.5 h-4 w-4 shrink-0 text-ink-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.8}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                    />
+                  </svg>
+                  <p className="font-jost text-[13px] leading-snug text-ink-2">
+                    This week&apos;s hours — one-off time you&apos;re free.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-[-1px] w-4 shrink-0 text-center font-jost text-[15px] leading-none text-primary">
+                    ↻
+                  </span>
+                  <p className="font-jost text-[13px] leading-snug text-ink-2">
+                    Regular slots — kept every week; clients book them as standing cleans.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-primary-soft px-5 py-2.5">
+              <p className="font-jost text-[12px] font-medium text-primary">
+                Steady money lives in the ↻ hours.
+              </p>
+            </div>
+          </section>
+
+          {/* ── 3. Week header — stacked, pagers flanking ── */}
+          <div className="mb-3 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (weekOffset > 0) {
+                  haptic('light');
+                  setWeekOffset((o) => o - 1);
+                }
+              }}
+              disabled={weekOffset === 0}
+              aria-label="Previous week"
+              className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-              />
-            </svg>
-            <h2 className="font-jost text-lg font-semibold text-ink">Two Ways To Be Open</h2>
-          </div>
-          <div className="mt-3 space-y-2.5">
-            <div className="flex items-start gap-2.5">
               <svg
-                className="mt-0.5 h-4 w-4 shrink-0 text-ink-2"
+                className="h-4 w-4"
                 fill="none"
                 viewBox="0 0 24 24"
-                strokeWidth={1.8}
+                strokeWidth={2}
                 stroke="currentColor"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                  d="M15.75 19.5L8.25 12l7.5-7.5"
                 />
               </svg>
-              <p className="font-jost text-[13px] leading-snug text-ink-2">
-                This week&apos;s hours — one-off time you&apos;re free.
+            </button>
+            <div className="text-center">
+              <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+                Week Commencing
+              </p>
+              <p className="font-jost text-[22px] font-bold leading-tight text-primary">
+                {weekCommencing}
               </p>
             </div>
-            <div className="flex items-start gap-2.5">
-              <span className="mt-[-1px] w-4 shrink-0 text-center font-jost text-[15px] leading-none text-primary">
-                ↻
-              </span>
-              <p className="font-jost text-[13px] leading-snug text-ink-2">
-                Regular slots — kept every week; clients book them as standing cleans.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-primary-soft px-5 py-2.5">
-          <p className="font-jost text-[12px] font-medium text-primary">
-            Steady money lives in the ↻ hours.
-          </p>
-        </div>
-      </section>
-
-      {/* ── 3. Week header — stacked, pagers flanking ── */}
-      <div className="mb-3 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => {
-            if (weekOffset > 0) {
-              haptic('light');
-              setWeekOffset((o) => o - 1);
-            }
-          }}
-          disabled={weekOffset === 0}
-          aria-label="Previous week"
-          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-        <div className="text-center">
-          <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-            Week Commencing
-          </p>
-          <p className="font-jost text-[22px] font-bold leading-tight text-primary">
-            {weekCommencing}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (weekOffset < MAX_WEEK_OFFSET) {
-              haptic('light');
-              setWeekOffset((o) => o + 1);
-            }
-          }}
-          disabled={weekOffset === MAX_WEEK_OFFSET}
-          aria-label="Next week"
-          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
-      </div>
-
-      {/* ── 4. The week card ── */}
-      <section className="mb-4 overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="divide-y divide-line/60">
-          {week.map((d) => {
-            const on = !d.eff.off && d.eff.ranges.length > 0;
-            if (d.isPast) {
-              return (
-                <div key={d.iso} className="flex items-center justify-between px-5 py-3 opacity-40">
-                  <div className="min-h-[44px] flex-1 py-1">
-                    <span className="font-jost text-[15px] text-ink-3">{d.label}</span>
-                    <span className="block font-jost text-[13px] text-ink-3">
-                      {on ? rowText(d.eff.ranges) : 'Off'}
-                    </span>
-                  </div>
-                </div>
-              );
-            }
-            if (d.blank) {
-              return (
-                <button
-                  key={d.iso}
-                  type="button"
-                  onClick={() => openDate(d.iso, d.day)}
-                  className="flex w-full items-center justify-between px-5 py-3 text-left active:bg-page"
-                >
-                  <div className="min-h-[44px] flex-1 py-1">
-                    <span className="font-jost text-[15px] text-ink-3">{d.label}</span>
-                    <span className="block font-jost text-[13px] font-medium text-primary">
-                      + Add Hours
-                    </span>
-                  </div>
-                </button>
-              );
-            }
-            return (
-              <div
-                key={d.iso}
-                className={`flex items-center justify-between px-5 py-3 ${
-                  d.dirty ? 'bg-primary-soft/40' : ''
-                }`}
+            <button
+              type="button"
+              onClick={() => {
+                if (weekOffset < MAX_WEEK_OFFSET) {
+                  haptic('light');
+                  setWeekOffset((o) => o + 1);
+                }
+              }}
+              disabled={weekOffset === MAX_WEEK_OFFSET}
+              aria-label="Next week"
+              className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    on
-                      ? openDate(d.iso, d.day)
-                      : shadowedByBlock(d)
-                        ? goToTimeOff()
-                        : toggleWeekDay(d.iso)
-                  }
-                  className="min-h-[44px] flex-1 py-1 text-left"
-                >
-                  <span
-                    className={`font-jost text-[15px] ${on ? 'font-medium text-ink' : 'text-ink-3'}`}
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+
+          {/* ── 4. The week card ── */}
+          <section className="mb-4 overflow-hidden rounded-2xl border border-line bg-surface">
+            <div className="divide-y divide-line/60">
+              {week.map((d) => {
+                const on = !d.eff.off && d.eff.ranges.length > 0;
+                if (d.isPast) {
+                  return (
+                    <div
+                      key={d.iso}
+                      className="flex items-center justify-between px-5 py-3 opacity-40"
+                    >
+                      <div className="min-h-[44px] flex-1 py-1">
+                        <span className="font-jost text-[15px] text-ink-3">{d.label}</span>
+                        <span className="block font-jost text-[13px] text-ink-3">
+                          {on ? rowText(d.eff.ranges) : 'Off'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (d.blank) {
+                  return (
+                    <button
+                      key={d.iso}
+                      type="button"
+                      onClick={() => openDate(d.iso, d.day)}
+                      className="flex w-full items-center justify-between px-5 py-3 text-left active:bg-page"
+                    >
+                      <div className="min-h-[44px] flex-1 py-1">
+                        <span className="font-jost text-[15px] text-ink-3">{d.label}</span>
+                        <span className="block font-jost text-[13px] font-medium text-primary">
+                          + Add Hours
+                        </span>
+                      </div>
+                    </button>
+                  );
+                }
+                return (
+                  <div
+                    key={d.iso}
+                    className={`flex items-center justify-between px-5 py-3 ${
+                      d.dirty ? 'bg-primary-soft/40' : ''
+                    }`}
                   >
-                    {d.label}
-                  </span>
-                  <span
-                    className={`block font-jost text-[13px] ${on ? 'text-ink-2' : 'text-ink-3'}`}
-                  >
-                    {on ? (
-                      <>
-                        {d.recurring && <RecurMark />}
-                        {rowText(d.eff.ranges)}
-                      </>
-                    ) : shadowedByBlock(d) ? (
-                      /* 4a (James-ruled): a stored block shadowing real hours
+                    <button
+                      type="button"
+                      onClick={() =>
+                        on
+                          ? openDate(d.iso, d.day)
+                          : shadowedByBlock(d)
+                            ? goToTimeOff()
+                            : toggleWeekDay(d.iso)
+                      }
+                      className="min-h-[44px] flex-1 py-1 text-left"
+                    >
+                      <span
+                        className={`font-jost text-[15px] ${on ? 'font-medium text-ink' : 'text-ink-3'}`}
+                      >
+                        {d.label}
+                      </span>
+                      <span
+                        className={`block font-jost text-[13px] ${on ? 'text-ink-2' : 'text-ink-3'}`}
+                      >
+                        {on ? (
+                          <>
+                            {d.recurring && <RecurMark />}
+                            {rowText(d.eff.ranges)}
+                          </>
+                        ) : shadowedByBlock(d) ? (
+                          /* 4a (James-ruled): a stored block shadowing real hours
                          says WHY the day is off, and the tap goes to the block
                          (the lift path), not the toggle. Time Off precedence
                          untouched — visibility only. */
-                      <span className="font-medium text-primary" data-testid="off-blocked">
-                        Off — Blocked ›
+                          <span className="font-medium text-primary" data-testid="off-blocked">
+                            Off — Blocked ›
+                          </span>
+                        ) : (
+                          'Off'
+                        )}
                       </span>
-                    ) : (
-                      'Off'
-                    )}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleWeekDay(d.iso)}
-                  role="switch"
-                  aria-checked={on}
-                  aria-label={`${d.label} availability`}
-                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    on ? 'bg-primary' : 'bg-ink-3/30'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
-                      on ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleWeekDay(d.iso)}
+                      role="switch"
+                      aria-checked={on}
+                      aria-label={`${d.label} availability`}
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                        on ? 'bg-primary' : 'bg-ink-3/30'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
+                          on ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
-      {/* ── 5. SET MY WEEK ── */}
-      <button
-        type="button"
-        onClick={setMyWeek}
-        disabled={!anyDirty || weekSaving}
-        data-testid="set-my-week"
-        className="mb-3 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white active:opacity-80 disabled:opacity-40"
-      >
-        {weekSaving ? 'Saving…' : `Set My Week — ${hrsStr(weekHoursOpen)} Hrs Open`}
-      </button>
-      <button
-        type="button"
-        onClick={clearThisWeek}
-        data-testid="clear-week"
-        className="mb-6 w-full py-2 text-center font-jost text-[13px] font-medium text-ink-3 active:opacity-70"
-      >
-        Clear This Week
-      </button>
+          {/* ── 5. SET MY WEEK ── */}
+          <button
+            type="button"
+            onClick={setMyWeek}
+            disabled={!anyDirty || weekSaving}
+            data-testid="set-my-week"
+            className="mb-3 w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white active:opacity-80 disabled:opacity-40"
+          >
+            {weekSaving ? 'Saving…' : `Set My Week — ${hrsStr(weekHoursOpen)} Hrs Open`}
+          </button>
+          <button
+            type="button"
+            onClick={clearThisWeek}
+            data-testid="clear-week"
+            className="mb-6 w-full py-2 text-center font-jost text-[13px] font-medium text-ink-3 active:opacity-70"
+          >
+            Clear This Week
+          </button>
+        </>
+      )}
+
+      {view === 'month' && (
+        <MonthView
+          monthOffset={monthOffset}
+          setMonthOffset={setMonthOffset}
+          todayIso={todayIso}
+          capIso={capIso}
+          dayInfo={dayInfo}
+          jobDays={jobDays}
+          onTapDay={openDate}
+        />
+      )}
+
+      {/* Month view commit: the month's SET MY WEEK — a sticky bar the moment
+          anything is staged. Same commit function, same endpoints; cross-week
+          staging is the stagedDays contract (c3563c8). */}
+      {view === 'month' && anyDirty && (
+        <div className="fixed inset-x-4 bottom-4 z-40">
+          <button
+            type="button"
+            onClick={setMyWeek}
+            disabled={weekSaving}
+            data-testid="month-save"
+            className="w-full rounded-[12px] bg-primary px-4 py-3 font-jost text-base font-semibold uppercase tracking-[0.04em] text-white shadow-lg active:opacity-80 disabled:opacity-40"
+          >
+            {/* The count measures against the SAVED state (weekly, not the
+                staged template) — an "Every [Day]" staging must count its day
+                even though it mirrors the staged template. */}
+            {(() => {
+              const changed = Object.entries(plan).filter(([iso, eff]) => {
+                const day = JS_DAY_TO_API[new Date(`${iso}T00:00:00`).getDay()];
+                const isB = blocked.some((b) => b.date === iso);
+                const custom = (dateSlots[iso]?.length ?? 0) > 0;
+                const base: DayPlan = {
+                  off: isB,
+                  ranges: custom ? dateSlots[iso] : weekly[day],
+                };
+                return eff.off !== base.off || !rangesEqual(eff.ranges, base.ranges);
+              }).length;
+              const n = Math.max(changed, templateDirty ? 1 : 0);
+              return weekSaving ? 'Saving…' : `Save Changes — ${n} Day${n === 1 ? '' : 's'}`;
+            })()}
+          </button>
+        </div>
+      )}
 
       {/* ── 6. W6: settings rows ── */}
       <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface">
@@ -1332,6 +1475,15 @@ export default function AvailabilityAppPage() {
             </div>
           )}
 
+          {blocked.some((b) => b.date === editing.date) && (
+            <p
+              className="mt-4 rounded-lg bg-warning/10 px-3 py-2 font-jost text-[13px] text-warning"
+              data-testid="sheet-block-note"
+            >
+              This day is blocked (Time Off). Saving hours lifts the block for this date.
+            </p>
+          )}
+
           {editError && <p className="mt-3 font-jost text-[13px] text-danger">{editError}</p>}
 
           {/* 4b (James-ruled): Time Off ahead on this weekday, surfaced once.
@@ -1402,6 +1554,190 @@ export default function AvailabilityAppPage() {
         </Sheet>
       )}
     </div>
+  );
+}
+
+// ── Month view (James-ruled, mockup spec): standard Mon–Sun grid over the SAME
+// day-state resolver the week card uses. Open = navy tint (↻ when template),
+// job = green dot, time off = struck/faded, past + beyond-cap = dead, today
+// ringed. Tap = the same hours sheet; everything stages; the sticky bar
+// commits through setMyWeek. Pure derivation — no fetches of its own beyond
+// the page's existing reads.
+function MonthView({
+  monthOffset,
+  setMonthOffset,
+  todayIso,
+  capIso,
+  dayInfo,
+  jobDays,
+  onTapDay,
+}: {
+  monthOffset: number;
+  setMonthOffset: (fn: (o: number) => number) => void;
+  todayIso: string;
+  capIso: string;
+  dayInfo: (iso: string) => {
+    day: ApiDay;
+    eff: DayPlan;
+    recurring: boolean;
+    isBlockedStored: boolean;
+    dirty: boolean;
+  };
+  jobDays: Record<string, true>;
+  onTapDay: (iso: string, day: ApiDay) => void;
+}) {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const cap = new Date(`${capIso}T00:00:00`);
+  // Months page forward only as far as the editing cap's month (same law as
+  // the week pager); back stays dead at the current month.
+  const maxOffset =
+    (cap.getFullYear() - now.getFullYear()) * 12 + (cap.getMonth() - now.getMonth());
+  const lead = (new Date(target.getFullYear(), target.getMonth(), 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  const monthName = target.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  return (
+    <section className="mb-6" data-testid="month-view">
+      <div className="mb-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            if (monthOffset > 0) {
+              haptic('light');
+              setMonthOffset((o) => o - 1);
+            }
+          }}
+          disabled={monthOffset === 0}
+          aria-label="Previous month"
+          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+        <p className="font-jost text-[15px] font-semibold text-ink" data-testid="month-name">
+          {monthName}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (monthOffset < maxOffset) {
+              haptic('light');
+              setMonthOffset((o) => o + 1);
+            }
+          }}
+          disabled={monthOffset >= maxOffset}
+          aria-label="Next month"
+          className="rounded-full border border-line p-2 text-ink-2 active:bg-page disabled:opacity-30"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface p-3">
+        <div className="mb-1 grid grid-cols-7 gap-1">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+            <span
+              key={i}
+              className="text-center font-jost text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3"
+            >
+              {d}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1" data-testid="month-grid">
+          {Array.from({ length: lead }, (_, i) => (
+            <span key={`b${i}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const dnum = i + 1;
+            const iso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(dnum).padStart(2, '0')}`;
+            const info = dayInfo(iso);
+            const isPast = iso < todayIso;
+            const beyondCap = iso > capIso;
+            const dead = isPast || beyondCap;
+            const isToday = iso === todayIso;
+            const open = !info.eff.off && info.eff.ranges.length > 0;
+            const struck = info.eff.off;
+            const hasJob = !!jobDays[iso];
+            const cls = [
+              'relative flex h-11 flex-col items-center justify-center rounded-lg font-jost text-[13px]',
+              dead
+                ? 'text-ink-3/40'
+                : open
+                  ? 'bg-primary-soft font-medium text-primary'
+                  : struck
+                    ? 'text-ink-3 line-through opacity-60'
+                    : 'text-ink-2',
+              isToday ? 'ring-2 ring-primary' : '',
+              !dead ? 'active:opacity-70' : '',
+            ].join(' ');
+            const marks = (
+              <>
+                <span>{dnum}</span>
+                <span className="flex h-2 items-center gap-0.5 leading-none">
+                  {open && info.recurring && !dead && (
+                    <span className="text-[9px] text-primary">↻</span>
+                  )}
+                  {hasJob && !isPast && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-trust" data-testid="job-dot" />
+                  )}
+                </span>
+              </>
+            );
+            return dead ? (
+              <span key={iso} className={cls} data-iso={iso} data-dead="1">
+                {marks}
+              </span>
+            ) : (
+              <button
+                key={iso}
+                type="button"
+                className={cls}
+                data-iso={iso}
+                onClick={() => onTapDay(iso, info.day)}
+              >
+                {marks}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div
+        className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1"
+        data-testid="month-legend"
+      >
+        <span className="flex items-center gap-1.5 font-jost text-[11px] text-ink-3">
+          <span className="h-3 w-3 rounded bg-primary-soft" /> Open
+        </span>
+        <span className="flex items-center gap-1.5 font-jost text-[11px] text-ink-3">
+          <span className="text-[11px] text-primary">↻</span> Repeats
+        </span>
+        <span className="flex items-center gap-1.5 font-jost text-[11px] text-ink-3">
+          <span className="h-1.5 w-1.5 rounded-full bg-trust" /> Booked
+        </span>
+        <span className="flex items-center gap-1.5 font-jost text-[11px] text-ink-3">
+          <span className="line-through">15</span> Time off
+        </span>
+      </div>
+    </section>
   );
 }
 
