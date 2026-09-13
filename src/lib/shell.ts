@@ -38,6 +38,19 @@ export function isShellUA(): boolean {
 }
 
 /**
+ * Server-side CUSTOMER-shell detection — the Rena customer app's request
+ * signature (`x-rena-shell: app-…` header, or the RenaApp/ UA suffix).
+ * Value-aware like isRenaShell: the two shells never open each other's gates.
+ */
+export function isCustomerShell(headers: { get(name: string): string | null }): boolean {
+  const shellHeader = headers.get(SHELL_HEADER);
+  if (shellHeader && /^app-/i.test(shellHeader.trim())) return true;
+
+  const ua = headers.get('user-agent') || '';
+  return /\bRenaApp\//i.test(ua);
+}
+
+/**
  * Client-side CUSTOMER-shell detection (the Rena customer app appends
  * `RenaApp/<version>` to its WebView User-Agent). Matches RenaApp/ ONLY —
  * never a loosened regex (James-ruled): the two shells' skins must be

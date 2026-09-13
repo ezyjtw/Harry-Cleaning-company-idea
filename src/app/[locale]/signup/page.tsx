@@ -6,12 +6,26 @@ import { signIn } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import { isCustomerShellUA } from '@/lib/shell';
 import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
 export default function SignupPage() {
   const router = useRouter();
   const [role, setRole] = useState<'CLIENT' | 'CLEANER' | null>(null);
+  // Customer shell (James-ruled): in-shell signup is customer-only — the role
+  // chooser never shows, role pre-sets to CLIENT, and the join-as-cleaner
+  // door stays website-only. Effect-only, mount-gated (RenaApp UA or the
+  // ?shell=1 preview cookie, the CustomerShellChrome condition) — SSR and the
+  // hydration pass render the chooser for everyone, so browser HTML is
+  // byte-identical.
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (!isCustomerShellUA() && !preview) return;
+    setInShell(true);
+    setRole('CLIENT');
+  }, []);
   const [form, setForm] = useState({
     // H45: split like the cleaner wizard — first + last, both required,
     // each displayName-cased and combined into the stored name.
@@ -349,16 +363,20 @@ export default function SignupPage() {
               Log in
             </Link>
           </p>
-          <p className="mt-3 font-jost text-sm font-light text-ink-3">
-            Not a client?{' '}
-            <button
-              type="button"
-              onClick={() => setRole(null)}
-              className="font-normal text-ink hover:text-gold transition"
-            >
-              Go back
-            </button>
-          </p>
+          {/* In-shell this door would reopen the (cleaner-recruiting) chooser —
+              customer shell hides it; browsers keep it exactly as before. */}
+          {!inShell && (
+            <p className="mt-3 font-jost text-sm font-light text-ink-3">
+              Not a client?{' '}
+              <button
+                type="button"
+                onClick={() => setRole(null)}
+                className="font-normal text-ink hover:text-gold transition"
+              >
+                Go back
+              </button>
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -68,6 +68,10 @@ export async function GET(request: NextRequest) {
           client: { select: { id: true, name: true, image: true } },
           review: true,
           dispute: { select: { id: true } },
+          // Customer app Phase 2 (additive, read-only): non-null frequency
+          // marks a recurring occurrence — the ↻ on Home/My Cleans cards.
+          // Mirrors the cleaner-jobs API's F24.1 field.
+          agreement: { select: { frequency: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,

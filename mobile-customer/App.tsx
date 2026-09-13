@@ -103,12 +103,12 @@ const SANS_SEMI = 'Jost-SemiBold';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Tab bar (James-ruled, the approved mockup): five slots, BOOK raised centre.
-// Home points at /account as the placeholder until the L2 Home builds in
-// Phase 2; the rest wrap their portal routes.
+// Phase 2: Home and Book are purpose-built L2 pages; the rest wrap their
+// portal routes (My Cleans arrives skinned in-shell).
 const TABS = [
-  { key: 'home', label: 'Home', path: '/en/account', icon: 'home' },
+  { key: 'home', label: 'Home', path: '/en/app/home', icon: 'home' },
   { key: 'mycleans', label: 'My Cleans', path: '/en/account/bookings', icon: 'sparkles' },
-  { key: 'book', label: 'Book', path: '/en/services', icon: 'add' },
+  { key: 'book', label: 'Book', path: '/en/app/book', icon: 'add' },
   { key: 'cleaners', label: 'Cleaners', path: '/en/cleaners', icon: 'people' },
   { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
 ] as const;
@@ -123,7 +123,7 @@ type Phase = 'boot' | 'locked' | 'start' | 'login' | 'signup' | 'forgot' | 'wron
 // bare /account so My Cleans doesn't read as Home.
 function tabRootKey(url: string): string | null {
   const m = url.match(
-    /^https?:\/\/[^/]+\/(?:en\/)?(?:(account\/bookings)|(account)|(services)|(cleaners)|(messages))\/?(?:[?#].*)?$/
+    /^https?:\/\/[^/]+\/(?:en\/)?(?:(account\/bookings)|(app\/home)|(app\/book)|(cleaners)|(messages))\/?(?:[?#].*)?$/
   );
   if (!m) return null;
   if (m[1]) return 'mycleans';
@@ -294,7 +294,7 @@ function RootView() {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     const url = `${BASE_URL}/api/auth/session-bridge?code=${encodeURIComponent(
       bridgeCode
-    )}&callbackUrl=${encodeURIComponent('/en/account')}`;
+    )}&callbackUrl=${encodeURIComponent('/en/app/home')}`;
     setBridgeUrl(url);
     setActiveTab('home');
     setPhase('shell');
@@ -937,7 +937,7 @@ function SeamlessWebView({
     // the spent code and renders the bridge's 401.
     if (
       onBridged &&
-      /\/account(\?|#|$)/.test(nav.url) &&
+      /\/app\/home(\?|#|$)/.test(nav.url) &&
       !nav.url.includes('/api/auth/session-bridge')
     ) {
       onBridged();
