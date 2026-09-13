@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { isShellUA } from '@/lib/shell';
+import { isAnyShellUA } from '@/lib/shell';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -49,9 +49,10 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-10 text-center">
-          {/* James-ruled escape-hatch seal: in-shell the wordmark keeps its
-              face but loses its road to the marketing home. */}
-          {isShellUA() ? (
+          {/* James-ruled escape-hatch seal: in-shell (EITHER shell — the
+              customer app joins Pro here) the wordmark keeps its face but
+              loses its road to the marketing home. */}
+          {isAnyShellUA() ? (
             <span className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink">
               RENA
             </span>

@@ -30,6 +30,7 @@ import {
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import { isCustomerShellUA } from '@/lib/shell';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 import type { ServiceCategory, KeyAccess, RoomConfig, Cleaner } from '@/lib/types';
 import { isValidPostcode } from '@/lib/utils/postcode';
@@ -570,6 +571,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   const selectedTime24 = dateTimeSelection?.time24 || '';
   const selectedTimeDisplay = dateTimeSelection?.time || '';
   const todayIso = new Date().toISOString().split('T')[0];
+  // Customer-shell back-chain law (James's on-device find): in-shell the
+  // quote flow's BACK door returns to the Book tab, never the marketing
+  // homepage. Mount-gated — SSR and browsers keep href="/" untouched.
+  const [inCustomerShell, setInCustomerShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setInCustomerShell(true);
+  }, []);
   const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>(
     preSelectedCleanerId ? [preSelectedCleanerId] : []
   );
@@ -1238,9 +1247,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   if (phase === 'quote') {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream min-h-screen">
-        {/* Back link */}
+        {/* Back link — in-shell it re-targets the Book tab (back-chain law). */}
         <Link
-          href="/"
+          href={inCustomerShell ? '/app/book' : '/'}
           className="group inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">

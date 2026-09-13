@@ -58,8 +58,14 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="lg:flex lg:gap-8">
-        {/* Mobile: horizontal tabs */}
-        <nav className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden">
+        {/* Mobile: horizontal tabs. The id is the customer-shell chrome hook:
+            in-shell the L2 skin owns titles and navigation, so this strip
+            hides under body.rena-customer-shell (globals.css) — browsers are
+            untouched, same #layout-nav mechanism. */}
+        <nav
+          id="account-nav-mobile"
+          className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden"
+        >
           {navItems.map((item) => (
             <NavLink
               surface="account-tabs"
@@ -85,8 +91,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
           ))}
         </nav>
 
-        {/* Desktop: sidebar */}
-        <aside className="hidden lg:block lg:w-56 lg:shrink-0">
+        {/* Desktop: sidebar — same customer-shell hide hook. */}
+        <aside id="account-nav-desktop" className="hidden lg:block lg:w-56 lg:shrink-0">
           <nav className="sticky top-24 space-y-1 rounded-xl border border-line bg-surface p-2 shadow-sm">
             {navItems.map((item) => (
               <NavLink
