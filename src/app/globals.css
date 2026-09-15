@@ -263,6 +263,16 @@
   body.rena-customer-shell #layout-footer {
     display: none;
   }
+
+  /* Customer-shell leak fix (James's on-device find): the account area's OWN
+     chrome — its horizontal tab strip and desktop sidebar — survived the
+     nav/footer hide. In-shell the L2 skin owns titles and navigation; the
+     website wrapper contributes content only. Same body-class guarantee:
+     browsers never match. */
+  body.rena-customer-shell #account-nav-mobile,
+  body.rena-customer-shell #account-nav-desktop {
+    display: none;
+  }
 }
 
 /* ─── Rena Pro shell-skin (item 6) ────────────────────────────────────────────

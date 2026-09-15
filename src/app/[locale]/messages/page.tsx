@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
-import { isShellUA } from '@/lib/shell';
+import { isCustomerShellUA, isShellUA } from '@/lib/shell';
 import { detectContactInfo } from '@/lib/utils/pii';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -359,7 +359,13 @@ export default function MessagesPage() {
             link at all. Same role-aware link as the list header. */}
         <Link
           href={
-            currentUserRole === 'cleaner' ? (isShellUA() ? '/app/today' : '/cleaner') : '/account'
+            currentUserRole === 'cleaner'
+              ? isShellUA()
+                ? '/app/today'
+                : '/cleaner'
+              : isCustomerShellUA()
+                ? '/app/home'
+                : '/account'
           }
           className="mb-6 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
         >
@@ -415,7 +421,13 @@ export default function MessagesPage() {
               links only since the junction batch). */}
           <Link
             href={
-              currentUserRole === 'cleaner' ? (isShellUA() ? '/app/today' : '/cleaner') : '/account'
+              currentUserRole === 'cleaner'
+                ? isShellUA()
+                  ? '/app/today'
+                  : '/cleaner'
+                : isCustomerShellUA()
+                  ? '/app/home'
+                  : '/account'
             }
             className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
           >

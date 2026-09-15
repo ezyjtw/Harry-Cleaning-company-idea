@@ -172,12 +172,21 @@ export default function SignupPage() {
     <div className="flex min-h-[70vh] items-center justify-center bg-cream px-4 py-16">
       <div className="w-full max-w-md">
         <div className="text-center">
-          <Link
-            href="/"
-            className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
-          >
-            RENA
-          </Link>
+          {/* Escape-hatch seal (the Pro forgot-password precedent): in-shell
+              the wordmark keeps its face but loses its road to the marketing
+              home. Browsers keep the link exactly as before. */}
+          {inShell ? (
+            <span className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink">
+              RENA
+            </span>
+          ) : (
+            <Link
+              href="/"
+              className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
+            >
+              RENA
+            </Link>
+          )}
           <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
             Create Your Account
           </h1>
