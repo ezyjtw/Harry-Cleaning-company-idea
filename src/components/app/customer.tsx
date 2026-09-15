@@ -61,6 +61,39 @@ export function dateEyebrow(): string {
     .toUpperCase();
 }
 
+// ─── Cancel machinery shapes (shared: My Cleans skin + booking tracker) ─────
+// Moved verbatim from /account/bookings — one source, byte-identical copy.
+export interface CancelPreview {
+  canCancel: boolean;
+  refundPercent: number;
+  refundAmount: number;
+  reason?: string;
+  /** Short-notice grace deadline (ISO) — present while the grace window is live. */
+  graceUntil?: string;
+}
+
+export function refundMessage(p: CancelPreview): string {
+  if (p.refundAmount <= 0) {
+    return p.refundPercent <= 0
+      ? 'No refund — this booking is within 24 hours of the start time. Cancelling now forfeits payment.'
+      : 'No payment was captured, so there is nothing to refund.';
+  }
+  if (p.refundPercent >= 100) {
+    // James-ruled short-notice grace: while it's live, say so and show the
+    // real deadline so the customer knows how long the free window lasts.
+    if (p.graceUntil) {
+      const until = new Date(p.graceUntil).toLocaleString('en-GB', {
+        hour: 'numeric',
+        minute: '2-digit',
+        weekday: 'short',
+      });
+      return `You'll receive a full refund of £${p.refundAmount.toFixed(2)} — you're inside your free-cancellation window (ends ${until}).`;
+    }
+    return `You'll receive a full refund of £${p.refundAmount.toFixed(2)}.`;
+  }
+  return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;
+}
+
 export function initialsOf(name: string): string {
   return name
     .split(' ')

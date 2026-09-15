@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 import {
+  type CancelPreview,
   CustomerAvatar,
   dayPhrase,
   fmtPounds,
   fmtSlotTime,
   NoCleansCard,
+  refundMessage,
 } from '@/components/app/customer';
 import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
@@ -68,37 +70,6 @@ const filterOptions: Array<{ label: string; value: BookingStatus | 'All' }> = [
   { label: 'Completed', value: 'Completed' },
   { label: 'Cancelled', value: 'Cancelled' },
 ];
-
-interface CancelPreview {
-  canCancel: boolean;
-  refundPercent: number;
-  refundAmount: number;
-  reason?: string;
-  /** Short-notice grace deadline (ISO) — present while the grace window is live. */
-  graceUntil?: string;
-}
-
-function refundMessage(p: CancelPreview): string {
-  if (p.refundAmount <= 0) {
-    return p.refundPercent <= 0
-      ? 'No refund — this booking is within 24 hours of the start time. Cancelling now forfeits payment.'
-      : 'No payment was captured, so there is nothing to refund.';
-  }
-  if (p.refundPercent >= 100) {
-    // James-ruled short-notice grace: while it's live, say so and show the
-    // real deadline so the customer knows how long the free window lasts.
-    if (p.graceUntil) {
-      const until = new Date(p.graceUntil).toLocaleString('en-GB', {
-        hour: 'numeric',
-        minute: '2-digit',
-        weekday: 'short',
-      });
-      return `You'll receive a full refund of £${p.refundAmount.toFixed(2)} — you're inside your free-cancellation window (ends ${until}).`;
-    }
-    return `You'll receive a full refund of £${p.refundAmount.toFixed(2)}.`;
-  }
-  return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;
-}
 
 // P4 (ledger): shared raw→card mapper — the initial load and Load more must
 // map identically or paged cards drift from page-1 cards.

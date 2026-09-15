@@ -4,6 +4,14 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import {
+  type CancelPreview,
+  CustomerAvatar,
+  dayPhrase,
+  fmtPounds,
+  fmtSlotTime,
+  refundMessage,
+} from '@/components/app/customer';
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import NavLink from '@/components/nav/NavLink';
@@ -12,6 +20,7 @@ import RescuePanel from '@/components/RescuePanel';
 import UnpaidOccurrencePanel from '@/components/UnpaidOccurrencePanel';
 import { bookingCloseState } from '@/lib/booking/close-state';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { isCustomerShellUA } from '@/lib/shell';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { formatDate } from '@/lib/utils/formatting';
 
@@ -70,6 +79,69 @@ export default function BookingDetailPage() {
   const id = String(params?.id || '');
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [state, setState] = useState<LoadState>('loading');
+
+  // Booking tracker skin (James-ruled, option B): mount-gated on the customer
+  // shell (RenaApp UA / preview cookie) — SSR + browsers render the page
+  // exactly as before; in-shell swaps the RENDER only. The page fetches once
+  // on mount and does not poll (disclosed): in-shell the status refreshes on
+  // load and on the shell's pull-to-refresh, which reloads the page.
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setInShell(true);
+  }, []);
+
+  // In-shell cancel door — the SAME machinery as /account/bookings, verbatim:
+  // dryRun preview → refundMessage copy → confirm POST. Skin, not mechanics.
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelPreview, setCancelPreview] = useState<CancelPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const startCancel = async () => {
+    setShowCancel(true);
+    setCancelPreview(null);
+    setCancelError(null);
+    setPreviewing(true);
+    try {
+      const res = await fetch(`/api/bookings/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) setCancelError(data.error || 'Could not load cancellation details.');
+      else setCancelPreview(data.preview as CancelPreview);
+    } catch {
+      setCancelError('Network error. Please try again.');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const confirmCancel = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCancelError(data.error || 'Failed to cancel booking.');
+        return;
+      }
+      setBooking((prev) => (prev ? { ...prev, status: 'CANCELLED' } : prev));
+      setShowCancel(false);
+    } catch {
+      setCancelError('Failed to cancel booking. Please try again later.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   // H40: the "Report a problem" door — the completion notification and the
   // FAQ both send customers HERE to report, but this page never had the door.
@@ -250,6 +322,448 @@ export default function BookingDetailPage() {
       <span className="text-right font-jost text-[14px] font-medium text-ink">{value}</span>
     </div>
   );
+
+  // ─── Booking tracker (in-shell render — same data, same handlers) ──────────
+  if (inShell) {
+    const st = booking.status;
+    const first = cleaner?.name ? cleaner.name.split(' ')[0] : 'Your cleaner';
+    const stageIdx =
+      st === 'COMPLETED' || st === 'REVIEWED'
+        ? 3
+        : st === 'EN_ROUTE' || st === 'IN_PROGRESS'
+          ? 2
+          : st === 'ACCEPTED' || st === 'CONFIRMED'
+            ? 1
+            : 0;
+    const headline =
+      st === 'REVIEWED'
+        ? 'All done — thanks for your review!'
+        : st === 'COMPLETED'
+          ? 'All done — how was it?'
+          : st === 'IN_PROGRESS'
+            ? `${first} is cleaning your home`
+            : st === 'EN_ROUTE'
+              ? `${first}'s on the way`
+              : st === 'ACCEPTED' || st === 'CONFIRMED'
+                ? `Confirmed for ${dayPhrase(booking.date.split('T')[0])}`
+                : "We're confirming your cleaner";
+    const subline = `${dayPhrase(booking.date.split('T')[0])} · ${fmtSlotTime(booking.startTime)} · ${serviceLabelFromSlug(booking.serviceType)}`;
+    const cancelled = st === 'CANCELLED';
+    const rescue = st === 'CLEANER_CANCELLED' && booking.viewer === 'client';
+    const done = st === 'COMPLETED' || st === 'REVIEWED';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cancellable =
+      booking.viewer === 'client' &&
+      ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'CASCADE_EXHAUSTED'].includes(st) &&
+      booking.cascadePhase !== 'PROVISIONAL_APPROVAL' &&
+      new Date(booking.date) >= today;
+    const recurring = !!booking.agreementId;
+    const stages = ['Booked', 'Confirmed', 'On the way', 'Done'];
+
+    return (
+      <div className="mx-auto w-full max-w-lg px-4 pb-24 pt-4" data-testid="tracker-page">
+        <Link
+          href="/account/bookings"
+          className="font-jost text-[13px] font-medium text-ink-3 active:opacity-70"
+        >
+          ‹ My Cleans
+        </Link>
+
+        {/* Exception heroes replace the tracker headline, never the skeleton. */}
+        {cancelled && (
+          <div
+            className="mt-3 rounded-xl border border-line bg-surface px-5 py-6 text-center"
+            data-testid="tracker-cancelled"
+          >
+            <p className="font-jost text-[17px] font-semibold text-ink-3 line-through">
+              This clean was cancelled
+            </p>
+            <p className="mt-1 font-jost text-[13px] text-ink-3">{subline}</p>
+          </div>
+        )}
+        {rescue && (
+          <div className="mt-3" data-testid="tracker-rescue">
+            <p className="font-jost text-[17px] font-semibold text-danger">
+              {first} had to cancel — choose what happens next
+            </p>
+            <p className="mb-3 mt-0.5 font-jost text-[13px] text-ink-3">{subline}</p>
+            {booking.agreementId && booking.paymentStatus !== 'SUCCEEDED' ? (
+              <UnpaidOccurrencePanel
+                bookingId={booking.id}
+                cleanerName={booking.cleaner?.name ?? null}
+                date={booking.date.split('T')[0]}
+                time={booking.startTime}
+                onResolved={() => window.location.reload()}
+              />
+            ) : (
+              <RescuePanel
+                bookingId={booking.id}
+                serviceType={booking.serviceType}
+                date={booking.date.split('T')[0]}
+                time={booking.startTime}
+                duration={Number(booking.duration)}
+                postcode={booking.addressPostcode || booking.address?.postcode || ''}
+                totalPrice={Number(booking.totalPrice)}
+                cancellerId={booking.cleaner?.id ?? null}
+                cancellerName={booking.cleaner?.name ?? null}
+                backupCleanerIds={booking.backupCleanerIds}
+                rescueDeadline={booking.rescueDeadline}
+                initialAction={searchParams.get('rescue')}
+                onResolved={() => window.location.reload()}
+              />
+            )}
+          </div>
+        )}
+
+        {!cancelled && !rescue && (
+          <div
+            className="mt-3 rounded-xl border border-line bg-surface p-5"
+            data-testid="tracker-card"
+          >
+            <p className="font-jost text-[19px] font-semibold leading-snug text-ink">{headline}</p>
+            <p className="mt-1 font-jost text-[13px] text-ink-3">{subline}</p>
+            <div className="mt-5 flex items-start" data-testid="journey-line">
+              {stages.map((label, i) => (
+                <div key={label} className="flex flex-1 flex-col items-center">
+                  <div className="flex w-full items-center">
+                    <div
+                      className={`h-0.5 flex-1 ${i === 0 ? 'bg-transparent' : i <= stageIdx ? 'bg-trust' : 'bg-line'}`}
+                    />
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                        i < stageIdx || stageIdx === 3
+                          ? 'bg-trust'
+                          : i === stageIdx
+                            ? 'bg-primary ring-4 ring-primary-soft'
+                            : 'border border-line bg-surface'
+                      }`}
+                      data-stage={
+                        i < stageIdx || stageIdx === 3
+                          ? 'done'
+                          : i === stageIdx
+                            ? 'current'
+                            : 'future'
+                      }
+                    >
+                      {i < stageIdx || stageIdx === 3 ? (
+                        <svg
+                          className={`h-3.5 w-3.5 ${i === stageIdx ? 'text-white' : 'text-white'}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={3}
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      ) : i === stageIdx ? (
+                        <span className="h-2 w-2 rounded-full bg-white" />
+                      ) : null}
+                    </div>
+                    <div
+                      className={`h-0.5 flex-1 ${i === stages.length - 1 ? 'bg-transparent' : i < stageIdx ? 'bg-trust' : 'bg-line'}`}
+                    />
+                  </div>
+                  <span
+                    className={`mt-1.5 font-jost text-[10.5px] font-semibold ${
+                      i < stageIdx || stageIdx === 3
+                        ? 'text-trust'
+                        : i === stageIdx
+                          ? 'text-primary'
+                          : 'text-ink-3'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Price-approval card slots above the facts — same machinery. */}
+        {booking.viewer === 'client' && booking.cascadePhase === 'PROVISIONAL_APPROVAL' && (
+          <div
+            className="mt-3 rounded-xl border border-warning/30 bg-warning/[0.06] p-4"
+            data-testid="tracker-approval"
+          >
+            <p className="font-jost text-[14px] font-semibold text-ink">
+              A price change of +{fmtPounds(Number(booking.topupAmount ?? 0))} needs your review
+            </p>
+            <p className="mt-1 font-jost text-[12.5px] text-ink-2">
+              New total {fmtPounds(Number(booking.provisionalPrice ?? booking.totalPrice))}. Nothing
+              is charged unless you approve — decline or do nothing and the booking stands at its
+              original price.
+            </p>
+            {approvalError && (
+              <p className="mt-1.5 font-jost text-[12.5px] text-danger">{approvalError}</p>
+            )}
+            <div className="mt-2.5 flex gap-2">
+              <button
+                onClick={() => actOnPriceChange('approve')}
+                disabled={approvalBusy}
+                className="flex-1 rounded-[10px] bg-primary py-2.5 font-jost text-[12px] font-semibold uppercase tracking-[0.08em] text-white disabled:opacity-50"
+              >
+                {approvalBusy ? 'Working…' : 'Approve'}
+              </button>
+              <button
+                onClick={() => actOnPriceChange('decline')}
+                disabled={approvalBusy}
+                className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 font-jost text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-2 disabled:opacity-50"
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Compressed person row */}
+        {cleaner?.name && (
+          <div
+            className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-surface p-4"
+            data-testid="tracker-person"
+          >
+            <CustomerAvatar photo={cleaner.image} name={cleaner.name} size={40} />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center font-jost text-[15px] font-semibold text-ink">
+                {cleaner.name}
+                <svg
+                  className="ml-1 h-3.5 w-3.5 text-trust"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2.5}
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                {Number(rating) > 0 && (
+                  <span className="ml-2 font-jost text-[12.5px] font-medium text-ink-3">
+                    ★ {Number(rating).toFixed(1)}
+                  </span>
+                )}
+              </span>
+              <span className="block truncate font-jost text-[12.5px] text-ink-3">
+                {address || serviceLabelFromSlug(booking.serviceType)} ·{' '}
+                {fmtPounds(Number(booking.totalPrice))}
+              </span>
+            </span>
+            <Link
+              href={`/messages?bookingId=${booking.id}`}
+              className="shrink-0 font-jost text-[13px] font-semibold text-primary"
+            >
+              Message ›
+            </Link>
+          </div>
+        )}
+
+        {/* The facts — for a done clean this card IS the receipt. */}
+        <div
+          className="mt-3 rounded-xl border border-line bg-surface px-4"
+          data-testid="tracker-facts"
+        >
+          {done && (
+            <p className="pt-3 font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+              Receipt
+            </p>
+          )}
+          <div className="divide-y divide-line/60">
+            <Row
+              label="When"
+              value={`${formatDate(booking.date, 'full')} · ${fmtSlotTime(booking.startTime)}`}
+            />
+            <Row
+              label="Service"
+              value={`${serviceLabelFromSlug(booking.serviceType)} · ${Number(booking.duration)}h${recurring ? ' · ↻' : ''}`}
+            />
+            {address && <Row label="Where" value={address} />}
+            <Row label="Total" value={fmtPounds(Number(booking.totalPrice))} />
+          </div>
+          {booking.notes && (
+            <p className="border-t border-line/60 py-3 font-jost text-[13px] text-ink-2">
+              {booking.notes}
+            </p>
+          )}
+        </div>
+
+        {/* Contextual doors */}
+        {cancelled && (
+          <Link
+            href="/app/book"
+            className="mt-3 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3.5 active:bg-page"
+            data-testid="tracker-book-again"
+          >
+            <span className="font-jost text-[15px] font-medium text-ink">Book Again</span>
+            <span className="font-jost text-[15px] font-semibold text-primary">›</span>
+          </Link>
+        )}
+        {done && st === 'COMPLETED' && (
+          <Link
+            href={`/account/bookings?review=${booking.id}`}
+            className="mt-3 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3.5 active:bg-page"
+            data-testid="tracker-review-door"
+          >
+            <span className="font-jost text-[15px] font-medium text-ink">Leave A Review</span>
+            <span className="font-jost text-[15px] font-semibold text-primary">›</span>
+          </Link>
+        )}
+        {done &&
+          booking.viewer === 'client' &&
+          booking.transferStatus === 'PENDING' &&
+          !booking.completionConfirmedAt &&
+          !booking.dispute && (
+            <div className="mt-3 rounded-xl border border-line bg-surface p-4">
+              <p className="font-jost text-[14px] font-medium text-ink">Happy with your clean?</p>
+              <p className="mt-1 font-jost text-[12.5px] text-ink-2">
+                Confirm you&apos;re satisfied and we&apos;ll release payment to {first} right away —
+                or it releases automatically after the completion hold.
+              </p>
+              {confirmResult && !confirmResult.ok && (
+                <p className="mt-1.5 font-jost text-[12.5px] text-danger">
+                  {confirmResult.message}
+                </p>
+              )}
+              <button
+                onClick={confirmComplete}
+                disabled={confirming}
+                className="mt-2.5 w-full rounded-[10px] bg-trust py-2.5 font-jost text-[12px] font-semibold uppercase tracking-[0.08em] text-white disabled:opacity-50"
+              >
+                {confirming ? 'Confirming…' : 'Confirm & Release Payment'}
+              </button>
+            </div>
+          )}
+        {!cancelled && !rescue && !done && cancellable && (
+          <>
+            <button
+              type="button"
+              onClick={startCancel}
+              data-testid="tracker-cancel"
+              className="mt-3 w-full rounded-[10px] border border-danger/30 py-3 font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-danger active:bg-danger/[0.06]"
+            >
+              Cancel This Clean
+            </button>
+            {showCancel && (
+              <div
+                className="mt-2 flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3"
+                data-testid="tracker-cancel-confirm"
+              >
+                {previewing ? (
+                  <span className="font-jost text-xs text-ink-2">Checking your refund…</span>
+                ) : cancelError ? (
+                  <span className="font-jost text-xs text-danger">{cancelError}</span>
+                ) : cancelPreview && !cancelPreview.canCancel ? (
+                  <span className="font-jost text-xs text-danger">
+                    {cancelPreview.reason || 'This booking can no longer be cancelled.'}
+                  </span>
+                ) : cancelPreview ? (
+                  <span className="font-jost text-xs text-ink-2">
+                    Cancel this booking? {refundMessage(cancelPreview)}
+                  </span>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {cancelPreview?.canCancel && !cancelError && (
+                    <button
+                      onClick={confirmCancel}
+                      disabled={cancelling}
+                      className="rounded-[10px] bg-danger px-3 py-2 font-jost text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowCancel(false)}
+                    disabled={cancelling}
+                    className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-xs font-medium text-ink-2 disabled:opacity-50"
+                  >
+                    {cancelPreview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Money-protection doors carried in-shell (disclosed): a reported
+            problem stays visible, and the report door stays reachable. */}
+        {booking.viewer === 'client' && booking.dispute && (
+          <p className="mt-3 rounded-[10px] border border-warning/25 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] text-ink-2">
+            A reported problem on this clean is under review.{' '}
+            <Link href="/disputes" className="font-medium text-warning underline">
+              View the case
+            </Link>
+          </p>
+        )}
+        {booking.viewer === 'client' &&
+          !booking.dispute &&
+          DISPUTABLE_STATUSES.includes(st) &&
+          (reporting ? (
+            <div className="mt-3 flex flex-col gap-2 rounded-xl border border-warning/25 bg-warning/[0.06] p-4">
+              <span className="font-jost text-[14px] font-medium text-ink">
+                Report a problem with this clean
+              </span>
+              <select
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                className="rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-[13px] text-ink focus:border-primary focus:outline-none"
+              >
+                <option value="">Select a reason…</option>
+                {DISPUTE_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                rows={3}
+                value={disputeDescription}
+                onChange={(e) => setDisputeDescription(e.target.value)}
+                placeholder="Please describe the problem…"
+                maxLength={2000}
+                className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-[13px] text-ink placeholder-ink-3 focus:border-primary focus:outline-none"
+              />
+              <p className="font-jost text-[12px] text-ink-3">
+                Reporting a problem pauses payment to your cleaner while we look into it. You can
+                add photos on the next page.
+              </p>
+              {disputeError && (
+                <span className="font-jost text-[12px] text-danger">{disputeError}</span>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={submitDispute}
+                  disabled={submittingDispute || !disputeReason || !disputeDescription.trim()}
+                  className="flex-1 rounded-[10px] bg-warning py-2.5 font-jost text-[12px] font-semibold uppercase tracking-[0.08em] text-white disabled:opacity-50"
+                >
+                  {submittingDispute ? 'Submitting…' : 'Submit Report'}
+                </button>
+                <button
+                  onClick={() => {
+                    setReporting(false);
+                    setDisputeError(null);
+                  }}
+                  disabled={submittingDispute}
+                  className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 font-jost text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-2 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setReporting(true)}
+              className="mt-3 block w-full text-center font-jost text-[12.5px] font-medium text-ink-3 underline active:opacity-70"
+              data-testid="tracker-report"
+            >
+              Something wrong? Report a problem
+            </button>
+          ))}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
