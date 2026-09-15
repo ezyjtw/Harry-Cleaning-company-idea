@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
+import { FlowBar, FlowStep } from '@/components/app/customer';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
@@ -579,6 +580,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
     if (isCustomerShellUA() || preview) setInCustomerShell(true);
   }, []);
+  // Step-frame numbering: entered cleaner-first (?cleaner=…), the pick room
+  // was Step 1, so the wizard continues 2 → 3 → 4; service-first it is 1 → 3.
+  const flowOffset = preSelectedCleanerId ? 1 : 0;
+  const flowTotal = preSelectedCleanerId ? 4 : 3;
+  // Step-frame law: the cflow body class powers the in-shell CSS upsizing
+  // (globals.css) — browsers never carry it.
+  useEffect(() => {
+    if (!inCustomerShell) return;
+    document.body.classList.add('rena-cflow');
+    return () => document.body.classList.remove('rena-cflow');
+  }, [inCustomerShell]);
   const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>(
     preSelectedCleanerId ? [preSelectedCleanerId] : []
   );
@@ -1144,6 +1156,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
+        {inCustomerShell && <FlowStep n={3 + flowOffset} total={flowTotal} />}
         <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
           Complete Payment
         </h1>
@@ -1247,6 +1260,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   if (phase === 'quote') {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream min-h-screen">
+        {inCustomerShell && <FlowStep n={1 + flowOffset} total={flowTotal} />}
         {/* Back link — in-shell it re-targets the Book tab (back-chain law). */}
         <Link
           href={inCustomerShell ? '/app/book' : '/'}
@@ -1869,12 +1883,25 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               // clicking names what's missing instead of silently refusing.
               // Only the honest area-blocks (with their own label) stay disabled.
               disabled={outsideCatchment || noEligibleCleaners}
+              data-cflow-cta
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {outsideCatchment || noEligibleCleaners
                 ? 'Not yet available in your area'
                 : 'Continue'}
             </button>
+            {/* Step-frame law: sticky running-price bar proxies the button above. */}
+            {inCustomerShell && (
+              <FlowBar
+                price={
+                  (priceBreakdown.discountedTotal ||
+                    (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
+                    0) + productCost
+                }
+                label="Continue"
+                disabled={outsideCatchment || noEligibleCleaners}
+              />
+            )}
           </div>
           {/* End left column */}
 
@@ -2281,6 +2308,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             type="button"
             onClick={() => handleBookingSubmit()}
             disabled={bookingSubmitting}
+            data-cflow-cta
             className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
@@ -2967,6 +2995,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               type="button"
               onClick={() => handleBookingSubmit()}
               disabled={bookingSubmitting}
+              data-cflow-cta
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingSubmitting ? 'Submitting\u2026' : 'Submit Booking Request'}
@@ -2990,6 +3019,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
+      {inCustomerShell && <FlowStep n={2 + flowOffset} total={flowTotal} />}
+      {inCustomerShell && currentStep === 'booking' && (
+        <FlowBar
+          price={
+            (priceBreakdown.discountedTotal ||
+              (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
+              0) + productCost
+          }
+          label="Continue"
+          disabled={bookingSubmitting}
+        />
+      )}
       {/* ── Step indicator bar ── */}
       <div className="relative">
         {/* Back button */}
@@ -3622,6 +3663,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               type="button"
               onClick={() => handleBookingSubmit()}
               disabled={bookingSubmitting}
+              data-cflow-cta
               className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}

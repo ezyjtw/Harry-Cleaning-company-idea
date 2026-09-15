@@ -61,6 +61,97 @@ export function dateEyebrow(): string {
     .toUpperCase();
 }
 
+// ─── Booking-flow frame (James-ruled): step eyebrow + sticky price bar ──────
+// In-shell only — the pages render these behind their mounted customer-shell
+// gates. The bar's CTA proxies the page's OWN primary control (first element
+// carrying data-cflow-cta), so every click runs the existing handler —
+// skin, not mechanics.
+export function FlowStep({ n, total = 3, title }: { n: number; total?: number; title?: string }) {
+  return (
+    <div className="mb-3 mt-1" data-testid="flow-step">
+      <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+        Step {n} of {total}
+      </p>
+      {title && (
+        <p className="mt-1 font-jost text-[22px] font-semibold leading-tight text-ink">{title}</p>
+      )}
+    </div>
+  );
+}
+
+export function FlowBar({
+  price,
+  label,
+  disabled,
+}: {
+  price?: number | null;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-surface px-4 pt-3"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
+      data-testid="flow-bar"
+    >
+      <div className="mx-auto flex max-w-lg items-center gap-3">
+        {typeof price === 'number' && price > 0 && (
+          <span
+            className="shrink-0 font-jost text-[19px] font-semibold text-ink"
+            data-testid="flow-bar-price"
+          >
+            {fmtPounds(price)}
+          </span>
+        )}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            const cta = document.querySelector<HTMLElement>('[data-cflow-cta]');
+            cta?.click();
+          }}
+          className="flex-1 rounded-[10px] bg-primary py-3.5 font-jost text-[13px] font-semibold uppercase tracking-[0.12em] text-white active:opacity-90 disabled:opacity-50"
+        >
+          {label}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Cancel machinery shapes (shared: My Cleans skin + booking tracker) ─────
+// Moved verbatim from /account/bookings — one source, byte-identical copy.
+export interface CancelPreview {
+  canCancel: boolean;
+  refundPercent: number;
+  refundAmount: number;
+  reason?: string;
+  /** Short-notice grace deadline (ISO) — present while the grace window is live. */
+  graceUntil?: string;
+}
+
+export function refundMessage(p: CancelPreview): string {
+  if (p.refundAmount <= 0) {
+    return p.refundPercent <= 0
+      ? 'No refund — this booking is within 24 hours of the start time. Cancelling now forfeits payment.'
+      : 'No payment was captured, so there is nothing to refund.';
+  }
+  if (p.refundPercent >= 100) {
+    // James-ruled short-notice grace: while it's live, say so and show the
+    // real deadline so the customer knows how long the free window lasts.
+    if (p.graceUntil) {
+      const until = new Date(p.graceUntil).toLocaleString('en-GB', {
+        hour: 'numeric',
+        minute: '2-digit',
+        weekday: 'short',
+      });
+      return `You'll receive a full refund of £${p.refundAmount.toFixed(2)} — you're inside your free-cancellation window (ends ${until}).`;
+    }
+    return `You'll receive a full refund of £${p.refundAmount.toFixed(2)}.`;
+  }
+  return `You'll receive a ${p.refundPercent}% refund of £${p.refundAmount.toFixed(2)}.`;
+}
+
 export function initialsOf(name: string): string {
   return name
     .split(' ')

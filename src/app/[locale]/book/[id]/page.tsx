@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
+import { FlowBar, FlowStep } from '@/components/app/customer';
 import AvailableNowBadge from '@/components/AvailableNowBadge';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
@@ -28,6 +29,7 @@ import {
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
+import { isCustomerShellUA } from '@/lib/shell';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 import type { ServiceCategory } from '@/lib/types';
 import { formatDate } from '@/lib/utils/formatting';
@@ -241,6 +243,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   });
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
+  // Customer-shell step-frame law (mount-gated; browsers byte-identical).
+  const [inCustomerShell, setInCustomerShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setInCustomerShell(true);
+  }, []);
+  useEffect(() => {
+    if (!inCustomerShell) return;
+    document.body.classList.add('rena-cflow');
+    return () => document.body.classList.remove('rena-cflow');
+  }, [inCustomerShell]);
   const [submitted] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
   // A16b-1: synchronous double-submit guard — fires before React re-renders the
@@ -835,6 +848,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-page">
+        {inCustomerShell && <FlowStep n={1} total={4} />}
         {/* Cleaner header (S-C) */}
         <CleanerIdentity
           photo={cleaner.photo}
@@ -914,6 +928,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:max-w-6xl lg:px-8 bg-page">
+      {inCustomerShell && <FlowStep n={2} total={2} />}
+      {inCustomerShell && (
+        <FlowBar
+          price={priceBreakdown ? priceBreakdown.total : null}
+          label="Continue"
+          disabled={paymentPending}
+        />
+      )}
       {!isExpress && (
         <button
           onClick={() => setStep('service')}
@@ -1421,6 +1443,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
             <button
               type="submit"
+              data-cflow-cta
               disabled={paymentPending || (isFixedPriceService(form.serviceType) && !serverQuote)}
               className={`w-full py-3 font-jost text-lg font-normal text-white disabled:opacity-60 ${
                 isLastMinute

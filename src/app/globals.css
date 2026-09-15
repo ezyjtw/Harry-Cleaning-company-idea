@@ -275,6 +275,27 @@
   }
 }
 
+/* ─── Customer booking-flow skin (James-ruled step-frame law) ─────────────────
+   Unlayered so it out-ranks Tailwind utilities. The rena-cflow class is added
+   by the flow pages themselves ONLY under the customer shell / preview — a
+   browser never matches, so the money path's web markup is untouched. Large
+   tappable inputs (16px text also stops iOS zoom-on-focus), thumb-height
+   controls, and room at the bottom for the sticky price bar. */
+body.rena-customer-shell.rena-cflow main input,
+body.rena-customer-shell.rena-cflow main select {
+  font-size: 16px;
+  min-height: 48px;
+}
+body.rena-customer-shell.rena-cflow main textarea {
+  font-size: 16px;
+}
+body.rena-customer-shell.rena-cflow main button {
+  min-height: 44px;
+}
+body.rena-customer-shell.rena-cflow main {
+  padding-bottom: 110px;
+}
+
 /* ─── Rena Pro shell-skin (item 6) ────────────────────────────────────────────
    Renders the Jobs + Earnings portal pages app-fit when viewed INSIDE the native
    shell. Unlayered (not inside @layer) so it out-ranks Tailwind's utilities

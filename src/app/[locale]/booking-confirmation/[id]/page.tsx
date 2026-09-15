@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, useCallback } from 'react';
 
+import { dayPhrase, fmtSlotTime } from '@/components/app/customer';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import JunkMailHint from '@/components/JunkMailHint';
 import StarRating from '@/components/StarRating';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { isCustomerShellUA } from '@/lib/shell';
 import { formatDate } from '@/lib/utils/formatting';
 
 /** Green circle-check pinned to the headshot — mirrors CleanerIdentity's VerifiedCheck. */
@@ -37,6 +39,12 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
   // which used to leave a paid guest stuck on the spinner forever).
   const searchParams = useSearchParams();
   const guestToken = searchParams.get('gt');
+  // Celebration room (customer shell, mount-gated — browsers byte-identical).
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setInShell(true);
+  }, []);
   // F3: every guest link to the tracking page must CARRY the token — the page
   // hard-requires it, so an untokened link dead-ends at "No booking token".
   const guestTrackUrl = guestToken
@@ -195,6 +203,22 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
         : '.';
     return (
       <div className="mx-auto max-w-xl px-4 py-16 sm:py-20">
+        {/* Celebration tick (in-shell): the big green moment above the hero. */}
+        {inShell && (
+          <div className="mb-2 flex justify-center" data-testid="celebration-tick">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-trust/10">
+              <svg
+                className="h-9 w-9 text-trust"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </span>
+          </div>
+        )}
         {/* Trust eyebrow (James-signed) */}
         <p className="text-center font-jost text-[11px] font-semibold uppercase tracking-[0.18em] text-trust">
           ✓ Booking confirmed
@@ -210,9 +234,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
               </div>
 
               <h1 className="mt-4 font-newsreader text-3xl font-semibold text-ink">
-                {cleanerAccepted
-                  ? `${firstName} is confirmed for your clean`
-                  : `Your clean has been offered to ${firstName}`}
+                {inShell && cleanerAccepted
+                  ? `You're booked — ${dayPhrase(booking.date.split('T')[0])} at ${fmtSlotTime(booking.startTime)} with ${firstName}`
+                  : cleanerAccepted
+                    ? `${firstName} is confirmed for your clean`
+                    : `Your clean has been offered to ${firstName}`}
               </h1>
               {!cleanerAccepted && (
                 <p className="mt-2 font-jost text-[13px] font-light text-ink-2">
@@ -269,6 +295,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           <Link href={`/booking/${params.id}`} className={primaryBtn}>
             View booking
           </Link>
+          {inShell && (
+            <Link href="/app/home" className={outlineBtn} data-testid="celebration-done">
+              Done
+            </Link>
+          )}
           {isAuthenticated ? (
             <Link href={`/messages?bookingId=${params.id}`} className={outlineBtn}>
               Message {firstName}
