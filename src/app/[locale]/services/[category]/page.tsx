@@ -1157,6 +1157,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
         {inCustomerShell && <FlowStep n={3 + flowOffset} total={flowTotal} />}
+        {/* Checkout exception (one-action law): Stripe's own "Pay £X" is the
+            single door — the bar here carries NO action, just the order total. */}
+        {inCustomerShell && <FlowBar price={totalPrice + productCost} />}
         <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
           Complete Payment
         </h1>
@@ -1898,7 +1901,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
                     0) + productCost
                 }
-                label="Continue"
+                // Mirror the inline button's honest truth — wording included,
+                // since the one-action law now hides the original.
+                label={
+                  outsideCatchment || noEligibleCleaners
+                    ? 'Not yet available in your area'
+                    : 'Continue'
+                }
                 disabled={outsideCatchment || noEligibleCleaners}
               />
             )}
@@ -3020,17 +3029,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
       {inCustomerShell && <FlowStep n={2 + flowOffset} total={flowTotal} />}
-      {inCustomerShell && currentStep === 'booking' && (
-        <FlowBar
-          price={
-            (priceBreakdown.discountedTotal ||
-              (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
-              0) + productCost
-          }
-          label="Continue"
-          disabled={bookingSubmitting}
-        />
-      )}
+      {inCustomerShell &&
+        currentStep === 'booking' &&
+        // Fixed-price rooms only mount their Confirm CTA once a slot is
+        // picked — until then there is nothing for the bar to proxy (or
+        // hide), so it stays off rather than presenting a dead door.
+        (!isFixedPrice(category) || (!!selectedDate && !!selectedTime24)) && (
+          <FlowBar
+            price={
+              (priceBreakdown.discountedTotal ||
+                (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
+                0) + productCost
+            }
+            label="Continue"
+            disabled={bookingSubmitting}
+          />
+        )}
       {/* ── Step indicator bar ── */}
       <div className="relative">
         {/* Back button */}
