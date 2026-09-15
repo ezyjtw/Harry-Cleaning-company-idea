@@ -1,1 +1,11 @@
+# Main is merge-only (James-ruled, after two session slips): plain commits on
+# main are refused mechanically. `git merge` does not run this hook, so merges
+# land as ever; work commits belong on the session branch.
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branch" = "main" ]; then
+  echo "✗ Refused: direct commits on main are forbidden — main is merge-only."
+  echo "  Switch to the session branch and commit there."
+  exit 1
+fi
+
 npx lint-staged
