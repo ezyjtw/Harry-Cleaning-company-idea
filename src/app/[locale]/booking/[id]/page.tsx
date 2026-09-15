@@ -341,7 +341,7 @@ export default function BookingDetailPage() {
         : st === 'COMPLETED'
           ? 'All done — how was it?'
           : st === 'IN_PROGRESS'
-            ? `${first} is cleaning your home`
+            ? 'Clean in progress'
             : st === 'EN_ROUTE'
               ? `${first}'s on the way`
               : st === 'ACCEPTED' || st === 'CONFIRMED'
