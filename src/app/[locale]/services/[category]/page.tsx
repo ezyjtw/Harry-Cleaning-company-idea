@@ -2404,17 +2404,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         identityVerified={c.identityVerified}
                         backgroundChecked={c.backgroundChecked}
                       />
-                      {c.availableNow && (
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
-                          </span>
-                          <span className="font-jost text-[11px] font-medium text-ink">
-                            Available now
-                          </span>
-                        </span>
-                      )}
+                      {/* "Available now" chip retired (James-sanctioned, same-day
+                          UI sweep) — the availableNow data/system is untouched. */}
                     </div>
                     <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
                       <StarRating rating={c.rating} />

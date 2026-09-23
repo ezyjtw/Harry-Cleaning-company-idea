@@ -138,6 +138,7 @@ export default function CleanerProfileView({
   data,
   availability,
   mobileBar = 'sticky',
+  nameAs = 'h2',
 }: {
   data: CleanerProfileData;
   availability?: ReactNode;
@@ -145,7 +146,12 @@ export default function CleanerProfileView({
    *  scroll container (the modal); the standalone page has none, so it passes
    *  'fixed' to pin the bar to the viewport. */
   mobileBar?: 'sticky' | 'fixed';
+  /** James-sanctioned SEO fix: the standalone /cleaners/[id] page passes 'h1'
+   *  (its proper page heading); the in-modal render keeps 'h2'. Visual output
+   *  is identical — the classes carry the styling. */
+  nameAs?: 'h1' | 'h2';
 }) {
+  const NameTag = nameAs;
   const verifications = [
     data.idVerified && 'ID Verified',
     data.insured && 'Insured',
@@ -165,9 +171,9 @@ export default function CleanerProfileView({
           <Avatar name={data.name} photo={data.photo} size={72} />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <h2 className="font-newsreader text-[24px] font-semibold leading-tight text-ink">
+              <NameTag className="font-newsreader text-[24px] font-semibold leading-tight text-ink">
                 {data.name}
-              </h2>
+              </NameTag>
               {data.founding && <FoundingBadge size="md" />}
             </div>
             <div className="mt-1 flex items-center gap-2">

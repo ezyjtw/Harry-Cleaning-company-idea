@@ -6,7 +6,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
 import { FlowBar, FlowStep } from '@/components/app/customer';
-import AvailableNowBadge from '@/components/AvailableNowBadge';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
@@ -964,7 +963,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       {isExpress && cleaner.availableNow && (
         <div className="mt-4 bg-primary-soft p-4" style={{ border: '0.5px solid #E4E9F0' }}>
           <div className="flex items-center gap-3">
-            <AvailableNowBadge />
+            {/* AvailableNowBadge retired (James-sanctioned) — banner text stands. */}
             <span className="font-jost text-sm font-light text-ink-2">
               Same-day rate:{' '}
               <strong className="font-normal text-ink">

@@ -27,7 +27,10 @@ const MARKETING_ROUTES = new Set([
   '/pricing',
   '/guarantees',
   '/cleaning',
-  '/regular-clean',
+  // '/regular-clean' left the set (ledger clearance): the bare path is now
+  // its own redirect page — in-shell it lands /app/book (ruled), never
+  // rendering marketing content, so the backstop's /app/home would only
+  // out-race the ruled destination.
   '/services', // the bare sales landing — the flow's /services/[category] steps stay sanctioned
 ]);
 
