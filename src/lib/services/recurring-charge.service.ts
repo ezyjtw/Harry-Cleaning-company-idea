@@ -251,7 +251,12 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
   const unpaid = await prisma.booking.findMany({
     where: {
       status: 'SCHEDULED',
-      paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION'] },
+      // RECORD-TRUTH (James-ruled): CANCELED joins the pool — an occurrence
+      // whose intent died (pay-now opened then abandoned, or a legacy
+      // canceled-webhook stomp) is still unpaid and must not escape the
+      // T-24h cut. The claim below re-asserts the same unpaid set — the
+      // safety beneath: SUCCEEDED can never be swept.
+      paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION', 'CANCELED'] },
       date: { lte: new Date(now + CANCEL_CUTOFF_HOURS * HOUR_MS) },
     },
     select: {
@@ -280,7 +285,7 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
       where: {
         id: b.id,
         status: 'SCHEDULED',
-        paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION'] },
+        paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION', 'CANCELED'] },
       },
       data: {
         status: 'CANCELLED',

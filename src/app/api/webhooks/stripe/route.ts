@@ -1,3 +1,4 @@
+import type { PaymentStatus } from '@prisma/client';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
@@ -200,20 +201,34 @@ export async function POST(request: NextRequest) {
         where: { id: bookingId },
         select: { status: true, agreementId: true },
       });
+      // RECORD-TRUTH (James-ruled): every FAILED write here is a guarded
+      // updateMany — the failing intent must BE the stored one, and a paid
+      // state is never regressed (Stripe events can arrive out of order; a
+      // late failed event from attempt 1 must not stomp attempt 2's success).
+      const NON_REGRESSIVE: PaymentStatus[] = ['SUCCEEDED', 'REFUNDED', 'PARTIALLY_REFUNDED'];
       if (failedBooking?.agreementId && failedBooking.status === 'SCHEDULED') {
-        await prisma.booking.update({
-          where: { id: bookingId },
+        await prisma.booking.updateMany({
+          where: {
+            id: bookingId,
+            stripePaymentIntentId: pi.id,
+            paymentStatus: { notIn: NON_REGRESSIVE },
+          },
           data: { paymentStatus: 'FAILED' },
         });
         // eslint-disable-next-line no-console
         console.log(
           `[RecurringCharge] payment_failed webhook for occurrence ${bookingId} — marked FAILED, messaging owned by the charge service`
         );
+        await markProcessed();
         return NextResponse.json({ received: true });
       }
 
-      await prisma.booking.update({
-        where: { id: bookingId },
+      const failClaim = await prisma.booking.updateMany({
+        where: {
+          id: bookingId,
+          stripePaymentIntentId: pi.id,
+          paymentStatus: { notIn: NON_REGRESSIVE },
+        },
         data: { paymentStatus: 'FAILED' },
       });
 
@@ -226,45 +241,50 @@ export async function POST(request: NextRequest) {
       // customer's own retry: a success after it landed money on a CANCELLED
       // booking (SKIPPED_ALREADY, unswept). Removed on the ruled shape.
 
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: { client: { select: { name: true, email: true } } },
-      });
+      // The failure email rides the guarded claim: a stale or mismatched
+      // failed event (guard missed — intent replaced, or the booking already
+      // paid) must not tell a customer their payment failed.
+      if (failClaim.count > 0) {
+        const booking = await prisma.booking.findUnique({
+          where: { id: bookingId },
+          include: { client: { select: { name: true, email: true } } },
+        });
 
-      // F5: guests hear about failed payments too — same email, guest recipient
-      // ("you have NOT been charged" is in the template for both audiences).
-      const failureMessage = pi.last_payment_error?.message || 'Payment could not be processed';
-      // Lane A → Lane B hand-off: while the booking is still alive (PENDING),
-      // the failure email carries the Finish door — tokened for guests, plain
-      // for authed customers, the pay-now email's convention.
-      const failureAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
-      const finishUrl =
-        booking?.status === 'PENDING'
-          ? booking.client
-            ? `${failureAppUrl}/booking/${bookingId}/finish`
-            : `${failureAppUrl}/booking/${bookingId}/finish?token=${encodeURIComponent(booking.guestToken ?? '')}`
-          : undefined;
-      if (booking && !booking.client && booking.guestEmail) {
-        await sendPaymentFailureNotification(
-          {
-            bookingId,
-            customerName: booking.guestName || 'there',
-            reason: failureMessage,
-            finishUrl,
-          },
-          { name: booking.guestName || 'there', email: booking.guestEmail }
-        ).catch(() => {});
-      }
-      if (booking?.client) {
-        await sendPaymentFailureNotification(
-          {
-            bookingId,
-            customerName: booking.client.name || 'Customer',
-            reason: failureMessage,
-            finishUrl,
-          },
-          { name: booking.client.name || 'Customer', email: booking.client.email }
-        ).catch(() => {});
+        // F5: guests hear about failed payments too — same email, guest recipient
+        // ("you have NOT been charged" is in the template for both audiences).
+        const failureMessage = pi.last_payment_error?.message || 'Payment could not be processed';
+        // Lane A → Lane B hand-off: while the booking is still alive (PENDING),
+        // the failure email carries the Finish door — tokened for guests, plain
+        // for authed customers, the pay-now email's convention.
+        const failureAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+        const finishUrl =
+          booking?.status === 'PENDING'
+            ? booking.client
+              ? `${failureAppUrl}/booking/${bookingId}/finish`
+              : `${failureAppUrl}/booking/${bookingId}/finish?token=${encodeURIComponent(booking.guestToken ?? '')}`
+            : undefined;
+        if (booking && !booking.client && booking.guestEmail) {
+          await sendPaymentFailureNotification(
+            {
+              bookingId,
+              customerName: booking.guestName || 'there',
+              reason: failureMessage,
+              finishUrl,
+            },
+            { name: booking.guestName || 'there', email: booking.guestEmail }
+          ).catch(() => {});
+        }
+        if (booking?.client) {
+          await sendPaymentFailureNotification(
+            {
+              bookingId,
+              customerName: booking.client.name || 'Customer',
+              reason: failureMessage,
+              finishUrl,
+            },
+            { name: booking.client.name || 'Customer', email: booking.client.email }
+          ).catch(() => {});
+        }
       }
     }
   }
@@ -274,8 +294,14 @@ export async function POST(request: NextRequest) {
     const bookingId = pi.metadata?.bookingId;
 
     if (bookingId) {
-      await prisma.booking.update({
-        where: { id: bookingId },
+      // RECORD-TRUTH (James-ruled): same guarded shape as payment_failed —
+      // the intent must be the stored one, and a paid state never regresses.
+      await prisma.booking.updateMany({
+        where: {
+          id: bookingId,
+          stripePaymentIntentId: pi.id,
+          paymentStatus: { notIn: ['SUCCEEDED', 'REFUNDED', 'PARTIALLY_REFUNDED'] },
+        },
         data: { paymentStatus: 'REQUIRES_ACTION' },
       });
     }
@@ -286,14 +312,20 @@ export async function POST(request: NextRequest) {
     const bookingId = pi.metadata?.bookingId;
 
     if (bookingId) {
-      await prisma.booking.update({
-        where: { id: bookingId },
+      // RECORD-TRUTH (James-ruled): this handler writes ONLY when the
+      // cancelled intent IS the booking's stored intent. A replaced intent
+      // (R1-B pay-now cancels the old off-session PI after minting its
+      // successor) must never stomp the row that now belongs to the new
+      // intent — that stomp reverted the honest FAILED chip and let an
+      // abandoned pay-now occurrence escape the T-24h sweep.
+      await prisma.booking.updateMany({
+        where: { id: bookingId, stripePaymentIntentId: pi.id },
         data: { paymentStatus: 'CANCELED' },
       });
       // Teardown (see payment_failed) — free the slot for a booking that never
-      // went live. Guarded on PENDING.
+      // went live. Guarded on PENDING + the same intent identity.
       await prisma.booking.updateMany({
-        where: { id: bookingId, status: 'PENDING' },
+        where: { id: bookingId, status: 'PENDING', stripePaymentIntentId: pi.id },
         data: { status: 'CANCELLED' },
       });
     }

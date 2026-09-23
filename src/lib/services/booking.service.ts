@@ -144,62 +144,8 @@ export async function getBookingsByCleaner(cleanerId: string) {
   }));
 }
 
-export async function updateBookingStatus(id: string, status: string) {
-  const statusMap: Record<string, string> = {
-    pending: 'PENDING',
-    'awaiting-cleaner': 'AWAITING_CLEANER',
-    confirmed: 'CONFIRMED',
-    accepted: 'ACCEPTED',
-    'in-progress': 'IN_PROGRESS',
-    completed: 'COMPLETED',
-    cancelled: 'CANCELLED',
-  };
-
-  const prismaStatus = statusMap[status.toLowerCase()] || status.toUpperCase();
-  const now = new Date();
-
-  const updateData: Record<string, unknown> = {
-    status: prismaStatus,
-  };
-
-  if (prismaStatus === 'ACCEPTED') updateData.acceptedAt = now;
-  if (prismaStatus === 'IN_PROGRESS') updateData.checkedInAt = now;
-  if (prismaStatus === 'COMPLETED') updateData.completedAt = now;
-  if (prismaStatus === 'CANCELLED') {
-    updateData.cancelledAt = now;
-  }
-
-  const booking = await prisma.booking.update({
-    where: { id },
-    data: updateData,
-  });
-
-  return {
-    id: booking.id,
-    status: booking.status.toLowerCase(),
-  };
-}
-
-// (cancelBooking removed — THE FENCE, James-ruled: it was a naked CANCELLED
-// write with no Stripe kill, no refund and zero callers. All cancellation
-// flows ride executeCancellation in cancellation.service.)
-
-export async function rescheduleBooking(id: string, newDate: string, newTime: string) {
-  const booking = await prisma.booking.findUnique({ where: { id } });
-  if (!booking) return null;
-
-  const updated = await prisma.booking.update({
-    where: { id },
-    data: {
-      date: new Date(newDate),
-      startTime: newTime,
-    },
-  });
-
-  return {
-    id: updated.id,
-    date: updated.date.toISOString().split('T')[0],
-    time: updated.startTime,
-    status: updated.status.toLowerCase(),
-  };
-}
+// (cancelBooking, updateBookingStatus and rescheduleBooking removed — THE
+// FENCE + RECORD-TRUTH lanes, James-ruled: all three were naked lifecycle
+// writes with no Stripe awareness and zero callers. Cancellation rides
+// executeCancellation in cancellation.service; status transitions and
+// reschedules live with their owning flows.)
