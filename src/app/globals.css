@@ -295,6 +295,14 @@ body.rena-customer-shell.rena-cflow main button {
 body.rena-customer-shell.rena-cflow main {
   padding-bottom: 110px;
 }
+/* One-action-per-screen: while the sticky action bar is mounted (it sets
+   cflow-bar-on on body), the page's inline primary — the bar's proxy
+   target — hides, leaving the bar as the single visible door. A label-less
+   bar (checkout's order-total strip) never sets the class, so Stripe's own
+   Pay button stays the sole door there. */
+body.cflow-bar-on [data-cflow-cta] {
+  display: none;
+}
 
 /* ─── Rena Pro shell-skin (item 6) ────────────────────────────────────────────
    Renders the Jobs + Earnings portal pages app-fit when viewed INSIDE the native

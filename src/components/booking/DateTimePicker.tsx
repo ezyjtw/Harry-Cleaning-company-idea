@@ -347,7 +347,7 @@ export default function DateTimePicker({
                     <span className="mt-0.5 text-[10px] font-light text-ink-3/70">Booked</span>
                   )}
                   {isUnavailable && !isFullyBooked && (
-                    <span className="mt-0.5 text-[10px] font-light text-ink-3/50">—</span>
+                    <span className="mt-0.5 text-[10px] font-light text-ink-3/50">No slots</span>
                   )}
                 </button>
               );
@@ -374,7 +374,7 @@ export default function DateTimePicker({
           </button>
           <div
             ref={scrollRef}
-            className="flex gap-2 overflow-x-auto px-1 pb-2 scrollbar-hide"
+            className="flex gap-2 overflow-x-auto overscroll-x-none px-1 pb-2 scrollbar-hide"
             style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
           >
             {weekDates.map((dateStr) => {
@@ -420,7 +420,7 @@ export default function DateTimePicker({
                     <span className="mt-0.5 text-[9px] font-light text-ink-3/70">Full</span>
                   )}
                   {isUnavailable && !isFullyBooked && (
-                    <span className="mt-0.5 text-[9px] font-light text-ink-3/50">—</span>
+                    <span className="mt-0.5 text-[9px] font-light text-ink-3/50">No slots</span>
                   )}
                 </button>
               );
@@ -447,7 +447,9 @@ export default function DateTimePicker({
       {/* Time selection — appears below calendar after date click */}
       {selectedDate && (
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-          <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">{timeLabel}</h2>
+          <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+            {timeLabel}
+          </h2>
           {timeSubtitle && (
             <p className="mt-2 font-jost text-sm font-light text-ink-3">{timeSubtitle}</p>
           )}

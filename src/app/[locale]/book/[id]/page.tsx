@@ -622,6 +622,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   if (paymentStep && clientSecret) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-page">
+        {/* Checkout exception (one-action law): Stripe's own "Pay £X" is the
+            single door — the bar here carries NO action, just the order total. */}
+        {inCustomerShell && <FlowBar price={priceBreakdown.total} />}
         <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
           Complete Payment
         </h1>

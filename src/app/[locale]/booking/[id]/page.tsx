@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   type CancelPreview,
@@ -10,7 +10,9 @@ import {
   dayPhrase,
   fmtPounds,
   fmtSlotTime,
+  isUnpaidPending,
   refundMessage,
+  UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
@@ -119,6 +121,19 @@ export default function BookingDetailPage() {
       setPreviewing(false);
     }
   };
+
+  // Home's unpaid card's Cancel door lands here with ?cancel=1 — auto-OPEN
+  // the same dryRun preview (never auto-confirm; the customer still taps
+  // Confirm cancellation themselves). One shot, in-shell, PENDING only.
+  const autoCancelFired = useRef(false);
+  useEffect(() => {
+    if (autoCancelFired.current || !inShell || !booking) return;
+    if (searchParams.get('cancel') === '1' && booking.status === 'PENDING') {
+      autoCancelFired.current = true;
+      startCancel();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inShell, booking, searchParams]);
 
   const confirmCancel = async () => {
     setCancelling(true);
@@ -327,16 +342,21 @@ export default function BookingDetailPage() {
   if (inShell) {
     const st = booking.status;
     const first = cleaner?.name ? cleaner.name.split(' ')[0] : 'Your cleaner';
-    const stageIdx =
-      st === 'COMPLETED' || st === 'REVIEWED'
+    // Honest unpaid state (ruled): unpaid-PENDING speaks plainly and lights
+    // no journey progress — stageIdx -1 leaves every stage unlit.
+    const unpaid = isUnpaidPending(st, booking.paymentStatus);
+    const stageIdx = unpaid
+      ? -1
+      : st === 'COMPLETED' || st === 'REVIEWED'
         ? 3
         : st === 'EN_ROUTE' || st === 'IN_PROGRESS'
           ? 2
           : st === 'ACCEPTED' || st === 'CONFIRMED'
             ? 1
             : 0;
-    const headline =
-      st === 'REVIEWED'
+    const headline = unpaid
+      ? 'Payment incomplete'
+      : st === 'REVIEWED'
         ? 'All done — thanks for your review!'
         : st === 'COMPLETED'
           ? 'All done — how was it?'
@@ -423,6 +443,25 @@ export default function BookingDetailPage() {
           >
             <p className="font-jost text-[19px] font-semibold leading-snug text-ink">{headline}</p>
             <p className="mt-1 font-jost text-[13px] text-ink-3">{subline}</p>
+            {unpaid && (
+              <p
+                className="mt-2 font-jost text-[13px] text-ink-2"
+                data-testid="tracker-unpaid-note"
+              >
+                {UNPAID_EXPIRY_LINE}
+              </p>
+            )}
+            {/* Finish door (ruled): primary, beside the quiet-red Cancel that
+                already renders below for PENDING. */}
+            {unpaid && (
+              <Link
+                href={`/booking/${id}/finish`}
+                data-testid="tracker-finish"
+                className="mt-3.5 block rounded-[10px] bg-primary py-3 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
+              >
+                Finish Payment
+              </Link>
+            )}
             <div className="mt-5 flex items-start" data-testid="journey-line">
               {stages.map((label, i) => (
                 <div key={label} className="flex flex-1 flex-col items-center">

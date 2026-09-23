@@ -9,8 +9,10 @@ import {
   dayPhrase,
   fmtPounds,
   fmtSlotTime,
+  isUnpaidPending,
   NoCleansCard,
   refundMessage,
+  UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
 import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
@@ -32,6 +34,7 @@ interface Booking {
   price: number;
   status: BookingStatus;
   rawStatus: string;
+  paymentStatus: string;
   cascadePhase: string | null;
   /** H11: live only while CLEANER_CANCELLED — drives the action-needed card. */
   rescueDeadline: string | null;
@@ -96,6 +99,7 @@ function toBookingItem(b: Record<string, unknown>): Booking {
     price: Number(b.totalPrice || b.price || 0),
     status: mapStatus(String(b.status || 'PENDING'), b.cascadePhase as string | null | undefined),
     rawStatus: String(b.status || 'PENDING').toUpperCase(),
+    paymentStatus: String(b.paymentStatus || 'PENDING').toUpperCase(),
     cascadePhase: (b.cascadePhase as string | null) ?? null,
     rescueDeadline: (b.rescueDeadline as string | null) ?? null,
     // A12: build from booking columns (helper falls back to legacy relation).
@@ -502,9 +506,18 @@ export default function BookingsPage() {
       'CASCADE_EXHAUSTED',
       'CLEANER_CANCELLED',
     ];
+    // Honest unpaid state (ruled): unpaid-PENDING rows stay in the Upcoming
+    // tab (they are future-dated and cancellable) but pin to the top and
+    // render as their own "Payment incomplete" card — never as an upcoming
+    // clean. Stable sort keeps date order within each group.
     const upcoming = bookings
       .filter((b) => UPCOMING_RAW.includes(b.rawStatus))
-      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+      .sort(
+        (a, b) =>
+          Number(isUnpaidPending(b.rawStatus, b.paymentStatus)) -
+          Number(isUnpaidPending(a.rawStatus, a.paymentStatus))
+      );
     const past = bookings
       .filter((b) => !UPCOMING_RAW.includes(b.rawStatus))
       .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
@@ -539,115 +552,198 @@ export default function BookingsPage() {
               <NoCleansCard />
             ) : (
               <>
-                {upcoming.map((b) => (
-                  <div
-                    key={b.fullId}
-                    className="rounded-xl border border-line bg-surface p-4"
-                    data-testid="mc-card"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-jost text-[18px] font-semibold text-primary">
-                        {dayPhrase(b.date)}, {fmtSlotTime(b.time)}
-                      </p>
-                      <p className="font-jost text-[18px] font-semibold text-ink">
-                        {fmtPounds(b.price)}
-                      </p>
-                    </div>
-                    <div className="mt-2.5 flex items-center gap-3">
-                      <CustomerAvatar photo={b.cleanerImage} name={b.cleanerName} size={36} />
-                      <div className="min-w-0">
-                        <p className="truncate font-jost text-[15px] font-medium text-ink">
-                          {b.cleanerName}
+                {upcoming.map((b) =>
+                  isUnpaidPending(b.rawStatus, b.paymentStatus) ? (
+                    /* Honest unpaid card — Cancel is the only door (ruled). */
+                    <div
+                      key={b.fullId}
+                      className="rounded-xl border border-warning/30 bg-warning/[0.06] p-4"
+                      data-testid="mc-unpaid-card"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-jost text-[16px] font-semibold text-ink">
+                          Payment incomplete
                         </p>
-                        <p className="font-jost text-[13px] text-ink-3">
-                          {serviceLabelFromSlug(b.serviceType)}
-                          {b.duration > 0 &&
-                            ` · ${b.duration} ${b.duration === 1 ? 'hour' : 'hours'}`}
-                          {b.recurring && ' · ↻'}
+                        <p className="font-jost text-[16px] font-semibold text-ink">
+                          {fmtPounds(b.price)}
                         </p>
                       </div>
-                    </div>
-
-                    {/* Action-needed states stay unmissable in-shell too. */}
-                    {b.rawStatus === 'CLEANER_CANCELLED' && (
-                      <Link
-                        href={`/booking/${b.fullId}`}
-                        className="mt-3 block rounded-[10px] border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-danger"
-                      >
-                        Your cleaner had to cancel — choose what happens next ›
-                      </Link>
-                    )}
-                    {b.cascadePhase === 'PROVISIONAL_APPROVAL' && (
-                      <Link
-                        href={`/booking/${b.fullId}/approve-topup`}
-                        className="mt-3 block rounded-[10px] border border-warning/30 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-warning"
-                      >
-                        Price change awaiting your review ›
-                      </Link>
-                    )}
-
-                    <div className="mt-3.5 flex items-center gap-2.5">
-                      <Link
-                        href={`/messages?bookingId=${b.fullId}`}
-                        className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-ink active:bg-page"
-                      >
-                        Message
-                      </Link>
-                      {canShowCancel(b) && (
-                        <button
-                          type="button"
-                          onClick={() => startCancel(b.fullId)}
-                          data-testid="mc-cancel"
-                          className="flex-1 rounded-[10px] border border-danger/30 py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-danger active:bg-danger/[0.06]"
+                      <p className="mt-1 font-jost text-[13px] text-ink-2">
+                        {dayPhrase(b.date)}, {fmtSlotTime(b.time)} ·{' '}
+                        {serviceLabelFromSlug(b.serviceType)}
+                      </p>
+                      <p className="mt-2 font-jost text-[13px] text-ink-3">{UNPAID_EXPIRY_LINE}</p>
+                      <div className="mt-3.5 flex items-center gap-2.5">
+                        <Link
+                          href={`/booking/${b.fullId}/finish`}
+                          data-testid="mc-finish-door"
+                          className="flex-1 rounded-[10px] bg-primary py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
                         >
-                          Cancel
-                        </button>
+                          Finish Payment
+                        </Link>
+                        {canShowCancel(b) && (
+                          <button
+                            type="button"
+                            onClick={() => startCancel(b.fullId)}
+                            data-testid="mc-cancel"
+                            className="flex-1 rounded-[10px] border border-danger/30 py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-danger active:bg-danger/[0.06]"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                      {/* Same cancel machinery, same POST — shared block below. */}
+                      {cancelId === b.fullId && (
+                        <div
+                          className="mt-3 flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3"
+                          data-testid="mc-cancel-confirm"
+                        >
+                          {previewing ? (
+                            <span className="font-jost text-xs text-ink-2">
+                              Checking your refund…
+                            </span>
+                          ) : cancelError ? (
+                            <span className="font-jost text-xs text-danger">{cancelError}</span>
+                          ) : preview && !preview.canCancel ? (
+                            <span className="font-jost text-xs text-danger">
+                              {preview.reason || 'This booking can no longer be cancelled.'}
+                            </span>
+                          ) : preview ? (
+                            <span className="font-jost text-xs text-ink-2">
+                              Cancel this booking? {refundMessage(preview)}
+                            </span>
+                          ) : null}
+                          <div className="flex flex-wrap gap-2">
+                            {preview?.canCancel && !cancelError && (
+                              <button
+                                onClick={() => confirmCancel(b.fullId)}
+                                disabled={cancelling}
+                                className="rounded-[10px] bg-danger px-3 py-2 font-jost text-xs font-medium text-white disabled:opacity-50"
+                              >
+                                {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                              </button>
+                            )}
+                            <button
+                              onClick={dismissCancel}
+                              disabled={cancelling}
+                              className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-xs font-medium text-ink-2 disabled:opacity-50"
+                            >
+                              {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
-
-                    {/* Cancel confirm — today's beat, today's copy, same POST. */}
-                    {cancelId === b.fullId && (
-                      <div
-                        className="mt-3 flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3"
-                        data-testid="mc-cancel-confirm"
-                      >
-                        {previewing ? (
-                          <span className="font-jost text-xs text-ink-2">
-                            Checking your refund…
-                          </span>
-                        ) : cancelError ? (
-                          <span className="font-jost text-xs text-danger">{cancelError}</span>
-                        ) : preview && !preview.canCancel ? (
-                          <span className="font-jost text-xs text-danger">
-                            {preview.reason || 'This booking can no longer be cancelled.'}
-                          </span>
-                        ) : preview ? (
-                          <span className="font-jost text-xs text-ink-2">
-                            Cancel this booking? {refundMessage(preview)}
-                          </span>
-                        ) : null}
-                        <div className="flex flex-wrap gap-2">
-                          {preview?.canCancel && !cancelError && (
-                            <button
-                              onClick={() => confirmCancel(b.fullId)}
-                              disabled={cancelling}
-                              className="rounded-[10px] bg-danger px-3 py-2 font-jost text-xs font-medium text-white disabled:opacity-50"
-                            >
-                              {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
-                            </button>
-                          )}
-                          <button
-                            onClick={dismissCancel}
-                            disabled={cancelling}
-                            className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-xs font-medium text-ink-2 disabled:opacity-50"
-                          >
-                            {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
-                          </button>
+                  ) : (
+                    <div
+                      key={b.fullId}
+                      className="rounded-xl border border-line bg-surface p-4"
+                      data-testid="mc-card"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-jost text-[18px] font-semibold text-primary">
+                          {dayPhrase(b.date)}, {fmtSlotTime(b.time)}
+                        </p>
+                        <p className="font-jost text-[18px] font-semibold text-ink">
+                          {fmtPounds(b.price)}
+                        </p>
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-3">
+                        <CustomerAvatar photo={b.cleanerImage} name={b.cleanerName} size={36} />
+                        <div className="min-w-0">
+                          <p className="truncate font-jost text-[15px] font-medium text-ink">
+                            {b.cleanerName}
+                          </p>
+                          <p className="font-jost text-[13px] text-ink-3">
+                            {serviceLabelFromSlug(b.serviceType)}
+                            {b.duration > 0 &&
+                              ` · ${b.duration} ${b.duration === 1 ? 'hour' : 'hours'}`}
+                            {b.recurring && ' · ↻'}
+                          </p>
                         </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Action-needed states stay unmissable in-shell too. */}
+                      {b.rawStatus === 'CLEANER_CANCELLED' && (
+                        <Link
+                          href={`/booking/${b.fullId}`}
+                          className="mt-3 block rounded-[10px] border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-danger"
+                        >
+                          Your cleaner had to cancel — choose what happens next ›
+                        </Link>
+                      )}
+                      {b.cascadePhase === 'PROVISIONAL_APPROVAL' && (
+                        <Link
+                          href={`/booking/${b.fullId}/approve-topup`}
+                          className="mt-3 block rounded-[10px] border border-warning/30 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-warning"
+                        >
+                          Price change awaiting your review ›
+                        </Link>
+                      )}
+
+                      <div className="mt-3.5 flex items-center gap-2.5">
+                        <Link
+                          href={`/messages?bookingId=${b.fullId}`}
+                          className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-ink active:bg-page"
+                        >
+                          Message
+                        </Link>
+                        {canShowCancel(b) && (
+                          <button
+                            type="button"
+                            onClick={() => startCancel(b.fullId)}
+                            data-testid="mc-cancel"
+                            className="flex-1 rounded-[10px] border border-danger/30 py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-danger active:bg-danger/[0.06]"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Cancel confirm — today's beat, today's copy, same POST. */}
+                      {cancelId === b.fullId && (
+                        <div
+                          className="mt-3 flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3"
+                          data-testid="mc-cancel-confirm"
+                        >
+                          {previewing ? (
+                            <span className="font-jost text-xs text-ink-2">
+                              Checking your refund…
+                            </span>
+                          ) : cancelError ? (
+                            <span className="font-jost text-xs text-danger">{cancelError}</span>
+                          ) : preview && !preview.canCancel ? (
+                            <span className="font-jost text-xs text-danger">
+                              {preview.reason || 'This booking can no longer be cancelled.'}
+                            </span>
+                          ) : preview ? (
+                            <span className="font-jost text-xs text-ink-2">
+                              Cancel this booking? {refundMessage(preview)}
+                            </span>
+                          ) : null}
+                          <div className="flex flex-wrap gap-2">
+                            {preview?.canCancel && !cancelError && (
+                              <button
+                                onClick={() => confirmCancel(b.fullId)}
+                                disabled={cancelling}
+                                className="rounded-[10px] bg-danger px-3 py-2 font-jost text-xs font-medium text-white disabled:opacity-50"
+                              >
+                                {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                              </button>
+                            )}
+                            <button
+                              onClick={dismissCancel}
+                              disabled={cancelling}
+                              className="rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-xs font-medium text-ink-2 disabled:opacity-50"
+                            >
+                              {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
                 <Link
                   href="/app/book"
                   className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3.5 active:bg-page"

@@ -7,7 +7,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // ─── Compact voice helpers (the Pro grammar) ─────────────────────────────────
 
@@ -61,6 +61,18 @@ export function dateEyebrow(): string {
     .toUpperCase();
 }
 
+// ─── Honest unpaid state (James-ruled, phantom follow-up Change 1) ──────────
+// Mirror of the browser chip's H53 truth for the in-shell skins: a booking at
+// rest in PENDING whose payment never succeeded is unpaid — it is NEVER an
+// upcoming clean. One source; Home, My Cleans and the tracker all key on this.
+export function isUnpaidPending(rawStatus: string, paymentStatus?: string | null): boolean {
+  return rawStatus === 'PENDING' && paymentStatus !== 'SUCCEEDED';
+}
+
+// The ruled plain line — the booking expires if it stays unpaid.
+export const UNPAID_EXPIRY_LINE =
+  "We haven't received payment for this clean. If it stays unpaid, the booking will expire and won't go ahead.";
+
 // ─── Booking-flow frame (James-ruled): step eyebrow + sticky price bar ──────
 // In-shell only — the pages render these behind their mounted customer-shell
 // gates. The bar's CTA proxies the page's OWN primary control (first element
@@ -85,9 +97,19 @@ export function FlowBar({
   disabled,
 }: {
   price?: number | null;
-  label: string;
+  label?: string;
   disabled?: boolean;
 }) {
+  // One-action-per-screen law: while the bar carries an action (a label), the
+  // page's inline primary — the bar's own proxy target — hides via the body
+  // class, leaving a single visible door. A label-less bar is an order-total
+  // strip only (checkout: Stripe's Pay button stays the sole door) and hides
+  // nothing.
+  useEffect(() => {
+    if (!label) return;
+    document.body.classList.add('cflow-bar-on');
+    return () => document.body.classList.remove('cflow-bar-on');
+  }, [label]);
   return (
     <div
       className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-surface px-4 pt-3"
@@ -103,17 +125,23 @@ export function FlowBar({
             {fmtPounds(price)}
           </span>
         )}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => {
-            const cta = document.querySelector<HTMLElement>('[data-cflow-cta]');
-            cta?.click();
-          }}
-          className="flex-1 rounded-[10px] bg-primary py-3.5 font-jost text-[13px] font-semibold uppercase tracking-[0.12em] text-white active:opacity-90 disabled:opacity-50"
-        >
-          {label}
-        </button>
+        {label ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              const cta = document.querySelector<HTMLElement>('[data-cflow-cta]');
+              cta?.click();
+            }}
+            className="flex-1 rounded-[10px] bg-primary py-3.5 font-jost text-[13px] font-semibold uppercase tracking-[0.12em] text-white active:opacity-90 disabled:opacity-50"
+          >
+            {label}
+          </button>
+        ) : (
+          <span className="flex-1 py-2 text-right font-jost text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3">
+            Order total
+          </span>
+        )}
       </div>
     </div>
   );
