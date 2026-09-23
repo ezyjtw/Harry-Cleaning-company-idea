@@ -2198,7 +2198,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         )}
 
-        <div className="mt-10 space-y-8">
+        {/* RIDER (James-ruled): in-shell the DETAILS stage wears the ruled
+            internal order via flex + order-N; the browser keeps its flow. */}
+        <div className={inCustomerShell ? 'mt-10 flex flex-col gap-8' : 'mt-10 space-y-8'}>
           {/* Date and time selection via calendar — item 6: the WHEN stage's
               one question in-shell. */}
           {shellWhen && (
@@ -2222,9 +2224,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Backup cleaner slider — item 6: rides the DETAILS stage in-shell */}
+          {/* Backup cleaner slider — ruled order slot 4 in-shell */}
           {shellDetails && selectedDate && selectedTime24 && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <BackupCleanerSlider
                 cleaners={availableBackupCleaners}
                 selectedIds={backupCleanerIds}
@@ -2238,10 +2246,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Payment held notice — item 6: DETAILS stage (its copy references
-              the booking summary beside it) */}
+          {/* Payment held notice — ruled order slot 6 in-shell, beside the
+              summary (its copy references the booking summary beside it) */}
           {shellDetails && selectedDate && selectedTime24 && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <div className="flex items-start gap-3">
                 <svg
@@ -2287,18 +2301,36 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               DETAILS stage with the other about-your-home questions, never on
               the WHEN screen. Same state, same payload (rooms.keyAccess). */}
           {shellDetails && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-1 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-                How will the cleaner get in?
+                {inCustomerShell && isFixedPrice(category)
+                  ? 'Property access'
+                  : 'How will the cleaner get in?'}
               </h2>
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                {/* RIDER: on the fixed road in-shell the access card reads
+                    exactly as the fixed time branch's — same values, so the
+                    payload is untouched either way. */}
                 {(
-                  [
-                    { value: 'lockbox', label: 'Keybox' },
-                    { value: 'key-under-mat', label: 'Key hidden' },
-                    { value: 'i-will-be-home', label: 'Someone will be in' },
-                    { value: 'with-concierge', label: 'Concierge' },
-                  ] as { value: KeyAccess; label: string }[]
+                  (inCustomerShell && isFixedPrice(category)
+                    ? [
+                        { value: 'i-will-be-home', label: 'I’ll be home' },
+                        { value: 'key-under-mat', label: 'Key under mat' },
+                        { value: 'lockbox', label: 'Lockbox' },
+                        { value: 'with-concierge', label: 'With concierge' },
+                      ]
+                    : [
+                        { value: 'lockbox', label: 'Keybox' },
+                        { value: 'key-under-mat', label: 'Key hidden' },
+                        { value: 'i-will-be-home', label: 'Someone will be in' },
+                        { value: 'with-concierge', label: 'Concierge' },
+                      ]) as { value: KeyAccess; label: string }[]
                 ).map((opt) => (
                   <button
                     key={opt.value}
@@ -2314,25 +2346,34 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </button>
                 ))}
               </div>
-              {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
-                <input
-                  type="text"
-                  value={keyAccessNote}
-                  onChange={(e) => setKeyAccessNote(e.target.value)}
-                  placeholder={
-                    keyAccess === 'lockbox'
-                      ? 'Lockbox code or location...'
-                      : 'Where is the key hidden?'
-                  }
-                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
-                />
-              )}
+              {/* RIDER: the fixed time branch's access card carries no note
+                  input, so in-shell on the fixed road neither does this one. */}
+              {!(inCustomerShell && isFixedPrice(category)) &&
+                (keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
+                  <input
+                    type="text"
+                    value={keyAccessNote}
+                    onChange={(e) => setKeyAccessNote(e.target.value)}
+                    placeholder={
+                      keyAccess === 'lockbox'
+                        ? 'Lockbox code or location...'
+                        : 'Where is the key hidden?'
+                    }
+                    className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                )}
             </div>
           )}
 
-          {/* Special instructions — item 6: DETAILS stage in-shell */}
+          {/* Special instructions — ruled order slot 2 in-shell */}
           {shellDetails && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-2 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Special instructions
               </h2>
@@ -2349,16 +2390,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Cleaning address (A12) — item 6: DETAILS stage in-shell */}
-          {shellDetails && addressCard}
+          {/* Cleaning address (A12) — ruled order slot 3 in-shell */}
+          {shellDetails &&
+            (inCustomerShell ? <div className="order-3">{addressCard}</div> : addressCard)}
 
           {/* H37: the cleaner-first flow NEVER had a Booking Summary card (the
               payment copy above even promised "the booking summary shown
               above"). Same card as the services-first confirm, same
               priceBreakdown fields — no new maths. Column law: key-access →
-              instructions → Cleaning Address → Booking Summary → pay. */}
+              instructions → Cleaning Address → Booking Summary → pay.
+              RIDER: ruled order slot 5 in-shell. */}
           {shellDetails && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Booking Summary
@@ -2415,7 +2464,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           )}
 
           {bookingError && (
-            <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+                  : 'mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+              }
+            >
               {bookingError}
             </div>
           )}
@@ -2450,14 +2505,19 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           )}
 
           {/* Submit — F5: enabled-and-validating; a click with no date/time
-              names the gap inline and scrolls to the picker. */}
+              names the gap inline and scrolls to the picker. RIDER: ruled
+              order slot 8 in-shell. */}
           {shellDetails && (
             <button
               type="button"
               onClick={() => handleBookingSubmit()}
               disabled={bookingSubmitting}
               data-cflow-cta
-              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className={
+                inCustomerShell
+                  ? 'order-8 w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+                  : 'w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+              }
             >
               {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
             </button>
