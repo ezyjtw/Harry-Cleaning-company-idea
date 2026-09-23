@@ -333,6 +333,58 @@ function AvailabilityDoor({
   );
 }
 
+// Appearance item 3 (James-ruled): one "My Rates" row, directly below My
+// Availability, same row grammar — the current regular rate as the hint,
+// opening the rates room.
+function RatesDoor({ regularRate }: { regularRate: number | null }) {
+  const hint =
+    regularRate === null
+      ? ''
+      : Number.isInteger(regularRate)
+        ? `£${regularRate}/hr`
+        : `£${regularRate.toFixed(2)}/hr`;
+  return (
+    <Link
+      href="/app/rates"
+      onClick={() => haptic('light')}
+      className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5"
+      data-testid="rates-door"
+    >
+      <span className="flex items-center gap-2.5">
+        <svg
+          className="h-[18px] w-[18px] text-ink-2"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.8}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M14.121 7.629A3 3 0 009.017 9.43c-.023.212-.002.425.028.636l.506 3.541a4.5 4.5 0 01-.43 2.65L9 16.5l1.539-.513a2.25 2.25 0 011.422 0l.655.218a2.25 2.25 0 001.718-.122L15 15.75M8.25 12H12m9 0a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span className="font-jost text-[15px] font-medium text-ink">My Rates</span>
+      </span>
+      <span
+        className="flex items-center gap-1 font-jost text-[13px] font-medium text-ink-3"
+        data-testid="rates-door-hint"
+      >
+        {hint}
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+      </span>
+    </Link>
+  );
+}
+
 export default function TodayPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -357,6 +409,8 @@ export default function TodayPage() {
   const [openHoursByIso, setOpenHoursByIso] = useState<Record<string, number>>({});
   const [openWeekHours, setOpenWeekHours] = useState(0);
   const [nextWeekOpenHours, setNextWeekOpenHours] = useState(0);
+  // Appearance item 3 (James-ruled): current regular rate for the My Rates row.
+  const [regularRate, setRegularRate] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -369,6 +423,8 @@ export default function TodayPage() {
         if (d) {
           setProfileVisible(d.visibleInDirectory !== false);
           setProfileImage(d.image || null);
+          // Appearance item 3: the My Rates row's hint.
+          if (typeof d.hourlyRateRegular === 'number') setRegularRate(d.hourlyRateRegular);
         }
       })
       .catch(() => {});
@@ -900,6 +956,7 @@ export default function TodayPage() {
         {earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
         <WeekStrip days={jobStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <RatesDoor regularRate={regularRate} />
       </div>
     );
   }
@@ -934,6 +991,7 @@ export default function TodayPage() {
         <JobCard job={nextUpcoming} now={now} processing={false} onAdvance={() => {}} />
         <WeekStrip days={jobStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <RatesDoor regularRate={regularRate} />
       </div>
     );
   }
@@ -975,6 +1033,7 @@ export default function TodayPage() {
         </div>
         <WeekStrip days={hourStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <RatesDoor regularRate={regularRate} />
       </div>
     );
   }
@@ -1018,6 +1077,7 @@ export default function TodayPage() {
         </div>
         <WeekStrip days={hourStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <RatesDoor regularRate={regularRate} />
       </div>
     );
   }
