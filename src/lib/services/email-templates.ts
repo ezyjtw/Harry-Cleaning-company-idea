@@ -628,6 +628,25 @@ export function buildOccurrenceLatePaymentRefunded(data: {
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
+// Recovery Lane A belt: a one-off payment that landed after its booking was
+// cancelled or expired — refunded in full, said plainly.
+export function buildOneOffLatePaymentRefunded(data: {
+  customerName: string;
+  dateLong: string;
+  amount: number;
+}): EmailContent {
+  const subject = 'Refunded in full — your payment arrived after the booking closed';
+  const contentHtml =
+    h('Refunded in full') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `Your payment of &pound;${data.amount.toFixed(2)} for the clean on ${data.dateLong} went through just as the booking was being closed, so it did not go ahead. We&rsquo;ve refunded it in full.`
+    ) +
+    p('The refund will appear in your account within 5-10 business days.') +
+    p('You can book again any time.');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 // R1-C: unpaid occurrence can't-make-it — the no-charge variant of the rescue
 // email. Choices are reschedule or skip; nothing has been charged.
 export function buildOccurrenceCantMake(data: {
