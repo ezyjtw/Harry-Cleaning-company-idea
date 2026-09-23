@@ -18,7 +18,8 @@ export type BookingStatus =
   | 'Under review'
   | 'No cleaner available'
   | 'Cleaner cancelled — action needed'
-  | 'Scheduled — regular clean';
+  | 'Scheduled — regular clean'
+  | 'Payment needed';
 
 export const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-warning/10 text-warning border-warning/20',
@@ -41,19 +42,32 @@ export const statusStyles: Record<BookingStatus, string> = {
   'Cleaner cancelled — action needed': 'bg-danger/10 text-danger border-danger/20',
   // R1-A: a future recurring occurrence — calm, promised, not yet charged.
   'Scheduled — regular clean': 'bg-primary-soft text-primary border-primary/15',
+  // Recovery Lane C (James-sanctioned): an occurrence whose single off-session
+  // attempt FAILED reads honestly — payment is needed to keep the slot.
+  'Payment needed': 'bg-danger/10 text-danger border-danger/20',
 };
 
 /** Collapse a raw API status (+ cascade phase) into the customer-facing label.
  *  X1: the cascade phases collapse into three HONEST states — waiting on the
  *  chosen cleaner / actively finding alternatives / our team personally on it —
  *  never a bare "Pending" while Rena is actively working the booking. */
-export function mapStatus(apiStatus: string, cascadePhase?: string | null): BookingStatus {
+export function mapStatus(
+  apiStatus: string,
+  cascadePhase?: string | null,
+  paymentStatus?: string | null
+): BookingStatus {
   const s = apiStatus.toUpperCase();
   // F6a: a reaped never-paid booking reads with the same honest H53 label an
   // unpaid PENDING row already wears — no new visual language.
   if (s === 'ABANDONED') return 'Payment incomplete';
   // R1-A: future occurrences read as the standing arrangement they are.
-  if (s === 'SCHEDULED') return 'Scheduled — regular clean';
+  // Recovery Lane C: unless the single off-session charge FAILED — then the
+  // chip says so, honestly.
+  if (s === 'SCHEDULED') {
+    return paymentStatus?.toUpperCase() === 'FAILED'
+      ? 'Payment needed'
+      : 'Scheduled — regular clean';
+  }
   if (s === 'AWAITING_CLEANER') {
     switch (cascadePhase) {
       case 'PRIMARY_OFFER':
@@ -105,13 +119,17 @@ export function mapStatus(apiStatus: string, cascadePhase?: string | null): Book
 export default function BookingStatusChip({
   rawStatus,
   cascadePhase,
+  paymentStatus,
   className,
 }: {
   rawStatus: string;
   cascadePhase?: string | null;
+  /** Recovery Lane C: lets SCHEDULED occurrences read 'Payment needed' when
+   *  the off-session charge FAILED. Optional — omitted callers are unchanged. */
+  paymentStatus?: string | null;
   className?: string;
 }) {
-  const status = mapStatus(rawStatus, cascadePhase);
+  const status = mapStatus(rawStatus, cascadePhase, paymentStatus);
   return (
     <span
       className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusStyles[status]} ${className ?? ''}`}

@@ -550,6 +550,9 @@ model Booking {
   stripePaymentIntentId String?       @unique
   stripeChargeId        String?       @unique
   paymentStatus         PaymentStatus @default(PENDING)
+  // Recovery Lane B row 7 (James-ruled): the one pre-reap recovery email —
+  // set atomically when sent, so a booking is nudged at most once.
+  recoveryEmailSentAt   DateTime?
 
   // A16b-1: client-supplied idempotency key for booking+payment creation. A
   // double-click / retry replays the same booking + PaymentIntent instead of

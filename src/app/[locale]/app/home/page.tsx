@@ -73,6 +73,8 @@ export default function CustomerHomePage() {
   const [firstName, setFirstName] = useState('');
   const [next, setNext] = useState<HomeBooking | null>(null);
   const [unpaid, setUnpaid] = useState<HomeBooking | null>(null);
+  // Lane C: an occurrence whose off-session charge FAILED — payment-needed card.
+  const [payNeeded, setPayNeeded] = useState<HomeBooking | null>(null);
   const [unreviewed, setUnreviewed] = useState<HomeBooking | null>(null);
 
   useEffect(() => {
@@ -100,6 +102,11 @@ export default function CustomerHomePage() {
         setUnpaid(
           items.find((b) => isUnpaidPending(b.rawStatus, b.paymentStatus) && b.date >= todayIso) ??
             null
+        );
+        setPayNeeded(
+          items.find(
+            (b) => b.rawStatus === 'SCHEDULED' && b.paymentStatus === 'FAILED' && b.date >= todayIso
+          ) ?? null
         );
         const pending = items
           .filter((b) => b.rawStatus === 'COMPLETED' && !b.hasReview)
@@ -163,6 +170,32 @@ export default function CustomerHomePage() {
                   Cancel
                 </Link>
               </div>
+            </div>
+          )}
+
+          {/* Lane C (James-ruled): FAILED occurrence — payment-needed card
+              above the hero; the hero stays reserved for paid cleans. */}
+          {payNeeded && (
+            <div
+              className="rounded-xl border border-warning/30 bg-warning/[0.06] p-4"
+              data-testid="home-payneeded-card"
+            >
+              <p className="font-jost text-[15px] font-semibold text-ink">Payment needed</p>
+              <p className="mt-1 font-jost text-[13px] text-ink-2">
+                {dayPhrase(payNeeded.date)}, {fmtSlotTime(payNeeded.time)} ·{' '}
+                {serviceLabelFromSlug(payNeeded.serviceType)} · {fmtPounds(payNeeded.price)}
+              </p>
+              <p className="mt-2 font-jost text-[13px] text-ink-3">
+                Your saved card couldn&rsquo;t be charged for this regular clean. Pay now to keep
+                your slot.
+              </p>
+              <Link
+                href={`/pay/${payNeeded.id}`}
+                data-testid="home-paynow-door"
+                className="mt-3.5 block rounded-[10px] bg-primary py-3 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
+              >
+                Pay Now
+              </Link>
             </div>
           )}
 

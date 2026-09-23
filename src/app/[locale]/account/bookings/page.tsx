@@ -510,14 +510,17 @@ export default function BookingsPage() {
     // tab (they are future-dated and cancellable) but pin to the top and
     // render as their own "Payment incomplete" card — never as an upcoming
     // clean. Stable sort keeps date order within each group.
+    // Recovery Lane C (James-ruled): an occurrence whose off-session charge
+    // FAILED stops filing under Past — it joins Upcoming wearing a
+    // payment-needed card, pinned with the honest-unpaid rows.
+    const isPayNeededOcc = (b: Booking) =>
+      b.rawStatus === 'SCHEDULED' && b.paymentStatus === 'FAILED';
+    const needsAttention = (b: Booking) =>
+      isUnpaidPending(b.rawStatus, b.paymentStatus) || isPayNeededOcc(b);
     const upcoming = bookings
-      .filter((b) => UPCOMING_RAW.includes(b.rawStatus))
+      .filter((b) => UPCOMING_RAW.includes(b.rawStatus) || isPayNeededOcc(b))
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
-      .sort(
-        (a, b) =>
-          Number(isUnpaidPending(b.rawStatus, b.paymentStatus)) -
-          Number(isUnpaidPending(a.rawStatus, a.paymentStatus))
-      );
+      .sort((a, b) => Number(needsAttention(b)) - Number(needsAttention(a)));
     const past = bookings
       .filter((b) => !UPCOMING_RAW.includes(b.rawStatus))
       .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
@@ -553,7 +556,38 @@ export default function BookingsPage() {
             ) : (
               <>
                 {upcoming.map((b) =>
-                  isUnpaidPending(b.rawStatus, b.paymentStatus) ? (
+                  isPayNeededOcc(b) ? (
+                    /* Lane C: FAILED occurrence — PAY NOW is the door. */
+                    <div
+                      key={b.fullId}
+                      className="rounded-xl border border-warning/30 bg-warning/[0.06] p-4"
+                      data-testid="mc-payneeded-card"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-jost text-[16px] font-semibold text-ink">
+                          Payment needed
+                        </p>
+                        <p className="font-jost text-[16px] font-semibold text-ink">
+                          {fmtPounds(b.price)}
+                        </p>
+                      </div>
+                      <p className="mt-1 font-jost text-[13px] text-ink-2">
+                        {dayPhrase(b.date)}, {fmtSlotTime(b.time)} ·{' '}
+                        {serviceLabelFromSlug(b.serviceType)}
+                      </p>
+                      <p className="mt-2 font-jost text-[13px] text-ink-3">
+                        Your saved card couldn&rsquo;t be charged for this regular clean. Pay now to
+                        keep your slot.
+                      </p>
+                      <Link
+                        href={`/pay/${b.fullId}`}
+                        data-testid="mc-paynow-door"
+                        className="mt-3.5 block rounded-[10px] bg-primary py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
+                      >
+                        Pay Now
+                      </Link>
+                    </div>
+                  ) : isUnpaidPending(b.rawStatus, b.paymentStatus) ? (
                     /* Honest unpaid card — Cancel is the only door (ruled). */
                     <div
                       key={b.fullId}
@@ -1004,6 +1038,7 @@ export default function BookingsPage() {
                     <BookingStatusChip
                       rawStatus={booking.rawStatus}
                       cascadePhase={booking.cascadePhase}
+                      paymentStatus={booking.paymentStatus}
                     />
                   </div>
                   <p className="mt-1 truncate font-jost text-sm text-ink-2">
@@ -1025,6 +1060,30 @@ export default function BookingsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+
+              {/* Recovery Lane B row 2 (James-sanctioned website change): the
+                  honest "Payment incomplete" chip gains its door — the
+                  browser-capable Finish page, guards unchanged. */}
+              {booking.rawStatus === 'PENDING' && (
+                <Link
+                  href={`/booking/${booking.fullId}/finish`}
+                  data-testid="finish-payment-link"
+                  className="mt-3 block rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-warning/[0.1]"
+                >
+                  Finish payment — complete this booking &rsaquo;
+                </Link>
+              )}
+              {/* Recovery Lane C (James-sanctioned): a FAILED occurrence gets
+                  its Pay Now door to the existing pay-now checkout. */}
+              {booking.rawStatus === 'SCHEDULED' && booking.paymentStatus === 'FAILED' && (
+                <Link
+                  href={`/pay/${booking.fullId}`}
+                  data-testid="pay-now-link"
+                  className="mt-3 block rounded-lg border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-danger/10"
+                >
+                  Payment needed — pay now to keep your slot &rsaquo;
+                </Link>
+              )}
 
               {/* H11: a rescue awaiting the customer's choice is unmissable —
                   visible without expanding, one button into the choice panel. */}

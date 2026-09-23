@@ -32,6 +32,7 @@ export interface SchedulerSummary {
   recurringCancels: HandlerResult;
   arrangementTimeouts: HandlerResult;
   incompleteSignups: HandlerResult;
+  paymentRecoveryEmails: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -58,6 +59,54 @@ const ABANDONED_AGE_MS = 60 * 60 * 1000; // 60 minutes
 // booking, or neither, never one without the other. The final booking update is
 // atomically guarded on status='PENDING' so it can't clobber a booking the
 // webhook just took live.
+// Recovery Lane B row 7 (James-ruled): ONE recovery email per unpaid one-off,
+// sent on the cron pass while the booking is 20-30 minutes old — before the
+// 60-minute reap, which stays silent. Dedupe is hard: the sentinel is claimed
+// atomically (updateMany gated on recoveryEmailSentAt null) before sending, so
+// overlapping cron ticks can never double-send. FAILED rows are skipped — the
+// payment-failure email already reached them; CANCELED rows are dead;
+// occurrences (agreementId) are excluded — the ESSENTIAL pay-now email owns
+// them.
+const RECOVERY_MIN_AGE_MS = 20 * 60 * 1000;
+const RECOVERY_MAX_AGE_MS = 30 * 60 * 1000;
+
+async function processPaymentRecoveryEmails(): Promise<HandlerResult> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const now = Date.now();
+  const candidates = await prisma.booking.findMany({
+    where: {
+      status: 'PENDING',
+      paymentStatus: { in: ['PENDING', 'REQUIRES_ACTION'] },
+      agreementId: null,
+      recoveryEmailSentAt: null,
+      createdAt: {
+        lt: new Date(now - RECOVERY_MIN_AGE_MS),
+        gt: new Date(now - RECOVERY_MAX_AGE_MS),
+      },
+    },
+    select: { id: true },
+    take: ABANDONED_BATCH_LIMIT,
+  });
+
+  let processed = 0;
+  for (const b of candidates) {
+    // Atomic claim FIRST — at most one email per booking, ever.
+    const claimed = await prisma.booking.updateMany({
+      where: { id: b.id, recoveryEmailSentAt: null, status: 'PENDING' },
+      data: { recoveryEmailSentAt: new Date() },
+    });
+    if (claimed.count === 0) continue;
+    const { sendPaymentRecovery } = await import('./email.service');
+    const sent = await sendPaymentRecovery(b.id).catch(() => false);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[recovery] pre-reap email for unpaid booking ${b.id} — ${sent ? 'sent' : 'NOT sent'}`
+    );
+    processed++;
+  }
+  return { processed };
+}
+
 async function processAbandonedBookings(): Promise<HandlerResult> {
   const { prisma } = await import('@/lib/db/prisma');
   const cutoff = new Date(Date.now() - ABANDONED_AGE_MS);
@@ -449,6 +498,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const recurringCancels = await processRecurringCancels();
   const arrangementTimeouts = await processArrangementTimeouts();
   const incompleteSignups = await processIncompleteSignups();
+  const paymentRecoveryEmails = await processPaymentRecoveryEmails();
 
   return {
     timestamp: new Date().toISOString(),
@@ -468,5 +518,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     recurringCancels,
     arrangementTimeouts,
     incompleteSignups,
+    paymentRecoveryEmails,
   };
 }

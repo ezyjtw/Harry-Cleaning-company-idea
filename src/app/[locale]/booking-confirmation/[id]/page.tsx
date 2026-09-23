@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, useCallback } from 'react';
 
 import { dayPhrase, fmtSlotTime } from '@/components/app/customer';
@@ -32,7 +32,6 @@ function VerifiedCheck() {
 }
 
 function BookingConfirmationContent({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const { isAuthenticated } = useAuth();
   // Guests arrive with ?gt=<guestToken> in the return_url. Their reads go through
   // the guest-safe endpoint (the account-only endpoints 401 without a session,
@@ -330,9 +329,16 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
             ? 'Your payment could not be processed. Please try again with a different payment method.'
             : 'Your payment was canceled.'}
         </p>
-        <button onClick={() => router.back()} className={`mt-8 ${primaryBtn}`}>
+        {/* Recovery Lane B row 4 (James-ruled): Try again resumes THIS
+            booking on the Finish page — never a restart that stacks a new
+            unpaid booking. The Finish page's own states (expired, already
+            paid, processing) handle every landing honestly. */}
+        <Link
+          href={`/booking/${params.id}/finish${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`}
+          className={`mt-8 inline-block ${primaryBtn}`}
+        >
           Try again
-        </button>
+        </Link>
       </div>
     );
   }
@@ -397,9 +403,14 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
           You have <strong className="font-semibold">not</strong> been charged and no booking was
           made. Please try again.
         </p>
-        <button onClick={() => router.back()} className={`mt-8 ${primaryBtn}`}>
+        {/* Lane B row 4: same resume door — the Finish page reports honestly
+            even when the booking can't be found or has expired. */}
+        <Link
+          href={`/booking/${params.id}/finish${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`}
+          className={`mt-8 inline-block ${primaryBtn}`}
+        >
           Try again
-        </button>
+        </Link>
       </div>
     );
   }

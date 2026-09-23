@@ -12,7 +12,7 @@
 
 import { Elements } from '@stripe/react-stripe-js';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { dayPhrase, FlowBar, fmtSlotTime } from '@/components/app/customer';
@@ -34,7 +34,11 @@ type FinishState = 'loading' | 'ok' | 'expired' | 'already_paid' | 'processing' 
 
 export default function FinishPaymentPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const bookingId = String(params?.id || '');
+  // Lane B row 3: guests land here from the failure/recovery emails with
+  // ?token=<guestToken> — same auth shape as the pay-now page.
+  const guestToken = searchParams.get('token');
 
   const [state, setState] = useState<FinishState>('loading');
   const [intent, setIntent] = useState<FinishIntent | null>(null);
@@ -52,7 +56,11 @@ export default function FinishPaymentPage() {
   const load = useCallback(() => {
     if (!bookingId) return;
     setState('loading');
-    fetch(`/api/bookings/${bookingId}/finish-intent`, { method: 'POST' })
+    fetch(`/api/bookings/${bookingId}/finish-intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(guestToken ? { token: guestToken } : {}),
+    })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (res.ok && data?.clientSecret) {
@@ -70,7 +78,7 @@ export default function FinishPaymentPage() {
         setMessage("We couldn't check your payment just now. Please try again.");
         setState('retry');
       });
-  }, [bookingId]);
+  }, [bookingId, guestToken]);
 
   useEffect(() => {
     load();
@@ -187,6 +195,8 @@ export default function FinishPaymentPage() {
           paymentIntentId={intent.stripePaymentIntentId}
           saveCard={saveCard}
           onSaveCardChange={setSaveCard}
+          isGuest={!!guestToken}
+          guestToken={guestToken}
           onBack={() => {
             window.location.href = `/booking/${bookingId}`;
           }}
