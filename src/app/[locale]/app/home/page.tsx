@@ -135,12 +135,11 @@ export default function CustomerHomePage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Honest unpaid state — unmissable, above the hero. The Cancel door
-              lives on the tracker this card opens (and on My Cleans). */}
+          {/* Honest unpaid state — unmissable, above the hero. Finish is the
+              primary door; Cancel opens the tracker's own cancel machinery. */}
           {unpaid && (
-            <Link
-              href={`/booking/${unpaid.id}`}
-              className="block rounded-xl border border-warning/30 bg-warning/[0.06] p-4 active:bg-warning/[0.1]"
+            <div
+              className="rounded-xl border border-warning/30 bg-warning/[0.06] p-4"
               data-testid="home-unpaid-card"
             >
               <p className="font-jost text-[15px] font-semibold text-ink">Payment incomplete</p>
@@ -149,10 +148,22 @@ export default function CustomerHomePage() {
                 {serviceLabelFromSlug(unpaid.serviceType)} · {fmtPounds(unpaid.price)}
               </p>
               <p className="mt-2 font-jost text-[13px] text-ink-3">{UNPAID_EXPIRY_LINE}</p>
-              <span className="mt-2 block font-jost text-[13px] font-semibold text-primary">
-                View or cancel ›
-              </span>
-            </Link>
+              <div className="mt-3.5 flex gap-2.5">
+                <Link
+                  href={`/booking/${unpaid.id}/finish`}
+                  data-testid="home-finish-door"
+                  className="flex-1 rounded-[10px] bg-primary py-3 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
+                >
+                  Finish Payment
+                </Link>
+                <Link
+                  href={`/booking/${unpaid.id}?cancel=1`}
+                  className="flex-1 rounded-[10px] border border-danger/30 py-3 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-danger active:bg-danger/[0.06]"
+                >
+                  Cancel
+                </Link>
+              </div>
+            </div>
           )}
 
           {next ? (

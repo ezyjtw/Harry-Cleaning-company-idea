@@ -574,6 +574,13 @@ export default function BookingsPage() {
                       </p>
                       <p className="mt-2 font-jost text-[13px] text-ink-3">{UNPAID_EXPIRY_LINE}</p>
                       <div className="mt-3.5 flex items-center gap-2.5">
+                        <Link
+                          href={`/booking/${b.fullId}/finish`}
+                          data-testid="mc-finish-door"
+                          className="flex-1 rounded-[10px] bg-primary py-2.5 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
+                        >
+                          Finish Payment
+                        </Link>
                         {canShowCancel(b) && (
                           <button
                             type="button"
