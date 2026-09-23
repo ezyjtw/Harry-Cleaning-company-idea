@@ -203,7 +203,9 @@ function RootView() {
   const overlay = useRef(new Animated.Value(1)).current;
   const [overlayMounted, setOverlayMounted] = useState(true);
   const reveal = useCallback(() => {
-    Animated.timing(overlay, { toValue: 0, duration: 450, useNativeDriver: true }).start(() =>
+    // Appearance item 2 (James-ruled): the navy splash DISSOLVES into the
+    // first page — ~400ms, app-open only; no other transitions this pass.
+    Animated.timing(overlay, { toValue: 0, duration: 400, useNativeDriver: true }).start(() =>
       setOverlayMounted(false)
     );
   }, [overlay]);
