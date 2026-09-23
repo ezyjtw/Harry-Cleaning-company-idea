@@ -1055,6 +1055,51 @@ export async function sendArrangementDeclined(
   });
 }
 
+// Recovery Lane B row 7 (James-ruled): the one pre-reap recovery email for an
+// unpaid one-off. ESSENTIAL — it concerns the customer's own incomplete
+// transaction, never marketing. Guests carry their token on the Finish link.
+export async function sendPaymentRecovery(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      startTime: true,
+      totalPrice: true,
+      guestEmail: true,
+      guestName: true,
+      guestToken: true,
+      clientId: true,
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const finishUrl = b.clientId
+    ? `${appUrl}/booking/${bookingId}/finish`
+    : `${appUrl}/booking/${bookingId}/finish?token=${encodeURIComponent(b.guestToken ?? '')}`;
+  const dateLong = b.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  const { buildPaymentRecovery } = await import('./email-templates');
+  const { subject, html } = buildPaymentRecovery({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    dateLong,
+    time: b.startTime,
+    amount: Number(b.totalPrice),
+    finishUrl,
+  });
+  return sendEmail(to, subject, html, {
+    userId: b.client?.id ?? null,
+    category: 'ESSENTIAL',
+  });
+}
+
 // R1-B: the single-attempt failure email — "pay now to keep your slot". The
 // link is the occurrence's ON-SESSION checkout (/pay/[id]); guests carry their
 // token. ESSENTIAL category — a payment problem is never opt-out-able.

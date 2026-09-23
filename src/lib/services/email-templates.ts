@@ -1435,21 +1435,51 @@ export function buildPaymentFailureNotification(data: {
   bookingId: string;
   customerName: string;
   reason: string;
+  /** Recovery Lane B row 3 (James-ruled): when the booking is still alive
+   *  (PENDING, one-off), the honest CTA is finishing THIS booking within its
+   *  hour — the Finish page link. Absent → the legacy fresh-booking CTA. */
+  finishUrl?: string;
 }): EmailContent {
-  // The old "/booking/retry" page never existed (dead link) — the honest CTA is
-  // a fresh booking, since a failed payment cancels the pending booking.
-  const retryLink = `${appUrl()}/services`;
   const subject = 'Payment unsuccessful — you have not been charged';
+  const cta = data.finishUrl
+    ? p(
+        'You have not been charged. You can complete your booking within the hour — after that it expires and the slot is released:'
+      ) + button(data.finishUrl, 'Finish payment')
+    : p('You can book again with a different payment method whenever you like:') +
+      button(`${appUrl()}/services`, 'Book again');
   const contentHtml =
     h('Payment unsuccessful') +
     p(`Hi ${data.customerName},`) +
     p(
-      `Unfortunately, the payment for your booking <strong>#${data.bookingId}</strong> could not be processed. <strong>You have NOT been charged</strong> and the booking was not confirmed.`
+      `Unfortunately, the payment for your booking <strong>#${data.bookingId}</strong> could not be processed. <strong>You have NOT been charged</strong>${data.finishUrl ? '' : ' and the booking was not confirmed'}.`
     ) +
     p(`<strong>Reason:</strong> ${data.reason}`) +
-    p('You can book again with a different payment method whenever you like:') +
-    button(retryLink, 'Book again') +
+    cta +
     p('If you continue to experience issues, please contact our support team.') +
+    p('Best regards,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// ─── Recovery Lane B row 7 (James-ruled): the one recovery email ─────────────
+export function buildPaymentRecovery(data: {
+  customerName: string;
+  dateLong: string;
+  time: string;
+  amount: number;
+  finishUrl: string;
+}): EmailContent {
+  const subject = "Your booking isn't finished — complete your payment";
+  const contentHtml =
+    h("Your booking isn't finished") +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `You started booking a clean for <strong>${data.dateLong}</strong> at <strong>${data.time}</strong> (£${data.amount.toFixed(2)}), but the payment was never completed. You have not been charged.`
+    ) +
+    p('Complete your payment to confirm the booking:') +
+    button(data.finishUrl, 'Finish payment') +
+    p(
+      'If payment stays incomplete, the booking expires about an hour after it was started and the slot is released — nothing is charged either way.'
+    ) +
     p('Best regards,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };
 }

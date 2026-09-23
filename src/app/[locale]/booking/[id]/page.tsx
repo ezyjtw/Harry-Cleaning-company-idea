@@ -950,9 +950,34 @@ export default function BookingDetailPage() {
           <Row
             label="Status"
             value={
-              <BookingStatusChip rawStatus={booking.status} cascadePhase={booking.cascadePhase} />
+              <BookingStatusChip
+                rawStatus={booking.status}
+                cascadePhase={booking.cascadePhase}
+                paymentStatus={booking.paymentStatus}
+              />
             }
           />
+          {/* Recovery Lane B row 2 (James-sanctioned website change): the
+              chip's door — the browser-capable Finish page. */}
+          {booking.status === 'PENDING' && booking.paymentStatus !== 'SUCCEEDED' && (
+            <Link
+              href={`/booking/${id}/finish`}
+              data-testid="finish-payment-link"
+              className="my-2 block rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-warning/[0.1]"
+            >
+              Finish payment — complete this booking &rsaquo;
+            </Link>
+          )}
+          {/* Recovery Lane C (James-sanctioned): FAILED occurrence → pay-now. */}
+          {booking.status === 'SCHEDULED' && booking.paymentStatus === 'FAILED' && (
+            <Link
+              href={`/pay/${id}`}
+              data-testid="pay-now-link"
+              className="my-2 block rounded-lg border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-danger/10"
+            >
+              Payment needed — pay now to keep your slot &rsaquo;
+            </Link>
+          )}
           {booking.status === 'AWAITING_CLEANER' &&
             cascadeSentence(booking.cascadePhase, cleaner?.name) && (
               <p className="py-2 font-jost text-[13px] text-primary">

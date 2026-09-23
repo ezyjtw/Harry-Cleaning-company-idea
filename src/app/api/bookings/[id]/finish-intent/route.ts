@@ -20,10 +20,14 @@ import stripe from '@/lib/stripe';
 // Success then runs the untouched normal machinery: the customer confirms on
 // Stripe's element, payment_intent.succeeded → processPaymentSuccess → the
 // cascade, exactly as a first-time payment.
-export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Recovery Lane B row 3 (James-ruled): guests receive the failure/recovery
+  // emails too, so the Finish door takes the same guest-token auth as the
+  // R1-B pay-now route — the booking's customer (session) or its guest token.
+  const body = await request.json().catch(() => ({}));
+  const token = typeof body?.token === 'string' ? body.token : null;
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
 
   const booking = await prisma.booking.findUnique({
     where: { id },
@@ -37,10 +41,14 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       clientId: true,
       serviceType: true,
       stripePaymentIntentId: true,
+      guestToken: true,
     },
   });
+  if (!booking) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   // Ownership reads as not-found — same shape as the other booking routes.
-  if (!booking || !booking.clientId || booking.clientId !== user.id) {
+  const isClient = !!user && !!booking.clientId && user.id === booking.clientId;
+  const isGuest = !booking.clientId && !!token && token === booking.guestToken;
+  if (!isClient && !isGuest) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
