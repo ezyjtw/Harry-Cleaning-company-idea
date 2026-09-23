@@ -385,16 +385,21 @@ body.rena-shell.rena-page-join main button {
    tags its own body classes (shared marketing-layout page); earnings/jobs
    already carry theirs from the cleaner layout — the law's serif retirement
    now covers them too. */
-body.rena-shell.rena-page-messages main > div {
+/* Messages skin, both shells (James-ruled): the customer shell keys on its
+   own body class — same rules, same law, one source. */
+body.rena-shell.rena-page-messages main > div,
+body.rena-customer-shell.rena-page-messages main > div {
   padding-left: 14px;
   padding-right: 14px;
   padding-top: 16px;
   padding-bottom: 40px;
 }
-body.rena-shell.rena-page-messages main button {
+body.rena-shell.rena-page-messages main button,
+body.rena-customer-shell.rena-page-messages main button {
   min-height: 44px;
 }
 body.rena-shell.rena-page-messages .font-newsreader,
+body.rena-customer-shell.rena-page-messages .font-newsreader,
 body.rena-shell.rena-page-earnings .font-newsreader,
 body.rena-shell.rena-page-jobs .font-newsreader {
   font-family: var(--font-jost), sans-serif;
