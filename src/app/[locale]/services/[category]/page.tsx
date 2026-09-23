@@ -583,15 +583,23 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // Step-frame numbering: entered cleaner-first (?cleaner=…), the pick room
   // was Step 1, so the wizard continues 2 → 3 → 4; service-first it is 1 → 3.
   const flowOffset = preSelectedCleanerId ? 1 : 0;
-  // Item 6 rider (James-ruled): the split gave the cleaner-first road five
-  // honest steps — service 1, configure 2, WHEN 3, DETAILS 4, checkout 5.
-  const flowTotal = preSelectedCleanerId ? 5 : 3;
+  // FINAL SHAPE (James-ruled): both branches are the balanced five-room form.
+  // Cleaner branch: service 1, configure 2, WHEN 3, DETAILS 4, checkout 5.
+  // Time branch: quote 1, CHOOSE YOUR CLEANER 2, WHEN 3, THE DETAILS 4,
+  // checkout 5. Frames render in-shell only; browsers never see a count.
+  const flowTotal = 5;
   // Appearance item 6 (James-ruled, in-shell only): the cleaner-first
   // "Choose a Time" screen splits into WHEN (the one question: date strip +
   // time chips) then DETAILS (access, instructions, address, summary, pay) —
   // the access question sits with the other about-your-home questions.
   // Browsers keep the single long page byte-identically.
   const [shellBookStage, setShellBookStage] = useState<'when' | 'details'>('when');
+  // FINAL SHAPE (James-ruled, in-shell only): the time branch's phase-2
+  // mega-page splits into three rooms — CHOOSE YOUR CLEANER, WHEN, THE
+  // DETAILS — the same room grammar as the cleaner branch. Selections live in
+  // the page state either way, so state survives back-and-forward by
+  // construction. Browsers keep the single mega-page byte-identically.
+  const [shellTimeStage, setShellTimeStage] = useState<'cleaner' | 'when' | 'details'>('cleaner');
   // Step-frame law: the cflow body class powers the in-shell CSS upsizing
   // (globals.css) — browsers never carry it.
   useEffect(() => {
@@ -994,7 +1002,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           ? 'choose-time'
           : 'review'
       : '';
-  const stepScrollKey = `${currentStep}:${fixedFlowStep}`;
+  // FINAL SHAPE: in-shell time-branch rooms are steps too — each room change
+  // lands at the top with stale field errors cleared.
+  const stepScrollKey = `${currentStep}:${fixedFlowStep}:${inCustomerShell ? shellTimeStage : ''}`;
   const prevStepScrollKey = useRef(stepScrollKey);
   useEffect(() => {
     if (prevStepScrollKey.current === stepScrollKey) return;
@@ -1013,6 +1023,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     }
     switch (currentStep) {
       case 'booking':
+        // FINAL SHAPE back-navigation law (in-shell, time branch): each back
+        // returns exactly one room, and every selection SURVIVES — a picked
+        // cleaner, slot or details answer is still there after back-and-
+        // forward. Browsers keep the original clear-and-return behaviour.
+        if (inCustomerShell && !preSelectedCleanerId && !isFixedPrice(category)) {
+          if (shellTimeStage === 'details') {
+            setShellTimeStage('when');
+            return;
+          }
+          if (shellTimeStage === 'when') {
+            setShellTimeStage('cleaner');
+            return;
+          }
+          // Room 2 with a selection held — one more back reaches the quote
+          // room, selections intact for the forward return.
+          setPhase('quote');
+          return;
+        }
         setSelectedCleanerIds([]);
         setDateTimeSelection(null);
         break;
@@ -1024,7 +1052,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       default:
         break;
     }
-  }, [currentStep, profileCleaner]);
+  }, [
+    currentStep,
+    profileCleaner,
+    inCustomerShell,
+    preSelectedCleanerId,
+    category,
+    shellTimeStage,
+  ]);
 
   // Push browser history on each step change so the back button works
   useEffect(() => {
@@ -1164,9 +1199,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
-        {inCustomerShell && (
-          <FlowStep n={(preSelectedCleanerId ? 4 : 3) + flowOffset} total={flowTotal} />
-        )}
+        {/* Checkout is always the last room of either branch. */}
+        {inCustomerShell && <FlowStep n={flowTotal} total={flowTotal} />}
         {/* Checkout exception (one-action law): Stripe's own "Pay £X" is the
             single door — the bar here carries NO action, just the order total. */}
         {inCustomerShell && <FlowBar price={totalPrice + productCost} />}
@@ -2051,7 +2085,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               title={
                 shellBookStage === 'when'
                   ? `When should ${preSelectedCleaner.name.split(' ')[0]} come?`
-                  : undefined
+                  : 'The details'
               }
             />
           </div>
@@ -3112,23 +3146,34 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
-      {inCustomerShell && <FlowStep n={2 + flowOffset} total={flowTotal} />}
-      {inCustomerShell &&
-        currentStep === 'booking' &&
-        // Fixed-price rooms only mount their Confirm CTA once a slot is
-        // picked — until then there is nothing for the bar to proxy (or
-        // hide), so it stays off rather than presenting a dead door.
-        (!isFixedPrice(category) || (!!selectedDate && !!selectedTime24)) && (
-          <FlowBar
-            price={
-              (priceBreakdown.discountedTotal ||
-                (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
-                0) + productCost
-            }
-            label="Continue"
-            disabled={bookingSubmitting}
-          />
-        )}
+      {/* FINAL SHAPE: the room frame — 2 CHOOSE YOUR CLEANER, 3 WHEN, 4 THE
+          DETAILS — the same grammar as the cleaner branch. */}
+      {inCustomerShell && (
+        <FlowStep
+          n={shellTimeStage === 'cleaner' ? 2 : shellTimeStage === 'when' ? 3 : 4}
+          total={flowTotal}
+          title={
+            shellTimeStage === 'cleaner'
+              ? 'Choose your cleaner'
+              : shellTimeStage === 'when'
+                ? `When should ${(selectedCleaner?.name ?? 'they').split(' ')[0]} come?`
+                : 'The details'
+          }
+        />
+      )}
+      {/* FINAL SHAPE: the flow bar carries the live price from the quote room
+          onward; its Continue proxies the active room's single door. */}
+      {inCustomerShell && (
+        <FlowBar
+          price={
+            (priceBreakdown.discountedTotal ||
+              (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
+              0) + productCost
+          }
+          label={shellTimeStage === 'details' ? 'Confirm & Pay' : 'Continue'}
+          disabled={bookingSubmitting}
+        />
+      )}
       {/* ── Step indicator bar ── */}
       <div className="relative">
         {/* Back button */}
@@ -3150,94 +3195,103 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back
         </button>
 
-        {/* Step progress pills */}
-        <div className="flex items-center gap-3">
-          {/* Quote (always clickable, always behind) */}
-          <button
-            onClick={() => setPhase('quote')}
-            className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
-          >
-            <svg
-              className="h-3 w-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
+        {/* Step progress pills (browser only — the shell wears the frame) */}
+        {!inCustomerShell && (
+          <div className="flex items-center gap-3">
+            {/* Quote (always clickable, always behind) */}
+            <button
+              onClick={() => setPhase('quote')}
+              className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-            Quote
-          </button>
+              <svg
+                className="h-3 w-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              Quote
+            </button>
 
-          {stepLabels.map((step, i) => {
-            const isActive = i === activeStepIndex;
-            const isPast = i < activeStepIndex;
-            return (
-              <div key={step.key} className="flex items-center gap-3">
-                {/* Connector line */}
-                <div
-                  className={`h-px w-6 transition-colors ${
-                    isPast || isActive ? 'bg-gold/30' : 'bg-ink-3/15'
-                  }`}
-                />
-                {/* Step pill */}
-                {isPast ? (
-                  <button
-                    onClick={() => {
-                      if (step.key === 'browse' || step.key === 'set-time') {
-                        setSelectedCleanerIds([]);
-                        setDateTimeSelection(null);
-                      }
-                    }}
-                    className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
-                  >
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4.5 12.75l6 6 9-13.5"
-                      />
-                    </svg>
-                    {step.label}
-                  </button>
-                ) : (
-                  <span
-                    className={`rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
-                      isActive ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
+            {stepLabels.map((step, i) => {
+              const isActive = i === activeStepIndex;
+              const isPast = i < activeStepIndex;
+              return (
+                <div key={step.key} className="flex items-center gap-3">
+                  {/* Connector line */}
+                  <div
+                    className={`h-px w-6 transition-colors ${
+                      isPast || isActive ? 'bg-gold/30' : 'bg-ink-3/15'
                     }`}
-                  >
-                    {step.label}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  />
+                  {/* Step pill */}
+                  {isPast ? (
+                    <button
+                      onClick={() => {
+                        if (step.key === 'browse' || step.key === 'set-time') {
+                          setSelectedCleanerIds([]);
+                          setDateTimeSelection(null);
+                        }
+                      }}
+                      className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4.5 12.75l6 6 9-13.5"
+                        />
+                      </svg>
+                      {step.label}
+                    </button>
+                  ) : (
+                    <span
+                      className={`rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                        isActive ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Page title */}
-        <h1 className="mt-8 font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
-          {currentStep === 'browse' && 'Browse Available Cleaners'}
-          {currentStep === 'set-time' && 'Choose your time'}
-          {currentStep === 'booking' && 'Complete Your Booking'}
-        </h1>
-        <p className="mt-2 font-jost font-light text-sm text-ink-3">
-          {currentStep === 'browse' &&
-            `${cleaners.length} cleaners available \u00b7 click to view profile`}
-          {currentStep === 'set-time' &&
-            "Pick when you want your clean \u2014 we'll show who's available then."}
-          {currentStep === 'booking' && 'Review your details and confirm.'}
-        </p>
+        {/* Page title (browser only — room headlines live in the frame) */}
+        {!inCustomerShell && (
+          <h1 className="mt-8 font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
+            {currentStep === 'browse' && 'Browse Available Cleaners'}
+            {currentStep === 'set-time' && 'Choose your time'}
+            {currentStep === 'booking' && 'Complete Your Booking'}
+          </h1>
+        )}
+        {!inCustomerShell && (
+          <p className="mt-2 font-jost font-light text-sm text-ink-3">
+            {currentStep === 'browse' &&
+              `${cleaners.length} cleaners available \u00b7 click to view profile`}
+            {currentStep === 'set-time' &&
+              "Pick when you want your clean \u2014 we'll show who's available then."}
+            {currentStep === 'booking' && 'Review your details and confirm.'}
+          </p>
+        )}
       </div>
 
-      <div className="mt-10 space-y-10">
+      <div
+        className={inCustomerShell ? 'mt-10 flex flex-col gap-10' : 'mt-10 space-y-10'}
+        id={inCustomerShell ? 'booking-cleaner' : undefined}
+      >
         {/* Results view toggle (M2 — replaces the removed method fork) */}
-        {selectedCleanerIds.length === 0 && (
+        {(inCustomerShell ? shellTimeStage === 'cleaner' : selectedCleanerIds.length === 0) && (
           <div className="inline-flex rounded-full border border-line bg-surface p-1">
             <button
               type="button"
@@ -3260,514 +3314,630 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         )}
 
+        <FieldError k="booking-cleaner" />
+
         {/* ════════════════════════════════════════════════════════════
             FLOW A: Browse available cleaners (flexible)
            ════════════════════════════════════════════════════════════ */}
-        {scheduling === 'flexible' && selectedCleanerIds.length === 0 && (
-          <div>
-            {/* Cleaner grid */}
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {cleaners.map((c) => {
-                const isAlreadySelected = selectedCleanerIds.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() =>
-                      isAlreadySelected
-                        ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
-                        : setProfileCleaner(c)
-                    }
-                    className="group flex flex-col rounded-[16px] border border-line bg-surface p-5 text-left transition-shadow hover:shadow-md"
-                  >
-                    <CleanerIdentity
-                      photo={c.photo}
-                      name={c.name}
-                      verified={c.identityVerified || c.backgroundChecked}
-                      rating={c.rating}
-                      reviewCount={c.reviewCount}
-                      meta={
-                        <>
-                          {c.location}
-                          {' · from '}
-                          <span className="font-newsreader text-[14px] font-medium text-ink">
-                            &pound;{getServiceListedRate(c, category).toFixed(2)}
-                          </span>
-                          <span className="text-ink-3">/hr</span>
-                        </>
+        {scheduling === 'flexible' &&
+          (inCustomerShell ? shellTimeStage === 'cleaner' : selectedCleanerIds.length === 0) && (
+            <div>
+              {/* Cleaner grid */}
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                {cleaners.map((c) => {
+                  const isAlreadySelected = selectedCleanerIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() =>
+                        isAlreadySelected
+                          ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
+                          : setProfileCleaner(c)
                       }
-                    />
-                    <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                      {c.bio}
-                    </p>
-                  </button>
-                );
-              })}
+                      className="group flex flex-col rounded-[16px] border border-line bg-surface p-5 text-left transition-shadow hover:shadow-md"
+                    >
+                      <CleanerIdentity
+                        photo={c.photo}
+                        name={c.name}
+                        verified={c.identityVerified || c.backgroundChecked}
+                        rating={c.rating}
+                        reviewCount={c.reviewCount}
+                        meta={
+                          <>
+                            {c.location}
+                            {' · from '}
+                            <span className="font-newsreader text-[14px] font-medium text-ink">
+                              &pound;{getServiceListedRate(c, category).toFixed(2)}
+                            </span>
+                            <span className="text-ink-3">/hr</span>
+                          </>
+                        }
+                      />
+                      <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                        {c.bio}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* ════════════════════════════════════════════════════════════
             FLOW B: Pick a date and time (set-time)
            ════════════════════════════════════════════════════════════ */}
-        {scheduling === 'set-time' && selectedCleanerIds.length === 0 && (
-          <div className="space-y-6">
-            {/* Step: pick a day + a time-of-day band */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader font-semibold text-base text-ink">Pick a day</h2>
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                {timeFirstDays.map((d) => (
-                  <button
-                    key={d.iso}
-                    type="button"
-                    onClick={() => {
-                      setTfDate(d.iso);
-                      setTfResults(null);
-                    }}
-                    className={`shrink-0 rounded-lg px-3.5 py-2 text-center font-jost transition ${
-                      tfDate === d.iso
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream-2/60 text-ink-2 hover:bg-cream-2'
-                    }`}
-                  >
-                    <span className="block text-[11px] uppercase tracking-[0.08em]">
-                      {d.weekday}
-                    </span>
-                    <span className="block text-sm font-medium">{d.day}</span>
-                  </button>
-                ))}
-              </div>
-
-              <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">
-                Pick a time of day
-              </h2>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {TIME_FIRST_BANDS.map((b) => (
-                  <button
-                    key={b.key}
-                    type="button"
-                    onClick={() => {
-                      setTfBand(b.key);
-                      setTfResults(null);
-                    }}
-                    className={`rounded-lg px-3 py-3 text-center font-jost transition ${
-                      tfBand === b.key
-                        ? 'bg-ink text-cream'
-                        : 'bg-cream-2/60 text-ink-2 hover:bg-cream-2'
-                    }`}
-                  >
-                    <span className="block text-sm font-medium">{b.label}</span>
-                    <span
-                      className={`block text-[11px] ${tfBand === b.key ? 'text-cream/70' : 'text-ink-3'}`}
+        {scheduling === 'set-time' &&
+          (inCustomerShell ? shellTimeStage === 'cleaner' : selectedCleanerIds.length === 0) && (
+            <div className="space-y-6">
+              {/* Step: pick a day + a time-of-day band */}
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <h2 className="font-newsreader font-semibold text-base text-ink">Pick a day</h2>
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {timeFirstDays.map((d) => (
+                    <button
+                      key={d.iso}
+                      type="button"
+                      onClick={() => {
+                        setTfDate(d.iso);
+                        setTfResults(null);
+                      }}
+                      className={`shrink-0 rounded-lg px-3.5 py-2 text-center font-jost transition ${
+                        tfDate === d.iso
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2/60 text-ink-2 hover:bg-cream-2'
+                      }`}
                     >
-                      {b.hint}
-                    </span>
-                  </button>
-                ))}
+                      <span className="block text-[11px] uppercase tracking-[0.08em]">
+                        {d.weekday}
+                      </span>
+                      <span className="block text-sm font-medium">{d.day}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <h2 className="mt-6 font-newsreader font-semibold text-base text-ink">
+                  Pick a time of day
+                </h2>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {TIME_FIRST_BANDS.map((b) => (
+                    <button
+                      key={b.key}
+                      type="button"
+                      onClick={() => {
+                        setTfBand(b.key);
+                        setTfResults(null);
+                      }}
+                      className={`rounded-lg px-3 py-3 text-center font-jost transition ${
+                        tfBand === b.key
+                          ? 'bg-ink text-cream'
+                          : 'bg-cream-2/60 text-ink-2 hover:bg-cream-2'
+                      }`}
+                    >
+                      <span className="block text-sm font-medium">{b.label}</span>
+                      <span
+                        className={`block text-[11px] ${tfBand === b.key ? 'text-cream/70' : 'text-ink-3'}`}
+                      >
+                        {b.hint}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!tfDate || !tfBand || tfLoading}
+                  onClick={runTimeFirstSearch}
+                  className="mt-6 w-full rounded-lg bg-gold py-3 font-jost text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {tfLoading ? 'Finding cleaners…' : 'Find cleaners'}
+                </button>
+                {tfError && <p className="mt-2 font-jost text-xs text-amber-700">{tfError}</p>}
               </div>
 
-              <button
-                type="button"
-                disabled={!tfDate || !tfBand || tfLoading}
-                onClick={runTimeFirstSearch}
-                className="mt-6 w-full rounded-lg bg-gold py-3 font-jost text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {tfLoading ? 'Finding cleaners…' : 'Find cleaners'}
-              </button>
-              {tfError && <p className="mt-2 font-jost text-xs text-amber-700">{tfError}</p>}
-            </div>
-
-            {/* Results — honest framing: available ≠ confirmed */}
-            {tfResults !== null &&
-              !tfLoading &&
-              (tfResults.length === 0 ? (
-                <div className="rounded-xl bg-white p-6 text-center ring-1 ring-ink/[0.06]">
-                  <p className="font-jost text-sm text-ink-2">
-                    No cleaners have{' '}
-                    {tfDate && tfBand ? bandDateLabel(tfDate, tfBand) : 'that slot'} open. Try
-                    another day or time of day.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <p className="font-jost font-medium text-base text-ink">
-                    {tfResults.length} cleaner{tfResults.length !== 1 ? 's' : ''} available for{' '}
-                    {bandDateLabel(tfDate, tfBand as TimeFirstBand)}
-                  </p>
-                  <p className="mt-1 font-jost font-light text-sm text-ink-3">
-                    Pick your slot — they&apos;ll confirm your booking. If they can&apos;t make it,
-                    your backup is offered next.
-                  </p>
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    {tfResults.map((card) => {
-                      const cleaner = tfCleanerToCleaner(card);
-                      return (
-                        <div
-                          key={card.id}
-                          className="flex flex-col rounded-[16px] border border-line bg-surface p-5"
-                        >
-                          {/* Identity — tapping the name/identity opens the shared
+              {/* Results — honest framing: available ≠ confirmed */}
+              {tfResults !== null &&
+                !tfLoading &&
+                (tfResults.length === 0 ? (
+                  <div className="rounded-xl bg-white p-6 text-center ring-1 ring-ink/[0.06]">
+                    <p className="font-jost text-sm text-ink-2">
+                      No cleaners have{' '}
+                      {tfDate && tfBand ? bandDateLabel(tfDate, tfBand) : 'that slot'} open. Try
+                      another day or time of day.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-jost font-medium text-base text-ink">
+                      {tfResults.length} cleaner{tfResults.length !== 1 ? 's' : ''} available for{' '}
+                      {bandDateLabel(tfDate, tfBand as TimeFirstBand)}
+                    </p>
+                    <p className="mt-1 font-jost font-light text-sm text-ink-3">
+                      Pick your slot — they&apos;ll confirm your booking. If they can&apos;t make
+                      it, your backup is offered next.
+                    </p>
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                      {tfResults.map((card) => {
+                        const cleaner = tfCleanerToCleaner(card);
+                        return (
+                          <div
+                            key={card.id}
+                            className="flex flex-col rounded-[16px] border border-line bg-surface p-5"
+                          >
+                            {/* Identity — tapping the name/identity opens the shared
                               CleanerProfileModal (with its in-flow Book). The slot
                               pills below stay a distinct action. */}
-                          <button
-                            type="button"
-                            onClick={() => setProfileCleaner(cleaner)}
-                            className="-m-1 rounded-lg p-1 text-left transition-colors hover:bg-page"
-                            aria-label={`View ${card.name}'s profile`}
-                          >
-                            <CleanerIdentity
-                              photo={cleaner.photo || null}
-                              name={card.name}
-                              verified={card.identityVerified || card.backgroundChecked}
-                              rating={card.rating}
-                              reviewCount={card.reviewCount}
-                              meta={
-                                <>
-                                  {postcode || ''}
-                                  {!isFixedPrice(category) && (
-                                    <>
-                                      {postcode ? ' · from ' : 'from '}
-                                      <span className="font-newsreader text-[14px] font-medium text-ink">
-                                        &pound;{getServiceListedRate(cleaner, category).toFixed(2)}
-                                      </span>
-                                      <span className="text-ink-3">/hr</span>
-                                    </>
-                                  )}
-                                </>
-                              }
-                            />
-                            <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                              {card.bio}
-                            </p>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setProfileCleaner(cleaner)}
+                              className="-m-1 rounded-lg p-1 text-left transition-colors hover:bg-page"
+                              aria-label={`View ${card.name}'s profile`}
+                            >
+                              <CleanerIdentity
+                                photo={cleaner.photo || null}
+                                name={card.name}
+                                verified={card.identityVerified || card.backgroundChecked}
+                                rating={card.rating}
+                                reviewCount={card.reviewCount}
+                                meta={
+                                  <>
+                                    {postcode || ''}
+                                    {!isFixedPrice(category) && (
+                                      <>
+                                        {postcode ? ' · from ' : 'from '}
+                                        <span className="font-newsreader text-[14px] font-medium text-ink">
+                                          &pound;
+                                          {getServiceListedRate(cleaner, category).toFixed(2)}
+                                        </span>
+                                        <span className="text-ink-3">/hr</span>
+                                      </>
+                                    )}
+                                  </>
+                                }
+                              />
+                              <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                                {card.bio}
+                              </p>
+                            </button>
 
-                          {/* Caps eyebrow = the searched date. Picking an exact 30-min start
+                            {/* Caps eyebrow = the searched date. Picking an exact 30-min start
                               within the band pins the cleaner + slot and opens the NORMAL
                               booking (unchanged one-step behaviour — the pill IS the action). */}
-                          <p className="mt-4 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
-                            Available{' '}
-                            {new Date(`${tfDate}T00:00:00`)
-                              .toLocaleDateString('en-GB', {
-                                weekday: 'long',
-                                day: 'numeric',
-                                month: 'long',
-                              })
-                              .toUpperCase()}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {card.openStartTimes.map((start) => (
-                              <button
-                                key={start}
-                                type="button"
-                                onClick={() => handleTimeFirstPick(cleaner, start)}
-                                className="rounded-full border border-line px-3.5 py-1.5 font-jost text-[12px] font-medium text-ink-2 transition-colors hover:border-primary hover:bg-primary hover:text-white"
-                              >
-                                {to12h(start)}
-                              </button>
-                            ))}
+                            <p className="mt-4 font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
+                              Available{' '}
+                              {new Date(`${tfDate}T00:00:00`)
+                                .toLocaleDateString('en-GB', {
+                                  weekday: 'long',
+                                  day: 'numeric',
+                                  month: 'long',
+                                })
+                                .toUpperCase()}
+                            </p>
+                            {!inCustomerShell && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {card.openStartTimes.map((start) => (
+                                  <button
+                                    key={start}
+                                    type="button"
+                                    onClick={() => handleTimeFirstPick(cleaner, start)}
+                                    className="rounded-full border border-line px-3.5 py-1.5 font-jost text-[12px] font-medium text-ink-2 transition-colors hover:border-primary hover:bg-primary hover:text-white"
+                                  >
+                                    {to12h(start)}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
-          </div>
-        )}
+                ))}
+            </div>
+          )}
 
         {/* ════════════════════════════════════════════════════════════
             BOOKING PAGE (shown after selecting a cleaner from either flow)
            ════════════════════════════════════════════════════════════ */}
-        {selectedCleanerIds.length >= 1 && selectedCleaner && (
-          <>
-            {/* Selected cleaner header */}
-            <div className="space-y-3">
-              {selectedCleaners.map((sc) => (
-                <div
-                  key={sc.id}
-                  className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06] sm:p-6"
-                >
-                  {/* H22 sweep: photo via the shared avatar, not an initials tile */}
-                  <CleanerAvatar
-                    photo={sc.photo}
-                    name={sc.name}
-                    size={56}
-                    className="shrink-0 ring-1 ring-ink/[0.06]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-jost font-normal text-ink">{sc.name}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[sc.tier].color}`}
-                      >
-                        {TIER_INFO[sc.tier].label}
-                      </span>
-                      <VerificationBadge
-                        identityVerified={sc.identityVerified}
-                        backgroundChecked={sc.backgroundChecked}
+        {/* FINAL SHAPE: CHOOSE YOUR CLEANER's single door (in-shell). */}
+        {inCustomerShell && shellTimeStage === 'cleaner' && (
+          <button
+            type="button"
+            data-cflow-cta
+            onClick={() => {
+              if (selectedCleanerIds.length === 0 || !selectedCleaner) {
+                failValidation([
+                  { id: 'booking-cleaner', msg: 'Please choose your cleaner to continue.' },
+                ]);
+                return;
+              }
+              setFieldErrors({});
+              setShellTimeStage('when');
+            }}
+            className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
+          >
+            Continue
+          </button>
+        )}
+
+        {(inCustomerShell ? shellTimeStage !== 'cleaner' : selectedCleanerIds.length >= 1) &&
+          selectedCleaner && (
+            <>
+              {/* Selected cleaner header — the WHEN room's identity line. */}
+              {(!inCustomerShell || shellTimeStage === 'when') && (
+                <div className="space-y-3">
+                  {selectedCleaners.map((sc) => (
+                    <div
+                      key={sc.id}
+                      className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06] sm:p-6"
+                    >
+                      {/* H22 sweep: photo via the shared avatar, not an initials tile */}
+                      <CleanerAvatar
+                        photo={sc.photo}
+                        name={sc.name}
+                        size={56}
+                        className="shrink-0 ring-1 ring-ink/[0.06]"
                       />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-jost font-normal text-ink">{sc.name}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[sc.tier].color}`}
+                          >
+                            {TIER_INFO[sc.tier].label}
+                          </span>
+                          <VerificationBadge
+                            identityVerified={sc.identityVerified}
+                            backgroundChecked={sc.backgroundChecked}
+                          />
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
+                          <StarRating rating={sc.rating} />
+                          <span>
+                            {sc.rating} ({sc.reviewCount} reviews)
+                          </span>
+                        </div>
+                      </div>
+                      {!isFixedPrice(category) && (
+                        <div className="shrink-0 text-right">
+                          <span className="font-newsreader font-medium text-2xl text-ink">
+                            &pound;{getServiceListedRate(sc, category).toFixed(2)}
+                          </span>
+                          <span className="font-jost font-light text-xs text-ink-3">/hr</span>
+                          <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
+                            {SERVICE_RATE_LABELS[category]}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
-                      <StarRating rating={sc.rating} />
-                      <span>
-                        {sc.rating} ({sc.reviewCount} reviews)
-                      </span>
+                  ))}
+                </div>
+              )}
+
+              {/* When to book — the WHEN room's one question in-shell. */}
+              {(!inCustomerShell || shellTimeStage === 'when') && (
+                <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+                  <DateTimePicker
+                    cleanerId={selectedCleaner.id}
+                    durationHours={effectiveHours}
+                    value={dateTimeSelection}
+                    onChange={setDateTimeSelection}
+                    dateLabel={`When would you like ${selectedCleaner.name}?`}
+                    dateSubtitle={`Your clean is ${effectiveHours} hours`}
+                  />
+                  <FieldError k="booking-datetime" />
+                </div>
+              )}
+
+              {/* FINAL SHAPE: the WHEN room's single door (in-shell) — validates
+                the slot with the standing inline machinery, then THE DETAILS. */}
+              {inCustomerShell && shellTimeStage === 'when' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedDate || !selectedTime24) {
+                      failValidation([
+                        {
+                          id: 'booking-datetime',
+                          msg: !selectedDate
+                            ? 'Please choose a date for your clean.'
+                            : 'Please choose an arrival time.',
+                        },
+                      ]);
+                      return;
+                    }
+                    setFieldErrors({});
+                    setShellTimeStage('details');
+                  }}
+                  data-cflow-cta
+                  className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
+                >
+                  Continue
+                </button>
+              )}
+
+              {/* Backup cleaner slider — THE DETAILS room, ruled order slot 4. */}
+              {(!inCustomerShell || shellTimeStage === 'details') && (
+                <div
+                  className={
+                    inCustomerShell
+                      ? 'order-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                      : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  }
+                >
+                  <BackupCleanerSlider
+                    cleaners={availableBackupCleaners}
+                    selectedIds={backupCleanerIds}
+                    onToggle={handleBackupToggle}
+                    maxSelections={3}
+                    autoAssign={autoAssignBackup}
+                    onAutoAssignChange={setAutoAssignBackup}
+                    serviceCategory={category}
+                    propertySize={rooms.bedrooms}
+                  />
+                </div>
+              )}
+
+              {/* Payment held notice — THE DETAILS room, beside the summary. */}
+              {(!inCustomerShell || shellTimeStage === 'details') && (
+                <div
+                  className={
+                    inCustomerShell
+                      ? 'order-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                      : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  }
+                >
+                  <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                  <div className="flex items-start gap-3">
+                    <svg
+                      className="mt-0.5 h-5 w-5 shrink-0 text-gold"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div>
+                      <h4 className="font-newsreader text-lg font-semibold text-ink">
+                        Payment Held Securely
+                      </h4>
+                      <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
+                        You will see a charge to your bank account for the booking summary shown
+                        above, but the payment will be held securely until your job is complete.
+                      </p>
+                      {backupCleanerIds.length > 0 && (
+                        <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
+                          In the event that your chosen cleaner does not accept the booking, one of
+                          your selected backup cleaners will be used instead. Our system will either
+                          provide a small refund or apply a small additional charge to your account
+                          to align with the new cleaner&apos;s rate as shown in the booking summary.
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                        <span>&#10003; Funds held safely</span>
+                        <span>&#10003; Released after completion</span>
+                        {backupCleanerIds.length > 0 && (
+                          <span>&#10003; Auto-adjusted for backup rates</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  {!isFixedPrice(category) && (
-                    <div className="shrink-0 text-right">
-                      <span className="font-newsreader font-medium text-2xl text-ink">
-                        &pound;{getServiceListedRate(sc, category).toFixed(2)}
-                      </span>
-                      <span className="font-jost font-light text-xs text-ink-3">/hr</span>
-                      <p className="font-jost font-light text-[10px] text-ink-3 mt-0.5">
-                        {SERVICE_RATE_LABELS[category]}
-                      </p>
-                    </div>
+                </div>
+              )}
+
+              {/* Key access — THE DETAILS room, ruled order slot 1. */}
+              {(!inCustomerShell || shellTimeStage === 'details') && (
+                <div
+                  className={
+                    inCustomerShell
+                      ? 'order-1 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                      : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  }
+                >
+                  <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+                    How will the cleaner get in?
+                  </h2>
+                  <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                    {(
+                      [
+                        { value: 'lockbox', label: 'Keybox' },
+                        { value: 'key-under-mat', label: 'Key hidden' },
+                        { value: 'i-will-be-home', label: 'Someone will be in' },
+                        { value: 'with-concierge', label: 'Concierge' },
+                      ] as { value: KeyAccess; label: string }[]
+                    ).map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setKeyAccess(opt.value)}
+                        className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
+                          keyAccess === opt.value
+                            ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                            : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
+                    <input
+                      type="text"
+                      value={keyAccessNote}
+                      onChange={(e) => setKeyAccessNote(e.target.value)}
+                      placeholder={
+                        keyAccess === 'lockbox'
+                          ? 'Lockbox code or location...'
+                          : 'Where is the key hidden?'
+                      }
+                      className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    />
                   )}
                 </div>
-              ))}
-            </div>
+              )}
 
-            {/* When to book — cleaner's availability calendar */}
-            <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
-              <DateTimePicker
-                cleanerId={selectedCleaner.id}
-                durationHours={effectiveHours}
-                value={dateTimeSelection}
-                onChange={setDateTimeSelection}
-                dateLabel={`When would you like ${selectedCleaner.name}?`}
-                dateSubtitle={`Your clean is ${effectiveHours} hours`}
-              />
-              <FieldError k="booking-datetime" />
-            </div>
-
-            {/* Backup cleaner slider */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <BackupCleanerSlider
-                cleaners={availableBackupCleaners}
-                selectedIds={backupCleanerIds}
-                onToggle={handleBackupToggle}
-                maxSelections={3}
-                autoAssign={autoAssignBackup}
-                onAutoAssignChange={setAutoAssignBackup}
-                serviceCategory={category}
-                propertySize={rooms.bedrooms}
-              />
-            </div>
-
-            {/* Payment held notice */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-              <div className="flex items-start gap-3">
-                <svg
-                  className="mt-0.5 h-5 w-5 shrink-0 text-gold"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
+              {/* Special instructions — THE DETAILS room, ruled order slot 2. */}
+              {(!inCustomerShell || shellTimeStage === 'details') && (
+                <div
+                  className={
+                    inCustomerShell
+                      ? 'order-2 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                      : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  }
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <div>
-                  <h4 className="font-newsreader text-lg font-semibold text-ink">
-                    Payment Held Securely
-                  </h4>
-                  <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
-                    You will see a charge to your bank account for the booking summary shown above,
-                    but the payment will be held securely until your job is complete.
+                  <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+                    Special instructions
+                  </h2>
+                  <p className="mt-2 font-jost font-light text-sm text-ink-3">
+                    Anything the cleaner should know or be careful with?
                   </p>
-                  {backupCleanerIds.length > 0 && (
-                    <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
-                      In the event that your chosen cleaner does not accept the booking, one of your
-                      selected backup cleaners will be used instead. Our system will either provide
-                      a small refund or apply a small additional charge to your account to align
-                      with the new cleaner&apos;s rate as shown in the booking summary.
-                    </p>
+                  <textarea
+                    rows={3}
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
+                    className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                </div>
+              )}
+
+              {/* H32 (James-ruled): the cleaning address sits ABOVE the summary.
+                THE DETAILS room, ruled order slot 3. */}
+              {(!inCustomerShell || shellTimeStage === 'details') &&
+                (inCustomerShell ? <div className="order-3">{addressCard}</div> : addressCard)}
+
+              {/* Summary & submit — THE DETAILS room, ruled order slot 5. */}
+              {(!inCustomerShell || shellTimeStage === 'details') && (
+                <div
+                  className={
+                    inCustomerShell
+                      ? 'order-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4'
+                      : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4'
+                  }
+                >
+                  <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                  <h3 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+                    Booking Summary
+                  </h3>
+                  <SummaryRow label="Service" value={serviceLabel} />
+                  <SummaryRow label="Postcode" value={postcode} />
+                  <SummaryRow
+                    label="Space"
+                    value={`${bedroomsLabel(rooms.bedrooms)}, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
+                  />
+                  <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
+                  <SummaryRow label="Frequency" value="One-off" />
+                  <SummaryRow
+                    label="Products"
+                    value={
+                      cleanerBringsProducts
+                        ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
+                        : 'Customer provides'
+                    }
+                  />
+                  <SummaryRow label="Cleaner" value={selectedCleaner?.name ?? ''} />
+                  {selectedDate && selectedTime24 && (
+                    <SummaryRow
+                      label="When"
+                      value={`${selectedDate}, ${selectedTimeDisplay || selectedTime24}`}
+                    />
                   )}
-                  <div className="mt-3 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
-                    <span>&#10003; Funds held safely</span>
-                    <span>&#10003; Released after completion</span>
-                    {backupCleanerIds.length > 0 && (
-                      <span>&#10003; Auto-adjusted for backup rates</span>
+                  <SummaryRow
+                    label="Key access"
+                    value={
+                      keyAccess === 'lockbox'
+                        ? 'Keybox'
+                        : keyAccess === 'key-under-mat'
+                          ? keyAccessNote
+                            ? keyAccessNote.charAt(0).toUpperCase() + keyAccessNote.slice(1)
+                            : 'Key hidden'
+                          : keyAccess === 'i-will-be-home'
+                            ? 'Someone will be in'
+                            : 'Concierge'
+                    }
+                  />
+
+                  <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
+                    {/* Hourly services only — fixed-price services have their own phase 2 */}
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="font-jost font-light text-ink-3">
+                          Cleaning ({effectiveHours}h &times; &pound;
+                          {priceBreakdown.listedHourlyRate}
+                          /hr)
+                        </span>
+                        <span className="font-jost font-normal text-ink">
+                          &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                        </span>
+                      </div>
+                      {productCost > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="font-jost font-light text-ink-3">Cleaning products</span>
+                          <span className="font-jost font-light text-ink">
+                            &pound;{productCost.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm">
+                        <span className="font-jost font-light text-ink-3">
+                          Service fee ({SERVICE_FEE_PERCENT}%)
+                        </span>
+                        <span className="font-jost font-light text-ink">
+                          &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                    <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
+                      <span className="font-jost font-normal text-ink">Total</span>
+                      <span className="font-newsreader font-medium text-3xl text-ink">
+                        &pound;
+                        {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                      </span>
+                    </div>
+                    {isRegular && (
+                      <p className="font-jost font-light text-xs text-ink-3">
+                        Per clean. Cancel or pause your schedule anytime.
+                      </p>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Key access */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-                How will the cleaner get in?
-              </h2>
-              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
-                {(
-                  [
-                    { value: 'lockbox', label: 'Keybox' },
-                    { value: 'key-under-mat', label: 'Key hidden' },
-                    { value: 'i-will-be-home', label: 'Someone will be in' },
-                    { value: 'with-concierge', label: 'Concierge' },
-                  ] as { value: KeyAccess; label: string }[]
-                ).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setKeyAccess(opt.value)}
-                    className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
-                      keyAccess === opt.value
-                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
-                <input
-                  type="text"
-                  value={keyAccessNote}
-                  onChange={(e) => setKeyAccessNote(e.target.value)}
-                  placeholder={
-                    keyAccess === 'lockbox'
-                      ? 'Lockbox code or location...'
-                      : 'Where is the key hidden?'
+              {bookingError && (
+                <div
+                  className={
+                    inCustomerShell
+                      ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+                      : 'mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
                   }
-                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
-                />
-              )}
-            </div>
-
-            {/* Special instructions */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-                Special instructions
-              </h2>
-              <p className="mt-2 font-jost font-light text-sm text-ink-3">
-                Anything the cleaner should know or be careful with?
-              </p>
-              <textarea
-                rows={3}
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
-                placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
-                className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-            </div>
-
-            {/* H32 (James-ruled): the cleaning address sits ABOVE the summary. */}
-            {addressCard}
-
-            {/* Summary & submit */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4">
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-              <h3 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-                Booking Summary
-              </h3>
-              <SummaryRow label="Service" value={serviceLabel} />
-              <SummaryRow label="Postcode" value={postcode} />
-              <SummaryRow
-                label="Space"
-                value={`${bedroomsLabel(rooms.bedrooms)}, ${rooms.bathrooms} bath, ${rooms.livingAreas} living${rooms.kitchen ? ', kitchen' : ''}${rooms.additionals.length > 0 ? `, +${rooms.additionals.length} more` : ''}`}
-              />
-              <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
-              <SummaryRow label="Frequency" value="One-off" />
-              <SummaryRow
-                label="Products"
-                value={
-                  cleanerBringsProducts
-                    ? `Cleaner brings (+\u00A3${PRODUCT_FEE})`
-                    : 'Customer provides'
-                }
-              />
-              <SummaryRow label="Cleaner" value={selectedCleaner?.name ?? ''} />
-              {selectedDate && selectedTime24 && (
-                <SummaryRow
-                  label="When"
-                  value={`${selectedDate}, ${selectedTimeDisplay || selectedTime24}`}
-                />
-              )}
-              <SummaryRow
-                label="Key access"
-                value={
-                  keyAccess === 'lockbox'
-                    ? 'Keybox'
-                    : keyAccess === 'key-under-mat'
-                      ? keyAccessNote
-                        ? keyAccessNote.charAt(0).toUpperCase() + keyAccessNote.slice(1)
-                        : 'Key hidden'
-                      : keyAccess === 'i-will-be-home'
-                        ? 'Someone will be in'
-                        : 'Concierge'
-                }
-              />
-
-              <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
-                {/* Hourly services only — fixed-price services have their own phase 2 */}
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
-                      /hr)
-                    </span>
-                    <span className="font-jost font-normal text-ink">
-                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-                    </span>
-                  </div>
-                  {productCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
-                      <span className="font-jost font-light text-ink">
-                        &pound;{productCost.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">
-                      Service fee ({SERVICE_FEE_PERCENT}%)
-                    </span>
-                    <span className="font-jost font-light text-ink">
-                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                    </span>
-                  </div>
-                </>
-                <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
-                  <span className="font-jost font-normal text-ink">Total</span>
-                  <span className="font-newsreader font-medium text-3xl text-ink">
-                    &pound;
-                    {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
-                  </span>
+                >
+                  {bookingError}
                 </div>
-                {isRegular && (
-                  <p className="font-jost font-light text-xs text-ink-3">
-                    Per clean. Cancel or pause your schedule anytime.
-                  </p>
-                )}
-              </div>
-            </div>
+              )}
 
-            {bookingError && (
-              <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
-                {bookingError}
-              </div>
-            )}
-
-            {/* F5: enabled-and-validating — a click with no date/time names
-                the gap inline and scrolls to the picker. */}
-            <button
-              type="button"
-              onClick={() => handleBookingSubmit()}
-              disabled={bookingSubmitting}
-              data-cflow-cta
-              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
-            </button>
-          </>
-        )}
+              {/* F5: enabled-and-validating — a click with no date/time names
+                the gap inline and scrolls to the picker. In-shell this is THE
+                DETAILS room's single door (order slot 8). */}
+              {(!inCustomerShell || shellTimeStage === 'details') && (
+                <button
+                  type="button"
+                  onClick={() => handleBookingSubmit()}
+                  disabled={bookingSubmitting}
+                  data-cflow-cta
+                  className={
+                    inCustomerShell
+                      ? 'order-8 w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+                      : 'w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+                  }
+                >
+                  {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
+                </button>
+              )}
+            </>
+          )}
       </div>
 
       {/* ── Cleaner profile slide-out ── */}
@@ -3776,6 +3946,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           cleaner={profileCleaner}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {
+            if (selectedCleanerIds[0] !== profileCleaner.id) setDateTimeSelection(null);
             setSelectedCleanerIds([profileCleaner.id]);
             setProfileCleaner(null);
           }}
