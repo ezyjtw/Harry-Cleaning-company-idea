@@ -859,7 +859,11 @@ export async function POST(request: NextRequest) {
             cleanerId: cleaner.id,
             serviceType: body.serviceType,
           },
-          automatic_payment_methods: { enabled: true },
+          // James-ruled pinning: the checkout offers exactly card, Apple Pay,
+          // Google Pay and Link. Apple/Google Pay ride the 'card' type (the
+          // Payment Element presents the wallets); 'link' is its own type.
+          // Dashboard method toggles no longer affect checkout — by design.
+          payment_method_types: ['card', 'link'],
         },
         // A16b-1: Stripe-level idempotency keyed on the SAME request-derived key
         // (not the booking id) — so two concurrent submits that both reach PI

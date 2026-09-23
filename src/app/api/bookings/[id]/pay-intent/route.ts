@@ -32,6 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       guestToken: true,
       cleanerId: true,
       serviceType: true,
+      stripePaymentIntentId: true,
       agreement: { select: { status: true } },
       client: { select: { id: true, stripeCustomerId: true } },
     },
@@ -74,11 +75,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           serviceType: booking.serviceType,
           type: 'recurring_occurrence_paynow',
         },
-        automatic_payment_methods: { enabled: true },
+        // James-ruled pinning (same list as the main checkout): card, Apple
+        // Pay, Google Pay (riding 'card') and Link.
+        payment_method_types: ['card', 'link'],
       },
       // One on-session PI per occurrence — a refreshed page reuses it.
       { idempotencyKey: `occurrence_paynow_${booking.id}` }
     );
+    // R1-B hardening (James-ruled): the old failed off-session intent dies at
+    // Stripe before the customer pays the replacement — no second live intent.
+    // Cancel AFTER the idempotent create, gated on the ids differing: on a
+    // refreshed page the stored id already IS the pay-now intent (idempotency
+    // returns the same one), and cancel-first would kill the live checkout.
+    // Fail-soft: a cancel error logs loud and never blocks the new payment.
+    if (booking.stripePaymentIntentId && booking.stripePaymentIntentId !== pi.id) {
+      try {
+        await stripe.paymentIntents.cancel(booking.stripePaymentIntentId);
+      } catch (cancelErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[RecurringCharge] pay-now old-PI cancel FAILED for booking ${booking.id} ` +
+            `(old PI ${booking.stripePaymentIntentId}, new PI ${pi.id}) — continuing:`,
+          cancelErr instanceof Error ? cancelErr.message : cancelErr
+        );
+      }
+    }
     // The success webhook's PI/booking guard matches on the stored id — point
     // it at the pay-now PI (replacing the failed off-session one, if any).
     await prisma.booking.update({
