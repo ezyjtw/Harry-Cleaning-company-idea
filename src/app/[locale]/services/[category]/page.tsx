@@ -583,7 +583,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // Step-frame numbering: entered cleaner-first (?cleaner=…), the pick room
   // was Step 1, so the wizard continues 2 → 3 → 4; service-first it is 1 → 3.
   const flowOffset = preSelectedCleanerId ? 1 : 0;
-  const flowTotal = preSelectedCleanerId ? 4 : 3;
+  // Item 6 rider (James-ruled): the split gave the cleaner-first road five
+  // honest steps — service 1, configure 2, WHEN 3, DETAILS 4, checkout 5.
+  const flowTotal = preSelectedCleanerId ? 5 : 3;
   // Appearance item 6 (James-ruled, in-shell only): the cleaner-first
   // "Choose a Time" screen splits into WHEN (the one question: date strip +
   // time chips) then DETAILS (access, instructions, address, summary, pay) —
@@ -1162,7 +1164,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
-        {inCustomerShell && <FlowStep n={3 + flowOffset} total={flowTotal} />}
+        {inCustomerShell && (
+          <FlowStep n={(preSelectedCleanerId ? 4 : 3) + flowOffset} total={flowTotal} />
+        )}
         {/* Checkout exception (one-action law): Stripe's own "Pay £X" is the
             single door — the bar here carries NO action, just the order total. */}
         {inCustomerShell && <FlowBar price={totalPrice + productCost} />}
@@ -2042,7 +2046,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {inCustomerShell && (
           <div className="mt-4">
             <FlowStep
-              n={2 + flowOffset}
+              n={(shellBookStage === 'when' ? 2 : 3) + flowOffset}
               total={flowTotal}
               title={
                 shellBookStage === 'when'

@@ -850,7 +850,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-page">
-        {inCustomerShell && <FlowStep n={1} total={4} />}
+        {inCustomerShell && <FlowStep n={1} total={5} />}
         {/* Cleaner header (S-C) */}
         <CleanerIdentity
           photo={cleaner.photo}
