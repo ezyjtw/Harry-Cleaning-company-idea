@@ -37,7 +37,7 @@ export default function CleanerAvatar({
   return (
     <div
       aria-hidden="true"
-      className={`flex items-center justify-center rounded-full bg-primary-soft font-newsreader font-medium text-primary ${ring}`}
+      className={`flex items-center justify-center rounded-full bg-primary-soft font-jost font-bold text-primary ${ring}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
     >
       {name.charAt(0)}
