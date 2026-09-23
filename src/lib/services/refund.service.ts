@@ -1,7 +1,11 @@
 // ─── A5.2 Refund Foundation ───────────────────────────────────
 //
 // Single owner of all refund money movement. Every refund path calls
-// refundBooking() — no other code calls stripe.refunds.create().
+// refundBooking() — no other code calls stripe.refunds.create(), with ONE
+// ruled exception: the admin retry-refund route
+// (src/app/api/admin/bookings/retry-refund/route.ts) resumes a stuck
+// REVERSAL_ONLY record's customer leg directly, under this service's own
+// idempotency-key convention (refund_<recordId>_v<attempt>) and guards.
 // Mirrors releaseBookingFunds() as the single release owner.
 //
 // REQUIRED FOLLOW-UP (before production): admin surface listing
