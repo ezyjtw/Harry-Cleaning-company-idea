@@ -600,6 +600,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // the page state either way, so state survives back-and-forward by
   // construction. Browsers keep the single mega-page byte-identically.
   const [shellTimeStage, setShellTimeStage] = useState<'cleaner' | 'when' | 'details'>('cleaner');
+  // FIXED-PRICE ROAD (James-ruled, in-shell only): the same five-room form for
+  // EOT and Airbnb — display-only over the fixed machine's own state; same
+  // payload, same POST, no mechanics. Browsers keep the derived three-step
+  // behaviour byte-identically.
+  const [shellFixedStage, setShellFixedStage] = useState<'cleaner' | 'when' | 'details'>('cleaner');
   // Step-frame law: the cflow body class powers the in-shell CSS upsizing
   // (globals.css) — browsers never carry it.
   useEffect(() => {
@@ -1004,7 +1009,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       : '';
   // FINAL SHAPE: in-shell time-branch rooms are steps too — each room change
   // lands at the top with stale field errors cleared.
-  const stepScrollKey = `${currentStep}:${fixedFlowStep}:${inCustomerShell ? shellTimeStage : ''}`;
+  const stepScrollKey = `${currentStep}:${fixedFlowStep}:${inCustomerShell ? shellTimeStage : ''}:${inCustomerShell ? shellFixedStage : ''}`;
   const prevStepScrollKey = useRef(stepScrollKey);
   useEffect(() => {
     if (prevStepScrollKey.current === stepScrollKey) return;
@@ -2193,7 +2198,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </div>
         )}
 
-        <div className="mt-10 space-y-8">
+        {/* RIDER (James-ruled): in-shell the DETAILS stage wears the ruled
+            internal order via flex + order-N; the browser keeps its flow. */}
+        <div className={inCustomerShell ? 'mt-10 flex flex-col gap-8' : 'mt-10 space-y-8'}>
           {/* Date and time selection via calendar — item 6: the WHEN stage's
               one question in-shell. */}
           {shellWhen && (
@@ -2206,12 +2213,26 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
               />
               <FieldError k="booking-datetime" />
+              {/* FIXED ROAD: the quiet duration line rides the cleaner-first
+                  branch too — explicitly in-shell (shellWhen alone is true for
+                  browsers, and the browser stays byte-identical). */}
+              {inCustomerShell && isFixedPrice(category) && (
+                <p className="mt-4 text-center font-jost text-[12.5px] font-light text-ink-3">
+                  Takes around {effectiveHours} hrs &middot; slot held
+                </p>
+              )}
             </div>
           )}
 
-          {/* Backup cleaner slider — item 6: rides the DETAILS stage in-shell */}
+          {/* Backup cleaner slider — ruled order slot 4 in-shell */}
           {shellDetails && selectedDate && selectedTime24 && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <BackupCleanerSlider
                 cleaners={availableBackupCleaners}
                 selectedIds={backupCleanerIds}
@@ -2225,10 +2246,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Payment held notice — item 6: DETAILS stage (its copy references
-              the booking summary beside it) */}
+          {/* Payment held notice — ruled order slot 6 in-shell, beside the
+              summary (its copy references the booking summary beside it) */}
           {shellDetails && selectedDate && selectedTime24 && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <div className="flex items-start gap-3">
                 <svg
@@ -2274,18 +2301,36 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               DETAILS stage with the other about-your-home questions, never on
               the WHEN screen. Same state, same payload (rooms.keyAccess). */}
           {shellDetails && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-1 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-                How will the cleaner get in?
+                {inCustomerShell && isFixedPrice(category)
+                  ? 'Property access'
+                  : 'How will the cleaner get in?'}
               </h2>
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                {/* RIDER: on the fixed road in-shell the access card reads
+                    exactly as the fixed time branch's — same values, so the
+                    payload is untouched either way. */}
                 {(
-                  [
-                    { value: 'lockbox', label: 'Keybox' },
-                    { value: 'key-under-mat', label: 'Key hidden' },
-                    { value: 'i-will-be-home', label: 'Someone will be in' },
-                    { value: 'with-concierge', label: 'Concierge' },
-                  ] as { value: KeyAccess; label: string }[]
+                  (inCustomerShell && isFixedPrice(category)
+                    ? [
+                        { value: 'i-will-be-home', label: 'I’ll be home' },
+                        { value: 'key-under-mat', label: 'Key under mat' },
+                        { value: 'lockbox', label: 'Lockbox' },
+                        { value: 'with-concierge', label: 'With concierge' },
+                      ]
+                    : [
+                        { value: 'lockbox', label: 'Keybox' },
+                        { value: 'key-under-mat', label: 'Key hidden' },
+                        { value: 'i-will-be-home', label: 'Someone will be in' },
+                        { value: 'with-concierge', label: 'Concierge' },
+                      ]) as { value: KeyAccess; label: string }[]
                 ).map((opt) => (
                   <button
                     key={opt.value}
@@ -2301,25 +2346,34 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </button>
                 ))}
               </div>
-              {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
-                <input
-                  type="text"
-                  value={keyAccessNote}
-                  onChange={(e) => setKeyAccessNote(e.target.value)}
-                  placeholder={
-                    keyAccess === 'lockbox'
-                      ? 'Lockbox code or location...'
-                      : 'Where is the key hidden?'
-                  }
-                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
-                />
-              )}
+              {/* RIDER: the fixed time branch's access card carries no note
+                  input, so in-shell on the fixed road neither does this one. */}
+              {!(inCustomerShell && isFixedPrice(category)) &&
+                (keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
+                  <input
+                    type="text"
+                    value={keyAccessNote}
+                    onChange={(e) => setKeyAccessNote(e.target.value)}
+                    placeholder={
+                      keyAccess === 'lockbox'
+                        ? 'Lockbox code or location...'
+                        : 'Where is the key hidden?'
+                    }
+                    className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                )}
             </div>
           )}
 
-          {/* Special instructions — item 6: DETAILS stage in-shell */}
+          {/* Special instructions — ruled order slot 2 in-shell */}
           {shellDetails && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-2 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Special instructions
               </h2>
@@ -2336,16 +2390,24 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Cleaning address (A12) — item 6: DETAILS stage in-shell */}
-          {shellDetails && addressCard}
+          {/* Cleaning address (A12) — ruled order slot 3 in-shell */}
+          {shellDetails &&
+            (inCustomerShell ? <div className="order-3">{addressCard}</div> : addressCard)}
 
           {/* H37: the cleaner-first flow NEVER had a Booking Summary card (the
               payment copy above even promised "the booking summary shown
               above"). Same card as the services-first confirm, same
               priceBreakdown fields — no new maths. Column law: key-access →
-              instructions → Cleaning Address → Booking Summary → pay. */}
+              instructions → Cleaning Address → Booking Summary → pay.
+              RIDER: ruled order slot 5 in-shell. */}
           {shellDetails && (
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                 Booking Summary
@@ -2402,7 +2464,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           )}
 
           {bookingError && (
-            <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+                  : 'mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+              }
+            >
               {bookingError}
             </div>
           )}
@@ -2437,14 +2505,19 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           )}
 
           {/* Submit — F5: enabled-and-validating; a click with no date/time
-              names the gap inline and scrolls to the picker. */}
+              names the gap inline and scrolls to the picker. RIDER: ruled
+              order slot 8 in-shell. */}
           {shellDetails && (
             <button
               type="button"
               onClick={() => handleBookingSubmit()}
               disabled={bookingSubmitting}
               data-cflow-cta
-              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className={
+                inCustomerShell
+                  ? 'order-8 w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+                  : 'w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+              }
             >
               {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
             </button>
@@ -2729,7 +2802,29 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         ? 'choose-time'
         : 'review';
 
+    // FIXED-PRICE ROAD rooms: in-shell the explicit stage drives the rooms so
+    // back-navigation can keep every selection; browsers keep the derived step.
+    const fxCleaner = inCustomerShell
+      ? shellFixedStage === 'cleaner'
+      : fixedStep === 'choose-cleaner';
+    const fxWhen = inCustomerShell ? shellFixedStage === 'when' : fixedStep === 'choose-time';
+    const fxDetails = inCustomerShell ? shellFixedStage === 'details' : fixedStep === 'review';
+
     const goBackFixed = () => {
+      // Back-navigation law (in-shell): one room per back, all selections
+      // surviving both directions.
+      if (inCustomerShell) {
+        if (shellFixedStage === 'details') {
+          setShellFixedStage('when');
+          return;
+        }
+        if (shellFixedStage === 'when') {
+          setShellFixedStage('cleaner');
+          return;
+        }
+        setPhase('quote');
+        return;
+      }
       switch (fixedStep) {
         case 'review':
           setDateTimeSelection(null);
@@ -2747,6 +2842,42 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
+        {/* FIXED-PRICE ROAD: the room frame — 2 CHOOSE YOUR CLEANER, 3 WHEN,
+            4 THE DETAILS — the standing grammar. */}
+        {inCustomerShell && (
+          <FlowStep
+            n={shellFixedStage === 'cleaner' ? 2 : shellFixedStage === 'when' ? 3 : 4}
+            total={flowTotal}
+            title={
+              shellFixedStage === 'cleaner'
+                ? 'Choose your cleaner'
+                : shellFixedStage === 'when'
+                  ? `When should ${(fixedSelectedCleaner?.name ?? 'they').split(' ')[0]} come?`
+                  : 'The details'
+            }
+          />
+        )}
+        {/* PRICE-CONTINUITY LAW: the bar carries the quote-room figure until a
+            cleaner is picked, then HER per-size total, unchanged to Stripe. */}
+        {inCustomerShell && (
+          <FlowBar
+            price={
+              fixedSelectedCleaner
+                ? total
+                : (priceBreakdown.discountedTotal ||
+                    (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
+                    0) + productCost
+            }
+            label={
+              shellFixedStage === 'details'
+                ? 'Confirm & Pay'
+                : shellFixedStage === 'when'
+                  ? 'Continue'
+                  : undefined
+            }
+            disabled={bookingSubmitting}
+          />
+        )}
         {/* Back */}
         <button
           onClick={goBackFixed}
@@ -2766,81 +2897,89 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back
         </button>
 
-        {/* Step pills */}
-        <div className="flex items-center gap-3 mb-8">
-          <button
-            onClick={() => setPhase('quote')}
-            className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
-          >
-            <svg
-              className="h-3 w-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
+        {/* Step pills (browser only — the shell wears the frame) */}
+        {!inCustomerShell && (
+          <div className="flex items-center gap-3 mb-8">
+            <button
+              onClick={() => setPhase('quote')}
+              className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold hover:bg-gold/20 transition-colors"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-            Quote
-          </button>
-          {[
-            { key: 'choose-cleaner', label: 'Cleaner' },
-            { key: 'choose-time', label: 'Schedule' },
-            { key: 'review', label: 'Book' },
-          ].map((step) => {
-            const stepOrder = ['choose-cleaner', 'choose-time', 'review'];
-            const currentIdx = stepOrder.indexOf(fixedStep);
-            const isActive = step.key === fixedStep;
-            const isPast = stepOrder.indexOf(step.key) < currentIdx;
-            return (
-              <div key={step.key} className="flex items-center gap-3">
-                <div
-                  className={`h-px w-6 transition-colors ${isPast || isActive ? 'bg-gold/30' : 'bg-ink-3/15'}`}
-                />
-                {isPast ? (
-                  <span className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold">
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
+              <svg
+                className="h-3 w-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              Quote
+            </button>
+            {[
+              { key: 'choose-cleaner', label: 'Cleaner' },
+              { key: 'choose-time', label: 'Schedule' },
+              { key: 'review', label: 'Book' },
+            ].map((step) => {
+              const stepOrder = ['choose-cleaner', 'choose-time', 'review'];
+              const currentIdx = stepOrder.indexOf(fixedStep);
+              const isActive = step.key === fixedStep;
+              const isPast = stepOrder.indexOf(step.key) < currentIdx;
+              return (
+                <div key={step.key} className="flex items-center gap-3">
+                  <div
+                    className={`h-px w-6 transition-colors ${isPast || isActive ? 'bg-gold/30' : 'bg-ink-3/15'}`}
+                  />
+                  {isPast ? (
+                    <span className="flex items-center gap-2 rounded-full bg-gold/10 px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] text-gold">
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4.5 12.75l6 6 9-13.5"
+                        />
+                      </svg>
+                      {step.label}
+                    </span>
+                  ) : (
+                    <span
+                      className={`rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                        isActive ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4.5 12.75l6 6 9-13.5"
-                      />
-                    </svg>
-                    {step.label}
-                  </span>
-                ) : (
-                  <span
-                    className={`rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
-                      isActive ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                      {step.label}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        <h1 className="font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
-          {category === 'end-of-tenancy' ? 'End of Tenancy' : 'Airbnb'} Booking
-        </h1>
-        <p className="mt-2 font-jost font-light text-sm text-ink-3">
-          {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} property
-        </p>
+        {!inCustomerShell && (
+          <h1 className="font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
+            {category === 'end-of-tenancy' ? 'End of Tenancy' : 'Airbnb'} Booking
+          </h1>
+        )}
+        {!inCustomerShell && (
+          <p className="mt-2 font-jost font-light text-sm text-ink-3">
+            {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} property
+          </p>
+        )}
 
         {/* ── Step 1: Choose a cleaner ────────────────────── */}
-        {fixedStep === 'choose-cleaner' && (
+        {fxCleaner && (
           <div className="mt-8">
-            <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-              Choose your cleaner
-            </h2>
+            {!inCustomerShell && (
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+                Choose your cleaner
+              </h2>
+            )}
             <p className="mt-2 font-jost font-light text-sm text-ink-3">
               Each cleaner sets their own price. Select one to continue.
             </p>
@@ -2865,9 +3004,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       key={c.id}
                       type="button"
                       onClick={() => {
+                        // In-shell: switching cleaner clears a stale slot and
+                        // the tap itself advances to WHEN (the card is the
+                        // room's single door). Browsers keep derived steps.
+                        if (inCustomerShell && selectedCleanerIds[0] !== c.id) {
+                          setDateTimeSelection(null);
+                        }
                         setSelectedCleanerIds([c.id]);
                         setBackupCleanerIds([]);
                         setAutoAssignBackup(false);
+                        if (inCustomerShell) setShellFixedStage('when');
                       }}
                       className="group rounded-xl p-5 text-left shadow-sm ring-1 transition-all hover:shadow-md bg-white ring-ink/[0.06] hover:bg-cream"
                     >
@@ -2938,7 +3084,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         )}
 
         {/* ── Step 2: Day & time ──────────────────────────── */}
-        {fixedStep === 'choose-time' && fixedSelectedCleaner && (
+        {fxWhen && fixedSelectedCleaner && (
           <div className="mt-8">
             {/* Selected cleaner summary */}
             <div className="rounded-xl bg-white p-4 ring-1 ring-ink/[0.06] flex items-center gap-3.5 mb-8">
@@ -2981,15 +3127,57 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               />
               <FieldError k="booking-datetime" />
             </div>
+
+            {/* FIXED ROAD: the quiet duration line — the platform's hold hours,
+                so the slot's true footprint is named without a price change. */}
+            {inCustomerShell && (
+              <p className="mt-4 text-center font-jost text-[12.5px] font-light text-ink-3">
+                Takes around {effectiveHours} hrs &middot; slot held
+              </p>
+            )}
+
+            {/* FIXED ROAD: the WHEN room's single door (in-shell) — validates
+                the slot with the standing inline machinery, then THE DETAILS. */}
+            {inCustomerShell && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedDate || !selectedTime24) {
+                    failValidation([
+                      {
+                        id: 'booking-datetime',
+                        msg: !selectedDate
+                          ? 'Please choose a date for your clean.'
+                          : 'Please choose an arrival time.',
+                      },
+                    ]);
+                    return;
+                  }
+                  setFieldErrors({});
+                  setShellFixedStage('details');
+                  window.scrollTo({ top: 0 });
+                }}
+                data-cflow-cta
+                className="mt-8 w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
+              >
+                Continue
+              </button>
+            )}
           </div>
         )}
 
         {/* ── Step 3: Backup cleaners + Summary + Submit ──── */}
-        {fixedStep === 'review' && fixedSelectedCleaner && (
-          <div className="mt-8 space-y-8">
-            {/* Backup cleaners */}
+        {fxDetails && fixedSelectedCleaner && (
+          <div className={inCustomerShell ? 'mt-8 flex flex-col gap-8' : 'mt-8 space-y-8'}>
+            {/* Backup cleaners — THE DETAILS room, ruled order slot 4. */}
             {fixedBackupCandidates.length > 0 && (
-              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <div
+                className={
+                  inCustomerShell
+                    ? 'order-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                    : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                }
+              >
                 <BackupCleanerSlider
                   cleaners={fixedBackupCandidates}
                   selectedIds={backupCleanerIds}
@@ -3003,8 +3191,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             )}
 
-            {/* Key access */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            {/* Key access — THE DETAILS room, ruled order slot 1. */}
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-1 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Property access
               </h2>
@@ -3033,8 +3227,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             </div>
 
-            {/* Special instructions */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            {/* Special instructions — THE DETAILS room, ruled order slot 2. */}
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-2 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
                 Special instructions
               </h2>
@@ -3047,11 +3247,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               />
             </div>
 
-            {/* H32 (James-ruled): the cleaning address sits ABOVE the summary. */}
-            {addressCard}
+            {/* H32 (James-ruled): the cleaning address sits ABOVE the summary.
+                Ruled order slot 3 in-shell — the wrapper only exists there. */}
+            {inCustomerShell ? <div className="order-3">{addressCard}</div> : addressCard}
 
-            {/* Booking summary */}
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+            {/* Booking summary — THE DETAILS room, ruled order slot 5. */}
+            <div
+              className={
+                inCustomerShell
+                  ? 'order-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+                  : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
+              }
+            >
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <span className="font-newsreader text-xl font-medium text-ink sm:text-2xl">
                 Booking summary
@@ -3112,8 +3319,60 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </p>
             </div>
 
+            {/* Payment held notice \u2014 THE DETAILS room, ruled order slot 6.
+                In-shell only: the browser's fixed road never carried one, and
+                the browser stays byte-identical. */}
+            {inCustomerShell && (
+              <div className="order-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+                <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="mt-0.5 h-5 w-5 shrink-0 text-gold"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 1a1 1 0 100 2 1 1 0 000-2z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <h4 className="font-newsreader text-lg font-semibold text-ink">
+                      Payment Held Securely
+                    </h4>
+                    <p className="mt-1.5 font-jost text-sm font-light text-ink-2 leading-relaxed">
+                      You will see a charge to your bank account for the booking summary shown
+                      above, but the payment will be held securely until your job is complete.
+                    </p>
+                    {backupCleanerIds.length > 0 && (
+                      <p className="mt-2 font-jost text-sm font-light text-ink-2 leading-relaxed">
+                        In the event that your chosen cleaner does not accept the booking, one of
+                        your selected backup cleaners will be used instead. Our system will either
+                        provide a small refund or apply a small additional charge to your account to
+                        align with the new cleaner&apos;s rate as shown in the booking summary.
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-3 font-jost text-xs font-light text-gold">
+                      <span>&#10003; Funds held safely</span>
+                      <span>&#10003; Released after completion</span>
+                      {backupCleanerIds.length > 0 && (
+                        <span>&#10003; Auto-adjusted for backup rates</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {bookingError && (
-              <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+              <div
+                className={
+                  inCustomerShell
+                    ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+                    : 'mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
+                }
+              >
                 {bookingError}
               </div>
             )}
@@ -3123,7 +3382,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               onClick={() => handleBookingSubmit()}
               disabled={bookingSubmitting}
               data-cflow-cta
-              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className={
+                inCustomerShell
+                  ? 'order-8 w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+                  : 'w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed'
+              }
             >
               {bookingSubmitting ? 'Submitting\u2026' : 'Submit Booking Request'}
             </button>
