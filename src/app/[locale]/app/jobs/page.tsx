@@ -199,7 +199,16 @@ export default function AppJobsPage() {
               type="button"
               onClick={() => {
                 haptic('light');
-                setFilter(f);
+                // Appearance item 4 (James-ruled): loading flips SYNCHRONOUSLY
+                // with the chip, in the same render — the effect's
+                // setLoading(true) runs only after a paint, so the first frame
+                // under the new chip used to show the OLD tab's rows (or its
+                // empty card) before the skeletons. Empty renders only on a
+                // confirmed empty answer, never on a stale frame.
+                if (f !== filter) {
+                  setLoading(true);
+                  setFilter(f);
+                }
               }}
               className={`rounded-full px-4 py-1.5 font-jost text-sm font-medium transition-colors ${
                 filter === f ? 'bg-primary text-white' : 'text-ink-2'
