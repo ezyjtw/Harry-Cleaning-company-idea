@@ -642,8 +642,9 @@ export function buildOneOffLatePaymentRefunded(data: {
     p(
       `Your payment of &pound;${data.amount.toFixed(2)} for the clean on ${data.dateLong} went through just as the booking was being closed, so it did not go ahead. We&rsquo;ve refunded it in full.`
     ) +
-    p('The refund will appear in your account within 5-10 business days.') +
-    p('You can book again any time.');
+    p('The refund will appear in your account within 5 to 10 business days.') +
+    p('You can book again any time.') +
+    p('Best regards,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };
 }
 
