@@ -180,24 +180,9 @@ export async function updateBookingStatus(id: string, status: string) {
   };
 }
 
-export async function cancelBooking(
-  id: string,
-  reason: string
-): Promise<{ success: boolean; refundAmount?: number }> {
-  const booking = await prisma.booking.findUnique({ where: { id } });
-  if (!booking) return { success: false };
-
-  await prisma.booking.update({
-    where: { id },
-    data: {
-      status: 'CANCELLED',
-      cancelledAt: new Date(),
-      cancellationReason: reason,
-    },
-  });
-
-  return { success: true, refundAmount: Number(booking.totalPrice) };
-}
+// (cancelBooking removed — THE FENCE, James-ruled: it was a naked CANCELLED
+// write with no Stripe kill, no refund and zero callers. All cancellation
+// flows ride executeCancellation in cancellation.service.)
 
 export async function rescheduleBooking(id: string, newDate: string, newTime: string) {
   const booking = await prisma.booking.findUnique({ where: { id } });

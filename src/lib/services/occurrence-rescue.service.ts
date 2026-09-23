@@ -407,8 +407,46 @@ export async function skipOccurrence(params: {
         error: 'This occurrence cannot be skipped from its current state',
       };
     }
+    // THE FENCE (James-ruled): the intent dies FIRST — the skip proceeds only
+    // on Stripe's confirmed kill (cancelled now, or already dead). An intent
+    // that answers "succeeded" means the off-session charge landed mid-skip:
+    // stand down, no unpaid kill — the paid skip path below handles it once
+    // the truth lands. Anything unconfirmed fails safe with an honest retry.
+    if (booking.stripePaymentIntentId) {
+      try {
+        await stripe.paymentIntents.cancel(booking.stripePaymentIntentId);
+      } catch {
+        let piStatus: string | null = null;
+        try {
+          piStatus = (await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId)).status;
+        } catch {
+          // Retrieve failed too — piStatus stays null and we fail safe below.
+        }
+        if (piStatus !== 'canceled') {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[OccurrenceRescue] FENCE: could not confirm intent kill for ${params.bookingId} (intent ${booking.stripePaymentIntentId}, status: ${piStatus ?? 'unknown'}) — skip aborted`
+          );
+          return {
+            ok: false,
+            status: 409,
+            error:
+              piStatus === 'succeeded'
+                ? 'This clean has just been paid — please try again and it will be skipped with a refund.'
+                : 'We could not confirm your payment state, so nothing has been skipped. Please try again in a moment.',
+          };
+        }
+        // piStatus === 'canceled': already dead — the kill is confirmed.
+      }
+    }
     const claim = await prisma.booking.updateMany({
-      where: { id: params.bookingId, status: { in: ['SCHEDULED', 'CLEANER_CANCELLED'] } },
+      where: {
+        id: params.bookingId,
+        status: { in: ['SCHEDULED', 'CLEANER_CANCELLED'] },
+        // FENCE re-assertion: never close an occurrence the charge webhook
+        // just took paid — the succeeded path owns it now.
+        paymentStatus: { notIn: ['SUCCEEDED'] },
+      },
       data: {
         status: 'CANCELLED',
         paymentStatus: 'CANCELED',
@@ -419,9 +457,6 @@ export async function skipOccurrence(params: {
     });
     if (claim.count === 0) {
       return { ok: false, status: 409, error: 'This occurrence was just resolved' };
-    }
-    if (booking.stripePaymentIntentId) {
-      await stripe.paymentIntents.cancel(booking.stripePaymentIntentId).catch(() => {});
     }
     await prisma.notification
       .create({

@@ -388,20 +388,51 @@ export async function deleteAccount(
     return { success: false, message: 'User not found.' };
   }
 
-  // Cancel any active/pending bookings
-  await prisma.booking.updateMany({
+  // THE FENCE (James-ruled): deletion no longer bulk-cancels with a naked
+  // write. Every active booking rides executeCancellation one by one, so
+  // unpaid rows inherit the intent-cancel fence (no booking dies while its
+  // intent is alive) and PAID rows get the standard time-based refund policy
+  // exactly as if the customer cancelled each herself — "the policy is the
+  // policy", no automatic full refunds at deletion. Fail-soft per booking:
+  // one stubborn booking never blocks the deletion; every failure is logged
+  // loudly and the residue is reported for admin follow-up.
+  const activeBookings = await prisma.booking.findMany({
     where: {
       clientId: userId,
       status: {
         in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'CASCADE_EXHAUSTED'],
       },
     },
-    data: {
-      status: 'CANCELLED',
-      cancelledAt: new Date(),
-      cancellationReason: 'Account deleted by user',
-    },
+    select: { id: true },
   });
+  const residue: string[] = [];
+  const { executeCancellation } = await import('./cancellation.service');
+  for (const b of activeBookings) {
+    try {
+      const r = await executeCancellation({
+        bookingId: b.id,
+        cancelledBy: 'client',
+        reason: 'Account deleted by user',
+      });
+      if (!r.ok) {
+        residue.push(b.id);
+        // eslint-disable-next-line no-console
+        console.error(
+          `[DeleteAccount] booking ${b.id} could not be cancelled (${r.status}: ${r.error}) — left for admin follow-up`
+        );
+      }
+    } catch (err) {
+      residue.push(b.id);
+      // eslint-disable-next-line no-console
+      console.error(`[DeleteAccount] booking ${b.id} cancel threw — left for admin follow-up`, err);
+    }
+  }
+  if (residue.length > 0) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[DeleteAccount] ${residue.length} active booking(s) NOT cancelled for deleted user ${userId}: ${residue.join(', ')} — INVESTIGATE`
+    );
+  }
 
   // Soft-delete: mark as deleted, anonymise PII
   await prisma.user.update({
