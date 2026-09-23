@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { useCustomerShell } from '@/components/app/customer';
 import CleanerIdentity from '@/components/CleanerIdentity';
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -77,6 +78,7 @@ function formatDate(dateStr: string): string {
 }
 
 export default function MyCleanersPage() {
+  const inShell = useCustomerShell();
   const router = useRouter();
   const { authLoading, isAuthenticated, isCleaner, isAdmin } = useAuthGuard();
   const [loading, setLoading] = useState(true);
@@ -137,7 +139,15 @@ export default function MyCleanersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-newsreader text-2xl font-semibold text-ink">My cleaners</h1>
+        <h1
+          className={
+            inShell
+              ? 'font-jost text-[26px] font-semibold leading-tight text-ink'
+              : 'font-newsreader text-2xl font-semibold text-ink'
+          }
+        >
+          My cleaners
+        </h1>
         <p className="mt-1 font-jost text-sm font-light text-ink-3">
           The cleaners you&rsquo;ve booked before — rebook the ones you trust.
         </p>

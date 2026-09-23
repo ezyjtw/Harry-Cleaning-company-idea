@@ -4,6 +4,7 @@ import { signIn, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
+import { useCustomerShell } from '@/components/app/customer';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -23,6 +24,7 @@ interface Address {
 }
 
 export default function SettingsPage() {
+  const inShell = useCustomerShell();
   // Profile state
   const [profile, setProfile] = useState({ id: '', name: '', email: '', phone: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -273,6 +275,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Quiet-rooms dress: the account layout's chrome is hidden in-shell, so
+          the room carries its own plain Jost navy title (My Cleans law). */}
+      {inShell && (
+        <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Settings</h1>
+      )}
       {/* Profile Section */}
       <AccountSection
         title="Profile Information"
@@ -545,7 +552,15 @@ export default function SettingsPage() {
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl">
-            <h3 className="font-newsreader text-xl font-semibold text-danger">Delete account</h3>
+            <h3
+              className={
+                inShell
+                  ? 'font-jost text-[17px] font-semibold text-danger'
+                  : 'font-newsreader text-xl font-semibold text-danger'
+              }
+            >
+              Delete account
+            </h3>
             <p className="mt-2 text-sm text-ink-2">
               Your account will be <strong>deactivated immediately</strong> and you&rsquo;ll be
               signed out everywhere. Your personal data will be erased within 30 days &mdash; except

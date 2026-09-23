@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
+import { useCustomerShell } from '@/components/app/customer';
 import NavLink from '@/components/nav/NavLink';
 import { DISPUTE_REASONS, getDisputeStatusLabel } from '@/lib/trust';
 import type { Dispute, DisputeReason, DisputeStatus } from '@/lib/types';
@@ -33,6 +34,7 @@ const evidenceChip: Record<string, string> = {
 };
 
 export default function DisputesPage() {
+  const inShell = useCustomerShell();
   const [activeView, setActiveView] = useState<'list' | 'new'>('list');
   // F9: cleaners view + evidence their disputes here, but only customers file
   // (the API 403s cleaner filings) — hide the form for them.
@@ -235,7 +237,13 @@ export default function DisputesPage() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    <div
+      className={
+        inShell
+          ? 'mx-auto max-w-4xl px-4 pb-12 pt-4'
+          : 'mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8'
+      }
+    >
       {/* Shared hidden input for the list view's "Add More Evidence". */}
       <input
         ref={addMoreInputRef}
@@ -251,7 +259,9 @@ export default function DisputesPage() {
           {/* H26: this page sits OUTSIDE the portal/account chrome — the
               sidebar that brought a cleaner here vanishes on arrival. Same
               role-aware way home the messages page has. */}
-          {role && (
+          {/* In-shell the tab bar is the way home — the back link is website
+              furniture (quiet-rooms dress). */}
+          {role && !inShell && (
             <NavLink
               surface="disputes-back"
               href={role === 'CLEANER' ? '/cleaner' : '/account'}
@@ -273,8 +283,16 @@ export default function DisputesPage() {
               {role === 'CLEANER' ? 'Back to dashboard' : 'Back to my account'}
             </NavLink>
           )}
-          <h1 className="font-newsreader text-3xl font-semibold text-ink">Dispute Resolution</h1>
-          <p className="mt-2 text-ink-2">
+          <h1
+            className={
+              inShell
+                ? 'font-jost text-[26px] font-semibold leading-tight text-ink'
+                : 'font-newsreader text-3xl font-semibold text-ink'
+            }
+          >
+            Dispute Resolution
+          </h1>
+          <p className={inShell ? 'mt-1 font-jost text-[13px] text-ink-3' : 'mt-2 text-ink-2'}>
             We take every dispute seriously. Both parties can submit evidence, and our team reviews
             within 24–48 hours.
           </p>
@@ -551,7 +569,13 @@ export default function DisputesPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-newsreader text-lg font-semibold text-ink">
+                          <h3
+                            className={
+                              inShell
+                                ? 'font-jost text-[15px] font-semibold text-ink'
+                                : 'font-newsreader text-lg font-semibold text-ink'
+                            }
+                          >
                             Dispute #{dispute.id.substring(0, 8).toUpperCase()}
                           </h3>
                           <span

@@ -8,6 +8,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useCustomerShell } from '@/components/app/customer';
 import { isOfferNotification, notificationHref } from '@/lib/notification-links';
 
 interface NotificationItem {
@@ -34,6 +35,7 @@ function formatWhen(iso: string): string {
 }
 
 export default function NotificationsPage() {
+  const inShell = useCustomerShell();
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [unread, setUnread] = useState(0);
@@ -83,10 +85,22 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <div
+      className={
+        inShell ? 'mx-auto max-w-2xl px-4 pb-10 pt-4' : 'mx-auto max-w-2xl px-4 py-10 sm:px-6'
+      }
+    >
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-newsreader text-3xl font-semibold text-ink">Notifications</h1>
+          <h1
+            className={
+              inShell
+                ? 'font-jost text-[26px] font-semibold leading-tight text-ink'
+                : 'font-newsreader text-3xl font-semibold text-ink'
+            }
+          >
+            Notifications
+          </h1>
           <p className="mt-1 font-jost text-sm text-ink-3">
             {unread > 0 ? `${unread} unread` : 'All caught up'}
           </p>
@@ -102,7 +116,13 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-surface">
+      <div
+        className={
+          inShell
+            ? 'mt-4 overflow-hidden rounded-xl border border-line bg-surface'
+            : 'mt-6 overflow-hidden rounded-2xl border border-line bg-surface'
+        }
+      >
         {items === null && (
           <div className="space-y-2 p-4">
             {[0, 1, 2].map((i) => (
