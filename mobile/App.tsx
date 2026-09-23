@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +31,10 @@ import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react
 // transparent ground so it sits on the app's light surfaces. Used on every native
 // surface — no recoloured variant exists (the whole shell is light).
 const logoLockup = require('./assets/logo-lockup.png');
+// Appearance item 1 (James-ruled): the OS splash artwork itself — the arrival
+// overlay and every web loader render THIS, full-bleed contain on #EBEBEB, so
+// splash → loader → page is one unbroken picture with a breathing mark.
+const splashMark = require('./assets/splash.png');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BASE_URL: string =
@@ -74,6 +79,9 @@ async function deregisterPush(): Promise<void> {
 // Design tokens (light theme, mirrors the web).
 const INK = '#16296b';
 const PAGE = '#FAFBFC';
+// Appearance item 1 (James-ruled): the OS splash ground — the arrival overlay
+// and web loaders sit on this exact colour so the open is one picture.
+const SPLASH_GREY = '#EBEBEB';
 const SURFACE = '#ffffff';
 const LINE = '#E4E9F0';
 const INK2 = '#3D5170';
@@ -196,6 +204,45 @@ export default function App() {
   );
 }
 
+// ─── Appearance item 1 (James-ruled): the breathing splash mark ──────────────
+// The exact OS-splash picture (splash.png, contain, centred) with the mark
+// breathing — scale 1.0 → 1.05 on a ~2s eased cycle. Used by the arrival
+// overlay and the web loaders so the whole open is one living picture:
+// no spinner, no white flash, no seam.
+function BreathingMark() {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 1.05,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [scale]);
+  return (
+    <Animated.Image
+      source={splashMark}
+      style={[
+        StyleSheet.absoluteFillObject,
+        { width: undefined, height: undefined, transform: [{ scale }] },
+      ]}
+      resizeMode="contain"
+    />
+  );
+}
+
 function RootView() {
   const [fontsLoaded] = useFonts(FONTS);
   const [phase, setPhase] = useState<Phase>('boot');
@@ -204,14 +251,14 @@ function RootView() {
   const [bridgeUrl, setBridgeUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('today');
 
-  // ── Arrival overlay: a LIGHT full-bleed cover with the logo that continues the
-  // (now light) OS splash seamlessly, then fades to reveal content. Everything —
-  // OS splash, this overlay, and the Start screen — is #FAFBFC, so the whole
-  // arrival is light→light→light with no navy flash and an invisible seam. ──
+  // ── Arrival overlay (Appearance item 1, James-ruled): the OS splash picture
+  // itself — #EBEBEB with the PRO mark breathing — held until a real screen is
+  // ready, then a ~300ms fade into the destination. OS splash → this overlay is
+  // pixel-identical, so there is no seam and never a white flash. ──
   const overlay = useRef(new Animated.Value(1)).current;
   const [overlayMounted, setOverlayMounted] = useState(true);
   const reveal = useCallback(() => {
-    Animated.timing(overlay, { toValue: 0, duration: 450, useNativeDriver: true }).start(() =>
+    Animated.timing(overlay, { toValue: 0, duration: 300, useNativeDriver: true }).start(() =>
       setOverlayMounted(false)
     );
   }, [overlay]);
@@ -428,7 +475,7 @@ function RootView() {
 
       {overlayMounted && (
         <Animated.View style={[styles.arrival, { opacity: overlay }]} pointerEvents="none">
-          <Image source={logoLockup} style={styles.arrivalWordmark} resizeMode="contain" />
+          <BreathingMark />
         </Animated.View>
       )}
     </View>
@@ -971,7 +1018,8 @@ function SeamlessWebView({
 
   useEffect(() => {
     if (loaded) {
-      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+      // Appearance item 1: the ruled ~300ms fade into the destination page.
+      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
 
@@ -1125,15 +1173,20 @@ function SeamlessWebView({
         <Animated.View
           style={[
             styles.webLoader,
-            { opacity: fade, backgroundColor: loaderTone === 'navy' ? INK : PAGE },
+            { opacity: fade, backgroundColor: loaderTone === 'navy' ? INK : SPLASH_GREY },
           ]}
           pointerEvents="none"
         >
-          <Image source={logoLockup} style={styles.loaderWordmark} resizeMode="contain" />
-          <ActivityIndicator
-            color={loaderTone === 'navy' ? '#fff' : INK}
-            style={{ marginTop: 18 }}
-          />
+          {/* Appearance item 1 (James-ruled): the loader IS the splash picture —
+              the breathing mark on #EBEBEB. No spinner, no default state. */}
+          {loaderTone === 'navy' ? (
+            <>
+              <Image source={logoLockup} style={styles.loaderWordmark} resizeMode="contain" />
+              <ActivityIndicator color="#fff" style={{ marginTop: 18 }} />
+            </>
+          ) : (
+            <BreathingMark />
+          )}
         </Animated.View>
       )}
     </View>
@@ -1200,7 +1253,8 @@ const styles = StyleSheet.create({
   // Arrival overlay (light, matches the OS splash + Start screen)
   arrival: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: PAGE,
+    // Appearance item 1: the OS splash ground exactly (#EBEBEB, app.json).
+    backgroundColor: SPLASH_GREY,
     alignItems: 'center',
     justifyContent: 'center',
   },
