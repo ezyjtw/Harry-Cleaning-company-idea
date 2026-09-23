@@ -92,6 +92,54 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       try {
         await stripe.paymentIntents.cancel(booking.stripePaymentIntentId);
       } catch (cancelErr) {
+        // RECORD-TRUTH Gate 2 (James-ruled): the fence's succeeded-abort,
+        // mirrored. Learn WHY the old intent refused to die: if it already
+        // SUCCEEDED the customer has paid — cancel the NEW unconfirmed
+        // intent, do NOT repoint the stored id (it stays on the paid intent,
+        // so the success webhook's identity guards all match), route the paid
+        // intent through processPaymentSuccess, and answer honestly. Any
+        // other retrieve outcome falls through to the unchanged fail-soft leg.
+        try {
+          const oldPi = await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId);
+          if (oldPi.status === 'succeeded') {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[RecurringCharge] pay-now FENCE: old intent ${oldPi.id} for ${booking.id} already SUCCEEDED — aborting pay-now, routing the payment through`
+            );
+            await stripe.paymentIntents.cancel(pi.id).catch((newCancelErr) => {
+              // eslint-disable-next-line no-console
+              console.error(
+                `[RecurringCharge] pay-now FENCE: could not cancel unconfirmed replacement ${pi.id} for ${booking.id} — harmless (never confirmed), logged for the record:`,
+                newCancelErr instanceof Error ? newCancelErr.message : newCancelErr
+              );
+            });
+            const oldChargeId =
+              typeof oldPi.latest_charge === 'string'
+                ? oldPi.latest_charge
+                : (oldPi.latest_charge?.id ?? null);
+            const { processPaymentSuccess } =
+              await import('@/lib/services/payment-success.service');
+            await processPaymentSuccess({
+              bookingId: booking.id,
+              pi: {
+                id: oldPi.id,
+                created: oldPi.created,
+                currency: oldPi.currency,
+                amountReceived: oldPi.amount_received,
+                chargeId: oldChargeId,
+              },
+            }).catch((procErr) => {
+              // eslint-disable-next-line no-console
+              console.error(
+                `[RecurringCharge] pay-now FENCE: processPaymentSuccess failed for ${booking.id} — the webhook/sweep completes it:`,
+                procErr
+              );
+            });
+            return NextResponse.json({ error: 'This clean has just been paid.' }, { status: 409 });
+          }
+        } catch {
+          // Retrieve failed — the unchanged fail-soft leg below handles it.
+        }
         // eslint-disable-next-line no-console
         console.error(
           `[RecurringCharge] pay-now old-PI cancel FAILED for booking ${booking.id} ` +
