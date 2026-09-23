@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { dayPhrase, fmtSlotTime } from '@/components/app/customer';
+import CleanerAvatar from '@/components/CleanerAvatar';
 import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
+import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { isCustomerShellUA, isShellUA } from '@/lib/shell';
 import { detectContactInfo } from '@/lib/utils/pii';
 
@@ -65,6 +68,43 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+// ─── Shell-skin helpers (James-ruled Messages skin, both shells) ────────────
+
+/** Ruled thread timestamp: time if today, day-word this week, date if older. */
+function fmtThreadTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+  if (diffDays === 0) {
+    return d
+      .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })
+      .replace(/\s/g, '')
+      .toLowerCase();
+  }
+  if (diffDays < 7) return d.toLocaleDateString('en-GB', { weekday: 'short' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/** Day-divider label: Today · Yesterday · 'Tue 22 Sept'. */
+function dayDividerLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/** Compact bubble time (the shells' am/pm voice). */
+function fmtBubbleTime(iso: string): string {
+  return new Date(iso)
+    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })
+    .replace(/\s/g, '')
+    .toLowerCase();
+}
+
 // ─── Component ──────────────────────────────────────────────
 
 export default function MessagesPage() {
@@ -109,6 +149,42 @@ export default function MessagesPage() {
       document.body.classList.remove('rena-page-messages');
     };
   }, []);
+
+  // Messages skin (James-ruled, the approved mockups): full re-render per
+  // shell, mount-gated — SSR/browser markup byte-identical. Customer lane
+  // ships first; the Pro lane keys in with its own commit.
+  const [shellMode, setShellMode] = useState<'customer' | 'pro' | null>(null);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setShellMode('customer');
+    // Pro lane (own commit, own gate): the same ruled skin under the
+    // existing RenaPro detection — in Pro the cleaner's own messages are
+    // the navy side, and the list header carries the Back-to-Today law.
+    else if (isShellUA()) setShellMode('pro');
+  }, []);
+
+  // Context line (ruled): when a booking links the pair, the conversation
+  // header carries day · time · service. Read-only reuse of the existing
+  // ownership-gated booking GET — no message-API change. No linked booking →
+  // no line (honest).
+  const [contextLine, setContextLine] = useState<string | null>(null);
+  useEffect(() => {
+    setContextLine(null);
+    if (!shellMode || !activeConversationId) return;
+    const conv = conversations.find((c) => c.id === activeConversationId);
+    if (!conv?.activeBookingId) return;
+    fetch(`/api/bookings/${conv.activeBookingId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        const bk = b?.booking ?? b;
+        if (!bk?.date || !bk?.startTime || !bk?.serviceType) return;
+        setContextLine(
+          `${dayPhrase(String(bk.date).split('T')[0])} · ${fmtSlotTime(bk.startTime)} · ${serviceLabelFromSlug(bk.serviceType)}`
+        );
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shellMode, activeConversationId]);
 
   // Fetch current user session
   useEffect(() => {
@@ -413,6 +489,293 @@ export default function MessagesPage() {
         <p className="mt-1 text-sm text-ink-3">
           When you book a cleaner, you can message them here.
         </p>
+      </div>
+    );
+  }
+
+  // ─── Shell skin (James-ruled; the approved mockups are the spec) ─────────
+  // Mount-gated full re-render: same state, same handlers, same APIs — the
+  // browser render below is byte-untouched. Own messages navy right, the
+  // other party white-with-hairline left, in BOTH shells.
+  if (shellMode) {
+    if (!activeConversation) {
+      const rows = [...conversations].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+      return (
+        <div className="mx-auto w-full max-w-lg px-4 pb-24 pt-4" data-testid="msg-skin-list">
+          {shellMode === 'pro' && (
+            <Link
+              href="/app/today"
+              className="font-jost text-[13px] font-medium text-ink-3 active:opacity-70"
+            >
+              ‹ Today
+            </Link>
+          )}
+          <h1 className="mt-1 font-jost text-[26px] font-semibold leading-tight text-ink">
+            Messages
+          </h1>
+          <div className="mt-4 overflow-hidden rounded-xl border border-line bg-surface">
+            {rows.map((conversation) => {
+              const other = getOtherParticipant(conversation);
+              const unread = conversation.unreadCount > 0;
+              const own = conversation.lastMessage.senderId === currentUserId;
+              return (
+                <button
+                  key={conversation.id}
+                  type="button"
+                  onClick={() => setActiveConversationId(conversation.id)}
+                  data-testid="msg-row"
+                  className="flex w-full items-center gap-3 border-b border-line px-4 py-3.5 text-left last:border-b-0 active:bg-page"
+                >
+                  <CleanerAvatar photo={other.avatar || null} name={other.name} size={44} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-jost text-[15px] font-semibold text-ink">
+                        {other.name}
+                      </span>
+                      <span className="shrink-0 font-jost text-[12px] text-ink-3">
+                        {fmtThreadTime(conversation.updatedAt)}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 flex items-center justify-between gap-2">
+                      <span
+                        className={`truncate font-jost text-[13px] ${
+                          unread ? 'font-medium text-ink' : 'font-light text-ink-3'
+                        }`}
+                      >
+                        {own ? 'You: ' : ''}
+                        {conversation.lastMessage.content}
+                      </span>
+                      {unread && (
+                        <span
+                          data-testid="msg-unread-dot"
+                          className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary"
+                        />
+                      )}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    const other = getOtherParticipant(activeConversation);
+    let lastDay = '';
+    return (
+      <div className="flex h-full flex-col" data-testid="msg-skin-conv">
+        {/* Header — back chevron, avatar, name, ruled context line */}
+        <div className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
+          <button
+            onClick={handleBackToList}
+            aria-label="Back to messages"
+            data-testid="msg-back"
+            className="-ml-1 p-1 font-jost text-[20px] leading-none text-ink-3 active:opacity-70"
+          >
+            ‹
+          </button>
+          <CleanerAvatar photo={other.avatar || null} name={other.name} size={36} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-jost text-[15px] font-semibold text-ink">{other.name}</p>
+            {contextLine && (
+              <p className="truncate font-jost text-[12px] text-ink-3" data-testid="msg-context">
+                {contextLine}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleToggleBlock}
+            disabled={blockBusy}
+            className="shrink-0 rounded-[10px] border border-line px-2.5 py-1.5 font-jost text-[11px] font-medium text-ink-3 active:bg-page disabled:opacity-60"
+          >
+            {blockBusy ? '…' : activeConversation.blockedByMe ? 'Unblock' : 'Block'}
+          </button>
+        </div>
+
+        {/* Bubbles with day dividers */}
+        <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
+          {messages.map((message) => {
+            const isOwn = message.senderId === currentUserId;
+            const day = dayDividerLabel(message.createdAt);
+            const divider = day !== lastDay;
+            lastDay = day;
+            return (
+              <div key={message.id}>
+                {divider && (
+                  <p
+                    data-testid="msg-day-divider"
+                    className="my-3 text-center font-jost text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3"
+                  >
+                    {day}
+                  </p>
+                )}
+                <div className={`mb-2.5 flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                  <div className="max-w-[78%]">
+                    <div
+                      data-testid={isOwn ? 'msg-bubble-own' : 'msg-bubble-other'}
+                      className={
+                        isOwn
+                          ? 'rounded-[12px] rounded-br-[4px] bg-primary px-3.5 py-2.5 font-jost text-[14px] leading-relaxed text-white'
+                          : 'rounded-[12px] rounded-bl-[4px] border border-line bg-surface px-3.5 py-2.5 font-jost text-[14px] leading-relaxed text-ink'
+                      }
+                    >
+                      {message.content}
+                    </div>
+                    <p
+                      className={`mt-1 font-jost text-[10.5px] text-ink-3 ${isOwn ? 'text-right' : ''}`}
+                    >
+                      {fmtBubbleTime(message.createdAt)}
+                    </p>
+                    {/* Report stays available on received messages (function kept). */}
+                    {!isOwn &&
+                      (reportedIds.has(message.id) ? (
+                        <span className="font-jost text-[11px] text-ink-3">Reported</span>
+                      ) : reportingId === message.id ? (
+                        <div className="mt-1 rounded-[10px] border border-line bg-surface p-2">
+                          <select
+                            value={reportReason}
+                            onChange={(e) => setReportReason(e.target.value)}
+                            className="w-full rounded-[8px] border border-line px-2 py-1 font-jost text-xs text-ink"
+                          >
+                            <option value="SPAM">Spam</option>
+                            <option value="HARASSMENT">Harassment</option>
+                            <option value="OFF_PLATFORM">Off-platform / circumvention</option>
+                            <option value="INAPPROPRIATE">Inappropriate</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                          <textarea
+                            value={reportDetails}
+                            onChange={(e) => setReportDetails(e.target.value)}
+                            rows={2}
+                            maxLength={1000}
+                            placeholder="Add details (optional)"
+                            className="mt-1 w-full rounded-[8px] border border-line px-2 py-1 font-jost text-xs text-ink placeholder-ink-3"
+                          />
+                          <div className="mt-1 flex gap-2">
+                            <button
+                              onClick={() => submitReport(message.id)}
+                              disabled={reportBusy}
+                              className="rounded-[8px] bg-danger px-3 py-1 font-jost text-xs font-medium text-white disabled:opacity-50"
+                            >
+                              {reportBusy ? 'Reporting…' : 'Submit report'}
+                            </button>
+                            <button
+                              onClick={() => setReportingId(null)}
+                              className="font-jost text-xs text-ink-3"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setReportingId(message.id);
+                            setReportReason('SPAM');
+                            setReportDetails('');
+                          }}
+                          className="font-jost text-[10.5px] text-ink-3 active:text-danger"
+                        >
+                          Report
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Compose — rounded bar, navy circular send (one action) */}
+        {activeConversation.canSend ? (
+          <div className="border-t border-line bg-surface px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
+            {showPiiWarning && (
+              <div className="mb-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] px-3 py-2">
+                <p className="font-jost text-xs text-warning">
+                  This looks like contact info. Keep conversations and payments on Rena — sharing
+                  contact details or paying off-platform isn&rsquo;t allowed and may affect your
+                  account.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (activeConversation.activeBookingId)
+                        doSend(activeConversation.activeBookingId);
+                    }}
+                    disabled={sending}
+                    className="rounded-[8px] bg-warning px-3 py-1 font-jost text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    Send anyway
+                  </button>
+                  <button
+                    onClick={() => setShowPiiWarning(false)}
+                    className="rounded-[8px] border border-line px-3 py-1 font-jost text-xs font-medium text-ink-2"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            )}
+            {sendError && (
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-danger/10 px-3 py-2 font-jost text-[13px] text-danger">
+                <span>Message didn&apos;t send — your draft is still here.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSendError(false);
+                    handleSendMessage();
+                  }}
+                  className="ml-3 font-semibold underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message…"
+                rows={1}
+                data-testid="msg-compose"
+                className="flex-1 resize-none rounded-[22px] border border-line bg-surface px-4 py-2.5 font-jost text-[15px] text-ink placeholder-ink-3 focus:border-primary focus:outline-none"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!messageInput.trim() || sending}
+                aria-label="Send message"
+                data-testid="msg-send"
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-primary text-white active:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="border-t border-line bg-page px-4 py-4 text-center">
+            <p className="font-jost text-sm text-ink-3">
+              {activeConversation.blockedByMe
+                ? "You've blocked this person. Unblock to message them again."
+                : 'This conversation is read-only — messaging stays open for 48 hours after a job completes. Start a new booking to message again.'}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
