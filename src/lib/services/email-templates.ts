@@ -1443,7 +1443,7 @@ export function buildPaymentFailureNotification(data: {
   const subject = 'Payment unsuccessful — you have not been charged';
   const cta = data.finishUrl
     ? p(
-        'You have not been charged. You can complete your booking within the hour — after that it expires and the slot is released:'
+        'You can complete your booking within the hour. After that it expires and the slot is released:'
       ) + button(data.finishUrl, 'Finish payment')
     : p('You can book again with a different payment method whenever you like:') +
       button(`${appUrl()}/services`, 'Book again');
@@ -1478,7 +1478,7 @@ export function buildPaymentRecovery(data: {
     p('Complete your payment to confirm the booking:') +
     button(data.finishUrl, 'Finish payment') +
     p(
-      'If payment stays incomplete, the booking expires about an hour after it was started and the slot is released — nothing is charged either way.'
+      'If payment stays incomplete, the booking expires about an hour after it was started and the slot is released. Nothing is charged either way.'
     ) +
     p('Best regards,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };
