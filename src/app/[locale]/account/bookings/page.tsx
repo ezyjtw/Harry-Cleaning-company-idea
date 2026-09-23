@@ -48,6 +48,65 @@ interface Booking {
   hasReview: boolean;
   /** Phase 2 (additive): non-null agreement frequency — the ↻ marker. */
   recurring: boolean;
+  /** Appearance item 5: block-cancel grouping keys — the agreement the row
+   *  belongs to, the cancel reason marker, and when it was cancelled. */
+  agreementId: string | null;
+  cancellationReason: string | null;
+  cancelledAt: string | null;
+}
+
+// ─── Appearance item 5 (James-ruled, both surfaces; the website half is a
+// sanctioned change): when a recurring agreement ends, its never-paid,
+// never-served voided occurrences collapse into ONE summary row. The
+// signature is exact — CANCELLED occurrence rows carrying the agreement-end
+// reason whose payment never succeeded (the void writes CANCELED). Paid,
+// served, or individually-cancelled occurrences keep their own rows: this is
+// de-noising, never hiding. ───────────────────────────────────────────────
+const AGREEMENT_END_REASON = 'Recurring agreement ended';
+
+function isBlockVoided(b: Booking): boolean {
+  return (
+    b.rawStatus === 'CANCELLED' &&
+    !!b.agreementId &&
+    b.cancellationReason === AGREEMENT_END_REASON &&
+    b.paymentStatus === 'CANCELED'
+  );
+}
+
+interface EndedBlock {
+  kind: 'block';
+  agreementId: string;
+  cleanerName: string;
+  endedDate: string; // ISO date the agreement ended (the rows' cancelledAt)
+  rows: Booking[];
+}
+
+/** Collapse block-voided rows into one EndedBlock per agreement, placed at the
+ *  first collapsed row's position; every other booking passes through. */
+function collapseEndedBlocks(list: Booking[]): (Booking | EndedBlock)[] {
+  const entries: (Booking | EndedBlock)[] = [];
+  const blocks = new Map<string, EndedBlock>();
+  for (const b of list) {
+    if (isBlockVoided(b) && b.agreementId) {
+      const existing = blocks.get(b.agreementId);
+      if (existing) {
+        existing.rows.push(b);
+      } else {
+        const block: EndedBlock = {
+          kind: 'block',
+          agreementId: b.agreementId,
+          cleanerName: b.cleanerName,
+          endedDate: (b.cancelledAt || b.date).split('T')[0],
+          rows: [b],
+        };
+        blocks.set(b.agreementId, block);
+        entries.push(block);
+      }
+    } else {
+      entries.push(b);
+    }
+  }
+  return entries;
 }
 
 // Raw booking statuses the cancel endpoint accepts (mirrors the server's
@@ -114,6 +173,9 @@ function toBookingItem(b: Record<string, unknown>): Booking {
     fundsHeld: String(b.transferStatus || 'PENDING') === 'PENDING',
     hasReview: !!b.review,
     recurring: !!(b.agreement as { frequency?: string | null } | null)?.frequency,
+    agreementId: (b.agreementId as string | null) ?? null,
+    cancellationReason: (b.cancellationReason as string | null) ?? null,
+    cancelledAt: (b.cancelledAt as string | null) ?? null,
   };
 }
 
@@ -135,6 +197,16 @@ export default function BookingsPage() {
   // cancel keeps today's confirm + POST path exactly (skin, not mechanics).
   const [inShell, setInShell] = useState(false);
   const [mcTab, setMcTab] = useState<'upcoming' | 'past'>('upcoming');
+  // Appearance item 5: which ended-agreement summary rows are expanded to
+  // their detail list (keyed by agreementId, both surfaces).
+  const [openBlocks, setOpenBlocks] = useState<Set<string>>(new Set());
+  const toggleBlock = (id: string) =>
+    setOpenBlocks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   useEffect(() => {
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
     if (isCustomerShellUA() || preview) setInShell(true);
@@ -461,6 +533,11 @@ export default function BookingsPage() {
             // (which lives in the expanded actions area) is actually on screen.
             setExpandedId(wanted);
             setReviewingId(wanted);
+            // Appearance item 8 (James-ruled): the review deep link lands on
+            // PAST — the sheet opens over the tab its booking actually lives
+            // in, and dismissing it leaves her beside that booking, not on
+            // Upcoming. (mcTab only renders in-shell; browser markup untouched.)
+            setMcTab('past');
           }
         }
       })
@@ -801,7 +878,55 @@ export default function BookingsPage() {
               </p>
             ) : (
               <div className="divide-y divide-line/60 rounded-xl border border-line bg-surface">
-                {past.map((b) => {
+                {collapseEndedBlocks(past).map((entry) => {
+                  // Appearance item 5: an ended agreement's never-paid voided
+                  // occurrences read as ONE quiet summary row, tappable to the
+                  // detail list of the cancelled visits.
+                  if ('kind' in entry) {
+                    const open = openBlocks.has(entry.agreementId);
+                    const endedLabel = new Date(`${entry.endedDate}T00:00:00`).toLocaleDateString(
+                      'en-GB',
+                      { day: 'numeric', month: 'short' }
+                    );
+                    return (
+                      <div key={`block-${entry.agreementId}`} data-testid="mc-ended-block">
+                        <button
+                          type="button"
+                          onClick={() => toggleBlock(entry.agreementId)}
+                          className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+                        >
+                          <span className="h-6 w-6 shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-jost text-[14px] font-medium text-ink">
+                              Regular clean with {entry.cleanerName} ended · {endedLabel}
+                            </span>
+                            <span className="block font-jost text-[12px] text-ink-3">
+                              {entry.rows.length} upcoming{' '}
+                              {entry.rows.length === 1 ? 'visit' : 'visits'} cancelled
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-jost text-[13px] font-semibold text-primary">
+                            {open ? '⌄' : '›'}
+                          </span>
+                        </button>
+                        {open && (
+                          <div className="border-t border-line/60 bg-page/60 px-4 py-2">
+                            {entry.rows.map((r) => (
+                              <p key={r.fullId} className="py-1 font-jost text-[13px] text-ink-3">
+                                {new Date(`${r.date}T00:00:00`).toLocaleDateString('en-GB', {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                                })}{' '}
+                                · {r.time} · Cancelled
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  const b = entry;
                   const done = b.rawStatus === 'COMPLETED' || b.rawStatus === 'REVIEWED';
                   const dateLabel = new Date(`${b.date}T00:00:00`).toLocaleDateString('en-GB', {
                     weekday: 'short',
@@ -1016,482 +1141,532 @@ export default function BookingsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((booking) => (
-            <div
-              key={booking.fullId}
-              className="rounded-xl border border-line bg-surface p-4 sm:p-5"
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedId((id) => (id === booking.fullId ? null : booking.fullId))
-                }
-                aria-expanded={expandedId === booking.fullId}
-                className="flex w-full items-center gap-3 text-left sm:gap-4"
-              >
-                <CleanerAvatar photo={booking.cleanerImage} name={booking.cleanerName} size={44} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
-                      {serviceLabelFromSlug(booking.serviceType)}
-                    </span>
-                    <BookingStatusChip
-                      rawStatus={booking.rawStatus}
-                      cascadePhase={booking.cascadePhase}
-                      paymentStatus={booking.paymentStatus}
-                    />
-                  </div>
-                  <p className="mt-1 truncate font-jost text-sm text-ink-2">
-                    {booking.cleanerName} · {formatDate(booking.date)} at {booking.time}
-                  </p>
-                </div>
-                <span className="shrink-0 font-newsreader text-xl font-semibold text-ink">
-                  &pound;{booking.price.toFixed(2)}
-                </span>
-                <svg
-                  className={`h-5 w-5 shrink-0 text-ink-3 transition-transform ${
-                    expandedId === booking.fullId ? 'rotate-180' : ''
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+          {collapseEndedBlocks(filtered).map((entry) => {
+            // Appearance item 5 (James-sanctioned website change): an ended
+            // agreement's never-paid voided occurrences read as ONE summary
+            // card, tappable to the detail list of the cancelled visits.
+            if ('kind' in entry) {
+              const open = openBlocks.has(entry.agreementId);
+              return (
+                <div
+                  key={`block-${entry.agreementId}`}
+                  className="rounded-xl border border-line bg-surface p-4 sm:p-5"
+                  data-testid="ended-block"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleBlock(entry.agreementId)}
+                    className="flex w-full items-center justify-between gap-3 text-left"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-ink">
+                        Regular clean with {entry.cleanerName} ended · {formatDate(entry.endedDate)}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-ink-3">
+                        {entry.rows.length} upcoming {entry.rows.length === 1 ? 'visit' : 'visits'}{' '}
+                        cancelled
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold text-primary">
+                      {open ? '⌄' : '›'}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="mt-3 border-t border-line pt-2">
+                      {entry.rows.map((r) => (
+                        <p key={r.fullId} className="py-1 text-xs text-ink-3">
+                          {formatDate(r.date)} · {r.time} · Cancelled
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            const booking = entry;
+            return (
+              <div
+                key={booking.fullId}
+                className="rounded-xl border border-line bg-surface p-4 sm:p-5"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedId((id) => (id === booking.fullId ? null : booking.fullId))
+                  }
+                  aria-expanded={expandedId === booking.fullId}
+                  className="flex w-full items-center gap-3 text-left sm:gap-4"
+                >
+                  <CleanerAvatar
+                    photo={booking.cleanerImage}
+                    name={booking.cleanerName}
+                    size={44}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
+                        {serviceLabelFromSlug(booking.serviceType)}
+                      </span>
+                      <BookingStatusChip
+                        rawStatus={booking.rawStatus}
+                        cascadePhase={booking.cascadePhase}
+                        paymentStatus={booking.paymentStatus}
+                      />
+                    </div>
+                    <p className="mt-1 truncate font-jost text-sm text-ink-2">
+                      {booking.cleanerName} · {formatDate(booking.date)} at {booking.time}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-newsreader text-xl font-semibold text-ink">
+                    &pound;{booking.price.toFixed(2)}
+                  </span>
+                  <svg
+                    className={`h-5 w-5 shrink-0 text-ink-3 transition-transform ${
+                      expandedId === booking.fullId ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-              {/* Recovery Lane B row 2 (James-sanctioned website change): the
+                {/* Recovery Lane B row 2 (James-sanctioned website change): the
                   honest "Payment incomplete" chip gains its door — the
                   browser-capable Finish page, guards unchanged. */}
-              {booking.rawStatus === 'PENDING' && (
-                <Link
-                  href={`/booking/${booking.fullId}/finish`}
-                  data-testid="finish-payment-link"
-                  className="mt-3 block rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-warning/[0.1]"
-                >
-                  Finish payment — complete this booking &rsaquo;
-                </Link>
-              )}
-              {/* Recovery Lane C (James-sanctioned): a FAILED occurrence gets
+                {booking.rawStatus === 'PENDING' && (
+                  <Link
+                    href={`/booking/${booking.fullId}/finish`}
+                    data-testid="finish-payment-link"
+                    className="mt-3 block rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-warning/[0.1]"
+                  >
+                    Finish payment — complete this booking &rsaquo;
+                  </Link>
+                )}
+                {/* Recovery Lane C (James-sanctioned): a FAILED occurrence gets
                   its Pay Now door to the existing pay-now checkout. */}
-              {booking.rawStatus === 'SCHEDULED' && booking.paymentStatus === 'FAILED' && (
-                <Link
-                  href={`/pay/${booking.fullId}`}
-                  data-testid="pay-now-link"
-                  className="mt-3 block rounded-lg border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-danger/10"
-                >
-                  Payment needed — pay now to keep your slot &rsaquo;
-                </Link>
-              )}
+                {booking.rawStatus === 'SCHEDULED' && booking.paymentStatus === 'FAILED' && (
+                  <Link
+                    href={`/pay/${booking.fullId}`}
+                    data-testid="pay-now-link"
+                    className="mt-3 block rounded-lg border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-danger/10"
+                  >
+                    Payment needed — pay now to keep your slot &rsaquo;
+                  </Link>
+                )}
 
-              {/* H11: a rescue awaiting the customer's choice is unmissable —
+                {/* H11: a rescue awaiting the customer's choice is unmissable —
                   visible without expanding, one button into the choice panel. */}
-              {booking.rawStatus === 'CLEANER_CANCELLED' && (
-                <div
-                  className="mt-3 rounded-lg border border-danger/25 bg-danger/5 p-3"
-                  data-testid="rescue-action-card"
-                >
-                  <p className="font-jost text-sm font-semibold text-ink">
-                    Your cleaner had to cancel — choose what happens next
-                  </p>
-                  <p className="mt-0.5 font-jost text-[12px] text-ink-3">
-                    Keep the slot with another cleaner, pick a new date, or take a full refund.
-                    {booking.rescueDeadline
-                      ? ` No choice by ${new Date(booking.rescueDeadline).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}? We'll refund you in full automatically.`
-                      : ''}
-                  </p>
-                  <Link
-                    href={`/booking/${booking.fullId}`}
-                    className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
+                {booking.rawStatus === 'CLEANER_CANCELLED' && (
+                  <div
+                    className="mt-3 rounded-lg border border-danger/25 bg-danger/5 p-3"
+                    data-testid="rescue-action-card"
                   >
-                    Choose what happens next
-                  </Link>
-                </div>
-              )}
-
-              {/* H57: a price change awaiting the customer's review — same
-                  unmissable treatment as the rescue card above. */}
-              {booking.cascadePhase === 'PROVISIONAL_APPROVAL' && (
-                <div
-                  className="mt-3 rounded-lg border border-warning/30 bg-warning/[0.06] p-3"
-                  data-testid="approval-action-card"
-                >
-                  <p className="font-jost text-sm font-semibold text-ink">
-                    Price change awaiting your review
-                    {booking.topupAmount ? ` — +£${booking.topupAmount.toFixed(2)}` : ''}
-                  </p>
-                  <p className="mt-0.5 font-jost text-[12px] text-ink-3">
-                    Nothing is charged unless you approve. Decline or do nothing and the booking
-                    stands at its original price.
-                  </p>
-                  <Link
-                    href={`/booking/${booking.fullId}/approve-topup`}
-                    className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
-                  >
-                    Review the price change
-                  </Link>
-                </div>
-              )}
-
-              {/* H60: an under-review booking stays here AND links to its case. */}
-              {booking.hasDispute && (
-                <div className="mt-3 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5">
-                  <p className="font-jost text-[13px] text-ink-2">
-                    A reported problem on this booking is under review.{' '}
-                    <Link href="/disputes" className="font-medium text-warning underline">
-                      View the case
-                    </Link>
-                  </p>
-                </div>
-              )}
-
-              {expandedId === booking.fullId && (
-                <div className="mt-4 space-y-4 border-t border-line pt-4">
-                  <div className="space-y-1.5 font-jost text-sm text-ink-2">
-                    {booking.address && (
-                      <div className="flex items-start gap-2">
-                        <svg
-                          className="mt-0.5 h-4 w-4 shrink-0 text-ink-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        <span>{booking.address}</span>
-                      </div>
-                    )}
-                    {booking.duration > 0 && (
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="h-4 w-4 shrink-0 text-ink-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <span>
-                          {booking.duration} {booking.duration === 1 ? 'hour' : 'hours'}
-                        </span>
-                      </div>
-                    )}
-                    {(booking.backupCleanerNames.length > 0 || booking.autoAssignBackup) && (
-                      <div className="flex items-center gap-2 text-xs text-ink-3">
-                        <span>
-                          {booking.backupCleanerNames.length > 0
-                            ? `Backups: ${booking.backupCleanerNames.join(', ')}`
-                            : ''}
-                          {booking.backupCleanerNames.length > 0 && booking.autoAssignBackup
-                            ? ' · '
-                            : ''}
-                          {booking.autoAssignBackup ? 'Keep searching enabled' : ''}
-                        </span>
-                      </div>
-                    )}
-                    <div className="text-xs text-ink-3">Ref: {booking.displayId}</div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-jost text-sm font-semibold text-ink">
+                      Your cleaner had to cancel — choose what happens next
+                    </p>
+                    <p className="mt-0.5 font-jost text-[12px] text-ink-3">
+                      Keep the slot with another cleaner, pick a new date, or take a full refund.
+                      {booking.rescueDeadline
+                        ? ` No choice by ${new Date(booking.rescueDeadline).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}? We'll refund you in full automatically.`
+                        : ''}
+                    </p>
                     <Link
-                      href={`/messages?bookingId=${booking.fullId}`}
-                      className="rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page"
+                      href={`/booking/${booking.fullId}`}
+                      className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
                     >
-                      Message cleaner
+                      Choose what happens next
                     </Link>
+                  </div>
+                )}
 
-                    {/* F17: the block covers REVIEWED too — a review no longer
+                {/* H57: a price change awaiting the customer's review — same
+                  unmissable treatment as the rescue card above. */}
+                {booking.cascadePhase === 'PROVISIONAL_APPROVAL' && (
+                  <div
+                    className="mt-3 rounded-lg border border-warning/30 bg-warning/[0.06] p-3"
+                    data-testid="approval-action-card"
+                  >
+                    <p className="font-jost text-sm font-semibold text-ink">
+                      Price change awaiting your review
+                      {booking.topupAmount ? ` — +£${booking.topupAmount.toFixed(2)}` : ''}
+                    </p>
+                    <p className="mt-0.5 font-jost text-[12px] text-ink-3">
+                      Nothing is charged unless you approve. Decline or do nothing and the booking
+                      stands at its original price.
+                    </p>
+                    <Link
+                      href={`/booking/${booking.fullId}/approve-topup`}
+                      className="mt-2 inline-flex rounded-[10px] bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white hover:bg-primary-hover"
+                    >
+                      Review the price change
+                    </Link>
+                  </div>
+                )}
+
+                {/* H60: an under-review booking stays here AND links to its case. */}
+                {booking.hasDispute && (
+                  <div className="mt-3 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2.5">
+                    <p className="font-jost text-[13px] text-ink-2">
+                      A reported problem on this booking is under review.{' '}
+                      <Link href="/disputes" className="font-medium text-warning underline">
+                        View the case
+                      </Link>
+                    </p>
+                  </div>
+                )}
+
+                {expandedId === booking.fullId && (
+                  <div className="mt-4 space-y-4 border-t border-line pt-4">
+                    <div className="space-y-1.5 font-jost text-sm text-ink-2">
+                      {booking.address && (
+                        <div className="flex items-start gap-2">
+                          <svg
+                            className="mt-0.5 h-4 w-4 shrink-0 text-ink-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <span>{booking.address}</span>
+                        </div>
+                      )}
+                      {booking.duration > 0 && (
+                        <div className="flex items-center gap-2">
+                          <svg
+                            className="h-4 w-4 shrink-0 text-ink-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <span>
+                            {booking.duration} {booking.duration === 1 ? 'hour' : 'hours'}
+                          </span>
+                        </div>
+                      )}
+                      {(booking.backupCleanerNames.length > 0 || booking.autoAssignBackup) && (
+                        <div className="flex items-center gap-2 text-xs text-ink-3">
+                          <span>
+                            {booking.backupCleanerNames.length > 0
+                              ? `Backups: ${booking.backupCleanerNames.join(', ')}`
+                              : ''}
+                            {booking.backupCleanerNames.length > 0 && booking.autoAssignBackup
+                              ? ' · '
+                              : ''}
+                            {booking.autoAssignBackup ? 'Keep searching enabled' : ''}
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-xs text-ink-3">Ref: {booking.displayId}</div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/messages?bookingId=${booking.fullId}`}
+                        className="rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page"
+                      >
+                        Message cleaner
+                      </Link>
+
+                      {/* F17: the block covers REVIEWED too — a review no longer
                         implies release (F16), so a reviewed-but-held booking
                         still needs its release door here. */}
-                    {(booking.rawStatus === 'COMPLETED' || booking.rawStatus === 'REVIEWED') && (
-                      <>
-                        {confirmResult[booking.fullId] && (
-                          <span
-                            className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
-                          >
-                            {confirmResult[booking.fullId].ok ? '✓ ' : ''}
-                            {confirmResult[booking.fullId].message}
-                          </span>
-                        )}
-
-                        {/* F16 law: the button keys on money truth — funds still
-                            holdable — and vanishes on release by any path. */}
-                        {booking.fundsHeld &&
-                          !booking.completionConfirmed &&
-                          !confirmResult[booking.fullId] && (
-                            <button
-                              onClick={() => confirmComplete(booking.fullId)}
-                              disabled={confirmingId === booking.fullId}
-                              className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
+                      {(booking.rawStatus === 'COMPLETED' || booking.rawStatus === 'REVIEWED') && (
+                        <>
+                          {confirmResult[booking.fullId] && (
+                            <span
+                              className={`text-xs font-medium ${confirmResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
                             >
-                              {confirmingId === booking.fullId
-                                ? 'Confirming…'
-                                : "I'm satisfied — release payment"}
-                            </button>
+                              {confirmResult[booking.fullId].ok ? '✓ ' : ''}
+                              {confirmResult[booking.fullId].message}
+                            </span>
                           )}
 
-                        {reviewResult[booking.fullId] && (
-                          <span
-                            className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
-                          >
-                            {reviewResult[booking.fullId].ok ? '✓ ' : ''}
-                            {reviewResult[booking.fullId].message}
-                          </span>
-                        )}
+                          {/* F16 law: the button keys on money truth — funds still
+                            holdable — and vanishes on release by any path. */}
+                          {booking.fundsHeld &&
+                            !booking.completionConfirmed &&
+                            !confirmResult[booking.fullId] && (
+                              <button
+                                onClick={() => confirmComplete(booking.fullId)}
+                                disabled={confirmingId === booking.fullId}
+                                className="rounded-[10px] bg-trust px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-trust/90 disabled:opacity-50"
+                              >
+                                {confirmingId === booking.fullId
+                                  ? 'Confirming…'
+                                  : "I'm satisfied — release payment"}
+                              </button>
+                            )}
 
-                        {/* H72: no completionConfirmed gate — auto-release after the
+                          {reviewResult[booking.fullId] && (
+                            <span
+                              className={`text-xs font-medium ${reviewResult[booking.fullId].ok ? 'text-trust' : 'text-danger'}`}
+                            >
+                              {reviewResult[booking.fullId].ok ? '✓ ' : ''}
+                              {reviewResult[booking.fullId].message}
+                            </span>
+                          )}
+
+                          {/* H72: no completionConfirmed gate — auto-release after the
                             hold never sets it, which left late-returning customers
                             with no review door at all. F17: the invite stays visible
                             after a satisfied tap (it used to hide behind the old
                             auto-opened form) — one passive button, never a re-fired
                             prompt. */}
-                        {!booking.hasReview &&
-                          !reviewResult[booking.fullId]?.ok &&
-                          reviewingId !== booking.fullId && (
-                            <button
-                              onClick={() => setReviewingId(booking.fullId)}
-                              className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
-                            >
-                              Leave a review
-                            </button>
-                          )}
+                          {!booking.hasReview &&
+                            !reviewResult[booking.fullId]?.ok &&
+                            reviewingId !== booking.fullId && (
+                              <button
+                                onClick={() => setReviewingId(booking.fullId)}
+                                className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
+                              >
+                                Leave a review
+                              </button>
+                            )}
 
-                        {reviewingId === booking.fullId && !booking.hasReview && (
-                          <div className="flex w-full flex-col gap-3 rounded-[10px] border border-line bg-page p-4">
-                            <span className="text-sm font-medium text-ink">
-                              How was your clean?
-                            </span>
+                          {reviewingId === booking.fullId && !booking.hasReview && (
+                            <div className="flex w-full flex-col gap-3 rounded-[10px] border border-line bg-page p-4">
+                              <span className="text-sm font-medium text-ink">
+                                How was your clean?
+                              </span>
 
-                            <div>
-                              <span className="mb-1 block text-xs text-ink-2">Overall rating</span>
-                              <div className="flex gap-1">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <button
-                                    key={star}
-                                    type="button"
-                                    onClick={() => setReviewRating(star)}
-                                    onMouseEnter={() => setReviewHover(star)}
-                                    onMouseLeave={() => setReviewHover(0)}
-                                    className="text-2xl focus:outline-none"
-                                  >
-                                    <span
-                                      className={
-                                        star <= (reviewHover || reviewRating)
-                                          ? 'text-rating'
-                                          : 'text-ink-3/40'
-                                      }
+                              <div>
+                                <span className="mb-1 block text-xs text-ink-2">
+                                  Overall rating
+                                </span>
+                                <div className="flex gap-1">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                      key={star}
+                                      type="button"
+                                      onClick={() => setReviewRating(star)}
+                                      onMouseEnter={() => setReviewHover(star)}
+                                      onMouseLeave={() => setReviewHover(0)}
+                                      className="text-2xl focus:outline-none"
                                     >
-                                      &#9733;
-                                    </span>
-                                  </button>
+                                      <span
+                                        className={
+                                          star <= (reviewHover || reviewRating)
+                                            ? 'text-rating'
+                                            : 'text-ink-3/40'
+                                        }
+                                      >
+                                        &#9733;
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2">
+                                {(
+                                  [
+                                    ['Thoroughness', reviewThoroughness, setReviewThoroughness],
+                                    ['Punctuality', reviewPunctuality, setReviewPunctuality],
+                                    ['Communication', reviewCommunication, setReviewCommunication],
+                                  ] as const
+                                ).map(([label, value, setter]) => (
+                                  <div key={label}>
+                                    <span className="mb-1 block text-xs text-ink-3">{label}</span>
+                                    <div className="flex gap-0.5">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                          key={star}
+                                          type="button"
+                                          onClick={() => (setter as (v: number) => void)(star)}
+                                          className="text-sm focus:outline-none"
+                                        >
+                                          <span
+                                            className={
+                                              star <= value ? 'text-rating' : 'text-ink-3/40'
+                                            }
+                                          >
+                                            &#9733;
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
                                 ))}
                               </div>
-                            </div>
 
-                            <div className="grid grid-cols-3 gap-2">
-                              {(
-                                [
-                                  ['Thoroughness', reviewThoroughness, setReviewThoroughness],
-                                  ['Punctuality', reviewPunctuality, setReviewPunctuality],
-                                  ['Communication', reviewCommunication, setReviewCommunication],
-                                ] as const
-                              ).map(([label, value, setter]) => (
-                                <div key={label}>
-                                  <span className="mb-1 block text-xs text-ink-3">{label}</span>
-                                  <div className="flex gap-0.5">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <button
-                                        key={star}
-                                        type="button"
-                                        onClick={() => (setter as (v: number) => void)(star)}
-                                        className="text-sm focus:outline-none"
-                                      >
-                                        <span
-                                          className={
-                                            star <= value ? 'text-rating' : 'text-ink-3/40'
-                                          }
-                                        >
-                                          &#9733;
-                                        </span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
+                              <textarea
+                                rows={3}
+                                value={reviewText}
+                                onChange={(e) => setReviewText(e.target.value)}
+                                placeholder="Tell us about your experience (optional)"
+                                maxLength={2000}
+                                className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              />
+
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => submitReview(booking.fullId)}
+                                  disabled={reviewSubmitting || reviewRating < 1}
+                                  className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                                >
+                                  {reviewSubmitting ? 'Submitting…' : 'Submit review'}
+                                </button>
+                                <button
+                                  onClick={dismissReview}
+                                  disabled={reviewSubmitting}
+                                  className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                                >
+                                  Skip
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* F18: regular-clean offer front door on the bookings list —
+                        self-gates on eligibility, renders nothing otherwise. */}
+                      {(booking.rawStatus === 'COMPLETED' || booking.rawStatus === 'REVIEWED') && (
+                        <RegularCleanOfferCard bookingId={booking.fullId} className="w-full" />
+                      )}
+
+                      {booking.status === 'Price approval needed' && (
+                        <Link
+                          href={`/booking/${booking.fullId}/approve-topup`}
+                          className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
+                        >
+                          Review price change
+                          {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
+                        </Link>
+                      )}
+
+                      {canShowCancel(booking) &&
+                        (cancelId === booking.fullId ? (
+                          <div className="flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3">
+                            {previewing ? (
+                              <span className="text-xs text-ink-2">Checking your refund…</span>
+                            ) : cancelError ? (
+                              <span className="text-xs text-danger">{cancelError}</span>
+                            ) : preview && !preview.canCancel ? (
+                              <span className="text-xs text-danger">
+                                {preview.reason || 'This booking can no longer be cancelled.'}
+                              </span>
+                            ) : preview ? (
+                              <span className="text-xs text-ink-2">
+                                Cancel this booking? {refundMessage(preview)}
+                              </span>
+                            ) : null}
+
+                            <div className="flex flex-wrap gap-2">
+                              {preview?.canCancel && !cancelError && (
+                                <button
+                                  onClick={() => confirmCancel(booking.fullId)}
+                                  disabled={cancelling}
+                                  className="rounded-[10px] bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                                >
+                                  {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+                                </button>
+                              )}
+                              <button
+                                onClick={dismissCancel}
+                                disabled={cancelling}
+                                className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+                              >
+                                {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startCancel(booking.fullId)}
+                            className="rounded-[10px] border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.06]"
+                          >
+                            Cancel booking
+                          </button>
+                        ))}
+
+                      {canShowDispute(booking) &&
+                        (disputeId === booking.fullId ? (
+                          <div className="flex w-full flex-col gap-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] p-3">
+                            <span className="text-xs font-medium text-ink">
+                              Report a problem with this booking
+                            </span>
+                            <select
+                              value={disputeReason}
+                              onChange={(e) => setDisputeReason(e.target.value)}
+                              className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            >
+                              <option value="">Select a reason…</option>
+                              {DISPUTE_REASONS.map((r) => (
+                                <option key={r.value} value={r.value}>
+                                  {r.label}
+                                </option>
                               ))}
-                            </div>
-
+                            </select>
                             <textarea
                               rows={3}
-                              value={reviewText}
-                              onChange={(e) => setReviewText(e.target.value)}
-                              placeholder="Tell us about your experience (optional)"
+                              value={disputeDescription}
+                              onChange={(e) => setDisputeDescription(e.target.value)}
+                              placeholder="Please describe the problem…"
                               maxLength={2000}
                               className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
-
+                            {disputeError && (
+                              <span className="text-xs text-danger">{disputeError}</span>
+                            )}
                             <div className="flex flex-wrap gap-2">
                               <button
-                                onClick={() => submitReview(booking.fullId)}
-                                disabled={reviewSubmitting || reviewRating < 1}
-                                className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                                onClick={() => submitDispute(booking.fullId)}
+                                disabled={
+                                  submittingDispute || !disputeReason || !disputeDescription.trim()
+                                }
+                                className="rounded-[10px] bg-warning px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
                               >
-                                {reviewSubmitting ? 'Submitting…' : 'Submit review'}
+                                {submittingDispute ? 'Submitting…' : 'Submit report'}
                               </button>
                               <button
-                                onClick={dismissReview}
-                                disabled={reviewSubmitting}
+                                onClick={dismissDispute}
+                                disabled={submittingDispute}
                                 className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
                               >
-                                Skip
+                                Cancel
                               </button>
                             </div>
                           </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* F18: regular-clean offer front door on the bookings list —
-                        self-gates on eligibility, renders nothing otherwise. */}
-                    {(booking.rawStatus === 'COMPLETED' || booking.rawStatus === 'REVIEWED') && (
-                      <RegularCleanOfferCard bookingId={booking.fullId} className="w-full" />
-                    )}
-
-                    {booking.status === 'Price approval needed' && (
-                      <Link
-                        href={`/booking/${booking.fullId}/approve-topup`}
-                        className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
-                      >
-                        Review price change
-                        {booking.topupAmount ? ` (+£${booking.topupAmount.toFixed(2)})` : ''}
-                      </Link>
-                    )}
-
-                    {canShowCancel(booking) &&
-                      (cancelId === booking.fullId ? (
-                        <div className="flex w-full flex-col gap-2 rounded-[10px] border border-danger/20 bg-danger/[0.04] p-3">
-                          {previewing ? (
-                            <span className="text-xs text-ink-2">Checking your refund…</span>
-                          ) : cancelError ? (
-                            <span className="text-xs text-danger">{cancelError}</span>
-                          ) : preview && !preview.canCancel ? (
-                            <span className="text-xs text-danger">
-                              {preview.reason || 'This booking can no longer be cancelled.'}
-                            </span>
-                          ) : preview ? (
-                            <span className="text-xs text-ink-2">
-                              Cancel this booking? {refundMessage(preview)}
-                            </span>
-                          ) : null}
-
-                          <div className="flex flex-wrap gap-2">
-                            {preview?.canCancel && !cancelError && (
-                              <button
-                                onClick={() => confirmCancel(booking.fullId)}
-                                disabled={cancelling}
-                                className="rounded-[10px] bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                              >
-                                {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
-                              </button>
-                            )}
-                            <button
-                              onClick={dismissCancel}
-                              disabled={cancelling}
-                              className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
-                            >
-                              {preview?.canCancel && !cancelError ? 'Keep booking' : 'Close'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startCancel(booking.fullId)}
-                          className="rounded-[10px] border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.06]"
-                        >
-                          Cancel booking
-                        </button>
-                      ))}
-
-                    {canShowDispute(booking) &&
-                      (disputeId === booking.fullId ? (
-                        <div className="flex w-full flex-col gap-2 rounded-[10px] border border-warning/25 bg-warning/[0.06] p-3">
-                          <span className="text-xs font-medium text-ink">
-                            Report a problem with this booking
-                          </span>
-                          <select
-                            value={disputeReason}
-                            onChange={(e) => setDisputeReason(e.target.value)}
-                            className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setDisputeId(booking.fullId);
+                              dismissCancel();
+                            }}
+                            className="rounded-[10px] border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/[0.08]"
                           >
-                            <option value="">Select a reason…</option>
-                            {DISPUTE_REASONS.map((r) => (
-                              <option key={r.value} value={r.value}>
-                                {r.label}
-                              </option>
-                            ))}
-                          </select>
-                          <textarea
-                            rows={3}
-                            value={disputeDescription}
-                            onChange={(e) => setDisputeDescription(e.target.value)}
-                            placeholder="Please describe the problem…"
-                            maxLength={2000}
-                            className="resize-none rounded-[10px] border border-line bg-surface px-3 py-2 text-xs text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                          {disputeError && (
-                            <span className="text-xs text-danger">{disputeError}</span>
-                          )}
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => submitDispute(booking.fullId)}
-                              disabled={
-                                submittingDispute || !disputeReason || !disputeDescription.trim()
-                              }
-                              className="rounded-[10px] bg-warning px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-warning/90 disabled:opacity-50"
-                            >
-                              {submittingDispute ? 'Submitting…' : 'Submit report'}
-                            </button>
-                            <button
-                              onClick={dismissDispute}
-                              disabled={submittingDispute}
-                              className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setDisputeId(booking.fullId);
-                            dismissCancel();
-                          }}
-                          className="rounded-[10px] border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/[0.08]"
-                        >
-                          Report a problem
-                        </button>
-                      ))}
+                            Report a problem
+                          </button>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
           {/* P4: the general list is newest-10 paged — older bookings load on
               demand. Hidden while a status filter is active only if everything
               is already loaded; the fetch is unfiltered so appended pages feed

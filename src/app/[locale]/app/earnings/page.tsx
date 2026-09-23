@@ -193,7 +193,13 @@ export default function AppEarningsPage() {
               type="button"
               onClick={() => {
                 haptic('light');
-                setPeriod(p);
+                // Appearance item 4 (James-ruled, same law as Jobs): loading
+                // flips synchronously with the period chip so no stale frame
+                // of the previous period ever paints.
+                if (p !== period) {
+                  setLoading(true);
+                  setPeriod(p);
+                }
               }}
               className={`rounded-full px-4 py-1.5 font-jost text-sm font-medium transition-colors ${
                 period === p ? 'bg-primary text-white' : 'text-ink-2'

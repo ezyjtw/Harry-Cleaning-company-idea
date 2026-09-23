@@ -28,6 +28,9 @@ interface MyCleaner {
   lastDate: string;
   service: string;
   full: Cleaner | null;
+  /** Appearance item 7: the most recent completed booking with this cleaner —
+   *  the quiet row's MESSAGE door rides the existing compose-from-booking. */
+  lastBookingId: string;
 }
 
 // Same shape mapping /cleaners uses — the list endpoint is the only source that
@@ -84,6 +87,26 @@ export default function MyCleanersPage() {
   const [loading, setLoading] = useState(true);
   const [cleaners, setCleaners] = useState<MyCleaner[]>([]);
   const [selected, setSelected] = useState<Cleaner | null>(null);
+  // Appearance item 7 (James-ruled, in-shell only): ids of past cleaners whose
+  // visibleInDirectory flag is OFF — their rows wear the quiet state. Driven
+  // entirely by the existing flag; restores itself the moment she flips
+  // Visible in Pro (next load re-reads the flag).
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!inShell || authLoading || !isAuthenticated || isCleaner || isAdmin) return;
+    fetch('/api/account/my-cleaners')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.visibility) return;
+        const off = new Set<string>();
+        for (const [id, visible] of Object.entries(d.visibility as Record<string, boolean>)) {
+          if (!visible) off.add(id);
+        }
+        setHiddenIds(off);
+      })
+      .catch(() => {});
+  }, [inShell, authLoading, isAuthenticated, isCleaner, isAdmin]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || isCleaner || isAdmin) return;
@@ -121,6 +144,7 @@ export default function MyCleanersPage() {
             lastDate: b.date,
             service: b.serviceType,
             full: fullById.get(b.cleaner.id) ?? null,
+            lastBookingId: b.id,
           });
         }
         setCleaners(rows);
@@ -172,7 +196,15 @@ export default function MyCleanersPage() {
       ) : (
         <div className="space-y-3">
           {cleaners.map((c) => {
-            const meta = (
+            // Appearance item 7 (James-ruled, shell-gated — browser markup is
+            // byte-identical): a hidden cleaner's row stays, wearing the quiet
+            // state — dimmed avatar, the honest line, no BOOK AGAIN, MESSAGE
+            // alive (riding the existing compose-from-booking door). The row
+            // restores itself fully the moment she flips Visible in Pro.
+            const quiet = inShell && hiddenIds.has(c.id);
+            const meta = quiet ? (
+              <>Not currently taking bookings</>
+            ) : (
               <>
                 Last clean: {formatDate(c.lastDate)} &middot; {serviceLabelFromSlug(c.service)}
               </>
@@ -188,9 +220,16 @@ export default function MyCleanersPage() {
               >
                 <button
                   type="button"
-                  onClick={openProfile}
-                  className="min-w-0 flex-1 rounded-lg text-left transition-opacity hover:opacity-90"
-                  aria-label={`View ${c.name}'s profile`}
+                  onClick={quiet ? undefined : openProfile}
+                  disabled={quiet}
+                  className={`min-w-0 flex-1 rounded-lg text-left transition-opacity ${
+                    quiet ? 'opacity-50' : 'hover:opacity-90'
+                  }`}
+                  aria-label={
+                    quiet
+                      ? `${c.name} is not currently taking bookings`
+                      : `View ${c.name}'s profile`
+                  }
                 >
                   <CleanerIdentity
                     photo={c.full ? c.full.photo : c.image}
@@ -201,12 +240,21 @@ export default function MyCleanersPage() {
                     meta={meta}
                   />
                 </button>
-                <Link
-                  href={`/book/${c.id}`}
-                  className="shrink-0 self-start rounded-[10px] bg-primary px-5 py-2.5 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover sm:self-auto"
-                >
-                  Book again
-                </Link>
+                {quiet ? (
+                  <Link
+                    href={`/messages?bookingId=${c.lastBookingId}`}
+                    className="shrink-0 self-start rounded-[10px] border border-line bg-surface px-5 py-2.5 font-jost text-[13px] font-medium text-ink transition-colors hover:bg-page sm:self-auto"
+                  >
+                    Message
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/book/${c.id}`}
+                    className="shrink-0 self-start rounded-[10px] bg-primary px-5 py-2.5 font-jost text-[13px] font-medium text-white transition-colors hover:bg-primary-hover sm:self-auto"
+                  >
+                    Book again
+                  </Link>
+                )}
               </div>
             );
           })}
