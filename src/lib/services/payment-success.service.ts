@@ -192,7 +192,12 @@ export async function processPaymentSuccess(
         : {}),
     },
   });
-  if (claimed.count === 0) return 'SKIPPED_ALREADY';
+  // Recovery Lane A belt (James-ruled): a one-off claim-miss is no longer a
+  // silent skip — a capture landing on a non-PENDING one-off (customer
+  // cancelled mid-payment, or any residual race) routes to the late-payment
+  // handler, which auto-refunds with the honest email. Genuine duplicate
+  // success events still fall out as SKIPPED_ALREADY inside its gate.
+  if (claimed.count === 0) return handleLateOccurrencePayment(bookingId, pi);
 
   // ── Side-effects (claim winner only — never double-fired) ──
 
@@ -351,19 +356,25 @@ async function handleLateOccurrencePayment(
       refundRecords: { where: { status: 'SUCCEEDED' }, select: { id: true } },
     },
   });
-  if (
-    !row ||
-    !row.agreementId ||
-    row.status !== 'CANCELLED' ||
-    row.paymentStatus !== 'CANCELED' ||
-    row.refundRecords.length > 0
-  ) {
+  // Lane A: the gate admits BOTH species of stray capture. Occurrences keep
+  // their exact original shape; one-offs (agreementId null) qualify when the
+  // booking is CANCELLED or ABANDONED and never marked paid. A duplicate
+  // success event for a genuinely paid booking fails both arms (paymentStatus
+  // SUCCEEDED / status live) and skips — no refund on duplicates, ever.
+  const isOccurrenceCase =
+    !!row?.agreementId && row.status === 'CANCELLED' && row.paymentStatus === 'CANCELED';
+  const isOneOffCase =
+    !!row &&
+    !row.agreementId &&
+    (row.status === 'CANCELLED' || row.status === 'ABANDONED') &&
+    row.paymentStatus !== 'SUCCEEDED';
+  if (!row || (!isOccurrenceCase && !isOneOffCase) || row.refundRecords.length > 0) {
     return 'SKIPPED_ALREADY';
   }
 
   // eslint-disable-next-line no-console
   console.log(
-    `[RecurringCharge] LATE PAYMENT on cancelled occurrence ${bookingId} — auto-refunded`
+    `[RecurringCharge] LATE PAYMENT on ${isOneOffCase ? `${row.status} one-off` : 'cancelled occurrence'} ${bookingId} — auto-refunding`
   );
 
   // Record the truth first — the charge DID succeed — so the refund service's
@@ -380,7 +391,9 @@ async function handleLateOccurrencePayment(
   const refund = await refundBooking(
     bookingId,
     amount,
-    'Late payment on a cancelled occurrence — automatic full refund',
+    isOneOffCase
+      ? 'Late payment on a cancelled/expired one-off booking — automatic full refund'
+      : 'Late payment on a cancelled occurrence — automatic full refund',
     { triggeredBy: 'system' }
   );
   if (refund.status !== 'REFUNDED' && refund.status !== 'PARTIALLY_REFUNDED') {
@@ -394,8 +407,13 @@ async function handleLateOccurrencePayment(
 
   const to = row.client?.email ?? row.guestEmail;
   if (to) {
-    const { sendOccurrenceLatePaymentRefunded } = await import('@/lib/services/email.service');
-    await sendOccurrenceLatePaymentRefunded(bookingId).catch(() => {});
+    if (isOneOffCase) {
+      const { sendOneOffLatePaymentRefunded } = await import('@/lib/services/email.service');
+      await sendOneOffLatePaymentRefunded(bookingId).catch(() => {});
+    } else {
+      const { sendOccurrenceLatePaymentRefunded } = await import('@/lib/services/email.service');
+      await sendOccurrenceLatePaymentRefunded(bookingId).catch(() => {});
+    }
   }
   return 'SKIPPED_ALREADY';
 }

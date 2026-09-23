@@ -1055,6 +1055,38 @@ export async function sendArrangementDeclined(
   });
 }
 
+// Recovery Lane A belt: honest email for a one-off auto-refund.
+export async function sendOneOffLatePaymentRefunded(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      totalAmountCharged: true,
+      totalPrice: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { id: true, name: true, email: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const dateLong = b.date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  const { buildOneOffLatePaymentRefunded } = await import('./email-templates');
+  const { subject, html } = buildOneOffLatePaymentRefunded({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    dateLong,
+    amount: Number(b.totalAmountCharged ?? b.totalPrice),
+  });
+  return sendEmail(to, subject, html, { userId: b.client?.id ?? null, category: 'ESSENTIAL' });
+}
+
 // Recovery Lane B row 7 (James-ruled): the one pre-reap recovery email for an
 // unpaid one-off. ESSENTIAL — it concerns the customer's own incomplete
 // transaction, never marketing. Guests carry their token on the Finish link.
@@ -1424,7 +1456,7 @@ export async function sendAdminDisputeOpened(data: {
 // ─── Payment Failure Email ─────────────────────────────────
 
 export async function sendPaymentFailureNotification(
-  data: { bookingId: string; customerName: string; reason: string },
+  data: { bookingId: string; customerName: string; reason: string; finishUrl?: string },
   user: UserEmailData
 ): Promise<boolean> {
   const { subject, html } = buildPaymentFailureNotification(data);

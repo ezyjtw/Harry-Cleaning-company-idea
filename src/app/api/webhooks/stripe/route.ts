@@ -217,14 +217,14 @@ export async function POST(request: NextRequest) {
         data: { paymentStatus: 'FAILED' },
       });
 
-      // Teardown: a payment that failed before the booking went live cancels it,
-      // so the cleaner's slot frees immediately and it leaves their job list.
-      // Guarded on PENDING so a failure event for an already-live booking can't
-      // cancel confirmed work.
-      await prisma.booking.updateMany({
-        where: { id: bookingId, status: 'PENDING' },
-        data: { status: 'CANCELLED' },
-      });
+      // Recovery Lane A (James-ruled): NO teardown. Payment can only capture
+      // against a live booking, and the reaper is the SOLE killer of unpaid
+      // one-offs — the booking stays PENDING (paymentStatus FAILED above), the
+      // customer keeps her retry (inline element or the Finish door) for the
+      // full hour, cleaners never see it (paidVisibleWhere), and the 60-minute
+      // reap frees the slot. The old PENDING→CANCELLED teardown here raced the
+      // customer's own retry: a success after it landed money on a CANCELLED
+      // booking (SKIPPED_ALREADY, unswept). Removed on the ruled shape.
 
       const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
@@ -234,12 +234,23 @@ export async function POST(request: NextRequest) {
       // F5: guests hear about failed payments too — same email, guest recipient
       // ("you have NOT been charged" is in the template for both audiences).
       const failureMessage = pi.last_payment_error?.message || 'Payment could not be processed';
+      // Lane A → Lane B hand-off: while the booking is still alive (PENDING),
+      // the failure email carries the Finish door — tokened for guests, plain
+      // for authed customers, the pay-now email's convention.
+      const failureAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+      const finishUrl =
+        booking?.status === 'PENDING'
+          ? booking.client
+            ? `${failureAppUrl}/booking/${bookingId}/finish`
+            : `${failureAppUrl}/booking/${bookingId}/finish?token=${encodeURIComponent(booking.guestToken ?? '')}`
+          : undefined;
       if (booking && !booking.client && booking.guestEmail) {
         await sendPaymentFailureNotification(
           {
             bookingId,
             customerName: booking.guestName || 'there',
             reason: failureMessage,
+            finishUrl,
           },
           { name: booking.guestName || 'there', email: booking.guestEmail }
         ).catch(() => {});
@@ -250,6 +261,7 @@ export async function POST(request: NextRequest) {
             bookingId,
             customerName: booking.client.name || 'Customer',
             reason: failureMessage,
+            finishUrl,
           },
           { name: booking.client.name || 'Customer', email: booking.client.email }
         ).catch(() => {});
