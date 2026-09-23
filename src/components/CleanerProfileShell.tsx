@@ -60,14 +60,15 @@ function ProfileSkin({ data }: { data: CleanerProfileData }) {
       <div className="mt-3 flex items-center gap-4" data-testid="cp-header">
         <CleanerAvatar photo={data.photo} name={data.name} size={68} />
         <div className="min-w-0">
-          <p className="font-jost text-[22px] font-semibold leading-tight text-ink">
+          {/* h1 (James-sanctioned): the name is the page's proper heading. */}
+          <h1 className="font-jost text-[22px] font-semibold leading-tight text-ink">
             {data.name}
             {verified && (
               <span className="ml-2 align-middle font-jost text-[12px] font-semibold text-trust">
                 ✓ Verified
               </span>
             )}
-          </p>
+          </h1>
           {data.reviewCount > 0 && (
             <p className="mt-0.5 font-jost text-[13px] text-ink-2">
               <span className="text-rating">★</span> {data.rating}{' '}
@@ -193,5 +194,7 @@ export default function CleanerProfileShellGate({
 }) {
   const inShell = useCustomerShell();
   if (inShell) return <ProfileSkin data={data} />;
-  return <CleanerProfileView data={data} availability={availability} mobileBar="fixed" />;
+  return (
+    <CleanerProfileView data={data} availability={availability} mobileBar="fixed" nameAs="h1" />
+  );
 }
