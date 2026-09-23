@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import CleanerProfileView, {
-  type ProfileService,
-  type ProfileReviewItem,
-} from '@/components/CleanerProfileView';
+import CleanerProfileShellGate from '@/components/CleanerProfileShell';
+import { type ProfileService, type ProfileReviewItem } from '@/components/CleanerProfileView';
 import JsonLd from '@/components/JsonLd';
 import ProfileWeekAvailability from '@/components/ProfileWeekAvailability';
 import {
@@ -281,10 +279,9 @@ export default async function CleanerProfilePage({
       <JsonLd data={profileJsonLd} />
       <div className="mx-auto max-w-3xl sm:px-6 sm:py-10">
         <div className="bg-surface sm:overflow-hidden sm:rounded-[16px] sm:border sm:border-line">
-          <CleanerProfileView
+          <CleanerProfileShellGate
             data={data}
             availability={<ProfileWeekAvailability slots={availabilitySlots} />}
-            mobileBar="fixed"
           />
         </div>
       </div>

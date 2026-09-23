@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+import { isCustomerShellUA } from '@/lib/shell';
+
 // ─── Compact voice helpers (the Pro grammar) ─────────────────────────────────
 
 /** '09:00' → '9am' · '13:30' → '1:30pm' — the compact am/pm voice. */
@@ -59,6 +61,19 @@ export function dateEyebrow(): string {
   return new Date()
     .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
     .toUpperCase();
+}
+
+// ─── Customer-shell mount gate (one source for the established pattern) ─────
+// False on the server and on first client render (SSR/hydration byte-identical
+// for browsers), true after mount in the customer shell or under the preview
+// cookie. Every in-shell skin keys on this.
+export function useCustomerShell(): boolean {
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (isCustomerShellUA() || preview) setInShell(true);
+  }, []);
+  return inShell;
 }
 
 // ─── Honest unpaid state (James-ruled, phantom follow-up Change 1) ──────────

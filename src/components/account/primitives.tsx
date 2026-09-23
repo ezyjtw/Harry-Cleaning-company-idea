@@ -2,7 +2,12 @@
 
 import type { ChangeEvent, ReactNode } from 'react';
 
-/** Surface card with a Newsreader title row + optional right-hand action slot. */
+import { useCustomerShell } from '@/components/app/customer';
+
+/** Surface card with a Newsreader title row + optional right-hand action slot.
+ *  Quiet-rooms dress (James-ruled): in the customer shell the card flattens to
+ *  the L2 grammar — hairline xl card, Jost navy section title. Mount-gated, so
+ *  browsers (and Rena Pro) render the original byte-identically. */
 export function AccountSection({
   title,
   action,
@@ -14,13 +19,22 @@ export function AccountSection({
   tone?: 'default' | 'danger';
   children?: ReactNode;
 }) {
+  const inShell = useCustomerShell();
   return (
     <section
-      className={`rounded-2xl border bg-surface p-6 ${tone === 'danger' ? 'border-danger/30' : 'border-line'}`}
+      className={
+        inShell
+          ? `rounded-xl border bg-surface p-4 ${tone === 'danger' ? 'border-danger/30' : 'border-line'}`
+          : `rounded-2xl border bg-surface p-6 ${tone === 'danger' ? 'border-danger/30' : 'border-line'}`
+      }
     >
       <div className="flex items-center justify-between gap-4">
         <h2
-          className={`font-newsreader text-xl font-semibold ${tone === 'danger' ? 'text-danger' : 'text-ink'}`}
+          className={
+            inShell
+              ? `font-jost text-[17px] font-semibold ${tone === 'danger' ? 'text-danger' : 'text-ink'}`
+              : `font-newsreader text-xl font-semibold ${tone === 'danger' ? 'text-danger' : 'text-ink'}`
+          }
         >
           {title}
         </h2>
