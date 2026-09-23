@@ -583,7 +583,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // Step-frame numbering: entered cleaner-first (?cleaner=…), the pick room
   // was Step 1, so the wizard continues 2 → 3 → 4; service-first it is 1 → 3.
   const flowOffset = preSelectedCleanerId ? 1 : 0;
-  const flowTotal = preSelectedCleanerId ? 4 : 3;
+  // Item 6 rider (James-ruled): the split gave the cleaner-first road five
+  // honest steps — service 1, configure 2, WHEN 3, DETAILS 4, checkout 5.
+  const flowTotal = preSelectedCleanerId ? 5 : 3;
+  // Appearance item 6 (James-ruled, in-shell only): the cleaner-first
+  // "Choose a Time" screen splits into WHEN (the one question: date strip +
+  // time chips) then DETAILS (access, instructions, address, summary, pay) —
+  // the access question sits with the other about-your-home questions.
+  // Browsers keep the single long page byte-identically.
+  const [shellBookStage, setShellBookStage] = useState<'when' | 'details'>('when');
   // Step-frame law: the cflow body class powers the in-shell CSS upsizing
   // (globals.css) — browsers never carry it.
   useEffect(() => {
@@ -1156,7 +1164,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
-        {inCustomerShell && <FlowStep n={3 + flowOffset} total={flowTotal} />}
+        {inCustomerShell && (
+          <FlowStep n={(preSelectedCleanerId ? 4 : 3) + flowOffset} total={flowTotal} />
+        )}
         {/* Checkout exception (one-action law): Stripe's own "Pay £X" is the
             single door — the bar here carries NO action, just the order total. */}
         {inCustomerShell && <FlowBar price={totalPrice + productCost} />}
@@ -1998,11 +2008,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // When cleaner is pre-selected, show time slot picker directly
   if (preSelectedCleaner) {
+    // Item 6: in-shell sub-stage flags — browsers see every section (both
+    // flags true), the shell sees exactly one question at a time.
+    const shellWhen = !inCustomerShell || shellBookStage === 'when';
+    const shellDetails = !inCustomerShell || shellBookStage === 'details';
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
-        {/* Back link */}
+        {/* Back link — in-shell, DETAILS backs to WHEN before leaving the step */}
         <button
-          onClick={() => setPhase('quote')}
+          onClick={() => {
+            if (inCustomerShell && shellBookStage === 'details') {
+              setShellBookStage('when');
+              window.scrollTo({ top: 0 });
+              return;
+            }
+            setPhase('quote');
+          }}
           className="group inline-flex items-center gap-2 font-jost text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-gold transition-colors"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-3/20 group-hover:border-gold/40 group-hover:bg-gold/5 transition-all">
@@ -2019,111 +2040,143 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back to quote
         </button>
 
-        <h1 className="mt-6 font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
-          Choose a Time
-        </h1>
-        <div className="my-6 h-px bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
+        {/* Item 6 (James-ruled): in-shell, the standing step frame replaces the
+            newsreader headline and the chip indicator — STEP 3 OF 4, the ruled
+            headline on the WHEN stage, the cleaner identity card beneath. */}
+        {inCustomerShell && (
+          <div className="mt-4">
+            <FlowStep
+              n={(shellBookStage === 'when' ? 2 : 3) + flowOffset}
+              total={flowTotal}
+              title={
+                shellBookStage === 'when'
+                  ? `When should ${preSelectedCleaner.name.split(' ')[0]} come?`
+                  : undefined
+              }
+            />
+          </div>
+        )}
+        {!inCustomerShell && (
+          <h1 className="mt-6 font-newsreader font-semibold text-3xl text-ink sm:text-4xl">
+            Choose a Time
+          </h1>
+        )}
+        {!inCustomerShell && (
+          <div className="my-6 h-px bg-gradient-to-r from-transparent via-ink/10 to-transparent" />
+        )}
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2">
-          {[
-            { num: 1, label: 'Configure', done: true },
-            { num: 2, label: 'Choose Cleaner', active: true },
-            { num: 3, label: 'Confirm' },
-          ].map((s, i) => (
-            <div key={s.num} className="flex items-center gap-2">
-              {i > 0 && (
-                <div
-                  className={`h-px w-6 sm:w-10 ${s.done || s.active ? 'bg-gold/30' : 'bg-ink-3/15'}`}
-                />
-              )}
-              <span
-                className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
-                  s.active
-                    ? 'bg-ink text-cream shadow-sm'
-                    : s.done
-                      ? 'bg-gold/10 text-gold'
-                      : 'bg-ink-3/8 text-ink-3/50'
-                }`}
-              >
-                {s.done ? (
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                ) : (
-                  <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
-                      s.active ? 'bg-cream/20 text-cream' : 'bg-ink-3/10 text-ink-3/40'
-                    }`}
-                  >
-                    {s.num}
-                  </span>
+        {/* Step indicator (browser only — the shell wears the FlowStep frame) */}
+        {!inCustomerShell && (
+          <div className="flex items-center gap-2">
+            {[
+              { num: 1, label: 'Configure', done: true },
+              { num: 2, label: 'Choose Cleaner', active: true },
+              { num: 3, label: 'Confirm' },
+            ].map((s, i) => (
+              <div key={s.num} className="flex items-center gap-2">
+                {i > 0 && (
+                  <div
+                    className={`h-px w-6 sm:w-10 ${s.done || s.active ? 'bg-gold/30' : 'bg-ink-3/15'}`}
+                  />
                 )}
-                <span className="hidden sm:inline">{s.label}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+                <span
+                  className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                    s.active
+                      ? 'bg-ink text-cream shadow-sm'
+                      : s.done
+                        ? 'bg-gold/10 text-gold'
+                        : 'bg-ink-3/8 text-ink-3/50'
+                  }`}
+                >
+                  {s.done ? (
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                  ) : (
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
+                        s.active ? 'bg-cream/20 text-cream' : 'bg-ink-3/10 text-ink-3/40'
+                      }`}
+                    >
+                      {s.num}
+                    </span>
+                  )}
+                  <span className="hidden sm:inline">{s.label}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Cleaner summary */}
-        <div className="mt-8 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]">
-          {/* H22: was a hard-coded initials tile that never attempted the photo —
+        {/* Cleaner summary — item 6: the ruled identity line beneath the WHEN
+            headline; the DETAILS stage lets the summary card name the cleaner. */}
+        {shellWhen && (
+          <div className="mt-8 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-ink/[0.06]">
+            {/* H22: was a hard-coded initials tile that never attempted the photo —
               the one cleaner-image render site bypassing CleanerAvatar. */}
-          <CleanerAvatar
-            photo={preSelectedCleaner.photo}
-            name={preSelectedCleaner.name}
-            size={56}
-            className="shrink-0 ring-1 ring-ink/[0.06]"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-jost font-normal text-ink">{preSelectedCleaner.name}</span>
-              <span
-                className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[preSelectedCleaner.tier].color}`}
-              >
-                {TIER_INFO[preSelectedCleaner.tier].label}
-              </span>
-              <VerificationBadge
-                identityVerified={preSelectedCleaner.identityVerified}
-                backgroundChecked={preSelectedCleaner.backgroundChecked}
-              />
-            </div>
-            <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
-              <StarRating rating={preSelectedCleaner.rating} />
-              <span>
-                {preSelectedCleaner.rating} ({preSelectedCleaner.reviewCount} reviews)
-              </span>
-              <span className="text-ink-3/30">|</span>
-              <span>
-                &pound;
-                {getServiceListedRate(preSelectedCleaner, category).toFixed(2)}
-                /hr ({SERVICE_RATE_LABELS[category]})
-              </span>
+            <CleanerAvatar
+              photo={preSelectedCleaner.photo}
+              name={preSelectedCleaner.name}
+              size={56}
+              className="shrink-0 ring-1 ring-ink/[0.06]"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-jost font-normal text-ink">{preSelectedCleaner.name}</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${TIER_INFO[preSelectedCleaner.tier].color}`}
+                >
+                  {TIER_INFO[preSelectedCleaner.tier].label}
+                </span>
+                <VerificationBadge
+                  identityVerified={preSelectedCleaner.identityVerified}
+                  backgroundChecked={preSelectedCleaner.backgroundChecked}
+                />
+              </div>
+              <div className="mt-1.5 flex items-center gap-2 font-jost font-light text-sm text-ink-3">
+                <StarRating rating={preSelectedCleaner.rating} />
+                <span>
+                  {preSelectedCleaner.rating} ({preSelectedCleaner.reviewCount} reviews)
+                </span>
+                <span className="text-ink-3/30">|</span>
+                <span>
+                  &pound;
+                  {getServiceListedRate(preSelectedCleaner, category).toFixed(2)}
+                  /hr ({SERVICE_RATE_LABELS[category]})
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-10 space-y-8">
-          {/* Date and time selection via calendar */}
-          <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
-            <DateTimePicker
-              cleanerId={preSelectedCleaner.id}
-              durationHours={effectiveHours}
-              value={dateTimeSelection}
-              onChange={setDateTimeSelection}
-              dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
-            />
-            <FieldError k="booking-datetime" />
-          </div>
+          {/* Date and time selection via calendar — item 6: the WHEN stage's
+              one question in-shell. */}
+          {shellWhen && (
+            <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+              <DateTimePicker
+                cleanerId={preSelectedCleaner.id}
+                durationHours={effectiveHours}
+                value={dateTimeSelection}
+                onChange={setDateTimeSelection}
+                dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
+              />
+              <FieldError k="booking-datetime" />
+            </div>
+          )}
 
-          {/* Backup cleaner slider */}
-          {selectedDate && selectedTime24 && (
+          {/* Backup cleaner slider — item 6: rides the DETAILS stage in-shell */}
+          {shellDetails && selectedDate && selectedTime24 && (
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <BackupCleanerSlider
                 cleaners={availableBackupCleaners}
@@ -2138,8 +2191,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Payment held notice */}
-          {selectedDate && selectedTime24 && (
+          {/* Payment held notice — item 6: DETAILS stage (its copy references
+              the booking summary beside it) */}
+          {shellDetails && selectedDate && selectedTime24 && (
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
               <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
               <div className="flex items-start gap-3">
@@ -2182,128 +2236,136 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
-          {/* Key access */}
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-              How will the cleaner get in?
-            </h2>
-            <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
-              {(
-                [
-                  { value: 'lockbox', label: 'Keybox' },
-                  { value: 'key-under-mat', label: 'Key hidden' },
-                  { value: 'i-will-be-home', label: 'Someone will be in' },
-                  { value: 'with-concierge', label: 'Concierge' },
-                ] as { value: KeyAccess; label: string }[]
-              ).map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setKeyAccess(opt.value)}
-                  className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
-                    keyAccess === opt.value
-                      ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
-                      : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          {/* Key access — item 6 (James-ruled): in-shell this sits on the
+              DETAILS stage with the other about-your-home questions, never on
+              the WHEN screen. Same state, same payload (rooms.keyAccess). */}
+          {shellDetails && (
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+                How will the cleaner get in?
+              </h2>
+              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                {(
+                  [
+                    { value: 'lockbox', label: 'Keybox' },
+                    { value: 'key-under-mat', label: 'Key hidden' },
+                    { value: 'i-will-be-home', label: 'Someone will be in' },
+                    { value: 'with-concierge', label: 'Concierge' },
+                  ] as { value: KeyAccess; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setKeyAccess(opt.value)}
+                    className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
+                      keyAccess === opt.value
+                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                        : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
+                <input
+                  type="text"
+                  value={keyAccessNote}
+                  onChange={(e) => setKeyAccessNote(e.target.value)}
+                  placeholder={
+                    keyAccess === 'lockbox'
+                      ? 'Lockbox code or location...'
+                      : 'Where is the key hidden?'
+                  }
+                  className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
+                />
+              )}
             </div>
-            {(keyAccess === 'lockbox' || keyAccess === 'key-under-mat') && (
-              <input
-                type="text"
-                value={keyAccessNote}
-                onChange={(e) => setKeyAccessNote(e.target.value)}
-                placeholder={
-                  keyAccess === 'lockbox'
-                    ? 'Lockbox code or location...'
-                    : 'Where is the key hidden?'
-                }
+          )}
+
+          {/* Special instructions — item 6: DETAILS stage in-shell */}
+          {shellDetails && (
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
+                Special instructions
+              </h2>
+              <p className="mt-2 font-jost font-light text-sm text-ink-3">
+                Anything the cleaner should know or be careful with?
+              </p>
+              <textarea
+                rows={3}
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
                 className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Special instructions */}
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <h2 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-              Special instructions
-            </h2>
-            <p className="mt-2 font-jost font-light text-sm text-ink-3">
-              Anything the cleaner should know or be careful with?
-            </p>
-            <textarea
-              rows={3}
-              value={specialInstructions}
-              onChange={(e) => setSpecialInstructions(e.target.value)}
-              placeholder="e.g. 'Dog is friendly but barks', 'Please be careful with the antique vase', 'Don't move items on the desk'..."
-              className="mt-4 w-full rounded-lg bg-cream px-4 py-3 font-jost font-light text-sm text-ink ring-1 ring-ink/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
-          </div>
-
-          {/* Cleaning address (A12) */}
-          {addressCard}
+          {/* Cleaning address (A12) — item 6: DETAILS stage in-shell */}
+          {shellDetails && addressCard}
 
           {/* H37: the cleaner-first flow NEVER had a Booking Summary card (the
               payment copy above even promised "the booking summary shown
               above"). Same card as the services-first confirm, same
               priceBreakdown fields — no new maths. Column law: key-access →
               instructions → Cleaning Address → Booking Summary → pay. */}
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-            <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-              Booking Summary
-            </span>
-            <div className="mt-5 space-y-3">
-              <SummaryRow label="Service" value={serviceLabel} />
-              <SummaryRow label="Cleaner" value={preSelectedCleaner.name} />
-              {selectedDate && selectedTime24 && (
-                <SummaryRow
-                  label="When"
-                  value={`${selectedDate}, ${selectedTimeDisplay || selectedTime24}`}
-                />
-              )}
-              {!priceBreakdown.isFixed && (
-                <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
-              )}
-              <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
+          {shellDetails && (
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+              <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
+                Booking Summary
+              </span>
+              <div className="mt-5 space-y-3">
+                <SummaryRow label="Service" value={serviceLabel} />
+                <SummaryRow label="Cleaner" value={preSelectedCleaner.name} />
+                {selectedDate && selectedTime24 && (
+                  <SummaryRow
+                    label="When"
+                    value={`${selectedDate}, ${selectedTimeDisplay || selectedTime24}`}
+                  />
+                )}
                 {!priceBreakdown.isFixed && (
+                  <SummaryRow label="Duration" value={`${effectiveHours} hours`} />
+                )}
+                <div className="pt-4 mt-4 space-y-3 border-t border-ink/[0.06]">
+                  {!priceBreakdown.isFixed && (
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-light text-ink-3">
+                        Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
+                        /hr)
+                      </span>
+                      <span className="font-jost font-normal text-ink">
+                        &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {productCost > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="font-jost font-light text-ink-3">Cleaning products</span>
+                      <span className="font-jost font-light text-ink">
+                        &pound;{productCost.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="font-jost font-light text-ink-3">
-                      Cleaning ({effectiveHours}h &times; &pound;{priceBreakdown.listedHourlyRate}
-                      /hr)
+                      Service fee ({SERVICE_FEE_PERCENT}%)
                     </span>
-                    <span className="font-jost font-normal text-ink">
-                      &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                {productCost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="font-jost font-light text-ink-3">Cleaning products</span>
                     <span className="font-jost font-light text-ink">
-                      &pound;{productCost.toFixed(2)}
+                      &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
                     </span>
                   </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="font-jost font-light text-ink-3">
-                    Service fee ({SERVICE_FEE_PERCENT}%)
-                  </span>
-                  <span className="font-jost font-light text-ink">
-                    &pound;{priceBreakdown.displayServiceFee.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
-                  <span className="font-jost font-normal text-ink">Total</span>
-                  <span className="font-newsreader font-medium text-3xl text-ink">
-                    &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
-                  </span>
+                  <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
+                    <span className="font-jost font-normal text-ink">Total</span>
+                    <span className="font-newsreader font-medium text-3xl text-ink">
+                      &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {bookingError && (
             <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
@@ -2311,17 +2373,48 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             </div>
           )}
 
+          {/* Item 6: the WHEN stage's single door — in-shell only. Validates
+              date + time with the SAME inline machinery, then advances to
+              DETAILS. Never renders alongside Confirm & Pay. */}
+          {inCustomerShell && shellBookStage === 'when' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedDate || !selectedTime24) {
+                  failValidation([
+                    {
+                      id: 'booking-datetime',
+                      msg: !selectedDate
+                        ? 'Please choose a date for your clean.'
+                        : 'Please choose an arrival time.',
+                    },
+                  ]);
+                  return;
+                }
+                setFieldErrors({});
+                setShellBookStage('details');
+                window.scrollTo({ top: 0 });
+              }}
+              data-cflow-cta
+              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
+            >
+              Continue
+            </button>
+          )}
+
           {/* Submit — F5: enabled-and-validating; a click with no date/time
               names the gap inline and scrolls to the picker. */}
-          <button
-            type="button"
-            onClick={() => handleBookingSubmit()}
-            disabled={bookingSubmitting}
-            data-cflow-cta
-            className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
-          </button>
+          {shellDetails && (
+            <button
+              type="button"
+              onClick={() => handleBookingSubmit()}
+              disabled={bookingSubmitting}
+              data-cflow-cta
+              className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bookingSubmitting ? 'Processing...' : 'Confirm & Pay'}
+            </button>
+          )}
         </div>
       </div>
     );

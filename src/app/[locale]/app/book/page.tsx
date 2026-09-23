@@ -196,6 +196,20 @@ export default function CustomerBookPage() {
               })}
             </div>
           </section>
+
+          {/* Book-tab option A (James-ruled): one quiet cross-link — the
+              cleaner-first road, no fork cards, no new screens. The shell's
+              cross-tab intercept lands this on the Cleaners tab. */}
+          <p className="pb-2 pt-1 text-center">
+            <Link
+              href="/cleaners"
+              data-testid="book-browse-cleaners"
+              className="font-jost text-[13px] text-ink-3 active:text-ink"
+            >
+              Prefer to choose your cleaner first?{' '}
+              <span className="font-semibold text-primary">Browse cleaners ›</span>
+            </Link>
+          </p>
         </div>
       )}
     </div>
