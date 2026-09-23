@@ -14,7 +14,17 @@
 // updateMany (status + transferStatus guards), then the refund is issued
 // best-effort. A failed refund leaves a FAILED RefundRecord for admin retry —
 // the booking stays cancelled either way. Refund money movement is owned by
-// refundBooking(); this service never touches Stripe directly.
+// refundBooking(); this service's only direct Stripe touch is THE FENCE below
+// (killing an unpaid booking's live PaymentIntent before the booking dies).
+//
+// THE FENCE (James-ruled): no booking dies while its intent is alive. For an
+// unpaid booking with a stored intent, the intent is cancelled at Stripe FIRST
+// and the kill proceeds only on Stripe's confirmed answer. An intent that
+// answers "already succeeded" aborts the unpaid kill and routes the cancel
+// into the paid world with a FULL refund, always, regardless of notice period
+// (ruled: she initiated the cancel while unpaid — the mid-gesture payment is
+// the platform's race, never her notice-period problem). Any other unconfirmed
+// outcome fails safe: kill aborted, honest retry message, loud log.
 
 import type { BookingStatus } from '@prisma/client';
 
@@ -54,6 +64,9 @@ export interface CancellationResult {
   refundPercent?: number;
   refundAmount?: number;
   refundStatus?: string;
+  /** THE FENCE: the payment landed mid-cancel — the booking was cancelled as
+   *  a PAID cancellation with a full refund. Routes surface this honestly. */
+  latePaid?: boolean;
 }
 
 export interface CancellationPreview {
@@ -183,18 +196,84 @@ export async function executeCancellation(params: {
     };
   }
 
-  // 4. Decide the refund — directive defaults to timing policy for the customer/
+  // 4. THE FENCE — kill the intent BEFORE the booking. For an unpaid booking
+  //    with a stored intent, cancel it at Stripe first; only Stripe's confirmed
+  //    kill (cancelled now, or already dead) lets the unpaid cancel proceed.
+  let isPaid =
+    booking.paymentStatus === 'SUCCEEDED' || booking.paymentStatus === 'PARTIALLY_REFUNDED';
+  let fenceLatePaid = false;
+  if (!isPaid && booking.stripePaymentIntentId) {
+    const { default: stripe } = await import('@/lib/stripe');
+    try {
+      await stripe.paymentIntents.cancel(booking.stripePaymentIntentId);
+    } catch {
+      // Cancel refused — learn WHY from Stripe before touching the booking.
+      let piStatus: string | null = null;
+      try {
+        const pi = await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId);
+        piStatus = pi.status;
+        if (pi.status === 'succeeded') {
+          // The payment landed mid-gesture. Record the truth first (the refund
+          // service's payment guard reads it), then route this cancel into the
+          // paid world with a FULL refund (James-ruled: always, regardless of
+          // notice period — the race is the platform's, not hers).
+          const chargeId =
+            typeof pi.latest_charge === 'string'
+              ? pi.latest_charge
+              : (pi.latest_charge?.id ?? null);
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: { paymentStatus: 'SUCCEEDED', ...(chargeId ? { stripeChargeId: chargeId } : {}) },
+          });
+          isPaid = true;
+          fenceLatePaid = true;
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Cancellation] FENCE: intent ${booking.stripePaymentIntentId} for ${bookingId} succeeded mid-cancel — routing to paid cancellation with FULL refund`
+          );
+        }
+      } catch {
+        // Retrieve failed too — piStatus stays null and we fail safe below.
+      }
+      if (!fenceLatePaid && piStatus !== 'canceled') {
+        // Neither a confirmed kill nor a confirmed payment — the intent is in
+        // an unknown or in-flight state (processing, network error). Fail safe:
+        // the booking is NOT cancelled.
+        // eslint-disable-next-line no-console
+        console.error(
+          `[Cancellation] FENCE: could not confirm intent kill for ${bookingId} (intent ${booking.stripePaymentIntentId}, status: ${piStatus ?? 'unknown'}) — cancel aborted`
+        );
+        return {
+          ok: false,
+          status: 409,
+          error:
+            'We could not confirm your payment state, so nothing has been cancelled. Please try again in a moment.',
+        };
+      }
+      // piStatus === 'canceled': the intent was already dead — kill confirmed.
+    }
+  }
+
+  // 5. Decide the refund — directive defaults to timing policy for the customer/
   //    guest, full for admin. Percent is always applied to the REMAINDER (what's
-  //    left after any prior partial refund), not the original total.
+  //    left after any prior partial refund), not the original total. A fence
+  //    late-payment overrides the directive: full refund, always. (Its
+  //    remainder is the same computation — a just-paid booking has no prior
+  //    SUCCEEDED refunds, so the remainder is the full charge.)
   const remainder = refundableRemainder(booking);
 
-  const directive: RefundDirective =
-    params.refund ?? (cancelledBy === 'admin' ? { kind: 'full' } : { kind: 'policy' });
+  const directive: RefundDirective = fenceLatePaid
+    ? { kind: 'full' }
+    : (params.refund ?? (cancelledBy === 'admin' ? { kind: 'full' } : { kind: 'policy' }));
 
   let refundPercent: number;
   let plannedRefund: number;
   if (directive.kind === 'policy') {
-    const policy = BookingLifecycleService.canCancel(booking.date, booking.status, booking.createdAt);
+    const policy = BookingLifecycleService.canCancel(
+      booking.date,
+      booking.status,
+      booking.createdAt
+    );
     if (!policy.canCancel) {
       return {
         ok: false,
@@ -214,7 +293,7 @@ export async function executeCancellation(params: {
 
   const reason = params.reason?.trim() || `Cancelled by ${cancelledBy}`;
 
-  // 5. Atomic claim — re-assert both guards so a concurrent accept/reassign/
+  // 6. Atomic claim — re-assert both guards so a concurrent accept/reassign/
   //    release that changed state since the read fails the cancel. Cascade
   //    fields are torn down in the same write.
   const claim = await prisma.booking.updateMany({
@@ -234,7 +313,7 @@ export async function executeCancellation(params: {
     return { ok: false, status: 409, error: 'Booking changed state — cancel aborted' };
   }
 
-  // 6. Cascade teardown side-effects (best-effort) — expire any live top-up and
+  // 7. Cascade teardown side-effects (best-effort) — expire any live top-up and
   //    let provisional / reserve cleaners know the booking is gone.
   await tearDownCascadeSideEffects({
     bookingId,
@@ -242,22 +321,26 @@ export async function executeCancellation(params: {
     reserveCleanerIds: booking.reserveCleanerIds,
   });
 
-  // 7. Refund (best-effort). Skip if nothing was actually captured — avoids a
-  //    spurious FAILED record on unpaid bookings.
+  // 8. Refund (best-effort). Skip if nothing was actually captured — avoids a
+  //    spurious FAILED record on unpaid bookings. isPaid was decided above:
+  //    from the row's paymentStatus, or by the fence's confirmed late payment.
   let refundAmount = 0;
   let refundStatus: string | undefined;
-  const isPaid =
-    booking.paymentStatus === 'SUCCEEDED' || booking.paymentStatus === 'PARTIALLY_REFUNDED';
   if (plannedRefund > 0 && isPaid) {
     const { refundBooking } = await import('./refund.service');
-    const result = await refundBooking(bookingId, plannedRefund, reason, {
-      triggeredBy: params.adminId,
-    });
+    const result = await refundBooking(
+      bookingId,
+      plannedRefund,
+      fenceLatePaid ? 'Payment arrived mid-cancellation — automatic full refund' : reason,
+      {
+        triggeredBy: params.adminId,
+      }
+    );
     refundAmount = plannedRefund;
     refundStatus = result.status;
   }
 
-  // 7b. If the cleaner is owed money after the cancel (partial or 0% refund on a
+  // 8b. If the cleaner is owed money after the cancel (partial or 0% refund on a
   //     paid booking), schedule immediate release. A cancelled booking has no
   //     dispute window — the scheduler releases on the next tick.
   //     Full refund → cleanerEarnings zeroed, transferStatus REFUNDED → nothing to release.
@@ -272,11 +355,11 @@ export async function executeCancellation(params: {
       .catch(() => {});
   }
 
-  // 8. Email + notifications (best-effort, never block the cancel result).
+  // 9. Email + notifications (best-effort, never block the cancel result).
   await sendCancellationEmail(booking, refundPercent, refundAmount).catch(() => {});
   await notifyCancellation(booking, cancelledBy).catch(() => {});
 
-  // 9. Audit (admin-initiated cancels only).
+  // 10. Audit (admin-initiated cancels only).
   if (params.adminId) {
     await AuditService.log({
       userId: params.adminId,
@@ -287,7 +370,14 @@ export async function executeCancellation(params: {
     }).catch(() => {});
   }
 
-  return { ok: true, status: 200, refundPercent, refundAmount, refundStatus };
+  return {
+    ok: true,
+    status: 200,
+    refundPercent,
+    refundAmount,
+    refundStatus,
+    ...(fenceLatePaid ? { latePaid: true } : {}),
+  };
 }
 
 // ─── Side-effect helpers ──────────────────────────────────────

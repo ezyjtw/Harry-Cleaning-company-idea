@@ -51,9 +51,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json({
-    message: 'Booking cancelled',
+    // THE FENCE: if the payment landed mid-cancel, say so honestly — the
+    // booking was cancelled as paid, with a full refund.
+    message: result.latePaid
+      ? 'This booking had just been paid — it has been cancelled and refunded in full.'
+      : 'Booking cancelled',
     refundPercent: result.refundPercent,
     refundAmount: result.refundAmount,
     refundStatus: result.refundStatus,
+    latePaid: result.latePaid ?? false,
   });
 }

@@ -196,7 +196,10 @@ export async function endAgreement(
       data: { status: 'ENDED', endedAt: new Date(), endedBy },
     }),
     prisma.booking.updateMany({
-      where: { agreementId, status: 'SCHEDULED' },
+      // THE FENCE (James-ruled): void only UNPAID occurrences — a SCHEDULED
+      // row the T-48h charge just took paid belongs to the succeeded path,
+      // never to a bulk void that would strand its money.
+      where: { agreementId, status: 'SCHEDULED', paymentStatus: { notIn: ['SUCCEEDED'] } },
       data: {
         status: 'CANCELLED',
         cancelledAt: new Date(),
@@ -205,6 +208,36 @@ export async function endAgreement(
       },
     }),
   ]);
+
+  // THE FENCE: kill any surviving intents of the occurrences just voided —
+  // an alive intent on a dead booking is the exact race the law forbids.
+  // Fail-soft per intent (the void stands either way), loud log per failure;
+  // the Lane A belt auto-refunds if a stray capture still lands.
+  const voidedWithIntent = await prisma.booking.findMany({
+    where: {
+      agreementId,
+      status: 'CANCELLED',
+      paymentStatus: 'CANCELED',
+      cancellationReason: 'Recurring agreement ended',
+      stripePaymentIntentId: { not: null },
+    },
+    select: { id: true, stripePaymentIntentId: true },
+  });
+  if (voidedWithIntent.length > 0) {
+    const { default: stripe } = await import('@/lib/stripe');
+    for (const occ of voidedWithIntent) {
+      if (!occ.stripePaymentIntentId) continue;
+      try {
+        await stripe.paymentIntents.cancel(occ.stripePaymentIntentId);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[Recurring] FENCE: could not cancel surviving intent ${occ.stripePaymentIntentId} on voided occurrence ${occ.id} — belt will refund any stray capture`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+  }
 
   // Tell the other side (both get a bell; the affected party gets the email).
   const { sendAgreementEnded } = await import('@/lib/services/email.service');
