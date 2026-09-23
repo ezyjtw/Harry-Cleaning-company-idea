@@ -157,6 +157,10 @@ export default function MessagesPage() {
   useEffect(() => {
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
     if (isCustomerShellUA() || preview) setShellMode('customer');
+    // Pro lane (own commit, own gate): the same ruled skin under the
+    // existing RenaPro detection — in Pro the cleaner's own messages are
+    // the navy side, and the list header carries the Back-to-Today law.
+    else if (isShellUA()) setShellMode('pro');
   }, []);
 
   // Context line (ruled): when a booking links the pair, the conversation
