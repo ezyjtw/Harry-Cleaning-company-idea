@@ -92,12 +92,22 @@ export default function MessagesPage() {
   const [showPiiWarning, setShowPiiWarning] = useState(false);
 
   // P3 in-shell skin (James-ruled): tag <body> so globals.css re-clothes this
-  // page to the Pro Navy law inside the shell. Effect-only, UA-gated —
+  // page to the design law inside the shell. Effect-only, UA-gated —
   // browsers never carry the classes, markup byte-identical.
+  // Both-shells parity (James-ruled): the customer shell gets the SAME ruled
+  // skin — it already carries rena-customer-shell (CustomerShellChrome), so
+  // adding rena-page-messages lets the same globals.css rules key on it.
   useEffect(() => {
-    if (!isShellUA()) return;
-    document.body.classList.add('rena-shell', 'rena-page-messages');
-    return () => document.body.classList.remove('rena-shell', 'rena-page-messages');
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    const pro = isShellUA();
+    const customer = isCustomerShellUA() || preview;
+    if (!pro && !customer) return;
+    if (pro) document.body.classList.add('rena-shell');
+    document.body.classList.add('rena-page-messages');
+    return () => {
+      if (pro) document.body.classList.remove('rena-shell');
+      document.body.classList.remove('rena-page-messages');
+    };
   }, []);
 
   // Fetch current user session
