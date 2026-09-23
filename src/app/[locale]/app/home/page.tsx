@@ -19,8 +19,10 @@ import {
   fmtPounds,
   fmtSlotTime,
   greetingWord,
+  isUnpaidPending,
   NoCleansCard,
   pastDayWord,
+  UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
@@ -34,6 +36,7 @@ interface HomeBooking {
   duration: number;
   price: number;
   rawStatus: string;
+  paymentStatus: string;
   recurring: boolean;
   hasReview: boolean;
 }
@@ -59,6 +62,7 @@ function toHomeBooking(b: Record<string, unknown>): HomeBooking {
     duration: Number(b.duration || 0),
     price: Number(b.totalPrice || 0),
     rawStatus: String(b.status || 'PENDING').toUpperCase(),
+    paymentStatus: String(b.paymentStatus || 'PENDING').toUpperCase(),
     recurring: !!(b.agreement as { frequency?: string | null } | null)?.frequency,
     hasReview: !!b.review,
   };
@@ -68,6 +72,7 @@ export default function CustomerHomePage() {
   const [loading, setLoading] = useState(true);
   const [firstName, setFirstName] = useState('');
   const [next, setNext] = useState<HomeBooking | null>(null);
+  const [unpaid, setUnpaid] = useState<HomeBooking | null>(null);
   const [unreviewed, setUnreviewed] = useState<HomeBooking | null>(null);
 
   useEffect(() => {
@@ -81,10 +86,21 @@ export default function CustomerHomePage() {
         const raw: Record<string, unknown>[] = data?.data || [];
         const items = raw.map(toHomeBooking);
         const todayIso = new Date().toISOString().split('T')[0];
+        // Honest unpaid state (ruled): unpaid-PENDING is never an upcoming
+        // clean — it gets its own card, and the hero never selects it.
         const upcoming = items
-          .filter((b) => UPCOMING_RAW.includes(b.rawStatus) && b.date >= todayIso)
+          .filter(
+            (b) =>
+              UPCOMING_RAW.includes(b.rawStatus) &&
+              !isUnpaidPending(b.rawStatus, b.paymentStatus) &&
+              b.date >= todayIso
+          )
           .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
         setNext(upcoming[0] ?? null);
+        setUnpaid(
+          items.find((b) => isUnpaidPending(b.rawStatus, b.paymentStatus) && b.date >= todayIso) ??
+            null
+        );
         const pending = items
           .filter((b) => b.rawStatus === 'COMPLETED' && !b.hasReview)
           .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
@@ -119,6 +135,26 @@ export default function CustomerHomePage() {
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Honest unpaid state — unmissable, above the hero. The Cancel door
+              lives on the tracker this card opens (and on My Cleans). */}
+          {unpaid && (
+            <Link
+              href={`/booking/${unpaid.id}`}
+              className="block rounded-xl border border-warning/30 bg-warning/[0.06] p-4 active:bg-warning/[0.1]"
+              data-testid="home-unpaid-card"
+            >
+              <p className="font-jost text-[15px] font-semibold text-ink">Payment incomplete</p>
+              <p className="mt-1 font-jost text-[13px] text-ink-2">
+                {dayPhrase(unpaid.date)}, {fmtSlotTime(unpaid.time)} ·{' '}
+                {serviceLabelFromSlug(unpaid.serviceType)} · {fmtPounds(unpaid.price)}
+              </p>
+              <p className="mt-2 font-jost text-[13px] text-ink-3">{UNPAID_EXPIRY_LINE}</p>
+              <span className="mt-2 block font-jost text-[13px] font-semibold text-primary">
+                View or cancel ›
+              </span>
+            </Link>
+          )}
+
           {next ? (
             <section
               className="rounded-xl border border-line bg-surface p-4"

@@ -61,6 +61,18 @@ export function dateEyebrow(): string {
     .toUpperCase();
 }
 
+// ─── Honest unpaid state (James-ruled, phantom follow-up Change 1) ──────────
+// Mirror of the browser chip's H53 truth for the in-shell skins: a booking at
+// rest in PENDING whose payment never succeeded is unpaid — it is NEVER an
+// upcoming clean. One source; Home, My Cleans and the tracker all key on this.
+export function isUnpaidPending(rawStatus: string, paymentStatus?: string | null): boolean {
+  return rawStatus === 'PENDING' && paymentStatus !== 'SUCCEEDED';
+}
+
+// The ruled plain line — the booking expires if it stays unpaid.
+export const UNPAID_EXPIRY_LINE =
+  "We haven't received payment for this clean. If it stays unpaid, the booking will expire and won't go ahead.";
+
 // ─── Booking-flow frame (James-ruled): step eyebrow + sticky price bar ──────
 // In-shell only — the pages render these behind their mounted customer-shell
 // gates. The bar's CTA proxies the page's OWN primary control (first element

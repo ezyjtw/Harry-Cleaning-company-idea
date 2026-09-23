@@ -10,7 +10,9 @@ import {
   dayPhrase,
   fmtPounds,
   fmtSlotTime,
+  isUnpaidPending,
   refundMessage,
+  UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
@@ -327,16 +329,21 @@ export default function BookingDetailPage() {
   if (inShell) {
     const st = booking.status;
     const first = cleaner?.name ? cleaner.name.split(' ')[0] : 'Your cleaner';
-    const stageIdx =
-      st === 'COMPLETED' || st === 'REVIEWED'
+    // Honest unpaid state (ruled): unpaid-PENDING speaks plainly and lights
+    // no journey progress — stageIdx -1 leaves every stage unlit.
+    const unpaid = isUnpaidPending(st, booking.paymentStatus);
+    const stageIdx = unpaid
+      ? -1
+      : st === 'COMPLETED' || st === 'REVIEWED'
         ? 3
         : st === 'EN_ROUTE' || st === 'IN_PROGRESS'
           ? 2
           : st === 'ACCEPTED' || st === 'CONFIRMED'
             ? 1
             : 0;
-    const headline =
-      st === 'REVIEWED'
+    const headline = unpaid
+      ? 'Payment incomplete'
+      : st === 'REVIEWED'
         ? 'All done — thanks for your review!'
         : st === 'COMPLETED'
           ? 'All done — how was it?'
@@ -423,6 +430,14 @@ export default function BookingDetailPage() {
           >
             <p className="font-jost text-[19px] font-semibold leading-snug text-ink">{headline}</p>
             <p className="mt-1 font-jost text-[13px] text-ink-3">{subline}</p>
+            {unpaid && (
+              <p
+                className="mt-2 font-jost text-[13px] text-ink-2"
+                data-testid="tracker-unpaid-note"
+              >
+                {UNPAID_EXPIRY_LINE}
+              </p>
+            )}
             <div className="mt-5 flex items-start" data-testid="journey-line">
               {stages.map((label, i) => (
                 <div key={label} className="flex flex-1 flex-col items-center">
