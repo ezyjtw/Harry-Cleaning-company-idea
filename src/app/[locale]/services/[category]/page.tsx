@@ -677,7 +677,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // a complete map on each failed attempt so EVERY offending field shows its
   // error simultaneously; cleared on the next attempt and on step change.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const failValidation = (errors: Array<{ id: string; msg: string }>) => {
+  // LANE C: memoised so the restore-hydration effect can depend on it
+  // without re-running every render. Behaviour unchanged.
+  const failValidation = useCallback((errors: Array<{ id: string; msg: string }>) => {
     const map: Record<string, string> = {};
     for (const e of errors) if (!map[e.id]) map[e.id] = e.msg;
     setFieldErrors(map);
@@ -687,7 +689,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       (el as HTMLElement | null)?.focus?.({ preventScroll: true });
     });
-  };
+  }, []);
   const FieldError = ({ k }: { k: string }) =>
     fieldErrors[k] ? (
       <p role="alert" className="mt-2 font-jost text-sm text-danger">
@@ -897,7 +899,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     return rates.length ? Math.min(...rates) : null;
   }, [isTimeFirstShell, gridAvail, cleaners, category]);
   const fromRate = availableFromRate ?? areaQuote?.minHourlyRate ?? null;
-  const fromRateLabel = fromRate ? `from £${fromRate.toFixed(2)}/hr` : undefined;
+  // LANE B (James-ruled): the bar speaks in from-TOTALS, never a bare /hr
+  // rate — the lowest eligible rate × the chosen hours, recomputing live as
+  // the stepper moves. Her exact total takes over at BOOK, unchanged law.
+  const fromRateLabel = fromRate ? `from £${(fromRate * effectiveHours).toFixed(2)}` : undefined;
   // Freshness belt (James-ruled): the tapped slot is re-verified via the H7
   // shared predicate before it can be held; a dead slot corrects the grid
   // honestly instead of opening a dead step 3.
@@ -991,6 +996,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       if (s.shellTimeStage) setShellTimeStage(s.shellTimeStage);
       if (s.shellFixedStage) setShellFixedStage(s.shellFixedStage);
       if (s.shellBookStage) setShellBookStage(s.shellBookStage);
+      // The results-view mode is part of "which room am I in" — without it a
+      // restored WHO'S-FREE room renders no cards at all (lane C's finding).
+      if (s.scheduling === 'flexible' || s.scheduling === 'set-time') setScheduling(s.scheduling);
       if (s.phase === 'cleaner') setPhase('cleaner');
     } catch {
       /* unreadable state never blocks the flow */
@@ -1019,6 +1027,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           cleanerNote,
           address,
           gridDate,
+          scheduling,
           shellTimeStage,
           shellFixedStage,
           shellBookStage,
@@ -1046,9 +1055,47 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     cleanerNote,
     address,
     gridDate,
+    scheduling,
     shellTimeStage,
     shellFixedStage,
     shellBookStage,
+  ]);
+
+  // LANE C (James-ruled): a restored "Who's Free" room re-derives from the
+  // fan-out, which is phase-keyed and re-runs on any restore; while it loads
+  // the room shows a skeleton (below), and once it lands, a held slot that is
+  // no longer free falls back honestly to the grid — corrected counts, the
+  // standing taken-slot line — instead of a dead room.
+  useEffect(() => {
+    if (!isTimeFirstShell || phase !== 'cleaner' || shellTimeStage !== 'cleaner') return;
+    if (!gridAvail || cleaners.length === 0) return;
+    const date = dateTimeSelection?.date;
+    const time24 = dateTimeSelection?.time24;
+    if (!date || !time24) return;
+    const stillFree = cleaners.some((c) => (gridAvail[c.id]?.[date] ?? []).includes(time24));
+    if (!stillFree) {
+      setDateTimeSelection(null);
+      setGridDate(date);
+      setShellTimeStage('when');
+      // Deferred past the stage-change effect, which wipes field errors on
+      // every room transition — the honest line must survive the fallback.
+      setTimeout(() => {
+        failValidation([
+          {
+            id: 'booking-datetime',
+            msg: 'That time has just been taken — please pick another.',
+          },
+        ]);
+      }, 120);
+    }
+  }, [
+    isTimeFirstShell,
+    phase,
+    shellTimeStage,
+    gridAvail,
+    cleaners,
+    dateTimeSelection,
+    failValidation,
   ]);
 
   const runTimeFirstSearch = async () => {
@@ -2243,7 +2290,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 // keep their own exact figures.
                 priceLabel={
                   !isFixedPrice(category) && !preSelectedCleanerId && areaQuote?.minHourlyRate
-                    ? `from £${areaQuote.minHourlyRate.toFixed(2)}/hr`
+                    ? `from £${(areaQuote.minHourlyRate * effectiveHours).toFixed(2)}`
                     : undefined
                 }
                 // Mirror the inline button's honest truth — wording included,
@@ -4101,111 +4148,98 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           (inCustomerShell ? shellTimeStage === 'cleaner' : selectedCleanerIds.length === 0) && (
             <div>
               {/* Cleaner grid — ROUTE 1 CORRECTION: in-shell only the
-                  cleaners genuinely free for the picked slot appear. */}
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {(inCustomerShell
-                  ? cleaners.filter((c) =>
-                      (gridAvail?.[c.id]?.[dateTimeSelection?.date ?? ''] ?? []).includes(
-                        dateTimeSelection?.time24 ?? ''
+                  cleaners genuinely free for the picked slot appear. LANE C:
+                  while the fan-out loads (a restored room), a skeleton — an
+                  empty-looking room is never shown as truth. */}
+              {inCustomerShell && gridAvail === null && cleaners.length > 0 ? (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {[0, 1].map((i) => (
+                    <div key={i} className="skeleton-pulse h-24 rounded-[16px]" />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {(inCustomerShell
+                    ? cleaners.filter((c) =>
+                        (gridAvail?.[c.id]?.[dateTimeSelection?.date ?? ''] ?? []).includes(
+                          dateTimeSelection?.time24 ?? ''
+                        )
                       )
-                    )
-                  : cleaners
-                ).map((c) => {
-                  const isAlreadySelected = selectedCleanerIds.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        // DRESS PASS ruling (a) + ROUTE 1 CORRECTION: in-shell
-                        // the card tap IS the door — the slot is already
-                        // chosen (every listed cleaner serves it), so the tap
-                        // selects and advances straight to THE DETAILS. The
-                        // browser keeps its modal door untouched.
-                        if (inCustomerShell) {
-                          setSelectedCleanerIds([c.id]);
-                          setShellTimeStage('details');
-                          window.scrollTo({ top: 0 });
-                          return;
-                        }
-                        if (isAlreadySelected) {
-                          setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id));
-                        } else {
-                          setProfileCleaner(c);
-                        }
-                      }}
-                      className="group flex flex-col rounded-[16px] border border-line bg-surface p-5 text-left transition-shadow hover:shadow-md"
-                    >
-                      <CleanerIdentity
-                        photo={c.photo}
-                        name={c.name}
-                        verified={c.identityVerified || c.backgroundChecked}
-                        rating={c.rating}
-                        reviewCount={c.reviewCount}
-                        meta={
-                          inCustomerShell ? (
-                            (() => {
-                              // Her computed total for THIS booking's hours —
-                              // the same maths the bar flips to at the tap.
-                              const rate = getCleanerRateForService(c, category);
-                              const sub = Math.round(rate * effectiveHours * 100) / 100;
-                              const fee = Math.round(sub * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
-                              const tot = Math.round((sub + fee) * 100) / 100 + productCost;
-                              return (
-                                <>
-                                  <span className="font-jost text-[14px] font-semibold text-primary">
-                                    &pound;{rate.toFixed(2)}
-                                  </span>
-                                  <span className="text-ink-3">/hr &middot; </span>
-                                  <span className="font-jost text-[14px] font-semibold text-primary">
-                                    &pound;{tot.toFixed(2)}
-                                  </span>
-                                  <span className="text-ink-3"> total</span>
-                                </>
-                              );
-                            })()
-                          ) : (
-                            <>
-                              {c.location}
-                              {' · from '}
-                              <span className="font-newsreader text-[14px] font-medium text-ink">
-                                &pound;{getServiceListedRate(c, category).toFixed(2)}
-                              </span>
-                              <span className="text-ink-3">/hr</span>
-                            </>
-                          )
-                        }
-                      />
-                      {!inCustomerShell && (
-                        <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                          {c.bio}
-                        </p>
-                      )}
-                      {/* DRESS PASS ruling (a): the profile view sits one
-                          level deeper behind its own quiet door. */}
-                      {inCustomerShell && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                    : cleaners
+                  ).map((c) => {
+                    const isAlreadySelected = selectedCleanerIds.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          // LANE D (James-ruled): the card tap opens her
+                          // PROFILE; the profile's BOOK is the only door
+                          // forward, and closing it commits nothing. The
+                          // browser keeps its own modal behaviour untouched.
+                          if (inCustomerShell) {
                             setProfileCleaner(c);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.stopPropagation();
-                              setProfileCleaner(c);
-                            }
-                          }}
-                          className="mt-3 font-jost text-[13px] font-semibold text-primary"
-                        >
-                          View profile &rsaquo;
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                            return;
+                          }
+                          if (isAlreadySelected) {
+                            setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id));
+                          } else {
+                            setProfileCleaner(c);
+                          }
+                        }}
+                        className="group flex flex-col rounded-[16px] border border-line bg-surface p-5 text-left transition-shadow hover:shadow-md"
+                      >
+                        <CleanerIdentity
+                          photo={c.photo}
+                          name={c.name}
+                          verified={c.identityVerified || c.backgroundChecked}
+                          rating={c.rating}
+                          reviewCount={c.reviewCount}
+                          meta={
+                            inCustomerShell ? (
+                              (() => {
+                                // Her computed total for THIS booking's hours —
+                                // the same maths the bar flips to at the tap.
+                                const rate = getCleanerRateForService(c, category);
+                                const sub = Math.round(rate * effectiveHours * 100) / 100;
+                                const fee =
+                                  Math.round(sub * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+                                const tot = Math.round((sub + fee) * 100) / 100 + productCost;
+                                return (
+                                  <>
+                                    <span className="font-jost text-[14px] font-semibold text-primary">
+                                      &pound;{rate.toFixed(2)}
+                                    </span>
+                                    <span className="text-ink-3">/hr &middot; </span>
+                                    <span className="font-jost text-[14px] font-semibold text-primary">
+                                      &pound;{tot.toFixed(2)}
+                                    </span>
+                                    <span className="text-ink-3"> total</span>
+                                  </>
+                                );
+                              })()
+                            ) : (
+                              <>
+                                {c.location}
+                                {' · from '}
+                                <span className="font-newsreader text-[14px] font-medium text-ink">
+                                  &pound;{getServiceListedRate(c, category).toFixed(2)}
+                                </span>
+                                <span className="text-ink-3">/hr</span>
+                              </>
+                            )
+                          }
+                        />
+                        {!inCustomerShell && (
+                          <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                            {c.bio}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

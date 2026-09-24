@@ -39,6 +39,8 @@ interface MyCleaner {
   image: string | null;
   cleans: number;
   rating: number | null;
+  /** Most recent booking with her — the quiet row's compose-message door. */
+  lastBookingId: string | null;
 }
 
 function Tick() {
@@ -60,6 +62,23 @@ function CustomerCleanersView() {
   const [mine, setMine] = useState<MyCleaner[]>([]);
   const [near, setNear] = useState<DirCleaner[]>([]);
   const [areaLabel, setAreaLabel] = useState<string>('');
+  // LANE A / LANE 5 (James-ruled): the same my-cleaners visibility
+  // ride-along /account/cleaners has — hidden cleaners wear the ruled quiet
+  // row and restore themselves the moment the flag flips back.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    fetch('/api/account/my-cleaners')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.visibility) return;
+        const off = new Set<string>();
+        for (const [id, visible] of Object.entries(d.visibility as Record<string, boolean>)) {
+          if (!visible) off.add(id);
+        }
+        setHiddenIds(off);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -105,6 +124,7 @@ function CustomerCleanersView() {
               image: c.image ?? null,
               cleans: 1,
               rating: null,
+              lastBookingId: typeof b.id === 'string' ? b.id : null,
             });
         }
 
@@ -169,27 +189,54 @@ function CustomerCleanersView() {
                 Your Cleaners
               </p>
               <div className="mt-2.5 divide-y divide-line/60 rounded-xl border border-line bg-surface">
-                {mine.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3 px-4 py-3.5">
-                    <CustomerAvatar photo={c.image} name={c.name} size={36} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-jost text-[15px] font-medium text-ink">
-                        {c.name}
-                        <Tick />
-                      </span>
-                      <span className="block font-jost text-[12.5px] text-ink-3">
-                        {c.rating ? `★ ${c.rating.toFixed(1)} · ` : ''}
-                        {c.cleans} {c.cleans === 1 ? 'clean' : 'cleans'} for you
-                      </span>
-                    </span>
-                    <Link
-                      href={`/book/${c.id}`}
-                      className="shrink-0 font-jost text-[13px] font-semibold text-primary"
+                {mine.map((c) => {
+                  // The ruled quiet state: dimmed identity, the honest line,
+                  // no Book door, Message alive via the last booking's
+                  // compose door. Restores itself on re-visibility.
+                  const quiet = hiddenIds.has(c.id);
+                  return (
+                    <div
+                      key={c.id}
+                      className={
+                        quiet
+                          ? 'flex items-center gap-3 px-4 py-3.5 opacity-50'
+                          : 'flex items-center gap-3 px-4 py-3.5'
+                      }
                     >
-                      Book ›
-                    </Link>
-                  </div>
-                ))}
+                      <CustomerAvatar photo={c.image} name={c.name} size={36} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-jost text-[15px] font-medium text-ink">
+                          {c.name}
+                          <Tick />
+                        </span>
+                        <span className="block font-jost text-[12.5px] text-ink-3">
+                          {quiet
+                            ? 'Not currently taking bookings'
+                            : `${c.rating ? `★ ${c.rating.toFixed(1)} · ` : ''}${c.cleans} ${
+                                c.cleans === 1 ? 'clean' : 'cleans'
+                              } for you`}
+                        </span>
+                      </span>
+                      {quiet ? (
+                        c.lastBookingId ? (
+                          <Link
+                            href={`/messages?bookingId=${c.lastBookingId}`}
+                            className="shrink-0 font-jost text-[13px] font-medium text-ink"
+                          >
+                            Message
+                          </Link>
+                        ) : null
+                      ) : (
+                        <Link
+                          href={`/book/${c.id}`}
+                          className="shrink-0 font-jost text-[13px] font-semibold text-primary"
+                        >
+                          Book ›
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}
