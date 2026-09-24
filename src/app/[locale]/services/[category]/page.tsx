@@ -950,6 +950,107 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     }
   };
 
+  // ─── LANE 1 (James-ruled): in-shell flow-state persistence ────────────────
+  // A refresh anywhere in the flow restores the exact room with every answer
+  // intact. sessionStorage, per-road key: session-scoped by construction (a
+  // genuinely fresh app session starts clean), 60-minute expiry ends an
+  // abandoned flow, and the booking-confirmation page clears it on
+  // completion. Effects only, inCustomerShell-gated — browsers never read or
+  // write it and the SSR markup is untouched. Checkout is the one transient
+  // room: its Stripe secret is never stored, so a refresh there restores THE
+  // DETAILS with every answer held (an unpaid PENDING re-submit is the
+  // platform's own expiring shape, H53).
+  const flowStoreKey = `rena-flow:${category}:${preSelectedCleanerId ?? '-'}`;
+  const flowRestored = useRef(false);
+  useEffect(() => {
+    if (!inCustomerShell || flowRestored.current) return;
+    flowRestored.current = true;
+    try {
+      const raw = sessionStorage.getItem(flowStoreKey);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (!s || typeof s !== 'object' || !s.ts || Date.now() - s.ts > 60 * 60 * 1000) {
+        sessionStorage.removeItem(flowStoreKey);
+        return;
+      }
+      if (typeof s.postcode === 'string') setPostcode(s.postcode);
+      if (s.rooms) setRooms(s.rooms);
+      if (s.selectedHours !== undefined) setSelectedHours(s.selectedHours);
+      if (typeof s.cleanerBringsProducts === 'boolean')
+        setCleanerBringsProducts(s.cleanerBringsProducts);
+      if (Array.isArray(s.selectedCleanerIds)) setSelectedCleanerIds(s.selectedCleanerIds);
+      if (Array.isArray(s.backupCleanerIds)) setBackupCleanerIds(s.backupCleanerIds);
+      if (typeof s.autoAssignBackup === 'boolean') setAutoAssignBackup(s.autoAssignBackup);
+      if (s.dateTimeSelection) setDateTimeSelection(s.dateTimeSelection);
+      if (s.keyAccess) setKeyAccess(s.keyAccess);
+      if (typeof s.keyAccessNote === 'string') setKeyAccessNote(s.keyAccessNote);
+      if (typeof s.specialInstructions === 'string') setSpecialInstructions(s.specialInstructions);
+      if (typeof s.cleanerNote === 'string') setCleanerNote(s.cleanerNote);
+      if (s.address) setAddress(s.address);
+      if (typeof s.gridDate === 'string') setGridDate(s.gridDate);
+      if (s.shellTimeStage) setShellTimeStage(s.shellTimeStage);
+      if (s.shellFixedStage) setShellFixedStage(s.shellFixedStage);
+      if (s.shellBookStage) setShellBookStage(s.shellBookStage);
+      if (s.phase === 'cleaner') setPhase('cleaner');
+    } catch {
+      /* unreadable state never blocks the flow */
+    }
+  }, [inCustomerShell, flowStoreKey]);
+  useEffect(() => {
+    if (!inCustomerShell || !flowRestored.current) return;
+    if (paymentStep) return;
+    try {
+      sessionStorage.setItem(
+        flowStoreKey,
+        JSON.stringify({
+          ts: Date.now(),
+          phase,
+          postcode,
+          rooms,
+          selectedHours,
+          cleanerBringsProducts,
+          selectedCleanerIds,
+          backupCleanerIds,
+          autoAssignBackup,
+          dateTimeSelection,
+          keyAccess,
+          keyAccessNote,
+          specialInstructions,
+          cleanerNote,
+          address,
+          gridDate,
+          shellTimeStage,
+          shellFixedStage,
+          shellBookStage,
+        })
+      );
+    } catch {
+      /* quota or private mode: persistence stays best-effort */
+    }
+  }, [
+    inCustomerShell,
+    paymentStep,
+    flowStoreKey,
+    phase,
+    postcode,
+    rooms,
+    selectedHours,
+    cleanerBringsProducts,
+    selectedCleanerIds,
+    backupCleanerIds,
+    autoAssignBackup,
+    dateTimeSelection,
+    keyAccess,
+    keyAccessNote,
+    specialInstructions,
+    cleanerNote,
+    address,
+    gridDate,
+    shellTimeStage,
+    shellFixedStage,
+    shellBookStage,
+  ]);
+
   const runTimeFirstSearch = async () => {
     if (!tfDate || !tfBand || !postcode) return;
     setTfLoading(true);

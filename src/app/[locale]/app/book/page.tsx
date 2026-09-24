@@ -10,17 +10,15 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { CustomerAvatar, fmtPounds } from '@/components/app/customer';
+import { CustomerAvatar } from '@/components/app/customer';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
-interface KnownCleaner {
+interface RecentCleaner {
   id: string;
   name: string;
   image: string | null;
-  cleans: number;
   lastService: string;
-  lastDuration: number;
-  lastPrice: number;
+  lastDate: string;
 }
 
 // The website's service catalogue, in row voice (label · one line · from-price).
@@ -60,16 +58,21 @@ const SERVICE_ROWS = [
 
 export default function CustomerBookPage() {
   const [loading, setLoading] = useState(true);
-  const [known, setKnown] = useState<KnownCleaner[]>([]);
+  // LANE 3 (James-ruled): the concierge's top slot is ONE card — the cleaner
+  // from the most recent COMPLETED booking (most recent wins, not most
+  // frequent). No completed history, no card.
+  const [recent, setRecent] = useState<RecentCleaner | null>(null);
+  // A hidden most-recent cleaner renders the quiet non-bookable state,
+  // consistent with YOUR CLEANERS (no Book door, the honest line).
+  const [recentHidden, setRecentHidden] = useState(false);
 
   useEffect(() => {
     fetch('/api/bookings?status=COMPLETED,REVIEWED&pageSize=100')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         const raw: Record<string, unknown>[] = data?.data || [];
-        const byCleaner = new Map<string, KnownCleaner>();
-        // Newest-first API order: the first booking seen per cleaner is her
-        // latest clean with them — that's the card's one-tap shape.
+        // Newest-first API order: the first row with a cleaner IS the most
+        // recent completed clean.
         for (const b of raw) {
           const c = b.cleaner as {
             id?: string;
@@ -77,26 +80,35 @@ export default function CustomerBookPage() {
             image?: string | null;
           } | null;
           if (!c?.id || !c.name) continue;
-          const existing = byCleaner.get(c.id);
-          if (existing) {
-            existing.cleans += 1;
-          } else {
-            byCleaner.set(c.id, {
-              id: c.id,
-              name: c.name,
-              image: c.image ?? null,
-              cleans: 1,
-              lastService: String(b.serviceType || 'cleaning'),
-              lastDuration: Number(b.duration || 0),
-              lastPrice: Number(b.totalPrice || 0),
-            });
-          }
+          setRecent({
+            id: c.id,
+            name: c.name,
+            image: c.image ?? null,
+            lastService: String(b.serviceType || 'cleaning'),
+            lastDate: String(b.date || ''),
+          });
+          // Visibility ride-along: the same flag map YOUR CLEANERS reads.
+          fetch('/api/account/my-cleaners')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              const vis = d?.visibility as Record<string, boolean> | undefined;
+              if (vis && c.id && vis[c.id] === false) setRecentHidden(true);
+            })
+            .catch(() => {});
+          break;
         }
-        setKnown(Array.from(byCleaner.values()).sort((a, b) => b.cleans - a.cleans));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const lastWhen = (() => {
+    if (!recent?.lastDate) return null;
+    const d = new Date(recent.lastDate);
+    return Number.isNaN(d.getTime())
+      ? null
+      : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  })();
 
   return (
     <div>
@@ -111,45 +123,51 @@ export default function CustomerBookPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {known.length > 0 && (
-            <section data-testid="known-cleaners">
+          {recent && (
+            <section data-testid="recent-cleaner">
               <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                Quickest — Book Someone You Know
+                Quickest — Book Again
               </p>
-              <div className="mt-2.5 space-y-2.5">
-                {known.map((c, i) => (
-                  <Link
-                    key={c.id}
-                    href={`/book/${c.id}`}
-                    className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4 active:bg-page"
-                  >
-                    <CustomerAvatar photo={c.image} name={c.name} size={40} />
+              <div className="mt-2.5">
+                {recentHidden ? (
+                  <div className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4 opacity-60">
+                    <CustomerAvatar photo={recent.image} name={recent.name} size={40} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-jost text-[15px] font-semibold text-ink">
-                        {c.name}
-                        <span className="ml-2 font-jost text-[12px] font-medium text-primary">
-                          {i === 0 ? 'Your usual' : `${c.cleans} cleans with you`}
-                        </span>
+                        {recent.name}
                       </span>
                       <span className="block truncate font-jost text-[13px] text-ink-3">
-                        {serviceLabelFromSlug(c.lastService)}
-                        {c.lastDuration > 0 &&
-                          ` · ${c.lastDuration} ${c.lastDuration === 1 ? 'hour' : 'hours'}`}
-                        {c.lastPrice > 0 && ` · ${fmtPounds(c.lastPrice)}`}
+                        Not currently taking bookings
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  <Link
+                    href={`/book/${recent.id}`}
+                    className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4 active:bg-page"
+                  >
+                    <CustomerAvatar photo={recent.image} name={recent.name} size={40} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-jost text-[15px] font-semibold text-ink">
+                        Book {recent.name.split(' ')[0]} again
+                      </span>
+                      <span className="block truncate font-jost text-[13px] text-ink-3">
+                        {serviceLabelFromSlug(recent.lastService)}
+                        {lastWhen && ` · ${lastWhen}`}
                       </span>
                     </span>
                     <span className="shrink-0 font-jost text-[13px] font-semibold text-primary">
                       Book ›
                     </span>
                   </Link>
-                ))}
+                )}
               </div>
             </section>
           )}
 
           <section data-testid="service-rows">
             <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-              {known.length > 0 ? 'Or Start Fresh' : 'What Kind Of Clean?'}
+              {recent ? 'Or Start Fresh' : 'What Kind Of Clean?'}
             </p>
             <div className="mt-2.5 divide-y divide-line/60 rounded-xl border border-line bg-surface">
               {SERVICE_ROWS.map((s) => {

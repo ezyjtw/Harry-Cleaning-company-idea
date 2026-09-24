@@ -44,6 +44,20 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
     if (isCustomerShellUA() || preview) setInShell(true);
   }, []);
+  // LANE 1 (James-ruled): a completed booking clears the in-shell flow
+  // persistence — every rena-flow:* key dies here. Effect-only and
+  // shell-gated: browsers hold no such keys and see zero change.
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (!isCustomerShellUA() && !preview) return;
+    try {
+      for (const k of Object.keys(sessionStorage)) {
+        if (k.startsWith('rena-flow:')) sessionStorage.removeItem(k);
+      }
+    } catch {
+      /* storage unavailable — nothing to clear */
+    }
+  }, []);
   // F3: every guest link to the tracking page must CARRY the token — the page
   // hard-requires it, so an untokened link dead-ends at "No booking token".
   const guestTrackUrl = guestToken
