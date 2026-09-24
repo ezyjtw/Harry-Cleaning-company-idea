@@ -284,6 +284,15 @@ function to12h(t24: string): string {
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
+/** Display "H:MM AM/PM" (the template union's shape) → 24h "HH:MM". */
+function to24hFromDisplay(display: string): string {
+  const m = display.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return display;
+  let h = Number(m[1]) % 12;
+  if (/pm/i.test(m[3])) h += 12;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+}
+
 /** Build a full Cleaner from a time-first card so the booking step (which resolves
  *  the selected cleaner) doesn't depend on the page's capped local cleaners list. */
 function tfCleanerToCleaner(card: TfCleaner): Cleaner {
@@ -599,7 +608,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // DETAILS — the same room grammar as the cleaner branch. Selections live in
   // the page state either way, so state survives back-and-forward by
   // construction. Browsers keep the single mega-page byte-identically.
-  const [shellTimeStage, setShellTimeStage] = useState<'cleaner' | 'when' | 'details'>('cleaner');
+  // ROUTE 1 CORRECTION (James-ruled): the time branch is slot-first in-shell —
+  // WHEN (slot grid) is room 2, WHO'S FREE (cards) room 3, DETAILS room 4.
+  const [shellTimeStage, setShellTimeStage] = useState<'cleaner' | 'when' | 'details'>('when');
   // FIXED-PRICE ROAD (James-ruled, in-shell only): the same five-room form for
   // EOT and Airbnb — display-only over the fixed machine's own state; same
   // payload, same POST, no mechanics. Browsers keep the derived three-step
@@ -802,6 +813,142 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
   // Time-first discovery: the accurate cross-cleaner availability query (chunk 1.5).
   const timeFirstDays = useMemo(() => nextDays(14), []);
+
+  // ─── ROUTE 1 CORRECTION (James-ruled): the in-shell slot grid ─────────────
+  // Fan-out inversion: one accurate per-cleaner availability read per area
+  // cleaner (the picker's own endpoint — template ∩ overrides − bookings ±
+  // buffer, duration-fitted), inverted client-side into slot → free cleaners.
+  // The weekly-template union is only the day's lattice SHAPE, never truth.
+  const isTimeFirstShell = inCustomerShell && !preSelectedCleanerId && !isFixedPrice(category);
+  const gridDays = timeFirstDays;
+  const [gridDate, setGridDate] = useState(() => nextDays(1)[0].iso);
+  const [gridAvail, setGridAvail] = useState<Record<string, Record<string, string[]>> | null>(null);
+  const [gridBeltBusy, setGridBeltBusy] = useState(false);
+  useEffect(() => {
+    if (!isTimeFirstShell || phase !== 'cleaner') return;
+    if (cleaners.length === 0) return;
+    let dead = false;
+    const from = gridDays[0].iso;
+    const to = gridDays[gridDays.length - 1].iso;
+    (async () => {
+      const results = await Promise.all(
+        cleaners.map((c) =>
+          fetch(
+            `/api/cleaners/${c.id}/availability?from=${from}&to=${to}&duration=${effectiveHours}`
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null)
+        )
+      );
+      if (dead) return;
+      const map: Record<string, Record<string, string[]>> = {};
+      results.forEach((data, i) => {
+        if (data?.dates) {
+          map[cleaners[i].id] = Object.fromEntries(
+            (data.dates as { date: string; slots: string[] }[]).map((d) => [d.date, d.slots])
+          );
+        }
+      });
+      setGridAvail(map);
+    })();
+    return () => {
+      dead = true;
+    };
+  }, [isTimeFirstShell, phase, cleaners, effectiveHours, gridDays]);
+  // The selected day's lattice: template-union shape, accurate counts.
+  const gridLattice = useMemo(() => {
+    if (!isTimeFirstShell) return [] as { time24: string; freeIds: string[] }[];
+    const d = new Date(`${gridDate}T12:00:00`);
+    // NB: expandSlots keys timeSlots by TITLE-CASE day abbreviations.
+    const abbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+    const times = new Set<string>();
+    for (const c of cleaners)
+      for (const t of c.timeSlots?.[abbr] ?? []) times.add(to24hFromDisplay(t));
+    if (gridAvail) {
+      for (const byDate of Object.values(gridAvail)) {
+        for (const t of byDate[gridDate] ?? []) times.add(t);
+      }
+    }
+    const mins = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    return Array.from(times)
+      .sort((a, b) => mins(a) - mins(b))
+      .map((time24) => ({
+        time24,
+        freeIds: gridAvail
+          ? cleaners
+              .filter((c) => (gridAvail[c.id]?.[gridDate] ?? []).includes(time24))
+              .map((c) => c.id)
+          : [],
+      }));
+  }, [isTimeFirstShell, gridDate, cleaners, gridAvail]);
+  const gridLoading = isTimeFirstShell && cleaners.length > 0 && gridAvail === null;
+  // From-price law: step 2 tightens to the availability-aware minimum over
+  // cleaners with at least one free slot in the visible window; the area
+  // figure is the loading fallback (and step 1's own figure).
+  const availableFromRate = useMemo(() => {
+    if (!isTimeFirstShell || !gridAvail) return null;
+    const rates = cleaners
+      .filter((c) => Object.values(gridAvail[c.id] ?? {}).some((slots) => slots.length > 0))
+      .map((c) => getCleanerRateForService(c, category))
+      .filter((r) => r > 0);
+    return rates.length ? Math.min(...rates) : null;
+  }, [isTimeFirstShell, gridAvail, cleaners, category]);
+  const fromRate = availableFromRate ?? areaQuote?.minHourlyRate ?? null;
+  const fromRateLabel = fromRate ? `from £${fromRate.toFixed(2)}/hr` : undefined;
+  // Freshness belt (James-ruled): the tapped slot is re-verified via the H7
+  // shared predicate before it can be held; a dead slot corrects the grid
+  // honestly instead of opening a dead step 3.
+  const pickGridSlot = async (time24: string, freeIds: string[]) => {
+    if (gridBeltBusy) return;
+    setGridBeltBusy(true);
+    try {
+      let ids = freeIds;
+      try {
+        const res = await fetch('/api/cleaners/slot-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cleanerIds: freeIds,
+            date: gridDate,
+            time: time24,
+            duration: effectiveHours,
+          }),
+        });
+        if (res.ok) ids = ((await res.json()).availableIds as string[]) ?? freeIds;
+      } catch {
+        /* belt unreachable — fail open to the advertised set */
+      }
+      setGridAvail((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        for (const cid of freeIds) {
+          const byDate = next[cid];
+          if (!byDate) continue;
+          const slots = byDate[gridDate] ?? [];
+          if (slots.includes(time24) && !ids.includes(cid)) {
+            next[cid] = { ...byDate, [gridDate]: slots.filter((t) => t !== time24) };
+          }
+        }
+        return next;
+      });
+      if (ids.length === 0) {
+        if (dateTimeSelection?.date === gridDate && dateTimeSelection?.time24 === time24) {
+          setDateTimeSelection(null);
+        }
+        failValidation([
+          { id: 'booking-datetime', msg: 'That time has just been taken — please pick another.' },
+        ]);
+        return;
+      }
+      setFieldErrors({});
+      setDateTimeSelection({ date: gridDate, time24, time: to12h(time24) });
+    } finally {
+      setGridBeltBusy(false);
+    }
+  };
 
   const runTimeFirstSearch = async () => {
     if (!tfDate || !tfBand || !postcode) return;
@@ -1034,15 +1181,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         // forward. Browsers keep the original clear-and-return behaviour.
         if (inCustomerShell && !preSelectedCleanerId && !isFixedPrice(category)) {
           if (shellTimeStage === 'details') {
-            setShellTimeStage('when');
-            return;
-          }
-          if (shellTimeStage === 'when') {
             setShellTimeStage('cleaner');
             return;
           }
-          // Room 2 with a selection held — one more back reaches the quote
-          // room, selections intact for the forward return.
+          if (shellTimeStage === 'cleaner') {
+            // 3 → 2 keeps the day and slot (back-nav law).
+            setShellTimeStage('when');
+            return;
+          }
+          // The WHEN room — one more back reaches the quote room, the home
+          // answers intact for the forward return.
           setPhase('quote');
           return;
         }
@@ -1051,6 +1199,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         break;
       case 'browse':
       case 'set-time':
+        // ROUTE 1 CORRECTION: pre-selection the shell's rooms still walk one
+        // at a time — WHO'S FREE (3) backs to the WHEN grid (2), day and slot
+        // surviving; the WHEN grid backs to the quote room.
+        if (
+          inCustomerShell &&
+          !preSelectedCleanerId &&
+          !isFixedPrice(category) &&
+          shellTimeStage === 'cleaner'
+        ) {
+          setShellTimeStage('when');
+          return;
+        }
         // No method fork to return to — back from results goes to the quote.
         setPhase('quote');
         break;
@@ -1975,6 +2135,15 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   (priceBreakdown.discountedTotal ||
                     (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
                     0) + productCost
+                }
+                // ROUTE 1 price law: with no cleaner chosen, the hourly quote
+                // room's honest figure is the area's lowest rate — "from
+                // £X/hr" — not an invented total. Route 2 and the fixed road
+                // keep their own exact figures.
+                priceLabel={
+                  !isFixedPrice(category) && !preSelectedCleanerId && areaQuote?.minHourlyRate
+                    ? `from £${areaQuote.minHourlyRate.toFixed(2)}/hr`
+                    : undefined
                 }
                 // Mirror the inline button's honest truth — wording included,
                 // since the one-action law now hides the original.
@@ -3517,16 +3686,36 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           DETAILS — the same grammar as the cleaner branch. */}
       {inCustomerShell && (
         <FlowStep
-          n={shellTimeStage === 'cleaner' ? 2 : shellTimeStage === 'when' ? 3 : 4}
+          n={shellTimeStage === 'when' ? 2 : shellTimeStage === 'cleaner' ? 3 : 4}
           total={flowTotal}
           title={
-            shellTimeStage === 'cleaner'
-              ? 'Choose your cleaner'
-              : shellTimeStage === 'when'
-                ? `When should ${(selectedCleaner?.name ?? 'they').split(' ')[0]} come?`
+            shellTimeStage === 'when'
+              ? 'When do you want your clean?'
+              : shellTimeStage === 'cleaner'
+                ? `Who's free ${
+                    dateTimeSelection
+                      ? new Date(`${dateTimeSelection.date}T12:00:00`).toLocaleDateString('en-GB', {
+                          weekday: 'short',
+                        })
+                      : ''
+                  } at ${selectedTime24 || ''}`
                 : 'The details'
           }
         />
+      )}
+      {/* ROUTE 1 CORRECTION: the quiet navy door back to the WHEN grid — the
+          day and slot survive the return (back-nav law). */}
+      {inCustomerShell && shellTimeStage === 'cleaner' && (
+        <button
+          type="button"
+          onClick={() => {
+            setFieldErrors({});
+            setShellTimeStage('when');
+          }}
+          className="mb-2 font-jost text-[13px] font-medium text-primary"
+        >
+          ‹ change time
+        </button>
       )}
       {/* FINAL SHAPE: the flow bar carries the live price from the quote room
           onward; its Continue proxies the active room's single door. */}
@@ -3537,7 +3726,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               (!priceBreakdown.isFixed ? priceBreakdown.total : 0) ||
               0) + productCost
           }
-          label={shellTimeStage === 'details' ? 'Confirm & Pay' : 'Continue'}
+          priceLabel={shellTimeStage !== 'details' ? fromRateLabel : undefined}
+          label={
+            shellTimeStage === 'details'
+              ? 'Confirm & Pay'
+              : shellTimeStage === 'when'
+                ? 'Continue'
+                : undefined
+          }
           disabled={bookingSubmitting}
         />
       )}
@@ -3658,7 +3854,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         id={inCustomerShell ? 'booking-cleaner' : undefined}
       >
         {/* Results view toggle (M2 — replaces the removed method fork) */}
-        {(inCustomerShell ? shellTimeStage === 'cleaner' : selectedCleanerIds.length === 0) && (
+        {/* ROUTE 1 CORRECTION: the slot grid IS by-your-availability — the
+            in-shell toggle retires; the browser keeps both views untouched. */}
+        {(inCustomerShell ? false : selectedCleanerIds.length === 0) && (
           <div className="inline-flex rounded-full border border-line bg-surface p-1">
             <button
               type="button"
@@ -3684,28 +3882,149 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         <FieldError k="booking-cleaner" />
 
         {/* ════════════════════════════════════════════════════════════
+            ROUTE 1 CORRECTION (James-ruled, in-shell only): STEP 2 — the
+            slot grid. Date strip of rounded chips, two columns of slot
+            cards with honest per-slot counts from the fan-out inversion.
+           ════════════════════════════════════════════════════════════ */}
+        {inCustomerShell && shellTimeStage === 'when' && (
+          <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+            {/* Date strip */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {gridDays.map((d) => {
+                const sel = gridDate === d.iso;
+                return (
+                  <button
+                    key={d.iso}
+                    type="button"
+                    onClick={() => setGridDate(d.iso)}
+                    className={
+                      sel
+                        ? 'flex w-[64px] shrink-0 flex-col items-center rounded-[8px] bg-primary px-2 py-2.5 font-jost text-white'
+                        : 'flex w-[64px] shrink-0 flex-col items-center rounded-[8px] border border-[#E3E8F0] bg-surface px-2 py-2.5 font-jost text-ink'
+                    }
+                  >
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.08em]">
+                      {d.weekday}
+                    </span>
+                    <span className="mt-0.5 text-[15px] font-semibold">{d.day}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Time grid */}
+            {gridLoading ? (
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton-pulse h-[62px] rounded-[8px]" />
+                ))}
+              </div>
+            ) : gridLattice.length === 0 ? (
+              <p className="mt-6 text-center font-jost text-sm font-light text-ink-3">
+                No availability this day, try another
+              </p>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                {gridLattice.map(({ time24, freeIds }) => {
+                  const selected =
+                    dateTimeSelection?.date === gridDate && dateTimeSelection?.time24 === time24;
+                  if (freeIds.length === 0) {
+                    return (
+                      <div
+                        key={time24}
+                        className="rounded-[8px] border border-[#E3E8F0] bg-surface p-3 opacity-50"
+                      >
+                        <p className="font-jost text-[15px] font-semibold text-ink-3">{time24}</p>
+                        <p className="mt-0.5 font-jost text-[11.5px] font-medium text-ink-3">
+                          none free
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      key={time24}
+                      type="button"
+                      disabled={gridBeltBusy}
+                      onClick={() => pickGridSlot(time24, freeIds)}
+                      className={
+                        selected
+                          ? 'rounded-[8px] border-[1.5px] border-primary bg-[#EDF0F7] p-3 text-left'
+                          : 'rounded-[8px] border border-[#E3E8F0] bg-surface p-3 text-left'
+                      }
+                    >
+                      <p
+                        className={
+                          selected
+                            ? 'font-jost text-[15px] font-bold text-primary'
+                            : 'font-jost text-[15px] font-semibold text-ink'
+                        }
+                      >
+                        {time24}
+                        {selected ? ' ✓' : ''}
+                      </p>
+                      <p className="mt-0.5 font-jost text-[11.5px] font-medium text-[#16A34A]">
+                        {freeIds.length} cleaner{freeIds.length === 1 ? '' : 's'} free
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <FieldError k="booking-datetime" />
+            {/* The room's single door — the bar proxies it. */}
+            <button
+              type="button"
+              data-cflow-cta
+              onClick={() => {
+                if (!dateTimeSelection?.date || !dateTimeSelection?.time24) {
+                  failValidation([
+                    { id: 'booking-datetime', msg: 'Please choose an arrival time.' },
+                  ]);
+                  return;
+                }
+                setFieldErrors({});
+                setShellTimeStage('cleaner');
+                window.scrollTo({ top: 0 });
+              }}
+              className="mt-6 w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
             FLOW A: Browse available cleaners (flexible)
            ════════════════════════════════════════════════════════════ */}
         {scheduling === 'flexible' &&
           (inCustomerShell ? shellTimeStage === 'cleaner' : selectedCleanerIds.length === 0) && (
             <div>
-              {/* Cleaner grid */}
+              {/* Cleaner grid — ROUTE 1 CORRECTION: in-shell only the
+                  cleaners genuinely free for the picked slot appear. */}
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {cleaners.map((c) => {
+                {(inCustomerShell
+                  ? cleaners.filter((c) =>
+                      (gridAvail?.[c.id]?.[dateTimeSelection?.date ?? ''] ?? []).includes(
+                        dateTimeSelection?.time24 ?? ''
+                      )
+                    )
+                  : cleaners
+                ).map((c) => {
                   const isAlreadySelected = selectedCleanerIds.includes(c.id);
                   return (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => {
-                        // DRESS PASS ruling (a): in-shell the card tap IS the
-                        // door — select and advance, exactly the fixed road's
-                        // grammar (stale slot clears on a switch). The
+                        // DRESS PASS ruling (a) + ROUTE 1 CORRECTION: in-shell
+                        // the card tap IS the door — the slot is already
+                        // chosen (every listed cleaner serves it), so the tap
+                        // selects and advances straight to THE DETAILS. The
                         // browser keeps its modal door untouched.
                         if (inCustomerShell) {
-                          if (selectedCleanerIds[0] !== c.id) setDateTimeSelection(null);
                           setSelectedCleanerIds([c.id]);
-                          setShellTimeStage('when');
+                          setShellTimeStage('details');
+                          window.scrollTo({ top: 0 });
                           return;
                         }
                         if (isAlreadySelected) {
@@ -3724,13 +4043,26 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         reviewCount={c.reviewCount}
                         meta={
                           inCustomerShell ? (
-                            <>
-                              {'from '}
-                              <span className="font-newsreader text-[14px] font-medium text-primary">
-                                &pound;{getServiceListedRate(c, category).toFixed(2)}
-                              </span>
-                              <span className="text-ink-3">/hr</span>
-                            </>
+                            (() => {
+                              // Her computed total for THIS booking's hours —
+                              // the same maths the bar flips to at the tap.
+                              const rate = getCleanerRateForService(c, category);
+                              const sub = Math.round(rate * effectiveHours * 100) / 100;
+                              const fee = Math.round(sub * (SERVICE_FEE_PERCENT / 100) * 100) / 100;
+                              const tot = Math.round((sub + fee) * 100) / 100 + productCost;
+                              return (
+                                <>
+                                  <span className="font-jost text-[14px] font-semibold text-primary">
+                                    &pound;{rate.toFixed(2)}
+                                  </span>
+                                  <span className="text-ink-3">/hr &middot; </span>
+                                  <span className="font-jost text-[14px] font-semibold text-primary">
+                                    &pound;{tot.toFixed(2)}
+                                  </span>
+                                  <span className="text-ink-3"> total</span>
+                                </>
+                              );
+                            })()
                           ) : (
                             <>
                               {c.location}
@@ -3972,7 +4304,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           </button>
         )}
 
-        {(inCustomerShell ? shellTimeStage !== 'cleaner' : selectedCleanerIds.length >= 1) &&
+        {(inCustomerShell ? shellTimeStage === 'details' : selectedCleanerIds.length >= 1) &&
           selectedCleaner && (
             <>
               {/* Selected cleaner header — the WHEN room's identity line. */}
@@ -4039,33 +4371,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   />
                   <FieldError k="booking-datetime" />
                 </div>
-              )}
-
-              {/* FINAL SHAPE: the WHEN room's single door (in-shell) — validates
-                the slot with the standing inline machinery, then THE DETAILS. */}
-              {inCustomerShell && shellTimeStage === 'when' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedDate || !selectedTime24) {
-                      failValidation([
-                        {
-                          id: 'booking-datetime',
-                          msg: !selectedDate
-                            ? 'Please choose a date for your clean.'
-                            : 'Please choose an arrival time.',
-                        },
-                      ]);
-                      return;
-                    }
-                    setFieldErrors({});
-                    setShellTimeStage('details');
-                  }}
-                  data-cflow-cta
-                  className="w-full rounded-lg bg-ink py-4 font-jost text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold hover:shadow-md active:scale-[0.98]"
-                >
-                  Continue
-                </button>
               )}
 
               {/* Backup cleaner slider — THE DETAILS room, ruled order slot 4. */}
@@ -4370,12 +4675,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           cleaner={profileCleaner}
           onClose={() => setProfileCleaner(null)}
           onBook={() => {
-            if (selectedCleanerIds[0] !== profileCleaner.id) setDateTimeSelection(null);
+            // ROUTE 1 CORRECTION: in-shell the slot came first — selecting a
+            // cleaner never clears it (every offered cleaner serves it). The
+            // browser keeps its clear-on-switch behaviour untouched.
+            if (!inCustomerShell && selectedCleanerIds[0] !== profileCleaner.id)
+              setDateTimeSelection(null);
             setSelectedCleanerIds([profileCleaner.id]);
             setProfileCleaner(null);
-            // DRESS PASS ruling (a): in-shell the profile's Book advances
-            // like the card tap — same grammar from one level deeper.
-            if (inCustomerShell) setShellTimeStage('when');
+            // The profile's Book advances like the card tap — same grammar
+            // from one level deeper.
+            if (inCustomerShell) setShellTimeStage('details');
           }}
           bookLabel={`Book ${profileCleaner.name.split(' ')[0]}`}
         />

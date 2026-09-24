@@ -108,10 +108,14 @@ export function FlowStep({ n, total = 3, title }: { n: number; total?: number; t
 
 export function FlowBar({
   price,
+  priceLabel,
   label,
   disabled,
 }: {
   price?: number | null;
+  /** TIME-FIRST (James-ruled): a textual figure ("from £15.00/hr") shown in
+   *  place of the formatted order total while no exact price exists yet. */
+  priceLabel?: string;
   label?: string;
   disabled?: boolean;
 }) {
@@ -132,13 +136,23 @@ export function FlowBar({
       data-testid="flow-bar"
     >
       <div className="mx-auto flex max-w-lg items-center gap-3">
-        {typeof price === 'number' && price > 0 && (
+        {priceLabel ? (
           <span
-            className="shrink-0 font-jost text-[19px] font-semibold text-ink"
+            className="shrink-0 font-jost text-[15px] font-semibold text-ink"
             data-testid="flow-bar-price"
           >
-            {fmtPounds(price)}
+            {priceLabel}
           </span>
+        ) : (
+          typeof price === 'number' &&
+          price > 0 && (
+            <span
+              className="shrink-0 font-jost text-[19px] font-semibold text-ink"
+              data-testid="flow-bar-price"
+            >
+              {fmtPounds(price)}
+            </span>
+          )
         )}
         {label ? (
           <button
