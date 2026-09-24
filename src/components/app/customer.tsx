@@ -93,6 +93,11 @@ export const UNPAID_EXPIRY_LINE =
 // gates. The bar's CTA proxies the page's OWN primary control (first element
 // carrying data-cflow-cta), so every click runs the existing handler —
 // skin, not mechanics.
+// LANE 4 (James-ruled): room titles render in Title Case — every word
+// capitalised — across the whole flow, both routes, all services. One site
+// here dresses them all; the STEP n OF 5 line is untouched.
+const titleCase = (s: string) => s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+
 export function FlowStep({ n, total = 3, title }: { n: number; total?: number; title?: string }) {
   return (
     <div className="mb-3 mt-1" data-testid="flow-step">
@@ -100,7 +105,9 @@ export function FlowStep({ n, total = 3, title }: { n: number; total?: number; t
         Step {n} of {total}
       </p>
       {title && (
-        <p className="mt-1 font-jost text-[22px] font-semibold leading-tight text-ink">{title}</p>
+        <p className="mt-1 font-jost text-[22px] font-semibold leading-tight text-ink">
+          {titleCase(title)}
+        </p>
       )}
     </div>
   );
