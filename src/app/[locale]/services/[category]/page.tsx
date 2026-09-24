@@ -1204,20 +1204,33 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       priceBreakdown.discountedTotal || (!priceBreakdown.isFixed ? priceBreakdown.total : 0) || 0;
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-cream min-h-screen">
-        {/* Checkout is always the last room of either branch. */}
-        {inCustomerShell && <FlowStep n={flowTotal} total={flowTotal} />}
+        {/* Checkout is always the last room of either branch. DRESS PASS:
+            the room wears its question as the headline. */}
+        {inCustomerShell && <FlowStep n={flowTotal} total={flowTotal} title="Review & pay" />}
         {/* Checkout exception (one-action law): Stripe's own "Pay £X" is the
             single door — the bar here carries NO action, just the order total. */}
         {inCustomerShell && <FlowBar price={totalPrice + productCost} />}
-        <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
-          Complete Payment
-        </h1>
-        <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
-          Secure payment powered by Stripe.
-        </p>
+        {/* DRESS PASS: the website's centred heading pair; in-shell the
+            frame title carries the room. */}
+        {!inCustomerShell && (
+          <>
+            <h1 className="font-newsreader text-3xl font-semibold text-ink text-center">
+              Complete Payment
+            </h1>
+            <p className="mt-2 font-jost text-sm font-light text-ink-2 text-center">
+              Secure payment powered by Stripe.
+            </p>
+          </>
+        )}
 
-        {/* Booking summary */}
-        <div className="mt-6 bg-cream-2 p-5" style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}>
+        {/* Booking summary — DRESS PASS: the quiet card's border rides the
+            hairline token in-shell. */}
+        <div
+          className={
+            inCustomerShell ? 'mt-6 bg-cream-2 p-5 ring-1 ring-line' : 'mt-6 bg-cream-2 p-5'
+          }
+          style={inCustomerShell ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }}
+        >
           <div className="grid gap-2 font-jost text-sm font-light">
             {(preSelectedCleaner || selectedCleaner) && (
               <div className="flex justify-between">
@@ -1312,7 +1325,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   if (phase === 'quote') {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:max-w-6xl lg:px-8 bg-cream min-h-screen">
-        {inCustomerShell && <FlowStep n={1 + flowOffset} total={flowTotal} />}
+        {/* DRESS PASS: the quote room wears its question as the headline. */}
+        {inCustomerShell && (
+          <FlowStep n={1 + flowOffset} total={flowTotal} title="Your home & your price" />
+        )}
         {/* Back link — in-shell it re-targets the Book tab (back-chain law). */}
         <Link
           href={inCustomerShell ? '/app/book' : '/'}
@@ -1332,60 +1348,67 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           Back
         </Link>
 
-        {/* Hero header */}
-        <div className="mt-6 animate-fade-in">
-          <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">
-            {serviceLabel}
-          </h1>
-          <p className="mt-2 max-w-xl font-jost text-sm font-light leading-relaxed text-ink-3">
-            {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
-          </p>
-          <div className="my-6 h-px bg-ink/[0.06]" />
+        {/* Hero header — DRESS PASS: marketing furniture (serif headline,
+            subtitle, trust ticks) is the website's; the shell's room carries
+            the frame title instead. */}
+        {!inCustomerShell && (
+          <div className="mt-6 animate-fade-in">
+            <h1 className="font-newsreader font-semibold text-2xl text-ink sm:text-3xl">
+              {serviceLabel}
+            </h1>
+            <p className="mt-2 max-w-xl font-jost text-sm font-light leading-relaxed text-ink-3">
+              {SERVICE_DESCRIPTIONS[category] || 'Professional cleaning tailored to your home.'}
+            </p>
+            <div className="my-6 h-px bg-ink/[0.06]" />
 
-          {/* Trust chips */}
-          <div className="flex flex-wrap items-center gap-3">
-            {[
-              { icon: '\u2713', text: 'Verified Cleaners' },
-              { icon: '\u2713', text: 'Payment Protected' },
-              { icon: '\u2713', text: 'Satisfaction Guarantee' },
-            ].map((chip) => (
-              <span
-                key={chip.text}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-jost text-[11px] font-medium tracking-wide text-ink-2 shadow-sm ring-1 ring-ink/[0.06]"
-              >
-                <span className="text-gold">{chip.icon}</span>
-                {chip.text}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Step indicator */}
-        <div className="mt-8 flex items-center gap-2">
-          {[
-            { num: 1, label: 'Configure' },
-            { num: 2, label: 'Choose Cleaner' },
-            { num: 3, label: 'Confirm' },
-          ].map((s, i) => (
-            <div key={s.num} className="flex items-center gap-2">
-              {i > 0 && <div className="h-px w-6 bg-ink-3/15 sm:w-10" />}
-              <span
-                className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
-                  s.num === 1 ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
-                }`}
-              >
+            {/* Trust chips */}
+            <div className="flex flex-wrap items-center gap-3">
+              {[
+                { icon: '\u2713', text: 'Verified Cleaners' },
+                { icon: '\u2713', text: 'Payment Protected' },
+                { icon: '\u2713', text: 'Satisfaction Guarantee' },
+              ].map((chip) => (
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
-                    s.num === 1 ? 'bg-cream/20 text-cream' : 'bg-ink-3/10 text-ink-3/40'
+                  key={chip.text}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-jost text-[11px] font-medium tracking-wide text-ink-2 shadow-sm ring-1 ring-ink/[0.06]"
+                >
+                  <span className="text-gold">{chip.icon}</span>
+                  {chip.text}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step indicator — DRESS PASS: the website's 1-2-3 bubbles; the
+            shell's frame is the only step voice. */}
+        {!inCustomerShell && (
+          <div className="mt-8 flex items-center gap-2">
+            {[
+              { num: 1, label: 'Configure' },
+              { num: 2, label: 'Choose Cleaner' },
+              { num: 3, label: 'Confirm' },
+            ].map((s, i) => (
+              <div key={s.num} className="flex items-center gap-2">
+                {i > 0 && <div className="h-px w-6 bg-ink-3/15 sm:w-10" />}
+                <span
+                  className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 font-jost text-[10px] uppercase tracking-[0.15em] transition-colors ${
+                    s.num === 1 ? 'bg-ink text-cream shadow-sm' : 'bg-ink-3/8 text-ink-3/50'
                   }`}
                 >
-                  {s.num}
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
+                      s.num === 1 ? 'bg-cream/20 text-cream' : 'bg-ink-3/10 text-ink-3/40'
+                    }`}
+                  >
+                    {s.num}
+                  </span>
+                  <span className="hidden sm:inline">{s.label}</span>
                 </span>
-                <span className="hidden sm:inline">{s.label}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-10 lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 lg:items-start">
           <div className="space-y-8">
@@ -1739,7 +1762,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {/* Price display */}
             <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-              <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
+              {/* DRESS PASS: brand gradient strip is website furniture. */}
+              {!inCustomerShell && (
+                <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
+              )}
               {noEligibleCleaners ? (
                 /* H2: zero eligible cleaners for this service+postcode — no
                    invented number, say so honestly. */
@@ -1967,7 +1993,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           <div className="hidden lg:block">
             <div className="sticky top-8 animate-fade-in space-y-4">
               <div className="relative overflow-hidden rounded-xl bg-white p-8 shadow-sm ring-1 ring-ink/[0.06]">
-                <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
+                {/* DRESS PASS: brand gradient strip is website furniture. */}
+                {!inCustomerShell && (
+                  <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-ink via-gold to-primary" />
+                )}
                 <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
                   Booking Summary
                 </span>
@@ -2051,6 +2080,22 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     // flags true), the shell sees exactly one question at a time.
     const shellWhen = !inCustomerShell || shellBookStage === 'when';
     const shellDetails = !inCustomerShell || shellBookStage === 'details';
+    // DRESS PASS ruling (c): on the fixed road the identity card names her
+    // per-size price, never the hourly rate wearing a fixed-price label.
+    // Display-only — priceBreakdown already prices the booking identically.
+    const preSelectedFixedBase = (() => {
+      if (!isFixedPrice(category)) return null;
+      const slug =
+        category === 'end-of-tenancy'
+          ? BEDROOMS_TO_EOT_SIZE[Math.min(rooms.bedrooms, 5)]
+          : BEDROOMS_TO_AIRBNB_SIZE[Math.min(rooms.bedrooms, 4)];
+      const base = slug
+        ? category === 'end-of-tenancy'
+          ? preSelectedCleaner.eotPrices?.[slug]
+          : preSelectedCleaner.airbnbPrices?.[slug]
+        : undefined;
+      return typeof base === 'number' && base > 0 ? base : null;
+    })();
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8 bg-cream min-h-screen">
         {/* Back link — in-shell, DETAILS backs to WHEN before leaving the step */}
@@ -2189,9 +2234,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 </span>
                 <span className="text-ink-3/30">|</span>
                 <span>
-                  &pound;
-                  {getServiceListedRate(preSelectedCleaner, category).toFixed(2)}
-                  /hr ({SERVICE_RATE_LABELS[category]})
+                  {inCustomerShell && preSelectedFixedBase !== null ? (
+                    <>
+                      &pound;{preSelectedFixedBase.toFixed(2)} &middot;{' '}
+                      {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} fixed price
+                    </>
+                  ) : (
+                    <>
+                      &pound;
+                      {getServiceListedRate(preSelectedCleaner, category).toFixed(2)}
+                      /hr ({SERVICE_RATE_LABELS[category]})
+                    </>
+                  )}
                 </span>
               </div>
             </div>
@@ -2256,7 +2310,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
               }
             >
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+              {/* DRESS PASS: brand gradient strip is website furniture. */}
+              {!inCustomerShell && (
+                <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+              )}
               <div className="flex items-start gap-3">
                 <svg
                   className="mt-0.5 h-5 w-5 shrink-0 text-gold"
@@ -2408,9 +2465,18 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
               }
             >
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-              <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                Booking Summary
+              {/* DRESS PASS: brand gradient strip is website furniture. */}
+              {!inCustomerShell && (
+                <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+              )}
+              <span
+                className={
+                  inCustomerShell
+                    ? 'font-jost text-xl font-semibold text-ink sm:text-2xl'
+                    : 'font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3'
+                }
+              >
+                {inCustomerShell ? 'Booking summary' : 'Booking Summary'}
               </span>
               <div className="mt-5 space-y-3">
                 <SummaryRow label="Service" value={serviceLabel} />
@@ -2454,7 +2520,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   </div>
                   <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                     <span className="font-jost font-normal text-ink">Total</span>
-                    <span className="font-newsreader font-medium text-3xl text-ink">
+                    <span
+                      className={
+                        inCustomerShell
+                          ? 'font-newsreader font-medium text-3xl text-primary'
+                          : 'font-newsreader font-medium text-3xl text-ink'
+                      }
+                    >
                       &pound;{(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                     </span>
                   </div>
@@ -2675,7 +2747,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
         {/* Selected summary & continue */}
         {selectedCleanerIds.length > 0 && selectedTime24 && (
           <div className="mt-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-            <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+            {/* DRESS PASS: brand gradient strip is website furniture. */}
+            {!inCustomerShell && (
+              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+            )}
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
@@ -3028,11 +3103,16 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-jost font-normal text-sm text-ink">{c.name}</span>
-                            <span
-                              className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
-                            >
-                              {tier.label}
-                            </span>
+                            {/* DRESS PASS: the minimal card — tier chip, jobs
+                                count, bio and specialty chips are the
+                                website's dress. */}
+                            {!inCustomerShell && (
+                              <span
+                                className={`rounded-full px-1.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.1em] ring-1 ring-ink/[0.06] ${tier.color}`}
+                              >
+                                {tier.label}
+                              </span>
+                            )}
                             <VerificationBadge
                               identityVerified={c.identityVerified}
                               backgroundChecked={c.backgroundChecked}
@@ -3043,31 +3123,41 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                             <span>
                               {c.rating} ({c.reviewCount})
                             </span>
-                            <span className="text-ink-3/30">|</span>
-                            <span>{c.completedJobs} jobs</span>
+                            {!inCustomerShell && <span className="text-ink-3/30">|</span>}
+                            {!inCustomerShell && <span>{c.completedJobs} jobs</span>}
                           </div>
                         </div>
                       </div>
-                      <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
-                        {c.bio}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {c.specialties.slice(0, 3).map((s) => (
-                          <span
-                            key={s}
-                            className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
-                          >
-                            {s}
-                          </span>
-                        ))}
-                      </div>
+                      {!inCustomerShell && (
+                        <p className="mt-3 font-jost font-light text-xs text-ink-3 line-clamp-2">
+                          {c.bio}
+                        </p>
+                      )}
+                      {!inCustomerShell && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {c.specialties.slice(0, 3).map((s) => (
+                            <span
+                              key={s}
+                              className="rounded-full bg-cream-2 px-2.5 py-0.5 font-jost text-[10px] uppercase tracking-[0.05em] text-ink-3 ring-1 ring-ink/[0.06]"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {/* Price */}
                       <div className="mt-4 flex items-baseline justify-between border-t border-ink/[0.06] pt-3">
                         <span className="font-jost font-light text-xs text-ink-3">
                           {rooms.bedrooms === 0 ? 'Studio' : `${rooms.bedrooms}-bed`} price
                         </span>
                         <div className="text-right">
-                          <span className="font-newsreader font-medium text-2xl text-ink">
+                          <span
+                            className={
+                              inCustomerShell
+                                ? 'font-newsreader font-medium text-2xl text-primary'
+                                : 'font-newsreader font-medium text-2xl text-ink'
+                            }
+                          >
                             &pound;{priceTotal.toFixed(2)}
                           </span>
                           <span className="block font-jost font-light text-[10px] text-ink-3">
@@ -3259,8 +3349,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
               }
             >
-              <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
-              <span className="font-newsreader text-xl font-medium text-ink sm:text-2xl">
+              {/* DRESS PASS: brand gradient strip is website furniture. */}
+              {!inCustomerShell && (
+                <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+              )}
+              <span
+                className={
+                  inCustomerShell
+                    ? 'font-newsreader text-xl font-semibold text-ink sm:text-2xl'
+                    : 'font-newsreader text-xl font-medium text-ink sm:text-2xl'
+                }
+              >
                 Booking summary
               </span>
 
@@ -3307,7 +3406,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 )}
                 <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                   <span className="font-jost font-normal text-ink">Total</span>
-                  <span className="font-newsreader font-medium text-3xl text-ink">
+                  <span
+                    className={
+                      inCustomerShell
+                        ? 'font-newsreader font-medium text-3xl text-primary'
+                        : 'font-newsreader font-medium text-3xl text-ink'
+                    }
+                  >
                     &pound;{total.toFixed(2)}
                   </span>
                 </div>
@@ -3324,7 +3429,6 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                 the browser stays byte-identical. */}
             {inCustomerShell && (
               <div className="order-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8">
-                <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
                 <div className="flex items-start gap-3">
                   <svg
                     className="mt-0.5 h-5 w-5 shrink-0 text-gold"
@@ -3593,11 +3697,23 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() =>
-                        isAlreadySelected
-                          ? setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id))
-                          : setProfileCleaner(c)
-                      }
+                      onClick={() => {
+                        // DRESS PASS ruling (a): in-shell the card tap IS the
+                        // door — select and advance, exactly the fixed road's
+                        // grammar (stale slot clears on a switch). The
+                        // browser keeps its modal door untouched.
+                        if (inCustomerShell) {
+                          if (selectedCleanerIds[0] !== c.id) setDateTimeSelection(null);
+                          setSelectedCleanerIds([c.id]);
+                          setShellTimeStage('when');
+                          return;
+                        }
+                        if (isAlreadySelected) {
+                          setSelectedCleanerIds((prev) => prev.filter((id) => id !== c.id));
+                        } else {
+                          setProfileCleaner(c);
+                        }
+                      }}
                       className="group flex flex-col rounded-[16px] border border-line bg-surface p-5 text-left transition-shadow hover:shadow-md"
                     >
                       <CleanerIdentity
@@ -3607,19 +3723,52 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         rating={c.rating}
                         reviewCount={c.reviewCount}
                         meta={
-                          <>
-                            {c.location}
-                            {' · from '}
-                            <span className="font-newsreader text-[14px] font-medium text-ink">
-                              &pound;{getServiceListedRate(c, category).toFixed(2)}
-                            </span>
-                            <span className="text-ink-3">/hr</span>
-                          </>
+                          inCustomerShell ? (
+                            <>
+                              {'from '}
+                              <span className="font-newsreader text-[14px] font-medium text-primary">
+                                &pound;{getServiceListedRate(c, category).toFixed(2)}
+                              </span>
+                              <span className="text-ink-3">/hr</span>
+                            </>
+                          ) : (
+                            <>
+                              {c.location}
+                              {' · from '}
+                              <span className="font-newsreader text-[14px] font-medium text-ink">
+                                &pound;{getServiceListedRate(c, category).toFixed(2)}
+                              </span>
+                              <span className="text-ink-3">/hr</span>
+                            </>
+                          )
                         }
                       />
-                      <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
-                        {c.bio}
-                      </p>
+                      {!inCustomerShell && (
+                        <p className="mt-3 line-clamp-2 font-jost text-[13px] font-light leading-relaxed text-ink-2">
+                          {c.bio}
+                        </p>
+                      )}
+                      {/* DRESS PASS ruling (a): the profile view sits one
+                          level deeper behind its own quiet door. */}
+                      {inCustomerShell && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProfileCleaner(c);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.stopPropagation();
+                              setProfileCleaner(c);
+                            }
+                          }}
+                          className="mt-3 font-jost text-[13px] font-semibold text-primary"
+                        >
+                          View profile &rsaquo;
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -3950,7 +4099,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8'
                   }
                 >
-                  <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                  {/* DRESS PASS: brand gradient strip is website furniture. */}
+                  {!inCustomerShell && (
+                    <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                  )}
                   <div className="flex items-start gap-3">
                     <svg
                       className="mt-0.5 h-5 w-5 shrink-0 text-gold"
@@ -4081,9 +4233,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       : 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 space-y-4'
                   }
                 >
-                  <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                  {/* DRESS PASS: brand gradient strip is website furniture. */}
+                  {!inCustomerShell && (
+                    <div className="h-0.5 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-5 rounded-t-xl bg-gradient-to-r from-ink via-gold to-primary" />
+                  )}
                   <h3 className="font-newsreader text-xl font-semibold text-ink sm:text-2xl">
-                    Booking Summary
+                    {inCustomerShell ? 'Booking summary' : 'Booking Summary'}
                   </h3>
                   <SummaryRow label="Service" value={serviceLabel} />
                   <SummaryRow label="Postcode" value={postcode} />
@@ -4155,7 +4310,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     </>
                     <div className="flex justify-between pt-3 border-t border-ink/[0.06]">
                       <span className="font-jost font-normal text-ink">Total</span>
-                      <span className="font-newsreader font-medium text-3xl text-ink">
+                      <span
+                        className={
+                          inCustomerShell
+                            ? 'font-newsreader font-medium text-3xl text-primary'
+                            : 'font-newsreader font-medium text-3xl text-ink'
+                        }
+                      >
                         &pound;
                         {(priceBreakdown.discountedTotal + productCost).toFixed(2)}
                       </span>
@@ -4212,6 +4373,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             if (selectedCleanerIds[0] !== profileCleaner.id) setDateTimeSelection(null);
             setSelectedCleanerIds([profileCleaner.id]);
             setProfileCleaner(null);
+            // DRESS PASS ruling (a): in-shell the profile's Book advances
+            // like the card tap — same grammar from one level deeper.
+            if (inCustomerShell) setShellTimeStage('when');
           }}
           bookLabel={`Book ${profileCleaner.name.split(' ')[0]}`}
         />
