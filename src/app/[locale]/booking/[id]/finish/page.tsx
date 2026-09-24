@@ -30,7 +30,15 @@ interface FinishIntent {
   startTime: string;
 }
 
-type FinishState = 'loading' | 'ok' | 'expired' | 'already_paid' | 'processing' | 'retry';
+type FinishState =
+  | 'loading'
+  | 'ok'
+  | 'expired'
+  | 'already_paid'
+  | 'processing'
+  | 'retry'
+  | 'signin'
+  | 'notfound';
 
 export default function FinishPaymentPage() {
   const params = useParams();
@@ -69,10 +77,29 @@ export default function FinishPaymentPage() {
           return;
         }
         setMessage(data?.error || 'Something went wrong.');
+        // Truth rule: the page may only claim expiry when the server said
+        // expiry. Every state below maps an explicit server answer; anything
+        // unrecognised is a retry, never a verdict.
         if (data?.reason === 'already_paid') setState('already_paid');
         else if (data?.reason === 'processing') setState('processing');
         else if (data?.reason === 'retry') setState('retry');
-        else setState('expired');
+        else if (data?.reason === 'expired') setState('expired');
+        else if (res.status === 404) {
+          // The API answers 404 for a missing booking AND for a signed-out /
+          // wrong-owner account customer (ownership reads as not-found by
+          // design). A tokened guest passed a real token and still got 404 —
+          // that's honestly not-found. Tokenless, probe the session to tell
+          // "sign in first" apart from "genuinely not yours/not there".
+          if (guestToken) setState('notfound');
+          else {
+            try {
+              const session = await fetch('/api/auth/session').then((r) => r.json());
+              setState(session?.user ? 'notfound' : 'signin');
+            } catch {
+              setState('signin');
+            }
+          }
+        } else setState('retry');
       })
       .catch(() => {
         setMessage("We couldn't check your payment just now. Please try again.");
@@ -103,7 +130,11 @@ export default function FinishPaymentPage() {
           ? 'Payment in progress'
           : state === 'retry'
             ? 'Something went wrong'
-            : 'This booking has expired';
+            : state === 'signin'
+              ? 'Sign in to finish your payment'
+              : state === 'notfound'
+                ? "We couldn't find this booking"
+                : 'This booking has expired';
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 bg-page" data-testid="finish-blocked">
         <div className="rounded-2xl border border-line bg-surface p-8 text-center">
@@ -111,10 +142,27 @@ export default function FinishPaymentPage() {
           <p className="mt-2 font-jost text-sm text-ink-3">
             {state === 'expired'
               ? 'The payment window for this booking has closed. You can book again in a couple of taps.'
-              : message}
+              : state === 'signin'
+                ? 'You need to be signed in to see this payment. Sign in and we’ll bring you straight back here.'
+                : state === 'notfound'
+                  ? 'This link doesn’t match a booking we can show you. If you think that’s wrong, check you’re using the latest email we sent.'
+                  : message}
           </p>
           <div className="mx-auto mt-6 flex max-w-xs flex-col gap-2.5">
-            {state === 'expired' && (
+            {state === 'signin' && (
+              <Link
+                href={`/login?callbackUrl=${encodeURIComponent(
+                  `/booking/${bookingId}/finish${
+                    guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''
+                  }`
+                )}`}
+                data-testid="finish-signin"
+                className="rounded-[10px] bg-primary py-3 text-center font-jost text-[12px] font-semibold uppercase tracking-[0.1em] text-white active:opacity-90"
+              >
+                Sign In
+              </Link>
+            )}
+            {(state === 'expired' || state === 'notfound') && (
               <Link
                 href={inShell ? '/app/book' : '/'}
                 data-testid="finish-book-again"
