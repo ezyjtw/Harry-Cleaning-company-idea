@@ -333,46 +333,25 @@ function AvailabilityDoor({
   );
 }
 
-// Appearance item 3 (James-ruled): one "My Rates" row, directly below My
-// Availability, same row grammar — the current regular rate as the hint,
-// opening the rates room.
-function RatesDoor({ regularRate }: { regularRate: number | null }) {
-  const hint =
-    regularRate === null
-      ? ''
-      : Number.isInteger(regularRate)
-        ? `£${regularRate}/hr`
-        : `£${regularRate.toFixed(2)}/hr`;
+// ROUND 3 LANE 1 (James-ruled): the My Rates row becomes a rates card under
+// My Availability — MY RATES › opens the rates room, then one line per
+// service she actually offers: hourly as £N/hr, fixed services summarised
+// as her per-size range (£min–£max; one figure when the sizes agree).
+// Services she doesn't offer never render.
+function RatesDoor({ lines }: { lines: { label: string; figure: string }[] }) {
   return (
     <Link
       href="/app/rates"
       onClick={() => haptic('light')}
-      className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5"
+      className="mt-3 block rounded-2xl border border-line bg-surface px-5 py-4"
       data-testid="rates-door"
     >
-      <span className="flex items-center gap-2.5">
+      <span className="flex items-center justify-between">
+        <span className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+          My Rates
+        </span>
         <svg
-          className="h-[18px] w-[18px] text-ink-2"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.8}
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M14.121 7.629A3 3 0 009.017 9.43c-.023.212-.002.425.028.636l.506 3.541a4.5 4.5 0 01-.43 2.65L9 16.5l1.539-.513a2.25 2.25 0 011.422 0l.655.218a2.25 2.25 0 001.718-.122L15 15.75M8.25 12H12m9 0a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <span className="font-jost text-[15px] font-medium text-ink">My Rates</span>
-      </span>
-      <span
-        className="flex items-center gap-1 font-jost text-[13px] font-medium text-ink-3"
-        data-testid="rates-door-hint"
-      >
-        {hint}
-        <svg
-          className="h-3.5 w-3.5"
+          className="h-3.5 w-3.5 text-ink-3"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={2}
@@ -381,6 +360,16 @@ function RatesDoor({ regularRate }: { regularRate: number | null }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
       </span>
+      {lines.length > 0 && (
+        <span className="mt-2.5 block space-y-1.5" data-testid="rates-door-hint">
+          {lines.map((l) => (
+            <span key={l.label} className="flex items-center justify-between">
+              <span className="font-jost text-[14px] text-ink">{l.label}</span>
+              <span className="font-jost text-[14px] font-semibold text-primary">{l.figure}</span>
+            </span>
+          ))}
+        </span>
+      )}
     </Link>
   );
 }
@@ -409,8 +398,8 @@ export default function TodayPage() {
   const [openHoursByIso, setOpenHoursByIso] = useState<Record<string, number>>({});
   const [openWeekHours, setOpenWeekHours] = useState(0);
   const [nextWeekOpenHours, setNextWeekOpenHours] = useState(0);
-  // Appearance item 3 (James-ruled): current regular rate for the My Rates row.
-  const [regularRate, setRegularRate] = useState<number | null>(null);
+  // ROUND 3 LANE 1: the rates card's lines — one per offered service.
+  const [rateLines, setRateLines] = useState<{ label: string; figure: string }[]>([]);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -423,8 +412,35 @@ export default function TodayPage() {
         if (d) {
           setProfileVisible(d.visibleInDirectory !== false);
           setProfileImage(d.image || null);
-          // Appearance item 3: the My Rates row's hint.
-          if (typeof d.hourlyRateRegular === 'number') setRegularRate(d.hourlyRateRegular);
+          // ROUND 3 LANE 1: build the rates card's lines from what she
+          // actually offers — hourly via serviceTypes + a set rate, fixed
+          // via a non-empty per-size map (the booking-eligibility shape).
+          {
+            const lines: { label: string; figure: string }[] = [];
+            const svc: string[] = Array.isArray(d.serviceTypes) ? d.serviceTypes : [];
+            const hr = (n: number) => (Number.isInteger(n) ? `£${n}/hr` : `£${n.toFixed(2)}/hr`);
+            if (svc.includes('regular') && typeof d.hourlyRateRegular === 'number')
+              lines.push({ label: 'Regular Cleaning', figure: hr(d.hourlyRateRegular) });
+            if (svc.includes('deep') && typeof d.hourlyRateDeep === 'number')
+              lines.push({ label: 'Deep Cleaning', figure: hr(d.hourlyRateDeep) });
+            if (svc.includes('same-day') && typeof d.hourlyRateSameDay === 'number')
+              lines.push({ label: 'Same Day', figure: hr(d.hourlyRateSameDay) });
+            const range = (m: unknown) => {
+              const vs = Object.values((m as Record<string, number>) || {}).filter(
+                (v) => typeof v === 'number' && v > 0
+              );
+              if (!vs.length) return null;
+              const f = (n: number) => (Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`);
+              const lo = Math.min(...vs);
+              const hi = Math.max(...vs);
+              return lo === hi ? f(lo) : `${f(lo)}–${f(hi)}`;
+            };
+            const eot = range(d.eotPrices);
+            if (eot) lines.push({ label: 'End of Tenancy', figure: eot });
+            const bnb = range(d.airbnbPrices);
+            if (bnb) lines.push({ label: 'Airbnb', figure: bnb });
+            setRateLines(lines);
+          }
         }
       })
       .catch(() => {});
@@ -956,7 +972,7 @@ export default function TodayPage() {
         {earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
         <WeekStrip days={jobStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
-        <RatesDoor regularRate={regularRate} />
+        <RatesDoor lines={rateLines} />
       </div>
     );
   }
@@ -991,7 +1007,7 @@ export default function TodayPage() {
         <JobCard job={nextUpcoming} now={now} processing={false} onAdvance={() => {}} />
         <WeekStrip days={jobStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
-        <RatesDoor regularRate={regularRate} />
+        <RatesDoor lines={rateLines} />
       </div>
     );
   }
@@ -1033,7 +1049,7 @@ export default function TodayPage() {
         </div>
         <WeekStrip days={hourStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
-        <RatesDoor regularRate={regularRate} />
+        <RatesDoor lines={rateLines} />
       </div>
     );
   }
@@ -1077,7 +1093,7 @@ export default function TodayPage() {
         </div>
         <WeekStrip days={hourStrip} />
         <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
-        <RatesDoor regularRate={regularRate} />
+        <RatesDoor lines={rateLines} />
       </div>
     );
   }
