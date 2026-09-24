@@ -883,12 +883,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               }}
               className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition hover:bg-page"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={SERVICE_IMAGES[s.value]}
-                alt=""
-                className="h-12 w-16 shrink-0 rounded-lg object-cover"
-              />
+              {/* ROUND 3 LANE 4 (James-ruled): consistency by removal — the
+                  service imagery is the website's; in-shell the rows are
+                  text-and-selection, matching Route 1's plain rows. */}
+              {!inCustomerShell && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={SERVICE_IMAGES[s.value]}
+                  alt=""
+                  className="h-12 w-16 shrink-0 rounded-lg object-cover"
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <h3 className="font-jost text-[15px] font-medium text-ink">{s.label}</h3>
                 <p className="mt-0.5 font-jost text-[13px] font-light text-ink-2">
@@ -905,12 +910,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
           {/* Same Day — muted, greyscale, SOON, non-tappable (unchanged behaviour) */}
           <div className="flex w-full items-center gap-4 px-4 py-3.5 opacity-60">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={SERVICE_IMAGES['same-day']}
-              alt=""
-              className="h-12 w-16 shrink-0 rounded-lg object-cover grayscale"
-            />
+            {!inCustomerShell && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={SERVICE_IMAGES['same-day']}
+                alt=""
+                className="h-12 w-16 shrink-0 rounded-lg object-cover grayscale"
+              />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h3 className="font-jost text-[15px] font-medium text-ink-2">{sameDay.label}</h3>

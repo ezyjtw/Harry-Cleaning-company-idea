@@ -955,6 +955,13 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     }
   };
 
+  // ROUND 3 LANE 5 state — declared ahead of the persistence bundle that
+  // saves and restores soloDate.
+  const isSoloGridShell = inCustomerShell && !!preSelectedCleanerId;
+  const [soloAvail, setSoloAvail] = useState<Record<string, string[]> | null>(null);
+  const [soloDate, setSoloDate] = useState(() => nextDays(1)[0].iso);
+  const [soloBeltBusy, setSoloBeltBusy] = useState(false);
+
   // ─── LANE 1 (James-ruled): in-shell flow-state persistence ────────────────
   // A refresh anywhere in the flow restores the exact room with every answer
   // intact. sessionStorage, per-road key: session-scoped by construction (a
@@ -993,6 +1000,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       if (typeof s.cleanerNote === 'string') setCleanerNote(s.cleanerNote);
       if (s.address) setAddress(s.address);
       if (typeof s.gridDate === 'string') setGridDate(s.gridDate);
+      if (typeof s.soloDate === 'string') setSoloDate(s.soloDate);
       if (s.shellTimeStage) setShellTimeStage(s.shellTimeStage);
       if (s.shellFixedStage) setShellFixedStage(s.shellFixedStage);
       if (s.shellBookStage) setShellBookStage(s.shellBookStage);
@@ -1027,6 +1035,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           cleanerNote,
           address,
           gridDate,
+          soloDate,
           scheduling,
           shellTimeStage,
           shellFixedStage,
@@ -1055,11 +1064,99 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     cleanerNote,
     address,
     gridDate,
+    soloDate,
     scheduling,
     shellTimeStage,
     shellFixedStage,
     shellBookStage,
   ]);
+
+  // ROUND 3 LANE 5 (James-ruled): Route 2's WHEN adopts the slot-grid dress.
+  // Same data source as her existing picker (the per-cleaner accurate
+  // availability read), inverted into day chips + time cards; the grid fills
+  // the same dateTimeSelection the picker filled — display swap only.
+  useEffect(() => {
+    if (!isSoloGridShell || phase !== 'cleaner') return;
+    let dead = false;
+    const from = gridDays[0].iso;
+    const to = gridDays[gridDays.length - 1].iso;
+    fetch(
+      `/api/cleaners/${preSelectedCleanerId}/availability?from=${from}&to=${to}&duration=${effectiveHours}`
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (dead || !data?.dates) return;
+        setSoloAvail(
+          Object.fromEntries(
+            (data.dates as { date: string; slots: string[] }[]).map((d) => [d.date, d.slots])
+          )
+        );
+      })
+      .catch(() => {});
+    return () => {
+      dead = true;
+    };
+  }, [isSoloGridShell, phase, preSelectedCleanerId, effectiveHours, gridDays]);
+  // Her day's lattice: template shape (greyed where she can't serve), truth
+  // from the accurate read. One cleaner — no count line.
+  const soloLattice = useMemo(() => {
+    if (!isSoloGridShell) return [] as { time24: string; free: boolean }[];
+    const d = new Date(`${soloDate}T12:00:00`);
+    const abbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+    const times = new Set<string>();
+    for (const t of preSelectedCleaner?.timeSlots?.[abbr] ?? []) times.add(to24hFromDisplay(t));
+    for (const t of soloAvail?.[soloDate] ?? []) times.add(t);
+    const mins = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    return Array.from(times)
+      .sort((a, b) => mins(a) - mins(b))
+      .map((time24) => ({ time24, free: (soloAvail?.[soloDate] ?? []).includes(time24) }));
+  }, [isSoloGridShell, soloDate, preSelectedCleaner, soloAvail]);
+  // The freshness belt, one cleaner: the tapped slot re-verifies via the H7
+  // shared predicate before it can be held; a dead slot corrects honestly.
+  const pickSoloSlot = async (time24: string) => {
+    if (soloBeltBusy || !preSelectedCleanerId) return;
+    setSoloBeltBusy(true);
+    try {
+      let ok = true;
+      try {
+        const res = await fetch('/api/cleaners/slot-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cleanerIds: [preSelectedCleanerId],
+            date: soloDate,
+            time: time24,
+            duration: effectiveHours,
+          }),
+        });
+        if (res.ok) ok = (((await res.json()).availableIds as string[]) ?? []).length > 0;
+      } catch {
+        /* belt unreachable — fail open to the advertised slot */
+      }
+      if (!ok) {
+        setSoloAvail((prev) =>
+          prev ? { ...prev, [soloDate]: (prev[soloDate] ?? []).filter((t) => t !== time24) } : prev
+        );
+        if (dateTimeSelection?.date === soloDate && dateTimeSelection?.time24 === time24) {
+          setDateTimeSelection(null);
+        }
+        failValidation([
+          {
+            id: 'booking-datetime',
+            msg: 'That time has just been taken — please pick another.',
+          },
+        ]);
+        return;
+      }
+      setFieldErrors({});
+      setDateTimeSelection({ date: soloDate, time24, time: to12h(time24) });
+    } finally {
+      setSoloBeltBusy(false);
+    }
+  };
 
   // LANE C (James-ruled): a restored "Who's Free" room re-derives from the
   // fan-out, which is phase-keyed and re-runs on any restore; while it loads
@@ -2576,13 +2673,98 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               one question in-shell. */}
           {shellWhen && (
             <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
-              <DateTimePicker
-                cleanerId={preSelectedCleaner.id}
-                durationHours={effectiveHours}
-                value={dateTimeSelection}
-                onChange={setDateTimeSelection}
-                dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
-              />
+              {/* ROUND 3 LANE 5: in-shell the one time-picking grammar — the
+                  slot grid, her free times only. Browsers keep the picker
+                  byte-identically. */}
+              {inCustomerShell ? (
+                <div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {gridDays.map((d) => {
+                      const sel = soloDate === d.iso;
+                      return (
+                        <button
+                          key={d.iso}
+                          type="button"
+                          onClick={() => setSoloDate(d.iso)}
+                          className={
+                            sel
+                              ? 'flex w-[64px] shrink-0 flex-col items-center rounded-[8px] bg-primary px-2 py-2.5 font-jost text-white'
+                              : 'flex w-[64px] shrink-0 flex-col items-center rounded-[8px] border border-[#E3E8F0] bg-surface px-2 py-2.5 font-jost text-ink'
+                          }
+                        >
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.08em]">
+                            {d.weekday}
+                          </span>
+                          <span className="mt-0.5 text-[15px] font-semibold">{d.day}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {soloAvail === null ? (
+                    <div className="mt-4 grid grid-cols-2 gap-2.5">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="skeleton-pulse h-[52px] rounded-[8px]" />
+                      ))}
+                    </div>
+                  ) : soloLattice.length === 0 ? (
+                    <p className="mt-6 text-center font-jost text-sm font-light text-ink-3">
+                      No availability this day, try another
+                    </p>
+                  ) : (
+                    <div className="mt-4 grid grid-cols-2 gap-2.5">
+                      {soloLattice.map(({ time24, free }) => {
+                        const selected =
+                          dateTimeSelection?.date === soloDate &&
+                          dateTimeSelection?.time24 === time24;
+                        if (!free) {
+                          return (
+                            <div
+                              key={time24}
+                              className="rounded-[8px] border border-[#E3E8F0] bg-surface p-3 opacity-50"
+                            >
+                              <p className="font-jost text-[15px] font-semibold text-ink-3">
+                                {time24}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <button
+                            key={time24}
+                            type="button"
+                            disabled={soloBeltBusy}
+                            onClick={() => pickSoloSlot(time24)}
+                            className={
+                              selected
+                                ? 'rounded-[8px] border-[1.5px] border-primary bg-[#EDF0F7] p-3 text-left'
+                                : 'rounded-[8px] border border-[#E3E8F0] bg-surface p-3 text-left'
+                            }
+                          >
+                            <p
+                              className={
+                                selected
+                                  ? 'font-jost text-[15px] font-bold text-primary'
+                                  : 'font-jost text-[15px] font-semibold text-ink'
+                              }
+                            >
+                              {time24}
+                              {selected ? ' ✓' : ''}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <DateTimePicker
+                  cleanerId={preSelectedCleaner.id}
+                  durationHours={effectiveHours}
+                  value={dateTimeSelection}
+                  onChange={setDateTimeSelection}
+                  dateSubtitle={`${preSelectedCleaner.name}’s availability for ${effectiveHours}-hour bookings`}
+                />
+              )}
               <FieldError k="booking-datetime" />
               {/* FIXED ROAD: the quiet duration line rides the cleaner-first
                   branch too — explicitly in-shell (shellWhen alone is true for
@@ -2712,7 +2894,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     onClick={() => setKeyAccess(opt.value)}
                     className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
                       keyAccess === opt.value
-                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                        ? inCustomerShell
+                          ? 'ring-[1.5px] ring-primary bg-[#EDF0F7] text-primary'
+                          : 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
                         : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                     }`}
                   >
@@ -3624,7 +3808,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     onClick={() => setKeyAccess(opt.value)}
                     className={`rounded-lg p-4 text-center font-jost text-sm font-light ring-1 transition-all ${
                       keyAccess === opt.value
-                        ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                        ? inCustomerShell
+                          ? 'ring-[1.5px] ring-primary bg-[#EDF0F7] text-primary'
+                          : 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
                         : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                     }`}
                   >
@@ -4610,7 +4796,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                         onClick={() => setKeyAccess(opt.value)}
                         className={`rounded-lg px-4 py-3.5 text-left font-jost font-light text-sm ring-1 transition-all ${
                           keyAccess === opt.value
-                            ? 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
+                            ? inCustomerShell
+                              ? 'ring-[1.5px] ring-primary bg-[#EDF0F7] text-primary'
+                              : 'bg-gold/5 text-ink ring-2 ring-gold shadow-sm'
                             : 'bg-cream text-ink-2 ring-ink/[0.06] hover:bg-cream-2 hover:shadow-sm'
                         }`}
                       >

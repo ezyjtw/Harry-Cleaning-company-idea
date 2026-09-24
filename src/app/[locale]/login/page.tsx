@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 function LoginForm() {
   const router = useRouter();
@@ -21,6 +21,14 @@ function LoginForm() {
       ? rawCallback
       : null;
   const [form, setForm] = useState({ email: '', password: '' });
+  // ROUND 3 LANE 2 (James-ruled): the in-shell login wears mockup A's dress
+  // for sibling consistency with signup. Mount-gated — browsers render the
+  // website page byte-identically.
+  const [inShell, setInShell] = useState(false);
+  useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (/\bRenaApp\//i.test(navigator.userAgent) || preview) setInShell(true);
+  }, []);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -66,13 +74,27 @@ function LoginForm() {
     <div className="flex min-h-[70vh] items-center justify-center bg-cream px-4 py-16">
       <div className="w-full max-w-md">
         <div className="text-center">
-          <Link
-            href="/"
-            className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
+          {inShell ? (
+            <span className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink">
+              RENA
+            </span>
+          ) : (
+            <Link
+              href="/"
+              className="inline-block font-etna text-[34px] font-semibold tracking-widest text-ink"
+            >
+              RENA
+            </Link>
+          )}
+          <h1
+            className={
+              inShell
+                ? 'mt-6 font-jost text-[26px] font-bold text-ink'
+                : 'mt-6 font-newsreader text-3xl font-semibold text-ink'
+            }
           >
-            RENA
-          </Link>
-          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Welcome Back</h1>
+            Welcome Back
+          </h1>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
             Log in to manage your bookings and profile.
           </p>
@@ -103,8 +125,12 @@ function LoginForm() {
               autoComplete="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className={
+                inShell
+                  ? 'mt-2 w-full rounded-[10px] border border-line bg-surface px-4 py-3.5 font-jost text-[15px] text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-primary/40'
+                  : 'mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20'
+              }
+              style={inShell ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }}
               placeholder="you@example.com"
             />
           </div>
@@ -130,17 +156,25 @@ function LoginForm() {
               autoComplete="current-password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className={
+                inShell
+                  ? 'mt-2 w-full rounded-[10px] border border-line bg-surface px-4 py-3.5 font-jost text-[15px] text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-primary/40'
+                  : 'mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20'
+              }
+              style={inShell ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }}
               placeholder="Enter your password"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition disabled:opacity-50"
+            className={
+              inShell
+                ? 'w-full rounded-[10px] bg-primary py-3.5 font-jost text-[13px] font-semibold uppercase tracking-[0.12em] text-white active:opacity-90 disabled:opacity-50'
+                : 'w-full bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition disabled:opacity-50'
+            }
           >
-            {loading ? 'Logging in...' : 'Log In'}
+            {loading ? 'Logging in...' : inShell ? 'Sign In' : 'Log In'}
           </button>
         </form>
 

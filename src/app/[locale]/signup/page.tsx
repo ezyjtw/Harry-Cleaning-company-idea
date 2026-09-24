@@ -106,14 +106,26 @@ export default function SignupPage() {
     }
   };
 
+  // ROUND 3 LANE 2 (James-ruled, mockup A): in-shell the fields go quiet
+  // hairline — rounded, border-line, surface fill, Jost. Browsers keep the
+  // website dress byte-identically (inline styles included).
   const inputClass = (field: string) =>
-    `mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 ${
-      errors[field] ? 'focus:ring-red-300 ring-1 ring-red-300' : 'focus:ring-ink/20'
-    }`;
+    inShell
+      ? `mt-2 w-full rounded-[10px] border bg-surface px-4 py-3.5 font-jost text-[15px] text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 ${
+          errors[field] ? 'border-red-300 ring-1 ring-red-300' : 'border-line focus:ring-primary/40'
+        }`
+      : `mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 ${
+          errors[field] ? 'focus:ring-red-300 ring-1 ring-red-300' : 'focus:ring-ink/20'
+        }`;
 
-  const inputStyle = (field: string) => ({
-    border: errors[field] ? '0.5px solid rgba(239,68,68,0.4)' : '0.5px solid rgba(14,14,12,0.1)',
-  });
+  const inputStyle = (field: string) =>
+    inShell
+      ? undefined
+      : {
+          border: errors[field]
+            ? '0.5px solid rgba(239,68,68,0.4)'
+            : '0.5px solid rgba(14,14,12,0.1)',
+        };
 
   if (!role) {
     return (
@@ -187,7 +199,13 @@ export default function SignupPage() {
               RENA
             </Link>
           )}
-          <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
+          <h1
+            className={
+              inShell
+                ? 'mt-6 font-jost text-[26px] font-bold text-ink'
+                : 'mt-6 font-newsreader text-3xl font-semibold text-ink'
+            }
+          >
             Create Your Account
           </h1>
           <p className="mt-2 font-jost text-sm font-light text-ink-2">
@@ -286,8 +304,8 @@ export default function SignupPage() {
               autoComplete="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
-              style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+              className={inputClass('phone')}
+              style={inputStyle('phone')}
               placeholder="07xxx xxxxxx"
             />
           </div>
@@ -347,9 +365,13 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition disabled:opacity-50"
+            className={
+              inShell
+                ? 'w-full rounded-[10px] bg-primary py-3.5 font-jost text-[13px] font-semibold uppercase tracking-[0.12em] text-white active:opacity-90 disabled:opacity-50'
+                : 'w-full bg-ink py-3.5 font-jost text-[11px] uppercase tracking-[0.15em] text-cream hover:bg-ink/90 transition disabled:opacity-50'
+            }
           >
-            {loading ? 'Creating account...' : 'Create Account'}
+            {loading ? 'Creating account...' : inShell ? 'Join Rena' : 'Create Account'}
           </button>
         </form>
 
@@ -367,9 +389,16 @@ export default function SignupPage() {
 
         <div className="mt-8 text-center">
           <p className="font-jost text-sm font-light text-ink-3">
-            Already have an account?{' '}
-            <Link href="/login" className="font-normal text-ink hover:text-gold transition">
-              Log in
+            {inShell ? 'Already with us?' : 'Already have an account?'}{' '}
+            <Link
+              href="/login"
+              className={
+                inShell
+                  ? 'font-semibold text-primary'
+                  : 'font-normal text-ink hover:text-gold transition'
+              }
+            >
+              {inShell ? 'Sign in' : 'Log in'}
             </Link>
           </p>
           {/* In-shell this door would reopen the (cleaner-recruiting) chooser —
