@@ -303,6 +303,22 @@ body.rena-customer-shell.rena-cflow main {
 body.cflow-bar-on [data-cflow-cta] {
   display: none;
 }
+/* DRESS PASS (James-ruled): inside the customer shell the booking rooms wear
+   the app grammar — every Newsreader site renders Jost (headings hold their
+   semibold weight), and cards flatten to hairline: no resting shadows, no
+   hover lift. Scoped to the shell's own body classes; a browser never
+   matches, so the website keeps its serif-and-shadow dress untouched. */
+body.rena-customer-shell.rena-cflow .font-newsreader {
+  font-family: var(--font-jost), sans-serif;
+}
+body.rena-customer-shell.rena-cflow main .shadow,
+body.rena-customer-shell.rena-cflow main .shadow-sm,
+body.rena-customer-shell.rena-cflow main .shadow-md,
+body.rena-customer-shell.rena-cflow main .hover\:shadow-sm:hover,
+body.rena-customer-shell.rena-cflow main .hover\:shadow-md:hover,
+body.rena-customer-shell.rena-cflow main .hover\:shadow-lg:hover {
+  box-shadow: none;
+}
 
 /* ─── Rena Pro shell-skin (item 6) ────────────────────────────────────────────
    Renders the Jobs + Earnings portal pages app-fit when viewed INSIDE the native
