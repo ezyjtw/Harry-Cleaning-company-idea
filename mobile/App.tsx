@@ -1,16 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Notifications from 'expo-notifications';
+// R4 lane 4: legacy API for downloadAsync-with-headers — the module ships in
+// every SDK 54 binary as a dependency of expo itself (verify against the
+// build's fingerprint before OTA, per the ruled gate).
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   Image,
@@ -18,6 +23,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -1057,6 +1063,34 @@ function SeamlessWebView({
     }
   };
 
+  // R4 lane 4 (James-ruled shape): a Content-Disposition attachment (the tax
+  // statement PDF) no longer paints inline over the page — the shell downloads
+  // it natively with the stored Bearer (WebView cookies aren't reliably shared
+  // with native requests; the API accepts Bearer) and opens the iOS share
+  // sheet (Save to Files, AirDrop, Mail…). Fail-soft: an error alerts and the
+  // page is untouched.
+  const onFileDownload = useCallback(
+    async ({ nativeEvent }: { nativeEvent: { downloadUrl: string } }) => {
+      try {
+        const url = nativeEvent.downloadUrl;
+        const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
+        const year = /[?&]taxYear=(\d{4})/.exec(url)?.[1];
+        const dest = `${FileSystem.cacheDirectory}rena-earnings-statement-${year ?? 'range'}.pdf`;
+        const res = await FileSystem.downloadAsync(url, dest, {
+          headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
+        });
+        if (res.status === 200) {
+          await Share.share({ url: res.uri });
+        } else {
+          Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
+        }
+      } catch {
+        Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
+      }
+    },
+    []
+  );
+
   const onMessage = (e: WebViewMessageEvent) => {
     try {
       const msg = JSON.parse(e.nativeEvent.data);
@@ -1118,6 +1152,7 @@ function SeamlessWebView({
         applicationNameForUserAgent={UA_SUFFIX}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
+        onFileDownload={onFileDownload}
         // Native pull-to-refresh is OFF — the injected PTR routes to __renaRefresh.
         pullToRefreshEnabled={false}
         bounces
