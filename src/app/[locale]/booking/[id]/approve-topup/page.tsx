@@ -86,6 +86,18 @@ export default function ApproveTopupPage() {
         } else if (d.alreadyPaid) {
           setState('success');
           setData(d);
+        } else if (d.resumeClientSecret) {
+          // R4 LANE 5A: approved earlier but the card entry never finished —
+          // the GET reissued the SAME PaymentIntent's secret; straight back
+          // to the card form, no second Approve (which would 409).
+          setData(d);
+          setClientSecret(d.resumeClientSecret);
+          setState('payment');
+        } else if (d.resumeRetry) {
+          setError(
+            "Your approval stands, but we couldn't reach the payment provider just now — try again in a moment."
+          );
+          setState('error');
         } else {
           setData(d);
           setState('loaded');
@@ -153,6 +165,15 @@ export default function ApproveTopupPage() {
         <div className="max-w-md rounded-2xl border border-danger/30 bg-red-50 p-6 sm:p-7">
           <h2 className="font-newsreader text-2xl text-danger">Error</h2>
           <p className="mt-2 text-sm text-danger">{error}</p>
+          {/* R4 LANE 5A: an error is never a dead end — reload re-runs the
+              GET, which re-offers the resume door when one exists. */}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );

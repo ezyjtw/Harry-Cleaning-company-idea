@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { handleProvisionalFailure } from '@/lib/services/cascade.service';
 import { executeTopup } from '@/lib/services/topup.service';
+import stripe from '@/lib/stripe';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -125,6 +126,46 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 
+  // R4 LANE 5A (James-ruled): the resumable door. An approved-but-unpaid
+  // top-up used to strand the customer — the client secret existed only in
+  // the Approve response, and every later Approve hit the 409 until expiry.
+  // When the approval stands and a PENDING on-session record holds a
+  // PaymentIntent, this guarded READ reissues that intent's client secret:
+  // same authorisation as the rest of the GET (owner session / guest token),
+  // window still open (cascadePhase checked above), NEVER minting a new
+  // intent. A Stripe read failure reads as RETRY — never as expired.
+  let resumeClientSecret: string | undefined;
+  let resumeRetry: boolean | undefined;
+  if (booking.topupApproved && !isAdminViewer) {
+    const pending = await prisma.topupRecord.findFirst({
+      where: {
+        bookingId: booking.id,
+        status: 'PENDING',
+        paymentMethodType: 'on_session',
+        stripePaymentIntentId: { not: null },
+      },
+      orderBy: { attempt: 'desc' },
+      select: { stripePaymentIntentId: true },
+    });
+    if (pending?.stripePaymentIntentId) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(pending.stripePaymentIntentId);
+        if (
+          pi.client_secret &&
+          ['requires_payment_method', 'requires_confirmation', 'requires_action'].includes(
+            pi.status
+          )
+        ) {
+          resumeClientSecret = pi.client_secret;
+        }
+        // succeeded/processing/canceled fall through: success lands as a
+        // SUCCEEDED record via the webhook; nothing to resume here.
+      } catch {
+        resumeRetry = true;
+      }
+    }
+  }
+
   return NextResponse.json({
     bookingId: booking.id,
     originalPrice: Number(booking.totalPrice),
@@ -137,6 +178,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     date: booking.date.toISOString().split('T')[0],
     time: booking.startTime,
     readOnly: isAdminViewer,
+    resumeClientSecret,
+    resumeRetry,
   });
 }
 

@@ -543,13 +543,33 @@ export async function handleTopupPiSucceeded(piId: string, bookingId: string): P
   });
   if (!booking) return;
 
-  await writeTopupSuccess(
-    booking,
-    topupRecord,
-    piId,
-    Number(topupRecord.amount),
-    topupRecord.attempt
-  );
+  // R4 LANE 5A (James-ruled): money received but not recordable — e.g. a
+  // late payment landing after the provisional reverted (no provisional
+  // cleaner any more) — is STUCK MONEY, not silence. Mark the record
+  // UNKNOWN with the reason so the admin stuck-money page (which lists
+  // UNKNOWN top-ups) surfaces it for a manual refund/decision.
+  try {
+    await writeTopupSuccess(
+      booking,
+      topupRecord,
+      piId,
+      Number(topupRecord.amount),
+      topupRecord.attempt
+    );
+  } catch (err) {
+    await prisma.topupRecord
+      .updateMany({
+        where: { id: topupRecord.id, status: { not: 'SUCCEEDED' } },
+        data: {
+          status: 'UNKNOWN',
+          failureReason: `money-received-but-not-recorded: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        },
+      })
+      .catch(() => {});
+    throw err;
+  }
 }
 
 export async function handleTopupPiFailed(piId: string): Promise<void> {
