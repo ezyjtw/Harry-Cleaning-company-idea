@@ -388,8 +388,17 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // customer postcode — the REAL cleaner-set coverage (homePostcode → lat/lng +
   // maxTravelMinutes, filtered server-side by /api/cleaners). Skip the filter when a
   // cleaner is deep-linked via ?cleaner= so getCleanerById can still resolve them.
-  const { cleaners, getCleanerById } = useCleanersApi(preSelectedCleanerId ? undefined : postcode);
+  const {
+    cleaners,
+    getCleanerById,
+    loading: cleanersLoading,
+  } = useCleanersApi(preSelectedCleanerId ? undefined : postcode);
   const preSelectedCleaner = preSelectedCleanerId ? getCleanerById(preSelectedCleanerId) : null;
+  // Truth-before-data law: a deep-linked cleaner (?cleaner=) is UNRESOLVED —
+  // not absent — while the list loads. Guide-price / "enter your postcode"
+  // copy may not speak for them during that window.
+  const preSelectedPending =
+    Boolean(preSelectedCleanerId) && !preSelectedCleaner && cleanersLoading;
   // A12: structured booking address (captured at the cleaner phase, seeded from postcode).
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', postcode: '' });
   const [rooms, setRooms] = useState<RoomConfig>({
@@ -1867,7 +1876,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     Leave your email and we&apos;ll notify you when we launch near{' '}
                     <span className="font-normal text-ink">{postcode}</span>.
                   </p>
-                  <div className="mt-3 flex gap-2">
+                  {/* data-notify-row: inert hook for the shell skin (globals.css
+                      stacks this row in-app — the 16px in-shell input plus the
+                      button overflow the card side-by-side). Website untouched. */}
+                  <div className="mt-3 flex gap-2" data-notify-row>
                     <input
                       type="email"
                       value={waitlistEmail}
@@ -2265,7 +2277,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               ) : (
                 <>
                   <span className="font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-                    {preSelectedCleaner ? 'Your price' : 'Guide price'}
+                    {preSelectedCleaner || preSelectedPending ? 'Your price' : 'Guide price'}
                   </span>
                   {preSelectedCleaner && (
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
@@ -2274,7 +2286,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                       /hr
                     </p>
                   )}
-                  {!preSelectedCleaner && (
+                  {preSelectedPending && <div className="skeleton-pulse mt-1 h-4 w-40 rounded" />}
+                  {!preSelectedCleaner && !preSelectedPending && (
                     <p className="mt-1 font-jost font-light text-xs text-ink-3">
                       {areaQuote && areaQuote.minHourlyRate > 0
                         ? `From £${areaQuote.minHourlyRate.toFixed(2)}/hr — the lowest rate among cleaners covering your postcode`

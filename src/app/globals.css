@@ -295,6 +295,16 @@ body.rena-customer-shell.rena-cflow main button {
 body.rena-customer-shell.rena-cflow main {
   padding-bottom: 110px;
 }
+/* ROUND 4 lane 9: the out-of-area notify-me row overflows its card in-shell —
+   the 16px/48px in-shell input plus the Notify Me button don't fit side by
+   side at phone width. In-shell the row stacks (field above, full-width
+   button below, the card grammar); the website keeps its row layout. */
+body.rena-customer-shell [data-notify-row] {
+  flex-direction: column;
+}
+body.rena-customer-shell [data-notify-row] > input {
+  min-width: 0;
+}
 /* One-action-per-screen: while the sticky action bar is mounted (it sets
    cflow-bar-on on body), the page's inline primary — the bar's proxy
    target — hides, leaving the bar as the single visible door. A label-less
