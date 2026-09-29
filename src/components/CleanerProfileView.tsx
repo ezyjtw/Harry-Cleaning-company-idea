@@ -62,6 +62,9 @@ export interface CleanerProfileData {
   languages: string[];
   services: ProfileService[];
   reviews: ProfileReviewItem[];
+  /** Truth-before-data: while the reviews fetch is in flight, show a quiet
+   *  placeholder — "No reviews yet." is earned only by a loaded empty list. */
+  reviewsLoading?: boolean;
   reviewsSubtitle?: string;
   /** H28 (James-ruled): verified imported reviews, rendered as their own
    *  labelled section BENEATH the Rena reviews — never mixed in. */
@@ -311,6 +314,11 @@ export default function CleanerProfileView({
                 )}
               </div>
             ))}
+          </div>
+        ) : data.reviewsLoading ? (
+          <div className="space-y-3 py-4">
+            <div className="skeleton-pulse h-16 rounded-md" />
+            <div className="skeleton-pulse h-16 rounded-md" />
           </div>
         ) : (
           <p className="py-6 text-center font-jost text-[14px] font-light text-ink-3">

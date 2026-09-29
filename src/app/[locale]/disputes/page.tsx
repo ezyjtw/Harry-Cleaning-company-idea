@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
-import { useCustomerShell } from '@/components/app/customer';
+import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import NavLink from '@/components/nav/NavLink';
 import { DISPUTE_REASONS, getDisputeStatusLabel } from '@/lib/trust';
 import type { Dispute, DisputeReason, DisputeStatus } from '@/lib/types';
@@ -52,7 +52,9 @@ export default function DisputesPage() {
   const [filedDisputeId, setFiledDisputeId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [disputes, setDisputes] = useState<Dispute[]>([]);
-  const [_loading, setLoading] = useState(true);
+  // Truth-before-data law: the loading flag gates the empty state — "No
+  // disputes" may not show while the list is still on its way.
+  const [loading, setLoading] = useState(true);
 
   const fileIdRef = useRef(0);
   const addMoreInputRef = useRef<HTMLInputElement | null>(null);
@@ -259,8 +261,10 @@ export default function DisputesPage() {
           {/* H26: this page sits OUTSIDE the portal/account chrome — the
               sidebar that brought a cleaner here vanishes on arrival. Same
               role-aware way home the messages page has. */}
-          {/* In-shell the tab bar is the way home — the back link is website
-              furniture (quiet-rooms dress). */}
+          {/* R4 lane 1 (supersedes the quiet-rooms omission): in-shell this
+              room is reached from a tracker or My Cleans card — it carries
+              the standing back link; the tab bar is not a way back. */}
+          {inShell && <CustomerBackLink />}
           {role && !inShell && (
             <NavLink
               surface="disputes-back"
@@ -550,7 +554,12 @@ export default function DisputesPage() {
       {/* ─── Dispute List ─── */}
       {activeView === 'list' && (
         <div className="mt-8 space-y-4">
-          {disputes.length === 0 && !submitted ? (
+          {loading && disputes.length === 0 ? (
+            <div className="space-y-3">
+              <div className="skeleton-pulse h-20 rounded-[10px]" />
+              <div className="skeleton-pulse h-20 rounded-[10px]" />
+            </div>
+          ) : disputes.length === 0 && !submitted ? (
             <div className="rounded-[10px] bg-page p-8 text-center">
               <p className="text-ink-3">No disputes. That&apos;s great!</p>
             </div>
