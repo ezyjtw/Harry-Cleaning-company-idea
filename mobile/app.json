@@ -3,7 +3,7 @@
     "name": "Rena Pro",
     "slug": "rena-pro",
     "owner": "harryw84",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "renapro",
@@ -37,8 +37,10 @@
       "package": "uk.co.renacleaning.pro",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FAFBFC"
-      }
+        "backgroundColor": "#EBEBEB"
+      },
+      "permissions": ["android.permission.CAMERA"],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-secure-store",
