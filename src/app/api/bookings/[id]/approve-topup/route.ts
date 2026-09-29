@@ -78,6 +78,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       approvalExpiresAt: true,
       cascadePhase: true,
       topupApproved: true,
+      provisionalSource: true,
       serviceType: true,
       date: true,
       startTime: true,
@@ -178,6 +179,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     date: booking.date.toISOString().split('T')[0],
     time: booking.startTime,
     readOnly: isAdminViewer,
+    provisionalSource: booking.provisionalSource,
     resumeClientSecret,
     resumeRetry,
   });

@@ -20,6 +20,8 @@ interface TopupData {
   time: string;
   /** H57: admin sessions see the panel read-only — approval is the customer's. */
   readOnly?: boolean;
+  /** R4 LANE 5B: an admin price adjust keeps the cleaner — the copy says so. */
+  provisionalSource?: string | null;
 }
 
 type PageState =
@@ -196,8 +198,9 @@ export default function ApproveTopupPage() {
           </div>
           <h2 className="font-newsreader text-2xl text-ink">Payment Confirmed</h2>
           <p className="mt-2 text-sm text-ink-2">
-            Your booking has been confirmed with the new cleaner at &pound;
-            {data?.newPrice?.toFixed(2)}.
+            {data?.provisionalSource === 'ADMIN_PRICE_ADJUST'
+              ? `Your booking is confirmed at the new price of £${data?.newPrice?.toFixed(2)} — same cleaner, same time.`
+              : `Your booking has been confirmed with the new cleaner at £${data?.newPrice?.toFixed(2)}.`}
           </p>
         </div>
       </div>
@@ -254,8 +257,9 @@ export default function ApproveTopupPage() {
         <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
           <h2 className="font-newsreader text-2xl text-ink">Declined</h2>
           <p className="mt-2 text-sm text-ink-2">
-            You&apos;ve declined the price change. We&apos;ll continue looking for a cleaner at your
-            original price.
+            {data?.provisionalSource === 'ADMIN_PRICE_ADJUST'
+              ? 'You’ve declined the price change — nothing was charged. Your booking is unchanged: same cleaner, same time, original price.'
+              : 'You’ve declined the price change. We’ll continue looking for a cleaner at your original price.'}
           </p>
         </div>
       </div>
@@ -311,7 +315,9 @@ export default function ApproveTopupPage() {
         )}
         <h2 className="mb-4 font-newsreader text-2xl text-ink">Price Change Approval</h2>
         <p className="mb-4 text-sm text-ink-2">
-          Your original cleaner was unavailable. A backup cleaner is available at a different rate.
+          {data.provisionalSource === 'ADMIN_PRICE_ADJUST'
+            ? 'We need to adjust the price of this booking. Your cleaner and time stay exactly as they are — only the price changes, and only if you approve.'
+            : 'Your original cleaner was unavailable. A backup cleaner is available at a different rate.'}
         </p>
 
         <div className="mb-4 space-y-2 rounded-xl bg-primary-soft p-4">

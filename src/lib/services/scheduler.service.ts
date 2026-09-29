@@ -33,6 +33,7 @@ export interface SchedulerSummary {
   arrangementTimeouts: HandlerResult;
   incompleteSignups: HandlerResult;
   paymentRecoveryEmails: HandlerResult;
+  topupCardReminders: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -102,6 +103,52 @@ async function processPaymentRecoveryEmails(): Promise<HandlerResult> {
     console.log(
       `[recovery] pre-reap email for unpaid booking ${b.id} — ${sent ? 'sent' : 'NOT sent'}`
     );
+    processed++;
+  }
+  return { processed };
+}
+
+// R4 LANE 5B (James-ruled): ONE reminder per approved-but-unpaid top-up.
+// While a card is still needed (approval stands, a PENDING on-session record
+// exists, the window is still open with headroom), the customer gets a single
+// nudge once the situation is 30+ minutes old. Same atomic-sentinel dedupe as
+// the recovery email: the claim (topupReminderSentAt null → now) wins or the
+// tick skips.
+const TOPUP_REMINDER_MIN_AGE_MS = 30 * 60 * 1000;
+const TOPUP_REMINDER_MIN_HEADROOM_MS = 30 * 60 * 1000;
+
+async function processTopupCardReminders(): Promise<HandlerResult> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const now = Date.now();
+  const candidates = await prisma.booking.findMany({
+    where: {
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      topupApproved: true,
+      topupReminderSentAt: null,
+      approvalExpiresAt: { gt: new Date(now + TOPUP_REMINDER_MIN_HEADROOM_MS) },
+      topupRecords: {
+        some: {
+          status: 'PENDING',
+          paymentMethodType: 'on_session',
+          createdAt: { lt: new Date(now - TOPUP_REMINDER_MIN_AGE_MS) },
+        },
+      },
+    },
+    select: { id: true },
+    take: 20,
+  });
+
+  let processed = 0;
+  for (const b of candidates) {
+    const claimed = await prisma.booking.updateMany({
+      where: { id: b.id, topupReminderSentAt: null, cascadePhase: 'PROVISIONAL_APPROVAL' },
+      data: { topupReminderSentAt: new Date() },
+    });
+    if (claimed.count === 0) continue;
+    const { sendTopupCardReminder } = await import('./email.service');
+    const sent = await sendTopupCardReminder(b.id).catch(() => false);
+    // eslint-disable-next-line no-console
+    console.log(`[topup-reminder] card-needed nudge for ${b.id} — ${sent ? 'sent' : 'NOT sent'}`);
     processed++;
   }
   return { processed };
@@ -499,6 +546,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const arrangementTimeouts = await processArrangementTimeouts();
   const incompleteSignups = await processIncompleteSignups();
   const paymentRecoveryEmails = await processPaymentRecoveryEmails();
+  const topupCardReminders = await processTopupCardReminders();
 
   return {
     timestamp: new Date().toISOString(),
@@ -519,5 +567,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     arrangementTimeouts,
     incompleteSignups,
     paymentRecoveryEmails,
+    topupCardReminders,
   };
 }

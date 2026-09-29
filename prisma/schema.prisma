@@ -553,6 +553,9 @@ model Booking {
   // Recovery Lane B row 7 (James-ruled): the one pre-reap recovery email —
   // set atomically when sent, so a booking is nudged at most once.
   recoveryEmailSentAt   DateTime?
+  // R4 LANE 5B (James-ruled): the one card-still-needed top-up reminder —
+  // same atomic-sentinel pattern, at most one nudge per adjustment.
+  topupReminderSentAt   DateTime?
 
   // A16b-1: client-supplied idempotency key for booking+payment creation. A
   // double-click / retry replays the same booking + PaymentIntent instead of

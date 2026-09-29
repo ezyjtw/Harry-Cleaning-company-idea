@@ -14,6 +14,15 @@
 import { suppliesLabel } from '@/lib/booking/supplies';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
+// R4 LANE 5B: admin-typed text travels into customer email HTML — escape it.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // Absolute, production URLs (emails can't rely on relative paths or next/font).
 const SITE_URL = 'https://www.renacleaning.co.uk';
 // RENA wordmark rendered from the site's Etna brand font (scripts/generate-wordmark).
@@ -1184,6 +1193,11 @@ export function buildTopupApprovalRequest(data: {
   topupAmount: number;
   expiresAt: Date;
   guestToken?: string | null; // F5: guests approve via their capability token
+  // R4 LANE 5B (James-ruled): the copy tells the TRUE story per source. An
+  // admin price adjust changes no cleaner — narrating the cleaner-swap story
+  // there was a lie. The admin's typed reason travels to the customer.
+  provisionalSource?: 'ADMIN_PRICE_ADJUST' | 'ADMIN_REASSIGN' | 'CASCADE' | null;
+  adminReason?: string | null;
 }): EmailContent {
   // Path fix: the approval page lives at /booking/[id]/approve-topup — the old
   // link ("/en/bookings/…") 404'd for every registered customer.
@@ -1194,13 +1208,18 @@ export function buildTopupApprovalRequest(data: {
     1,
     Math.round((data.expiresAt.getTime() - Date.now()) / (60 * 60 * 1000))
   );
+  const isAdjust = data.provisionalSource === 'ADMIN_PRICE_ADJUST';
   const subject = `Action needed: price change for your booking`;
   const contentHtml =
     h('Your booking price has changed') +
     p(`Hi ${data.customerName},`) +
-    p(
-      'Your original cleaner was unavailable, and a backup cleaner has been offered your booking at a different rate.'
-    ) +
+    (isAdjust
+      ? p(
+          'We need to adjust the price of your booking. Your cleaner and your booking stay exactly as they are — only the price changes, and only if you approve.'
+        ) + (data.adminReason ? p(`Reason: ${escapeHtml(data.adminReason)}`) : '')
+      : p(
+          'Your original cleaner was unavailable, and a backup cleaner has been offered your booking at a different rate.'
+        )) +
     infoBlock([
       ['Original price', `&pound;${data.originalPrice.toFixed(2)}`],
       ['New price', `&pound;${data.newPrice.toFixed(2)}`],
@@ -1210,9 +1229,73 @@ export function buildTopupApprovalRequest(data: {
       `You have approximately <strong>${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}</strong> to approve or decline.`
     ) +
     button(approvalLink, 'Review &amp; Approve') +
+    (isAdjust
+      ? p("If you don't respond in time, your booking simply stands at its original price.")
+      : p(
+          "If you don't respond in time, we'll continue looking for another cleaner at your original price."
+        )) +
+    p('Thank you,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R4 LANE 5B: the one card-still-needed reminder — sent by the scheduler
+// while an APPROVED top-up sits unpaid for want of card details.
+export function buildTopupCardReminder(data: {
+  bookingId: string;
+  customerName: string;
+  topupAmount: number;
+  expiresAt: Date;
+  guestToken?: string | null;
+}): EmailContent {
+  const link = data.guestToken
+    ? `${appUrl()}/booking/${data.bookingId}/approve-topup?token=${encodeURIComponent(data.guestToken)}`
+    : `${appUrl()}/booking/${data.bookingId}/approve-topup`;
+  const hoursLeft = Math.max(
+    1,
+    Math.round((data.expiresAt.getTime() - Date.now()) / (60 * 60 * 1000))
+  );
+  const subject = 'Reminder: card details needed to finish your price change';
+  const contentHtml =
+    h('Almost there — card details needed') +
+    p(`Hi ${data.customerName},`) +
     p(
-      "If you don't respond in time, we'll continue looking for another cleaner at your original price."
+      `You approved the price change for your booking, but the extra &pound;${data.topupAmount.toFixed(2)} hasn&rsquo;t been charged yet — we still need your card details to finish it.`
     ) +
+    p(
+      `You have approximately <strong>${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}</strong> before the change lapses and the booking stands at its original price.`
+    ) +
+    button(link, 'Finish Payment') +
+    p('Thank you,<br/>The Rena Team');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R4 LANE 5B: the revert/expiry email — the leg that used to be a silent
+// bell row. One template, honest per source and per ending.
+export function buildTopupRevertNotice(data: {
+  bookingId: string;
+  customerName: string;
+  declined: boolean; // false = window expired
+  isAdjust: boolean; // ADMIN_PRICE_ADJUST vs reassign/cascade
+}): EmailContent {
+  const subject = data.declined
+    ? 'Price change declined — your booking is unchanged'
+    : 'Price change expired — your booking is unchanged';
+  const trackerLink = `${appUrl()}/booking/${data.bookingId}`;
+  const contentHtml =
+    h(data.declined ? 'Price change declined' : 'Price change expired') +
+    p(`Hi ${data.customerName},`) +
+    (data.isAdjust
+      ? p(
+          data.declined
+            ? 'You declined the proposed price change, so nothing was charged. Your booking goes ahead exactly as before — same cleaner, same time, original price.'
+            : 'The window to approve the proposed price change has passed, so nothing was charged. Your booking goes ahead exactly as before — same cleaner, same time, original price.'
+        )
+      : p(
+          data.declined
+            ? 'You declined the proposed change, so nothing was charged. We&rsquo;re continuing to look for a cleaner at your original price.'
+            : 'The window to approve the proposed change has passed, so nothing was charged. We&rsquo;re continuing to look for a cleaner at your original price.'
+        )) +
+    button(trackerLink, 'View Your Booking') +
     p('Thank you,<br/>The Rena Team');
   return { subject, html: renderEmail({ contentHtml }) };
 }

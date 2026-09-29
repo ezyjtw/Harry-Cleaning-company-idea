@@ -1341,7 +1341,7 @@ function AdjustPricePanel({ booking }: { booking: BookingDetail }) {
       }
       setResult({
         ok: true,
-        message: `Approval request sent for +£${Number(amount).toFixed(2)}. The booking completes at the new price when the customer approves; on decline or expiry it reverts unchanged.`,
+        message: `Approval request sent for +£${Number(amount).toFixed(2)}. If the customer has a saved card, approving completes it; otherwise they must also enter card details after approving. On decline or expiry it reverts unchanged.`,
       });
       setAmount('');
       setReason('');
