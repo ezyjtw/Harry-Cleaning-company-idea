@@ -797,9 +797,20 @@ function ShellScreen({
   onBridged: () => void;
   onSessionLost: () => void;
 }) {
+  // Cross-tab deep links: when the tapped link carries a query or hash beyond
+  // the bare tab root (the Home review card's ?review=<id>), hand the full URL
+  // to the target pane. A plain tab-root link keeps the old behaviour — switch
+  // only, preserving the target pane's state and scroll.
+  const [forwards, setForwards] = useState<Record<string, { url: string; seq: number }>>({});
+  const forwardCount = useRef(0);
   const selectTab = useCallback(
-    (k: string) => {
+    (k: string, url?: string) => {
       fireHaptic('light');
+      if (url && /[?#]/.test(url)) {
+        forwardCount.current += 1;
+        const seq = forwardCount.current;
+        setForwards((f) => ({ ...f, [k]: { url, seq } }));
+      }
       setActiveTab(k);
     },
     [setActiveTab]
@@ -823,6 +834,7 @@ function ShellScreen({
                 onBridged={tab.key === 'home' ? onBridged : undefined}
                 tabKey={tab.key}
                 onCrossTab={selectTab}
+                forwardNav={forwards[tab.key]}
               />
             </TabPane>
           );
@@ -886,6 +898,7 @@ function SeamlessWebView({
   onBridged,
   tabKey,
   onCrossTab,
+  forwardNav,
   loaderTone = 'light',
 }: {
   uri: string;
@@ -895,7 +908,12 @@ function SeamlessWebView({
   /** Which tab this pane belongs to — enables the cross-tab nav intercept. */
   tabKey?: string;
   /** Called with the target tab key when an in-page link hits another tab's root. */
-  onCrossTab?: (key: string) => void;
+  onCrossTab?: (key: string, url?: string) => void;
+  /** Deep-link forwarding: when a cross-tab link carries a query/hash (e.g.
+   *  ?review=<id> from the Home review card), the URL is handed to THIS pane
+   *  so the payload survives the tab switch — the old path switched tabs and
+   *  threw the URL away. seq bumps per forward so repeat links re-fire. */
+  forwardNav?: { url: string; seq: number };
   loaderTone?: 'light' | 'navy';
 }) {
   const [offline, setOffline] = useState(false);
@@ -916,6 +934,18 @@ function SeamlessWebView({
     }
   }, [loaded, fade]);
 
+  // Forwarded cross-tab navigation: a full document load (not pushState), so
+  // the landing page mounts fresh and reads its params — the review sheet's
+  // mount effect depends on that.
+  const forwardSeq = forwardNav?.seq ?? 0;
+  const forwardUrl = forwardNav?.url;
+  useEffect(() => {
+    if (forwardSeq > 0 && forwardUrl) {
+      ref.current?.injectJavaScript(`window.location.href=${JSON.stringify(forwardUrl)}; true;`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forwardSeq]);
+
   // If the web session expires, the site redirects to /login — bounce back to
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
@@ -928,7 +958,7 @@ function SeamlessWebView({
     if (tabKey && onCrossTab) {
       const target = tabRootKey(nav.url);
       if (target && target !== tabKey) {
-        onCrossTab(target);
+        onCrossTab(target, nav.url);
         ref.current?.injectJavaScript('window.history.back(); true;');
         return;
       }
@@ -1022,7 +1052,7 @@ function SeamlessWebView({
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
             if (target && target !== tabKey) {
-              onCrossTab(target);
+              onCrossTab(target, req.url);
               return false;
             }
           }
