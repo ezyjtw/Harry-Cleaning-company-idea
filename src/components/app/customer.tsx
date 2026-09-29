@@ -305,13 +305,45 @@ export function CustomerBackLink({ href, label = 'Back' }: { href?: string; labe
   );
 }
 
-// ─── Bell: quiet door to notifications (no customer badge endpoint yet) ──────
+// ─── Bell: the notifications feed door, with the live unread dot ─────────────
+// R4 lane-6 follow-on (James-ruled): repointed from the preferences panel to
+// /notifications (the history feed), and wired to the same envelope Pro's
+// InboxBell reads — unreadCount from /api/notifications, refetched on focus
+// and visibility. The dot clears the way Pro's does: rows mark read on tap
+// (or Mark All Read), and the next refetch drops the dot.
 export function CustomerBell() {
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/notifications?limit=1');
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (alive && typeof data?.unreadCount === 'number') setUnread(data.unreadCount);
+      } catch {
+        /* fail-soft — the bell still opens the feed */
+      }
+    };
+    check();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', check);
+    return () => {
+      alive = false;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', check);
+    };
+  }, []);
+
   return (
     <Link
-      href="/account/notifications"
-      aria-label="Notifications"
-      className="shrink-0 rounded-full border border-line bg-surface p-2 text-ink-2 active:bg-page"
+      href="/notifications"
+      aria-label={unread > 0 ? `Notifications — ${unread} unread` : 'Notifications'}
+      className="relative shrink-0 rounded-full border border-line bg-surface p-2 text-ink-2 active:bg-page"
     >
       <svg
         className="h-5 w-5"
@@ -326,6 +358,12 @@ export function CustomerBell() {
           d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
         />
       </svg>
+      {unread > 0 && (
+        <span
+          data-testid="customer-bell-dot"
+          className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface"
+        />
+      )}
     </Link>
   );
 }
