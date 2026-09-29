@@ -25,6 +25,8 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
+import { meaningfulPayload, tabRootKey } from './nav';
+
 // The customer mark: the white RENA wordmark extracted from the confirmed
 // icon source (public/rena-logo.png) onto a transparent ground. White by
 // nature — on the app's light surfaces it renders navy via tintColor, on the
@@ -115,23 +117,8 @@ const TABS = [
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'signup' | 'forgot' | 'wrongApp' | 'shell';
 
-// ─── Cross-tab nav fix (carried from Pro): an in-page link to a TAB-ROOT route
-// must switch the native tab, never navigate inside the current tab's WebView.
-// Matches ONLY the five tab roots — deeper routes (/account/settings,
-// /cleaners/abc, /booking/xyz) stay in-pane by design. Regex, not new URL():
-// RN's URL polyfill is unreliable. /account/bookings is matched before the
-// bare /account so My Cleans doesn't read as Home.
-function tabRootKey(url: string): string | null {
-  const m = url.match(
-    /^https?:\/\/[^/]+\/(?:en\/)?(?:(account\/bookings)|(app\/home)|(app\/book)|(cleaners)|(messages))\/?(?:[?#].*)?$/
-  );
-  if (!m) return null;
-  if (m[1]) return 'mycleans';
-  if (m[2]) return 'home';
-  if (m[3]) return 'book';
-  if (m[4]) return 'cleaners';
-  return 'messages';
-}
+// Cross-tab nav judgment (tabRootKey + meaningfulPayload) lives in ./nav.ts —
+// pure functions the rig's judgment-table drive imports and proves directly.
 
 // How an arriving notification presents if the app is foregrounded — set once
 // at module scope per expo-notifications docs. Inert until activation.
@@ -856,13 +843,30 @@ function ShellScreen({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extSeq]);
+  // R5 storm fix: onNavigationStateChange can report the same navigation
+  // several times, and each report used to mint a fresh forward — a fresh
+  // full page load in the target pane. One tap now forwards once: identical
+  // key+url pairs inside a short window collapse into the first.
+  const lastForward = useRef<{ key: string; url: string; at: number } | null>(null);
   const selectTab = useCallback(
     (k: string, url?: string) => {
       fireHaptic('light');
-      if (url && /[?#]/.test(url)) {
-        forwardCount.current += 1;
-        const seq = forwardCount.current;
-        setForwards((f) => ({ ...f, [k]: { url, seq } }));
+      // R5 storm fix: forward ONLY a genuinely meaningful payload (non-empty
+      // query or hash). A bare tab root — or a stray '?' / '#' — switches
+      // silently, zero page loads, the pre-R4 grammar.
+      if (url && meaningfulPayload(url)) {
+        const now = Date.now();
+        const dup =
+          lastForward.current &&
+          lastForward.current.key === k &&
+          lastForward.current.url === url &&
+          now - lastForward.current.at < 1500;
+        if (!dup) {
+          lastForward.current = { key: k, url, at: now };
+          forwardCount.current += 1;
+          const seq = forwardCount.current;
+          setForwards((f) => ({ ...f, [k]: { url, seq } }));
+        }
       }
       setActiveTab(k);
     },
@@ -944,6 +948,35 @@ const SEAM_KILL_JS = `
   true;
 `;
 
+// R5 veil (James-ruled, option b withdrawn — zero website bytes): the shell's
+// OWN injected observer decides when a page is GENUINELY dressed. Signal:
+// window load fired AND the DOM has been structurally quiet for 250ms — the
+// in-shell variant swap that hydration performs is a burst of childList
+// mutations, so quiet-after-load means the page wears its shell clothes.
+// The shell drops the veil on this message; a 6s long-stop (native side)
+// guarantees a broken page can never trap it.
+const DRESSED_JS = `
+  (function(){
+    var sent=false;
+    function send(){
+      if(sent)return; sent=true;
+      try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
+    }
+    function watch(){
+      var idle=setTimeout(send,250);
+      try{
+        var mo=new MutationObserver(function(){
+          if(sent){mo.disconnect();return;}
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
+        });
+        mo.observe(document.documentElement,{childList:true,subtree:true});
+      }catch(e){ send(); }
+    }
+    if(document.readyState==='complete'){ watch(); }
+    else{ window.addEventListener('load',watch); }
+  })(); true;
+`;
+
 function SeamlessWebView({
   uri,
   injectBefore,
@@ -974,6 +1007,33 @@ function SeamlessWebView({
   const [loaded, setLoaded] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
   const ref = useRef<WebView>(null);
+  // R5 storm fix: one cross-tab detection per actual navigation. The nav
+  // events replay the same URL several times; without this, every replay
+  // re-fired the tab switch AND injected another history.back() — the extra
+  // backs walked Home past its route onto the spent session-bridge (401).
+  const lastCrossTab = useRef<{ url: string; at: number } | null>(null);
+  const crossTabDup = (url: string) => {
+    const now = Date.now();
+    if (
+      lastCrossTab.current &&
+      lastCrossTab.current.url === url &&
+      now - lastCrossTab.current.at < 1500
+    ) {
+      return true;
+    }
+    lastCrossTab.current = { url, at: now };
+    return false;
+  };
+  // R5 veil: the forwarded URL loads via the source prop (deterministic —
+  // survives WebView content-process recycling, which silently swallowed the
+  // old injectJavaScript delivery and cost the review card its landing).
+  const [overrideUri, setOverrideUri] = useState<string | null>(null);
+  // Long-stop so a broken page can never trap the veil.
+  const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // R5 veil (James-ruled): shell panes wear the branded navy veil — full
+  // #16296B ground, the Rena mark centred (white by nature on navy). The
+  // pre-shell auth screens keep their light loader; they are not panes.
+  const veilNavy = !!tabKey || loaderTone === 'navy';
   // Cold-start false-alarm fix (carried from Pro): a single onError never
   // declares offline — up to two silent retries run behind the loader
   // (0.6s / 1.2s back-off); only a third consecutive failure shows the
@@ -987,17 +1047,31 @@ function SeamlessWebView({
     }
   }, [loaded, fade]);
 
+  useEffect(
+    () => () => {
+      if (longStop.current) clearTimeout(longStop.current);
+    },
+    []
+  );
+
   // Forwarded cross-tab navigation: a full document load (not pushState), so
   // the landing page mounts fresh and reads its params — the review sheet's
-  // mount effect depends on that. R4 lane 7 (a2): the pane's loader veils the
-  // forwarded load, so the website-clothes hydration gap never shows.
+  // mount effect depends on that. R5: delivered through the source prop, not
+  // injectJavaScript — the injected form was fire-and-forget into a pane
+  // whose content process iOS may have reclaimed, and the forward was lost.
   const forwardSeq = forwardNav?.seq ?? 0;
   const forwardUrl = forwardNav?.url;
   useEffect(() => {
     if (forwardSeq > 0 && forwardUrl) {
       setLoaded(false);
       fade.setValue(1);
-      ref.current?.injectJavaScript(`window.location.href=${JSON.stringify(forwardUrl)}; true;`);
+      if (overrideUri === forwardUrl) {
+        // Same URL forwarded again later (repeat review tap): source prop
+        // wouldn't change, so reload to re-mount the landing page.
+        ref.current?.reload();
+      } else {
+        setOverrideUri(forwardUrl);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forwardSeq]);
@@ -1010,12 +1084,16 @@ function SeamlessWebView({
     }
     // Cross-tab nav fix: SPA pushState navigations can't be cancelled by
     // onShouldStartLoadWithRequest — when one lands on another tab's root,
-    // switch the native tab and step this pane's history back to its own route.
+    // switch the native tab and step this pane's history back to its own
+    // route. R5: deduped — nav events replay, and each replay used to inject
+    // another history.back(), walking Home onto the spent bridge (401).
     if (tabKey && onCrossTab) {
       const target = tabRootKey(nav.url);
       if (target && target !== tabKey) {
-        onCrossTab(target, nav.url);
-        ref.current?.injectJavaScript('window.history.back(); true;');
+        if (!crossTabDup(nav.url)) {
+          onCrossTab(target, nav.url);
+          ref.current?.injectJavaScript('window.history.back(); true;');
+        }
         return;
       }
     }
@@ -1036,6 +1114,14 @@ function SeamlessWebView({
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
+      // R5 veil: the page says it is genuinely dressed — reveal clean.
+      if (msg?.type === 'dressed' && !retryPending.current) {
+        if (longStop.current) {
+          clearTimeout(longStop.current);
+          longStop.current = null;
+        }
+        setLoaded(true);
+      }
     } catch {
       /* ignore non-JSON messages */
     }
@@ -1094,7 +1180,7 @@ function SeamlessWebView({
     <View style={styles.flex}>
       <WebView
         ref={ref}
-        source={{ uri, headers: SHELL_HEADER }}
+        source={{ uri: overrideUri ?? uri, headers: SHELL_HEADER }}
         applicationNameForUserAgent={UA_SUFFIX}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
@@ -1103,12 +1189,12 @@ function SeamlessWebView({
         decelerationRate="normal"
         allowsBackForwardNavigationGestures
         allowsLinkPreview={false}
-        injectedJavaScriptBeforeContentLoaded={injectBefore}
+        injectedJavaScriptBeforeContentLoaded={injectBefore + DRESSED_JS}
         onShouldStartLoadWithRequest={(req) => {
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
             if (target && target !== tabKey) {
-              onCrossTab(target, req.url);
+              if (!crossTabDup(req.url)) onCrossTab(target, req.url);
               return false;
             }
           }
@@ -1117,13 +1203,17 @@ function SeamlessWebView({
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
-          if (retryPending.current) return; // silent retry in flight — keep the loader up
+          if (retryPending.current) return; // silent retry in flight — keep the veil up
           retryBudget.current = 0; // real load landed — reset the silent-retry budget
-          // R4 lane 7 (a2): hold the loader a short grace past load-end so
-          // React hydration (the in-shell page-variant swap) settles behind
-          // the veil. A true "dressed" signal would need web-side bytes; this
-          // approximation is disclosed in the gate.
-          setTimeout(() => setLoaded(true), 300);
+          // R5 veil: no fixed-duration guess (the 300ms grace is dead). The
+          // veil holds until the injected observer posts 'dressed'; this
+          // long-stop is only the trap-proofing for a page whose JS never
+          // settles or never runs.
+          if (longStop.current) clearTimeout(longStop.current);
+          longStop.current = setTimeout(() => {
+            longStop.current = null;
+            setLoaded(true);
+          }, 6000);
         }}
         onError={() => {
           if (retryBudget.current < 2) {
@@ -1147,26 +1237,20 @@ function SeamlessWebView({
             setServerError(true);
           }
         }}
-        style={[styles.flex, { backgroundColor: loaderTone === 'navy' ? INK : PAGE }]}
+        style={[styles.flex, { backgroundColor: veilNavy ? INK : PAGE }]}
       />
       {!loaded && (
         <Animated.View
-          style={[
-            styles.webLoader,
-            { opacity: fade, backgroundColor: loaderTone === 'navy' ? INK : PAGE },
-          ]}
+          style={[styles.webLoader, { opacity: fade, backgroundColor: veilNavy ? INK : PAGE }]}
           pointerEvents="none"
         >
           <Image
             source={logoLockup}
             style={styles.loaderWordmark}
             resizeMode="contain"
-            tintColor={loaderTone === 'navy' ? undefined : INK}
+            tintColor={veilNavy ? undefined : INK}
           />
-          <ActivityIndicator
-            color={loaderTone === 'navy' ? '#fff' : INK}
-            style={{ marginTop: 18 }}
-          />
+          <ActivityIndicator color={veilNavy ? '#fff' : INK} style={{ marginTop: 18 }} />
         </Animated.View>
       )}
     </View>

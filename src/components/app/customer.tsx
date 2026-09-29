@@ -316,7 +316,14 @@ export function CustomerBell() {
 
   useEffect(() => {
     let alive = true;
+    // R5 storm fix: rapid native tab switching fires visibilitychange AND
+    // focus on every pane-show — each used to refetch. One refetch per 15s
+    // window per pane is plenty for a dot; the storm cost drops to noise.
+    let lastCheck = 0;
     const check = async () => {
+      const now = Date.now();
+      if (now - lastCheck < 15000) return;
+      lastCheck = now;
       try {
         const res = await fetch('/api/notifications?limit=1');
         if (!res.ok) return;
