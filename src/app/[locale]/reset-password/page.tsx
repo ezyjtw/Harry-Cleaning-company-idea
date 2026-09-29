@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { Suspense, useState } from 'react';
 
 // H71: the page the reset email has ALWAYS linked to — it never existed, so
@@ -41,6 +42,13 @@ function ResetPasswordForm() {
         setError(data.error || 'Something went wrong. Please try again.');
         return;
       }
+      // The reset stamps passwordChangedAt, which kills every session issued
+      // before it — including THIS browser's, if it held one. Left in place,
+      // that stale cookie still reads as "authenticated" to the middleware,
+      // which bounces the Sign In door away from /login and straight into a
+      // dashboard whose data calls all 401 (the field incident). Clear it
+      // here so the success card's door genuinely lands on the login form.
+      await signOut({ redirect: false }).catch(() => {});
       setDone(true);
     } catch {
       setError('Something went wrong. Please try again.');

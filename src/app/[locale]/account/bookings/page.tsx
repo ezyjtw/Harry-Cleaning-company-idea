@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import {
@@ -490,7 +491,17 @@ export default function BookingsPage() {
       // H57: pending price-change approvals are pinned exactly like rescues —
       // pagination-immune, surfaced first.
       fetch('/api/bookings?approval=pending').then((res) => (res.ok ? res.json() : { data: [] })),
-      fetch('/api/bookings').then((res) => (res.ok ? res.json() : { bookings: [] })),
+      fetch('/api/bookings').then(async (res) => {
+        // Server-dead session (401): the stale cookie still bounces a plain
+        // /login route back here via the middleware — clear it first, then
+        // land on the login form with a way back. Same belt as the dashboard.
+        if (res.status === 401) {
+          await signOut({ redirect: false }).catch(() => {});
+          window.location.assign('/login?callbackUrl=/account/bookings');
+          return { bookings: [] };
+        }
+        return res.ok ? res.json() : { bookings: [] };
+      }),
       wanted
         ? fetch(`/api/bookings/${encodeURIComponent(wanted)}`).then((res) =>
             res.ok ? res.json() : null
