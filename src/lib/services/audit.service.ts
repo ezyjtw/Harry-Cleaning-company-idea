@@ -84,6 +84,9 @@ export type AuditAction =
   | 'PRICE_TAMPERING_SUSPECTED'
   // Price reconciliation (A5.3)
   | 'TOPUP_SUCCEEDED'
+  // R4 LANE 5A: a revert tried to cancel the on-session top-up PaymentIntent
+  // at Stripe and could not — loud trail for the stuck-money sweep.
+  | 'TOPUP_PI_CANCEL_FAILED'
   // Stuck-money recovery
   | 'ADMIN_RETRY_STUCK_REFUND'
   // Admin testing tools (Stage 2)

@@ -17,6 +17,7 @@ import {
 } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import { getReviewCounts } from '@/lib/services/rating.service';
+import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
 import { BookingReminderService } from './booking-reminder.service';
@@ -1475,6 +1476,41 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
     },
   });
   if (res.count === 0) return false;
+
+  // R4 LANE 5A (James-ruled): the fence extends to top-ups — cancel the
+  // on-session PaymentIntent at Stripe BEFORE the record sweep (cancel-first
+  // discipline), so a late card entry from an open tab can never charge
+  // against a booking that no longer carries the adjustment. Fail-soft LOUD:
+  // a failed cancel never blocks the revert, but every failure is audited
+  // (a PI that already succeeded throws here — the webhook race owns that
+  // path and the audit row records it happened).
+  const cancellable = await prisma.topupRecord.findMany({
+    where: {
+      bookingId,
+      status: { in: ['PENDING', 'UNKNOWN'] },
+      paymentMethodType: 'on_session',
+      stripePaymentIntentId: { not: null },
+    },
+    select: { id: true, stripePaymentIntentId: true },
+  });
+  for (const rec of cancellable) {
+    try {
+      await stripe.paymentIntents.cancel(rec.stripePaymentIntentId as string, {
+        cancellation_reason: 'abandoned',
+      });
+    } catch (err) {
+      await AuditService.log({
+        action: 'TOPUP_PI_CANCEL_FAILED',
+        entityType: 'TopupRecord',
+        entityId: rec.id,
+        metadata: {
+          bookingId,
+          paymentIntentId: rec.stripePaymentIntentId,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      }).catch(() => {});
+    }
+  }
 
   await prisma.topupRecord
     .updateMany({
