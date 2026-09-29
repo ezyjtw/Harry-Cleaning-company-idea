@@ -14,7 +14,12 @@
 import type { PricingServiceSlug } from '@/lib/constants/services';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 
-import { addToReserve, atomicAccept, atomicProvisionalAccept } from './cascade.service';
+import {
+  addToReserve,
+  atomicAccept,
+  atomicProvisionalAccept,
+  notifyTopupApprovalRequested,
+} from './cascade.service';
 import { sendTopupApprovalRequest } from './email.service';
 import { computeMoneySnapshot } from './money-snapshot.service';
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
@@ -204,6 +209,9 @@ export async function acceptWithReconciliation(
     topupAmount,
     expiresAt: provResult.approvalExpiresAt ?? new Date(Date.now() + 12 * 60 * 60 * 1000),
   }).catch(() => {});
+  // R4 LANE 5B: this entry path sent the email but never the bell row —
+  // registered customers now get the same in-app nudge the admin paths send.
+  await notifyTopupApprovalRequested(bookingId, topupAmount).catch(() => {});
 
   return { outcome: 'PROVISIONAL' };
 }

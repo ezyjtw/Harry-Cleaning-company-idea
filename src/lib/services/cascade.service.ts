@@ -29,6 +29,7 @@ import {
   sendCleanerJobAccepted,
   sendRenaFindConcierge,
   sendTopupApprovalRequest,
+  sendTopupRevertNotice,
 } from './email.service';
 import { EnhancedNotificationService } from './enhanced-notification.service';
 import { MatchingService } from './matching.service';
@@ -1374,6 +1375,18 @@ export async function enterAdminPriceAdjust(args: {
   const provisionalPrice = Math.round((originalPrice + delta) * 100) / 100;
   const approvalExpiresAt = computePhase2Window(new Date(), booking.date, booking.startTime);
 
+  // R4 LANE 5B (James-ruled): refuse born-dead windows. When the slot is
+  // already inside its 24-hour guard, the window computes in the past — the
+  // old path created the adjust anyway, emailed "approximately 1 hour", and
+  // the customer's approve met a 410. The admin is told at creation instead.
+  if (approvalExpiresAt.getTime() <= Date.now() + 5 * 60 * 1000) {
+    return {
+      success: false,
+      reason:
+        'Too close to the visit — the approval window (which closes 24h before the slot) would already be shut. Arrange the change with the customer directly, or adjust an occurrence further out.',
+    };
+  }
+
   // Atomic claim: LIVE paid bookings only — CONFIRMED/ACCEPTED, no cascade in
   // flight, funds not yet released. Same guarded-updateMany technique as the
   // cascade; a concurrent state change makes count 0 and we abort.
@@ -1429,8 +1442,12 @@ export async function enterAdminPriceAdjust(args: {
     newPrice: provisionalPrice,
     topupAmount: delta,
     expiresAt: approvalExpiresAt,
+    // R4 LANE 5B: honest copy — this is a price adjust, not a cleaner swap,
+    // and the admin's typed reason travels to the customer.
+    provisionalSource: 'ADMIN_PRICE_ADJUST',
+    adminReason: args.reason,
   }).catch(() => {});
-  await notifyTopupApprovalRequested(args.bookingId, delta).catch(() => {});
+  await notifyTopupApprovalRequested(args.bookingId, delta, 'ADMIN_PRICE_ADJUST').catch(() => {});
 
   return { success: true, approvalExpiresAt };
 }
@@ -1447,9 +1464,14 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       reassignPreviousCleanerId: true,
       provisionalCleanerId: true,
       clientId: true,
+      // R4 LANE 5B: captured BEFORE the revert clears it — the copy fork
+      // (adjust vs reassign) depends on it.
+      provisionalSource: true,
     },
   });
   if (!b?.reassignPreviousStatus || !b.reassignPreviousCleanerId) return false;
+  const wasAdjust = b.provisionalSource === 'ADMIN_PRICE_ADJUST';
+  const wasDeclined = reason.includes('declined');
 
   const res = await prisma.booking.updateMany({
     where: {
@@ -1546,18 +1568,39 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       .catch(() => {});
   }
   if (b.clientId) {
+    // R4 LANE 5B: the bell tells the true story — adjust vs reassign, and
+    // declined vs expired are different sentences.
+    const title = wasAdjust
+      ? wasDeclined
+        ? 'Price change declined'
+        : 'Price change expired'
+      : 'Reassignment not going ahead';
+    const body = wasAdjust
+      ? wasDeclined
+        ? 'Nothing was charged. Your booking is unchanged — same cleaner, same time, original price.'
+        : 'The approval window passed and nothing was charged. Your booking is unchanged — same cleaner, same time, original price.'
+      : wasDeclined
+        ? 'You declined the price change — nothing was charged. Your booking returns to how it was.'
+        : 'The approval window passed — nothing was charged. Your booking returns to how it was.';
     await prisma.notification
       .create({
         data: {
           userId: b.clientId,
           type: 'SYSTEM',
-          title: 'Reassignment cancelled',
-          body: 'The price change was declined — your booking is unchanged.',
+          title,
+          body,
           data: { bookingId },
         },
       })
       .catch(() => {});
   }
+
+  // R4 LANE 5B: the revert email — this leg was bell-row-only before.
+  await sendTopupRevertNotice({
+    bookingId,
+    declined: wasDeclined,
+    isAdjust: wasAdjust,
+  }).catch(() => {});
 
   return true;
 }
@@ -2101,7 +2144,10 @@ export async function processExhaustedRefunds(): Promise<{ processed: number }> 
 // no bell and keep their tokened email link).
 export async function notifyTopupApprovalRequested(
   bookingId: string,
-  topupAmount: number
+  topupAmount: number,
+  // R4 LANE 5B: source-aware copy — an adjust keeps the cleaner, and the row
+  // says so; the swap story stays for reassign/cascade sources.
+  source?: 'ADMIN_PRICE_ADJUST' | 'ADMIN_REASSIGN' | 'CASCADE'
 ): Promise<void> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -2109,13 +2155,16 @@ export async function notifyTopupApprovalRequested(
   });
   if (!booking?.clientId) return;
 
+  const isAdjust = source === 'ADMIN_PRICE_ADJUST';
   await prisma.notification
     .create({
       data: {
         userId: booking.clientId,
         type: 'SYSTEM',
         title: 'Price change needs your review',
-        body: `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Nothing is charged unless you approve.`,
+        body: isAdjust
+          ? `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Your cleaner and time stay the same — nothing is charged unless you approve.`
+          : `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Nothing is charged unless you approve.`,
         data: { bookingId, url: `/booking/${bookingId}/approve-topup` },
       },
     })

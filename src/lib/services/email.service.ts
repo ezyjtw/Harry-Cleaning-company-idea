@@ -22,6 +22,8 @@ import {
   buildAbandonmentEmail,
   buildVerificationDecision,
   buildTopupApprovalRequest,
+  buildTopupCardReminder,
+  buildTopupRevertNotice,
   buildSignupNotification,
   buildPaymentFailureNotification,
   buildGoLive,
@@ -659,6 +661,9 @@ export async function sendTopupApprovalRequest(data: {
   newPrice: number;
   topupAmount: number;
   expiresAt: Date;
+  // R4 LANE 5B: source-aware copy + the admin's typed reason (adjust only).
+  provisionalSource?: 'ADMIN_PRICE_ADJUST' | 'ADMIN_REASSIGN' | 'CASCADE' | null;
+  adminReason?: string | null;
 }): Promise<boolean> {
   // F5 guest parity: resolve the recipient from the booking — registered
   // customers get the plain link, guests get the SAME email with their
@@ -687,6 +692,63 @@ export async function sendTopupApprovalRequest(data: {
     topupAmount: data.topupAmount,
     expiresAt: data.expiresAt,
     guestToken,
+    provisionalSource: data.provisionalSource,
+    adminReason: data.adminReason,
+  });
+  return sendEmail(email, subject, html);
+}
+
+// R4 LANE 5B: the card-still-needed reminder (scheduler leg).
+export async function sendTopupCardReminder(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      clientId: true,
+      guestToken: true,
+      guestEmail: true,
+      guestName: true,
+      topupAmount: true,
+      approvalExpiresAt: true,
+      client: { select: { email: true, name: true } },
+    },
+  });
+  const email = b?.client?.email ?? b?.guestEmail ?? null;
+  if (!b || !email || !b.approvalExpiresAt) return false;
+  const { subject, html } = buildTopupCardReminder({
+    bookingId,
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    topupAmount: Number(b.topupAmount ?? 0),
+    expiresAt: b.approvalExpiresAt,
+    guestToken: b.clientId ? null : b.guestToken,
+  });
+  return sendEmail(email, subject, html);
+}
+
+// R4 LANE 5B: the revert/expiry email — resolves the silent leg. Recipient
+// resolution mirrors sendTopupApprovalRequest (guest parity).
+export async function sendTopupRevertNotice(data: {
+  bookingId: string;
+  declined: boolean;
+  isAdjust: boolean;
+}): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: data.bookingId },
+    select: {
+      guestEmail: true,
+      guestName: true,
+      client: { select: { email: true, name: true } },
+    },
+  });
+  const email = b?.client?.email ?? b?.guestEmail ?? null;
+  const name = b?.client?.name ?? b?.guestName ?? 'there';
+  if (!email) return false;
+  const { subject, html } = buildTopupRevertNotice({
+    bookingId: data.bookingId,
+    customerName: name,
+    declined: data.declined,
+    isAdjust: data.isAdjust,
   });
   return sendEmail(email, subject, html);
 }
