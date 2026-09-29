@@ -116,12 +116,15 @@ const SANS_SEMI = 'Jost-SemiBold';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Tab bar: first tab = the purpose-built Today screen; the rest are portal routes.
+// R5b port: paths are unprefixed — the site 307s /en/<route> to /<route>
+// (en is the default locale), so the old /en/ paths paid a redirect on
+// EVERY pane document load. tabRootKey matches both shapes.
 const TABS = [
-  { key: 'today', label: 'Today', path: '/en/app/today', icon: 'today' },
-  { key: 'jobs', label: 'Jobs', path: '/en/app/jobs', icon: 'briefcase' },
-  { key: 'availability', label: 'Availability', path: '/en/app/availability', icon: 'calendar' },
-  { key: 'earnings', label: 'Earnings', path: '/en/app/earnings', icon: 'wallet' },
-  { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
+  { key: 'today', label: 'Today', path: '/app/today', icon: 'today' },
+  { key: 'jobs', label: 'Jobs', path: '/app/jobs', icon: 'briefcase' },
+  { key: 'availability', label: 'Availability', path: '/app/availability', icon: 'calendar' },
+  { key: 'earnings', label: 'Earnings', path: '/app/earnings', icon: 'wallet' },
+  { key: 'messages', label: 'Messages', path: '/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'wrongApp' | 'shell';
@@ -359,7 +362,7 @@ function RootView() {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     const url = `${BASE_URL}/api/auth/session-bridge?code=${encodeURIComponent(
       bridgeCode
-    )}&callbackUrl=${encodeURIComponent('/en/app/today')}`;
+    )}&callbackUrl=${encodeURIComponent('/app/today')}`;
     setBridgeUrl(url);
     setActiveTab('today');
     setPhase('shell');
@@ -926,6 +929,7 @@ function ShellScreen({
                 onBridged={tab.key === 'today' ? onBridged : undefined}
                 tabKey={tab.key}
                 onCrossTab={selectTab}
+                active={isActive}
               />
             </TabPane>
           );
@@ -987,6 +991,60 @@ const SEAM_KILL_JS = `
   true;
 `;
 
+// R5b port (customer-proven, James-ordered): Next.js App Router prefetches
+// EVERY visible link's page; inside the shell panes reload on process
+// recycling, so prefetch is pure budget burn. Kill it at the fetch layer
+// before Next boots — a rejected prefetch just means the real navigation
+// fetches normally. Shell bytes only.
+const PREFETCH_KILL_JS = `
+  (function(){
+    var of = window.fetch;
+    window.fetch = function(input, init){
+      try{
+        var h = (init && init.headers) || (input && input.headers) || null;
+        var hit = false;
+        if (h){
+          if (typeof h.get === 'function'){ hit = !!h.get('Next-Router-Prefetch'); }
+          else if (Array.isArray(h)){
+            for (var i=0;i<h.length;i++){ if(String(h[i][0]).toLowerCase()==='next-router-prefetch'){ hit=true; break; } }
+          } else {
+            for (var k in h){ if(k.toLowerCase()==='next-router-prefetch'){ hit=true; break; } }
+          }
+        }
+        if (hit){ return Promise.reject(new TypeError('prefetch disabled in shell')); }
+      }catch(e){}
+      return of.apply(this, arguments);
+    };
+  })(); true;
+`;
+
+// R5b port: the shell's OWN injected observer decides when a page is
+// GENUINELY dressed — window load fired AND the DOM structurally quiet for
+// 250ms (hydration's in-shell variant swap is a childList burst). The shell
+// drops the loader on this message; a 6s long-stop guarantees a broken page
+// can never trap it.
+const DRESSED_JS = `
+  (function(){
+    var sent=false;
+    function send(){
+      if(sent)return; sent=true;
+      try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
+    }
+    function watch(){
+      var idle=setTimeout(send,250);
+      try{
+        var mo=new MutationObserver(function(){
+          if(sent){mo.disconnect();return;}
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
+        });
+        mo.observe(document.documentElement,{childList:true,subtree:true});
+      }catch(e){ send(); }
+    }
+    if(document.readyState==='complete'){ watch(); }
+    else{ window.addEventListener('load',watch); }
+  })(); true;
+`;
+
 function SeamlessWebView({
   uri,
   injectBefore,
@@ -995,6 +1053,7 @@ function SeamlessWebView({
   tabKey,
   onCrossTab,
   loaderTone = 'light',
+  active,
 }: {
   uri: string;
   injectBefore: string;
@@ -1005,6 +1064,9 @@ function SeamlessWebView({
   /** Called with the target tab key when an in-page link hits another tab's root. */
   onCrossTab?: (key: string) => void;
   loaderTone?: 'light' | 'navy';
+  /** Whether this pane is the visible tab — gates lazy revival of a
+   *  recycled content process (hidden panes revive on show, not en masse). */
+  active?: boolean;
 }) {
   const [offline, setOffline] = useState(false);
   // A9: designed 5xx interstitial (main-document server errors only).
@@ -1021,6 +1083,36 @@ function SeamlessWebView({
   // resets the budget, so mid-session blips get the same treatment.
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
+  // R5b port: one cross-tab detection per actual navigation — nav events
+  // replay the same URL, and each replay used to inject another
+  // history.back(), able to walk the pane onto the spent session-bridge.
+  const lastCrossTab = useRef<{ url: string; at: number } | null>(null);
+  const crossTabDup = (url: string) => {
+    const now = Date.now();
+    if (
+      lastCrossTab.current &&
+      lastCrossTab.current.url === url &&
+      now - lastCrossTab.current.at < 1500
+    ) {
+      return true;
+    }
+    lastCrossTab.current = { url, at: now };
+    return false;
+  };
+  // R5b port: veil long-stop + lazy revival of recycled content processes.
+  const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const needsRevive = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const revive = useCallback(() => {
+    needsRevive.current = false;
+    setLoaded(false);
+    fade.setValue(1);
+    ref.current?.reload();
+  }, [fade]);
+  useEffect(() => {
+    if (active !== false && needsRevive.current) revive();
+  }, [active, revive]);
 
   useEffect(() => {
     if (loaded) {
@@ -1028,6 +1120,13 @@ function SeamlessWebView({
       Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
+
+  useEffect(
+    () => () => {
+      if (longStop.current) clearTimeout(longStop.current);
+    },
+    []
+  );
 
   // If the web session expires, the portal redirects to /login — bounce back to
   // the native login screen instead of showing the web form inside the shell.
@@ -1043,8 +1142,10 @@ function SeamlessWebView({
     if (tabKey && onCrossTab) {
       const target = tabRootKey(nav.url);
       if (target && target !== tabKey) {
-        onCrossTab(target);
-        ref.current?.injectJavaScript('window.history.back(); true;');
+        if (!crossTabDup(nav.url)) {
+          onCrossTab(target);
+          ref.current?.injectJavaScript('window.history.back(); true;');
+        }
         return;
       }
     }
@@ -1099,6 +1200,14 @@ function SeamlessWebView({
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
+      // R5b port: the page says it is genuinely dressed — reveal clean.
+      if (msg?.type === 'dressed' && !retryPending.current) {
+        if (longStop.current) {
+          clearTimeout(longStop.current);
+          longStop.current = null;
+        }
+        setLoaded(true);
+      }
     } catch {
       /* ignore non-JSON messages */
     }
@@ -1163,14 +1272,30 @@ function SeamlessWebView({
         decelerationRate="normal"
         allowsBackForwardNavigationGestures
         allowsLinkPreview={false}
-        injectedJavaScriptBeforeContentLoaded={injectBefore}
+        injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
+        onContentProcessDidTerminate={() => {
+          if (activeRef.current !== false) revive();
+          else needsRevive.current = true;
+        }}
+        // R5b port: EVERY document load in a pane wears the loader, however
+        // caused — boot, a recycle revival, an in-pane full-load link, a
+        // back-swipe. onLoadStart fires per document load (not for SPA
+        // pushState), which is exactly the ruled coverage.
+        onLoadStart={() => {
+          if (longStop.current) {
+            clearTimeout(longStop.current);
+            longStop.current = null;
+          }
+          setLoaded(false);
+          fade.setValue(1);
+        }}
         // Cross-tab nav fix, full-document half: real document loads CAN be
         // cancelled here, so the origin pane never leaves its route at all.
         onShouldStartLoadWithRequest={(req) => {
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
             if (target && target !== tabKey) {
-              onCrossTab(target);
+              if (!crossTabDup(req.url)) onCrossTab(target);
               return false;
             }
           }
@@ -1181,7 +1306,14 @@ function SeamlessWebView({
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the loader up
           retryBudget.current = 0; // real load landed — reset the silent-retry budget
-          setLoaded(true);
+          // R5b port: no fixed-duration guess — the loader holds until the
+          // injected observer posts 'dressed'; this long-stop only trap-proofs
+          // a page whose JS never settles or never runs.
+          if (longStop.current) clearTimeout(longStop.current);
+          longStop.current = setTimeout(() => {
+            longStop.current = null;
+            setLoaded(true);
+          }, 6000);
         }}
         onError={() => {
           if (retryBudget.current < 2) {
