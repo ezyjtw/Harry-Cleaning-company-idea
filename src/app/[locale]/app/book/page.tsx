@@ -10,7 +10,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { CustomerAvatar } from '@/components/app/customer';
+import { CustomerAccountMenu, CustomerAvatar, CustomerBell } from '@/components/app/customer';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
 interface RecentCleaner {
@@ -113,7 +113,16 @@ export default function CustomerBookPage() {
   return (
     <div>
       <header className="mb-5">
-        <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Book A Clean</h1>
+        {/* Ledger 16: person + bell ride every tab header, per Home's grammar. */}
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
+            Book A Clean
+          </h1>
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <CustomerAccountMenu />
+            <CustomerBell />
+          </div>
+        </div>
       </header>
 
       {loading ? (

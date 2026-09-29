@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 
 import AccountMenu from '@/components/app/AccountMenu';
+import BackPill from '@/components/app/BackPill';
 import InboxBell from '@/components/app/InboxBell';
 import { haptic } from '@/components/app/job-cards';
 
@@ -216,7 +217,10 @@ export default function RatesPage() {
     <div>
       <header className="mb-5">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">My Rates</h1>
+          <div className="flex items-center gap-2">
+            <BackPill />
+            <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">My Rates</h1>
+          </div>
           <div className="mt-1 flex shrink-0 items-center gap-2">
             <AccountMenu />
             <InboxBell />
