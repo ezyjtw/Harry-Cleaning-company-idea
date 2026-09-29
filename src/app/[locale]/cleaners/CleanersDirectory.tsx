@@ -210,7 +210,7 @@ function CleanersContent({
       setPostcodeError('Please enter a valid UK postcode');
       return;
     }
-    // H31: canonical form in the field and in the API call ("e47ap" → "E4 7AP").
+    // H31: canonical form in the field and in the API call ("ec1a1bb" → "EC1A 1BB").
     const trimmed = normalizeUkPostcode(raw) ?? raw.toUpperCase();
     setPostcodeSearch(trimmed);
     setPostcodeError('');

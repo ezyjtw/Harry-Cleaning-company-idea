@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Enter your full postcode (e.g. E4 7AP) — we need it to match you with nearby customers.',
+            'Enter your full postcode (e.g. EC1A 1BB) — we need it to match you with nearby customers.',
         },
         { status: 400 }
       );

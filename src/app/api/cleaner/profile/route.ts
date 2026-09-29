@@ -244,7 +244,7 @@ export async function PUT(request: NextRequest) {
     const norm = normalizeUkPostcode(String(homePostcode));
     if (!norm) {
       return NextResponse.json(
-        { error: 'Enter your full UK postcode (e.g. E4 7AP)' },
+        { error: 'Enter your full UK postcode (e.g. EC1A 1BB)' },
         { status: 400 }
       );
     }
@@ -289,7 +289,7 @@ export async function PUT(request: NextRequest) {
     const norm = normalizeUkPostcode(String(postcode));
     if (!norm) {
       return NextResponse.json(
-        { error: 'Enter your full UK postcode (e.g. E4 7AP)' },
+        { error: 'Enter your full UK postcode (e.g. EC1A 1BB)' },
         { status: 400 }
       );
     }

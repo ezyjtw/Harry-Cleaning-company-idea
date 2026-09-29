@@ -651,7 +651,7 @@ export async function POST(request: NextRequest) {
     let addressLine1 = typeof body.addressLine1 === 'string' ? body.addressLine1.trim() : '';
     let addressLine2 = typeof body.addressLine2 === 'string' ? body.addressLine2.trim() : '';
     let addressCity = typeof body.addressCity === 'string' ? body.addressCity.trim() : '';
-    // H31: PERSIST the canonical form — "E47AP" is stored as "E4 7AP", so every
+    // H31: PERSIST the canonical form — "EC1A1BB" is stored as "EC1A 1BB", so every
     // downstream consumer (coverage, area quotes, display) sees one spelling.
     const rawPostcode =
       typeof body.addressPostcode === 'string' ? body.addressPostcode.trim().toUpperCase() : '';
