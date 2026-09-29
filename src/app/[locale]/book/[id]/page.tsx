@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
-import { FlowBar, FlowStep } from '@/components/app/customer';
+import { CustomerBackLink, FlowBar, FlowStep } from '@/components/app/customer';
 import BackupCleanerSlider from '@/components/BackupCleanerSlider';
 import AddressAutocomplete from '@/components/booking/AddressAutocomplete';
 import DateTimePicker from '@/components/booking/DateTimePicker';
@@ -26,7 +26,7 @@ import {
   serviceLabelFromSlug,
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
-import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
+import { mapApiCleaner, useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import { isCustomerShellUA } from '@/lib/shell';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
@@ -149,8 +149,42 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     const n = parseInt(searchParams.get('bedrooms') ?? '', 10);
     return Number.isInteger(n) && n >= 0 && n <= 5 ? n : null;
   })();
-  const { cleaners: allCleaners, getCleanerById } = useCleanersApi();
-  const cleaner = getCleanerById(params.id);
+  const { cleaners: allCleaners, getCleanerById, loading: cleanersLoading } = useCleanersApi();
+  // Truth-before-data law (ROUND 4 lane 2): "Cleaner not found" may only render
+  // on a CONFIRMED 404 — never while the list is still loading, and never
+  // because the cleaner fell outside the list's 50-cap. When the loaded list
+  // lacks the id, a direct /api/cleaners/[id] fetch settles it: 404 confirms
+  // not-found, ok resolves the cleaner, anything else offers retry.
+  const listCleaner = getCleanerById(params.id);
+  const [resolved, setResolved] = useState<{
+    state: 'idle' | 'found' | 'notfound' | 'error';
+    cleaner?: ReturnType<typeof mapApiCleaner>;
+  }>({ state: 'idle' });
+  const [resolveAttempt, setResolveAttempt] = useState(0);
+  useEffect(() => {
+    if (cleanersLoading || listCleaner) return;
+    let cancelled = false;
+    setResolved({ state: 'idle' });
+    fetch(`/api/cleaners/${encodeURIComponent(params.id)}`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 404) {
+          setResolved({ state: 'notfound' });
+        } else if (res.ok) {
+          const data = (await res.json()) as Record<string, unknown>;
+          setResolved({ state: 'found', cleaner: mapApiCleaner(data) });
+        } else {
+          setResolved({ state: 'error' });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setResolved({ state: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cleanersLoading, listCleaner, params.id, resolveAttempt]);
+  const cleaner = listCleaner ?? (resolved.state === 'found' ? resolved.cleaner : undefined);
 
   // Fetch saved addresses and past bookings from API
   const [savedAddresses, setSavedAddresses] = useState<
@@ -386,9 +420,37 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }, [form.date, form.time, form.duration, allCleaners]);
 
   if (!cleaner) {
+    // Skeleton while anything is still in flight; the words "not found" are
+    // earned only by the API's own 404.
+    if (resolved.state === 'notfound') {
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-page" data-testid="cleaner-404">
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">Cleaner not found</h1>
+        </div>
+      );
+    }
+    if (resolved.state === 'error') {
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-page">
+          <h1 className="font-newsreader text-2xl font-semibold text-ink">
+            Couldn&apos;t load this cleaner
+          </h1>
+          <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => setResolveAttempt((n) => n + 1)}
+            className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center bg-page">
-        <h1 className="font-newsreader text-2xl font-semibold text-ink">Cleaner not found</h1>
+      <div className="mx-auto max-w-2xl space-y-3 px-4 py-10" data-testid="cleaner-loading">
+        <div className="skeleton-pulse h-24 rounded-xl" />
+        <div className="skeleton-pulse h-48 rounded-xl" />
+        <div className="skeleton-pulse h-32 rounded-xl" />
       </div>
     );
   }
@@ -850,6 +912,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 bg-page">
+        {/* R4 lane 1: the flow's first room previously had no visible way out
+            in-shell — the standing back link walks history to whichever door
+            opened it (Book tab or a cleaner profile). */}
+        {inCustomerShell && (
+          <div className="mb-3">
+            <CustomerBackLink />
+          </div>
+        )}
         {inCustomerShell && <FlowStep n={1} total={5} />}
         {/* Cleaner header (S-C) */}
         <CleanerIdentity

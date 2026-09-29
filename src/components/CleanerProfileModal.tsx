@@ -62,6 +62,7 @@ export default function CleanerProfileModal({
   bookLabel,
 }: CleanerProfileModalProps) {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
   // H28: verified imported reviews, shown in their own labelled section.
   const [importedReviews, setImportedReviews] = useState<
     {
@@ -102,7 +103,8 @@ export default function CleanerProfileModal({
           }))
         );
       })
-      .catch(() => setReviews([]));
+      .catch(() => setReviews([]))
+      .finally(() => setReviewsLoading(false));
   }, [cleaner.id]);
 
   useEffect(() => {
@@ -205,6 +207,7 @@ export default function CleanerProfileModal({
     languages: cleaner.languages || [],
     services,
     reviews: reviewItems,
+    reviewsLoading,
     reviewsSubtitle: 'Only verified customers who completed a booking can leave reviews.',
   };
 

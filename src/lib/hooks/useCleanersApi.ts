@@ -6,7 +6,7 @@ import type { Cleaner, Review } from '@/lib/types';
 
 const DEFAULT_CATEGORY_RATINGS = { thoroughness: 0, punctuality: 0, communication: 0 };
 
-function mapApiCleaner(c: Record<string, unknown>): Cleaner {
+export function mapApiCleaner(c: Record<string, unknown>): Cleaner {
   return {
     id: c.id as string,
     name: (c.name as string) || '',
