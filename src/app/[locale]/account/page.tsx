@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
@@ -118,9 +119,20 @@ export default function AccountHome() {
           // same reason.
           fetch('/api/bookings?approval=pending'),
         ]);
-        // A transient 401 while still authenticated is a hiccup — surface it as a
-        // retryable load error, not a spurious logout (the guard effect handles a
-        // genuine session loss).
+        // A 401 here is the server's word that this session is dead (the API
+        // layer re-checks the DB per request — suspension, deletion, or a
+        // password reset from any device). The client-side session can still
+        // read as alive (the JWT stays cryptographically valid), so parking on
+        // an error card trapped the customer with no way through — and a plain
+        // route to /login gets bounced back by the middleware while the stale
+        // cookie exists. Clear the cookie, then land on the login form with a
+        // way back here.
+        if (allRes.status === 401 || completedRes.status === 401) {
+          await signOut({ redirect: false }).catch(() => {});
+          window.location.assign('/login?callbackUrl=/account');
+          return;
+        }
+        // Any other failure stays a retryable load error, not a logout.
         if (!allRes.ok || !completedRes.ok) {
           throw new Error('Failed to load your dashboard');
         }
