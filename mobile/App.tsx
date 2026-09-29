@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Easing,
   Image,
   KeyboardAvoidingView,
@@ -863,6 +864,25 @@ function ShellScreen({
   onBridged: () => void;
   onSessionLost: () => void;
 }) {
+  // Android hardware back (James-ruled, Phase 2 rule 6): active pane goBack()
+  // when it can, else the Today tab, else system default. iOS never subscribes.
+  const backHandlers = useRef<Record<string, () => boolean>>({});
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const paneBack = backHandlers.current[activeTabRef.current];
+      if (paneBack && paneBack()) return true;
+      if (activeTabRef.current !== 'today') {
+        setActiveTab('today');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [setActiveTab]);
+
   const selectTab = useCallback(
     (k: string) => {
       fireHaptic('light');
@@ -930,6 +950,9 @@ function ShellScreen({
                 tabKey={tab.key}
                 onCrossTab={selectTab}
                 active={isActive}
+                registerBack={(h) => {
+                  backHandlers.current[tab.key] = h;
+                }}
               />
             </TabPane>
           );
@@ -1054,6 +1077,7 @@ function SeamlessWebView({
   onCrossTab,
   loaderTone = 'light',
   active,
+  registerBack,
 }: {
   uri: string;
   injectBefore: string;
@@ -1067,6 +1091,8 @@ function SeamlessWebView({
   /** Whether this pane is the visible tab — gates lazy revival of a
    *  recycled content process (hidden panes revive on show, not en masse). */
   active?: boolean;
+  /** Android back (rule 6): the pane registers "go back if you can". */
+  registerBack?: (handler: () => boolean) => void;
 }) {
   const [offline, setOffline] = useState(false);
   // A9: designed 5xx interstitial (main-document server errors only).
@@ -1119,6 +1145,19 @@ function SeamlessWebView({
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
+  // Android back (rule 6): the pane's half — go back through web history
+  // when there is any. canGoBack rides onNavigationStateChange.
+  const canGoBackRef = useRef(false);
+  useEffect(() => {
+    registerBack?.(() => {
+      if (canGoBackRef.current) {
+        ref.current?.goBack();
+        return true;
+      }
+      return false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (loaded) {
@@ -1137,6 +1176,7 @@ function SeamlessWebView({
   // If the web session expires, the portal redirects to /login — bounce back to
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
+    canGoBackRef.current = nav.canGoBack;
     if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
       onSessionLost();
     }
@@ -1180,26 +1220,51 @@ function SeamlessWebView({
   // renders the LOCAL file: the intercepted navigation is never painted, so
   // the two paths never contend. Fail-soft: an error alerts, page untouched.
   const [statementUri, setStatementUri] = useState<string | null>(null);
+  const fetchStatement = useCallback(async (url: string): Promise<string | null> => {
+    try {
+      const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
+      const year = /[?&]taxYear=(\d{4})/.exec(url)?.[1];
+      const dest = `${FileSystem.cacheDirectory}rena-earnings-statement-${year ?? 'range'}.pdf`;
+      const res = await FileSystem.downloadAsync(url, dest, {
+        headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
+      });
+      if (res.status === 200) return res.uri;
+    } catch {
+      /* fall through to the alert */
+    }
+    Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
+    return null;
+  }, []);
+  // iOS half (view first, save second): onFileDownload fires on the
+  // Content-Disposition attachment and the local PDF renders in the viewer.
   const onFileDownload = useCallback(
     async ({ nativeEvent }: { nativeEvent: { downloadUrl: string } }) => {
+      const uri = await fetchStatement(nativeEvent.downloadUrl);
+      if (uri) setStatementUri(uri);
+    },
+    [fetchStatement]
+  );
+  // Android half (James-ruled, Phase 2 rule 5): onFileDownload is iOS-only
+  // and Android's WebView can't render PDFs — the statement navigation is
+  // intercepted, fetched natively with the Bearer, and the PDF handed to the
+  // system sheet (Open/Save). expo-sharing is required lazily inside the
+  // Android-only path so the module never evaluates on iOS binaries that
+  // predate it (the version bump rides the google-services commit).
+  const androidStatement = useCallback(
+    async (url: string) => {
+      const uri = await fetchStatement(url);
+      if (!uri) return;
       try {
-        const url = nativeEvent.downloadUrl;
-        const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
-        const year = /[?&]taxYear=(\d{4})/.exec(url)?.[1];
-        const dest = `${FileSystem.cacheDirectory}rena-earnings-statement-${year ?? 'range'}.pdf`;
-        const res = await FileSystem.downloadAsync(url, dest, {
-          headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
-        });
-        if (res.status === 200) {
-          setStatementUri(res.uri);
-        } else {
-          Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
-        }
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Sharing = require('expo-sharing') as {
+          shareAsync: (u: string, o?: { mimeType?: string }) => Promise<void>;
+        };
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
       } catch {
-        Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
+        Alert.alert('Download failed', "We couldn't open your statement — try again.");
       }
     },
-    []
+    [fetchStatement]
   );
 
   const onMessage = (e: WebViewMessageEvent) => {
@@ -1283,6 +1348,12 @@ function SeamlessWebView({
           if (activeRef.current !== false) revive();
           else needsRevive.current = true;
         }}
+        // Rule 7: the Android twin of iOS process reclamation — a killed
+        // renderer joins the same lazy-revival law.
+        onRenderProcessGone={() => {
+          if (activeRef.current !== false) revive();
+          else needsRevive.current = true;
+        }}
         // R5b port: EVERY document load in a pane wears the loader, however
         // caused — boot, a recycle revival, an in-pane full-load link, a
         // back-swipe. onLoadStart fires per document load (not for SPA
@@ -1298,6 +1369,12 @@ function SeamlessWebView({
         // Cross-tab nav fix, full-document half: real document loads CAN be
         // cancelled here, so the origin pane never leaves its route at all.
         onShouldStartLoadWithRequest={(req) => {
+          // Rule 5 (Android): the statement download navigation never paints —
+          // intercept, fetch natively, hand to the system sheet.
+          if (Platform.OS === 'android' && req.url.includes('/api/cleaner/statement')) {
+            androidStatement(req.url);
+            return false;
+          }
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
             if (target && target !== tabKey) {

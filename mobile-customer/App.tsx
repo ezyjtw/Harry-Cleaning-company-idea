@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  BackHandler,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -851,6 +852,27 @@ function ShellScreen({
   // full page load in the target pane. One tap now forwards once: identical
   // key+url pairs inside a short window collapse into the first.
   const lastForward = useRef<{ key: string; url: string; at: number } | null>(null);
+  // Android hardware back (James-ruled, Phase 2 rule 6): the active pane goes
+  // back through its own web history when it can; otherwise back lands on the
+  // Home tab; on Home with no history, the system default (background the
+  // app). Each pane registers its handler; iOS never subscribes.
+  const backHandlers = useRef<Record<string, () => boolean>>({});
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const paneBack = backHandlers.current[activeTabRef.current];
+      if (paneBack && paneBack()) return true;
+      if (activeTabRef.current !== 'home') {
+        setActiveTab('home');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [setActiveTab]);
+
   const selectTab = useCallback(
     (k: string, url?: string) => {
       fireHaptic('light');
@@ -896,6 +918,9 @@ function ShellScreen({
                 onCrossTab={selectTab}
                 forwardNav={forwards[tab.key]}
                 active={isActive}
+                registerBack={(h) => {
+                  backHandlers.current[tab.key] = h;
+                }}
               />
             </TabPane>
           );
@@ -1020,6 +1045,7 @@ function SeamlessWebView({
   forwardNav,
   loaderTone = 'light',
   active,
+  registerBack,
 }: {
   uri: string;
   injectBefore: string;
@@ -1038,6 +1064,8 @@ function SeamlessWebView({
   /** Whether this pane is the visible tab — gates lazy revival of a
    *  recycled content process (hidden panes revive on show, not en masse). */
   active?: boolean;
+  /** Android back (rule 6): the pane registers "go back if you can". */
+  registerBack?: (handler: () => boolean) => void;
 }) {
   const [offline, setOffline] = useState(false);
   const [serverError, setServerError] = useState(false);
@@ -1098,6 +1126,19 @@ function SeamlessWebView({
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
+  // Android back (rule 6): the pane's half of the ruling — go back through
+  // web history when there is any. canGoBack rides onNavigationStateChange.
+  const canGoBackRef = useRef(false);
+  useEffect(() => {
+    registerBack?.(() => {
+      if (canGoBackRef.current) {
+        ref.current?.goBack();
+        return true;
+      }
+      return false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Cold-start false-alarm fix (carried from Pro): a single onError never
   // declares offline — up to two silent retries run behind the loader
   // (0.6s / 1.2s back-off); only a third consecutive failure shows the
@@ -1143,6 +1184,7 @@ function SeamlessWebView({
   // If the web session expires, the site redirects to /login — bounce back to
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
+    canGoBackRef.current = nav.canGoBack;
     if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
       onSessionLost();
     }
@@ -1255,6 +1297,12 @@ function SeamlessWebView({
         allowsLinkPreview={false}
         injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
         onContentProcessDidTerminate={() => {
+          if (activeRef.current !== false) revive();
+          else needsRevive.current = true;
+        }}
+        // Rule 7: the Android twin of iOS process reclamation — a killed
+        // renderer joins the same lazy-revival law.
+        onRenderProcessGone={() => {
           if (activeRef.current !== false) revive();
           else needsRevive.current = true;
         }}

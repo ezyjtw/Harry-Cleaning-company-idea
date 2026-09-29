@@ -49,6 +49,12 @@
         {
           "color": "#16296b"
         }
+      ],
+      [
+        "./plugins/withAndroidQueries",
+        {
+          "schemes": ["renapro"]
+        }
       ]
     ],
     "extra": {

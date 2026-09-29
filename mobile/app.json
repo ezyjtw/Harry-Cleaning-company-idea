@@ -37,8 +37,9 @@
       "package": "uk.co.renacleaning.pro",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FAFBFC"
-      }
+        "backgroundColor": "#EBEBEB"
+      },
+      "permissions": ["android.permission.CAMERA"]
     },
     "plugins": [
       "expo-secure-store",
