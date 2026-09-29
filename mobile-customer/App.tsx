@@ -107,12 +107,15 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Tab bar (James-ruled, the approved mockup): five slots, BOOK raised centre.
 // Phase 2: Home and Book are purpose-built L2 pages; the rest wrap their
 // portal routes (My Cleans arrives skinned in-shell).
+// R5b: paths are unprefixed — the site 307s /en/<route> to /<route> (en is
+// the default locale), so the old /en/ paths paid a redirect on EVERY pane
+// document load. tabRootKey matches both shapes.
 const TABS = [
-  { key: 'home', label: 'Home', path: '/en/app/home', icon: 'home' },
-  { key: 'mycleans', label: 'My Cleans', path: '/en/account/bookings', icon: 'sparkles' },
-  { key: 'book', label: 'Book', path: '/en/app/book', icon: 'add' },
-  { key: 'cleaners', label: 'Cleaners', path: '/en/cleaners', icon: 'people' },
-  { key: 'messages', label: 'Messages', path: '/en/messages', icon: 'chatbubble-ellipses' },
+  { key: 'home', label: 'Home', path: '/app/home', icon: 'home' },
+  { key: 'mycleans', label: 'My Cleans', path: '/account/bookings', icon: 'sparkles' },
+  { key: 'book', label: 'Book', path: '/app/book', icon: 'add' },
+  { key: 'cleaners', label: 'Cleaners', path: '/cleaners', icon: 'people' },
+  { key: 'messages', label: 'Messages', path: '/messages', icon: 'chatbubble-ellipses' },
 ] as const;
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'signup' | 'forgot' | 'wrongApp' | 'shell';
@@ -309,7 +312,7 @@ function RootView() {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     const url = `${BASE_URL}/api/auth/session-bridge?code=${encodeURIComponent(
       bridgeCode
-    )}&callbackUrl=${encodeURIComponent('/en/app/home')}`;
+    )}&callbackUrl=${encodeURIComponent('/app/home')}`;
     setBridgeUrl(url);
     setActiveTab('home');
     setPhase('shell');
@@ -892,6 +895,7 @@ function ShellScreen({
                 tabKey={tab.key}
                 onCrossTab={selectTab}
                 forwardNav={forwards[tab.key]}
+                active={isActive}
               />
             </TabPane>
           );
@@ -948,6 +952,35 @@ const SEAM_KILL_JS = `
   true;
 `;
 
+// R5b storm residual: Next.js App Router prefetches EVERY visible link's
+// page (the log showed 6+ prefetch documents per pane load — /services/*,
+// /book/<id>, /cleaners, and the bell's /notifications page from every
+// pane). Inside the shell, panes reload on process recycling, so prefetch
+// is pure budget burn: kill it at the fetch layer before Next boots. A
+// rejected prefetch is a no-op to Next (it falls back to fetching on the
+// real navigation). Shell bytes only.
+const PREFETCH_KILL_JS = `
+  (function(){
+    var of = window.fetch;
+    window.fetch = function(input, init){
+      try{
+        var h = (init && init.headers) || (input && input.headers) || null;
+        var hit = false;
+        if (h){
+          if (typeof h.get === 'function'){ hit = !!h.get('Next-Router-Prefetch'); }
+          else if (Array.isArray(h)){
+            for (var i=0;i<h.length;i++){ if(String(h[i][0]).toLowerCase()==='next-router-prefetch'){ hit=true; break; } }
+          } else {
+            for (var k in h){ if(k.toLowerCase()==='next-router-prefetch'){ hit=true; break; } }
+          }
+        }
+        if (hit){ return Promise.reject(new TypeError('prefetch disabled in shell')); }
+      }catch(e){}
+      return of.apply(this, arguments);
+    };
+  })(); true;
+`;
+
 // R5 veil (James-ruled, option b withdrawn — zero website bytes): the shell's
 // OWN injected observer decides when a page is GENUINELY dressed. Signal:
 // window load fired AND the DOM has been structurally quiet for 250ms — the
@@ -986,6 +1019,7 @@ function SeamlessWebView({
   onCrossTab,
   forwardNav,
   loaderTone = 'light',
+  active,
 }: {
   uri: string;
   injectBefore: string;
@@ -1001,6 +1035,9 @@ function SeamlessWebView({
    *  threw the URL away. seq bumps per forward so repeat links re-fire. */
   forwardNav?: { url: string; seq: number };
   loaderTone?: 'light' | 'navy';
+  /** Whether this pane is the visible tab — gates lazy revival of a
+   *  recycled content process (hidden panes revive on show, not en masse). */
+  active?: boolean;
 }) {
   const [offline, setOffline] = useState(false);
   const [serverError, setServerError] = useState(false);
@@ -1030,10 +1067,28 @@ function SeamlessWebView({
   const [overrideUri, setOverrideUri] = useState<string | null>(null);
   // Long-stop so a broken page can never trap the veil.
   const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // R5 veil (James-ruled): shell panes wear the branded navy veil — full
-  // #16296B ground, the Rena mark centred (white by nature on navy). The
-  // pre-shell auth screens keep their light loader; they are not panes.
-  const veilNavy = !!tabKey || loaderTone === 'navy';
+  // R5b veil dress (James-ruled, navy withdrawn): white ground matching the
+  // previous light loader's feel — the Rena mark centred, navy on white.
+  // Only an explicit navy loaderTone (unused by the panes) stays navy.
+  const veilNavy = loaderTone === 'navy';
+  // R5b recycle handling: iOS reclaims hidden panes' WebView content
+  // processes under memory pressure (the Messages pane's weight evicting
+  // neighbours). Default handling reloaded every evicted pane immediately —
+  // evictions cascaded into a reload storm (the log shows one pane loading
+  // 3× in 4s). Now a hidden pane just marks itself dead and revives with
+  // ONE veiled reload when it is actually shown.
+  const needsRevive = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const revive = useCallback(() => {
+    needsRevive.current = false;
+    setLoaded(false);
+    fade.setValue(1);
+    ref.current?.reload();
+  }, [fade]);
+  useEffect(() => {
+    if (active !== false && needsRevive.current) revive();
+  }, [active, revive]);
   // Cold-start false-alarm fix (carried from Pro): a single onError never
   // declares offline — up to two silent retries run behind the loader
   // (0.6s / 1.2s back-off); only a third consecutive failure shows the
@@ -1189,7 +1244,25 @@ function SeamlessWebView({
         decelerationRate="normal"
         allowsBackForwardNavigationGestures
         allowsLinkPreview={false}
-        injectedJavaScriptBeforeContentLoaded={injectBefore + DRESSED_JS}
+        injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
+        onContentProcessDidTerminate={() => {
+          if (activeRef.current !== false) revive();
+          else needsRevive.current = true;
+        }}
+        // R5b veil coverage: EVERY document load in a pane veils, however
+        // caused — boot, forwarded navigation, a recycle revival, an in-pane
+        // full-load link, a back-swipe. The old wiring only re-armed the veil
+        // on the forward path, so self-started reloads flashed website
+        // clothes. onLoadStart fires per document load (not for SPA
+        // pushState), which is exactly the coverage the ruling names.
+        onLoadStart={() => {
+          if (longStop.current) {
+            clearTimeout(longStop.current);
+            longStop.current = null;
+          }
+          setLoaded(false);
+          fade.setValue(1);
+        }}
         onShouldStartLoadWithRequest={(req) => {
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
