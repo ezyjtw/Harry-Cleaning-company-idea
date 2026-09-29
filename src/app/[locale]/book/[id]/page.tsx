@@ -138,7 +138,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams();
   // H83: session truth for gating account-only fetches (guests get no 401 spray).
   const { isAuthenticated } = useAuth();
-  const isExpress = searchParams.get('express') === 'true';
   // Carry the up-front postcode (cleaner card / profile pass ?postcode=) into the
   // address step so it auto-looks-up on mount instead of a manual "Find address".
   // Captured once; empty when absent (direct nav) → the manual path is preserved.
@@ -255,8 +254,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       .catch(() => {});
   }, [isAuthenticated]);
 
-  const today = new Date().toISOString().split('T')[0];
-
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -267,15 +264,15 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     addressCity: '',
     addressPostcode: seededPostcode,
     addressId: '', // set when a saved address is selected (else copied from columns)
-    date: isExpress ? today : '',
+    date: '',
     time: '',
     duration: 2,
-    serviceType: isExpress ? 'regular' : 'regular',
+    serviceType: 'regular',
     notes: '',
     bedrooms: seededBedrooms ?? 2,
   });
   const [bookingError, setBookingError] = useState<string | null>(null);
-  const [step, setStep] = useState<'service' | 'details'>(isExpress ? 'details' : 'service');
+  const [step, setStep] = useState<'service' | 'details'>('service');
   // Customer-shell step-frame law (mount-gated; browsers byte-identical).
   const [inCustomerShell, setInCustomerShell] = useState(false);
   useEffect(() => {
@@ -455,7 +452,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const isLastMinute = isExpress;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const selectedService = SERVICE_TYPES.find((s) => s.value === form.serviceType)!;
   const priceBreakdown = serverQuote
@@ -643,7 +639,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           addons: bringsProducts ? ['products'] : undefined,
           propertySize,
           totalPrice: priceBreakdown.total,
-          isLastMinute,
           isGuest: bookingMode === 'guest',
           backupCleanerIds: backupCleanerIds.length > 0 ? backupCleanerIds : undefined,
           autoAssignBackup,
@@ -774,21 +769,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <div className="mx-auto flex h-16 w-16 items-center justify-center bg-primary-soft text-3xl text-primary">
           &#10003;
         </div>
-        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">
-          {isLastMinute ? 'Express Booking Sent!' : 'Booking Confirmed!'}
-        </h1>
+        <h1 className="mt-6 font-newsreader text-3xl font-semibold text-ink">Booking Confirmed!</h1>
         <p className="mt-4 font-jost font-light text-ink-2">
-          {isLastMinute ? (
-            <>
-              Your last-minute booking request has been sent to {cleaner.name}. You&apos;ll receive
-              a confirmation at {form.email}.
-            </>
-          ) : (
-            <>
-              Your booking with {cleaner.name} has been submitted. You&apos;ll receive a
-              confirmation email shortly at {form.email}.
-            </>
-          )}
+          Your booking with {cleaner.name} has been submitted. You&apos;ll receive a confirmation
+          email shortly at {form.email}.
         </p>
         <div
           className="mt-6 bg-primary-soft p-6 text-left"
@@ -1015,44 +999,22 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           disabled={paymentPending}
         />
       )}
-      {!isExpress && (
-        <button
-          onClick={() => setStep('service')}
-          className="flex items-center gap-1.5 font-jost text-[13px] font-light text-ink-3 hover:text-ink transition"
+      <button
+        onClick={() => setStep('service')}
+        className="flex items-center gap-1.5 font-jost text-[13px] font-light text-ink-3 hover:text-ink transition"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Change service type
-        </button>
-      )}
-      <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink">
-        {isExpress ? 'Express Booking' : 'Book a Cleaning'}
-      </h1>
-
-      {/* Express banner */}
-      {isExpress && cleaner.availableNow && (
-        <div className="mt-4 bg-primary-soft p-4" style={{ border: '0.5px solid #E4E9F0' }}>
-          <div className="flex items-center gap-3">
-            {/* AvailableNowBadge retired (James-sanctioned) — banner text stands. */}
-            <span className="font-jost text-sm font-light text-ink-2">
-              Same-day rate:{' '}
-              <strong className="font-normal text-ink">
-                &pound;{(cleaner.hourlyRateSameDay ?? 0).toFixed(2)}/hr
-              </strong>
-            </span>
-          </div>
-          <p className="mt-2 font-jost text-sm font-light text-ink-2">
-            {cleaner.name} is available now. Your booking will be prioritized.
-          </p>
-        </div>
-      )}
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+        Change service type
+      </button>
+      <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink">Book a Cleaning</h1>
 
       {/* Cleaner summary */}
       <div className="mt-6 flex items-start justify-between gap-4 rounded-[10px] border border-line bg-surface p-4">
@@ -1062,17 +1024,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           verified={cleaner.identityVerified || cleaner.backgroundChecked}
           rating={cleaner.rating}
           reviewCount={cleaner.reviewCount}
-          meta={
-            <>
-              {cleanerRateLabel}
-              {isLastMinute && cleaner.hourlyRateSameDay && (
-                <span className="text-primary">
-                  {' '}
-                  &middot; &pound;{cleaner.hourlyRateSameDay.toFixed(2)}/hr today
-                </span>
-              )}
-            </>
-          }
+          meta={<>{cleanerRateLabel}</>}
         />
         <span className="shrink-0 text-right font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
           Trusted &amp; verified
@@ -1083,8 +1035,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       <div className="mt-6">
         <CleaningEstimator
           cleanerRate={cleaner.hourlyRateRegular ?? 0}
-          sameDayRate={cleaner.hourlyRateSameDay ?? cleaner.hourlyRateRegular ?? 0}
-          isLastMinute={isLastMinute}
           onEstimateApply={handleEstimateApply}
         />
       </div>
@@ -1477,11 +1427,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                     </span>
                   </div>
-                  {isLastMinute && !isFixedPriceService(form.serviceType) && (
-                    <div className="font-jost text-xs font-light text-primary">
-                      Same-day rate applied
-                    </div>
-                  )}
                   <div className="flex justify-between">
                     <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
                     <span className="font-normal text-ink">
@@ -1524,17 +1469,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               type="submit"
               data-cflow-cta
               disabled={paymentPending || (isFixedPriceService(form.serviceType) && !serverQuote)}
-              className={`w-full py-3 font-jost text-lg font-normal text-white disabled:opacity-60 ${
-                isLastMinute
-                  ? 'bg-primary hover:bg-primary-hover'
-                  : 'bg-primary hover:bg-primary-hover'
-              } lg:hidden`}
+              className="w-full bg-primary py-3 font-jost text-lg font-normal text-white hover:bg-primary-hover disabled:opacity-60 lg:hidden"
             >
-              {paymentPending
-                ? 'Processing...'
-                : isLastMinute
-                  ? 'Send Express Booking'
-                  : 'Confirm & Pay'}
+              {paymentPending ? 'Processing...' : 'Confirm & Pay'}
             </button>
           </form>
         </div>
@@ -1589,11 +1526,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     &pound;{priceBreakdown.listedSubtotal.toFixed(2)}
                   </span>
                 </div>
-                {isLastMinute && !isFixedPriceService(form.serviceType) && (
-                  <div className="font-jost text-xs font-light text-primary">
-                    Same-day rate applied
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <span className="text-ink-3">Service fee ({SERVICE_FEE_PERCENT}%)</span>
                   <span className="font-normal text-ink">
@@ -1654,17 +1586,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 bookingMode === null ||
                 (isFixedPriceService(form.serviceType) && !serverQuote)
               }
-              className={`w-full py-3 font-jost text-lg font-normal text-white disabled:opacity-60 ${
-                isLastMinute
-                  ? 'bg-primary hover:bg-primary-hover'
-                  : 'bg-primary hover:bg-primary-hover'
-              }`}
+              className="w-full bg-primary py-3 font-jost text-lg font-normal text-white hover:bg-primary-hover disabled:opacity-60"
             >
-              {paymentPending
-                ? 'Processing...'
-                : isLastMinute
-                  ? 'Send Express Booking'
-                  : 'Confirm & Pay'}
+              {paymentPending ? 'Processing...' : 'Confirm & Pay'}
             </button>
           </div>
         </div>

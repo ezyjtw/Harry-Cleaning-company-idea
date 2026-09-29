@@ -1099,6 +1099,12 @@ function SeamlessWebView({
     lastCrossTab.current = { url, at: now };
     return false;
   };
+  // Boot double-load fix (recorded R5b, James-ordered): onBridged clearing
+  // bridgeUrl recomputed this pane's uri bridge→direct, and the changed
+  // source prop re-loaded the page the pane was already on — a second full
+  // document + API fan every boot. Latched: prop changes never navigate a
+  // mounted pane; a remount re-latches the then-current (direct) uri.
+  const initialUri = useRef(uri);
   // R5b port: veil long-stop + lazy revival of recycled content processes.
   const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
   const needsRevive = useRef(false);
@@ -1261,7 +1267,7 @@ function SeamlessWebView({
     <View style={styles.flex}>
       <WebView
         ref={ref}
-        source={{ uri, headers: SHELL_HEADER }}
+        source={{ uri: initialUri.current, headers: SHELL_HEADER }}
         applicationNameForUserAgent={UA_SUFFIX}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled

@@ -1067,6 +1067,15 @@ function SeamlessWebView({
   const [overrideUri, setOverrideUri] = useState<string | null>(null);
   // Long-stop so a broken page can never trap the veil.
   const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Boot double-load fix (recorded R5b, James-ordered): when onBridged clears
+  // bridgeUrl, ShellScreen recomputes this pane's uri from the bridge URL to
+  // the direct route — and a changed source prop makes the WebView load the
+  // page it is ALREADY on, a second full document + API fan at every boot.
+  // The initial uri is latched: prop changes never navigate a mounted pane
+  // (forwards go through overrideUri; a remount re-latches the then-current
+  // uri, which post-bridge is the direct route — the spent-code 401 stays
+  // impossible).
+  const initialUri = useRef(uri);
   // R5b veil dress (James-ruled, navy withdrawn): white ground matching the
   // previous light loader's feel — the Rena mark centred, navy on white.
   // Only an explicit navy loaderTone (unused by the panes) stays navy.
@@ -1235,7 +1244,7 @@ function SeamlessWebView({
     <View style={styles.flex}>
       <WebView
         ref={ref}
-        source={{ uri: overrideUri ?? uri, headers: SHELL_HEADER }}
+        source={{ uri: overrideUri ?? initialUri.current, headers: SHELL_HEADER }}
         applicationNameForUserAgent={UA_SUFFIX}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
