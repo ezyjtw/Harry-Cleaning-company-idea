@@ -9,7 +9,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { CustomerAvatar } from '@/components/app/customer';
+import { CustomerAccountMenu, CustomerAvatar, CustomerBell } from '@/components/app/customer';
 import { isCustomerShellUA } from '@/lib/shell';
 
 export function CustomerCleanersSwitch({ children }: { children: React.ReactNode }) {
@@ -174,7 +174,14 @@ function CustomerCleanersView() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pb-24 pt-4">
-      <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Cleaners</h1>
+      {/* Ledger 16: person + bell ride every tab header, per Home's grammar. */}
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Cleaners</h1>
+        <div className="mt-1 flex shrink-0 items-center gap-2">
+          <CustomerAccountMenu />
+          <CustomerBell />
+        </div>
+      </div>
 
       {loading ? (
         <div className="mt-4 space-y-3">

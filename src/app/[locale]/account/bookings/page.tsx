@@ -5,7 +5,9 @@ import { useState, useEffect } from 'react';
 
 import {
   type CancelPreview,
+  CustomerAccountMenu,
   CustomerAvatar,
+  CustomerBell,
   dayPhrase,
   fmtPounds,
   fmtSlotTime,
@@ -605,7 +607,14 @@ export default function BookingsPage() {
 
     return (
       <div data-testid="my-cleans">
-        <h2 className="font-jost text-[26px] font-semibold leading-tight text-ink">My Cleans</h2>
+        {/* Ledger 16: person + bell ride every tab header, per Home's grammar. */}
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="font-jost text-[26px] font-semibold leading-tight text-ink">My Cleans</h2>
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <CustomerAccountMenu />
+            <CustomerBell />
+          </div>
+        </div>
 
         {/* Segmented control */}
         <div
