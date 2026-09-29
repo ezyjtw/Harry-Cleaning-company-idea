@@ -13,17 +13,10 @@ import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 
 interface Props {
   cleanerRate: number;
-  sameDayRate: number;
-  isLastMinute: boolean;
   onEstimateApply: (duration: number, serviceType: string) => void;
 }
 
-export default function CleaningEstimator({
-  cleanerRate,
-  sameDayRate,
-  isLastMinute,
-  onEstimateApply,
-}: Props) {
+export default function CleaningEstimator({ cleanerRate, onEstimateApply }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [rooms, setRooms] = useState<RoomDetail[]>([]);
   const [hasPets, setHasPets] = useState(false);
@@ -64,7 +57,7 @@ export default function CleaningEstimator({
     setIsOpen(false);
   };
 
-  const rate = isLastMinute ? sameDayRate : cleanerRate;
+  const rate = cleanerRate;
 
   if (!isOpen) {
     return (

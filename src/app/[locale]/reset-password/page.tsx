@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 // H71: the page the reset email has ALWAYS linked to — it never existed, so
 // every emailed reset link 404'd. One flow serves customers and cleaners
@@ -18,6 +18,16 @@ function ResetPasswordForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
+  // Pre-hydration guard: until React attaches onSubmit, a tap on the button
+  // fires the browser's NATIVE form GET — which rewrites the URL from the
+  // form's (name-less) fields and strips ?token, landing on the missing-token
+  // card with the typed passwords lost. The SSR markup ships the button
+  // disabled; hydration's first effect enables it, and only then can the
+  // form submit at all.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +141,7 @@ function ResetPasswordForm() {
             {error && <p className="mt-3 font-jost text-sm text-danger">{error}</p>}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !hydrated}
               className="mt-5 w-full rounded-[10px] bg-primary px-4 py-3 font-jost text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
             >
               {isLoading ? 'Saving…' : 'Set new password'}
