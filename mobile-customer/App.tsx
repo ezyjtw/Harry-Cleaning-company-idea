@@ -785,8 +785,20 @@ const HIDE_CHROME_JS = `
   (function(){
     var s=document.createElement('style');
     s.innerHTML='#layout-nav,#layout-footer{display:none!important}'
+      + '#account-nav-mobile,#account-nav-desktop{display:none!important}'
       + 'a[aria-label="Contact us"],button[aria-label="Open chat"],button[aria-label="Close chat"]{display:none!important}';
     document.documentElement.appendChild(s);
+    /* R4 lane 7 (a1): stamp the shell body class BEFORE first paint, so the
+       whole body.rena-customer-shell skin applies from the first frame instead
+       of waiting for React hydration (CustomerShellChrome's add becomes a
+       no-op). Body may not exist yet at injection time — observe for it. */
+    function stamp(){ document.body.classList.add('rena-customer-shell'); }
+    if (document.body) { stamp(); }
+    else {
+      new MutationObserver(function(m, o){
+        if (document.body) { stamp(); o.disconnect(); }
+      }).observe(document.documentElement, { childList: true });
+    }
   })(); true;
 `;
 
@@ -977,11 +989,14 @@ function SeamlessWebView({
 
   // Forwarded cross-tab navigation: a full document load (not pushState), so
   // the landing page mounts fresh and reads its params — the review sheet's
-  // mount effect depends on that.
+  // mount effect depends on that. R4 lane 7 (a2): the pane's loader veils the
+  // forwarded load, so the website-clothes hydration gap never shows.
   const forwardSeq = forwardNav?.seq ?? 0;
   const forwardUrl = forwardNav?.url;
   useEffect(() => {
     if (forwardSeq > 0 && forwardUrl) {
+      setLoaded(false);
+      fade.setValue(1);
       ref.current?.injectJavaScript(`window.location.href=${JSON.stringify(forwardUrl)}; true;`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1104,7 +1119,11 @@ function SeamlessWebView({
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the loader up
           retryBudget.current = 0; // real load landed — reset the silent-retry budget
-          setLoaded(true);
+          // R4 lane 7 (a2): hold the loader a short grace past load-end so
+          // React hydration (the in-shell page-variant swap) settles behind
+          // the veil. A true "dressed" signal would need web-side bytes; this
+          // approximation is disclosed in the gate.
+          setTimeout(() => setLoaded(true), 300);
         }}
         onError={() => {
           if (retryBudget.current < 2) {
