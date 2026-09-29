@@ -8,7 +8,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useCustomerShell } from '@/components/app/customer';
+import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import { isOfferNotification, notificationHref } from '@/lib/notification-links';
 
 interface NotificationItem {
@@ -92,6 +92,14 @@ export default function NotificationsPage() {
     >
       <div className="flex items-end justify-between gap-4">
         <div>
+          {/* R4 lane-6 follow-on: the bell now lands here from any tab — the
+              standing back link rides in-shell (multi-door room, history-back
+              per the lane-1 ruling). */}
+          {inShell && (
+            <div className="mb-2">
+              <CustomerBackLink />
+            </div>
+          )}
           <h1
             className={
               inShell
