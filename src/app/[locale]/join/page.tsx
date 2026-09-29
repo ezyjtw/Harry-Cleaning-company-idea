@@ -1704,7 +1704,7 @@ export default function JoinAsCleanerPage() {
                   value={form.postcode}
                   onChange={(e) => set('postcode', e.target.value)}
                   onBlur={() => {
-                    // F6: normalise on entry — "e47ap" becomes "E4 7AP" the
+                    // F6: normalise on entry — "ec1a1bb" becomes "EC1A 1BB" the
                     // moment the field is left; the canonical form is what
                     // validates, submits, and gets stored.
                     const norm = normalizeUkPostcode(form.postcode);

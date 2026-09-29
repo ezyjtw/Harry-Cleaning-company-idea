@@ -311,7 +311,7 @@ export default function HeroQuoteWidget() {
   // ─── Handlers ──────────────────────────────────────────────
 
   const handlePostcodeSubmit = async () => {
-    // H31: canonicalise ("e47ap" → "E4 7AP") — the field, the stored value,
+    // H31: canonicalise ("ec1a1bb" → "EC1A 1BB") — the field, the stored value,
     // and every downstream lookup all use the same normalised form.
     const raw = postcode.trim();
     if (!UK_POSTCODE_REGEX.test(raw)) {

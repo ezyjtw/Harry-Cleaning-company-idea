@@ -1854,7 +1854,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     setPostcodeError('Please enter a valid UK postcode');
                     return;
                   }
-                  // H31: canonicalise on blur — "E47AP" reads back as "E4 7AP"
+                  // H31: canonicalise on blur — "EC1A1BB" reads back as "EC1A 1BB"
                   // and every downstream lookup gets the same form.
                   const norm = normalizeUkPostcode(trimmed);
                   if (norm && norm !== postcode) setPostcode(norm);

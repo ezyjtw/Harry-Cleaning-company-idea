@@ -72,7 +72,7 @@ export default function AddressAutocomplete({
   }, [autoLookupPostcode, initialPostcode]);
 
   // Re-validate catchment / chosen-cleaner coverage when a full postcode is entered.
-  // H31 (customer parity with F6): normalise on blur — "e47ap" becomes "E4 7AP"
+  // H31 (customer parity with F6): normalise on blur — "ec1a1bb" becomes "EC1A 1BB"
   // in the field itself, and the canonical form is what every lookup receives.
   async function revalidatePostcode() {
     const raw = value.postcode.trim().toUpperCase();
