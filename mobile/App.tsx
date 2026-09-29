@@ -1063,12 +1063,16 @@ function SeamlessWebView({
     }
   };
 
-  // R4 lane 4 (James-ruled shape): a Content-Disposition attachment (the tax
-  // statement PDF) no longer paints inline over the page — the shell downloads
-  // it natively with the stored Bearer (WebView cookies aren't reliably shared
-  // with native requests; the API accepts Bearer) and opens the iOS share
-  // sheet (Save to Files, AirDrop, Mail…). Fail-soft: an error alerts and the
-  // page is untouched.
+  // R5 statement viewer (James-ruled: view first, save second). The tax
+  // statement tap no longer goes straight to the share sheet: the shell still
+  // downloads it natively with the stored Bearer (WebView cookies aren't
+  // reliably shared with native requests; the API accepts Bearer), then opens
+  // it IN APP — a WebView rendering the local PDF — with a pinned navy
+  // DOWNLOAD button beneath that runs the share sheet (Save to Files,
+  // AirDrop, Mail…). Inline render + interception coexist because the viewer
+  // renders the LOCAL file: the intercepted navigation is never painted, so
+  // the two paths never contend. Fail-soft: an error alerts, page untouched.
+  const [statementUri, setStatementUri] = useState<string | null>(null);
   const onFileDownload = useCallback(
     async ({ nativeEvent }: { nativeEvent: { downloadUrl: string } }) => {
       try {
@@ -1080,7 +1084,7 @@ function SeamlessWebView({
           headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
         });
         if (res.status === 200) {
-          await Share.share({ url: res.uri });
+          setStatementUri(res.uri);
         } else {
           Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
         }
@@ -1223,6 +1227,40 @@ function SeamlessWebView({
             <BreathingMark />
           )}
         </Animated.View>
+      )}
+      {statementUri && (
+        <View style={styles.statementOverlay}>
+          <View style={styles.statementHeader}>
+            <Pressable
+              style={styles.statementBack}
+              onPress={() => setStatementUri(null)}
+              hitSlop={12}
+            >
+              <Ionicons name="chevron-back" size={22} color={INK2} />
+              <Text style={styles.statementBackText}>Back</Text>
+            </Pressable>
+            <Text style={styles.statementTitle}>Earnings Statement</Text>
+            <View style={styles.statementBackGhost} />
+          </View>
+          <WebView
+            source={{ uri: statementUri }}
+            originWhitelist={['*']}
+            style={styles.flex}
+            // Local file, no scripts needed — the inline PDF render, in app.
+            javaScriptEnabled={false}
+          />
+          <View style={styles.statementFooter}>
+            <Pressable
+              style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+              onPress={() => {
+                fireHaptic('light');
+                Share.share({ url: statementUri }).catch(() => {});
+              }}
+            >
+              <Text style={styles.primaryBtnText}>Download</Text>
+            </Pressable>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -1406,6 +1444,31 @@ const styles = StyleSheet.create({
   secondaryBtnText: { fontFamily: SANS_SEMI, color: INK, fontSize: 16, lineHeight: 22 },
   retryBtn: { marginTop: 18, paddingHorizontal: 28 },
 
+  // R5 statement viewer — view first, save second (the app's grammar).
+  statementOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: PAGE,
+  },
+  statementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: LINE,
+    backgroundColor: SURFACE,
+  },
+  statementBack: { flexDirection: 'row', alignItems: 'center', minWidth: 64 },
+  statementBackText: { fontFamily: SANS, color: INK2, fontSize: 16, lineHeight: 22 },
+  statementBackGhost: { minWidth: 64 },
+  statementTitle: { fontFamily: SANS_SEMI, color: INK, fontSize: 16, lineHeight: 22 },
+  statementFooter: {
+    padding: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: LINE,
+    backgroundColor: SURFACE,
+  },
   offlineTitle: {
     fontFamily: SANS_SEMI,
     fontSize: 20,
