@@ -1161,7 +1161,7 @@ export default function JoinAsCleanerPage() {
       else if (form.phone.replace(/\D/g, '').length < 10) e.phone = 'Enter a valid phone number';
       if (!form.postcode.trim()) e.postcode = 'Postcode is required';
       else if (!UK_POSTCODE_RE.test(form.postcode.trim()))
-        e.postcode = 'Enter a valid UK postcode (e.g. SW1A 1AA)';
+        e.postcode = 'Enter a valid UK postcode (e.g. E4 6AP)';
       if (!form.dateOfBirth) {
         e.dateOfBirth = 'Date of birth is required';
       } else {
@@ -1700,11 +1700,11 @@ export default function JoinAsCleanerPage() {
                 <Input
                   type="text"
                   required
-                  placeholder="e.g. SW1A 1AA"
+                  placeholder="e.g. E4 6AP"
                   value={form.postcode}
                   onChange={(e) => set('postcode', e.target.value)}
                   onBlur={() => {
-                    // F6: normalise on entry — "ec1a1bb" becomes "EC1A 1BB" the
+                    // F6: normalise on entry — "e46ap" becomes "E4 6AP" the
                     // moment the field is left; the canonical form is what
                     // validates, submits, and gets stored.
                     const norm = normalizeUkPostcode(form.postcode);

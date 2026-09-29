@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { haversineDistance, isValidPostcode, lookupPostcode } from '@/lib/utils/postcode';
 
-// GET /api/cleaners/[id]/covers?postcode=EC1A 1BB
+// GET /api/cleaners/[id]/covers?postcode=E4 6AP
 //
 // Does this cleaner cover the given postcode? Uses the EXACT same coverage logic
 // as search (geocode → haversine → isWithinTravelRange), so the booking

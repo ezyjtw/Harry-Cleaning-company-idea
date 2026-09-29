@@ -311,7 +311,7 @@ export default function HeroQuoteWidget() {
   // ─── Handlers ──────────────────────────────────────────────
 
   const handlePostcodeSubmit = async () => {
-    // H31: canonicalise ("ec1a1bb" → "EC1A 1BB") — the field, the stored value,
+    // H31: canonicalise ("e46ap" → "E4 6AP") — the field, the stored value,
     // and every downstream lookup all use the same normalised form.
     const raw = postcode.trim();
     if (!UK_POSTCODE_REGEX.test(raw)) {
@@ -432,7 +432,7 @@ export default function HeroQuoteWidget() {
       {postcodeError ? (
         <p className="mb-7 mt-2 font-jost text-[12px] text-danger">{postcodeError}</p>
       ) : (
-        <p className="mb-7 mt-2 font-jost text-[12px] text-ink-3">e.g. IG11 7QR</p>
+        <p className="mb-7 mt-2 font-jost text-[12px] text-ink-3">e.g. E4 6AP</p>
       )}
 
       {/* Out-of-area waitlist */}

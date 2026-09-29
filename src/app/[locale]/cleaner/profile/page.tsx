@@ -506,7 +506,7 @@ export default function CleanerProfilePage() {
                   const norm = normalizeUkPostcode(homePostcode);
                   if (norm && norm !== homePostcode) setHomePostcode(norm);
                 }}
-                placeholder="e.g. SW1A 1AA"
+                placeholder="e.g. E4 6AP"
                 className="mt-1.5 w-full rounded-lg bg-page px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition uppercase"
                 style={{ border: '1px solid rgb(var(--color-border))' }}
               />
