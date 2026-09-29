@@ -227,12 +227,33 @@ function RootView() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
+  // R4 lane-3 sibling: like the in-page tap path, a push/deep link carrying a
+  // query or hash (…/account/bookings?review=<id>) forwards its full URL to
+  // the target pane instead of dropping it at the tab switch. Only our own
+  // https URLs qualify — custom-scheme links (rena://mycleans) carry no page
+  // payload and keep the plain switch. Dormant until push activation sends
+  // the first data.url; harmless meanwhile.
+  const extNavSeq = useRef(0);
+  const [externalNav, setExternalNav] = useState<{ key: string; url: string; seq: number } | null>(
+    null
+  );
+  const pendingNav = useRef<{ key: string; url: string } | null>(null);
+
   const applyLink = useCallback((url: string | null | undefined) => {
     if (!url) return;
     const tab = tabForUrl(url);
     if (!tab) return;
-    if (phaseRef.current === 'shell') setActiveTab(tab);
-    else pendingTab.current = tab;
+    const payload = url.startsWith(BASE_URL) && /[?#]/.test(url) ? url : null;
+    if (phaseRef.current === 'shell') {
+      if (payload) {
+        extNavSeq.current += 1;
+        setExternalNav({ key: tab, url: payload, seq: extNavSeq.current });
+      }
+      setActiveTab(tab);
+    } else {
+      pendingTab.current = tab;
+      pendingNav.current = payload ? { key: tab, url: payload } : null;
+    }
   }, []);
 
   useEffect(() => {
@@ -254,6 +275,11 @@ function RootView() {
 
   useEffect(() => {
     if (phase === 'shell' && pendingTab.current) {
+      if (pendingNav.current) {
+        extNavSeq.current += 1;
+        setExternalNav({ ...pendingNav.current, seq: extNavSeq.current });
+        pendingNav.current = null;
+      }
       setActiveTab(pendingTab.current);
       pendingTab.current = null;
     }
@@ -418,6 +444,7 @@ function RootView() {
           bridgeUrl={bridgeUrl}
           onBridged={() => setBridgeUrl(null)}
           onSessionLost={logout}
+          externalNav={externalNav}
         />
       )}
 
@@ -790,12 +817,15 @@ function ShellScreen({
   bridgeUrl,
   onBridged,
   onSessionLost,
+  externalNav,
 }: {
   activeTab: string;
   setActiveTab: (k: string) => void;
   bridgeUrl: string | null;
   onBridged: () => void;
   onSessionLost: () => void;
+  /** R4 lane-3 sibling: a push/deep-link URL with payload, forwarded to its pane. */
+  externalNav?: { key: string; url: string; seq: number } | null;
 }) {
   // Cross-tab deep links: when the tapped link carries a query or hash beyond
   // the bare tab root (the Home review card's ?review=<id>), hand the full URL
@@ -803,6 +833,17 @@ function ShellScreen({
   // only, preserving the target pane's state and scroll.
   const [forwards, setForwards] = useState<Record<string, { url: string; seq: number }>>({});
   const forwardCount = useRef(0);
+  // External (push/deep-link) forwards merge into the same per-pane map; the
+  // pane-local counter keeps seq monotonic across both sources.
+  const extSeq = externalNav?.seq ?? 0;
+  useEffect(() => {
+    if (externalNav && extSeq > 0) {
+      forwardCount.current += 1;
+      const seq = forwardCount.current;
+      setForwards((f) => ({ ...f, [externalNav.key]: { url: externalNav.url, seq } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extSeq]);
   const selectTab = useCallback(
     (k: string, url?: string) => {
       fireHaptic('light');
