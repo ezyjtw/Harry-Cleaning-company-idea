@@ -8,7 +8,9 @@ ios/
 android/
 # EAS / credentials
 credentials.json
-google-services.json
+# google-services.json is COMMITTED by James's order (FCM client config, no secrets —
+# the API key is a public Android client key; the service-account key lives only
+# in EAS credentials and never enters this repo).
 *.p8
 *.p12
 *.mobileprovision
