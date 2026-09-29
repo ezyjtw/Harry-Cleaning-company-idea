@@ -34,7 +34,7 @@ export function bookingPostcode(b: BookingAddressSource): string {
   return (b.addressPostcode || b.address?.postcode || '').trim();
 }
 
-/** Full address line, e.g. "12 High St, London SW1A 1AA". */
+/** Full address line, e.g. "12 High St, London E4 6AP". */
 export function bookingFullAddress(b: BookingAddressSource): string {
   const line1 = bookingLine1(b);
   const city = bookingCity(b);

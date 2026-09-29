@@ -1,6 +1,6 @@
 // F6 sweep (REPORT ONLY — writes nothing): every cleaner's stored home
 // postcode, checked for the polygon-generation guarantees:
-//   MALFORMED   — doesn't normalise to a complete "EC1A 1BB" form (no polygon anchor)
+//   MALFORMED   — doesn't normalise to a complete "E4 6AP" form (no polygon anchor)
 //   NOT_FOUND   — well-formed but postcodes.io says it doesn't exist
 //   MISSING     — no postcode stored at all
 //   UNNORMALISED — geocodes fine but stored in a non-canonical form

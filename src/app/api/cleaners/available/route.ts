@@ -13,7 +13,7 @@ import { isValidPostcode } from '@/lib/utils/postcode';
 // "Which cleaners are available for [date] [band] in [postcode] for [service]?"
 // Thin wrapper over MatchingService.findMatches (see availability-query.service).
 //
-// GET /api/cleaners/available?date=YYYY-MM-DD&band=afternoon&duration=2&service=regular&postcode=SW1A1AA
+// GET /api/cleaners/available?date=YYYY-MM-DD&band=afternoon&duration=2&service=regular&postcode=E46AP
 //   200 → { date, band, cleaners: [...] }
 //   400 → invalid params
 //   429 → rate limited

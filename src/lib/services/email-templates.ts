@@ -1215,7 +1215,7 @@ export function buildTopupApprovalRequest(data: {
     p(`Hi ${data.customerName},`) +
     (isAdjust
       ? p(
-          'We need to adjust the price of your booking. Your cleaner and your booking stay exactly as they are — only the price changes, and only if you approve.'
+          'We need to adjust the price of your booking. Your cleaner and your booking stay exactly as they are. Only the price changes, and only if you approve.'
         ) + (data.adminReason ? p(`Reason: ${escapeHtml(data.adminReason)}`) : '')
       : p(
           'Your original cleaner was unavailable, and a backup cleaner has been offered your booking at a different rate.'
@@ -1256,10 +1256,10 @@ export function buildTopupCardReminder(data: {
   );
   const subject = 'Reminder: card details needed to finish your price change';
   const contentHtml =
-    h('Almost there — card details needed') +
+    h('Almost there. Card details needed') +
     p(`Hi ${data.customerName},`) +
     p(
-      `You approved the price change for your booking, but the extra &pound;${data.topupAmount.toFixed(2)} hasn&rsquo;t been charged yet — we still need your card details to finish it.`
+      `You approved the price change for your booking, but the extra &pound;${data.topupAmount.toFixed(2)} hasn&rsquo;t been charged yet, because we still need your card details to finish it.`
     ) +
     p(
       `You have approximately <strong>${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}</strong> before the change lapses and the booking stands at its original price.`
@@ -1278,8 +1278,8 @@ export function buildTopupRevertNotice(data: {
   isAdjust: boolean; // ADMIN_PRICE_ADJUST vs reassign/cascade
 }): EmailContent {
   const subject = data.declined
-    ? 'Price change declined — your booking is unchanged'
-    : 'Price change expired — your booking is unchanged';
+    ? 'Price change declined - your booking is unchanged'
+    : 'Price change expired - your booking is unchanged';
   const trackerLink = `${appUrl()}/booking/${data.bookingId}`;
   const contentHtml =
     h(data.declined ? 'Price change declined' : 'Price change expired') +
@@ -1287,8 +1287,8 @@ export function buildTopupRevertNotice(data: {
     (data.isAdjust
       ? p(
           data.declined
-            ? 'You declined the proposed price change, so nothing was charged. Your booking goes ahead exactly as before — same cleaner, same time, original price.'
-            : 'The window to approve the proposed price change has passed, so nothing was charged. Your booking goes ahead exactly as before — same cleaner, same time, original price.'
+            ? 'You declined the proposed price change, so nothing was charged. Your booking goes ahead exactly as before. Same cleaner, same time, original price.'
+            : 'The window to approve the proposed price change has passed, so nothing was charged. Your booking goes ahead exactly as before. Same cleaner, same time, original price.'
         )
       : p(
           data.declined

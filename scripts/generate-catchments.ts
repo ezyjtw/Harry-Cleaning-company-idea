@@ -23,7 +23,7 @@ const prisma = new PrismaClient();
 
 // F9: reach = max crow-flies km from the home point to any polygon vertex.
 // Printed before/after each regeneration so a calibration run reports its own
-// sanity check (e.g. the EC1A 1BB 30-min polygon's reach pre/post ×0.7).
+// sanity check (e.g. the E4 6AP 30-min polygon's reach pre/post ×0.7).
 function polygonReachKm(
   polygon: unknown,
   homeLat: number | null,

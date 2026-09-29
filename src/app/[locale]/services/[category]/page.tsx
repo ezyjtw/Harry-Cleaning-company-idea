@@ -79,7 +79,7 @@ function getServiceListedRate(cleaner: Cleaner, cat: ServiceCategory): number {
   return getCleanerRateForService(cleaner, cat);
 }
 
-/** Extract the area prefix from a UK postcode (e.g. "SW1A 1AA" → "SW") */
+/** Extract the area prefix from a UK postcode (e.g. "E4 6AP" → "SW") */
 function getPostcodeArea(postcode: string): string {
   const match = postcode
     .trim()
@@ -1854,12 +1854,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     setPostcodeError('Please enter a valid UK postcode');
                     return;
                   }
-                  // H31: canonicalise on blur — "EC1A1BB" reads back as "EC1A 1BB"
+                  // H31: canonicalise on blur — "E46AP" reads back as "E4 6AP"
                   // and every downstream lookup gets the same form.
                   const norm = normalizeUkPostcode(trimmed);
                   if (norm && norm !== postcode) setPostcode(norm);
                 }}
-                placeholder="e.g. SW1A 1AA"
+                placeholder="e.g. E4 6AP"
                 className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost text-lg font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 focus:ring-gold/30 ${postcodeError ? 'ring-red-400' : 'ring-ink/[0.06]'}`}
               />
               {postcodeError && (

@@ -97,7 +97,7 @@ export default function ApproveTopupPage() {
           setState('payment');
         } else if (d.resumeRetry) {
           setError(
-            "Your approval stands, but we couldn't reach the payment provider just now — try again in a moment."
+            "Your approval stands, but we couldn't reach the payment provider just now. Try again in a moment."
           );
           setState('error');
         } else {
@@ -132,7 +132,7 @@ export default function ApproveTopupPage() {
         setState('loaded');
       }
     } catch {
-      setError('Network error — please try again');
+      setError('Network error. Please try again');
       setState('loaded');
     }
   }, [bookingId, guestToken]);
@@ -148,7 +148,7 @@ export default function ApproveTopupPage() {
       });
       setState('declined');
     } catch {
-      setError('Network error — please try again');
+      setError('Network error. Please try again');
       setState('loaded');
     }
   }, [bookingId, guestToken]);
@@ -199,7 +199,7 @@ export default function ApproveTopupPage() {
           <h2 className="font-newsreader text-2xl text-ink">Payment Confirmed</h2>
           <p className="mt-2 text-sm text-ink-2">
             {data?.provisionalSource === 'ADMIN_PRICE_ADJUST'
-              ? `Your booking is confirmed at the new price of £${data?.newPrice?.toFixed(2)} — same cleaner, same time.`
+              ? `Your booking is confirmed at the new price of £${data?.newPrice?.toFixed(2)}. Same cleaner, same time.`
               : `Your booking has been confirmed with the new cleaner at £${data?.newPrice?.toFixed(2)}.`}
           </p>
         </div>
@@ -224,7 +224,7 @@ export default function ApproveTopupPage() {
           </div>
           <h2 className="font-newsreader text-2xl text-ink">All confirmed</h2>
           <p className="mt-2 text-sm text-ink-2">
-            You&apos;ve approved the price change —{' '}
+            You&apos;ve approved the price change.{' '}
             {approvedOutcome.cleanerName
               ? `${approvedOutcome.cleanerName} is booked`
               : 'your booking is confirmed'}{' '}
@@ -243,7 +243,7 @@ export default function ApproveTopupPage() {
         <div className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7">
           <h2 className="font-newsreader text-2xl text-ink">Nothing to review</h2>
           <p className="mt-2 text-sm text-ink-2">
-            This price change is no longer active — it was declined or it expired, and your booking
+            This price change is no longer active. It was declined or it expired, and your booking
             stands at its original price.
           </p>
         </div>
@@ -258,7 +258,7 @@ export default function ApproveTopupPage() {
           <h2 className="font-newsreader text-2xl text-ink">Declined</h2>
           <p className="mt-2 text-sm text-ink-2">
             {data?.provisionalSource === 'ADMIN_PRICE_ADJUST'
-              ? 'You’ve declined the price change — nothing was charged. Your booking is unchanged: same cleaner, same time, original price.'
+              ? 'You’ve declined the price change, so nothing was charged. Your booking is unchanged. Same cleaner, same time, original price.'
               : 'You’ve declined the price change. We’ll continue looking for a cleaner at your original price.'}
           </p>
         </div>
@@ -316,7 +316,7 @@ export default function ApproveTopupPage() {
         <h2 className="mb-4 font-newsreader text-2xl text-ink">Price Change Approval</h2>
         <p className="mb-4 text-sm text-ink-2">
           {data.provisionalSource === 'ADMIN_PRICE_ADJUST'
-            ? 'We need to adjust the price of this booking. Your cleaner and time stay exactly as they are — only the price changes, and only if you approve.'
+            ? 'We need to adjust the price of this booking. Your cleaner and time stay exactly as they are. Only the price changes, and only if you approve.'
             : 'Your original cleaner was unavailable. A backup cleaner is available at a different rate.'}
         </p>
 
@@ -362,7 +362,7 @@ export default function ApproveTopupPage() {
         {data.readOnly ? (
           // H57 matrix row 5: admin view — the numbers, never the buttons.
           <div className="rounded-[10px] border border-line bg-page px-4 py-3 text-center text-sm text-ink-2">
-            Admin view — only the customer can approve or decline this change.
+            Admin view. Only the customer can approve or decline this change.
           </div>
         ) : (
           <div className="flex gap-3">

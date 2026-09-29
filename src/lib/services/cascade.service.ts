@@ -1383,7 +1383,7 @@ export async function enterAdminPriceAdjust(args: {
     return {
       success: false,
       reason:
-        'Too close to the visit — the approval window (which closes 24h before the slot) would already be shut. Arrange the change with the customer directly, or adjust an occurrence further out.',
+        'Too close to the visit. The approval window (which closes 24h before the slot) would already be shut. Arrange the change with the customer directly, or adjust an occurrence further out.',
     };
   }
 
@@ -1577,11 +1577,11 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       : 'Reassignment not going ahead';
     const body = wasAdjust
       ? wasDeclined
-        ? 'Nothing was charged. Your booking is unchanged — same cleaner, same time, original price.'
-        : 'The approval window passed and nothing was charged. Your booking is unchanged — same cleaner, same time, original price.'
+        ? 'Nothing was charged. Your booking is unchanged. Same cleaner, same time, original price.'
+        : 'The approval window passed and nothing was charged. Your booking is unchanged. Same cleaner, same time, original price.'
       : wasDeclined
-        ? 'You declined the price change — nothing was charged. Your booking returns to how it was.'
-        : 'The approval window passed — nothing was charged. Your booking returns to how it was.';
+        ? 'You declined the price change, so nothing was charged. Your booking returns to how it was.'
+        : 'The approval window passed, and nothing was charged. Your booking returns to how it was.';
     await prisma.notification
       .create({
         data: {
@@ -2163,7 +2163,7 @@ export async function notifyTopupApprovalRequested(
         type: 'SYSTEM',
         title: 'Price change needs your review',
         body: isAdjust
-          ? `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Your cleaner and time stay the same — nothing is charged unless you approve.`
+          ? `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Your cleaner and time stay the same, and nothing is charged unless you approve.`
           : `A price change of +£${topupAmount.toFixed(2)} has been proposed for your booking on ${booking.date.toISOString().split('T')[0]}. Nothing is charged unless you approve.`,
         data: { bookingId, url: `/booking/${bookingId}/approve-topup` },
       },

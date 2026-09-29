@@ -29,8 +29,8 @@ export function isValidUkPostcode(raw: string): boolean {
 }
 
 // F6: canonical form for storage/display/catchment generation. Accepts any
-// spacing/casing of a COMPLETE postcode ("ec1a1bb", "E4  7AP") and returns
-// "EC1A 1BB" (inward = final 3 characters). Returns null for anything that is
+// spacing/casing of a COMPLETE postcode ("e46ap", "E4  7AP") and returns
+// "E4 6AP" (inward = final 3 characters). Returns null for anything that is
 // not a full postcode — outward-only ("E4") can't anchor a polygon.
 export function normalizeUkPostcode(raw: string): string | null {
   const compact = String(raw ?? '')

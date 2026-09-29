@@ -239,7 +239,7 @@ export default function CompleteProfilePage() {
             type="text"
             value={postcode}
             onChange={(e) => setPostcode(e.target.value.toUpperCase())}
-            placeholder="e.g. SW1A 1AA"
+            placeholder="e.g. E4 6AP"
             className="mt-1 w-full px-3 py-2 font-jost text-sm font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20"
             style={{ border: '0.5px solid rgb(var(--color-border))' }}
           />
