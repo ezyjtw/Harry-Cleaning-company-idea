@@ -10,6 +10,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import BackPill from '@/components/app/BackPill';
 import { haptic } from '@/components/app/job-cards';
 import { appNotificationHref } from '@/lib/notification-links';
 
@@ -102,11 +103,14 @@ export default function AppInboxPage() {
   return (
     <div>
       <header className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Inbox</h1>
-          {unreadCount > 0 && (
-            <p className="mt-0.5 font-jost text-[13px] text-ink-3">{unreadCount} unread</p>
-          )}
+        <div className="flex items-start gap-2">
+          <BackPill className="mt-0.5" />
+          <div>
+            <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Inbox</h1>
+            {unreadCount > 0 && (
+              <p className="mt-0.5 font-jost text-[13px] text-ink-3">{unreadCount} unread</p>
+            )}
+          </div>
         </div>
         {unreadCount > 0 && (
           <button

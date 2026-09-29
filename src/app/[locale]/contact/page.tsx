@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
+import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import JunkMailHint from '@/components/JunkMailHint';
 
 const SUBJECT_OPTIONS = [
@@ -32,6 +33,7 @@ const initialForm: ContactForm = {
 };
 
 export default function ContactPage() {
+  const inShell = useCustomerShell();
   const [form, setForm] = useState<ContactForm>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof ContactForm, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -158,6 +160,14 @@ export default function ContactPage() {
   return (
     <main className="min-h-screen bg-cream">
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+        {/* R4 lane 1: in the customer shell this page opens from the account
+            sheet with no visible way back — the standing back link rides
+            in-shell only; the website page is untouched. */}
+        {inShell && (
+          <div className="mb-4 text-left">
+            <CustomerBackLink />
+          </div>
+        )}
         <div className="text-center">
           <h1 className="font-newsreader text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Contact Us

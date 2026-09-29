@@ -284,6 +284,27 @@ export function NoCleansCard() {
   );
 }
 
+// ─── Back link: the customer shell's standing back affordance (R4 lane 1) ────
+// The '‹ Parent' text-link grammar the tracker and cleaner profile already
+// wear. With href it names its parent; without, it walks history — for rooms
+// reachable from more than one door (settings, notifications, contact).
+export function CustomerBackLink({ href, label = 'Back' }: { href?: string; label?: string }) {
+  const router = useRouter();
+  const cls = 'font-jost text-[13px] font-medium text-ink-3 active:opacity-70';
+  if (href) {
+    return (
+      <Link href={href} data-testid="customer-back" className={cls}>
+        &lsaquo; {label}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" data-testid="customer-back" onClick={() => router.back()} className={cls}>
+      &lsaquo; {label}
+    </button>
+  );
+}
+
 // ─── Bell: quiet door to notifications (no customer badge endpoint yet) ──────
 export function CustomerBell() {
   return (

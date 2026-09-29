@@ -4,6 +4,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 
@@ -46,6 +47,7 @@ export default function ApproveTopupPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const inShell = useCustomerShell();
   const bookingId = params.id as string;
   // F5: guests arrive from the tokened approval email — every call (GET, POST,
   // and the Stripe return_url) carries the token so the whole flow works
@@ -278,6 +280,14 @@ export default function ApproveTopupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page p-4">
       <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 sm:p-7">
+        {/* R4 lane 1: in the customer shell this room opens from a My Cleans
+            card or a bell row with no visible way out — the standing back
+            link names its parent. Website (email arrivals) untouched. */}
+        {inShell && (
+          <div className="mb-3">
+            <CustomerBackLink href="/account/bookings" label="My Cleans" />
+          </div>
+        )}
         <h2 className="mb-4 font-newsreader text-2xl text-ink">Price Change Approval</h2>
         <p className="mb-4 text-sm text-ink-2">
           Your original cleaner was unavailable. A backup cleaner is available at a different rate.

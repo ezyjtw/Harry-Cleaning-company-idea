@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import BackPill from '@/components/app/BackPill';
 import { suppliesLabel } from '@/lib/booking/supplies';
 import { bedroomsLabel } from '@/lib/constants/services';
 
@@ -287,19 +288,26 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   // ── Load error (retry) ──
   if (loadError) {
     return (
-      <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-jost text-xl font-semibold text-ink">Couldn&apos;t load this offer</h1>
-        <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
-        <button
-          type="button"
-          onClick={() => {
-            setLoading(true);
-            fetchOffer();
-          }}
-          className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
-        >
-          Retry
-        </button>
+      <div>
+        <header className="mb-4 flex items-center gap-2">
+          <BackPill />
+        </header>
+        <div className="rounded-xl border border-line bg-surface p-6 text-center">
+          <h1 className="font-jost text-xl font-semibold text-ink">
+            Couldn&apos;t load this offer
+          </h1>
+          <p className="mt-2 font-jost text-sm text-ink-2">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              fetchOffer();
+            }}
+            className="mt-4 rounded-[10px] bg-primary px-5 py-2 font-jost text-sm font-medium text-white"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -307,22 +315,27 @@ export default function OfferPage({ params }: { params: { id: string } }) {
   // ── Gone (404) OR expired (window closed / lost the race) — same terminal ──
   if (gone || expired) {
     return (
-      <div className="rounded-xl border border-line bg-surface p-6 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-2xl text-ink-3">
-          ⏱
+      <div>
+        <header className="mb-4 flex items-center gap-2">
+          <BackPill />
+        </header>
+        <div className="rounded-xl border border-line bg-surface p-6 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-2xl text-ink-3">
+            ⏱
+          </div>
+          <h1 className="mt-4 font-jost text-xl font-semibold text-ink">This offer has expired</h1>
+          <p className="mt-2 font-jost text-sm text-ink-2">
+            It may have been passed to another cleaner. No action is needed — new offers will appear
+            here and on Today.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/app/today')}
+            className="mt-5 rounded-[10px] bg-primary px-5 py-2.5 font-jost text-sm font-medium text-white"
+          >
+            Back to Today
+          </button>
         </div>
-        <h1 className="mt-4 font-jost text-xl font-semibold text-ink">This offer has expired</h1>
-        <p className="mt-2 font-jost text-sm text-ink-2">
-          It may have been passed to another cleaner. No action is needed — new offers will appear
-          here and on Today.
-        </p>
-        <button
-          type="button"
-          onClick={() => router.push('/app/today')}
-          className="mt-5 rounded-[10px] bg-primary px-5 py-2.5 font-jost text-sm font-medium text-white"
-        >
-          Back to Today
-        </button>
       </div>
     );
   }
@@ -336,6 +349,12 @@ export default function OfferPage({ params }: { params: { id: string } }) {
 
   return (
     <div>
+      {/* R4 lane 1: the standing back pill — an offer opened from Today or a
+          push lands here with no visible way back but the swipe. */}
+      <header className="mb-4 flex items-center gap-2">
+        <BackPill />
+        <span className="font-jost text-[13px] font-medium text-ink-3">Back</span>
+      </header>
       {/* Pro Navy law (James-ruled): the navy hero block retired — the offer is
           a flat white card like everything else. */}
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">

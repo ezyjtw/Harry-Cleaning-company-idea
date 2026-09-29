@@ -4,7 +4,7 @@ import { signIn, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
-import { useCustomerShell } from '@/components/app/customer';
+import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -278,7 +278,14 @@ export default function SettingsPage() {
       {/* Quiet-rooms dress: the account layout's chrome is hidden in-shell, so
           the room carries its own plain Jost navy title (My Cleans law). */}
       {inShell && (
-        <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">Settings</h1>
+        <div>
+          {/* R4 lane 1: settings opens from the account sheet on any tab —
+              history-back is its only honest parent. */}
+          <CustomerBackLink />
+          <h1 className="mt-2 font-jost text-[26px] font-semibold leading-tight text-ink">
+            Settings
+          </h1>
+        </div>
       )}
       {/* Profile Section */}
       <AccountSection
