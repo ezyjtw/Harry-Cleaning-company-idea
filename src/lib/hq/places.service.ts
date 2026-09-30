@@ -139,6 +139,10 @@ export interface PlacesRefreshResult {
   status: 'refreshed' | 'skipped';
   reason?: string;
   placesTouched?: number;
+  /** areas whose text search succeeded this run */
+  areasSwept?: number;
+  /** outbound Places API calls attempted (searches + details) */
+  apiCalls?: number;
 }
 
 /**
@@ -157,11 +161,16 @@ export async function refreshCompetitorIntel(): Promise<PlacesRefreshResult> {
   await prisma.competitorReview.deleteMany({ where: { expiresAt: { lte: new Date() } } });
 
   let touched = 0;
+  let areasSwept = 0;
+  let apiCalls = 0; // loud-log rider (James-ordered): searches + details attempted
 
   for (const area of SERVICE_AREAS) {
     try {
+      apiCalls++;
       const found = await searchText(`cleaning service in ${area.name} London`);
+      areasSwept++;
       for (const p of found.slice(0, MAX_DETAILS_PER_AREA)) {
+        apiCalls++;
         const d = await placeDetails(p.id);
         if (d) {
           await recordPlace(d, { area: area.slug });
@@ -175,9 +184,11 @@ export async function refreshCompetitorIntel(): Promise<PlacesRefreshResult> {
 
   for (const brand of COMPETITOR_BRANDS) {
     try {
+      apiCalls++;
       const found = await searchText(brand.query);
       const top = found[0];
       if (top) {
+        apiCalls++;
         const d = await placeDetails(top.id);
         if (d) {
           await recordPlace(d, { brand: brand.key });
@@ -189,5 +200,5 @@ export async function refreshCompetitorIntel(): Promise<PlacesRefreshResult> {
     }
   }
 
-  return { status: 'refreshed', placesTouched: touched };
+  return { status: 'refreshed', placesTouched: touched, areasSwept, apiCalls };
 }
