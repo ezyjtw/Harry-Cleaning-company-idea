@@ -37,23 +37,31 @@ const MARKETING_ROUTES = new Set([
 export default function CustomerShellChrome() {
   const pathname = usePathname();
   const router = useRouter();
-  const [inShell, setInShell] = useState(false);
+  // Root-redirect drift fix (James-ruled): the chrome-hide serves the shell
+  // UA AND James's `?shell=1` browser preview, but the back-chain backstop
+  // is a SHELL law and fires only under the real shell UA. The preview
+  // cookie previously rode the same flag, so any plain browser that had
+  // ever used ?shell=1 got / (and every marketing route) replaced with
+  // /app/home for the cookie's 30-day life. The front door is the front
+  // door: a plain browser, signed in or not, always gets the homepage.
+  const [realShell, setRealShell] = useState(false);
 
   useEffect(() => {
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
-    if (!isCustomerShellUA() && !preview) return;
-    setInShell(true);
+    const ua = isCustomerShellUA();
+    if (!ua && !preview) return;
+    if (ua) setRealShell(true);
     document.body.classList.add('rena-customer-shell');
     return () => document.body.classList.remove('rena-customer-shell');
   }, []);
 
   useEffect(() => {
-    if (!inShell || !pathname) return;
+    if (!realShell || !pathname) return;
     const bare = pathname.replace(/^\/en(?=\/|$)/, '') || '/';
     if (MARKETING_ROUTES.has(bare)) {
       router.replace('/app/home');
     }
-  }, [inShell, pathname, router]);
+  }, [realShell, pathname, router]);
 
   return null;
 }
