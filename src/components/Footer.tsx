@@ -94,6 +94,7 @@ export default function Footer() {
               {[
                 { href: '/privacy', label: t('privacyPolicy') },
                 { href: '/terms', label: t('termsOfService') },
+                { href: '/account-deletion', label: t('accountDeletion') },
                 { href: '#cookie-settings', label: t('cookieSettings') },
               ].map((link) => (
                 <li key={link.href}>

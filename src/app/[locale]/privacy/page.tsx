@@ -12,7 +12,9 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-3xl bg-page px-4 py-16 sm:px-6 lg:px-8">
-      <h1 className="font-newsreader text-4xl font-semibold tracking-tight text-ink">Privacy Policy</h1>
+      <h1 className="font-newsreader text-4xl font-semibold tracking-tight text-ink">
+        Privacy Policy
+      </h1>
       <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
         Last updated: 1 March 2026
       </p>
@@ -22,16 +24,18 @@ export default function PrivacyPage() {
           <h2 className="font-newsreader text-2xl font-semibold text-ink">1. Introduction</h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             Rena Cleaning Network (&quot;Rena&quot;, &quot;we&quot;, &quot;our&quot;, or
-            &quot;us&quot;) is committed to protecting
-            your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard
-            your information when you use our website, mobile application, and services
-            (collectively, the &quot;Platform&quot;). Please read this policy carefully. By using
-            the Platform, you consent to the practices described in this Privacy Policy.
+            &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains
+            how we collect, use, disclose, and safeguard your information when you use our website,
+            mobile application, and services (collectively, the &quot;Platform&quot;). Please read
+            this policy carefully. By using the Platform, you consent to the practices described in
+            this Privacy Policy.
           </p>
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">2. Information We Collect</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            2. Information We Collect
+          </h2>
           <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
             2.1 Information You Provide
           </h3>
@@ -243,6 +247,13 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
+            To delete your account, see our{' '}
+            <a href="/account-deletion" className="text-primary underline underline-offset-2">
+              account deletion page
+            </a>{' '}
+            for the in-app path, the email route, and what is retained for legal compliance.
+          </p>
+          <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             To exercise any of these rights, please contact us at{' '}
             <a
               href="mailto:legal@renacleaning.co.uk"
@@ -261,20 +272,26 @@ export default function PrivacyPage() {
             be shown a cookie consent banner where you can choose which types of cookies to accept.
           </p>
 
-          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">7.1 Essential Cookies</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
+            7.1 Essential Cookies
+          </h3>
           <p className="mt-2 font-jost font-normal text-ink-2 leading-relaxed">
             These are necessary for the Platform to function and cannot be disabled. They include
             session cookies to keep you signed in and security cookies to prevent fraud.
           </p>
 
-          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">7.2 Analytics Cookies</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
+            7.2 Analytics Cookies
+          </h3>
           <p className="mt-2 font-jost font-normal text-ink-2 leading-relaxed">
             With your consent, we use analytics cookies to understand how you use the Platform,
             which pages you visit, and where you experience difficulties. This data helps us improve
             the booking experience. Analytics data is anonymised after 2 years.
           </p>
 
-          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">7.3 Marketing Cookies</h3>
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
+            7.3 Marketing Cookies
+          </h3>
           <p className="mt-2 font-jost font-normal text-ink-2 leading-relaxed">
             With your consent, we may use marketing cookies to show you relevant content and measure
             the effectiveness of our communications. You can withdraw consent at any time.
@@ -395,7 +412,9 @@ export default function PrivacyPage() {
                 legal@renacleaning.co.uk
               </a>
             </p>
-            <p className="mt-1">Registered office: 66 Paul Street, London EC2A 4NA, United Kingdom</p>
+            <p className="mt-1">
+              Registered office: 66 Paul Street, London EC2A 4NA, United Kingdom
+            </p>
           </div>
         </section>
       </div>
