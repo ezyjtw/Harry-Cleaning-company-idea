@@ -560,6 +560,13 @@ async function processPlacesRefreshWeekly(): Promise<HandlerResult> {
     if (claim.count === 0) return { processed: 0 }; // already ran this week
 
     const r = await refreshCompetitorIntel();
+    // Loud-both-ways (James-ordered): every weekly refresh self-reports in
+    // the Railway log, so silence becomes meaningful.
+    // eslint-disable-next-line no-console
+    console.log(
+      `[PlacesRefresh] week ${thisWeek}: ${r.areasSwept ?? 0} areas swept, ` +
+        `${r.placesTouched ?? 0} places, ${r.apiCalls ?? 0} calls`
+    );
     return { processed: r.placesTouched ?? 0 };
   } catch (err) {
     // eslint-disable-next-line no-console
