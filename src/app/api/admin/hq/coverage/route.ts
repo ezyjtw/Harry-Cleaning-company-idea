@@ -6,8 +6,8 @@ import { NextResponse } from 'next/server';
 import { SERVICE_AREAS } from '@/lib/areas';
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { getAreaCentroids } from '@/lib/hq/area-centroids';
 import { extractPolygon } from '@/lib/services/coverage.service';
-import { lookupOutcode } from '@/lib/utils/postcode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,8 +15,9 @@ export const dynamic = 'force-dynamic';
 // R9 HQ — Coverage room data: every live catchment polygon (raw GeoJSON as
 // stored), her card data, the served-area centroids, and the gap list (areas
 // whose centroid falls inside NO live catchment — the ad-targeting list).
-// Centroids come from postcodes.io outcode lookups (Next-cached 24h, counted
-// server-side like every other call).
+// R9d: centroids come from the persistent store (immutable facts, resolved
+// once) — a settled store makes this route ZERO external calls per view;
+// unresolved areas stay the honest unknown and retry next visit.
 export async function GET() {
   const admin = await getAdminSession();
   if (!admin) {
@@ -62,29 +63,28 @@ export async function GET() {
     .map((c) => extractPolygon(c.polygon))
     .filter((f): f is NonNullable<typeof f> => f !== null);
 
-  const areas = await Promise.all(
-    SERVICE_AREAS.map(async (a) => {
-      const centroid = await lookupOutcode(a.outcode);
-      let covered: boolean | null = null;
-      if (centroid) {
-        covered = features.some((f) => {
-          try {
-            return booleanPointInPolygon(point([centroid.longitude, centroid.latitude]), f);
-          } catch {
-            return false;
-          }
-        });
-      }
-      return {
-        slug: a.slug,
-        name: a.name,
-        outcode: a.outcode,
-        lat: centroid?.latitude ?? null,
-        lng: centroid?.longitude ?? null,
-        covered, // null = centroid lookup unavailable (honest unknown, not a gap)
-      };
-    })
-  );
+  const centroids = await getAreaCentroids();
+  const areas = SERVICE_AREAS.map((a) => {
+    const centroid = centroids.get(a.slug) ?? null;
+    let covered: boolean | null = null;
+    if (centroid) {
+      covered = features.some((f) => {
+        try {
+          return booleanPointInPolygon(point([centroid.lng, centroid.lat]), f);
+        } catch {
+          return false;
+        }
+      });
+    }
+    return {
+      slug: a.slug,
+      name: a.name,
+      outcode: a.outcode,
+      lat: centroid?.lat ?? null,
+      lng: centroid?.lng ?? null,
+      covered, // null = centroid unresolved (honest unknown, not a gap; retries next visit)
+    };
+  });
 
   return NextResponse.json({
     cleaners,
