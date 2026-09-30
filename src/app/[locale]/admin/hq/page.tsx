@@ -35,6 +35,7 @@ async function getGlances() {
     paid7d,
     competitorPlaceCount,
     lastObservation,
+    declineRows,
   ] = await Promise.all([
     prisma.apiCallLog.groupBy({
       by: ['provider'],
@@ -61,7 +62,32 @@ async function getGlances() {
     }),
     prisma.competitorPlace.count(),
     prisma.competitorObservation.findFirst({ orderBy: { observedAt: 'desc' } }),
+    prisma.booking.findMany({
+      where: { declineReasons: { not: { equals: null } } },
+      select: { declineReasons: true },
+    }),
   ]);
+
+  // R9c glance: decline events in the window + the loudest reason.
+  const reasonCounts = new Map<string, number>();
+  let declines30d = 0;
+  const declineSince = sevenDays.getTime() - 23 * 24 * 60 * 60 * 1000; // 30 days
+  for (const b of declineRows) {
+    const entries = Array.isArray(b.declineReasons)
+      ? (b.declineReasons as Array<{ reason?: string; at?: string }>)
+      : [];
+    for (const e of entries) {
+      const at = e?.at ? Date.parse(e.at) : NaN;
+      if (Number.isNaN(at) || at < declineSince) continue;
+      declines30d++;
+      const r = typeof e?.reason === 'string' && e.reason ? e.reason : 'no reason';
+      reasonCounts.set(r, (reasonCounts.get(r) ?? 0) + 1);
+    }
+  }
+  const topDeclineReason =
+    Array.from(reasonCounts.entries())
+      .sort((a, b) => b[1] - a[1])[0]?.[0]
+      ?.replace(/_/g, ' ') ?? null;
 
   const amberPct = amberRow ? parseInt(amberRow.value, 10) || AMBER_PCT_DEFAULT : AMBER_PCT_DEFAULT;
   const todayByProvider = new Map(apiToday.map((r) => [r.provider, r._count._all]));
@@ -86,6 +112,8 @@ async function getGlances() {
     competitorPlaceCount,
     lastObservedAt: lastObservation?.observedAt ?? null,
     placesLive: placesConfigured(),
+    declines30d,
+    topDeclineReason,
   };
 }
 
@@ -147,6 +175,12 @@ export default async function HqCommandScreen() {
                 dormant — set GOOGLE_PLACES_API_KEY to wake
               </span>
             )}
+          </DoorCard>
+
+          <DoorCard href="/admin/hq/declines" title="Declines" glance={g.declines30d}>
+            {g.declines30d > 0 && g.topDeclineReason
+              ? `declines (30 days) · mostly ${g.topDeclineReason}`
+              : 'declines (30 days) · none recorded'}
           </DoorCard>
 
           <DoorCard
