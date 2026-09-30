@@ -170,7 +170,10 @@ export default function MessagesPage() {
   const [contextLine, setContextLine] = useState<string | null>(null);
   useEffect(() => {
     setContextLine(null);
-    if (!shellMode || !activeConversationId) return;
+    // R10-L4: the website sibling carries the same next-booking context line
+    // per the approved mock — the shell gate drops; same read-only,
+    // ownership-gated booking GET, no message-API change.
+    if (!activeConversationId) return;
     const conv = conversations.find((c) => c.id === activeConversationId);
     if (!conv?.activeBookingId) return;
     fetch(`/api/bookings/${conv.activeBookingId}`)
@@ -184,7 +187,7 @@ export default function MessagesPage() {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shellMode, activeConversationId]);
+  }, [activeConversationId]);
 
   // Fetch current user session
   useEffect(() => {
@@ -628,6 +631,8 @@ export default function MessagesPage() {
                       className={`mt-1 font-jost text-[10.5px] text-ink-3 ${isOwn ? 'text-right' : ''}`}
                     >
                       {fmtBubbleTime(message.createdAt)}
+                      {/* R10-L4: read state where the data exists (Message.read). */}
+                      {isOwn && message.read && <span data-testid="msg-read"> · Read</span>}
                     </p>
                     {/* Report stays available on received messages (function kept). */}
                     {!isOwn &&
@@ -878,31 +883,53 @@ export default function MessagesPage() {
                 initials={getInitials(getOtherParticipant(activeConversation).name)}
                 size="sm"
               />
-              <div>
-                <h2 className="text-sm font-semibold text-ink">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold text-ink">
                   {getOtherParticipant(activeConversation).name}
                 </h2>
-                <p className="text-xs text-ink-3">
-                  {getOtherParticipant(activeConversation).role === 'cleaner'
-                    ? 'Cleaner'
-                    : 'Customer'}
+                {/* R10-L4 (mock): the next-booking context line; role as the
+                    honest fallback when no booking links the pair. */}
+                <p className="truncate text-xs text-ink-3" data-testid="msg-web-context">
+                  {contextLine ??
+                    (getOtherParticipant(activeConversation).role === 'cleaner'
+                      ? 'Cleaner'
+                      : 'Customer')}
                 </p>
               </div>
 
+              {/* R10-L4 (mock): pinned View booking chip — the linked booking's
+                  own page, role-aware. Display-only door to an existing page. */}
+              {activeConversation.activeBookingId && (
+                <Link
+                  href={
+                    currentUserRole === 'cleaner'
+                      ? `/cleaner/jobs/${activeConversation.activeBookingId}`
+                      : `/booking/${activeConversation.activeBookingId}`
+                  }
+                  data-testid="msg-view-booking"
+                  className="ml-auto shrink-0 rounded-full bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white"
+                >
+                  View booking
+                </Link>
+              )}
               <button
                 onClick={handleToggleBlock}
                 disabled={blockBusy}
-                className="ml-auto rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition hover:bg-page disabled:opacity-60"
+                className={`${activeConversation.activeBookingId ? '' : 'ml-auto '}shrink-0 rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition hover:bg-page disabled:opacity-60`}
               >
                 {blockBusy ? 'Working…' : activeConversation.blockedByMe ? 'Unblock' : 'Block'}
               </button>
             </div>
 
-            {/* Messages */}
+            {/* Messages — R10-L4: date separators + the mock's bubble grammar
+                (navy right for self, white hairline left for them). */}
             <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
               <div className="space-y-4">
-                {messages.map((message) => {
+                {messages.map((message, idx) => {
                   const isOwn = message.senderId === currentUserId;
+                  const day = dayDividerLabel(message.createdAt);
+                  const showDivider =
+                    idx === 0 || day !== dayDividerLabel(messages[idx - 1].createdAt);
 
                   return (
                     <MessageBubble
@@ -910,6 +937,8 @@ export default function MessagesPage() {
                       content={message.content}
                       time={formatTime(message.createdAt)}
                       isOwn={isOwn}
+                      read={message.read}
+                      dayLabel={showDivider ? day : undefined}
                     >
                       {/* Report — only on messages you received */}
                       {!isOwn &&
@@ -1029,18 +1058,19 @@ export default function MessagesPage() {
                       </button>
                     </div>
                   )}
+                  {/* R10-L4 (mock): rounded input bar + navy send circle. */}
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Type a message..."
                     rows={1}
-                    className="flex-1 resize-none rounded-[10px] border border-line px-4 py-2.5 text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="flex-1 resize-none rounded-[22px] border border-line px-4 py-2.5 text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={!messageInput.trim() || sending}
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] bg-primary text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Send message"
                   >
                     <svg

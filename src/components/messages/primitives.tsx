@@ -69,31 +69,49 @@ export function ConversationRow({
   );
 }
 
-/** A chat bubble. Own = primary-soft/ink on the right with a squared inner
- *  corner; other = surface/hairline on the left. `children` lets the caller
- *  append per-message affordances (e.g. a report control) below the bubble. */
+/** A chat bubble — R10-L4, the approved mock's grammar: own = NAVY on the
+ *  right with a squared inner corner; other = white with a hairline on the
+ *  left. `read` renders the read state on own messages where the data
+ *  exists; `dayLabel` renders a date separator above the bubble. `children`
+ *  lets the caller append per-message affordances (e.g. a report control)
+ *  below the bubble. */
 export function MessageBubble({
   content,
   time,
   isOwn,
+  read,
+  dayLabel,
   children,
 }: {
   content: string;
   time: string;
   isOwn: boolean;
+  read?: boolean;
+  dayLabel?: string;
   children?: ReactNode;
 }) {
   return (
     <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+      {dayLabel && (
+        <p
+          data-testid="msg-web-day-divider"
+          className="mb-2 w-full text-center text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3"
+        >
+          {dayLabel}
+        </p>
+      )}
       <div
         className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
           isOwn
-            ? 'rounded-br-md bg-primary-soft text-ink'
+            ? 'rounded-br-md bg-primary text-white'
             : 'rounded-bl-md border border-line bg-surface text-ink'
         }`}
       >
         <p className="text-sm leading-relaxed">{content}</p>
-        <p className="mt-1 text-right text-xs text-ink-3">{time}</p>
+        <p className={`mt-1 text-right text-xs ${isOwn ? 'text-white/70' : 'text-ink-3'}`}>
+          {time}
+          {isOwn && read && <span data-testid="msg-web-read"> · Read</span>}
+        </p>
       </div>
       {children}
     </div>

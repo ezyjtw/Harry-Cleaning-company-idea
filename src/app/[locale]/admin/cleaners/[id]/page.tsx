@@ -5,6 +5,7 @@ import { SWEEP_AGE_DAYS, SWEEP_EXEMPT_EMAILS } from '@/lib/services/incomplete-s
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
 
+import CleanerDeclineReadout from './CleanerDeclineReadout';
 import CleanerDetailClient from './CleanerDetailClient';
 import IncompleteSignupClient from './IncompleteSignupClient';
 
@@ -332,7 +333,15 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
 
 export default async function AdminCleanerDetailPage({ params }: { params: { id: string } }) {
   const cleaner = await getCleanerDetail(params.id);
-  if (cleaner) return <CleanerDetailClient cleaner={cleaner} />;
+  // R10 Lane 3: the decline readout rides BELOW the dossier as its own
+  // server-rendered section — the 783-line client component is untouched.
+  if (cleaner)
+    return (
+      <>
+        <CleanerDetailClient cleaner={cleaner} />
+        <CleanerDeclineReadout userId={params.id} />
+      </>
+    );
   const incomplete = await getIncompleteSignupDetail(params.id);
   if (incomplete) return <IncompleteSignupClient signup={incomplete} />;
   notFound();
