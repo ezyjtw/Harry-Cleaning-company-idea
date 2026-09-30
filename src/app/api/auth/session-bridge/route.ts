@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { encode } from 'next-auth/jwt';
+import { encode, getToken } from 'next-auth/jwt';
 
 import { verifyAndConsumeBridgeCode } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rate-limit';
@@ -24,6 +24,43 @@ import { rateLimit } from '@/lib/rate-limit';
 
 const THIRTY_DAYS_S = 30 * 24 * 60 * 60;
 
+// Field incident (James-ordered): a failed bridge redemption must never show
+// a customer raw JSON. The failure renders this honest page in the app's
+// dress — one navy door to /login. In the shell, the pane's own /login watch
+// bounces that navigation to the NATIVE login screen, which re-runs sign-in
+// and mints a fresh bridge code; in a browser it is simply the login form.
+// Server-side, so it reaches EVERY installed binary the day it deploys.
+function bridgeFailurePage(status: number): NextResponse {
+  const html = `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in again</title>
+<style>
+  :root{color-scheme:light}
+  body{margin:0;background:#FAFBFC;font-family:Jost,-apple-system,'Segoe UI',Roboto,sans-serif;
+       display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+  .card{background:#fff;border:1px solid #E4E9F0;border-radius:16px;padding:40px 28px;
+        max-width:360px;width:100%;text-align:center}
+  .mark{font-weight:700;letter-spacing:.35em;color:#16296b;font-size:26px}
+  h1{color:#16296b;font-size:20px;font-weight:600;margin:22px 0 8px}
+  p{color:#3D5170;font-size:14px;font-weight:300;line-height:1.5;margin:0 0 24px}
+  a.door{display:block;background:#16296b;color:#fff;text-decoration:none;border-radius:10px;
+         padding:14px 0;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+  a.door:active{opacity:.9}
+</style></head>
+<body><main class="card">
+  <div class="mark">RENA</div>
+  <h1>Your sign-in link has expired</h1>
+  <p>Tap below to sign in again.</p>
+  <a class="door" href="/login">Sign in</a>
+</main></body></html>`;
+  return new NextResponse(html, {
+    status,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
 function isSecureContext(): boolean {
   return (process.env.NEXTAUTH_URL || '').startsWith('https://');
 }
@@ -35,10 +72,9 @@ function sessionCookieName(secure: boolean): string {
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, 'session-bridge', 20, 15 * 60 * 1000);
   if (!rl.ok) {
-    return NextResponse.json(
-      { error: 'Too many attempts. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
-    );
+    const page = bridgeFailurePage(429);
+    page.headers.set('Retry-After', String(rl.retryAfter));
+    return page;
   }
 
   const url = new URL(request.url);
@@ -51,11 +87,7 @@ export async function GET(request: NextRequest) {
   // /app/today — never an error, never an off-site redirect.
   const rawCallback = url.searchParams.get('callbackUrl') || '/app/today';
   let callbackUrl = '/app/today';
-  if (
-    rawCallback.startsWith('/') &&
-    !rawCallback.startsWith('//') &&
-    !rawCallback.includes('\\')
-  ) {
+  if (rawCallback.startsWith('/') && !rawCallback.startsWith('//') && !rawCallback.includes('\\')) {
     try {
       const resolved = new URL(rawCallback, url.origin);
       if (resolved.origin === url.origin) {
@@ -74,18 +106,27 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!code) {
-    return NextResponse.json({ error: 'code is required' }, { status: 400 });
-  }
-
-  const user = await verifyAndConsumeBridgeCode(code);
-  if (!user) {
-    return NextResponse.json({ error: 'Invalid, expired, or already-used code' }, { status: 401 });
-  }
-
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) {
     return NextResponse.json({ error: 'Auth is not configured' }, { status: 500 });
+  }
+
+  const user = code ? await verifyAndConsumeBridgeCode(code) : null;
+  if (!user) {
+    // Field incident, tier 1 — the self-heal: the customer's first redemption
+    // SUCCEEDED (307 + Set-Cookie), and what failed is a REPLAY of the spent
+    // code (a WebView retry/reload of the bridge URL). That replay carries the
+    // freshly-minted session cookie — so when a valid session is already on
+    // the request, the honest answer is not an error page but the redirect the
+    // spent code would have issued: forward to the (sanitised) callbackUrl.
+    // No new access is granted; the session in hand is the only key used.
+    const existing = await getToken({ req: request, secret });
+    if (existing) {
+      return NextResponse.redirect(new URL(callbackUrl, url.origin));
+    }
+    // Tier 2 — genuinely dead (expired before ever redeeming, cookie never
+    // landed, or no code at all): the honest dressed page, never raw JSON.
+    return bridgeFailurePage(code ? 401 : 400);
   }
 
   // Mint a NextAuth-compatible session token. The claims mirror what the jwt()
