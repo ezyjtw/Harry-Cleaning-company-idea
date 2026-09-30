@@ -75,6 +75,121 @@ export function narration(job: AppJob): string | null {
   return null;
 }
 
+/** R10 Lane 2 (James-ruled): the cleaner OFFERS a one-off time change for a
+ *  recurring occurrence — the customer chooses (R1-C law). Quiet link beside
+ *  Can't-make; recurring occurrences only. */
+export function OfferTimeChange({
+  job,
+  tone = 'light',
+}: {
+  /** Structural: only the id and the recurring marker are needed, so the
+   *  website job page can pass its own job shape too. */
+  job: Pick<AppJob, 'id' | 'recurringFrequency'>;
+  tone?: 'light' | 'dark';
+}) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  if (!job.recurringFrequency) return null;
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cleaner/occurrences/${job.id}/offer-reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposedDate: date, proposedTime: time }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Could not send the offer. Please try again.');
+        return;
+      }
+      haptic('success');
+      setSent(true);
+    } catch {
+      setError('Could not send the offer. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <p
+        className={`mt-2 text-center font-jost text-[12px] ${tone === 'dark' ? 'text-white/70' : 'text-ink-3'}`}
+        data-testid="offer-reschedule-sent"
+      >
+        Offer sent. The customer decides. If she does nothing, this visit stays as it is.
+      </p>
+    );
+  }
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-testid="offer-reschedule-open"
+        className={`mt-2 block w-full text-center font-jost text-[12px] font-light underline underline-offset-2 ${
+          tone === 'dark' ? 'text-white/60 active:text-white' : 'text-ink-3 active:text-ink-2'
+        }`}
+      >
+        Offer a different time for this visit?
+      </button>
+    );
+  }
+  return (
+    <div
+      className="mt-3 rounded-[10px] border border-line bg-surface p-3"
+      data-testid="offer-reschedule-form"
+      data-card-interactive
+    >
+      <p className="font-jost text-[13px] leading-relaxed text-ink-2">
+        Suggest a new time for just this visit. The price stays the same and the customer chooses.
+        If she declines or does not answer, the visit stays at its original time.
+      </p>
+      <div className="mt-2 flex gap-2">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="flex-1 rounded-[8px] border border-line bg-page px-3 py-2 font-jost text-[13px] text-ink focus:outline-none focus:ring-1 focus:ring-primary/40"
+        />
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          className="w-28 rounded-[8px] border border-line bg-page px-3 py-2 font-jost text-[13px] text-ink focus:outline-none focus:ring-1 focus:ring-primary/40"
+        />
+      </div>
+      {error && <p className="mt-1 font-jost text-[12px] text-danger">{error}</p>}
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy || !date || !time}
+          data-testid="offer-reschedule-send"
+          className="flex-1 rounded-[8px] bg-primary px-3 py-2 font-jost text-[13px] font-semibold text-white disabled:opacity-50"
+        >
+          {busy ? 'Sending…' : 'Send the offer'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-[8px] border border-line px-3 py-2 font-jost text-[13px] text-ink-2"
+        >
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** H3: quiet cancel entry — ACCEPTED state only, never competing with the
  *  primary. Opens a consequences-first confirm; the PATCH CANCELLED path is
  *  the existing one (paid → CLEANER_CANCELLED → M3 rescue for the customer). */
@@ -310,7 +425,10 @@ export function HeroJob({
       </div>
       {/* H3: quiet exit, ACCEPTED-family states only */}
       {['accepted', 'confirmed'].includes(job.status) && onCancelled && (
-        <CantMakeIt job={job} onCancelled={onCancelled} />
+        <>
+          <OfferTimeChange job={job} />
+          <CantMakeIt job={job} onCancelled={onCancelled} />
+        </>
       )}
     </div>
   );
@@ -372,7 +490,10 @@ export function JobCard({
       )}
       {/* H3: quiet exit, ACCEPTED-family states only */}
       {['accepted', 'confirmed'].includes(job.status) && onCancelled && (
-        <CantMakeIt job={job} onCancelled={onCancelled} />
+        <>
+          <OfferTimeChange job={job} />
+          <CantMakeIt job={job} onCancelled={onCancelled} />
+        </>
       )}
     </div>
   );

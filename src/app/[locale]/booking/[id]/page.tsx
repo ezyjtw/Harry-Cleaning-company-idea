@@ -14,6 +14,7 @@ import {
   refundMessage,
   UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
+import HoldCountdown from '@/components/booking/HoldCountdown';
 import BookingStatusChip, { cascadeSentence } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import NavLink from '@/components/nav/NavLink';
@@ -55,6 +56,15 @@ interface BookingDetail {
   addressPostcode?: string | null;
   address?: { line1?: string; line2?: string; city?: string; postcode?: string } | null;
   rescueDeadline?: string | null;
+  // R10 Lane 2: the open reschedule offer (at most one), additive JSON.
+  rescheduleOffers?: Array<{
+    id: string;
+    proposedDate: string;
+    proposedTime: string;
+    originalDate: string;
+    originalTime: string;
+    expiresAt: string;
+  }>;
   /** H57: pending price-change fields — live while cascadePhase is PROVISIONAL_APPROVAL. */
   topupAmount?: number | string | null;
   provisionalPrice?: number | string | null;
@@ -198,6 +208,31 @@ export default function BookingDetailPage() {
       setApprovalError('Network error. Please try again.');
     } finally {
       setApprovalBusy(false);
+    }
+  };
+
+  // R10 Lane 2 (James-ruled): answer the cleaner's one-off time change offer.
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerError, setOfferError] = useState<string | null>(null);
+  const answerRescheduleOffer = async (action: 'accept' | 'decline') => {
+    setOfferBusy(true);
+    setOfferError(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/reschedule-offer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setOfferError(data.error || 'Something went wrong. Please try again.');
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setOfferError('Network error. Please try again.');
+    } finally {
+      setOfferBusy(false);
     }
   };
 
@@ -842,6 +877,61 @@ export default function BookingDetailPage() {
         </div>
       )}
 
+      {/* R10 Lane 2 (James-ruled): the reschedule offer card — both times
+          plain, the do-nothing outcome honest, price untouched. */}
+      {booking.viewer === 'client' &&
+        booking.rescheduleOffers &&
+        booking.rescheduleOffers.length > 0 &&
+        (() => {
+          const offer = booking.rescheduleOffers[0];
+          const when = (d: string, t: string) =>
+            `${new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })} at ${t}`;
+          return (
+            <div
+              className="mt-4 rounded-2xl border border-primary/25 bg-primary-soft/40 p-5"
+              data-testid="reschedule-offer-card"
+            >
+              <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                Your cleaner suggests a new time
+              </p>
+              <h2 className="mt-1 font-newsreader text-xl font-semibold text-ink">
+                One visit would move
+              </h2>
+              <p className="mt-2 font-jost text-sm text-ink-2">
+                From {when(offer.originalDate, offer.originalTime)} to{' '}
+                {when(offer.proposedDate, offer.proposedTime)}. The price stays the same and only
+                this visit changes. If you do nothing, it stays at the original time.
+              </p>
+              <p className="mt-2">
+                <HoldCountdown
+                  until={offer.expiresAt}
+                  prefix="This offer stays open for another"
+                  closedText="This offer has closed. The visit stays at its original time."
+                />
+              </p>
+              {offerError && <p className="mt-2 font-jost text-[13px] text-danger">{offerError}</p>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => answerRescheduleOffer('accept')}
+                  disabled={offerBusy}
+                  data-testid="reschedule-accept"
+                  className="rounded-lg bg-primary px-4 py-2 font-jost text-[13px] font-semibold text-white disabled:opacity-50"
+                >
+                  {offerBusy ? 'Working…' : 'Accept the new time'}
+                </button>
+                <button
+                  onClick={() => answerRescheduleOffer('decline')}
+                  disabled={offerBusy}
+                  data-testid="reschedule-decline"
+                  className="rounded-lg border border-line px-4 py-2 font-jost text-[13px] font-medium text-ink-2 disabled:opacity-50"
+                >
+                  Keep the original time
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
       {/* H57 addendum: pending price change — inline approve/decline for the
           booking's customer. Same POST as the standalone approve page; card
           entry (no saved card) hands over to that page's Stripe element. */}
@@ -857,9 +947,18 @@ export default function BookingDetailPage() {
             New total: £{Number(booking.provisionalPrice ?? booking.totalPrice).toFixed(2)} (was £
             {Number(booking.totalPrice).toFixed(2)}). Nothing is charged unless you approve —
             decline or do nothing and the booking stands at its original price.
-            {booking.approvalExpiresAt &&
-              ` You have until ${new Date(booking.approvalExpiresAt).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} to decide.`}
           </p>
+          {/* R10 Lane 1 (James-ruled): the live countdown replaces the static
+              deadline line. */}
+          {booking.approvalExpiresAt && (
+            <p className="mt-2">
+              <HoldCountdown
+                until={booking.approvalExpiresAt}
+                prefix="Time left to decide:"
+                closedText="The decision window has closed. Refresh to see where your booking stands."
+              />
+            </p>
+          )}
           {approvalError && (
             <p className="mt-2 font-jost text-[13px] text-danger">{approvalError}</p>
           )}
@@ -968,15 +1067,37 @@ export default function BookingDetailPage() {
               Finish payment — complete this booking &rsaquo;
             </Link>
           )}
-          {/* Recovery Lane C (James-sanctioned): FAILED occurrence → pay-now. */}
+          {/* Recovery Lane C (James-sanctioned): FAILED occurrence → pay-now.
+              R10 Lane 1: the live countdown to the T-24h release rides it. */}
           {booking.status === 'SCHEDULED' && booking.paymentStatus === 'FAILED' && (
-            <Link
-              href={`/pay/${id}`}
-              data-testid="pay-now-link"
-              className="my-2 block rounded-lg border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-danger/10"
-            >
-              Payment needed — pay now to keep your slot &rsaquo;
-            </Link>
+            <>
+              <Link
+                href={`/pay/${id}`}
+                data-testid="pay-now-link"
+                className="my-2 block rounded-lg border border-danger/25 bg-danger/5 px-3 py-2.5 font-jost text-[13px] font-semibold text-ink hover:bg-danger/10"
+              >
+                Payment needed — pay now to keep your slot &rsaquo;
+              </Link>
+              {(() => {
+                const [oh, om] = String(booking.startTime ?? '0:0')
+                  .split(':')
+                  .map(Number);
+                const release = new Date(
+                  new Date(booking.date).getTime() +
+                    ((oh || 0) * 60 + (om || 0)) * 60 * 1000 -
+                    24 * 60 * 60 * 1000
+                );
+                return (
+                  <p className="mb-2">
+                    <HoldCountdown
+                      until={release.toISOString()}
+                      prefix="Your slot is held for another"
+                      closedText="The hold has ended. Refresh to see where this visit stands."
+                    />
+                  </p>
+                );
+              })()}
+            </>
           )}
           {booking.status === 'AWAITING_CLEANER' &&
             cascadeSentence(booking.cascadePhase, cleaner?.name) && (

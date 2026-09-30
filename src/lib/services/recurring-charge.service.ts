@@ -56,6 +56,36 @@ async function failAttempt(bookingId: string, reason: string): Promise<void> {
     `[RecurringCharge] SINGLE ATTEMPT FAILED for ${bookingId}: ${reason} — pay-now email sent`
   );
   await sendPayNow(bookingId);
+  // R10 Lane 1 (James-ruled): the hold-begin BELL rides the email — slot
+  // held, payment needed, the deadline stated. Best-effort, never blocks.
+  try {
+    const b = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { clientId: true, date: true, startTime: true },
+    });
+    if (b?.clientId) {
+      const releaseAt = new Date(occurrenceStart(b.date, b.startTime) - 24 * HOUR_MS);
+      const when = releaseAt.toLocaleString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'UTC',
+      });
+      await prisma.notification.create({
+        data: {
+          userId: b.clientId,
+          type: 'SYSTEM',
+          title: 'Payment needed to keep your slot',
+          body: `We could not take payment for your regular clean. Your slot is held until ${when}. Pay before then and everything carries on as planned.`,
+          data: { bookingId, url: `/pay/${bookingId}` },
+        },
+      });
+    }
+  } catch {
+    // comms are best-effort; the email already carries the message
+  }
 }
 
 /**
@@ -264,6 +294,7 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
       date: true,
       startTime: true,
       cleanerId: true,
+      clientId: true,
       stripePaymentIntentId: true,
       paymentStatus: true,
     },
@@ -327,6 +358,21 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
       // eslint-disable-next-line no-console
       console.error(`[RecurringCharge] auto-cancel email failed for ${b.id}:`, e);
     });
+    // R10 Lane 1 (James-ruled): the honest release notice reaches the
+    // CUSTOMER as a bell too, not only the email. Best-effort.
+    if (b.clientId) {
+      await prisma.notification
+        .create({
+          data: {
+            userId: b.clientId,
+            type: 'SYSTEM',
+            title: 'This week’s clean is cancelled',
+            body: `Payment did not go through in time, so just the clean on ${dateStr} has been cancelled. You have not been charged for it. Your regular arrangement carries on as normal.`,
+            data: { bookingId: b.id },
+          },
+        })
+        .catch(() => {});
+    }
     await prisma.notification
       .create({
         data: {

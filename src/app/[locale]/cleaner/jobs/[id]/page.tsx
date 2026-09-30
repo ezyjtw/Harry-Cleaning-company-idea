@@ -3,6 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { OfferTimeChange } from '@/components/app/job-cards';
 import BookingStatusChip from '@/components/BookingStatusChip';
 import RegularCleanChip, { recurringFrequencyLabel } from '@/components/cleaner/RegularCleanChip';
 import { suppliesLabel } from '@/lib/booking/supplies';
@@ -245,6 +246,11 @@ export default function CleanerJobDetailPage() {
               label="Repeats"
               value={`${recurringFrequencyLabel(job.recurringFrequency)} — regular client`}
             />
+          )}
+          {/* R10 Lane 2 (James-ruled): offer a one-off time change — the
+              customer chooses; recurring occurrences only, assigned only. */}
+          {job.assigned && ['ACCEPTED', 'CONFIRMED', 'SCHEDULED'].includes(job.status) && (
+            <OfferTimeChange job={{ id: job.id, recurringFrequency: job.recurringFrequency }} />
           )}
           {/* F8: calendar actions — assigned-only (the .ics carries the full
               address; the serving route enforces the same law server-side). */}

@@ -35,6 +35,7 @@ export interface SchedulerSummary {
   paymentRecoveryEmails: HandlerResult;
   topupCardReminders: HandlerResult;
   placesRefresh: HandlerResult;
+  rescheduleOfferExpiry: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -534,6 +535,18 @@ async function processIncompleteSignups(): Promise<HandlerResult> {
 // of overlapping ticks exactly one claims the week and runs. Dormant without
 // GOOGLE_PLACES_API_KEY — the claim is only taken when the key is set, so the
 // first refresh runs the week the key lands, not a stale week later.
+// R10 Lane 2: close unanswered reschedule offers at their bound.
+async function processRescheduleOfferExpiry(): Promise<HandlerResult> {
+  try {
+    const { expireRescheduleOffers } = await import('./reschedule-offer.service');
+    return await expireRescheduleOffers();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[Reschedule] expiry sweep failed:', err);
+    return { processed: 0 };
+  }
+}
+
 const PLACES_MARKER_KEY = 'last_places_refresh_week';
 
 function isoWeekString(d: Date): string {
@@ -595,6 +608,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const paymentRecoveryEmails = await processPaymentRecoveryEmails();
   const topupCardReminders = await processTopupCardReminders();
   const placesRefresh = await processPlacesRefreshWeekly();
+  const rescheduleOfferExpiry = await processRescheduleOfferExpiry();
 
   return {
     timestamp: new Date().toISOString(),
@@ -617,5 +631,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     paymentRecoveryEmails,
     topupCardReminders,
     placesRefresh,
+    rescheduleOfferExpiry,
   };
 }
