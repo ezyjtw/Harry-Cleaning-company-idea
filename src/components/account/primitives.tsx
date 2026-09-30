@@ -3,6 +3,7 @@
 import type { ChangeEvent, ReactNode } from 'react';
 
 import { useCustomerShell } from '@/components/app/customer';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 /** Surface card with a Newsreader title row + optional right-hand action slot.
  *  Quiet-rooms dress (James-ruled): in the customer shell the card flattens to
@@ -74,24 +75,41 @@ export function Field({
   inputClassName?: string;
   after?: ReactNode;
 }) {
+  const inputCls = `w-full rounded-[10px] border border-line px-3 py-2 text-sm text-ink transition-colors placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+    disabled ? 'bg-page text-ink-3' : 'bg-surface'
+  } ${inputClassName ?? ''}`;
   return (
     <div>
       <label htmlFor={id} className="block font-jost text-sm font-medium text-ink-2">
         {label}
       </label>
-      <input
-        id={id}
-        type={type}
-        required={required}
-        disabled={disabled}
-        minLength={minLength}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        className={`mt-1 w-full rounded-[10px] border border-line px-3 py-2 text-sm text-ink transition-colors placeholder-ink-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-          disabled ? 'bg-page text-ink-3' : 'bg-surface'
-        } ${inputClassName ?? ''}`}
-      />
+      {/* R12 Lane 1 extension (James-ordered): every password Field carries
+          the same show/hide eye as the public pages — one grammar. */}
+      {type === 'password' ? (
+        <PasswordInput
+          id={id}
+          required={required}
+          disabled={disabled}
+          minLength={minLength}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          wrapperClassName="mt-1"
+          className={inputCls}
+        />
+      ) : (
+        <input
+          id={id}
+          type={type}
+          required={required}
+          disabled={disabled}
+          minLength={minLength}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          className={`mt-1 ${inputCls}`}
+        />
+      )}
       {note && <p className="mt-1 text-xs text-ink-3">{note}</p>}
       {after}
     </div>

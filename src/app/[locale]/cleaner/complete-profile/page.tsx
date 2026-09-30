@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import PasswordInput from '@/components/ui/PasswordInput';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { SPECIALTY_OPTIONS } from '@/lib/constants/services';
 
@@ -344,8 +345,7 @@ export default function CompleteProfilePage() {
             </p>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <div>
-                <input
-                  type="password"
+                <PasswordInput
                   autoComplete="new-password"
                   placeholder="Min. 8 characters"
                   value={password}
@@ -356,8 +356,7 @@ export default function CompleteProfilePage() {
                 {errors.password && <p className="mt-1 text-xs text-danger">{errors.password}</p>}
               </div>
               <div>
-                <input
-                  type="password"
+                <PasswordInput
                   autoComplete="new-password"
                   placeholder="Confirm password"
                   value={confirmPassword}
