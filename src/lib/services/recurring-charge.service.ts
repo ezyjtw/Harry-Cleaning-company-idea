@@ -379,7 +379,7 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
           userId: b.cleanerId,
           type: 'SYSTEM',
           title: 'Regular clean not confirmed',
-          body: `The regular clean on ${dateStr} was not paid in time and has been cancelled — that slot is free again. The standing arrangement continues as normal.`,
+          body: `The regular clean on ${b.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })} was not paid in time and has been cancelled, so that slot is free again. The standing arrangement continues as normal.`,
           data: { bookingId: b.id },
         },
       })

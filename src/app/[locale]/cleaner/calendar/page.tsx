@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { OfferTimeChange } from '@/components/app/job-cards';
 import NavLink from '@/components/nav/NavLink';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 
@@ -183,6 +184,13 @@ export default function CleanerCalendarPage() {
               ` · ${b.recurringFrequency === 'WEEKLY' ? 'Weekly' : 'Every two weeks'}`}
             {b.postcodeArea && ` · ${b.postcodeArea}`}
           </p>
+          {/* R10b (James-ruled): far-future occurrences get the same offer
+              door the job page has — pre-charge SCHEDULED rows live only
+              here, so this is their one entry. Future visits only; the
+              paid-visibility law elsewhere on this screen is untouched. */}
+          {b.date >= new Date().toISOString().split('T')[0] && (
+            <OfferTimeChange job={{ id: b.id, recurringFrequency: b.recurringFrequency }} />
+          )}
           {!confirming ? (
             <button
               type="button"

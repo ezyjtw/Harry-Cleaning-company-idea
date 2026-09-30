@@ -610,7 +610,7 @@ export function buildOccurrenceAutoCancelled(data: {
     h('This week&rsquo;s clean is cancelled') +
     p(`Hi ${data.customerName},`) +
     p(
-      `We couldn&rsquo;t confirm your clean with ${data.cleanerName} on ${data.dateLong} — payment didn&rsquo;t go through in time, so just this visit has been cancelled. You have not been charged for it.`
+      `We couldn&rsquo;t confirm your clean with ${data.cleanerName} on ${data.dateLong}. Payment didn&rsquo;t go through in time, so just this visit has been cancelled. You have not been charged for it.`
     ) +
     p(
       `<strong>Your regular slot is unaffected.</strong> Your next scheduled clean will be confirmed as normal.`
