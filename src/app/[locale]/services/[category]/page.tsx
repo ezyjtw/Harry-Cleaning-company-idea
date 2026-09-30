@@ -1417,12 +1417,14 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     fireFunnelStage(1, 'flow_entered');
   }, [fireFunnelStage]);
   useEffect(() => {
-    // Quote seen: a real price is on screen (area quote with eligible
-    // cleaners), or the visitor carried the quote into the cleaner phase.
-    if ((areaQuote && areaQuote.cleanerCount > 0) || phase === 'cleaner') {
+    // Quote seen: a real price is on screen — the area quote with eligible
+    // cleaners, or (rider, James-ruled) the deep-linked cleaner's own rate
+    // rendering in the quote room the moment she resolves — or the visitor
+    // carried the quote into the cleaner phase.
+    if ((areaQuote && areaQuote.cleanerCount > 0) || preSelectedCleaner || phase === 'cleaner') {
       fireFunnelStage(2, 'quote_seen');
     }
-  }, [areaQuote, phase, fireFunnelStage]);
+  }, [areaQuote, phase, preSelectedCleaner, fireFunnelStage]);
   useEffect(() => {
     if (selectedCleanerIds.length > 0 || timeFirstPicked || (selectedDate && selectedTime24)) {
       fireFunnelStage(3, 'slot_or_cleaner_chosen');
