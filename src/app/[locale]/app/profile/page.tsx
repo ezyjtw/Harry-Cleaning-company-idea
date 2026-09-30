@@ -328,6 +328,18 @@ export default function ProfileHubPage() {
             Reviews
             {chevron}
           </button>
+          {/* R12 Lane 6 (James-ordered, urgent): the permanent in-app door to
+              the existing import tool — machinery byte-untouched, the row
+              opens the same page the website serves, dressed in-shell. */}
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => go('/cleaner/imported-reviews')}
+            data-testid="imported-reviews-row"
+          >
+            Imported Reviews
+            {chevron}
+          </button>
         </div>
       </section>
     </div>

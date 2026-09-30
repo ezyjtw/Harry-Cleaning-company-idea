@@ -4,6 +4,7 @@ import { getCleanerSession } from '@/lib/auth/session';
 import { computeCleanerOpenRanges } from '@/lib/availability/timesheet';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
+import { computeGoLive, documentStatuses } from '@/lib/cleaner/verification';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
@@ -412,6 +413,11 @@ export async function GET() {
       visibleInDirectory: profile.visibleInDirectory,
       importedReviewCount,
       insuranceSubmitted: insuranceDocCount > 0,
+      // R12 Lane 4: per-document checklist states (newest-per-type, F8
+      // supersession) + the shared go-live boolean. The checklist homepage
+      // renders from exactly this. Additive JSON.
+      documents: documentStatuses(rejectedDocs),
+      goLive: computeGoLive(profile),
       // F8: the NEWEST doc of each type decides (docs arrive createdAt desc) —
       // rejected only if that newest doc is rejected-and-unverified. A re-upload
       // (newer row, not rejected) supersedes and the notice clears.

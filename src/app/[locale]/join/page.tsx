@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
 import ShellCameraNotice from '@/components/ShellCameraNotice';
+import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import SimpleMarkdown, { stripLeadingH1 } from '@/components/ui/SimpleMarkdown';
 import WebcamCaptureModal from '@/components/WebcamCaptureModal';
@@ -472,7 +473,7 @@ function ShellIntro({ onStart }: { onStart: () => void }) {
   const [hours, setHours] = useState(20);
   const weekly = hours * 15;
   return (
-    <div className="flex min-h-[100dvh] flex-col justify-center bg-page px-6 pb-10 pt-6">
+    <div className="flex min-h-[100dvh] touch-manipulation flex-col justify-center bg-page px-6 pb-10 pt-6">
       <h1 className="font-jost text-[30px] font-semibold leading-tight text-ink">
         Clean With Rena
       </h1>
@@ -1597,7 +1598,7 @@ export default function JoinAsCleanerPage() {
        content column now clears it. Desktop keeps the centred card well clear
        of the corner FAB, so the extra padding is phone-only. */
   return (
-    <div className="mx-auto min-h-screen max-w-3xl overflow-x-hidden bg-page px-4 pb-28 pt-14 sm:px-6 sm:pb-14 lg:px-8">
+    <div className="mx-auto min-h-screen max-w-3xl touch-manipulation overflow-x-hidden bg-page px-4 pb-28 pt-14 sm:px-6 sm:pb-14 lg:px-8">
       <div className="text-center">
         <p className="font-jost text-[11px] uppercase tracking-[0.2em] text-primary">Application</p>
         <h1 className="mt-2 font-newsreader text-3xl font-semibold text-ink sm:text-4xl">
@@ -1808,28 +1809,30 @@ export default function JoinAsCleanerPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Password</Label>
-                  <Input
-                    type="password"
+                  <PasswordInput
                     required
                     minLength={8}
                     autoComplete="new-password"
                     placeholder="Min. 8 characters"
                     value={form.password}
                     onChange={(e) => set('password', e.target.value)}
+                    wrapperClassName="mt-1.5"
+                    className={`input-base bg-surface ${errors.password ? 'input-error' : ''}`}
                   />
                   <PasswordRequirements password={form.password} />
                   <FieldError message={errors.password} />
                 </div>
                 <div>
                   <Label>Confirm Password</Label>
-                  <Input
-                    type="password"
+                  <PasswordInput
                     required
                     minLength={8}
                     autoComplete="new-password"
                     placeholder="Re-enter password"
                     value={form.confirmPassword}
                     onChange={(e) => set('confirmPassword', e.target.value)}
+                    wrapperClassName="mt-1.5"
+                    className={`input-base bg-surface ${errors.confirmPassword ? 'input-error' : ''}`}
                   />
                   <FieldError message={errors.confirmPassword} />
                 </div>
@@ -2174,16 +2177,26 @@ export default function JoinAsCleanerPage() {
                 })}
             </div>
 
-            {/* Note about fixed-price services */}
-            {form.serviceTypes.some((svc) => !SERVICE_RATE_INFO[svc]?.hourly) && (
-              <p className="font-jost text-[12px] text-ink-3">
-                {form.serviceTypes
-                  .filter((svc) => !SERVICE_RATE_INFO[svc]?.hourly)
-                  .map((svc) => SERVICE_RATE_INFO[svc]?.label || svc)
-                  .join(' and ')}{' '}
-                pricing is set in your profile once your account is approved.
-              </p>
-            )}
+            {/* R12 Lane 3 (James-ruled): fixed-price services are equal
+                citizens with hourly — each selected one gets its own section,
+                bolder and slightly larger than the old footnote, so a
+                fixed-service specialist sees her work is first class. */}
+            {form.serviceTypes
+              .filter((svc) => !SERVICE_RATE_INFO[svc]?.hourly)
+              .map((svc) => {
+                const info = SERVICE_RATE_INFO[svc];
+                return (
+                  <div key={svc}>
+                    <p className="font-jost text-[15px] font-semibold text-ink">
+                      {info?.label || svc}
+                    </p>
+                    <p className="mt-1 font-jost text-[13px] font-normal text-ink-2">
+                      Fixed price work, priced per property. You set your {info?.label || svc}{' '}
+                      prices in your profile once your account is approved.
+                    </p>
+                  </div>
+                );
+              })}
 
             <div>
               <Label>Typical Working Hours / Week</Label>

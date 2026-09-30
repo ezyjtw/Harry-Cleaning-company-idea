@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { isCustomerShellUA } from '@/lib/shell';
 import { displayName } from '@/lib/utils/name';
@@ -317,15 +318,15 @@ export default function SignupPage() {
               >
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="signup-password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className={inputClass('password')}
+                wrapperClassName="mt-2"
+                className={inputClass('password').replace('mt-2 ', '')}
                 style={inputStyle('password')}
                 placeholder="Min. 8 characters"
               />
@@ -343,15 +344,15 @@ export default function SignupPage() {
               >
                 Confirm Password
               </label>
-              <input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
                 value={form.confirmPassword}
                 onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                className={inputClass('confirmPassword')}
+                wrapperClassName="mt-2"
+                className={inputClass('confirmPassword').replace('mt-2 ', '')}
                 style={inputStyle('confirmPassword')}
                 placeholder="Re-enter password"
               />

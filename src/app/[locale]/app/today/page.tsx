@@ -16,6 +16,7 @@ import {
   isoOf,
   pay,
 } from '@/components/app/job-cards';
+import VerificationChecklist from '@/components/app/VerificationChecklist';
 
 function dateEyebrow(): string {
   return new Date()
@@ -279,12 +280,65 @@ function ProfilePill({
 // V3 one-door rule: one "My Availability" row, always last. The right edge is
 // the nudge — navy "Next Week Not Set" while next week is untouched, else a
 // quiet grey open-hours status. (Plan Next Week card retired everywhere.)
+// R12 Lane 5 (James-ruled, mockup binding): the noticeable new-cleaner
+// reminder — a pinned navy-ringed card at the real Today's top, one per
+// genuinely unset room, deep-linking in and retiring itself the moment the
+// room is set. It supersedes the quieter door hint so nothing nags twice.
+function NewCleanerCard({ title, href, testid }: { title: string; href: string; testid: string }) {
+  return (
+    <Link
+      href={href}
+      onClick={() => haptic('light')}
+      className="mb-3 block rounded-2xl border-2 border-primary/60 bg-primary-soft px-5 py-4"
+      data-testid={testid}
+    >
+      <span className="flex items-center justify-between gap-3">
+        <span>
+          <span className="block font-jost text-[15px] font-semibold text-ink">{title}</span>
+          <span className="mt-0.5 block font-jost text-[12px] text-ink-2">
+            Customers can&rsquo;t book you until this is set.
+          </span>
+        </span>
+        <svg
+          className="h-4 w-4 shrink-0 text-primary"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2.2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+      </span>
+    </Link>
+  );
+}
+
+// R12 Lane 4: the welcome moment — the first real Today after verification.
+function WelcomeCard({ firstName }: { firstName: string | null }) {
+  return (
+    <div
+      className="mb-3 rounded-2xl border border-success/30 bg-success/10 px-5 py-4"
+      data-testid="welcome-card"
+    >
+      <p className="font-jost text-[15px] font-semibold text-ink">
+        You&rsquo;re verified{firstName ? `, ${firstName}` : ''}. Welcome to Rena.
+      </p>
+      <p className="mt-1 font-jost text-[13px] text-ink-2">
+        Your profile is live and customers can now book you.
+      </p>
+    </div>
+  );
+}
+
 function AvailabilityDoor({
   nextWeekTouched,
   nextWeekOpenHours,
+  suppressHint = false,
 }: {
   nextWeekTouched: boolean | null;
   nextWeekOpenHours: number;
+  // R12 Lane 5: the pinned card supersedes this quieter hint — never two nags.
+  suppressHint?: boolean;
 }) {
   const hrs = Number.isInteger(nextWeekOpenHours)
     ? String(nextWeekOpenHours)
@@ -314,11 +368,15 @@ function AvailabilityDoor({
       </span>
       <span
         className={`flex items-center gap-1 font-jost text-[13px] font-medium ${
-          nextWeekTouched === false ? 'text-primary' : 'text-ink-3'
+          !suppressHint && nextWeekTouched === false ? 'text-primary' : 'text-ink-3'
         }`}
         data-testid="door-hint"
       >
-        {nextWeekTouched === false ? 'Next Week Not Set' : `${hrs} hrs Open`}
+        {suppressHint
+          ? `${hrs} hrs Open`
+          : nextWeekTouched === false
+            ? 'Next Week Not Set'
+            : `${hrs} hrs Open`}
         <svg
           className="h-3.5 w-3.5"
           fill="none"
@@ -392,6 +450,11 @@ export default function TodayPage() {
   const [fullName, setFullName] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileVisible, setProfileVisible] = useState<boolean | null>(null);
+  // R12 Lane 4: the checklist-as-homepage gate. null = unknown (loading),
+  // false = unverified (the checklist IS Today), true = the real Today.
+  const [goLive, setGoLive] = useState<boolean | null>(null);
+  // The welcome moment: shown once, the first real Today after verification.
+  const [showWelcome, setShowWelcome] = useState(false);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(() => new Set());
   const [nextWeekTouched, setNextWeekTouched] = useState<boolean | null>(null);
   // Today V2 day-one dashboard: open hours per rolling day + the 7-day total.
@@ -400,6 +463,10 @@ export default function TodayPage() {
   const [nextWeekOpenHours, setNextWeekOpenHours] = useState(0);
   // ROUND 3 LANE 1: the rates card's lines — one per offered service.
   const [rateLines, setRateLines] = useState<{ label: string; figure: string }[]>([]);
+  // R12 Lane 5: truly-unset predicates for the pinned new-cleaner cards.
+  // null while unknown so the cards never flash before the data lands.
+  const [hasAnySlots, setHasAnySlots] = useState<boolean | null>(null);
+  const [hasAnyRates, setHasAnyRates] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
@@ -411,6 +478,18 @@ export default function TodayPage() {
         }
         if (d) {
           setProfileVisible(d.visibleInDirectory !== false);
+          // R12 Lane 4: one boolean decides the homepage.
+          const live = d.goLive === true;
+          setGoLive(live);
+          try {
+            if (live && !localStorage.getItem('rena-live-welcome-seen')) {
+              setShowWelcome(true);
+              localStorage.setItem('rena-live-welcome-seen', '1');
+            }
+            if (!live) localStorage.removeItem('rena-live-welcome-seen');
+          } catch {
+            /* storage best-effort */
+          }
           setProfileImage(d.image || null);
           // ROUND 3 LANE 1: build the rates card's lines from what she
           // actually offers — hourly via serviceTypes + a set rate, fixed
@@ -440,6 +519,7 @@ export default function TodayPage() {
             const bnb = range(d.airbnbPrices);
             if (bnb) lines.push({ label: 'Airbnb', figure: bnb });
             setRateLines(lines);
+            setHasAnyRates(lines.length > 0);
           }
         }
       })
@@ -452,6 +532,14 @@ export default function TodayPage() {
           (Array.isArray(d.blockedDates) ? d.blockedDates : []).map((b: { date: string }) => b.date)
         );
         setBlockedSet(blocked);
+        // R12 Lane 5: truly unset means no weekly template AND no
+        // date-specific slots anywhere.
+        const wkAll: Record<string, unknown[]> = d.weeklySlots || {};
+        const dsAll: Record<string, unknown[]> = d.dateSlots || {};
+        setHasAnySlots(
+          Object.values(wkAll).some((a) => Array.isArray(a) && a.length > 0) ||
+            Object.values(dsAll).some((a) => Array.isArray(a) && a.length > 0)
+        );
         // The "Plan Next Week" invite shows only while next calendar week is
         // untouched (no per-date edits, no blocks) — the blank-week reminder.
         const mon = new Date();
@@ -762,12 +850,42 @@ export default function TodayPage() {
     );
   }
 
+  // R12 Lane 4 (James-ruled): an unverified cleaner's Today IS the checklist
+  // room, through every pre-verified state. Availability and Rates stay live
+  // inside it; nothing below (jobs, day-one, dashboard) renders until the
+  // real go-live.
+  if (goLive === false) {
+    return (
+      <div>
+        <VerificationChecklist firstName={firstName} />
+      </div>
+    );
+  }
+
   // ─── Day-one states 1 & 2 (James-ruled). State 3 — has worked before — is
   // the existing Day off rendering below, untouched, footer included. ─────────
+  // R12 Lanes 4+5: welcome beat + pinned cards ride every real-Today state.
+  const pinnedTop = (
+    <>
+      {showWelcome && <WelcomeCard firstName={firstName} />}
+      {hasAnySlots === false && (
+        <NewCleanerCard
+          title="Set your availability"
+          href="/app/availability"
+          testid="pin-availability"
+        />
+      )}
+      {hasAnyRates === false && (
+        <NewCleanerCard title="Set your rates" href="/app/rates" testid="pin-rates" />
+      )}
+    </>
+  );
+
   if (!loading && dayOne?.state === 1) {
     return (
       <div>
         <HiddenProfileBanner className="mb-4" />
+        {pinnedTop}
         <header className="mb-5">
           <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
             {dateEyebrow()}
@@ -908,6 +1026,7 @@ export default function TodayPage() {
       <div>
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
+        {pinnedTop}
         <OfferAlerts offers={offers} now={now} />
         <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
         {actionError && (
@@ -971,7 +1090,11 @@ export default function TodayPage() {
         )}
         {earnedToday > 0 && <EarnedTicker amount={earnedToday} />}
         <WeekStrip days={jobStrip} />
-        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <AvailabilityDoor
+          nextWeekTouched={nextWeekTouched}
+          nextWeekOpenHours={nextWeekOpenHours}
+          suppressHint={hasAnySlots === false}
+        />
         <RatesDoor lines={rateLines} />
       </div>
     );
@@ -983,6 +1106,7 @@ export default function TodayPage() {
       <div>
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
+        {pinnedTop}
         <OfferAlerts offers={offers} now={now} />
         <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
         <div className="mb-4 grid grid-cols-3 gap-2" data-testid="stat-tiles">
@@ -1006,7 +1130,11 @@ export default function TodayPage() {
         </div>
         <JobCard job={nextUpcoming} now={now} processing={false} onAdvance={() => {}} />
         <WeekStrip days={jobStrip} />
-        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <AvailabilityDoor
+          nextWeekTouched={nextWeekTouched}
+          nextWeekOpenHours={nextWeekOpenHours}
+          suppressHint={hasAnySlots === false}
+        />
         <RatesDoor lines={rateLines} />
       </div>
     );
@@ -1018,6 +1146,7 @@ export default function TodayPage() {
       <div>
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
+        {pinnedTop}
         <OfferAlerts offers={offers} now={now} />
         <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
         <div className="mb-4 grid grid-cols-2 gap-2" data-testid="stat-tiles">
@@ -1048,7 +1177,11 @@ export default function TodayPage() {
           </p>
         </div>
         <WeekStrip days={hourStrip} />
-        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <AvailabilityDoor
+          nextWeekTouched={nextWeekTouched}
+          nextWeekOpenHours={nextWeekOpenHours}
+          suppressHint={hasAnySlots === false}
+        />
         <RatesDoor lines={rateLines} />
       </div>
     );
@@ -1061,6 +1194,7 @@ export default function TodayPage() {
       <div>
         <HiddenProfileBanner className="mb-4" />
         {dashHeader}
+        {pinnedTop}
         <OfferAlerts offers={offers} now={now} />
         <ProfilePill name={fullName} image={profileImage} visible={profileVisible} />
         <div className="mb-4 grid grid-cols-2 gap-2" data-testid="stat-tiles">
@@ -1092,7 +1226,11 @@ export default function TodayPage() {
           </p>
         </div>
         <WeekStrip days={hourStrip} />
-        <AvailabilityDoor nextWeekTouched={nextWeekTouched} nextWeekOpenHours={nextWeekOpenHours} />
+        <AvailabilityDoor
+          nextWeekTouched={nextWeekTouched}
+          nextWeekOpenHours={nextWeekOpenHours}
+          suppressHint={hasAnySlots === false}
+        />
         <RatesDoor lines={rateLines} />
       </div>
     );

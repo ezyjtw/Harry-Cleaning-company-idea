@@ -120,6 +120,10 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // R5b port: paths are unprefixed — the site 307s /en/<route> to /<route>
 // (en is the default locale), so the old /en/ paths paid a redirect on
 // EVERY pane document load. tabRootKey matches both shapes.
+// R12 Lane 4: the three rooms with nothing honest to show pre-verification.
+const LOCKED_UNTIL_VERIFIED: ReadonlySet<string> = new Set(['jobs', 'earnings', 'messages']);
+const EMPTY_LOCK: ReadonlySet<string> = new Set();
+
 const TABS = [
   { key: 'today', label: 'Today', path: '/app/today', icon: 'today' },
   { key: 'jobs', label: 'Jobs', path: '/app/jobs', icon: 'briefcase' },
@@ -912,6 +916,19 @@ function ShellScreen({
     offers: 0,
     messages: 0,
   });
+  // R12 Lane 4 (James-ruled): the verification tab gate. null = unknown —
+  // the shell FAILS OPEN (never locks a verified cleaner out over a blip);
+  // the L2 pages hold the real gate either way. Derived from the same 60s
+  // badges poll, so verification unlocks within a minute of approval.
+  const [goLive, setGoLive] = useState<boolean | null>(null);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const lockNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showLockNotice = useCallback(() => {
+    fireHaptic('light');
+    setLockNotice('Available once you\u2019re verified');
+    if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
+    lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 1800);
+  }, []);
   useEffect(() => {
     let alive = true;
     const poll = async () => {
@@ -923,6 +940,7 @@ function ShellScreen({
         });
         if (!res.ok) return;
         const d = await res.json().catch(() => null);
+        if (alive && d && typeof d.goLive === 'boolean') setGoLive(d.goLive);
         if (alive && d && typeof d.offers === 'number') {
           setBadges({ offers: d.offers, messages: d.messages ?? 0 });
           // C7: mirror the tab-badge total onto the app icon. Built now, but
@@ -972,7 +990,18 @@ function ShellScreen({
           );
         })}
       </View>
-      <TabBar active={activeTab} onSelect={selectTab} badges={badges} />
+      {lockNotice && (
+        <View style={styles.lockNotice} pointerEvents="none">
+          <Text style={styles.lockNoticeText}>{lockNotice}</Text>
+        </View>
+      )}
+      <TabBar
+        active={activeTab}
+        onSelect={selectTab}
+        badges={badges}
+        lockedKeys={goLive === false ? LOCKED_UNTIL_VERIFIED : EMPTY_LOCK}
+        onLockedPress={showLockNotice}
+      />
     </SafeAreaView>
   );
 }
@@ -1500,10 +1529,15 @@ function TabBar({
   active,
   onSelect,
   badges,
+  lockedKeys,
+  onLockedPress,
 }: {
   active: string;
   onSelect: (k: string) => void;
   badges?: { offers: number; messages: number };
+  // R12 Lane 4: greyed, untappable tabs while unverified.
+  lockedKeys?: ReadonlySet<string>;
+  onLockedPress?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const badgeFor = (key: string): number => {
@@ -1516,14 +1550,20 @@ function TabBar({
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {TABS.map((t) => {
         const on = active === t.key;
-        const count = badgeFor(t.key);
+        const locked = !!lockedKeys?.has(t.key);
+        const count = locked ? 0 : badgeFor(t.key);
         return (
-          <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
+          <Pressable
+            key={t.key}
+            style={[styles.tab, locked && styles.tabLocked]}
+            onPress={() => (locked ? onLockedPress?.() : onSelect(t.key))}
+            hitSlop={6}
+          >
             <View>
               <Ionicons
                 name={(on ? t.icon : `${t.icon}-outline`) as keyof typeof Ionicons.glyphMap}
                 size={23}
-                color={on ? INK : MUTED}
+                color={on && !locked ? INK : MUTED}
               />
               {count > 0 && (
                 <View style={styles.tabBadge}>
@@ -1550,6 +1590,19 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   pressed: { opacity: 0.85 },
+  // R12 Lane 4: locked tabs are visibly asleep, untappable by interception.
+  tabLocked: { opacity: 0.35 },
+  lockNotice: {
+    position: 'absolute',
+    bottom: 86,
+    alignSelf: 'center',
+    backgroundColor: INK,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    zIndex: 40,
+  },
+  lockNoticeText: { fontFamily: SANS, color: '#FFFFFF', fontSize: 13 },
   mutedSmall: { fontFamily: SANS, marginTop: 10, color: INK2, fontSize: 13, lineHeight: 18 },
 
   // Arrival overlay (light, matches the OS splash + Start screen)
