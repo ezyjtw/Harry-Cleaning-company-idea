@@ -314,7 +314,22 @@ function RootView() {
     const url = `${BASE_URL}/api/auth/session-bridge?code=${encodeURIComponent(
       bridgeCode
     )}&callbackUrl=${encodeURIComponent('/app/home')}`;
-    setBridgeUrl(url);
+    // R8 follow-up (James-ordered): redeem the bridge NATIVELY, so no pane
+    // ever holds the bridge URL — the spent-code replay class dies at the
+    // root. The native fetch's cookie jar is shared with the WebViews (iOS:
+    // NSHTTPCookieStorage + sharedCookiesEnabled; Android: okhttp's cookie
+    // handler is the webkit CookieManager), so the minted session cookie is
+    // simply there when the panes load their direct routes. Fail-soft: if
+    // the native redemption can't complete, the old in-WebView bridge runs
+    // as before — now itself protected server-side by the R8 self-heal.
+    let bridged = false;
+    try {
+      const res = await fetch(url, { headers: SHELL_HEADER });
+      bridged = res.ok; // the follow of the 307 lands 200 with the cookie
+    } catch {
+      /* fall back to the in-WebView bridge */
+    }
+    setBridgeUrl(bridged ? null : url);
     setActiveTab('home');
     setPhase('shell');
   }, []);
