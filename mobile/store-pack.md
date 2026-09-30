@@ -214,10 +214,19 @@ Device sizes required:
 - [ ] Fill the Apple App Privacy + Play Data Safety forms from §2 — push token
       DECLARED now per the 3 Sep ruling (option a, forward-honest); confirm the
       Stripe/financial classification.
-- [ ] **Stage the reviewer account (owner: Fable, on James's pre-submission
-      word):** Charlie's account gets 2 fresh today-jobs in lifecycle states +
-      1 live offer with future expiry, staged immediately before the submission
-      click (§3). James puts Charlie's credentials in App Review notes.
+- [ ] **REVIEWER STAGING (named task, James 30 Sep 2026 — REQUIRED before
+      EITHER submission, Apple or Google):** stage a demo CUSTOMER account and
+      a demo CLEANER account for store review. Cleaner side: Charlie's account
+      gets 2 fresh today-jobs in lifecycle states + 1 live offer with future
+      expiry, staged immediately before the submission click (§3). Customer
+      side: a demo customer with at least one upcoming booking and one
+      completed booking so the review walk covers book/track/history. James
+      puts both credential sets in the review notes (App Review Information /
+      Play console app-access). Offers expire: stage at the click, keep a
+      spare, re-stage on any resubmission. Owner: Fable, fired on James's
+      pre-submission word.
+- [ ] **Submission discipline (standing):** NO submission, Apple or Google,
+      until James's final say. This checklist prepares; his word fires.
 - [x] Splash re-exported 1284×2778 (3 Sep 2026). Icon + adaptive icon already
       committed.
 - [ ] Screenshots (§4) from the P1 build (EAS build 6, `b758f0c2`, in TestFlight

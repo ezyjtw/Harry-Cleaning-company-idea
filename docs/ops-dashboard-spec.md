@@ -12,12 +12,11 @@ Vocabulary (stable, stored values): `too_far` · `bad_time` · `pay_too_low` ·
 never sees them in any form. **Intelligence only — no automatic behaviour is
 ever built on these** (ruled).
 
-1. **Declines by reason over time** — aggregate: stacked count per reason per
-   week/month, platform-wide. Answers "why are offers dying?" as a trend.
-2. **Per-cleaner declines on the dossier** — the admin cleaner dossier gains a
-   reason breakdown for that cleaner's declines (count per reason, recent
-   list). Answers "is this cleaner declining on distance or on pay?"
-3. **Per-polygon declines feeding the coverage heatmap** — declines joined to
-   the booking's geocoded point, bucketed by catchment polygon / area, with
-   `too_far` weighted as the coverage signal. Answers "where does the network
-   say no?"
+1. **Declines by reason over time** — substantially served by the HQ
+   Declines room (R9c, live): totals per reason per area, 30-day and
+   all-time. A week/month stacked trend remains unbuilt spec.
+2. **Per-cleaner declines on the dossier** — ORDERED (James, 30 Sep 2026,
+   R10 Lane 3): reason totals + recent declines with dates and areas as a
+   dossier section, HQ grammar, intelligence only, never customer-visible.
+3. DELETED (James, 30 Sep 2026): the per-polygon coverage-heatmap readout is
+   struck from the spec.
