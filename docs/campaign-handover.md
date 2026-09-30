@@ -221,19 +221,6 @@ on James's explicit word after he confirms contact.** The exported broom stays.
 - **/join in-shell intro screen** — if the F29 funnel ever shows the intro
   screen bleeding applicants, deleting it (straight to Step 1) is the ruled
   fallback (James, P3 wizard shape B).
-- **NSCameraUsageDescription** — the proper camera fix, ledgered NOT built:
-  add to `mobile/app.json` infoPlist with the exact string "Rena Pro uses the
-  camera to take your profile and job photos." as part of the NEXT native
-  build — SCHEDULE MOVED UP (James, 9 Sep): the 1.0.1 build happens when
-  P3's dust settles rather than waiting for an unrelated native need; the
-  build order itself still comes with his word. Version-bump law applies
-  (1.0.0 → 1.0.1). Un-gate the in-shell
-  camera-path controls (cleaner/profile + /join profile photo) in the same
-  release. Until then: camera controls hidden in-shell where a library
-  sibling exists; the /join H97 selfie and both /verify steps stay
-  capture-only (crash-on-tap on the current binary — accepted pending
-  James's word on those steps); the native file-sheet's own camera row is
-  not suppressible web-side (James-accepted, library-only in-shell).
 - **4a follow-ons (James, 11 Sep)** — two items ledgered with the Option-1
   fix, untouched: (a) the TOCTOU footnote in `enterAdminPriceAdjust`
   (`reassignPreviousStatus` records the status read BEFORE the atomic claim,
@@ -247,9 +234,6 @@ on James's explicit word after he confirms contact.** The exported broom stays.
   enumerated in the session report). Cost: producers (admin override map,
   topup fallback), a data migration incl. stored `reassignPreviousStatus`
   values, optional read-side cleanup; keep the enum value, retire usage.
-- **Android adaptive-icon still carries the old mark — redo before any
-  Android build ever happens.** (James, 11 Sep — iOS-only campaign, no work
-  spent there.)
 - **1.0.1 runbook correction (James, 11 Sep, on the record):** the build
   runbook ends at TestFlight and the on-device checks (camera on all three
   doors, the single permission ask, a real offer push, Face ID unchanged).
