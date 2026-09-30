@@ -46,6 +46,20 @@
     box-sizing: border-box;
   }
 
+  /* R12 Lane 2, site-wide (James-ruled): every tappable control opts out of
+     the double-tap-to-zoom disambiguation hold. Pinch zoom stays fully
+     alive; only the per-tap heuristic (late taps, swallowed quick second
+     taps) goes. */
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;

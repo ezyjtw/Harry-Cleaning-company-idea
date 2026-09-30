@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
+import { computeGoLive } from '@/lib/cleaner/verification';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
@@ -78,6 +79,9 @@ export async function GET() {
     maxTravelMinutes: profile.maxTravelMinutes,
     verified: profile.verified,
     verificationStatus: profile.verificationStatus,
+    // R12 Lane 4: the Pro shell's tab gate reads this one boolean — the
+    // shared two-stage go-live definition. Additive JSON.
+    goLive: computeGoLive(profile),
     rating: Number(profile.rating),
     completedJobs: profile.completedJobs,
     backgroundCheckPassed: profile.backgroundCheckPassed,

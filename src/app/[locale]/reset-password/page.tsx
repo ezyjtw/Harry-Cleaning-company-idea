@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { Suspense, useEffect, useState } from 'react';
 
+import PasswordInput from '@/components/ui/PasswordInput';
+
 // H71: the page the reset email has ALWAYS linked to — it never existed, so
 // every emailed reset link 404'd. One flow serves customers and cleaners
 // (accounts share the auth stack); success routes to sign-in.
@@ -116,13 +118,13 @@ function ResetPasswordForm() {
             >
               New password
             </label>
-            <input
+            <PasswordInput
               id="new-password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              wrapperClassName="mt-1.5"
+              className="w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
             <label
               htmlFor="confirm-password"
@@ -130,13 +132,13 @@ function ResetPasswordForm() {
             >
               Confirm new password
             </label>
-            <input
+            <PasswordInput
               id="confirm-password"
-              type="password"
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="mt-1.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              wrapperClassName="mt-1.5"
+              className="w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 font-jost text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
             {error && <p className="mt-3 font-jost text-sm text-danger">{error}</p>}
             <button

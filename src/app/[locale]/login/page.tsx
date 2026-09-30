@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Suspense, useEffect, useState } from 'react';
 
+import PasswordInput from '@/components/ui/PasswordInput';
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -149,17 +151,17 @@ function LoginForm() {
                 Forgot password?
               </Link>
             </div>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               required
               autoComplete="current-password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
+              wrapperClassName="mt-2"
               className={
                 inShell
-                  ? 'mt-2 w-full rounded-[10px] border border-line bg-surface px-4 py-3.5 font-jost text-[15px] text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-primary/40'
-                  : 'mt-2 w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20'
+                  ? 'w-full rounded-[10px] border border-line bg-surface px-4 py-3.5 font-jost text-[15px] text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-primary/40'
+                  : 'w-full px-4 py-3 font-jost font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-1 focus:ring-ink/20'
               }
               style={inShell ? undefined : { border: '0.5px solid rgba(14,14,12,0.1)' }}
               placeholder="Enter your password"
