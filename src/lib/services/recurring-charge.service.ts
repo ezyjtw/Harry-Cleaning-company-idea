@@ -367,7 +367,7 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
             userId: b.clientId,
             type: 'SYSTEM',
             title: 'This week’s clean is cancelled',
-            body: `Payment did not go through in time, so just the clean on ${dateStr} has been cancelled. You have not been charged for it. Your regular arrangement carries on as normal.`,
+            body: `Payment did not go through in time, so just the clean on ${b.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })} has been cancelled. You have not been charged for it. Your regular arrangement carries on as normal.`,
             data: { bookingId: b.id },
           },
         })

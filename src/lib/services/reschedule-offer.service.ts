@@ -10,8 +10,17 @@
 // T-24h, so the standing machinery never runs while an offer is ambiguous.
 // Accept-time guards (James-ruled): the proposed instant must still be at
 // least 24h away, and the cleaner must still be slot-free at the new time.
+//
+// "Slot-free" here is deliberately NOT the H7 search predicate. H7 answers
+// "would search offer this cleaner?" and includes her weekly template — but
+// the cleaner PROPOSED this time herself, often precisely because her normal
+// week does not fit. The honest guard is a CLASH check: no commitment booking
+// (± her buffer) and no time-off override at the proposed time. Checked at
+// offer time (so an unacceptable offer is refused up front) and again at
+// accept time (the race guard).
 
-import { filterSlotAvailableCleaners } from '@/lib/availability/slot-eligibility';
+import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
+import { timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -33,6 +42,63 @@ function fmtWhen(date: Date, time: string): string {
     month: 'long',
     timeZone: 'UTC',
   })} at ${time}`;
+}
+
+/**
+ * The clash check behind both slot-free guards: does the cleaner have a
+ * commitment booking (± her booking buffer) or a time-off override across
+ * the proposed slot? Her weekly TEMPLATE is deliberately not consulted —
+ * she proposed this time herself (see header note).
+ */
+async function cleanerClashAt(args: {
+  cleanerUserId: string;
+  date: Date; // UTC midnight of the proposed day
+  startTime: string; // "HH:MM"
+  durationHours: number;
+  excludeBookingId: string;
+}): Promise<string | null> {
+  const dayStart = new Date(args.date);
+  const dayEnd = new Date(dayStart.getTime() + 24 * HOUR_MS);
+  const [profile, bookings] = await Promise.all([
+    prisma.cleanerProfile.findUnique({
+      where: { userId: args.cleanerUserId },
+      select: {
+        bookingBufferMinutes: true,
+        availabilityOverrides: {
+          where: { date: { gte: dayStart, lt: dayEnd } },
+          select: { isBlocked: true, startTime: true, endTime: true },
+        },
+      },
+    }),
+    prisma.booking.findMany({
+      where: {
+        cleanerId: args.cleanerUserId,
+        id: { not: args.excludeBookingId },
+        date: { gte: dayStart, lt: dayEnd },
+        AND: [blocksCleanerSlotWhere()],
+      },
+      select: { startTime: true, duration: true },
+    }),
+  ]);
+  const buffer = profile?.bookingBufferMinutes ?? 30;
+  const start = timeToMinutes(args.startTime);
+  const end = start + args.durationHours * 60;
+  for (const o of profile?.availabilityOverrides ?? []) {
+    if (!o.isBlocked) continue;
+    if (!o.startTime || !o.endTime) return 'time off booked that day';
+    if (timeToMinutes(o.startTime) < end && timeToMinutes(o.endTime) > start) {
+      return 'time off booked over that time';
+    }
+  }
+  for (const b of bookings) {
+    const bStart = timeToMinutes(b.startTime);
+    if (Number.isNaN(bStart)) continue; // Flexible-time rows carry no clock
+    const bEnd = bStart + Number(b.duration) * 60;
+    if (bStart - buffer < end && bEnd + buffer > start) {
+      return 'another booking at that time';
+    }
+  }
+  return null;
 }
 
 export type OfferResult =
@@ -109,6 +175,23 @@ export async function offerReschedule(params: {
   });
   if (open) {
     return { ok: false, status: 409, error: 'There is already an open offer on this visit.' };
+  }
+
+  // Offer-time slot-free guard: refuse up front rather than let the customer
+  // accept into a clash later.
+  const clash = await cleanerClashAt({
+    cleanerUserId: cleanerId,
+    date: proposedDate,
+    startTime: params.proposedTime,
+    durationHours: Number(b.duration),
+    excludeBookingId: bookingId,
+  });
+  if (clash) {
+    return {
+      ok: false,
+      status: 409,
+      error: `You are not free at that time (${clash}). Pick a different time.`,
+    };
   }
 
   const offer = await prisma.rescheduleOffer.create({
@@ -207,13 +290,14 @@ export async function resolveRescheduleOffer(params: {
       error: 'The proposed time is now less than 24 hours away, so it can no longer be accepted.',
     };
   }
-  const free = await filterSlotAvailableCleaners([offer.cleanerId], {
+  const clash = await cleanerClashAt({
+    cleanerUserId: offer.cleanerId,
     date: offer.proposedDate,
     startTime: offer.proposedTime,
     durationHours: Number(offer.booking.duration),
     excludeBookingId: offer.bookingId,
   });
-  if (!free.has(offer.cleanerId)) {
+  if (clash) {
     return {
       ok: false,
       status: 409,

@@ -916,15 +916,20 @@ export async function expireBackupOrCombinedOffer(
 export async function expireProvisionalApproval(bookingId: string): Promise<boolean> {
   const advanced = await handleProvisionalFailure(bookingId, 'Approval window expired');
   // R10 Lane 1 (James-ruled): the customer hears the release moment itself,
-  // honestly — the held offer is gone, nothing charged, next step promised
-  // (the cascade path's own downstream comms then carry that next step,
-  // exhaustion included). Bell + email, best-effort, never blocks the sweep.
+  // honestly PER CASCADE PATH. When the advance keeps the search alive the
+  // notice promises the next step; when it exhausted the cascade, the
+  // exhaustion flow's own comms (refund, honest ending) carry that moment —
+  // a "we are still working on it" here would be a lie, so it is skipped.
+  // Bell + email, best-effort, never blocks the sweep.
   if (advanced) {
     try {
       const b = await prisma.booking.findUnique({
         where: { id: bookingId },
-        select: { clientId: true, date: true },
+        select: { clientId: true, date: true, status: true },
       });
+      if (b && ['CASCADE_EXHAUSTED', 'CANCELLED'].includes(b.status)) {
+        return advanced;
+      }
       if (b?.clientId) {
         await prisma.notification
           .create({
