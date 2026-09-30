@@ -4,9 +4,9 @@ import Link from 'next/link';
 
 import { SERVICE_AREAS } from '@/lib/areas';
 import { prisma } from '@/lib/db/prisma';
+import { getAreaCentroids } from '@/lib/hq/area-centroids';
 import { placesConfigured } from '@/lib/hq/places.service';
 import { extractPolygon } from '@/lib/services/coverage.service';
-import { lookupOutcode } from '@/lib/utils/postcode';
 
 import { HqCard, HqLabel, RoomShell, StatusDot } from '../HqKit';
 
@@ -39,57 +39,58 @@ export default async function AreasRoom() {
     .map((p) => extractPolygon(p.catchmentPolygon))
     .filter((f): f is NonNullable<typeof f> => f !== null);
 
-  const areas = await Promise.all(
-    SERVICE_AREAS.map(async (a) => {
-      const areaPlaces = places.filter((p) => p.area === a.slug);
-      const rated = areaPlaces
-        .map((p) => p.observations[0]?.rating)
-        .filter((r): r is number => typeof r === 'number');
-      const avgRating = rated.length ? rated.reduce((s, r) => s + r, 0) / rated.length : null;
+  // R9d: centroids from the persistent store — zero external calls per view
+  // once settled; unresolved areas stay the honest unknown.
+  const centroids = await getAreaCentroids();
+  const areas = SERVICE_AREAS.map((a) => {
+    const areaPlaces = places.filter((p) => p.area === a.slug);
+    const rated = areaPlaces
+      .map((p) => p.observations[0]?.rating)
+      .filter((r): r is number => typeof r === 'number');
+    const avgRating = rated.length ? rated.reduce((s, r) => s + r, 0) / rated.length : null;
 
-      const centroid = await lookupOutcode(a.outcode);
-      let covered: boolean | null = null;
-      if (centroid) {
-        covered = features.some((f) => {
-          try {
-            return booleanPointInPolygon(point([centroid.longitude, centroid.latitude]), f);
-          } catch {
-            return false;
-          }
-        });
-      }
+    const centroid = centroids.get(a.slug) ?? null;
+    let covered: boolean | null = null;
+    if (centroid) {
+      covered = features.some((f) => {
+        try {
+          return booleanPointInPolygon(point([centroid.lng, centroid.lat]), f);
+        } catch {
+          return false;
+        }
+      });
+    }
 
-      const demand = waitlist.filter((w) =>
-        w.postcode.toUpperCase().replace(/\s+/g, '').startsWith(a.outcode.toUpperCase())
-      ).length;
+    const demand = waitlist.filter((w) =>
+      w.postcode.toUpperCase().replace(/\s+/g, '').startsWith(a.outcode.toUpperCase())
+    ).length;
 
-      // Visible ranking factors — each line is shown on the card.
-      const factors: Array<{ label: string; pts: number }> = [];
-      if (covered === false) factors.push({ label: 'coverage gap (no live catchment)', pts: 3 });
-      if (demand > 0)
-        factors.push({
-          label: `${demand} waitlist signup${demand === 1 ? '' : 's'}`,
-          pts: Math.min(demand, 3),
-        });
-      if (!dormant && areaPlaces.length === 0)
-        factors.push({ label: 'no tracked competitors (open field)', pts: 1 });
-      if (avgRating !== null && avgRating < 4.5)
-        factors.push({ label: `competitors average ★ ${avgRating.toFixed(1)} (beatable)`, pts: 1 });
-      const score = factors.reduce((s, f) => s + f.pts, 0);
+    // Visible ranking factors — each line is shown on the card.
+    const factors: Array<{ label: string; pts: number }> = [];
+    if (covered === false) factors.push({ label: 'coverage gap (no live catchment)', pts: 3 });
+    if (demand > 0)
+      factors.push({
+        label: `${demand} waitlist signup${demand === 1 ? '' : 's'}`,
+        pts: Math.min(demand, 3),
+      });
+    if (!dormant && areaPlaces.length === 0)
+      factors.push({ label: 'no tracked competitors (open field)', pts: 1 });
+    if (avgRating !== null && avgRating < 4.5)
+      factors.push({ label: `competitors average ★ ${avgRating.toFixed(1)} (beatable)`, pts: 1 });
+    const score = factors.reduce((s, f) => s + f.pts, 0);
 
-      return {
-        slug: a.slug,
-        name: a.name,
-        outcode: a.outcode,
-        competitorCount: areaPlaces.length,
-        avgRating,
-        covered,
-        demand,
-        factors,
-        score,
-      };
-    })
-  );
+    return {
+      slug: a.slug,
+      name: a.name,
+      outcode: a.outcode,
+      competitorCount: areaPlaces.length,
+      avgRating,
+      covered,
+      demand,
+      factors,
+      score,
+    };
+  });
 
   const ranked = areas.slice().sort((x, y) => y.score - x.score);
 
