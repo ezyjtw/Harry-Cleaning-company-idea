@@ -5,6 +5,7 @@
  */
 import type { Prisma } from '@prisma/client';
 
+import { logApiCall } from '@/lib/api-metering';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import { BookingReminderService } from '@/lib/services/booking-reminder.service';
@@ -340,10 +341,18 @@ registerJobHandler('EXPO_PUSH', async (payload) => {
     headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`;
   }
 
+  const meterT0 = Date.now();
   const res = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers,
     body: JSON.stringify(messages),
+  });
+  // R9 (HQ API room): fail-silent count — never affects push delivery.
+  logApiCall('expo_push', 'POST /--/api/v2/push/send', {
+    status: res.ok ? 'ok' : 'error',
+    httpStatus: res.status,
+    durationMs: Date.now() - meterT0,
+    meta: { messages: messages.length },
   });
   if (!res.ok) {
     throw new Error(`Expo push failed: ${res.status}`);

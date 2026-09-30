@@ -29,6 +29,7 @@ import {
   bedroomsLabel,
 } from '@/lib/constants/services';
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
 import { isCustomerShellUA } from '@/lib/shell';
@@ -1394,6 +1395,46 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     // by-cleaner grid (default), toggled to set-time via the results toggle.
     return 'browse';
   }, [phase, scheduling, selectedCleanerIds, paymentStep]);
+
+  // R9 Decision 1 (James-ruled, sanctioned website change): the four funnel
+  // events on the ruled booking route. LAW: analytics failure is ALWAYS
+  // silent and can never affect a booking step — the hook's sends are
+  // try/caught fire-and-forget, and these effects only OBSERVE state the
+  // flow already derives; they set nothing and gate nothing. Each stage
+  // fires at most once per visit (the ref set), category rides in metadata
+  // for the service-family split.
+  const { trackStep } = useAnalytics('booking');
+  const firedFunnelStages = useRef<Set<number>>(new Set());
+  const fireFunnelStage = useCallback(
+    (step: number, stepName: string) => {
+      if (firedFunnelStages.current.has(step)) return;
+      firedFunnelStages.current.add(step);
+      trackStep(step, stepName, { category });
+    },
+    [trackStep, category]
+  );
+  useEffect(() => {
+    fireFunnelStage(1, 'flow_entered');
+  }, [fireFunnelStage]);
+  useEffect(() => {
+    // Quote seen: a real price is on screen (area quote with eligible
+    // cleaners), or the visitor carried the quote into the cleaner phase.
+    if ((areaQuote && areaQuote.cleanerCount > 0) || phase === 'cleaner') {
+      fireFunnelStage(2, 'quote_seen');
+    }
+  }, [areaQuote, phase, fireFunnelStage]);
+  useEffect(() => {
+    if (selectedCleanerIds.length > 0 || timeFirstPicked || (selectedDate && selectedTime24)) {
+      fireFunnelStage(3, 'slot_or_cleaner_chosen');
+    }
+  }, [selectedCleanerIds, timeFirstPicked, selectedDate, selectedTime24, fireFunnelStage]);
+  useEffect(() => {
+    // Details completed / payment started: the booking row exists and the
+    // payment step is on screen.
+    if (currentStep === 'payment') {
+      fireFunnelStage(4, 'details_completed');
+    }
+  }, [currentStep, fireFunnelStage]);
 
   // F4: every step transition lands the viewport at the top of the incoming
   // step — not wherever the previous step's Continue button sat. The key

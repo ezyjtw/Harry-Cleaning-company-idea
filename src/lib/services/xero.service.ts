@@ -1,6 +1,7 @@
 import type { TokenSet } from 'openid-client';
 import type { XeroClient } from 'xero-node';
 
+import { countedCall } from '@/lib/api-metering';
 import { prisma } from '@/lib/db/prisma';
 import { makeXeroClient, xeroConfigured } from '@/lib/xero/client';
 import { decryptToken, encryptToken, generateKeyId } from '@/lib/xero/token-crypto';
@@ -288,7 +289,10 @@ export async function getAuthedClient(): Promise<{ client: XeroClient; tenantId:
 export async function getChartOfAccounts(): Promise<XeroAccount[] | null> {
   const authed = await getAuthedClient();
   if (!authed) return null;
-  const res = await authed.client.accountingApi.getAccounts(authed.tenantId);
+  // R9 (HQ API room): counted — the wrapper passes the outcome through untouched.
+  const res = await countedCall('xero', 'GET /Accounts', () =>
+    authed.client.accountingApi.getAccounts(authed.tenantId)
+  );
   return (res.body.accounts ?? []).map((a) => ({
     accountID: a.accountID ?? '',
     code: a.code ?? '',

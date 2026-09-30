@@ -1,6 +1,7 @@
 import { BankTransaction, LineAmountTypes } from 'xero-node';
 import type { Contact, LineItem, XeroClient } from 'xero-node';
 
+import { countedCall } from '@/lib/api-metering';
 import { prisma } from '@/lib/db/prisma';
 import { JobQueueService } from '@/lib/services/job-queue.service';
 import { getTransferAmountPence } from '@/lib/services/transfer-amount';
@@ -253,12 +254,16 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
 
     // Idempotency-Key: Xero itself de-dupes a retry that races before our log write.
     const idempotencyKey = `${bookingId}:${event}:${externalRef}`;
-    const res = await authed.client.accountingApi.createBankTransactions(
-      authed.tenantId,
-      { bankTransactions: txns },
-      true, // summarizeErrors → validation failures throw so the worker retries
-      undefined, // unitdp
-      idempotencyKey
+    // R9 (HQ API room): counted — the wrapper passes success AND failure through
+    // untouched, so idempotency/retry behaviour is byte-identical.
+    const res = await countedCall('xero', 'PUT /BankTransactions', () =>
+      authed.client.accountingApi.createBankTransactions(
+        authed.tenantId,
+        { bankTransactions: txns },
+        true, // summarizeErrors → validation failures throw so the worker retries
+        undefined, // unitdp
+        idempotencyKey
+      )
     );
 
     const ids = (res.body.bankTransactions ?? [])
@@ -322,17 +327,17 @@ async function findOrCreatePlatformContact(authed: {
   if (conn?.platformContactId) return conn.platformContactId;
 
   const name = 'Rena Marketplace';
-  const found = await authed.client.accountingApi.getContacts(
-    authed.tenantId,
-    undefined,
-    `Name=="${name}"`
+  const found = await countedCall('xero', 'GET /Contacts', () =>
+    authed.client.accountingApi.getContacts(authed.tenantId, undefined, `Name=="${name}"`)
   );
   let contactID = found.body.contacts?.[0]?.contactID;
 
   if (!contactID) {
-    const created = await authed.client.accountingApi.createContacts(authed.tenantId, {
-      contacts: [{ name }],
-    });
+    const created = await countedCall('xero', 'PUT /Contacts', () =>
+      authed.client.accountingApi.createContacts(authed.tenantId, {
+        contacts: [{ name }],
+      })
+    );
     contactID = created.body.contacts?.[0]?.contactID;
   }
   if (!contactID) throw new Error('Could not resolve the Rena Marketplace Xero contact');
@@ -358,20 +363,22 @@ async function postStripePayout(
     .toISOString()
     .slice(0, 10);
 
-  const res = await authed.client.accountingApi.createBankTransfer(
-    authed.tenantId,
-    {
-      bankTransfers: [
-        {
-          fromBankAccount: { accountID: mapping.bankAccountCode as string },
-          toBankAccount: { accountID: mapping.settlementBankAccountCode as string },
-          amount,
-          date,
-          reference: `Stripe payout ${payload.bookingId}`,
-        },
-      ],
-    },
-    `payout:${payload.bookingId}` // Idempotency-Key
+  const res = await countedCall('xero', 'PUT /BankTransfers', () =>
+    authed.client.accountingApi.createBankTransfer(
+      authed.tenantId,
+      {
+        bankTransfers: [
+          {
+            fromBankAccount: { accountID: mapping.bankAccountCode as string },
+            toBankAccount: { accountID: mapping.settlementBankAccountCode as string },
+            amount,
+            date,
+            reference: `Stripe payout ${payload.bookingId}`,
+          },
+        ],
+      },
+      `payout:${payload.bookingId}` // Idempotency-Key
+    )
   );
 
   return (
