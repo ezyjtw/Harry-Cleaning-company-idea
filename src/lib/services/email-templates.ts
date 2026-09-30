@@ -579,17 +579,20 @@ export function buildOccurrencePayNow(data: {
   dateLong: string; // e.g. "Tuesday 4 August"
   time: string;
   payUrl: string;
+  /** R10 Lane 1 (James-ruled): the release instant, rendered plainly. */
+  heldUntilLong?: string; // e.g. "5pm on Monday 3 August"
 }): EmailContent {
   const subject = `We couldn't take payment for your clean on ${data.dateLong}`;
   const contentHtml =
     h('We couldn&rsquo;t take payment') +
     p(`Hi ${data.customerName},`) +
     p(
-      `We couldn&rsquo;t take payment for your regular clean with ${data.cleanerName} on ${data.dateLong} at ${data.time} — pay now to keep your slot.`
+      `We couldn&rsquo;t take payment for your regular clean with ${data.cleanerName} on ${data.dateLong} at ${data.time}. Your slot is still held for you, and payment is needed to keep it.`
     ) +
+    (data.heldUntilLong ? p(`Your slot is held until ${data.heldUntilLong}.`) : '') +
     button(data.payUrl, 'Pay now') +
     pMuted(
-      `If it isn&rsquo;t paid by 24 hours before the clean, just this visit is cancelled — your regular arrangement carries on as normal.`
+      `If it is not paid by then, just this visit is cancelled and your regular arrangement carries on as normal.`
     );
   return { subject, html: renderEmail({ contentHtml }) };
 }
@@ -1240,6 +1243,65 @@ export function buildTopupApprovalRequest(data: {
 
 // R4 LANE 5B: the one card-still-needed reminder — sent by the scheduler
 // while an APPROVED top-up sits unpaid for want of card details.
+// R10 Lane 2 (James-ruled): the reschedule offer to the customer, both times
+// stated plainly, and the do-nothing outcome honest.
+export function buildRescheduleOffer(data: {
+  customerName: string;
+  cleanerName: string;
+  fromWhen: string;
+  toWhen: string;
+  bookingUrl: string;
+  openUntilLong: string;
+}): EmailContent {
+  const subject = `${data.cleanerName} suggests a new time for one visit`;
+  const contentHtml =
+    h('A new time for one visit') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `${data.cleanerName} has asked to move one visit from ${data.fromWhen} to ${data.toWhen}. The price stays the same and only this visit would change. Your regular arrangement is untouched.`
+    ) +
+    button(data.bookingUrl, 'Accept or decline') +
+    pMuted(
+      `The offer stays open until ${data.openUntilLong}. If you do nothing, the visit stays at its original time.`
+    );
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R10 Lane 2: acceptance notice to the cleaner, corrected calendar invite attached.
+export function buildRescheduleAccepted(data: {
+  cleanerName: string;
+  toWhen: string;
+  detailUrl: string;
+}): EmailContent {
+  const subject = 'Time change accepted';
+  const contentHtml =
+    h('Time change accepted') +
+    p(`Hi ${data.cleanerName},`) +
+    p(
+      `The customer accepted your new time. This visit now runs on ${data.toWhen}. Just this visit changes and the regular arrangement carries on as before.`
+    ) +
+    p(`A corrected calendar invite is attached.`) +
+    button(data.detailUrl, 'View the job');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// R10 Lane 1 (James-ruled): the honest notice at the approval hold's release
+// moment. Nothing charged, the held offer released, the next step promised.
+export function buildTopupWindowClosed(data: {
+  customerName: string;
+  dateLong: string;
+}): EmailContent {
+  const subject = 'The price change window has closed';
+  const contentHtml =
+    h('The price change window has closed') +
+    p(`Hi ${data.customerName},`) +
+    p(
+      `The approval window for the price change on your clean on ${data.dateLong} closed before a decision was made, so that offer has been released. Nothing has been charged.`
+    ) +
+    p(`We are still working on your booking and will email you the next step.`);
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildTopupCardReminder(data: {
   bookingId: string;
   customerName: string;

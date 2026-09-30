@@ -38,6 +38,20 @@ export async function GET(_request: Request, { params }: { params: { id: string 
         // H40: the booking page's "Report a problem" door needs to know
         // whether a dispute is already open (id only — nothing sensitive).
         dispute: { select: { id: true } },
+        // R10 Lane 2: the open reschedule offer rides the booking payload so
+        // the tracker can show the accept/decline card. Additive JSON.
+        rescheduleOffers: {
+          where: { status: 'offered' },
+          select: {
+            id: true,
+            proposedDate: true,
+            proposedTime: true,
+            originalDate: true,
+            originalTime: true,
+            expiresAt: true,
+          },
+          take: 1,
+        },
       },
     });
 

@@ -714,6 +714,155 @@ export async function sendTopupApprovalRequest(data: {
 }
 
 // R4 LANE 5B: the card-still-needed reminder (scheduler leg).
+// R10 Lane 2 (James-ruled): the reschedule offer email to the customer.
+// Guest parity: the booking link carries the guest token when no account owns
+// the booking. ESSENTIAL.
+export async function sendRescheduleOffer(offerId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const o = await prisma.rescheduleOffer.findUnique({
+    where: { id: offerId },
+    select: {
+      bookingId: true,
+      proposedDate: true,
+      proposedTime: true,
+      originalDate: true,
+      originalTime: true,
+      expiresAt: true,
+      booking: {
+        select: {
+          guestEmail: true,
+          guestName: true,
+          guestToken: true,
+          clientId: true,
+          client: { select: { name: true, email: true } },
+          cleaner: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (!o) return false;
+  const b = o.booking;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const bookingUrl = b.clientId
+    ? `${appUrl}/booking/${o.bookingId}`
+    : `${appUrl}/booking/${o.bookingId}?token=${encodeURIComponent(b.guestToken ?? '')}`;
+  const when = (d: Date, t: string) =>
+    `${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })} at ${t}`;
+  const { buildRescheduleOffer } = await import('./email-templates');
+  const { subject, html } = buildRescheduleOffer({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    cleanerName: b.cleaner?.name ?? 'Your cleaner',
+    fromWhen: when(o.originalDate, o.originalTime),
+    toWhen: when(o.proposedDate, o.proposedTime),
+    bookingUrl,
+    openUntilLong: o.expiresAt.toLocaleString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }),
+  });
+  return sendEmail(to, subject, html);
+}
+
+// R10 Lane 2: acceptance notice to the CLEANER with the corrected calendar
+// invite attached (the same .ics recipient as the original F8 invite).
+export async function sendRescheduleAccepted(offerId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const o = await prisma.rescheduleOffer.findUnique({
+    where: { id: offerId },
+    select: {
+      bookingId: true,
+      proposedDate: true,
+      proposedTime: true,
+      booking: {
+        select: {
+          serviceType: true,
+          duration: true,
+          suppliesProvided: true,
+          cleanerEarnings: true,
+          addressLine1: true,
+          addressLine2: true,
+          addressCity: true,
+          addressPostcode: true,
+          agreement: { select: { frequency: true } },
+          cleaner: { select: { id: true, name: true, email: true } },
+        },
+      },
+    },
+  });
+  if (!o?.booking.cleaner?.email) return false;
+  const b = o.booking;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network';
+  const dateStr = o.proposedDate.toISOString().split('T')[0];
+  const detailUrl = `${appUrl}/cleaner/jobs/${o.bookingId}`;
+  const { serviceLabelFromSlug } = await import('@/lib/constants/services');
+  const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
+  const { buildJobIcs } = await import('@/lib/services/job-ics');
+  const recurringLabel = b.agreement
+    ? b.agreement.frequency === 'WEEKLY'
+      ? 'weekly'
+      : 'every two weeks'
+    : null;
+  const ics = buildJobIcs({
+    id: o.bookingId,
+    serviceLabel: serviceLabelFromSlug(b.serviceType),
+    date: dateStr,
+    startTime: o.proposedTime,
+    durationHours: Number(b.duration),
+    fullAddress: [b.addressLine1, b.addressLine2, b.addressCity, b.addressPostcode]
+      .filter(Boolean)
+      .join(', '),
+    cleanerEarnings: getTransferAmountPence(Number(b.cleanerEarnings)) / 100,
+    detailUrl,
+    suppliesProvided: b.suppliesProvided,
+    recurringLabel,
+  });
+  const { buildRescheduleAccepted } = await import('./email-templates');
+  const { subject, html } = buildRescheduleAccepted({
+    cleanerName: b.cleaner.name ?? 'there',
+    toWhen: `${o.proposedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })} at ${o.proposedTime}`,
+    detailUrl,
+  });
+  return sendEmail(b.cleaner.email, subject, html, {
+    userId: b.cleaner.id,
+    attachments: [{ filename: `rena-clean-${dateStr}.ics`, content: ics }],
+  });
+}
+
+// R10 Lane 1 (James-ruled): the release-moment notice for the approval hold.
+// ESSENTIAL, guest parity via guestEmail.
+export async function sendTopupWindowClosed(bookingId: string): Promise<boolean> {
+  const { prisma } = await import('@/lib/db/prisma');
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      date: true,
+      guestEmail: true,
+      guestName: true,
+      client: { select: { name: true, email: true } },
+    },
+  });
+  if (!b) return false;
+  const to = b.client?.email ?? b.guestEmail;
+  if (!to) return false;
+  const { buildTopupWindowClosed } = await import('./email-templates');
+  const { subject, html } = buildTopupWindowClosed({
+    customerName: b.client?.name ?? b.guestName ?? 'there',
+    dateLong: b.date.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    }),
+  });
+  return sendEmail(to, subject, html);
+}
+
 export async function sendTopupCardReminder(bookingId: string): Promise<boolean> {
   const { prisma } = await import('@/lib/db/prisma');
   const b = await prisma.booking.findUnique({
@@ -1240,6 +1389,21 @@ export async function sendOccurrencePayNow(bookingId: string): Promise<boolean> 
     month: 'long',
     timeZone: 'UTC',
   });
+  // R10 Lane 1 (James-ruled): the deadline stated plainly. Release is 24
+  // hours before the occurrence's start, the same instant the reap sweep
+  // uses (occurrenceStart minus 24h).
+  const [sh, sm] = b.startTime.split(':').map(Number);
+  const releaseAt = new Date(
+    b.date.getTime() + ((sh || 0) * 60 + (sm || 0)) * 60 * 1000 - 24 * 60 * 60 * 1000
+  );
+  const heldUntilLong = `${releaseAt
+    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+    .replace(':00', '')} on ${releaseAt.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  })}`;
   const { buildOccurrencePayNow } = await import('./email-templates');
   const { subject, html } = buildOccurrencePayNow({
     customerName: b.client?.name ?? b.guestName ?? 'there',
@@ -1247,6 +1411,7 @@ export async function sendOccurrencePayNow(bookingId: string): Promise<boolean> 
     dateLong,
     time: b.startTime,
     payUrl,
+    heldUntilLong,
   });
   return sendEmail(to, subject, html);
 }

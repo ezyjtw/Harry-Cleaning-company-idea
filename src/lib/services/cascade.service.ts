@@ -914,7 +914,42 @@ export async function expireBackupOrCombinedOffer(
 }
 
 export async function expireProvisionalApproval(bookingId: string): Promise<boolean> {
-  return handleProvisionalFailure(bookingId, 'Approval window expired');
+  const advanced = await handleProvisionalFailure(bookingId, 'Approval window expired');
+  // R10 Lane 1 (James-ruled): the customer hears the release moment itself,
+  // honestly PER CASCADE PATH. When the advance keeps the search alive the
+  // notice promises the next step; when it exhausted the cascade, the
+  // exhaustion flow's own comms (refund, honest ending) carry that moment —
+  // a "we are still working on it" here would be a lie, so it is skipped.
+  // Bell + email, best-effort, never blocks the sweep.
+  if (advanced) {
+    try {
+      const b = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { clientId: true, date: true, status: true },
+      });
+      if (b && ['CASCADE_EXHAUSTED', 'CANCELLED'].includes(b.status)) {
+        return advanced;
+      }
+      if (b?.clientId) {
+        await prisma.notification
+          .create({
+            data: {
+              userId: b.clientId,
+              type: 'SYSTEM',
+              title: 'The price change window has closed',
+              body: 'The approval window closed before a decision was made, so that offer has been released. Nothing has been charged. We are still working on your booking and will send you the next step.',
+              data: { bookingId, url: `/booking/${bookingId}` },
+            },
+          })
+          .catch(() => {});
+      }
+      const { sendTopupWindowClosed } = await import('./email.service');
+      await sendTopupWindowClosed(bookingId).catch(() => {});
+    } catch {
+      // comms only — the cascade advance already happened
+    }
+  }
+  return advanced;
 }
 
 // ─── Phase 2: Reserve promotion (A5.3 Stage 2) ───────────────
@@ -1278,10 +1313,17 @@ export async function enterAdminReassignProvisional(args: {
   // over any phase, including an in-flight cascade PROVISIONAL_APPROVAL. The
   // money guard (transferStatus) hard-blocks post-release. eligibleStatuses
   // bounds which source states an admin may reassign from.
+  // R10 TOCTOU fix (same law as enterAdminPriceAdjust): pin the claim to the
+  // EXACT previously-read status and cleaner, so the revert snapshot can
+  // never store a stale value — a concurrent flip aborts with count 0.
+  if (!args.eligibleStatuses.includes(args.previousStatus)) {
+    return { success: false, reason: 'Booking state changed — reload and try again' };
+  }
   const claim = await prisma.booking.updateMany({
     where: {
       id: args.bookingId,
-      status: { in: args.eligibleStatuses },
+      status: args.previousStatus,
+      cleanerId: args.previousCleanerId,
       transferStatus: { in: ['PENDING', 'FAILED'] },
     },
     data: {
@@ -1390,10 +1432,20 @@ export async function enterAdminPriceAdjust(args: {
   // Atomic claim: LIVE paid bookings only — CONFIRMED/ACCEPTED, no cascade in
   // flight, funds not yet released. Same guarded-updateMany technique as the
   // cascade; a concurrent state change makes count 0 and we abort.
+  // R10 TOCTOU fix (James's law, from the 4a footnote): the revert snapshot
+  // (reassignPreviousStatus/CleanerId) used to store values read BEFORE the
+  // claim while the WHERE admitted the whole claimable set — a flip between
+  // read and claim stored a stale revert value. The WHERE now pins the EXACT
+  // read values: unchanged reality claims and the snapshot is true by
+  // construction; changed reality makes count 0 and aborts honestly.
+  if (booking.status !== 'CONFIRMED' && booking.status !== 'ACCEPTED') {
+    return { success: false, reason: 'Only live CONFIRMED/ACCEPTED bookings can be adjusted' };
+  }
   const claim = await prisma.booking.updateMany({
     where: {
       id: args.bookingId,
-      status: { in: ['CONFIRMED', 'ACCEPTED'] },
+      status: booking.status,
+      cleanerId: booking.cleanerId,
       cascadePhase: null,
       paymentStatus: { in: ['SUCCEEDED', 'PARTIALLY_REFUNDED'] },
       transferStatus: { in: ['PENDING', 'FAILED'] },

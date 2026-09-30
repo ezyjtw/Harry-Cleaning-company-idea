@@ -515,19 +515,20 @@ model Booking {
 
   providerId String?
 
-  client        User?                 @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
-  cleaner       User                  @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
-  address       Address?              @relation(fields: [addressId], references: [id])
-  provider      Provider?             @relation(fields: [providerId], references: [id])
-  review        Review?
-  messages      Message[]
-  payment       Payment?
-  dispute       Dispute?
-  complaints    Complaint[]
-  bookingAddons BookingAddon[]
-  cleanerQueue  BookingCleanerQueue[]
-  refundRecords RefundRecord[]
-  stuckJobCase  StuckJobCase?
+  client           User?                 @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  cleaner          User                  @relation("CleanerBookings", fields: [cleanerId], references: [id], onDelete: Cascade)
+  address          Address?              @relation(fields: [addressId], references: [id])
+  provider         Provider?             @relation(fields: [providerId], references: [id])
+  review           Review?
+  messages         Message[]
+  payment          Payment?
+  dispute          Dispute?
+  complaints       Complaint[]
+  bookingAddons    BookingAddon[]
+  cleanerQueue     BookingCleanerQueue[]
+  refundRecords    RefundRecord[]
+  rescheduleOffers RescheduleOffer[]
+  stuckJobCase     StuckJobCase?
 
   // LB-7 (James-ruled): "Will cleaning supplies be provided?" — true = the
   // customer provides supplies and equipment, false = the cleaner brings their
@@ -1839,4 +1840,31 @@ model CompetitorReview {
 
   @@index([placeRefId])
   @@index([expiresAt])
+}
+
+// R10 Lane 2 (James-ruled): a cleaner's one-off time-change OFFER for a
+// single occurrence of a repeat booking. The R1-C law holds: the cleaner
+// proposes, the customer chooses. One open offer per occurrence (enforced
+// at create). Accept changes THAT occurrence's date/startTime only, price
+// and agreement untouched; the recurring charge/reap clocks re-anchor
+// automatically because both sweeps window on the occurrence's actual
+// date+startTime (F22). Expiry: the earlier of offer+48h or the ORIGINAL
+// slot's T-24h, so the standing machinery never runs mid-ambiguity.
+model RescheduleOffer {
+  id           String    @id @default(cuid())
+  bookingId    String
+  cleanerId    String
+  proposedDate DateTime // UTC midnight of the proposed day
+  proposedTime String // "HH:MM"
+  originalDate DateTime // the occurrence's date at offer time (for honest copy)
+  originalTime String
+  status       String    @default("offered") // offered | accepted | declined | expired
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status])
+  @@index([status, expiresAt])
 }
