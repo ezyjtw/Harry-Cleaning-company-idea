@@ -184,62 +184,26 @@ verify-link expiry, furthest wizard step with timestamps, docs honesty, an
 button. **Un-exempting = deleting the email from `SWEEP_EXEMPT_EMAILS` — only
 on James's explicit word after he confirms contact.** The exported broom stays.
 
-## 8. Parked / ledgered (recorded, NOT built — with reasons)
+## 8. Parked / ledgered (James's full walkthrough, 30 Sep 2026 — exactly four survive)
 
-- **W3 collapse-weeks-beyond-next** on /app/jobs — parked until real cleaners
-  hold 15+ upcoming jobs, or anyone asks for a shorter list (trigger recorded
-  in-code at the divider site).
-- **6h repeat-customer release window as marketing ammunition** — ledgered on
-  James's word; copy exists nowhere yet.
-- **iOS provisional-auth badge note** — noted for the push-activation gate.
-- **G4 regulars-windows** — deferred-until-pulled by real usage.
-- **G7 week navigation** — nice-to-have, unscheduled.
-- **L3-chasing** (polishing wrapped portal pages) — **rejected**, don't propose.
-- **Ops decline-reason readouts** — specced in `docs/ops-dashboard-spec.md`,
-  build waits on a ruling; the reasons are intelligence only, **no automatic
-  behaviour ever** (ruled), and the stored vocabulary (`too_far`, `bad_time`,
-  `pay_too_low`, `other`) is stable.
-- **C7 push activation** and **reviewer staging** — armed, each on its own
-  explicit word (§3, §4).
-- **Native chat rebuild for Messages** — out of scope; Messages stays the
-  wrapped web page (in-shell skin only). Pulled when real usage demands it
-  (James-ruled, App Review Batch 1).
-- **"Copy to weekdays"** — retired with the P2 drag-slider sheet. Re-addable
-  if setting the week day-by-day proves tedious in practice (James-ruled,
-  App Review Batch 1).
-- **Wheel alternative (horizontal chip-strip time picker)** — unbuilt,
-  awaiting James's on-device verdict on the native drums. No change without
-  his word (P2.5 #8).
-- **Platform question, outside the app batch**: `availableNow` drives a public
-  "Available now" badge + sort on the cleaner directory while same-day booking
-  is "coming soon" — should a badge advertising an unoffered capability exist
-  at all? For another day, under the website's own rules (James, P2.5).
-- **Real support-thread mechanism** (staff user + Message-schema work or a
-  SupportThread model + admin reply tooling) — pulled-when-real-usage-demands,
-  same shelf as the native chat rebuild. Contact Rena ships on the existing
-  /api/contact intake instead (James-ruled, P3).
-- **/join in-shell intro screen** — if the F29 funnel ever shows the intro
-  screen bleeding applicants, deleting it (straight to Step 1) is the ruled
-  fallback (James, P3 wizard shape B).
-- **4a follow-ons (James, 11 Sep)** — two items ledgered with the Option-1
-  fix, untouched: (a) the TOCTOU footnote in `enterAdminPriceAdjust`
-  (`reassignPreviousStatus` records the status read BEFORE the atomic claim,
-  so an admin flip between read and claim restores the stale value — both
-  values in the claimable set, edge-of-edge) and the dead, uncalled
-  `updateBookingStatus` in `booking.service.ts`. (b) **Option 2 — retiring
-  the CONFIRMED status entirely** — optional post-launch cleanup, priority
-  LOW. Evidence base: the 9-11 Sep 4a investigation (CONFIRMED originates
-  only from the admin override tool; the topup fallback `?? 'CONFIRMED'` is
-  defensively unreachable; ~20 server + ~15 client read-side refs
-  enumerated in the session report). Cost: producers (admin override map,
-  topup fallback), a data migration incl. stored `reassignPreviousStatus`
-  values, optional read-side cleanup; keep the enum value, retire usage.
-- **1.0.1 runbook correction (James, 11 Sep, on the record):** the build
-  runbook ends at TestFlight and the on-device checks (camera on all three
-  doors, the single permission ask, a real offer push, Face ID unchanged).
-  Store submission is a SEPARATE, future word that does not ride this
-  runbook or any other.
-- **Jo/Pete incident** — closed permanently by James; drop it from ledgers.
+- **W3 collapse-weeks-beyond-next** on /app/jobs — stands. Trigger: a cleaner
+  holds 15+ upcoming jobs (realistic at full books, ~21/week) — it fires
+  itself; the trigger is recorded in-code at the divider site.
+- **availableNow badge + same-day** — stands, chained to the future same-day
+  product launch; rides that launch's own word, not before.
+- **/join intro screen** — stands, ONE entry covering both surfaces (the
+  website page and its in-shell twin are the same screen). Revisit on HQ
+  funnel data after 2-3 weeks of live signups; deleting it (straight to
+  Step 1) remains the ruled fallback if it bleeds applicants.
+- **Support threads** (staff user + Message-schema work or a SupportThread
+  model + admin reply tooling) — stands on James's word; revive on volume.
+  Contact Rena ships on the existing /api/contact intake meanwhile.
+
+Everything else from the old ledger is resolved and deleted (James, 30 Sep
+2026). Moved, not deleted: the iOS provisional-auth note lives in
+`docs/push-activation-runbook.md`; reviewer staging is a named pre-submission
+task in the upload runbook (`mobile/store-pack.md`). Store-submission
+discipline stands outside any ledger: NO submission until James's final say.
 
 ## 9. First moves for a fresh session
 
