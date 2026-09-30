@@ -34,6 +34,7 @@ export interface SchedulerSummary {
   incompleteSignups: HandlerResult;
   paymentRecoveryEmails: HandlerResult;
   topupCardReminders: HandlerResult;
+  placesRefresh: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
@@ -528,6 +529,45 @@ async function processIncompleteSignups(): Promise<HandlerResult> {
   }
 }
 
+// R9 (HQ): weekly Places competitor-intel refresh. Same atomic CAS week-guard
+// as the compliance day-guard (marker seeded by seed-reference-data.ts):
+// of overlapping ticks exactly one claims the week and runs. Dormant without
+// GOOGLE_PLACES_API_KEY — the claim is only taken when the key is set, so the
+// first refresh runs the week the key lands, not a stale week later.
+const PLACES_MARKER_KEY = 'last_places_refresh_week';
+
+function isoWeekString(d: Date): string {
+  // ISO-8601 week: Thursday of the current week decides the year.
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+async function processPlacesRefreshWeekly(): Promise<HandlerResult> {
+  try {
+    const { placesConfigured, refreshCompetitorIntel } = await import('@/lib/hq/places.service');
+    if (!placesConfigured()) return { processed: 0 }; // dormant — don't burn the week
+
+    const { prisma } = await import('@/lib/db/prisma');
+    const thisWeek = isoWeekString(new Date());
+    const claim = await prisma.platformConfig.updateMany({
+      where: { key: PLACES_MARKER_KEY, value: { not: thisWeek } },
+      data: { value: thisWeek },
+    });
+    if (claim.count === 0) return { processed: 0 }; // already ran this week
+
+    const r = await refreshCompetitorIntel();
+    return { processed: r.placesTouched ?? 0 };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[PlacesRefresh] weekly refresh failed:', err);
+    return { processed: 0 };
+  }
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
@@ -547,6 +587,7 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const incompleteSignups = await processIncompleteSignups();
   const paymentRecoveryEmails = await processPaymentRecoveryEmails();
   const topupCardReminders = await processTopupCardReminders();
+  const placesRefresh = await processPlacesRefreshWeekly();
 
   return {
     timestamp: new Date().toISOString(),
@@ -568,5 +609,6 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     incompleteSignups,
     paymentRecoveryEmails,
     topupCardReminders,
+    placesRefresh,
   };
 }

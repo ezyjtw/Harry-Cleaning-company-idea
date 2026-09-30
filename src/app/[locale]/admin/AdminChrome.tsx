@@ -26,6 +26,12 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Dashboard',
         icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4',
       },
+      {
+        // R9: the command centre — every card a door (drill-down law).
+        href: '/admin/hq',
+        label: 'Rena HQ',
+        icon: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z',
+      },
     ],
   },
   {

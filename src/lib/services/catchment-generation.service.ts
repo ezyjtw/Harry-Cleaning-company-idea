@@ -13,6 +13,7 @@
 // calls a day. The batch migration (scripts/generate-catchments.ts) throttles
 // itself to ~1 call / 3.5s and stops at 450/day.
 
+import { logApiCall } from '@/lib/api-metering';
 import prisma from '@/lib/db/prisma';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
@@ -58,6 +59,7 @@ export async function generateCatchmentForCleaner(userId: string): Promise<Catch
 
   const minutes = profile.maxTravelMinutes ?? DEFAULT_TRAVEL_MINUTES;
 
+  const t0 = Date.now();
   try {
     const res = await fetch(`${ORS_ISOCHRONE_URL}/${ORS_PROFILE}`, {
       method: 'POST',
@@ -70,6 +72,12 @@ export async function generateCatchmentForCleaner(userId: string): Promise<Catch
         // F9: traffic-discounted request (see TRAFFIC_FACTOR above).
         range: [Math.round(minutes * TRAFFIC_FACTOR * 60)], // seconds
       }),
+    });
+    // R9 (HQ API room): fail-silent count — never affects generation.
+    logApiCall('ors', 'POST /v2/isochrones/driving-car', {
+      status: res.ok ? 'ok' : 'error',
+      httpStatus: res.status,
+      durationMs: Date.now() - t0,
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
@@ -94,6 +102,10 @@ export async function generateCatchmentForCleaner(userId: string): Promise<Catch
     });
     return { status: 'generated' };
   } catch (err) {
+    logApiCall('ors', 'POST /v2/isochrones/driving-car', {
+      status: 'error',
+      durationMs: Date.now() - t0,
+    });
     return { status: 'failed', reason: err instanceof Error ? err.message : 'network error' };
   }
 }

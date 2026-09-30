@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 
+import { logApiCall } from '@/lib/api-metering';
 import {
   buildBookingConfirmation,
   buildBookingReminder,
@@ -132,6 +133,7 @@ async function sendEmail(
     return true;
   }
 
+  const meterT0 = Date.now();
   try {
     const result = await resend?.emails.send({
       from: FROM_WITH_NAME,
@@ -141,6 +143,14 @@ async function sendEmail(
       ...(opts?.headers ? { headers: opts.headers } : {}),
       ...(opts?.replyTo ? { replyTo: opts.replyTo } : {}),
       ...(opts?.attachments ? { attachments: opts.attachments } : {}),
+    });
+    // R9 (HQ API room): count every real provider send at THE chokepoint —
+    // suppressed/dev sends never reach here. Fail-silent by law.
+    logApiCall('resend', 'POST /emails', {
+      status: result?.error ? 'error' : 'ok',
+      httpStatus: result?.error?.statusCode ?? undefined,
+      durationMs: Date.now() - meterT0,
+      meta: { category },
     });
     // H73: the Resend SDK does NOT throw on API errors — it resolves with
     // { data, error }. The old code ignored the response, so a REJECTED send
@@ -162,6 +172,11 @@ async function sendEmail(
     console.log(`[Email] Sent (${category}) to: ${to} — ${subject} (id: ${result?.data?.id})`);
     return true;
   } catch (error) {
+    logApiCall('resend', 'POST /emails', {
+      status: 'error',
+      durationMs: Date.now() - meterT0,
+      meta: { category },
+    });
     // eslint-disable-next-line no-console
     console.error(`[Email] Failed to send to ${to}:`, error);
     return false;

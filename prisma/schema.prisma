@@ -939,30 +939,30 @@ enum AgreementStatus {
 }
 
 model RecurringAgreement {
-  id              String             @id @default(cuid())
-  clientId        String?
-  client          User?              @relation("ClientAgreements", fields: [clientId], references: [id])
-  guestEmail      String?
-  guestName       String?
-  cleanerId       String
-  cleaner         User               @relation("CleanerAgreements", fields: [cleanerId], references: [id])
-  serviceType     String
-  frequency       RecurringFrequency
-  dayOfWeek       Int
-  startTime       String
-  duration        Decimal            @db.Decimal(4, 2)
-  addressLine1    String
-  addressLine2    String?
-  addressCity     String?
-  addressPostcode String
-  rooms           Json?
-  notes           String?
+  id               String             @id @default(cuid())
+  clientId         String?
+  client           User?              @relation("ClientAgreements", fields: [clientId], references: [id])
+  guestEmail       String?
+  guestName        String?
+  cleanerId        String
+  cleaner          User               @relation("CleanerAgreements", fields: [cleanerId], references: [id])
+  serviceType      String
+  frequency        RecurringFrequency
+  dayOfWeek        Int
+  startTime        String
+  duration         Decimal            @db.Decimal(4, 2)
+  addressLine1     String
+  addressLine2     String?
+  addressCity      String?
+  addressPostcode  String
+  rooms            Json?
+  notes            String?
   // LB-7: snapshot of the trial booking's supplies answer — occurrences
   // inherit it at mint.
   suppliesProvided Boolean?
-  totalPrice      Decimal            @db.Decimal(10, 2)
-  platformFee     Decimal            @db.Decimal(10, 2)
-  cleanerEarnings Decimal            @db.Decimal(10, 2)
+  totalPrice       Decimal            @db.Decimal(10, 2)
+  platformFee      Decimal            @db.Decimal(10, 2)
+  cleanerEarnings  Decimal            @db.Decimal(10, 2)
 
   status  AgreementStatus @default(ACTIVE)
   endedAt DateTime?
@@ -1725,4 +1725,118 @@ model XeroPushLog {
   @@unique([bookingId, event, externalRef])
   @@index([bookingId])
   @@index([status])
+}
+
+// ─── R9 RENA HQ ─────────────────────────────────────────────────────────────
+
+// R9 (HQ API room): one row per outbound third-party API call, written
+// fire-and-forget by countedCall() in src/lib/api-metering.ts. LAW: metering
+// failure is silent and can never affect or delay the metered call.
+// Browser-direct postcodes.io lookups from the booking form never touch the
+// server and are structurally uncountable — the API room carries that as an
+// honest one-line note rather than pretending the series is complete.
+model ApiCallLog {
+  id         String   @id @default(cuid())
+  provider   String // stripe | resend | postcodes | ors | groq | expo_push | xero | google_places
+  endpoint   String // normalized (resource ids stripped) so per-endpoint rollups group
+  status     String // "ok" | "error"
+  httpStatus Int?
+  durationMs Int?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([provider, createdAt])
+  @@index([provider, endpoint, createdAt])
+  @@index([createdAt])
+}
+
+// R9 (HQ Reachout room): the cleaner-recruitment pipeline. Seeded once by a
+// data migration (Decision 2, James-ruled): the two §7 campaign leads as
+// `contacted` and every other incomplete signup (CLEANER role, no profile —
+// the LB-3 definition) as `found`. Everything after the seed is hand-run
+// from the Reachout board. `userId` is the dossier link when the prospect
+// has an account; email is unique so the seed and manual adds cannot
+// duplicate a person.
+model Prospect {
+  id           String    @id @default(cuid())
+  name         String
+  email        String?   @unique
+  phone        String?
+  area         String?
+  source       String    @default("manual") // manual | campaign | signup-import
+  status       String    @default("found") // found | contacted | replied | stalled | joined
+  userId       String? // links to the F28 dossier when an account exists
+  nextActionAt DateTime? // overdue highlighting = nextActionAt < now
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  notes ProspectNote[]
+
+  @@index([status])
+  @@index([nextActionAt])
+}
+
+model ProspectNote {
+  id         String   @id @default(cuid())
+  prospectId String
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+}
+
+// R9 (HQ Area-intel + Competitors rooms): Google Places (New) observations,
+// shaped to the ratified ToS handling — the place_id and OUR OWN dated
+// numeric observations (rating, count) are kept indefinitely (the trend
+// line); served CONTENT (sampled review text) lives in CompetitorReview with
+// a hard 30-day expiresAt and is deleted by the refresh lane, never longer.
+model CompetitorPlace {
+  id        String   @id @default(cuid())
+  placeId   String   @unique // Google place_id — storable indefinitely per Places ToS
+  name      String
+  area      String? // our served-area key it was discovered under (e.g. "walthamstow")
+  brand     String? // named competitor key (housekeep|wecasa|taskrabbit|bark) or null = local find
+  notes     String?  @db.Text // manual paste-in slot (Competitors room)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  observations CompetitorObservation[]
+  reviews      CompetitorReview[]
+
+  @@index([area])
+  @@index([brand])
+}
+
+// One dated numeric snapshot per place per refresh — our data, kept forever.
+model CompetitorObservation {
+  id          String   @id @default(cuid())
+  placeRefId  String
+  rating      Float?
+  ratingCount Int?
+  observedAt  DateTime @default(now())
+
+  place CompetitorPlace @relation(fields: [placeRefId], references: [id], onDelete: Cascade)
+
+  @@index([placeRefId, observedAt])
+}
+
+// Sampled review content as the API legitimately serves it (up to 5 most
+// relevant per place). Google-served content: cached at most 30 days
+// (expiresAt), re-fetched each weekly refresh, expired rows hard-deleted.
+model CompetitorReview {
+  id          String    @id @default(cuid())
+  placeRefId  String
+  rating      Int?
+  text        String?   @db.Text
+  author      String?
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
+  expiresAt   DateTime // fetchedAt + 30d; the refresh lane deletes at/after this
+
+  place CompetitorPlace @relation(fields: [placeRefId], references: [id], onDelete: Cascade)
+
+  @@index([placeRefId])
+  @@index([expiresAt])
 }

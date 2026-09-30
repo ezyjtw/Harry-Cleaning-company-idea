@@ -2,6 +2,20 @@
  * UK Postcode utilities — uses postcodes.io (free, no API key needed)
  */
 
+import { logApiCall } from '@/lib/api-metering';
+
+// R9 (HQ API room): count server-side postcodes.io calls. These functions also
+// run in the browser (booking form / autocomplete) where logApiCall is a no-op
+// by construction — those browser-direct calls are the API room's honest
+// "uncounted alongside" note. Fail-silent by law; never affects a lookup.
+function countPostcodes(endpoint: string, ok: boolean, httpStatus: number | undefined, t0: number) {
+  logApiCall('postcodes', endpoint, {
+    status: ok ? 'ok' : 'error',
+    httpStatus,
+    durationMs: Date.now() - t0,
+  });
+}
+
 const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 const PARTIAL_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?$/i;
 
@@ -34,10 +48,12 @@ export async function lookupPostcodeOutcome(postcode: string): Promise<PostcodeL
   if (!isValidPostcode(postcode)) return { status: 'not_found' };
 
   const cleaned = encodeURIComponent(postcode.trim().replace(/\s+/g, ''));
+  const t0 = Date.now();
   try {
     const res = await fetch(`https://api.postcodes.io/postcodes/${cleaned}`, {
       next: { revalidate: 86400 },
     });
+    countPostcodes('GET /postcodes/{postcode}', res.ok || res.status === 404, res.status, t0);
     if (res.status === 404) return { status: 'not_found' };
     if (!res.ok) return { status: 'unavailable' };
 
@@ -56,6 +72,7 @@ export async function lookupPostcodeOutcome(postcode: string): Promise<PostcodeL
       },
     };
   } catch {
+    countPostcodes('GET /postcodes/{postcode}', false, undefined, t0);
     return { status: 'unavailable' };
   }
 }
@@ -68,11 +85,13 @@ export async function lookupPostcode(postcode: string): Promise<PostcodeResult |
   if (!isValidPostcode(postcode)) return null;
 
   const cleaned = encodeURIComponent(postcode.trim().replace(/\s+/g, ''));
+  const t0 = Date.now();
 
   try {
     const res = await fetch(`https://api.postcodes.io/postcodes/${cleaned}`, {
       next: { revalidate: 86400 }, // cache for 24h
     });
+    countPostcodes('GET /postcodes/{postcode}', res.ok, res.status, t0);
 
     if (!res.ok) return null;
 
@@ -100,11 +119,13 @@ export async function lookupOutcode(
   outcode: string
 ): Promise<{ latitude: number; longitude: number } | null> {
   if (!PARTIAL_POSTCODE_REGEX.test(outcode.trim())) return null;
+  const t0 = Date.now();
   try {
     const res = await fetch(
       `https://api.postcodes.io/outcodes/${encodeURIComponent(outcode.trim().toUpperCase())}`,
       { next: { revalidate: 86400 } }
     );
+    countPostcodes('GET /outcodes/{outcode}', res.ok, res.status, t0);
     if (!res.ok) return null;
     const data = await res.json();
     if (data.status !== 200 || !data.result?.latitude) return null;
@@ -120,10 +141,12 @@ export async function lookupOutcode(
 export async function autocompletePostcode(partial: string): Promise<string[]> {
   if (partial.length < 2) return [];
 
+  const t0 = Date.now();
   try {
     const res = await fetch(
       `https://api.postcodes.io/postcodes/${encodeURIComponent(partial)}/autocomplete`
     );
+    countPostcodes('GET /postcodes/{partial}/autocomplete', res.ok, res.status, t0);
     if (!res.ok) return [];
     const data = await res.json();
     return data.result || [];

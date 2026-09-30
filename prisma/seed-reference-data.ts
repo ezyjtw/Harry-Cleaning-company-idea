@@ -220,6 +220,30 @@ async function main() {
     },
   });
 
+  // 5b) R9 HQ markers — create-only, same CAS-guard pattern as the compliance
+  // marker. hq_api_amber_pct is a VALUE James can edit (amber threshold for the
+  // HQ API room, percent of a provider's documented limit), so update:{} keeps
+  // a manual change; the places marker is a week-guard for the refresh lane.
+  await prisma.platformConfig.upsert({
+    where: { key: 'hq_api_amber_pct' },
+    update: {},
+    create: {
+      key: 'hq_api_amber_pct',
+      value: '80',
+      description: 'R9 HQ API room: amber warning threshold as % of documented provider limit.',
+    },
+  });
+  await prisma.platformConfig.upsert({
+    where: { key: 'last_places_refresh_week' },
+    update: {},
+    create: {
+      key: 'last_places_refresh_week',
+      value: '1970-W01',
+      description:
+        'R9 HQ: last ISO week the Places competitor-intel refresh ran (week-guard marker).',
+    },
+  });
+
   const serviceTypeCount = await prisma.serviceType.count();
   console.log(
     `[seed-reference-data] ServiceType: ${serviceTypeCount} rows (expected >= 5); FixedServicePrice synced: ${fixedPriceCount}; PlatformConfig + addons synced.`

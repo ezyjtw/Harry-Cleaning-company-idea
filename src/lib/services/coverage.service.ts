@@ -28,8 +28,11 @@ type GeoJsonPolygonish = {
   coordinates?: unknown;
 };
 
-/** Extract the first Polygon/MultiPolygon feature from stored GeoJSON. */
-function extractPolygon(raw: unknown): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null {
+/** Extract the first Polygon/MultiPolygon feature from stored GeoJSON.
+ *  (Exported for the R9 HQ coverage room — same parser, one definition.) */
+export function extractPolygon(
+  raw: unknown
+): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null {
   if (!raw || typeof raw !== 'object') return null;
   const g = raw as GeoJsonPolygonish;
   try {
@@ -39,7 +42,10 @@ function extractPolygon(raw: unknown): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON
       );
       return (f as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>) ?? null;
     }
-    if (g.type === 'Feature' && (g.geometry?.type === 'Polygon' || g.geometry?.type === 'MultiPolygon')) {
+    if (
+      g.type === 'Feature' &&
+      (g.geometry?.type === 'Polygon' || g.geometry?.type === 'MultiPolygon')
+    ) {
       return g as unknown as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
     }
     if ((g.type === 'Polygon' || g.type === 'MultiPolygon') && g.coordinates) {

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { logApiCall } from '@/lib/api-metering';
 import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
 import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
@@ -118,6 +119,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Groq API (OpenAI-compatible)
+    const meterT0 = Date.now();
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -135,6 +137,13 @@ export async function POST(request: NextRequest) {
           })),
         ],
       }),
+    });
+
+    // R9 (HQ API room): fail-silent count — never affects the chat reply.
+    logApiCall('groq', 'POST /openai/v1/chat/completions', {
+      status: groqResponse.ok ? 'ok' : 'error',
+      httpStatus: groqResponse.status,
+      durationMs: Date.now() - meterT0,
     });
 
     if (!groqResponse.ok) {
