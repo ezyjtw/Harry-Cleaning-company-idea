@@ -79,6 +79,13 @@ const ENV_SCHEMA: EnvVarConfig[] = [
   },
   { name: 'REDIS_URL', required: false, description: 'Redis connection string for caching' },
   {
+    // R9 (Phase 1 ratified; registry line landed late — owed from the HQ gate).
+    name: 'GOOGLE_PLACES_API_KEY',
+    required: false,
+    description:
+      'Google Places API (New) key for the HQ competitor-intel weekly refresh. Unset ⇒ Area intel / Competitors rooms dormant, refresh lane skips.',
+  },
+  {
     name: 'XERO_CLIENT_ID',
     required: false,
     description: 'Xero OAuth2 app client id (A13-Xero). Unset ⇒ Xero integration dormant.',
