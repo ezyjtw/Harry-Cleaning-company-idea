@@ -159,6 +159,21 @@ async function networkFirstWithOffline(request) {
     const response = await fetch(request);
     return response;
   } catch {
+    // R11 (James-ordered, first-landing defect): a DOCUMENT navigation gets
+    // one honest retry before any fallback. A single transient failure (a
+    // connection reset at the freshly-installed SW's first takeover, a
+    // mobile handoff) used to paint the permanent-looking offline screen on
+    // a healthy network — the first screen of a new customer's life with
+    // Rena. The retry is a fresh plain GET (a navigate-mode Request cannot
+    // be reconstructed); for a document request the full-page response it
+    // returns is exactly what the navigation wants.
+    if (request.mode === 'navigate') {
+      try {
+        return await fetch(request.url, { cache: 'no-store', credentials: 'include' });
+      } catch {
+        // genuinely unreachable twice — fall through to the offline page
+      }
+    }
     const cached = await caches.match(request);
     if (cached) return cached;
 
