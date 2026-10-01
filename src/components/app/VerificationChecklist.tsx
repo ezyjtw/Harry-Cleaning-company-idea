@@ -14,6 +14,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import AccountMenu from '@/components/app/AccountMenu';
+import InboxBell from '@/components/app/InboxBell';
+
 type DocStatus = 'missing' | 'reviewing' | 'approved' | 'declined';
 
 interface ChecklistData {
@@ -204,11 +207,20 @@ export default function VerificationChecklist({ firstName }: { firstName: string
         <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
           {anyAction ? 'Getting you set up' : 'Almost there'}
         </p>
-        <h1 className="mt-1 font-jost text-[26px] font-semibold leading-tight text-ink">
-          {anyAction
-            ? `Welcome${firstName ? `, ${firstName}` : ''}`
-            : 'We are checking your details'}
-        </h1>
+        {/* R19 Lane 2 (James-ruled): the unverified homepage carries the same
+            standing header as the verified Today — the person menu (profile,
+            sign out) and the bell with its unread dot. */}
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <h1 className="font-jost text-[26px] font-semibold leading-tight text-ink">
+            {anyAction
+              ? `Welcome${firstName ? `, ${firstName}` : ''}`
+              : 'We are checking your details'}
+          </h1>
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <AccountMenu />
+            <InboxBell />
+          </div>
+        </div>
         <p className="mt-2 font-jost text-[14px] font-light text-ink-2">
           {anyAction
             ? 'Finish these steps and our team reviews everything, usually within one working day.'

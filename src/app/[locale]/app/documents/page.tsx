@@ -13,6 +13,9 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import AccountMenu from '@/components/app/AccountMenu';
+import InboxBell from '@/components/app/InboxBell';
+
 type DocStatus = 'missing' | 'reviewing' | 'approved' | 'declined';
 
 interface DocState {
@@ -144,6 +147,11 @@ export default function DocumentsRoom() {
           <h1 className="font-jost text-[22px] font-semibold leading-tight text-ink">
             Upload and track
           </h1>
+        </div>
+        {/* R19 Lane 2 (James-ruled): the standing header rides every room. */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <AccountMenu />
+          <InboxBell />
         </div>
       </header>
 

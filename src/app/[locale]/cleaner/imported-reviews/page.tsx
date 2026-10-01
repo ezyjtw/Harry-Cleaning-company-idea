@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import AccountMenu from '@/components/app/AccountMenu';
+import InboxBell from '@/components/app/InboxBell';
 import StarRating from '@/components/StarRating';
 import { isShellUA } from '@/lib/shell';
 
@@ -230,7 +232,7 @@ export default function CleanerImportedReviewsPage() {
             </svg>
           </button>
         )}
-        <div>
+        <div className={inShell ? 'min-w-0 flex-1' : undefined}>
           <h1
             className={
               inShell
@@ -247,6 +249,14 @@ export default function CleanerImportedReviewsPage() {
             You can add up to {maxAllowed}.
           </p>
         </div>
+        {/* R19 Lane 2 (James-ruled): the standing header rides every in-shell
+            room; browsers never render it (inShell is UA-gated). */}
+        {inShell && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <AccountMenu />
+            <InboxBell />
+          </div>
+        )}
       </header>
 
       {/* Add form */}

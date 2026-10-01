@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import AccountMenu from '@/components/app/AccountMenu';
+import InboxBell from '@/components/app/InboxBell';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
@@ -47,7 +49,13 @@ export default async function StripeReturnRoom() {
       : 'unfinished';
 
   return (
-    <div className="pt-6" data-testid="stripe-return-shell">
+    <div className="pt-2" data-testid="stripe-return-shell">
+      {/* R19 Lane 2 (James-ruled): the standing header rides every room —
+          person menu (profile, sign out) and the bell, client islands. */}
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <AccountMenu />
+        <InboxBell />
+      </div>
       <div className="rounded-2xl border border-line bg-surface px-5 py-8 text-center">
         <div
           className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
