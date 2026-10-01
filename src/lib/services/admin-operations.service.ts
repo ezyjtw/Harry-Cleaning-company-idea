@@ -511,11 +511,12 @@ export class AdminOperationsService {
   static async moderateReview(
     reviewId: string,
     action: 'VISIBLE' | 'HIDDEN' | 'FLAGGED',
-    adminId?: string
+    adminId?: string,
+    reason?: string
   ) {
     const review = await prisma.review.update({
       where: { id: reviewId },
-      data: { visibility: action, isModerated: true },
+      data: { visibility: action, isModerated: true, moderationReason: reason ?? null },
     });
 
     // Recompute stored rating — visibility change affects the blended average.
@@ -527,8 +528,25 @@ export class AdminOperationsService {
       action: 'ADMIN_MODERATE_REVIEW',
       entityType: 'Review',
       entityId: reviewId,
-      metadata: { moderationAction: action },
+      metadata: { moderationAction: action, reason: reason ?? null },
     });
+
+    // Reviews ruling (James): the cleaner is told when her review is HIDDEN,
+    // a bell with the reason in plain words, the document decline grammar.
+    // Nothing is sent on flag alone or on restore.
+    if (action === 'HIDDEN') {
+      await prisma.notification
+        .create({
+          data: {
+            userId: review.cleanerId,
+            type: 'ACCOUNT_UPDATE',
+            title: 'A review was hidden',
+            body: `Our team hid one of the reviews on your profile and your rating has been updated. Not accepted: ${reason ?? 'no reason recorded'}.`,
+            data: { url: '/cleaner/reviews' },
+          },
+        })
+        .catch(() => null);
+    }
 
     return review;
   }
