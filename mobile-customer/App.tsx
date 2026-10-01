@@ -1216,6 +1216,8 @@ function SeamlessWebView({
   const everLoaded = useRef(false);
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
+  // O1 (James's word, twin of Pro): probe salvages per incident.
+  const probeSalvage = useRef(0);
 
   useEffect(() => {
     if (loaded) {
@@ -1301,6 +1303,7 @@ function SeamlessWebView({
         }
         everLoaded.current = true; // a genuine render ends the cold window
         retryBudget.current = 0;
+        probeSalvage.current = 0;
         setLoaded(true);
       }
     } catch {
@@ -1345,6 +1348,7 @@ function SeamlessWebView({
           style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
           onPress={() => {
             retryBudget.current = 0; // fresh silent-retry budget for the manual retry
+            probeSalvage.current = 0;
             setOffline(false);
             setLoaded(false);
             fade.setValue(1);
@@ -1421,6 +1425,7 @@ function SeamlessWebView({
             if (retryPending.current) return; // a retry is waiting — not a render
             everLoaded.current = true;
             retryBudget.current = 0;
+            probeSalvage.current = 0;
             setLoaded(true);
           }, 6000);
         }}
@@ -1436,6 +1441,32 @@ function SeamlessWebView({
               retryPending.current = false;
               ref.current?.reload();
             }, delay);
+            return;
+          }
+          // O1 (James's word, solo; twin of Pro): the reachability probe at
+          // the paint moment — any answer means blip (one more silent
+          // retry), no answer means the honest offline screen immediately.
+          // Salvage bounded to twice per incident, reset when a load lands.
+          if (probeSalvage.current < 2) {
+            probeSalvage.current += 1;
+            retryPending.current = true;
+            setLoaded(false);
+            fade.setValue(1);
+            const ctrl = new AbortController();
+            const cutoff = setTimeout(() => ctrl.abort(), 1500);
+            fetch(`${BASE_URL}/`, { method: 'HEAD', headers: SHELL_HEADER, signal: ctrl.signal })
+              .then(() => {
+                clearTimeout(cutoff);
+                setTimeout(() => {
+                  retryPending.current = false;
+                  ref.current?.reload();
+                }, 600);
+              })
+              .catch(() => {
+                clearTimeout(cutoff);
+                retryPending.current = false;
+                setOffline(true);
+              });
             return;
           }
           setOffline(true);

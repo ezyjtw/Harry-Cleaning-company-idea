@@ -1160,6 +1160,8 @@ function SeamlessWebView({
   // resets the budget, so mid-session blips get the same treatment.
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
+  // O1 (James's word): probe salvages per incident, reset when a load lands.
+  const probeSalvage = useRef(0);
   // R5b port: one cross-tab detection per actual navigation — nav events
   // replay the same URL, and each replay used to inject another
   // history.back(), able to walk the pane onto the spent session-bridge.
@@ -1367,6 +1369,7 @@ function SeamlessWebView({
           style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
           onPress={() => {
             retryBudget.current = 0; // fresh silent-retry budget for the manual retry
+            probeSalvage.current = 0;
             setOffline(false);
             setLoaded(false);
             fade.setValue(1);
@@ -1440,6 +1443,7 @@ function SeamlessWebView({
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the loader up
           retryBudget.current = 0; // real load landed — reset the silent-retry budget
+          probeSalvage.current = 0;
           // R5b port: no fixed-duration guess — the loader holds until the
           // injected observer posts 'dressed'; this long-stop only trap-proofs
           // a page whose JS never settles or never runs.
@@ -1459,6 +1463,36 @@ function SeamlessWebView({
               retryPending.current = false;
               ref.current?.reload();
             }, 600 * retryBudget.current);
+            return;
+          }
+          // O1 (James's word, solo): the reachability probe. Strictly on the
+          // error path at the moment the shell would paint "You're offline" —
+          // a healthy connection never constructs it. One short HEAD to our
+          // origin with a tight timeout decides: any answer means the network
+          // is alive (a blip), so one more silent retry; no answer means the
+          // honest offline screen immediately, as fast as today. Salvage is
+          // bounded to twice per incident so a reachable-but-broken server
+          // can never loop; the counter resets when a real load lands.
+          if (probeSalvage.current < 2) {
+            probeSalvage.current += 1;
+            retryPending.current = true;
+            setLoaded(false);
+            fade.setValue(1);
+            const ctrl = new AbortController();
+            const cutoff = setTimeout(() => ctrl.abort(), 1500);
+            fetch(`${BASE_URL}/`, { method: 'HEAD', headers: SHELL_HEADER, signal: ctrl.signal })
+              .then(() => {
+                clearTimeout(cutoff);
+                setTimeout(() => {
+                  retryPending.current = false;
+                  ref.current?.reload();
+                }, 600);
+              })
+              .catch(() => {
+                clearTimeout(cutoff);
+                retryPending.current = false;
+                setOffline(true);
+              });
             return;
           }
           setOffline(true);
