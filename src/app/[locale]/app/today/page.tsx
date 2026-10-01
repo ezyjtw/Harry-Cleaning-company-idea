@@ -700,10 +700,20 @@ export default function TodayPage() {
   // Freshness: refetch when the app/tab regains focus or becomes visible (a
   // cleaner switching back from Maps/messages sees current jobs), and expose a
   // refetch the native shell's pull-to-refresh can call via injected JS.
+  // R17 (b) (James-ruled): the on-show refetch is coalesced — at most one per
+  // 30s, stale-while-revalidate (the existing DOM paints instantly, data
+  // refreshes quietly behind). Pull-to-refresh below stays the always-fresh
+  // override and bypasses the window.
+  const lastShowFetch = useRef(0);
   useEffect(() => {
-    const onFocus = () => fetchJobs();
+    const freshFetch = () => {
+      if (Date.now() - lastShowFetch.current < 30000) return;
+      lastShowFetch.current = Date.now();
+      fetchJobs();
+    };
+    const onFocus = () => freshFetch();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') fetchJobs();
+      if (document.visibilityState === 'visible') freshFetch();
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);

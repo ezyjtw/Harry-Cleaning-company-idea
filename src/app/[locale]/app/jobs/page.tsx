@@ -7,7 +7,7 @@
 // untouched for browsers — the native tab bar points here in-shell.
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AccountMenu from '@/components/app/AccountMenu';
 import InboxBell from '@/components/app/InboxBell';
@@ -84,10 +84,18 @@ export default function AppJobsPage() {
 
   // Freshness: focus/visibility refetch + the shell's pull-to-refresh hook —
   // identical pattern to Today.
+  // R17 (b) (James-ruled): on-show refetch coalesced to one per 30s,
+  // stale-while-revalidate; pull-to-refresh stays the always-fresh override.
+  const lastShowFetch = useRef(0);
   useEffect(() => {
-    const onFocus = () => fetchJobs(filter);
+    const freshFetch = () => {
+      if (Date.now() - lastShowFetch.current < 30000) return;
+      lastShowFetch.current = Date.now();
+      fetchJobs(filter);
+    };
+    const onFocus = () => freshFetch();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') fetchJobs(filter);
+      if (document.visibilityState === 'visible') freshFetch();
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);
