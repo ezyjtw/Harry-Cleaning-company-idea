@@ -252,7 +252,7 @@ export default function VerificationChecklist({ firstName }: { firstName: string
 
         {/* Optional row: bring your reviews with you (R12 Lane 6 door 1) */}
         <Link
-          href="/cleaner/imported-reviews"
+          href="/app/imported-reviews"
           className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-line bg-surface px-4 py-3.5"
           data-testid="vc-import-reviews"
         >

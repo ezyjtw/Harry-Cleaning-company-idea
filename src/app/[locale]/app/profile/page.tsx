@@ -334,7 +334,7 @@ export default function ProfileHubPage() {
           <button
             type="button"
             className={rowCls}
-            onClick={() => go('/cleaner/imported-reviews')}
+            onClick={() => go('/app/imported-reviews')}
             data-testid="imported-reviews-row"
           >
             Imported Reviews
