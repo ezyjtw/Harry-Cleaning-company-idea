@@ -193,8 +193,17 @@ export default function CleanerImportedReviewsPage() {
   const [inShell, setInShell] = useState(false);
   const router = useRouter();
   useEffect(() => {
-    setInShell(isShellUA());
-  }, []);
+    const shell = isShellUA();
+    setInShell(shell);
+    // R16 Lane 2 (James-ruled): in-shell this tool lives in the L2 room —
+    // the /cleaner route's portal layout frames the page with website
+    // furniture a page cannot drop (the Stripe-return mechanism, R15). A
+    // stale in-shell landing on the old route moves to the room; browsers
+    // never match the UA and stay exactly here.
+    if (shell && /\/cleaner\/imported-reviews/.test(window.location.pathname)) {
+      router.replace('/app/imported-reviews');
+    }
+  }, [router]);
 
   return (
     <div
