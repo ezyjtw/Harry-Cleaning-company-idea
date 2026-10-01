@@ -57,6 +57,13 @@ const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
 // loads, load errors — and keeps a short event log. Read via the tab-bar
 // long-press toast. Module-level: survives pane remounts, resets on app open.
 const SHELL_COUNTS = { loads: 0, revives: 0, errors: 0, killsHidden: 0, killsVisible: 0 };
+// R18 (James-ruled): the cold-open window is measured from PROCESS LAUNCH,
+// not pane mount. Panes mount at login, so without this the post-login
+// landing rode the long cold patience (1s/3s/8s) — the false-alarm the
+// patience exists for lives in the first seconds after a cold open, while
+// the network path wakes, never minutes later behind the login screen.
+const APP_START = Date.now();
+const COLD_OPEN_WINDOW_MS = 20000;
 const SHELL_LOG: string[] = [];
 function logShellEvent(line: string) {
   const t = new Date();
@@ -261,15 +268,24 @@ function BreathingMark() {
     loop.start();
     return () => loop.stop();
   }, [scale]);
+  // R18 (James-ruled defect fix): the breath scaled the full-bleed splash
+  // artwork — the whole screen — so at 1.05 its edges slid past the screen
+  // bounds (born with A1's loader, a6397a2; conspicuous once the veil
+  // showed often). The artwork stays full-bleed at scale 1 so the OS-splash
+  // handoff is pixel-identical, and the breath now clips at the container:
+  // the growth at the edges is solid ground and clips invisibly, while the
+  // centred mark breathes within bounds.
   return (
-    <Animated.Image
-      source={splashMark}
-      style={[
-        StyleSheet.absoluteFillObject,
-        { width: undefined, height: undefined, transform: [{ scale }] },
-      ]}
-      resizeMode="contain"
-    />
+    <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]}>
+      <Animated.Image
+        source={splashMark}
+        style={[
+          StyleSheet.absoluteFillObject,
+          { width: undefined, height: undefined, transform: [{ scale }] },
+        ]}
+        resizeMode="contain"
+      />
+    </View>
   );
 }
 
@@ -1584,7 +1600,8 @@ function SeamlessWebView({
         onError={() => {
           SHELL_COUNTS.errors += 1;
           logShellEvent(`error ${tabKey ?? 'pane'}`);
-          const delays = everLoaded.current ? RETRY_DELAYS_WARM : RETRY_DELAYS_COLD;
+          const cold = !everLoaded.current && Date.now() - APP_START < COLD_OPEN_WINDOW_MS;
+          const delays = cold ? RETRY_DELAYS_COLD : RETRY_DELAYS_WARM;
           if (retryBudget.current < delays.length) {
             const delay = delays[retryBudget.current];
             retryBudget.current += 1;
