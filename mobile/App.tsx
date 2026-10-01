@@ -50,6 +50,7 @@ const SHELL_HEADER = {
   'x-rena-shell': `pro-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}`,
 };
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
+const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
 const TOKEN_KEY = 'rena.pro.bearer';
 // Where the customer app lives when it isn't installed. Empty until its App
 // Store listing exists — the wrong-app door shows guidance text instead.
@@ -1116,7 +1117,9 @@ const PREFETCH_KILL_JS = `
 
 // R5b port: the shell's OWN injected observer decides when a page is
 // GENUINELY dressed — window load fired AND the DOM structurally quiet for
-// 250ms (hydration's in-shell variant swap is a childList burst). The shell
+// 100ms (hydration's in-shell variant swap is a childList burst; R14 Lane 1,
+// James's word: 250ms shortened to 100ms on measured evidence — hydration
+// bursts settle within ~143ms of load with a max 46ms gap between them). The shell
 // drops the loader on this message; a 6s long-stop guarantees a broken page
 // can never trap it.
 const DRESSED_JS = `
@@ -1127,11 +1130,11 @@ const DRESSED_JS = `
       try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
     }
     function watch(){
-      var idle=setTimeout(send,250);
+      var idle=setTimeout(send,100);
       try{
         var mo=new MutationObserver(function(){
           if(sent){mo.disconnect();return;}
-          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},100);
         });
         mo.observe(document.documentElement,{childList:true,subtree:true});
       }catch(e){ send(); }
@@ -1220,6 +1223,10 @@ function SeamlessWebView({
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
+  // R14 Lane 2 (James-ruled): true while this pane is inside the
+  // Stripe-hosted Connect flow. Set on a top-frame navigation to a
+  // stripe.com host, cleared on any top-frame landing back on our origin.
+  const inStripeFlow = useRef(false);
   // Android back (rule 6): the pane's half — go back through web history
   // when there is any. canGoBack rides onNavigationStateChange.
   const canGoBackRef = useRef(false);
@@ -1236,8 +1243,11 @@ function SeamlessWebView({
 
   useEffect(() => {
     if (loaded) {
-      // Appearance item 1: the ruled ~300ms fade into the destination page.
-      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      // Appearance item 1, amended by R14 Lane 1 (James's word): the reveal
+      // fade is 150ms. Together with the 100ms quiet window this cuts ~300ms
+      // of fixed ceremony off every veil while the law stands verbatim —
+      // reveal only after load plus the quiet confirmation.
+      Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
 
@@ -1449,6 +1459,28 @@ function SeamlessWebView({
           if (Platform.OS === 'android' && req.url.includes('/api/cleaner/statement')) {
             androidStatement(req.url);
             return false;
+          }
+          // R14 Lane 2 (James-ruled): EVERY exit from Stripe lands back in
+          // the app. Inside the Connect flow the only sanctioned doors to our
+          // origin are the return landing and the connect relaunch; any other
+          // our-origin landing (Stripe's header brand link points at the
+          // public website) reroutes to the dressed return room, which reads
+          // the truth and shows connected, checking, or not finished.
+          {
+            const host = (req.url.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
+            if (/(^|\.)stripe\.(com|network)$/i.test(host)) {
+              if (req.isTopFrame !== false) inStripeFlow.current = true;
+            } else if (inStripeFlow.current && host === BASE_HOST && req.isTopFrame !== false) {
+              inStripeFlow.current = false;
+              if (!/\/cleaner\/(onboarding-complete|stripe\/connect)([/?#]|$)/.test(req.url)) {
+                ref.current?.injectJavaScript(
+                  `window.location.replace(${JSON.stringify(
+                    `${BASE_URL}/en/cleaner/onboarding-complete`
+                  )}); true;`
+                );
+                return false;
+              }
+            }
           }
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);

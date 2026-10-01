@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { isRenaShell } from '@/lib/shell';
+import stripe from '@/lib/stripe';
 
 export default async function OnboardingCompletePage() {
   const user = await getCleanerSession();
@@ -18,6 +19,7 @@ export default async function OnboardingCompletePage() {
       stripeChargesEnabled: true,
       stripePayoutsEnabled: true,
       serviceTypes: true,
+      stripeAccountId: true,
     },
   });
 
@@ -29,6 +31,71 @@ export default async function OnboardingCompletePage() {
   // (isRenaShell falls back to the RenaPro UA, which rides every request).
   const inShell = isRenaShell(await headers());
   if (inShell) {
+    // R14 Lane 2 (James-ruled): an abandon and a submitted-but-pending account
+    // are different truths. details_submitted from Stripe separates them: not
+    // submitted means the cleaner backed out mid-flow, so the room says
+    // "Setup not finished" with a TRY AGAIN door that relaunches the flow,
+    // never "checking your details". A failed retrieve falls to the abandon
+    // state, whose doors are safe either way (Stripe shows a submitted
+    // account its own status on relaunch). In-shell only; the browser branch
+    // below never runs the retrieve.
+    let detailsSubmitted = false;
+    if (!isComplete && profile?.stripeAccountId) {
+      try {
+        const account = await stripe.accounts.retrieve(profile.stripeAccountId);
+        detailsSubmitted = !!account.details_submitted;
+      } catch {
+        detailsSubmitted = false;
+      }
+    }
+    if (!isComplete && !detailsSubmitted) {
+      return (
+        <div className="min-h-[70vh] bg-page px-4 pt-10 pb-24" data-testid="stripe-return-shell">
+          <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface px-5 py-8 text-center">
+            <div
+              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
+              style={{ background: 'rgb(var(--color-warning) / 0.1)' }}
+            >
+              <svg
+                className="h-8 w-8 text-primary"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M12 9v3.75m0 3h.008v.008H12v-.008zm9-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h1
+              className="mt-5 font-jost text-[22px] font-semibold text-ink"
+              data-testid="stripe-return-unfinished"
+            >
+              Setup not finished
+            </h1>
+            <p className="mt-2 font-jost text-[14px] font-light text-ink-2">
+              Your payout account is not connected yet. You can pick up where you left off whenever
+              you are ready.
+            </p>
+            <Link
+              href="/cleaner/stripe/connect"
+              className="mt-6 inline-block rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-semibold text-white"
+              data-testid="stripe-return-try-again"
+            >
+              TRY AGAIN
+            </Link>
+            <div className="mt-3">
+              <Link href="/app/today" className="font-jost text-[13px] text-ink-3">
+                Back to the app
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-[70vh] bg-page px-4 pt-10 pb-24" data-testid="stripe-return-shell">
         <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface px-5 py-8 text-center">
