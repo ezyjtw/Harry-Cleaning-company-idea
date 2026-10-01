@@ -640,6 +640,7 @@ model Review {
   updatedAt         DateTime         @updatedAt
   isModerated       Boolean          @default(false)
   visibility        ReviewVisibility @default(VISIBLE)
+  moderationReason  String?          @db.Text
   isVerifiedBooking Boolean          @default(true)
   isDisputed        Boolean          @default(false)
 

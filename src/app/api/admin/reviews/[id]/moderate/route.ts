@@ -34,7 +34,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
-    await AdminOperationsService.moderateReview(id, action, admin.id);
+    // Reviews ruling (James): every moderation action on a native review
+    // carries a stated reason — stored on the record and in the audit, so
+    // abuse has a remedy with a why, never pre-moderation.
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    if (!reason) {
+      return NextResponse.json({ error: 'A reason is required.' }, { status: 400 });
+    }
+    if (reason.length > 500) {
+      return NextResponse.json(
+        { error: 'Reason must be 500 characters or fewer.' },
+        { status: 400 }
+      );
+    }
+
+    await AdminOperationsService.moderateReview(id, action, admin.id, reason);
     return NextResponse.json({ id, visibility: action });
   } catch (error) {
     // eslint-disable-next-line no-console

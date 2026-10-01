@@ -44,7 +44,6 @@ interface ReviewCleaner {
   rating: number;
   pendingImportedCount: number;
   flaggedNativeCount: number;
-  uncheckedNativeCount: number;
   newestActionAt: string;
   importedReviews: ImportedReviewRow[];
   nativeReviews: NativeReviewRow[];
@@ -91,6 +90,13 @@ export default function AdminReviewsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // Reviews ruling (James): the armed safety valve — an action waits for
+  // its stated reason before it fires.
+  const [armed, setArmed] = useState<{
+    id: string;
+    action: 'VISIBLE' | 'HIDDEN' | 'FLAGGED';
+    reason: string;
+  } | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState('');
 
@@ -147,14 +153,18 @@ export default function AdminReviewsPage() {
     }
   };
 
-  const actNative = async (id: string, action: 'VISIBLE' | 'HIDDEN' | 'FLAGGED') => {
+  const actNative = async (
+    id: string,
+    action: 'VISIBLE' | 'HIDDEN' | 'FLAGGED',
+    reason: string
+  ) => {
     setProcessingId(id);
     setStatusMessage('');
     try {
       const res = await fetch(`/api/admin/reviews/${id}/moderate`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, reason }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok) {
@@ -162,7 +172,7 @@ export default function AdminReviewsPage() {
           action === 'HIDDEN'
             ? 'Review hidden — it no longer counts toward the rating.'
             : action === 'VISIBLE'
-              ? 'Review checked and visible — it counts toward the rating.'
+              ? 'Review visible again — it counts toward the rating.'
               : 'Review flagged for follow-up.'
         );
         await fetchQueue();
@@ -348,7 +358,6 @@ export default function AdminReviewsPage() {
                   {entry.row.visibility === 'VISIBLE' && <Chip tone="trust">Visible</Chip>}
                   {entry.row.visibility === 'HIDDEN' && <Chip tone="muted">Hidden</Chip>}
                   {entry.row.visibility === 'FLAGGED' && <Chip tone="danger">Flagged</Chip>}
-                  {!entry.row.isModerated && <Chip tone="amber">New — not yet checked</Chip>}
                   <span className="ml-auto text-xs text-ink-3">
                     {new Date(entry.row.createdAt).toLocaleDateString('en-GB')}
                   </span>
@@ -359,46 +368,74 @@ export default function AdminReviewsPage() {
                 </p>
                 {entry.row.text && <p className="mt-2 text-sm text-ink-2">{entry.row.text}</p>}
 
-                <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-                  {/* H72: a new (never-moderated) VISIBLE review queues the cleaner
-                      here; "Looks fine" marks it checked without changing anything. */}
-                  {!entry.row.isModerated && entry.row.visibility === 'VISIBLE' && (
+                {/* Reviews ruling (James): Rena reviews never queue for approval.
+                    The safety valve is Hide / Flag / Unhide only, each with a
+                    stated reason that lands on the record, in the audit, and
+                    (for Hide) in the cleaner's bell. */}
+                {armed?.id === entry.row.id ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                    <input
+                      autoFocus
+                      value={armed.reason}
+                      onChange={(e) => setArmed({ ...armed, reason: e.target.value })}
+                      placeholder="Reason, required"
+                      maxLength={500}
+                      className="w-full max-w-md rounded-lg border border-line bg-page px-3 py-1.5 text-sm"
+                    />
                     <button
-                      onClick={() => actNative(entry.row.id, 'VISIBLE')}
-                      disabled={processingId === entry.row.id}
+                      onClick={() => {
+                        if (!armed.reason.trim()) return;
+                        const a = armed;
+                        setArmed(null);
+                        actNative(a.id, a.action, a.reason.trim());
+                      }}
+                      disabled={!armed.reason.trim() || processingId === entry.row.id}
                       className="rounded-lg bg-trust px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                     >
-                      {processingId === entry.row.id ? 'Working…' : 'Looks fine'}
+                      {processingId === entry.row.id ? 'Working…' : 'Confirm'}
                     </button>
-                  )}
-                  {entry.row.visibility !== 'HIDDEN' && (
                     <button
-                      onClick={() => actNative(entry.row.id, 'HIDDEN')}
-                      disabled={processingId === entry.row.id}
-                      className="rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-page disabled:opacity-50"
+                      onClick={() => setArmed(null)}
+                      className="rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-page"
                     >
-                      Hide
+                      Cancel
                     </button>
-                  )}
-                  {entry.row.visibility !== 'VISIBLE' && (
-                    <button
-                      onClick={() => actNative(entry.row.id, 'VISIBLE')}
-                      disabled={processingId === entry.row.id}
-                      className="rounded-lg bg-trust px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      {entry.row.visibility === 'FLAGGED' ? 'Clear flag & show' : 'Unhide'}
-                    </button>
-                  )}
-                  {entry.row.visibility === 'VISIBLE' && (
-                    <button
-                      onClick={() => actNative(entry.row.id, 'FLAGGED')}
-                      disabled={processingId === entry.row.id}
-                      className="rounded-lg border border-danger/30 px-4 py-1.5 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
-                    >
-                      Flag
-                    </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                    {entry.row.visibility !== 'HIDDEN' && (
+                      <button
+                        onClick={() => setArmed({ id: entry.row.id, action: 'HIDDEN', reason: '' })}
+                        disabled={processingId === entry.row.id}
+                        className="rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-page disabled:opacity-50"
+                      >
+                        Hide
+                      </button>
+                    )}
+                    {entry.row.visibility !== 'VISIBLE' && (
+                      <button
+                        onClick={() =>
+                          setArmed({ id: entry.row.id, action: 'VISIBLE', reason: '' })
+                        }
+                        disabled={processingId === entry.row.id}
+                        className="rounded-lg bg-trust px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        {entry.row.visibility === 'FLAGGED' ? 'Clear flag & show' : 'Unhide'}
+                      </button>
+                    )}
+                    {entry.row.visibility === 'VISIBLE' && (
+                      <button
+                        onClick={() =>
+                          setArmed({ id: entry.row.id, action: 'FLAGGED', reason: '' })
+                        }
+                        disabled={processingId === entry.row.id}
+                        className="rounded-lg border border-danger/30 px-4 py-1.5 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                      >
+                        Flag
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )
           )}
@@ -458,12 +495,6 @@ export default function AdminReviewsPage() {
                 )}
                 {c.flaggedNativeCount > 0 && (
                   <Chip tone="danger">{c.flaggedNativeCount} flagged</Chip>
-                )}
-                {c.uncheckedNativeCount > 0 && (
-                  <Chip tone="amber">
-                    {c.uncheckedNativeCount} new review{c.uncheckedNativeCount === 1 ? '' : 's'} to
-                    check
-                  </Chip>
                 )}
                 <span className="text-xs text-ink-3">
                   {new Date(c.newestActionAt).toLocaleDateString('en-GB')}
