@@ -1117,7 +1117,9 @@ const PREFETCH_KILL_JS = `
 
 // R5b port: the shell's OWN injected observer decides when a page is
 // GENUINELY dressed — window load fired AND the DOM structurally quiet for
-// 250ms (hydration's in-shell variant swap is a childList burst). The shell
+// 100ms (hydration's in-shell variant swap is a childList burst; R14 Lane 1,
+// James's word: 250ms shortened to 100ms on measured evidence — hydration
+// bursts settle within ~143ms of load with a max 46ms gap between them). The shell
 // drops the loader on this message; a 6s long-stop guarantees a broken page
 // can never trap it.
 const DRESSED_JS = `
@@ -1128,11 +1130,11 @@ const DRESSED_JS = `
       try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
     }
     function watch(){
-      var idle=setTimeout(send,250);
+      var idle=setTimeout(send,100);
       try{
         var mo=new MutationObserver(function(){
           if(sent){mo.disconnect();return;}
-          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},100);
         });
         mo.observe(document.documentElement,{childList:true,subtree:true});
       }catch(e){ send(); }
@@ -1241,8 +1243,11 @@ function SeamlessWebView({
 
   useEffect(() => {
     if (loaded) {
-      // Appearance item 1: the ruled ~300ms fade into the destination page.
-      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      // Appearance item 1, amended by R14 Lane 1 (James's word): the reveal
+      // fade is 150ms. Together with the 100ms quiet window this cuts ~300ms
+      // of fixed ceremony off every veil while the law stands verbatim —
+      // reveal only after load plus the quiet confirmation.
+      Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
 

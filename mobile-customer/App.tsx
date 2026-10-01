@@ -1053,7 +1053,8 @@ const PREFETCH_KILL_JS = `
 
 // R5 veil (James-ruled, option b withdrawn — zero website bytes): the shell's
 // OWN injected observer decides when a page is GENUINELY dressed. Signal:
-// window load fired AND the DOM has been structurally quiet for 250ms — the
+// window load fired AND the DOM has been structurally quiet for 100ms (R14
+// Lane 1, James's word: shortened from 250ms on measured evidence) — the
 // in-shell variant swap that hydration performs is a burst of childList
 // mutations, so quiet-after-load means the page wears its shell clothes.
 // The shell drops the veil on this message; a 6s long-stop (native side)
@@ -1066,11 +1067,11 @@ const DRESSED_JS = `
       try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
     }
     function watch(){
-      var idle=setTimeout(send,250);
+      var idle=setTimeout(send,100);
       try{
         var mo=new MutationObserver(function(){
           if(sent){mo.disconnect();return;}
-          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},100);
         });
         mo.observe(document.documentElement,{childList:true,subtree:true});
       }catch(e){ send(); }
@@ -1195,7 +1196,9 @@ function SeamlessWebView({
 
   useEffect(() => {
     if (loaded) {
-      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+      // R14 Lane 1 (James's word): reveal fade 150ms, quiet window 100ms —
+      // the veil's fixed ceremony shortened, the no-half-dressed law intact.
+      Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
 
