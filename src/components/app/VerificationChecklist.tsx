@@ -166,24 +166,16 @@ export default function VerificationChecklist({ firstName }: { firstName: string
       title: 'Identity documents',
       state: data.verified ? 'done' : docState(idWorst),
       doorLabel: 'UPLOAD',
-      doorHref: '/cleaner',
+      doorHref: '/app/documents',
       reason: reason('photo_id') || reason('right_to_work'),
       sub: 'Photo ID and right to work',
-    },
-    {
-      key: 'dbs',
-      title: 'DBS check',
-      state: docState(data.documents.dbs_certificate),
-      doorLabel: 'UPLOAD',
-      doorHref: '/cleaner',
-      reason: reason('dbs_certificate'),
     },
     {
       key: 'insurance',
       title: 'Public liability insurance',
       state: data.insuranceVerified ? 'done' : docState(data.documents.insurance),
       doorLabel: 'UPLOAD',
-      doorHref: '/cleaner',
+      doorHref: '/app/documents',
       reason: reason('insurance'),
     },
     {
@@ -228,6 +220,35 @@ export default function VerificationChecklist({ firstName }: { firstName: string
         {items.map((i) => (
           <ItemRow key={i.key} item={i} />
         ))}
+
+        {/* R13 Lane 1 (James-ruled): DBS is OPTIONAL — never navy-ringed,
+            never in the blocking set or the Reviewing summary. Same grammar
+            as the reviews row; the door is the dressed documents room. */}
+        <Link
+          href="/app/documents"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-line bg-surface px-4 py-3.5"
+          data-testid="vc-dbs-optional"
+        >
+          <span>
+            <span className="block font-jost text-[14px] font-medium text-ink">DBS check</span>
+            <span className="mt-0.5 block font-jost text-[12px] text-ink-3">
+              {data.documents.dbs_certificate === 'approved'
+                ? 'Approved. The DBS badge is on your profile.'
+                : data.documents.dbs_certificate === 'reviewing'
+                  ? 'Uploaded and in review.'
+                  : 'Optional. Earn the DBS badge on your profile.'}
+            </span>
+          </span>
+          <svg
+            className="h-3.5 w-3.5 shrink-0 text-ink-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </Link>
 
         {/* Optional row: bring your reviews with you (R12 Lane 6 door 1) */}
         <Link

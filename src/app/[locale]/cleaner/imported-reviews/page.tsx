@@ -1,9 +1,11 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import StarRating from '@/components/StarRating';
+import { isShellUA } from '@/lib/shell';
 
 interface ImportedReviewItem {
   id: string;
@@ -185,16 +187,57 @@ export default function CleanerImportedReviewsPage() {
   const maxAllowed = data?.maxAllowed ?? 3;
   const canAdd = remaining > 0;
 
+  // R13 Lane 2 (James-ruled): in-shell this tool wears the app grammar —
+  // Jost, app header with the back chevron, soft ground. Mount-gated so the
+  // browser's server-rendered HTML stays byte-identical.
+  const [inShell, setInShell] = useState(false);
+  const router = useRouter();
+  useEffect(() => {
+    setInShell(isShellUA());
+  }, []);
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 lg:px-10 lg:py-10">
-      <header className="mb-6">
-        <h1 className="font-newsreader text-[26px] font-semibold text-ink">Imported reviews</h1>
-        <p className="mt-1 font-jost text-sm font-light text-ink-2">
-          Bring reviews from other platforms (Google, Checkatrade, a personal reference) onto your
-          Rena profile. Each is checked by our team before it appears publicly, and is always
-          labelled &ldquo;Imported from&rdquo; so it&rsquo;s never passed off as a Rena review. You
-          can add up to {maxAllowed}.
-        </p>
+    <div
+      className={
+        inShell ? 'bg-page px-4 pt-4 pb-24' : 'mx-auto max-w-3xl px-4 py-8 lg:px-10 lg:py-10'
+      }
+    >
+      <header className={inShell ? 'mb-5 flex items-start gap-3' : 'mb-6'}>
+        {inShell && (
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface"
+          >
+            <svg
+              className="h-4 w-4 text-ink"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+        )}
+        <div>
+          <h1
+            className={
+              inShell
+                ? 'font-jost text-[22px] font-semibold text-ink'
+                : 'font-newsreader text-[26px] font-semibold text-ink'
+            }
+          >
+            Imported reviews
+          </h1>
+          <p className="mt-1 font-jost text-sm font-light text-ink-2">
+            Bring reviews from other platforms (Google, Checkatrade, a personal reference) onto your
+            Rena profile. Each is checked by our team before it appears publicly, and is always
+            labelled &ldquo;Imported from&rdquo; so it&rsquo;s never passed off as a Rena review.
+            You can add up to {maxAllowed}.
+          </p>
+        </div>
       </header>
 
       {/* Add form */}
@@ -203,7 +246,13 @@ export default function CleanerImportedReviewsPage() {
         style={{ border: '1px solid rgb(var(--color-border))' }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-newsreader text-[15px] font-semibold text-ink">
+          <h2
+            className={
+              inShell
+                ? 'font-jost text-[15px] font-semibold text-ink'
+                : 'font-newsreader text-[15px] font-semibold text-ink'
+            }
+          >
             Add an imported review
           </h2>
           <span className="font-jost text-[12px] font-light text-ink-3">
@@ -387,7 +436,13 @@ export default function CleanerImportedReviewsPage() {
 
       {/* Existing submissions with status badges */}
       <section className="mt-8">
-        <h2 className="mb-3 font-newsreader text-[15px] font-semibold text-ink">
+        <h2
+          className={
+            inShell
+              ? 'mb-3 font-jost text-[15px] font-semibold text-ink'
+              : 'mb-3 font-newsreader text-[15px] font-semibold text-ink'
+          }
+        >
           Your imported reviews
         </h2>
 

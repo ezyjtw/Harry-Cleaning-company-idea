@@ -1,8 +1,10 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { isRenaShell } from '@/lib/shell';
 
 export default async function OnboardingCompletePage() {
   const user = await getCleanerSession();
@@ -20,6 +22,63 @@ export default async function OnboardingCompletePage() {
   });
 
   const isComplete = profile?.stripeChargesEnabled && profile?.stripePayoutsEnabled;
+
+  // R13 Lane 2 (James-ruled): the Stripe RETURN lands here — in-shell it
+  // wears the app grammar (Jost, soft ground, app doors), never website
+  // typography. Browser markup below is byte-untouched. UA-based detection
+  // (isRenaShell falls back to the RenaPro UA, which rides every request).
+  const inShell = isRenaShell(await headers());
+  if (inShell) {
+    return (
+      <div className="min-h-[70vh] bg-page px-4 pt-10 pb-24" data-testid="stripe-return-shell">
+        <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface px-5 py-8 text-center">
+          <div
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
+            style={{
+              background: isComplete ? 'rgba(34,197,94,0.1)' : 'rgb(var(--color-warning) / 0.1)',
+            }}
+          >
+            <svg
+              className={isComplete ? 'h-8 w-8 text-success' : 'h-8 w-8 text-primary'}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              {isComplete ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M5 13l4 4L19 7"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              )}
+            </svg>
+          </div>
+          <h1 className="mt-5 font-jost text-[22px] font-semibold text-ink">
+            {isComplete ? 'Payouts connected' : 'Stripe is checking your details'}
+          </h1>
+          <p className="mt-2 font-jost text-[14px] font-light text-ink-2">
+            {isComplete
+              ? 'Your payment account is live. You are ready to be paid for every clean.'
+              : 'This usually takes a few minutes. If Stripe needs anything more, they will contact you directly.'}
+          </p>
+          <Link
+            href="/app/today"
+            className="mt-6 inline-block rounded-[10px] bg-primary px-6 py-3 font-jost text-[13px] font-semibold text-white"
+          >
+            {isComplete ? 'Back to the app' : 'Done for now'}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (isComplete) {
     const hasEot = profile.serviceTypes.includes('end_of_tenancy');
@@ -63,10 +122,10 @@ export default async function OnboardingCompletePage() {
           >
             <p className="font-jost text-sm font-normal text-warning">First payout timing</p>
             <p className="font-jost text-[13px] font-light text-warning mt-1">
-              After each completed job, your funds are released within 24 hours (often instantly once
-              your customer confirms), then paid to your bank on Stripe&apos;s schedule. Your first
-              payout takes a little longer — around 7 days while Stripe verifies your account — and
-              it&apos;s faster after that.
+              After each completed job, your funds are released within 24 hours (often instantly
+              once your customer confirms), then paid to your bank on Stripe&apos;s schedule. Your
+              first payout takes a little longer — around 7 days while Stripe verifies your account
+              — and it&apos;s faster after that.
             </p>
           </div>
 

@@ -977,7 +977,13 @@ const SEAM_KILL_JS = `
     m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
   })();
   (function(){
-    var startY=0,pulling=false,TH=72;
+    // R13 Lane 3 (James-ruled): the gesture arms ONLY from rest at the exact
+    // top; a deliberate continuous pull past 110px with the indicator
+    // tracking; never from momentum, the rubber-band after a fling, or a
+    // mid-page start; releasing early cancels. Mid-form rooms are exempt.
+    var EXEMPT=[/^\/(en\/)?join(\/|$)/,/^\/(en\/)?book\//,/^\/(en\/)?services\//,/^\/(en\/)?cleaner\/complete-profile(\/|$)/];
+    function exempt(){var p=location.pathname;for(var i=0;i<EXEMPT.length;i++){if(EXEMPT[i].test(p))return true;}return false;}
+    var startY=0,pulling=false,TH=110,lastScroll=0;
     var el=document.createElement('div');
     el.style.cssText='position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;padding-top:12px;transform:translateY(-46px);transition:transform .18s ease;z-index:99999;pointer-events:none;';
     el.innerHTML='<div id="__rspin" style="width:26px;height:26px;border-radius:50%;border:2px solid #E4E9F0;border-top-color:#16296b;box-sizing:border-box;"></div>';
@@ -985,9 +991,33 @@ const SEAM_KILL_JS = `
     function mount(){if(document.body&&!el.parentNode)document.body.appendChild(el);}
     document.addEventListener('DOMContentLoaded',mount);mount();
     function top(){return (document.scrollingElement||document.documentElement||document.body).scrollTop;}
-    window.addEventListener('touchstart',function(e){if(top()<=0){startY=e.touches[0].clientY;pulling=true;}},{passive:true});
-    window.addEventListener('touchmove',function(e){if(!pulling)return;var d=e.touches[0].clientY-startY;if(d>0){el.style.transform='translateY('+Math.min(d*0.5-46,26)+'px)';}},{passive:true});
-    window.addEventListener('touchend',function(e){if(!pulling)return;pulling=false;var d=e.changedTouches[0].clientY-startY;if(d>TH){document.getElementById('__rspin').style.animation='__rspin .6s linear infinite';el.style.transform='translateY(20px)';setTimeout(function(){el.style.transform='translateY(-46px)';document.getElementById('__rspin').style.animation='';},650);if(typeof window.__renaRefresh==='function'){window.__renaRefresh();}else{location.reload();}}else{el.style.transform='translateY(-46px)';}},{passive:true});
+    window.addEventListener('scroll',function(){lastScroll=Date.now();},{passive:true});
+    window.addEventListener('touchstart',function(e){
+      pulling=false;
+      if(exempt())return;
+      if(top()>0)return; // mid-page start never arms
+      if(Date.now()-lastScroll<250)return; // momentum or bounce still settling — not at rest
+      startY=e.touches[0].clientY;pulling=true;
+    },{passive:true});
+    window.addEventListener('touchmove',function(e){
+      if(!pulling)return;
+      var d=e.touches[0].clientY-startY;
+      if(d<-8){pulling=false;el.style.transform='translateY(-46px)';return;} // reversed into a scroll — abort
+      if(top()>0){pulling=false;el.style.transform='translateY(-46px)';return;} // page scrolled — this is navigation
+      if(d>24){el.style.transform='translateY('+Math.min((d-24)*0.5-46,26)+'px)';} // indicator tracks only a real pull
+    },{passive:true});
+    window.addEventListener('touchend',function(e){
+      if(!pulling)return;pulling=false;
+      var d=e.changedTouches[0].clientY-startY;
+      if(d>TH&&top()<=0){
+        document.getElementById('__rspin').style.animation='__rspin .6s linear infinite';
+        el.style.transform='translateY(20px)';
+        setTimeout(function(){el.style.transform='translateY(-46px)';document.getElementById('__rspin').style.animation='';},650);
+        if(typeof window.__renaRefresh==='function'){window.__renaRefresh();}else{location.reload();}
+      }else{
+        el.style.transform='translateY(-46px)'; // released early — clean cancel, no refresh
+      }
+    },{passive:true});
   })();
   true;
 `;
