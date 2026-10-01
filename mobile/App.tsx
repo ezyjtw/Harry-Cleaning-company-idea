@@ -12,7 +12,6 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -51,28 +50,6 @@ const SHELL_HEADER = {
   'x-rena-shell': `pro-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}`,
 };
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
-const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
-// R17 (James-ruled): the shell counts what paints the loader so the device
-// itself names the mechanism — revivals (pane processes killed), document
-// loads, load errors — and keeps a short event log. Read via the tab-bar
-// long-press toast. Module-level: survives pane remounts, resets on app open.
-const SHELL_COUNTS = { loads: 0, revives: 0, errors: 0, killsHidden: 0, killsVisible: 0 };
-// R18 (James-ruled): the cold-open window is measured from PROCESS LAUNCH,
-// not pane mount. Panes mount at login, so without this the post-login
-// landing rode the long cold patience (1s/3s/8s) — the false-alarm the
-// patience exists for lives in the first seconds after a cold open, while
-// the network path wakes, never minutes later behind the login screen.
-const APP_START = Date.now();
-const COLD_OPEN_WINDOW_MS = 20000;
-const SHELL_LOG: string[] = [];
-function logShellEvent(line: string) {
-  const t = new Date();
-  const hh = String(t.getHours()).padStart(2, '0');
-  const mm = String(t.getMinutes()).padStart(2, '0');
-  const ss = String(t.getSeconds()).padStart(2, '0');
-  SHELL_LOG.push(`${hh}:${mm}:${ss} ${line}`);
-  if (SHELL_LOG.length > 30) SHELL_LOG.shift();
-}
 const TOKEN_KEY = 'rena.pro.bearer';
 // Where the customer app lives when it isn't installed. Empty until its App
 // Store listing exists — the wrong-app door shows guidance text instead.
@@ -268,13 +245,12 @@ function BreathingMark() {
     loop.start();
     return () => loop.stop();
   }, [scale]);
-  // R18 (James-ruled defect fix): the breath scaled the full-bleed splash
+  // R21 Piece 1 (James-ruled): the breath scaled the full-bleed splash
   // artwork — the whole screen — so at 1.05 its edges slid past the screen
-  // bounds (born with A1's loader, a6397a2; conspicuous once the veil
-  // showed often). The artwork stays full-bleed at scale 1 so the OS-splash
-  // handoff is pixel-identical, and the breath now clips at the container:
-  // the growth at the edges is solid ground and clips invisibly, while the
-  // centred mark breathes within bounds.
+  // bounds (born with A1's loader, a6397a2). The artwork stays full-bleed at
+  // scale 1 so the OS-splash handoff is pixel-identical, and the breath now
+  // clips at the container: edge growth is solid ground and clips invisibly,
+  // while the centred mark breathes within bounds.
   return (
     <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]}>
       <Animated.Image
@@ -961,24 +937,6 @@ function ShellScreen({
     if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
     lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 1800);
   }, []);
-  // R16 standing addition (James-ruled): the shell self-identifies its
-  // running code so update ambiguity dies — a long-press anywhere on the tab
-  // bar shows the running EAS update's short ID (or "embedded" on a fresh
-  // binary that has not applied an OTA yet) plus the app version. Reuses the
-  // lock-notice toast; every future "still broken" starts from this readout.
-  const showVersion = useCallback(() => {
-    fireHaptic('light');
-    const short = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'embedded';
-    // R17: the toast carries the mechanism counters and the last events, so
-    // a day of normal use names what paints the loader without a debugger.
-    const counts = `loads ${SHELL_COUNTS.loads} · revives ${SHELL_COUNTS.revives} · errors ${SHELL_COUNTS.errors} · kills h${SHELL_COUNTS.killsHidden}/v${SHELL_COUNTS.killsVisible}`;
-    const recent = SHELL_LOG.slice(-4).join('\n');
-    setLockNotice(
-      `Update ${short} · v${Constants.expoConfig?.version ?? '?'}\n${counts}${recent ? `\n${recent}` : ''}`
-    );
-    if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
-    lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 6000);
-  }, []);
   useEffect(() => {
     let alive = true;
     const poll = async () => {
@@ -1051,7 +1009,6 @@ function ShellScreen({
         badges={badges}
         lockedKeys={goLive === false ? LOCKED_UNTIL_VERIFIED : EMPTY_LOCK}
         onLockedPress={showLockNotice}
-        onVersionPress={showVersion}
       />
     </SafeAreaView>
   );
@@ -1093,13 +1050,7 @@ const SEAM_KILL_JS = `
     m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
   })();
   (function(){
-    // R13 Lane 3 (James-ruled): the gesture arms ONLY from rest at the exact
-    // top; a deliberate continuous pull past 110px with the indicator
-    // tracking; never from momentum, the rubber-band after a fling, or a
-    // mid-page start; releasing early cancels. Mid-form rooms are exempt.
-    var EXEMPT=[/^\/(en\/)?join(\/|$)/,/^\/(en\/)?book\//,/^\/(en\/)?services\//,/^\/(en\/)?cleaner\/complete-profile(\/|$)/];
-    function exempt(){var p=location.pathname;for(var i=0;i<EXEMPT.length;i++){if(EXEMPT[i].test(p))return true;}return false;}
-    var startY=0,pulling=false,TH=110,lastScroll=0;
+    var startY=0,pulling=false,TH=72;
     var el=document.createElement('div');
     el.style.cssText='position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;padding-top:12px;transform:translateY(-46px);transition:transform .18s ease;z-index:99999;pointer-events:none;';
     el.innerHTML='<div id="__rspin" style="width:26px;height:26px;border-radius:50%;border:2px solid #E4E9F0;border-top-color:#16296b;box-sizing:border-box;"></div>';
@@ -1107,33 +1058,9 @@ const SEAM_KILL_JS = `
     function mount(){if(document.body&&!el.parentNode)document.body.appendChild(el);}
     document.addEventListener('DOMContentLoaded',mount);mount();
     function top(){return (document.scrollingElement||document.documentElement||document.body).scrollTop;}
-    window.addEventListener('scroll',function(){lastScroll=Date.now();},{passive:true});
-    window.addEventListener('touchstart',function(e){
-      pulling=false;
-      if(exempt())return;
-      if(top()>0)return; // mid-page start never arms
-      if(Date.now()-lastScroll<250)return; // momentum or bounce still settling — not at rest
-      startY=e.touches[0].clientY;pulling=true;
-    },{passive:true});
-    window.addEventListener('touchmove',function(e){
-      if(!pulling)return;
-      var d=e.touches[0].clientY-startY;
-      if(d<-8){pulling=false;el.style.transform='translateY(-46px)';return;} // reversed into a scroll — abort
-      if(top()>0){pulling=false;el.style.transform='translateY(-46px)';return;} // page scrolled — this is navigation
-      if(d>24){el.style.transform='translateY('+Math.min((d-24)*0.5-46,26)+'px)';} // indicator tracks only a real pull
-    },{passive:true});
-    window.addEventListener('touchend',function(e){
-      if(!pulling)return;pulling=false;
-      var d=e.changedTouches[0].clientY-startY;
-      if(d>TH&&top()<=0){
-        document.getElementById('__rspin').style.animation='__rspin .6s linear infinite';
-        el.style.transform='translateY(20px)';
-        setTimeout(function(){el.style.transform='translateY(-46px)';document.getElementById('__rspin').style.animation='';},650);
-        if(typeof window.__renaRefresh==='function'){window.__renaRefresh();}else{location.reload();}
-      }else{
-        el.style.transform='translateY(-46px)'; // released early — clean cancel, no refresh
-      }
-    },{passive:true});
+    window.addEventListener('touchstart',function(e){if(top()<=0){startY=e.touches[0].clientY;pulling=true;}},{passive:true});
+    window.addEventListener('touchmove',function(e){if(!pulling)return;var d=e.touches[0].clientY-startY;if(d>0){el.style.transform='translateY('+Math.min(d*0.5-46,26)+'px)';}},{passive:true});
+    window.addEventListener('touchend',function(e){if(!pulling)return;pulling=false;var d=e.changedTouches[0].clientY-startY;if(d>TH){document.getElementById('__rspin').style.animation='__rspin .6s linear infinite';el.style.transform='translateY(20px)';setTimeout(function(){el.style.transform='translateY(-46px)';document.getElementById('__rspin').style.animation='';},650);if(typeof window.__renaRefresh==='function'){window.__renaRefresh();}else{location.reload();}}else{el.style.transform='translateY(-46px)';}},{passive:true});
   })();
   true;
 `;
@@ -1167,9 +1094,7 @@ const PREFETCH_KILL_JS = `
 
 // R5b port: the shell's OWN injected observer decides when a page is
 // GENUINELY dressed — window load fired AND the DOM structurally quiet for
-// 100ms (hydration's in-shell variant swap is a childList burst; R14 Lane 1,
-// James's word: 250ms shortened to 100ms on measured evidence — hydration
-// bursts settle within ~143ms of load with a max 46ms gap between them). The shell
+// 250ms (hydration's in-shell variant swap is a childList burst). The shell
 // drops the loader on this message; a 6s long-stop guarantees a broken page
 // can never trap it.
 const DRESSED_JS = `
@@ -1180,11 +1105,11 @@ const DRESSED_JS = `
       try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
     }
     function watch(){
-      var idle=setTimeout(send,100);
+      var idle=setTimeout(send,250);
       try{
         var mo=new MutationObserver(function(){
           if(sent){mo.disconnect();return;}
-          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},100);
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
         });
         mo.observe(document.documentElement,{childList:true,subtree:true});
       }catch(e){ send(); }
@@ -1229,22 +1154,10 @@ function SeamlessWebView({
   // Cold-start false-alarm fix (James, on-device): iOS regularly fails the
   // very FIRST request after a cold open while the network path is still
   // waking — an INDETERMINATE state, not a confirmed dead connection. A
-  // single onError therefore never declares offline on startup. R15 Lane 1
-  // (James-ruled): the LONG patience (1s / 3s / 8s, three retries) applies to
-  // COLD APP STARTUP ONLY — that is where the false alarm lives and where the
-  // offline screen must stay hard to trigger. Once this pane has genuinely
-  // rendered once, every later document load (pane switches, revivals, in-app
-  // navigations) returns to the pre-R13 quick path (0.6s / 1.2s, two
-  // retries): errors there still retry silently and the honest offline
-  // screen stays reachable on persistent failure, but a routine transition
-  // never waits out multi-second ceremony. The budget resets only on a
-  // GENUINE render (dressed or the long-stop), never on the synthetic finish
-  // Android emits before every error — that reset made the budget restart on
-  // each failure there, looping the first delay forever and keeping the
-  // offline screen out of reach.
-  const RETRY_DELAYS_COLD = [1000, 3000, 8000];
-  const RETRY_DELAYS_WARM = [600, 1200];
-  const everLoaded = useRef(false);
+  // single onError therefore never declares offline any more: up to two
+  // silent retries run behind the loader (0.6s / 1.2s back-off), and only a
+  // third consecutive failure shows the offline screen. A successful load
+  // resets the budget, so mid-session blips get the same treatment.
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
   // R5b port: one cross-tab detection per actual navigation — nav events
@@ -1276,46 +1189,13 @@ function SeamlessWebView({
   activeRef.current = active;
   const revive = useCallback(() => {
     needsRevive.current = false;
-    SHELL_COUNTS.revives += 1;
-    logShellEvent(`revive ${tabKey ?? 'pane'}`);
     setLoaded(false);
     fade.setValue(1);
     ref.current?.reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fade]);
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
-  // R17 (a) (James-ruled): SILENT BACKGROUND REVIVAL — a hidden pane whose
-  // process dies revives immediately while hidden, so by the time the tab is
-  // tapped it is re-rendered and the tap is an instant swap. The veil shows
-  // only if the user catches a revival mid-flight (a genuine load on
-  // screen). Storm guard, ratified: a same-pane recull within a minute of a
-  // background revival falls back to revive-on-show until pressure passes,
-  // so sustained memory pressure can never spin a reload loop.
-  const lastBgRevive = useRef(0);
-  const onProcessGone = useCallback(() => {
-    if (activeRef.current !== false) {
-      SHELL_COUNTS.killsVisible += 1;
-      logShellEvent(`kill ${tabKey ?? 'pane'} visible`);
-      revive();
-      return;
-    }
-    SHELL_COUNTS.killsHidden += 1;
-    if (Date.now() - lastBgRevive.current < 60000) {
-      logShellEvent(`kill ${tabKey ?? 'pane'} hidden (storm, lazy)`);
-      needsRevive.current = true;
-    } else {
-      lastBgRevive.current = Date.now();
-      logShellEvent(`kill ${tabKey ?? 'pane'} hidden (bg revive)`);
-      revive();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revive]);
-  // R14 Lane 2 (James-ruled): true while this pane is inside the
-  // Stripe-hosted Connect flow. Set on a top-frame navigation to a
-  // stripe.com host, cleared on any top-frame landing back on our origin.
-  const inStripeFlow = useRef(false);
   // Android back (rule 6): the pane's half — go back through web history
   // when there is any. canGoBack rides onNavigationStateChange.
   const canGoBackRef = useRef(false);
@@ -1332,11 +1212,8 @@ function SeamlessWebView({
 
   useEffect(() => {
     if (loaded) {
-      // Appearance item 1, amended by R14 Lane 1 (James's word): the reveal
-      // fade is 150ms. Together with the 100ms quiet window this cuts ~300ms
-      // of fixed ceremony off every veil while the law stands verbatim —
-      // reveal only after load plus the quiet confirmation.
-      Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+      // Appearance item 1: the ruled ~300ms fade into the destination page.
+      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
 
@@ -1451,8 +1328,6 @@ function SeamlessWebView({
           clearTimeout(longStop.current);
           longStop.current = null;
         }
-        everLoaded.current = true; // a genuine render ends the cold window
-        retryBudget.current = 0;
         setLoaded(true);
       }
     } catch {
@@ -1520,17 +1395,21 @@ function SeamlessWebView({
         allowsBackForwardNavigationGestures
         allowsLinkPreview={false}
         injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
-        onContentProcessDidTerminate={() => onProcessGone()}
+        onContentProcessDidTerminate={() => {
+          if (activeRef.current !== false) revive();
+          else needsRevive.current = true;
+        }}
         // Rule 7: the Android twin of iOS process reclamation — a killed
-        // renderer joins the same law.
-        onRenderProcessGone={() => onProcessGone()}
+        // renderer joins the same lazy-revival law.
+        onRenderProcessGone={() => {
+          if (activeRef.current !== false) revive();
+          else needsRevive.current = true;
+        }}
         // R5b port: EVERY document load in a pane wears the loader, however
         // caused — boot, a recycle revival, an in-pane full-load link, a
         // back-swipe. onLoadStart fires per document load (not for SPA
         // pushState), which is exactly the ruled coverage.
         onLoadStart={() => {
-          SHELL_COUNTS.loads += 1;
-          logShellEvent(`load ${tabKey ?? 'pane'}`);
           if (longStop.current) {
             clearTimeout(longStop.current);
             longStop.current = null;
@@ -1547,28 +1426,6 @@ function SeamlessWebView({
             androidStatement(req.url);
             return false;
           }
-          // R14 Lane 2 (James-ruled): EVERY exit from Stripe lands back in
-          // the app. Inside the Connect flow the only sanctioned doors to our
-          // origin are the return landing and the connect relaunch; any other
-          // our-origin landing (Stripe's header brand link points at the
-          // public website) reroutes to the dressed return room, which reads
-          // the truth and shows connected, checking, or not finished.
-          {
-            const host = (req.url.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
-            if (/(^|\.)stripe\.(com|network)$/i.test(host)) {
-              if (req.isTopFrame !== false) inStripeFlow.current = true;
-            } else if (inStripeFlow.current && host === BASE_HOST && req.isTopFrame !== false) {
-              inStripeFlow.current = false;
-              if (!/\/cleaner\/(onboarding-complete|stripe\/connect)([/?#]|$)/.test(req.url)) {
-                ref.current?.injectJavaScript(
-                  `window.location.replace(${JSON.stringify(
-                    `${BASE_URL}/en/cleaner/onboarding-complete`
-                  )}); true;`
-                );
-                return false;
-              }
-            }
-          }
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
             if (target && target !== tabKey) {
@@ -1582,28 +1439,18 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the loader up
-          // R15: the budget is NOT reset here — Android synthesises a finish
-          // event before every error, so this reset restarted the budget on
-          // each failure. Genuine renders reset it (dressed / long-stop).
+          retryBudget.current = 0; // real load landed — reset the silent-retry budget
           // R5b port: no fixed-duration guess — the loader holds until the
           // injected observer posts 'dressed'; this long-stop only trap-proofs
           // a page whose JS never settles or never runs.
           if (longStop.current) clearTimeout(longStop.current);
           longStop.current = setTimeout(() => {
             longStop.current = null;
-            if (retryPending.current) return; // a retry is waiting — not a render
-            everLoaded.current = true;
-            retryBudget.current = 0;
             setLoaded(true);
           }, 6000);
         }}
         onError={() => {
-          SHELL_COUNTS.errors += 1;
-          logShellEvent(`error ${tabKey ?? 'pane'}`);
-          const cold = !everLoaded.current && Date.now() - APP_START < COLD_OPEN_WINDOW_MS;
-          const delays = cold ? RETRY_DELAYS_COLD : RETRY_DELAYS_WARM;
-          if (retryBudget.current < delays.length) {
-            const delay = delays[retryBudget.current];
+          if (retryBudget.current < 2) {
             retryBudget.current += 1;
             retryPending.current = true;
             setLoaded(false);
@@ -1611,7 +1458,7 @@ function SeamlessWebView({
             setTimeout(() => {
               retryPending.current = false;
               ref.current?.reload();
-            }, delay);
+            }, 600 * retryBudget.current);
             return;
           }
           setOffline(true);
@@ -1692,7 +1539,6 @@ function TabBar({
   badges,
   lockedKeys,
   onLockedPress,
-  onVersionPress,
 }: {
   active: string;
   onSelect: (k: string) => void;
@@ -1700,8 +1546,6 @@ function TabBar({
   // R12 Lane 4: greyed, untappable tabs while unverified.
   lockedKeys?: ReadonlySet<string>;
   onLockedPress?: () => void;
-  // R16: long-press self-identification (running update's short ID).
-  onVersionPress?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const badgeFor = (key: string): number => {
@@ -1721,7 +1565,6 @@ function TabBar({
             key={t.key}
             style={[styles.tab, locked && styles.tabLocked]}
             onPress={() => (locked ? onLockedPress?.() : onSelect(t.key))}
-            onLongPress={onVersionPress}
             hitSlop={6}
           >
             <View>
