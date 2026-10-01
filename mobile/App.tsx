@@ -52,6 +52,20 @@ const SHELL_HEADER = {
 };
 const UA_SUFFIX = `RenaPro/${Constants.expoConfig?.version ?? '1.0'}`;
 const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
+// R17 (James-ruled): the shell counts what paints the loader so the device
+// itself names the mechanism — revivals (pane processes killed), document
+// loads, load errors — and keeps a short event log. Read via the tab-bar
+// long-press toast. Module-level: survives pane remounts, resets on app open.
+const SHELL_COUNTS = { loads: 0, revives: 0, errors: 0, killsHidden: 0, killsVisible: 0 };
+const SHELL_LOG: string[] = [];
+function logShellEvent(line: string) {
+  const t = new Date();
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  const ss = String(t.getSeconds()).padStart(2, '0');
+  SHELL_LOG.push(`${hh}:${mm}:${ss} ${line}`);
+  if (SHELL_LOG.length > 30) SHELL_LOG.shift();
+}
 const TOKEN_KEY = 'rena.pro.bearer';
 // Where the customer app lives when it isn't installed. Empty until its App
 // Store listing exists — the wrong-app door shows guidance text instead.
@@ -939,9 +953,15 @@ function ShellScreen({
   const showVersion = useCallback(() => {
     fireHaptic('light');
     const short = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'embedded';
-    setLockNotice(`Update ${short} · v${Constants.expoConfig?.version ?? '?'}`);
+    // R17: the toast carries the mechanism counters and the last events, so
+    // a day of normal use names what paints the loader without a debugger.
+    const counts = `loads ${SHELL_COUNTS.loads} · revives ${SHELL_COUNTS.revives} · errors ${SHELL_COUNTS.errors} · kills h${SHELL_COUNTS.killsHidden}/v${SHELL_COUNTS.killsVisible}`;
+    const recent = SHELL_LOG.slice(-4).join('\n');
+    setLockNotice(
+      `Update ${short} · v${Constants.expoConfig?.version ?? '?'}\n${counts}${recent ? `\n${recent}` : ''}`
+    );
     if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
-    lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 2600);
+    lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 6000);
   }, []);
   useEffect(() => {
     let alive = true;
@@ -1240,9 +1260,12 @@ function SeamlessWebView({
   activeRef.current = active;
   const revive = useCallback(() => {
     needsRevive.current = false;
+    SHELL_COUNTS.revives += 1;
+    logShellEvent(`revive ${tabKey ?? 'pane'}`);
     setLoaded(false);
     fade.setValue(1);
     ref.current?.reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fade]);
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
@@ -1456,20 +1479,36 @@ function SeamlessWebView({
         allowsLinkPreview={false}
         injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
         onContentProcessDidTerminate={() => {
-          if (activeRef.current !== false) revive();
-          else needsRevive.current = true;
+          if (activeRef.current !== false) {
+            SHELL_COUNTS.killsVisible += 1;
+            logShellEvent(`kill ${tabKey ?? 'pane'} visible`);
+            revive();
+          } else {
+            SHELL_COUNTS.killsHidden += 1;
+            logShellEvent(`kill ${tabKey ?? 'pane'} hidden`);
+            needsRevive.current = true;
+          }
         }}
         // Rule 7: the Android twin of iOS process reclamation — a killed
         // renderer joins the same lazy-revival law.
         onRenderProcessGone={() => {
-          if (activeRef.current !== false) revive();
-          else needsRevive.current = true;
+          if (activeRef.current !== false) {
+            SHELL_COUNTS.killsVisible += 1;
+            logShellEvent(`kill ${tabKey ?? 'pane'} visible`);
+            revive();
+          } else {
+            SHELL_COUNTS.killsHidden += 1;
+            logShellEvent(`kill ${tabKey ?? 'pane'} hidden`);
+            needsRevive.current = true;
+          }
         }}
         // R5b port: EVERY document load in a pane wears the loader, however
         // caused — boot, a recycle revival, an in-pane full-load link, a
         // back-swipe. onLoadStart fires per document load (not for SPA
         // pushState), which is exactly the ruled coverage.
         onLoadStart={() => {
+          SHELL_COUNTS.loads += 1;
+          logShellEvent(`load ${tabKey ?? 'pane'}`);
           if (longStop.current) {
             clearTimeout(longStop.current);
             longStop.current = null;
@@ -1537,6 +1576,8 @@ function SeamlessWebView({
           }, 6000);
         }}
         onError={() => {
+          SHELL_COUNTS.errors += 1;
+          logShellEvent(`error ${tabKey ?? 'pane'}`);
           const delays = everLoaded.current ? RETRY_DELAYS_WARM : RETRY_DELAYS_COLD;
           if (retryBudget.current < delays.length) {
             const delay = delays[retryBudget.current];
