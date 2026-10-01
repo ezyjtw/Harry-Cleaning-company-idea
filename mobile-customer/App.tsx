@@ -1185,12 +1185,17 @@ function SeamlessWebView({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Cold-start false-alarm fix (carried from Pro): a single onError never
-  // declares offline — up to three silent retries run behind the loader
-  // (1s / 3s / 8s back-off, James-ruled: a several-second blip on open must
-  // ride through silently); only a fourth consecutive failure shows the
-  // offline screen. A successful load resets the budget.
-  const RETRY_DELAYS = [1000, 3000, 8000];
+  // Cold-start false-alarm fix (carried from Pro). R15 Lane 1 (James-ruled):
+  // the LONG patience (1s / 3s / 8s, three retries) applies to COLD APP
+  // STARTUP ONLY. Once this pane has genuinely rendered once, later loads
+  // (switches, revivals, in-app navigations) use the pre-R13 quick path
+  // (0.6s / 1.2s, two retries) — the offline screen stays reachable on
+  // persistent failure, routine transitions never wait out long ceremony.
+  // The budget resets only on a GENUINE render (dressed / long-stop), never
+  // on the synthetic finish Android emits before every error.
+  const RETRY_DELAYS_COLD = [1000, 3000, 8000];
+  const RETRY_DELAYS_WARM = [600, 1200];
+  const everLoaded = useRef(false);
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
 
@@ -1276,6 +1281,8 @@ function SeamlessWebView({
           clearTimeout(longStop.current);
           longStop.current = null;
         }
+        everLoaded.current = true; // a genuine render ends the cold window
+        retryBudget.current = 0;
         setLoaded(true);
       }
     } catch {
@@ -1384,7 +1391,8 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the veil up
-          retryBudget.current = 0; // real load landed — reset the silent-retry budget
+          // R15: no budget reset here — Android synthesises a finish event
+          // before every error; genuine renders reset it (dressed/long-stop).
           // R5 veil: no fixed-duration guess (the 300ms grace is dead). The
           // veil holds until the injected observer posts 'dressed'; this
           // long-stop is only the trap-proofing for a page whose JS never
@@ -1392,12 +1400,16 @@ function SeamlessWebView({
           if (longStop.current) clearTimeout(longStop.current);
           longStop.current = setTimeout(() => {
             longStop.current = null;
+            if (retryPending.current) return; // a retry is waiting — not a render
+            everLoaded.current = true;
+            retryBudget.current = 0;
             setLoaded(true);
           }, 6000);
         }}
         onError={() => {
-          if (retryBudget.current < RETRY_DELAYS.length) {
-            const delay = RETRY_DELAYS[retryBudget.current];
+          const delays = everLoaded.current ? RETRY_DELAYS_WARM : RETRY_DELAYS_COLD;
+          if (retryBudget.current < delays.length) {
+            const delay = delays[retryBudget.current];
             retryBudget.current += 1;
             retryPending.current = true;
             setLoaded(false);
