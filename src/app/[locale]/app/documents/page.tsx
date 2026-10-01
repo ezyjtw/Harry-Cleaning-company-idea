@@ -4,7 +4,11 @@
 // doors for identity and insurance land here, and Lane 1's permanent DBS slot
 // lives here too (optional, feeding the existing badge truthfully). L2 by
 // construction: no website chrome exists on this route. Upload machinery is
-// the existing POST /api/cleaners/documents, byte-untouched.
+// the existing routes, byte-untouched: POST /api/cleaners/documents for
+// photo_id / right_to_work / dbs_certificate, and the dedicated
+// POST /api/cleaner/insurance for insurance (R14 Lane 3 fix — insurance has
+// its own contract: policy expiry date required, insuranceExpiresAt stamped,
+// admin go-live bell on verified cleaners; the generic route never took it).
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -62,6 +66,7 @@ export default function DocumentsRoom() {
   const [state, setState] = useState<DocState | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [insExpiry, setInsExpiry] = useState('');
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = () =>
@@ -90,10 +95,15 @@ export default function DocumentsRoom() {
         fr.onerror = rej;
         fr.readAsDataURL(file);
       });
-      const r = await fetch('/api/cleaners/documents', {
+      const isInsurance = key === 'insurance';
+      const r = await fetch(isInsurance ? '/api/cleaner/insurance' : '/api/cleaners/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentType: key, fileData }),
+        body: JSON.stringify(
+          isInsurance
+            ? { fileData, fileName: file.name, expiryDate: insExpiry }
+            : { documentType: key, fileData }
+        ),
       });
       if (!r.ok) {
         const d = await r.json().catch(() => null);
@@ -166,6 +176,18 @@ export default function DocumentsRoom() {
               {reason && status === 'declined' && (
                 <p className="mt-2 font-jost text-[12px] text-danger">Not accepted: {reason}</p>
               )}
+              {s.key === 'insurance' && (
+                <label className="mt-3 block">
+                  <span className="font-jost text-[12px] text-ink-3">Policy expiry date</span>
+                  <input
+                    type="date"
+                    value={insExpiry}
+                    onChange={(e) => setInsExpiry(e.target.value)}
+                    className="mt-1 block w-full rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-[14px] text-ink"
+                    data-testid="insurance-expiry"
+                  />
+                </label>
+              )}
               <input
                 ref={(el) => {
                   inputs.current[s.key] = el;
@@ -182,7 +204,14 @@ export default function DocumentsRoom() {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => inputs.current[s.key]?.click()}
+                onClick={() => {
+                  if (s.key === 'insurance' && !insExpiry) {
+                    setError('Enter your policy expiry date first.');
+                    return;
+                  }
+                  setError(null);
+                  inputs.current[s.key]?.click();
+                }}
                 className={`mt-3 rounded-[10px] px-4 py-2 font-jost text-[13px] font-semibold disabled:opacity-50 ${
                   status === 'missing' || status === 'declined'
                     ? 'bg-primary text-white'
