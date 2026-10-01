@@ -1,7 +1,9 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { isRenaShell } from '@/lib/shell';
 import stripe from '@/lib/stripe';
 
 export default async function StripeConnectPage() {
@@ -31,8 +33,14 @@ export default async function StripeConnectPage() {
     redirect('/en/cleaner');
   }
 
+  // R15 Lane 2 (James-ruled): in-shell, the Stripe RETURN is the L2 room —
+  // the website return page lives under the cleaner portal layout whose
+  // furniture reads as webpage inside the app. Browser flows are unchanged.
+  const inShell = isRenaShell(await headers());
+  const returnPath = inShell ? '/en/app/stripe-return' : '/en/cleaner/onboarding-complete';
+
   if (profile.stripeChargesEnabled && profile.stripePayoutsEnabled) {
-    redirect('/en/cleaner/onboarding-complete');
+    redirect(returnPath);
   }
 
   let stripeAccountId = profile.stripeAccountId;
@@ -59,7 +67,7 @@ export default async function StripeConnectPage() {
   const accountLink = await stripe.accountLinks.create({
     account: stripeAccountId,
     refresh_url: `${appUrl}/en/cleaner/stripe/connect`,
-    return_url: `${appUrl}/en/cleaner/onboarding-complete`,
+    return_url: `${appUrl}${returnPath}`,
     type: 'account_onboarding',
   });
 

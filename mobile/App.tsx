@@ -1179,12 +1179,22 @@ function SeamlessWebView({
   // Cold-start false-alarm fix (James, on-device): iOS regularly fails the
   // very FIRST request after a cold open while the network path is still
   // waking — an INDETERMINATE state, not a confirmed dead connection. A
-  // single onError therefore never declares offline any more: up to three
-  // silent retries run behind the loader (1s / 3s / 8s back-off, James-ruled:
-  // a several-second blip on open must ride through silently), and only a
-  // fourth consecutive failure shows the offline screen. A successful load
-  // resets the budget, so mid-session blips get the same treatment.
-  const RETRY_DELAYS = [1000, 3000, 8000];
+  // single onError therefore never declares offline on startup. R15 Lane 1
+  // (James-ruled): the LONG patience (1s / 3s / 8s, three retries) applies to
+  // COLD APP STARTUP ONLY — that is where the false alarm lives and where the
+  // offline screen must stay hard to trigger. Once this pane has genuinely
+  // rendered once, every later document load (pane switches, revivals, in-app
+  // navigations) returns to the pre-R13 quick path (0.6s / 1.2s, two
+  // retries): errors there still retry silently and the honest offline
+  // screen stays reachable on persistent failure, but a routine transition
+  // never waits out multi-second ceremony. The budget resets only on a
+  // GENUINE render (dressed or the long-stop), never on the synthetic finish
+  // Android emits before every error — that reset made the budget restart on
+  // each failure there, looping the first delay forever and keeping the
+  // offline screen out of reach.
+  const RETRY_DELAYS_COLD = [1000, 3000, 8000];
+  const RETRY_DELAYS_WARM = [600, 1200];
+  const everLoaded = useRef(false);
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
   // R5b port: one cross-tab detection per actual navigation — nav events
@@ -1362,6 +1372,8 @@ function SeamlessWebView({
           clearTimeout(longStop.current);
           longStop.current = null;
         }
+        everLoaded.current = true; // a genuine render ends the cold window
+        retryBudget.current = 0;
         setLoaded(true);
       }
     } catch {
@@ -1495,19 +1507,25 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the loader up
-          retryBudget.current = 0; // real load landed — reset the silent-retry budget
+          // R15: the budget is NOT reset here — Android synthesises a finish
+          // event before every error, so this reset restarted the budget on
+          // each failure. Genuine renders reset it (dressed / long-stop).
           // R5b port: no fixed-duration guess — the loader holds until the
           // injected observer posts 'dressed'; this long-stop only trap-proofs
           // a page whose JS never settles or never runs.
           if (longStop.current) clearTimeout(longStop.current);
           longStop.current = setTimeout(() => {
             longStop.current = null;
+            if (retryPending.current) return; // a retry is waiting — not a render
+            everLoaded.current = true;
+            retryBudget.current = 0;
             setLoaded(true);
           }, 6000);
         }}
         onError={() => {
-          if (retryBudget.current < RETRY_DELAYS.length) {
-            const delay = RETRY_DELAYS[retryBudget.current];
+          const delays = everLoaded.current ? RETRY_DELAYS_WARM : RETRY_DELAYS_COLD;
+          if (retryBudget.current < delays.length) {
+            const delay = delays[retryBudget.current];
             retryBudget.current += 1;
             retryPending.current = true;
             setLoaded(false);
