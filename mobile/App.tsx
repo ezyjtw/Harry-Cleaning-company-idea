@@ -1176,10 +1176,12 @@ function SeamlessWebView({
   // Cold-start false-alarm fix (James, on-device): iOS regularly fails the
   // very FIRST request after a cold open while the network path is still
   // waking — an INDETERMINATE state, not a confirmed dead connection. A
-  // single onError therefore never declares offline any more: up to two
-  // silent retries run behind the loader (0.6s / 1.2s back-off), and only a
-  // third consecutive failure shows the offline screen. A successful load
+  // single onError therefore never declares offline any more: up to three
+  // silent retries run behind the loader (1s / 3s / 8s back-off, James-ruled:
+  // a several-second blip on open must ride through silently), and only a
+  // fourth consecutive failure shows the offline screen. A successful load
   // resets the budget, so mid-session blips get the same treatment.
+  const RETRY_DELAYS = [1000, 3000, 8000];
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
   // R5b port: one cross-tab detection per actual navigation — nav events
@@ -1472,7 +1474,8 @@ function SeamlessWebView({
           }, 6000);
         }}
         onError={() => {
-          if (retryBudget.current < 2) {
+          if (retryBudget.current < RETRY_DELAYS.length) {
+            const delay = RETRY_DELAYS[retryBudget.current];
             retryBudget.current += 1;
             retryPending.current = true;
             setLoaded(false);
@@ -1480,7 +1483,7 @@ function SeamlessWebView({
             setTimeout(() => {
               retryPending.current = false;
               ref.current?.reload();
-            }, 600 * retryBudget.current);
+            }, delay);
             return;
           }
           setOffline(true);

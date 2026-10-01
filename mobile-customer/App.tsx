@@ -1185,9 +1185,11 @@ function SeamlessWebView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Cold-start false-alarm fix (carried from Pro): a single onError never
-  // declares offline — up to two silent retries run behind the loader
-  // (0.6s / 1.2s back-off); only a third consecutive failure shows the
+  // declares offline — up to three silent retries run behind the loader
+  // (1s / 3s / 8s back-off, James-ruled: a several-second blip on open must
+  // ride through silently); only a fourth consecutive failure shows the
   // offline screen. A successful load resets the budget.
+  const RETRY_DELAYS = [1000, 3000, 8000];
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
 
@@ -1391,7 +1393,8 @@ function SeamlessWebView({
           }, 6000);
         }}
         onError={() => {
-          if (retryBudget.current < 2) {
+          if (retryBudget.current < RETRY_DELAYS.length) {
+            const delay = RETRY_DELAYS[retryBudget.current];
             retryBudget.current += 1;
             retryPending.current = true;
             setLoaded(false);
@@ -1399,7 +1402,7 @@ function SeamlessWebView({
             setTimeout(() => {
               retryPending.current = false;
               ref.current?.reload();
-            }, 600 * retryBudget.current);
+            }, delay);
             return;
           }
           setOffline(true);
