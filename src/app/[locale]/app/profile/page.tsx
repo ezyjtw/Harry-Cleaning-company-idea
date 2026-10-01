@@ -340,6 +340,17 @@ export default function ProfileHubPage() {
             Imported Reviews
             {chevron}
           </button>
+          {/* R13 Lane 1 (James-ruled): the permanent DBS slot — any time,
+              feeding the existing badge truthfully via the documents room. */}
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => go('/app/documents')}
+            data-testid="dbs-row"
+          >
+            DBS Certificate
+            {chevron}
+          </button>
         </div>
       </section>
     </div>
