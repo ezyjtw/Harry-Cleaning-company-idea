@@ -12,6 +12,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -930,6 +931,18 @@ function ShellScreen({
     if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
     lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 1800);
   }, []);
+  // R16 standing addition (James-ruled): the shell self-identifies its
+  // running code so update ambiguity dies — a long-press anywhere on the tab
+  // bar shows the running EAS update's short ID (or "embedded" on a fresh
+  // binary that has not applied an OTA yet) plus the app version. Reuses the
+  // lock-notice toast; every future "still broken" starts from this readout.
+  const showVersion = useCallback(() => {
+    fireHaptic('light');
+    const short = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'embedded';
+    setLockNotice(`Update ${short} · v${Constants.expoConfig?.version ?? '?'}`);
+    if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
+    lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 2600);
+  }, []);
   useEffect(() => {
     let alive = true;
     const poll = async () => {
@@ -1002,6 +1015,7 @@ function ShellScreen({
         badges={badges}
         lockedKeys={goLive === false ? LOCKED_UNTIL_VERIFIED : EMPTY_LOCK}
         onLockedPress={showLockNotice}
+        onVersionPress={showVersion}
       />
     </SafeAreaView>
   );
@@ -1614,6 +1628,7 @@ function TabBar({
   badges,
   lockedKeys,
   onLockedPress,
+  onVersionPress,
 }: {
   active: string;
   onSelect: (k: string) => void;
@@ -1621,6 +1636,8 @@ function TabBar({
   // R12 Lane 4: greyed, untappable tabs while unverified.
   lockedKeys?: ReadonlySet<string>;
   onLockedPress?: () => void;
+  // R16: long-press self-identification (running update's short ID).
+  onVersionPress?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const badgeFor = (key: string): number => {
@@ -1640,6 +1657,7 @@ function TabBar({
             key={t.key}
             style={[styles.tab, locked && styles.tabLocked]}
             onPress={() => (locked ? onLockedPress?.() : onSelect(t.key))}
+            onLongPress={onVersionPress}
             hitSlop={6}
           >
             <View>

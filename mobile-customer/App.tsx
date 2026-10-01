@@ -8,6 +8,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -888,6 +889,18 @@ function ShellScreen({
     return () => sub.remove();
   }, [setActiveTab]);
 
+  // R16 standing addition (James-ruled, carried from Pro): the shell
+  // self-identifies its running code — a long-press on the tab bar shows the
+  // running EAS update's short ID (or "embedded" pre-OTA) plus the version.
+  const [versionNotice, setVersionNotice] = useState<string | null>(null);
+  const versionNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showVersion = useCallback(() => {
+    fireHaptic('light');
+    const short = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'embedded';
+    setVersionNotice(`Update ${short} · v${Constants.expoConfig?.version ?? '?'}`);
+    if (versionNoticeTimer.current) clearTimeout(versionNoticeTimer.current);
+    versionNoticeTimer.current = setTimeout(() => setVersionNotice(null), 2600);
+  }, []);
   const selectTab = useCallback(
     (k: string, url?: string) => {
       fireHaptic('light');
@@ -941,7 +954,12 @@ function ShellScreen({
           );
         })}
       </View>
-      <TabBar active={activeTab} onSelect={selectTab} />
+      {versionNotice && (
+        <View style={styles.versionNotice} pointerEvents="none">
+          <Text style={styles.versionNoticeText}>{versionNotice}</Text>
+        </View>
+      )}
+      <TabBar active={activeTab} onSelect={selectTab} onVersionPress={showVersion} />
     </SafeAreaView>
   );
 }
@@ -1451,7 +1469,16 @@ function SeamlessWebView({
 }
 
 // ─── Tab bar: five slots, BOOK raised centre (the approved mockup) ────────────
-function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) => void }) {
+function TabBar({
+  active,
+  onSelect,
+  onVersionPress,
+}: {
+  active: string;
+  onSelect: (k: string) => void;
+  // R16: long-press self-identification (running update's short ID).
+  onVersionPress?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -1460,7 +1487,13 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) =>
         if (t.key === 'book') {
           // The raised centre BOOK slot: a navy circle lifted above the bar.
           return (
-            <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
+            <Pressable
+              key={t.key}
+              style={styles.tab}
+              onPress={() => onSelect(t.key)}
+              onLongPress={onVersionPress}
+              hitSlop={6}
+            >
               <View style={[styles.bookCircle, on && styles.bookCircleActive]}>
                 <Ionicons name="add" size={30} color="#fff" />
               </View>
@@ -1471,7 +1504,13 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) =>
           );
         }
         return (
-          <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
+          <Pressable
+            key={t.key}
+            style={styles.tab}
+            onPress={() => onSelect(t.key)}
+            onLongPress={onVersionPress}
+            hitSlop={6}
+          >
             <Ionicons
               name={(on ? t.icon : `${t.icon}-outline`) as keyof typeof Ionicons.glyphMap}
               size={23}
@@ -1633,6 +1672,18 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
   tabText: { fontFamily: SANS_SEMI, fontSize: 10.5, lineHeight: 15, color: MUTED },
+  // R16: the self-identification toast (long-press on the tab bar).
+  versionNotice: {
+    position: 'absolute',
+    bottom: 86,
+    alignSelf: 'center',
+    backgroundColor: INK,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    zIndex: 40,
+  },
+  versionNoticeText: { fontFamily: SANS, color: '#FFFFFF', fontSize: 13 },
   tabTextActive: { fontFamily: SANS_SEMI, color: INK },
   // The raised BOOK circle: navy, lifted above the bar line.
   bookCircle: {
