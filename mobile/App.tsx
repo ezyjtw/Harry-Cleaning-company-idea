@@ -1363,6 +1363,7 @@ function SeamlessWebView({
           clearTimeout(longStop.current);
           longStop.current = null;
         }
+        retryBudget.current = 0; // O2: a genuine render resets the budget
         setLoaded(true);
       }
     } catch {
@@ -1496,13 +1497,18 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the loader up
-          retryBudget.current = 0; // real load landed — reset the silent-retry budget
+          // O2 (James-ruled): no budget reset here — Android synthesises a
+          // finish event before every error, which kept the budget at zero
+          // and made the offline screen unreachable (the endless 600ms error
+          // loop). Genuine renders reset it instead (dressed / long-stop).
           // R5b port: no fixed-duration guess — the loader holds until the
           // injected observer posts 'dressed'; this long-stop only trap-proofs
           // a page whose JS never settles or never runs.
           if (longStop.current) clearTimeout(longStop.current);
           longStop.current = setTimeout(() => {
             longStop.current = null;
+            if (retryPending.current) return; // O3: a retry is waiting — not a render
+            retryBudget.current = 0;
             setLoaded(true);
           }, 6000);
         }}
