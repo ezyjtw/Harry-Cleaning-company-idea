@@ -1046,7 +1046,7 @@ const SEAM_KILL_JS = `
     // top; a deliberate continuous pull past 110px with the indicator
     // tracking; never from momentum, the rubber-band after a fling, or a
     // mid-page start; releasing early cancels. Mid-form rooms are exempt.
-    var EXEMPT=[/^\/(en\/)?join(\/|$)/,/^\/(en\/)?book\//,/^\/(en\/)?services\//,/^\/(en\/)?cleaner\/complete-profile(\/|$)/];
+    var EXEMPT=[/^\\/(en\\/)?join(\\/|$)/,/^\\/(en\\/)?book\\//,/^\\/(en\\/)?services\\//,/^\\/(en\\/)?cleaner\\/complete-profile(\\/|$)/];
     function exempt(){var p=location.pathname;for(var i=0;i<EXEMPT.length;i++){if(EXEMPT[i].test(p))return true;}return false;}
     var startY=0,pulling=false,TH=110,lastScroll=0;
     var el=document.createElement('div');
