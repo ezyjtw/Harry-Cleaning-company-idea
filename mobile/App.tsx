@@ -245,15 +245,23 @@ function BreathingMark() {
     loop.start();
     return () => loop.stop();
   }, [scale]);
+  // R21 Piece 1 (James-ruled): the breath scaled the full-bleed splash
+  // artwork — the whole screen — so at 1.05 its edges slid past the screen
+  // bounds (born with A1's loader, a6397a2). The artwork stays full-bleed at
+  // scale 1 so the OS-splash handoff is pixel-identical, and the breath now
+  // clips at the container: edge growth is solid ground and clips invisibly,
+  // while the centred mark breathes within bounds.
   return (
-    <Animated.Image
-      source={splashMark}
-      style={[
-        StyleSheet.absoluteFillObject,
-        { width: undefined, height: undefined, transform: [{ scale }] },
-      ]}
-      resizeMode="contain"
-    />
+    <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]}>
+      <Animated.Image
+        source={splashMark}
+        style={[
+          StyleSheet.absoluteFillObject,
+          { width: undefined, height: undefined, transform: [{ scale }] },
+        ]}
+        resizeMode="contain"
+      />
+    </View>
   );
 }
 
