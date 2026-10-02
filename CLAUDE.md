@@ -18,6 +18,31 @@ silence, or "looks done" — the word must be explicit.
 - Ambiguities are **parked with a note, never guessed**. The parked list ships
   with every gate report.
 
+## Injected-script verification law (binding — James-ruled after the piece-1 relapse)
+
+Any change to code that travels as a string (the shells' `injectedJavaScript*`
+template literals above all) is verified on the **delivered** string, never the
+source text. Reading source text is not verification for anything that travels
+as a string: a TSX template literal cooks escapes (`\/` becomes `/`), so the
+file can read as valid JS while the device receives a syntax error — and a
+syntax error in one block kills the WHOLE concatenated injection, including the
+dressed observer, turning every reveal into the 6s long-stop (the R13→piece-1
+slowness, both shells). tsc and eslint cannot see inside the string; rig drives
+that inject file-extracted text bypass the cooking and pass falsely.
+
+Every gate on an injected-script change must therefore include BOTH:
+
+1. **Cooked-parse proof** — evaluate the actual template literal (cook it as
+   the engine does), concatenate the blocks exactly as the shell does, and show
+   `new Function(delivered)` parses clean.
+2. **Dressed-arrival timing table** — the real pane load and reveal measurement
+   (navigation → 'dressed') against the current baseline, same conditions,
+   showing no added load cost.
+
+A backslash inside any injected template literal is written doubled (`\\/`) or
+avoided (RegExp constructor with string patterns); an escape sweep across both
+shells' template literals rides the gate.
+
 ## App leak-proofing law (binding)
 
 The native app effort may only touch: **`mobile/`**, **`/app` routes**, and
