@@ -8,7 +8,6 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -889,18 +888,6 @@ function ShellScreen({
     return () => sub.remove();
   }, [setActiveTab]);
 
-  // R16 standing addition (James-ruled, carried from Pro): the shell
-  // self-identifies its running code — a long-press on the tab bar shows the
-  // running EAS update's short ID (or "embedded" pre-OTA) plus the version.
-  const [versionNotice, setVersionNotice] = useState<string | null>(null);
-  const versionNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showVersion = useCallback(() => {
-    fireHaptic('light');
-    const short = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'embedded';
-    setVersionNotice(`Update ${short} · v${Constants.expoConfig?.version ?? '?'}`);
-    if (versionNoticeTimer.current) clearTimeout(versionNoticeTimer.current);
-    versionNoticeTimer.current = setTimeout(() => setVersionNotice(null), 2600);
-  }, []);
   const selectTab = useCallback(
     (k: string, url?: string) => {
       fireHaptic('light');
@@ -954,12 +941,7 @@ function ShellScreen({
           );
         })}
       </View>
-      {versionNotice && (
-        <View style={styles.versionNotice} pointerEvents="none">
-          <Text style={styles.versionNoticeText}>{versionNotice}</Text>
-        </View>
-      )}
-      <TabBar active={activeTab} onSelect={selectTab} onVersionPress={showVersion} />
+      <TabBar active={activeTab} onSelect={selectTab} />
     </SafeAreaView>
   );
 }
@@ -1071,8 +1053,7 @@ const PREFETCH_KILL_JS = `
 
 // R5 veil (James-ruled, option b withdrawn — zero website bytes): the shell's
 // OWN injected observer decides when a page is GENUINELY dressed. Signal:
-// window load fired AND the DOM has been structurally quiet for 100ms (R14
-// Lane 1, James's word: shortened from 250ms on measured evidence) — the
+// window load fired AND the DOM has been structurally quiet for 250ms — the
 // in-shell variant swap that hydration performs is a burst of childList
 // mutations, so quiet-after-load means the page wears its shell clothes.
 // The shell drops the veil on this message; a 6s long-stop (native side)
@@ -1085,11 +1066,11 @@ const DRESSED_JS = `
       try{ window.ReactNativeWebView.postMessage(JSON.stringify({type:'dressed'})); }catch(e){}
     }
     function watch(){
-      var idle=setTimeout(send,100);
+      var idle=setTimeout(send,250);
       try{
         var mo=new MutationObserver(function(){
           if(sent){mo.disconnect();return;}
-          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},100);
+          clearTimeout(idle); idle=setTimeout(function(){mo.disconnect();send();},250);
         });
         mo.observe(document.documentElement,{childList:true,subtree:true});
       }catch(e){ send(); }
@@ -1203,27 +1184,16 @@ function SeamlessWebView({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Cold-start false-alarm fix (carried from Pro). R15 Lane 1 (James-ruled):
-  // the LONG patience (1s / 3s / 8s, three retries) applies to COLD APP
-  // STARTUP ONLY. Once this pane has genuinely rendered once, later loads
-  // (switches, revivals, in-app navigations) use the pre-R13 quick path
-  // (0.6s / 1.2s, two retries) — the offline screen stays reachable on
-  // persistent failure, routine transitions never wait out long ceremony.
-  // The budget resets only on a GENUINE render (dressed / long-stop), never
-  // on the synthetic finish Android emits before every error.
-  const RETRY_DELAYS_COLD = [1000, 3000, 8000];
-  const RETRY_DELAYS_WARM = [600, 1200];
-  const everLoaded = useRef(false);
+  // Cold-start false-alarm fix (carried from Pro): a single onError never
+  // declares offline — up to two silent retries run behind the loader
+  // (0.6s / 1.2s back-off); only a third consecutive failure shows the
+  // offline screen. A successful load resets the budget.
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
-  // O1 (James's word, twin of Pro): probe salvages per incident.
-  const probeSalvage = useRef(0);
 
   useEffect(() => {
     if (loaded) {
-      // R14 Lane 1 (James's word): reveal fade 150ms, quiet window 100ms —
-      // the veil's fixed ceremony shortened, the no-half-dressed law intact.
-      Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start();
     }
   }, [loaded, fade]);
 
@@ -1301,9 +1271,6 @@ function SeamlessWebView({
           clearTimeout(longStop.current);
           longStop.current = null;
         }
-        everLoaded.current = true; // a genuine render ends the cold window
-        retryBudget.current = 0;
-        probeSalvage.current = 0;
         setLoaded(true);
       }
     } catch {
@@ -1348,7 +1315,6 @@ function SeamlessWebView({
           style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
           onPress={() => {
             retryBudget.current = 0; // fresh silent-retry budget for the manual retry
-            probeSalvage.current = 0;
             setOffline(false);
             setLoaded(false);
             fade.setValue(1);
@@ -1413,8 +1379,7 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => {
           if (retryPending.current) return; // silent retry in flight — keep the veil up
-          // R15: no budget reset here — Android synthesises a finish event
-          // before every error; genuine renders reset it (dressed/long-stop).
+          retryBudget.current = 0; // real load landed — reset the silent-retry budget
           // R5 veil: no fixed-duration guess (the 300ms grace is dead). The
           // veil holds until the injected observer posts 'dressed'; this
           // long-stop is only the trap-proofing for a page whose JS never
@@ -1422,17 +1387,11 @@ function SeamlessWebView({
           if (longStop.current) clearTimeout(longStop.current);
           longStop.current = setTimeout(() => {
             longStop.current = null;
-            if (retryPending.current) return; // a retry is waiting — not a render
-            everLoaded.current = true;
-            retryBudget.current = 0;
-            probeSalvage.current = 0;
             setLoaded(true);
           }, 6000);
         }}
         onError={() => {
-          const delays = everLoaded.current ? RETRY_DELAYS_WARM : RETRY_DELAYS_COLD;
-          if (retryBudget.current < delays.length) {
-            const delay = delays[retryBudget.current];
+          if (retryBudget.current < 2) {
             retryBudget.current += 1;
             retryPending.current = true;
             setLoaded(false);
@@ -1440,33 +1399,7 @@ function SeamlessWebView({
             setTimeout(() => {
               retryPending.current = false;
               ref.current?.reload();
-            }, delay);
-            return;
-          }
-          // O1 (James's word, solo; twin of Pro): the reachability probe at
-          // the paint moment — any answer means blip (one more silent
-          // retry), no answer means the honest offline screen immediately.
-          // Salvage bounded to twice per incident, reset when a load lands.
-          if (probeSalvage.current < 2) {
-            probeSalvage.current += 1;
-            retryPending.current = true;
-            setLoaded(false);
-            fade.setValue(1);
-            const ctrl = new AbortController();
-            const cutoff = setTimeout(() => ctrl.abort(), 1500);
-            fetch(`${BASE_URL}/`, { method: 'HEAD', headers: SHELL_HEADER, signal: ctrl.signal })
-              .then(() => {
-                clearTimeout(cutoff);
-                setTimeout(() => {
-                  retryPending.current = false;
-                  ref.current?.reload();
-                }, 600);
-              })
-              .catch(() => {
-                clearTimeout(cutoff);
-                retryPending.current = false;
-                setOffline(true);
-              });
+            }, 600 * retryBudget.current);
             return;
           }
           setOffline(true);
@@ -1500,16 +1433,7 @@ function SeamlessWebView({
 }
 
 // ─── Tab bar: five slots, BOOK raised centre (the approved mockup) ────────────
-function TabBar({
-  active,
-  onSelect,
-  onVersionPress,
-}: {
-  active: string;
-  onSelect: (k: string) => void;
-  // R16: long-press self-identification (running update's short ID).
-  onVersionPress?: () => void;
-}) {
+function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) => void }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -1518,13 +1442,7 @@ function TabBar({
         if (t.key === 'book') {
           // The raised centre BOOK slot: a navy circle lifted above the bar.
           return (
-            <Pressable
-              key={t.key}
-              style={styles.tab}
-              onPress={() => onSelect(t.key)}
-              onLongPress={onVersionPress}
-              hitSlop={6}
-            >
+            <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
               <View style={[styles.bookCircle, on && styles.bookCircleActive]}>
                 <Ionicons name="add" size={30} color="#fff" />
               </View>
@@ -1535,13 +1453,7 @@ function TabBar({
           );
         }
         return (
-          <Pressable
-            key={t.key}
-            style={styles.tab}
-            onPress={() => onSelect(t.key)}
-            onLongPress={onVersionPress}
-            hitSlop={6}
-          >
+          <Pressable key={t.key} style={styles.tab} onPress={() => onSelect(t.key)} hitSlop={6}>
             <Ionicons
               name={(on ? t.icon : `${t.icon}-outline`) as keyof typeof Ionicons.glyphMap}
               size={23}
@@ -1703,18 +1615,6 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
   tabText: { fontFamily: SANS_SEMI, fontSize: 10.5, lineHeight: 15, color: MUTED },
-  // R16: the self-identification toast (long-press on the tab bar).
-  versionNotice: {
-    position: 'absolute',
-    bottom: 86,
-    alignSelf: 'center',
-    backgroundColor: INK,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    zIndex: 40,
-  },
-  versionNoticeText: { fontFamily: SANS, color: '#FFFFFF', fontSize: 13 },
   tabTextActive: { fontFamily: SANS_SEMI, color: INK },
   // The raised BOOK circle: navy, lifted above the bar line.
   bookCircle: {
