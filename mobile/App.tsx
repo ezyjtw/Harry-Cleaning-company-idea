@@ -55,6 +55,14 @@ const TOKEN_KEY = 'rena.pro.bearer';
 // Post-login lie fix (James-ruled): the moment ANY pane genuinely renders,
 // the network is provably alive. Module-level so every pane shares the truth.
 let lastDressedAt = 0;
+// Branch B (James-ruled): the dressed witness is structurally late at login —
+// the landing exhausts its budget before any sibling has rendered. Two
+// witnesses that EXIST at that moment join it: a successful shell-side
+// native fetch (login, bridge redemption, badges poll) on the same 10s
+// window, and a sibling pane currently mid-load without having errored.
+// Airplane mode silences all three honestly: native fetches fail too.
+let lastNativeOkAt = 0;
+const loadingPanes = new Set<object>();
 // Where the customer app lives when it isn't installed. Empty until its App
 // Store listing exists — the wrong-app door shows guidance text instead.
 const CUSTOMER_STORE_URL: string = (Constants.expoConfig?.extra?.customerStoreUrl as string) || '';
@@ -391,6 +399,7 @@ function RootView() {
     try {
       const res = await fetch(url, { headers: SHELL_HEADER });
       bridged = res.ok; // the follow of the 307 lands 200 with the cookie
+      if (res.ok) lastNativeOkAt = Date.now();
     } catch {
       /* fall back to the in-WebView bridge */
     }
@@ -669,6 +678,7 @@ function LoginScreen({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.token && data?.bridgeCode) {
+        lastNativeOkAt = Date.now();
         // Mirror role gate (James-ruled): a CLIENT login never enters the
         // cleaner shell — the bearer is NOT stored; the door screen points at
         // the Rena customer app. Kills the old silent-blank-shell behaviour
@@ -951,6 +961,7 @@ function ShellScreen({
           headers: { Authorization: `Bearer ${token}`, ...SHELL_HEADER },
         });
         if (!res.ok) return;
+        lastNativeOkAt = Date.now();
         const d = await res.json().catch(() => null);
         if (alive && d && typeof d.goLive === 'boolean') setGoLive(d.goLive);
         if (alive && d && typeof d.offers === 'number') {
@@ -1197,6 +1208,9 @@ function SeamlessWebView({
   // Post-login lie fix: one extra silent retry per incident, spent only when
   // another pane's genuine render proves the network alive at paint time.
   const lieRetry = useRef(false);
+  // Branch B: this pane's identity in the module-level mid-load registry.
+  const paneToken = useRef({}).current;
+  useEffect(() => () => void loadingPanes.delete(paneToken), [paneToken]);
   // R5b port: one cross-tab detection per actual navigation — nav events
   // replay the same URL, and each replay used to inject another
   // history.back(), able to walk the pane onto the spent session-bridge.
@@ -1459,6 +1473,9 @@ function SeamlessWebView({
             clearTimeout(longStop.current);
             longStop.current = null;
           }
+          // Witness (b): only a FRESH load counts as mid-load-without-error —
+          // a retry cycle (budget spent) is a pane that has already errored.
+          if (retryBudget.current === 0) loadingPanes.add(paneToken);
           setLoaded(false);
           fade.setValue(1);
         }}
@@ -1505,6 +1522,7 @@ function SeamlessWebView({
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
+          loadingPanes.delete(paneToken); // the document finished, loaded or failed
           if (retryPending.current) return; // silent retry in flight — keep the loader up
           // O2 (James-ruled): no budget reset here — Android synthesises a
           // finish event before every error, which kept the budget at zero
@@ -1523,6 +1541,7 @@ function SeamlessWebView({
           }, 6000);
         }}
         onError={() => {
+          loadingPanes.delete(paneToken); // this pane errored — not a witness
           if (retryBudget.current < 2) {
             retryBudget.current += 1;
             retryPending.current = true;
@@ -1534,15 +1553,18 @@ function SeamlessWebView({
             }, 600 * retryBudget.current);
             return;
           }
-          // Post-login lie fix (James-ruled): if another pane genuinely
-          // rendered within the last 10s the network is provably alive, so
-          // this exhaustion is a per-load lie (the stale-socket class the
-          // login's own native fetches leave behind: iOS -1005/-1001 pass
-          // the WebView's filter, Android passes every main-frame failure).
-          // One silent retry instead of the paint — purely local, no probe,
-          // no budget change. A genuine outage has no recent render
-          // anywhere and paints exactly as before.
-          if (!lieRetry.current && Date.now() - lastDressedAt < 10000) {
+          // Post-login lie fix, Branch B widening (James-ruled): the paint is
+          // a lie when ANY aliveness witness exists at this moment — a pane's
+          // genuine render in the last 10s, a successful shell-side native
+          // fetch (login / bridge / badges) in the last 10s, or a sibling
+          // pane currently mid-load that has not errored. One silent retry
+          // instead of the paint — purely local, no probe, no budget change,
+          // bounded once per incident. A genuine outage silences all three
+          // witnesses (native fetches fail too) and paints exactly as before.
+          const now = Date.now();
+          const witnessed =
+            now - lastDressedAt < 10000 || now - lastNativeOkAt < 10000 || loadingPanes.size > 0;
+          if (!lieRetry.current && witnessed) {
             lieRetry.current = true;
             retryPending.current = true;
             setLoaded(false);
