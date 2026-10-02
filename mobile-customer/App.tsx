@@ -44,6 +44,9 @@ const SHELL_HEADER = {
   'x-rena-shell': `app-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}`,
 };
 const UA_SUFFIX = `RenaApp/${Constants.expoConfig?.version ?? '1.0'}`;
+// Post-login lie fix (James-ruled): the moment ANY pane genuinely renders,
+// the network is provably alive. Module-level so every pane shares the truth.
+let lastDressedAt = 0;
 const TOKEN_KEY = 'rena.customer.bearer';
 const PUSH_TOKEN_KEY = 'rena.customer.pushtoken';
 // Where the Pro app lives when it isn't installed. Empty until the App Store
@@ -1190,6 +1193,9 @@ function SeamlessWebView({
   // offline screen. A successful load resets the budget.
   const retryBudget = useRef(0);
   const retryPending = useRef(false);
+  // Post-login lie fix: one extra silent retry per incident, spent only when
+  // another pane's genuine render proves the network alive at paint time.
+  const lieRetry = useRef(false);
 
   useEffect(() => {
     if (loaded) {
@@ -1272,6 +1278,8 @@ function SeamlessWebView({
           longStop.current = null;
         }
         retryBudget.current = 0; // O2: a genuine render resets the budget
+        lieRetry.current = false;
+        lastDressedAt = Date.now(); // the network answered with a real page
         setLoaded(true);
       }
     } catch {
@@ -1316,6 +1324,7 @@ function SeamlessWebView({
           style={({ pressed }) => [styles.primaryBtn, styles.retryBtn, pressed && styles.pressed]}
           onPress={() => {
             retryBudget.current = 0; // fresh silent-retry budget for the manual retry
+            lieRetry.current = false;
             setOffline(false);
             setLoaded(false);
             fade.setValue(1);
@@ -1393,6 +1402,7 @@ function SeamlessWebView({
             longStop.current = null;
             if (retryPending.current) return; // O3: a retry is waiting — not a render
             retryBudget.current = 0;
+            lieRetry.current = false;
             setLoaded(true);
           }, 6000);
         }}
@@ -1406,6 +1416,25 @@ function SeamlessWebView({
               retryPending.current = false;
               ref.current?.reload();
             }, 600 * retryBudget.current);
+            return;
+          }
+          // Post-login lie fix (James-ruled): if another pane genuinely
+          // rendered within the last 10s the network is provably alive, so
+          // this exhaustion is a per-load lie (the stale-socket class the
+          // login's own native fetches leave behind: iOS -1005/-1001 pass
+          // the WebView's filter, Android passes every main-frame failure).
+          // One silent retry instead of the paint — purely local, no probe,
+          // no budget change. A genuine outage has no recent render
+          // anywhere and paints exactly as before.
+          if (!lieRetry.current && Date.now() - lastDressedAt < 10000) {
+            lieRetry.current = true;
+            retryPending.current = true;
+            setLoaded(false);
+            fade.setValue(1);
+            setTimeout(() => {
+              retryPending.current = false;
+              ref.current?.reload();
+            }, 600);
             return;
           }
           setOffline(true);
