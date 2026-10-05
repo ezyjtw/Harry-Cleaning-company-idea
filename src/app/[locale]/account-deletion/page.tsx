@@ -32,12 +32,21 @@ export default function AccountDeletionPage() {
             Delete your account in the app or on the site
           </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
-            Sign in and go to <strong className="font-medium text-ink">Account</strong>, then{' '}
+            <strong className="font-medium text-ink">Customers</strong> (website or the RENA app):
+            sign in and go to <strong className="font-medium text-ink">Account</strong>, then{' '}
             <strong className="font-medium text-ink">Settings</strong>, then the{' '}
             <strong className="font-medium text-ink">Your data</strong> section, and choose{' '}
-            <strong className="font-medium text-ink">Delete my account</strong>. You will be asked
-            to re-enter your password and type a confirmation. The same path works in both apps and
-            on the website.
+            <strong className="font-medium text-ink">Delete my account</strong>.
+          </p>
+          <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
+            <strong className="font-medium text-ink">Cleaners</strong> (the Rena Pro app): open the{' '}
+            <strong className="font-medium text-ink">account menu</strong>, then{' '}
+            <strong className="font-medium text-ink">My Profile</strong>, and choose{' '}
+            <strong className="font-medium text-ink">Delete my account</strong> at the bottom.
+          </p>
+          <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
+            Either way you will be asked to re-enter your password and type a confirmation, and the
+            same request goes through the same process.
           </p>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             Your account closes straight away: you are signed out everywhere and the account can no

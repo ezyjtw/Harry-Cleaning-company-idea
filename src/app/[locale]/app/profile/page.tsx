@@ -353,6 +353,21 @@ export default function ProfileHubPage() {
           </button>
         </div>
       </section>
+
+      {/* Account deletion door (James-ordered, Apple 5.1.1(v)): the Pro twin
+          of the customer app's "Your data" door — opens the dressed
+          /app/delete-account room on the existing deletion flow. */}
+      <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
+        <button
+          type="button"
+          className={`${rowCls} text-danger`}
+          onClick={() => go('/app/delete-account')}
+          data-testid="delete-account-row"
+        >
+          Delete my account
+          {chevron}
+        </button>
+      </section>
     </div>
   );
 }
