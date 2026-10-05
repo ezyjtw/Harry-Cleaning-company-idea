@@ -1090,6 +1090,8 @@ function ShellScreen({
   const selectTab = useCallback(
     (k: string) => {
       fireHaptic('light');
+      if (NAV_PERF && !(pendingTap && pendingTap.key === k))
+        pendingTap = { key: k, at: Date.now(), via: 'tap' };
       setActiveTab(k);
     },
     [setActiveTab]
@@ -1328,6 +1330,86 @@ const DRESSED_JS = `
   })(); true;
 `;
 
+// ─── NAV-PERF (TEMPORARY, James-ordered, Android-only): per-navigation timing ─
+// One correlation id per navigation; native marks T0..T7 and the page's own
+// timing (navigation/paint entries, DOM quiet, dressed) ride the same record
+// to /api/shell/diag as ONE 'nav' line. Everything here removes as a unit:
+// this block, PERF_JS, the NAV_PERF-gated lines in the shell and the pane.
+const NAV_PERF = Platform.OS === 'android';
+let navSeq = 0;
+// T0: the tap (tab bar or cross-tab link) that targets a pane, consumed by
+// that pane's show effect.
+let pendingTap: { key: string; at: number; via: string } | null = null;
+type NavPerfRecord = {
+  id: string;
+  pane: string | null;
+  via: string;
+  warm: boolean;
+  longStop: boolean;
+  url: string | null;
+  t0: number | null;
+  t1: number | null;
+  t2: number | null;
+  p25: number | null;
+  p50: number | null;
+  p90: number | null;
+  p100: number | null;
+  t4: number | null;
+  t5: number | null;
+  t6: number | null;
+  t7: number | null;
+  web: Record<string, unknown> | null;
+  sent: boolean;
+};
+// Page-side half: navigation + paint entries, last DOM mutation, the same
+// 250ms quiet rule as DRESSED_JS, and the moment 'dressed' was actually
+// posted (postMessage wrapped). Posted once as {type:'perf'}.
+const PERF_JS = `
+  (function(){
+    var last=0, quietAt=0, dressedAt=0, posted=false;
+    try{
+      var rn=window.ReactNativeWebView;
+      if(rn&&typeof rn.postMessage==='function'){
+        var op=rn.postMessage;
+        rn.postMessage=function(m){
+          try{ if(typeof m==='string'&&m.indexOf('"type":"dressed"')>=0&&!dressedAt){ dressedAt=performance.now(); } }catch(e){}
+          return op.call(rn,m);
+        };
+      }
+    }catch(e){}
+    function post(){
+      if(posted)return; posted=true;
+      try{
+        var nav=(performance.getEntriesByType('navigation')||[])[0]||null;
+        var paints={};
+        (performance.getEntriesByType('paint')||[]).forEach(function(p){ paints[p.name]=p.startTime; });
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type:'perf', url:location.href, origin:performance.timeOrigin||null,
+          nav:nav?{ start:nav.startTime, type:nav.type, dnsS:nav.domainLookupStart, dnsE:nav.domainLookupEnd,
+            conS:nav.connectStart, conE:nav.connectEnd, reqS:nav.requestStart, resS:nav.responseStart,
+            resE:nav.responseEnd, domI:nav.domInteractive, dcl:nav.domContentLoadedEventEnd,
+            load:nav.loadEventEnd, bytes:nav.transferSize }:null,
+          fp:paints['first-paint']||null, fcp:paints['first-contentful-paint']||null,
+          lastMut:last, quiet:quietAt, dressed:dressedAt, posted:performance.now()
+        }));
+      }catch(e){}
+    }
+    function watch(){
+      var idle=setTimeout(function(){ quietAt=performance.now(); post(); },250);
+      try{
+        var mo=new MutationObserver(function(){
+          if(posted){mo.disconnect();return;}
+          last=performance.now(); clearTimeout(idle);
+          idle=setTimeout(function(){ mo.disconnect(); quietAt=performance.now(); post(); },250);
+        });
+        mo.observe(document.documentElement,{childList:true,subtree:true});
+      }catch(e){ post(); }
+    }
+    if(document.readyState==='complete'){ watch(); }
+    else{ window.addEventListener('load',watch); }
+  })(); true;
+`;
+
 function SeamlessWebView({
   uri,
   injectBefore,
@@ -1412,6 +1494,81 @@ function SeamlessWebView({
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
+
+  // ─── NAV-PERF (TEMPORARY): this pane's open timing record ───────────────────
+  const perf = useRef<NavPerfRecord | null>(null);
+  const perfShown = useRef(false);
+  const lastIntercept = useRef<{ at: number; url: string } | null>(null);
+  const perfOpen = (via: string, t0: number | null) => {
+    navSeq += 1;
+    perf.current = {
+      id: `${tabKey ?? 'pane'}-${navSeq}`,
+      pane: tabKey ?? null,
+      via,
+      warm: false,
+      longStop: false,
+      url: null,
+      t0,
+      t1: null,
+      t2: null,
+      p25: null,
+      p50: null,
+      p90: null,
+      p100: null,
+      t4: null,
+      t5: null,
+      t6: null,
+      t7: null,
+      web: null,
+      sent: false,
+    };
+    return perf.current;
+  };
+  const perfSend = (reason: string) => {
+    const r = perf.current;
+    if (!NAV_PERF || !r || r.sent) return;
+    r.sent = true;
+    bootDiag('nav', { ...r, reason });
+  };
+  // T1: the pane became visible (tab show) or was constructed (first mount).
+  useEffect(() => {
+    if (!NAV_PERF || active === false) return;
+    const tap = pendingTap && pendingTap.key === tabKey ? pendingTap : null;
+    if (tap) pendingTap = null;
+    const now = Date.now();
+    const first = !perfShown.current;
+    perfShown.current = true;
+    const r = perf.current;
+    if (r && !r.sent && !r.warm) {
+      // A document load is in flight (hidden-pane boot load, revival, retry):
+      // this show joins it, so tap → veil gone is the user's real wait.
+      if (r.t0 === null) r.t0 = tap ? tap.at : now;
+      if (r.t1 === null) r.t1 = now;
+      if (tap) r.via = tap.via;
+      return;
+    }
+    const n = perfOpen(tap ? tap.via : first ? 'mount' : 'show', tap ? tap.at : now);
+    n.t1 = now;
+    if (loaded) {
+      // Warm switch: already dressed, visible on the next frame.
+      n.warm = true;
+      requestAnimationFrame(() => {
+        n.t7 = Date.now();
+        perfSend('warm');
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+  const onLoadProgress = (e: { nativeEvent: { progress: number } }) => {
+    const r = perf.current;
+    if (!r) return;
+    const p = e.nativeEvent.progress;
+    const now = Date.now();
+    if (p >= 0.25 && r.p25 === null) r.p25 = now;
+    if (p >= 0.5 && r.p50 === null) r.p50 = now;
+    if (p >= 0.9 && r.p90 === null) r.p90 = now;
+    if (p >= 1 && r.p100 === null) r.p100 = now;
+  };
   // R14 Lane 2 (James-ruled): true while this pane is inside the
   // Stripe-hosted Connect flow. Set on a top-frame navigation to a
   // stripe.com host, cleared on any top-frame landing back on our origin.
@@ -1432,8 +1589,14 @@ function SeamlessWebView({
 
   useEffect(() => {
     if (loaded) {
-      // Appearance item 1: the ruled ~300ms fade into the destination page.
-      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      const r = NAV_PERF ? perf.current : null;
+      if (r && !r.warm) r.t6 = Date.now(); // T6: fade starts
+      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+        if (!r || r.warm) return;
+        r.t7 = Date.now(); // T7: veil fully gone
+        if (r.web) perfSend('fade-end');
+        else setTimeout(() => perfSend('fade-end-no-web'), 1500);
+      });
     }
   }, [loaded, fade]);
 
@@ -1460,7 +1623,10 @@ function SeamlessWebView({
       const target = tabRootKey(nav.url);
       if (target && target !== tabKey) {
         if (!crossTabDup(nav.url)) {
-          onCrossTab(target);
+          {
+            if (NAV_PERF) pendingTap = { key: target, at: Date.now(), via: 'link' };
+            onCrossTab(target);
+          }
           ref.current?.injectJavaScript('window.history.back(); true;');
         }
         return;
@@ -1542,6 +1708,13 @@ function SeamlessWebView({
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
+      if (msg?.type === 'perf' && NAV_PERF) {
+        const r = perf.current;
+        if (r && !r.sent) {
+          r.web = msg;
+          if (r.t7 !== null) perfSend('web-late');
+        }
+      }
       // R5b port: the page says it is genuinely dressed — reveal clean.
       if (msg?.type === 'dressed' && !retryPending.current) {
         if (longStop.current) {
@@ -1551,6 +1724,7 @@ function SeamlessWebView({
         retryBudget.current = 0; // O2: a genuine render resets the budget
         lieRetry.current = false;
         lastDressedAt = Date.now(); // the network answered with a real page
+        if (NAV_PERF && perf.current) perf.current.t5 = Date.now(); // T5: dressed received
         bootDiag('dressed', { pane: tabKey ?? null });
         setLoaded(true);
       }
@@ -1615,7 +1789,9 @@ function SeamlessWebView({
         onFileDownload={onFileDownload}
         // Native pull-to-refresh is OFF — the injected PTR routes to __renaRefresh.
         pullToRefreshEnabled={false}
-        injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
+        injectedJavaScriptBeforeContentLoaded={
+          injectBefore + PREFETCH_KILL_JS + DRESSED_JS + (NAV_PERF ? PERF_JS : '')
+        }
         onContentProcessDidTerminate={() => {
           if (activeRef.current !== false) revive();
           else needsRevive.current = true;
@@ -1630,7 +1806,22 @@ function SeamlessWebView({
         // caused — boot, a recycle revival, an in-pane full-load link, a
         // back-swipe. onLoadStart fires per document load (not for SPA
         // pushState), which is exactly the ruled coverage.
-        onLoadStart={() => {
+        // NAV-PERF (TEMPORARY): T3 progress marks; inspectable WebView for the
+        // diagnostic bundle only (chrome://inspect over USB). Never in production.
+        onLoadProgress={NAV_PERF ? onLoadProgress : undefined}
+        webviewDebuggingEnabled={NAV_PERF}
+        onLoadStart={(e) => {
+          if (NAV_PERF) {
+            const r = perf.current;
+            const il = lastIntercept.current;
+            const fresh = il && Date.now() - il.at < 3000 ? il : null;
+            const n =
+              !r || r.sent || r.warm || r.t2 !== null
+                ? perfOpen(fresh ? 'in-pane' : 'load', fresh ? fresh.at : null)
+                : r;
+            n.t2 = Date.now(); // T2: document load started
+            n.url = String(e.nativeEvent?.url ?? '');
+          }
           if (!firstLoadDiag.current) {
             firstLoadDiag.current = true;
             bootDiag('first-load-start', { pane: tabKey ?? null });
@@ -1648,6 +1839,8 @@ function SeamlessWebView({
         // Cross-tab nav fix, full-document half: real document loads CAN be
         // cancelled here, so the origin pane never leaves its route at all.
         onShouldStartLoadWithRequest={(req) => {
+          if (NAV_PERF && req.isTopFrame !== false)
+            lastIntercept.current = { at: Date.now(), url: req.url };
           // Rule 5 (Android): the statement download navigation never paints —
           // intercept, fetch natively, hand to the system sheet.
           if (Platform.OS === 'android' && req.url.includes('/api/cleaner/statement')) {
@@ -1679,7 +1872,10 @@ function SeamlessWebView({
           if (tabKey && onCrossTab) {
             const target = tabRootKey(req.url);
             if (target && target !== tabKey) {
-              if (!crossTabDup(req.url)) onCrossTab(target);
+              if (!crossTabDup(req.url)) {
+                if (NAV_PERF) pendingTap = { key: target, at: Date.now(), via: 'link' };
+                onCrossTab(target);
+              }
               return false;
             }
           }
@@ -1688,6 +1884,7 @@ function SeamlessWebView({
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
+          if (NAV_PERF && perf.current && perf.current.t4 === null) perf.current.t4 = Date.now(); // T4
           loadingPanes.delete(paneToken); // the document finished, loaded or failed
           if (retryPending.current) return; // silent retry in flight — keep the loader up
           // O2 (James-ruled): no budget reset here — Android synthesises a
@@ -1703,6 +1900,7 @@ function SeamlessWebView({
             if (retryPending.current) return; // O3: a retry is waiting — not a render
             retryBudget.current = 0;
             lieRetry.current = false;
+            if (NAV_PERF && perf.current) perf.current.longStop = true;
             setLoaded(true);
           }, 6000);
         }}
