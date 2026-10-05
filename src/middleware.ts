@@ -128,7 +128,8 @@ export async function middleware(request: NextRequest) {
       const names = request.cookies.getAll().map((c) => c.name);
       const diagToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
       loginDiag('request', {
-        path: pathname + request.nextUrl.search,
+        // The bridge's single-use code rides its query — never logged.
+        path: pathname.includes('session-bridge') ? pathname : pathname + request.nextUrl.search,
         method: request.method,
         shell: request.headers.get('x-rena-shell'),
         ua: (request.headers.get('user-agent') || '').match(/Rena(Pro|App)\/[\w.]+/)?.[0] ?? null,
