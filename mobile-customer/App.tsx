@@ -952,6 +952,15 @@ function ShellScreen({
   // Home tab; on Home with no history, the system default (background the
   // app). Each pane registers its handler; iOS never subscribes.
   const backHandlers = useRef<Record<string, () => boolean>>({});
+  // Lazy pane construction (James-ruled, Android bisect step 4): only the
+  // landing pane (Home) constructs when the shell mounts; every other
+  // pane constructs on its first show and, once mounted, stays mounted for
+  // the life of the shell (scroll/state preserved; a tab switch never tears a
+  // WebView down). Five simultaneous WebView constructions at login become
+  // one. The set is monotonic and the active tab joins it synchronously, so
+  // the pane exists on the very render that shows it.
+  const mountedPanes = useRef(new Set<string>());
+  mountedPanes.current.add(activeTab);
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   useEffect(() => {
@@ -998,9 +1007,11 @@ function ShellScreen({
       <View style={styles.flex}>
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
+          // Not yet shown: nothing constructs (lazy pane construction).
+          if (!mountedPanes.current.has(tab.key)) return null;
           // The Home tab loads the bridge URL first (sets the cookie); once
           // bridged it and every other tab load their route directly (shared
-          // cookie jar). Keep tabs mounted to preserve scroll/state.
+          // cookie jar). Once mounted, tabs stay mounted to preserve scroll/state.
           const uri = tab.key === 'home' && bridgeUrl ? bridgeUrl : `${BASE_URL}${tab.path}`;
           return (
             <TabPane key={tab.key} active={isActive}>

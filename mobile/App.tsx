@@ -962,6 +962,15 @@ function ShellScreen({
   // Android hardware back (James-ruled, Phase 2 rule 6): active pane goBack()
   // when it can, else the Today tab, else system default. iOS never subscribes.
   const backHandlers = useRef<Record<string, () => boolean>>({});
+  // Lazy pane construction (James-ruled, Android bisect step 4): only the
+  // landing pane (Today) constructs when the shell mounts; every other
+  // pane constructs on its first show and, once mounted, stays mounted for
+  // the life of the shell (scroll/state preserved; a tab switch never tears a
+  // WebView down). Five simultaneous WebView constructions at login become
+  // one. The set is monotonic and the active tab joins it synchronously, so
+  // the pane exists on the very render that shows it.
+  const mountedPanes = useRef(new Set<string>());
+  mountedPanes.current.add(activeTab);
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   useEffect(() => {
@@ -1044,9 +1053,11 @@ function ShellScreen({
       <View style={styles.flex}>
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
+          // Not yet shown: nothing constructs (lazy pane construction).
+          if (!mountedPanes.current.has(tab.key)) return null;
           // The Today tab loads the bridge URL first (sets the cookie); once
           // bridged it and every other tab load their route directly (shared
-          // cookie jar). Keep tabs mounted to preserve scroll/state.
+          // cookie jar). Once mounted, tabs stay mounted to preserve scroll/state.
           const uri = tab.key === 'today' && bridgeUrl ? bridgeUrl : `${BASE_URL}${tab.path}`;
           return (
             <TabPane key={tab.key} active={isActive}>
@@ -1608,7 +1619,9 @@ function SeamlessWebView({
           // a lie when ANY aliveness witness exists at this moment — a pane's
           // genuine render in the last 10s, a successful shell-side native
           // fetch (login / bridge / badges) in the last 10s, or a sibling
-          // pane currently mid-load that has not errored. One silent retry
+          // pane currently mid-load that has not errored (thinner under lazy
+          // pane construction: siblings exist only once shown; native-ok and
+          // dressed carry the check at login). One silent retry
           // instead of the paint — purely local, no probe, no budget change,
           // bounded once per incident. A genuine outage silences all three
           // witnesses (native fetches fail too) and paints exactly as before.
