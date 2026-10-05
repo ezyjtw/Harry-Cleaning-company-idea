@@ -3,7 +3,7 @@
     "name": "Rena",
     "slug": "rena",
     "owner": "harryw84",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "rena",
@@ -43,6 +43,17 @@
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "android": {
+            "image": "./assets/logo-lockup.png",
+            "imageWidth": 160,
+            "resizeMode": "contain",
+            "backgroundColor": "#0D1B3E"
+          }
+        }
+      ],
       "expo-secure-store",
       "expo-local-authentication",
       [

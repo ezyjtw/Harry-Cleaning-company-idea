@@ -579,7 +579,15 @@ function RootView() {
 
       {overlayMounted && (
         <Animated.View style={[styles.arrival, { opacity: overlay }]} pointerEvents="none">
-          <BreathingMark />
+          {Platform.OS === 'android' ? (
+            // Android splash batch (James-ruled, 1.0.4): the first React frame
+            // IS the Android 12 native splash: the cropped lockup at 160 dp wide,
+            // centred on the flat #EBEBEB ground, so the handoff is pixel-
+            // identical. iOS keeps the full-bleed breathing picture.
+            <Image source={logoLockup} style={styles.androidSplashLockup} resizeMode="contain" />
+          ) : (
+            <BreathingMark />
+          )}
         </Animated.View>
       )}
     </View>
@@ -1801,6 +1809,8 @@ const styles = StyleSheet.create({
   },
   // Logo lockup is ~1.85:1 (two lines: RENA / Cleaner) — box sized to that ratio.
   arrivalWordmark: { width: 230, height: 124 },
+  // Android splash batch: the native splash logo box (imageWidth 160, 621x351 lockup).
+  androidSplashLockup: { width: 160, height: 90 },
 
   // Start screen A (Pro Navy law) — lockup box identical to the arrival overlay
   // (230×124, centred) so splash → start is one motion with no seam.

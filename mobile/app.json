@@ -3,7 +3,7 @@
     "name": "Rena Pro",
     "slug": "rena-pro",
     "owner": "harryw84",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "renapro",
@@ -43,6 +43,17 @@
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "android": {
+            "image": "./assets/logo-lockup.png",
+            "imageWidth": 160,
+            "resizeMode": "contain",
+            "backgroundColor": "#EBEBEB"
+          }
+        }
+      ],
       "expo-secure-store",
       "expo-local-authentication",
       [

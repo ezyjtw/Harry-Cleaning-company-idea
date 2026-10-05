@@ -534,8 +534,23 @@ function RootView() {
       )}
 
       {overlayMounted && (
-        <Animated.View style={[styles.arrival, { opacity: overlay }]} pointerEvents="none">
-          <Image source={splashArt} style={styles.arrivalArt} resizeMode="cover" />
+        <Animated.View
+          style={[
+            styles.arrival,
+            Platform.OS === 'android' && styles.arrivalAndroid,
+            { opacity: overlay },
+          ]}
+          pointerEvents="none"
+        >
+          {Platform.OS === 'android' ? (
+            // Android splash batch (James-ruled, 1.0.2): the first React frame
+            // IS the Android 12 native splash: the white lockup at 160 dp wide,
+            // centred on the flat #0D1B3E ground (the artwork's own navy), so
+            // the handoff is pixel-identical. iOS keeps the full-bleed artwork.
+            <Image source={logoLockup} style={styles.androidSplashLockup} resizeMode="contain" />
+          ) : (
+            <Image source={splashArt} style={styles.arrivalArt} resizeMode="cover" />
+          )}
         </Animated.View>
       )}
     </View>
@@ -1616,6 +1631,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2C4C',
   },
   arrivalArt: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  // Android splash batch: flat ground + the native splash logo box (imageWidth 160, 621x188 lockup).
+  arrivalAndroid: { backgroundColor: '#0D1B3E', alignItems: 'center', justifyContent: 'center' },
+  androidSplashLockup: { width: 160, height: 48 },
 
   // Start screen — the customer lockup is a single wordmark line (~3.3:1),
   // rendered navy on the light surface.
