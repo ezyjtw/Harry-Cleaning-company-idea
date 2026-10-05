@@ -4,8 +4,15 @@
 // `no-store` and served the file with no auth consulted on a network failure.
 // The activate handler deletes every cache whose name isn't in the current
 // set, so the bump wipes rena-dynamic-v3 from every existing client on update.
-const STATIC_CACHE = 'rena-static-v4';
-const DYNAMIC_CACHE = 'rena-dynamic-v4';
+//
+// Home-after-login (James-ruled): bumped v4 → v5. The authed API family
+// carried NO Cache-Control, so networkFirst's guard let one account's
+// profile, bookings and jobs into the dynamic cache, where the next account
+// on the same device could be served them on a network failure. The routes
+// now send `private, no-store` (never written again); the bump purges what
+// is already sitting in every installed client.
+const STATIC_CACHE = 'rena-static-v5';
+const DYNAMIC_CACHE = 'rena-dynamic-v5';
 
 // H44: sensitive authed API surfaces that must NEVER touch the cache — never
 // written, never served from cache. Evidence is encrypted-at-rest material in

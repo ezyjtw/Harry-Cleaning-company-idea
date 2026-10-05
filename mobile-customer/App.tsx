@@ -111,6 +111,28 @@ const PUSH_ACTIVATED = false;
 // Deregistration rides every path that clears the bearer (fires before the
 // bearer is deleted — the endpoint is authed). Fail-soft; with activation
 // still gated there is never a token to remove, so this is dormant plumbing.
+// Session lifecycle (James-ruled, Home-after-login): every shell logout ends
+// the WEB session too. The server expires the NextAuth session cookie on this
+// response, so the shared jar (iOS NSHTTPCookieStorage via the native fetch,
+// Android CookieManager, which the WebView reads directly) drops the previous
+// account; a later pane load can never carry it. Runs alongside the push
+// deregistration (no added wall time) and is capped so a dead network can
+// never hold the logout — the bearer is deleted regardless.
+async function endWebSession(): Promise<void> {
+  try {
+    const ctrl = new AbortController();
+    const cutoff = setTimeout(() => ctrl.abort(), 1500);
+    await fetch(`${BASE_URL}/api/auth/shell-logout`, {
+      method: 'POST',
+      headers: SHELL_HEADER,
+      signal: ctrl.signal,
+    });
+    clearTimeout(cutoff);
+  } catch {
+    /* fail-soft */
+  }
+}
+
 async function deregisterPush(): Promise<void> {
   try {
     const pushToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
@@ -398,8 +420,17 @@ function RootView() {
   }, []);
 
   const logout = useCallback(async () => {
-    await deregisterPush();
+    await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // Root-level survivors cleared with the session (James-ruled): a parked
+    // deep link or push forward, and the lie check's witness clocks, never
+    // outlive an account — the parked forward used to re-fire into Home on
+    // every later login until restart.
+    pendingTab.current = null;
+    pendingNav.current = null;
+    setExternalNav(null);
+    lastDressedAt = 0;
+    lastNativeOkAt = 0;
     // A signed-out app must not keep a stale count on the icon.
     Notifications.setBadgeCountAsync(0).catch(() => {});
     setBridgeUrl(null);
@@ -409,15 +440,33 @@ function RootView() {
   // Leaving the lock screen for the password form or another account clears
   // the stored bearer either way; the destinations differ.
   const goToPasswordLogin = useCallback(async () => {
-    await deregisterPush();
+    await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // Root-level survivors cleared with the session (James-ruled): a parked
+    // deep link or push forward, and the lie check's witness clocks, never
+    // outlive an account — the parked forward used to re-fire into Home on
+    // every later login until restart.
+    pendingTab.current = null;
+    pendingNav.current = null;
+    setExternalNav(null);
+    lastDressedAt = 0;
+    lastNativeOkAt = 0;
     setBridgeUrl(null);
     setLockFailed(false);
     setPhase('login');
   }, []);
   const switchAccount = useCallback(async () => {
-    await deregisterPush();
+    await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // Root-level survivors cleared with the session (James-ruled): a parked
+    // deep link or push forward, and the lie check's witness clocks, never
+    // outlive an account — the parked forward used to re-fire into Home on
+    // every later login until restart.
+    pendingTab.current = null;
+    pendingNav.current = null;
+    setExternalNav(null);
+    lastDressedAt = 0;
+    lastNativeOkAt = 0;
     setBridgeUrl(null);
     setLockFailed(false);
     setPhase('start');

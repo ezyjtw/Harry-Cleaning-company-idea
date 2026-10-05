@@ -97,6 +97,12 @@ const protectedRoutes = [
 ];
 const authRoutes = ['/login', '/register', '/forgot-password'];
 
+// The session-scoped API surface (every route whose body depends on who is
+// asking). Public, user-agnostic APIs (pricing, the cleaners directory,
+// waitlist, health) stay outside it.
+const AUTHED_API_FAMILY =
+  /^\/api\/(auth|account|addresses|admin|agreements|bookings|calendar|chat|cleaner|customer|disputes|gdpr|messages|notifications|push|recurring|verification)(\/|$)/;
+
 // R1: segment-boundary matching. Plain startsWith over-matched sibling routes —
 // '/cleaners' (the PUBLIC directory) begins with '/cleaner' (the protected
 // portal), so guests hit a login wall on find-a-cleaner. A route matches only
@@ -159,7 +165,18 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    return NextResponse.next();
+    // Privacy (James-ruled, Home-after-login): the authed API family is never
+    // cacheable by anything between the route and the screen. Without this
+    // the responses carried no Cache-Control at all, and the service worker
+    // wrote one account's profile, bookings and jobs into origin-scoped Cache
+    // Storage, where the next account's session could be served them on a
+    // network failure. `private, no-store` is what the SW's own guard and the
+    // WebView HTTP cache both honour.
+    const apiResponse = NextResponse.next();
+    if (AUTHED_API_FAMILY.test(pathname)) {
+      apiResponse.headers.set('Cache-Control', 'private, no-store');
+    }
+    return apiResponse;
   }
 
   // Canonical domain redirect: apex → www
