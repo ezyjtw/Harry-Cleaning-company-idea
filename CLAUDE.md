@@ -49,12 +49,11 @@ The shells (`mobile/`, `mobile-customer/`) are frozen. **No shell OTA for any
 reason without James's explicit word naming the piece.** The freeze re-closes
 behind every publish. Where the shells rest: **Pro** = R12-era baseline + tamed
 PTR + loader clipping + Stripe escape net + O2/O3 + the three-witness lie check
-
-- Track 1 session lifecycle; **customer** = pre-R13 R8b baseline + tamed PTR +
-  O2/O3 + lie check + Track 1. The lie check stays: harmless, correct, and the
-  net that would catch the stale-socket family if it ever appears for real.
-  Server-side fixes that reach installed binaries on deploy are always preferred
-  to an OTA when they can do the job (the Home-after-login bridge fix was one).
+plus Track 1 session lifecycle; **customer** = pre-R13 R8b baseline + tamed PTR
+plus O2/O3 + lie check + Track 1. The lie check stays: harmless, correct, and the
+net that would catch the stale-socket family if it ever appears for real.
+Server-side fixes that reach installed binaries on deploy are always preferred
+to an OTA when they can do the job (the Home-after-login bridge fix was one).
 
 ## Bench doctrine (binding)
 
