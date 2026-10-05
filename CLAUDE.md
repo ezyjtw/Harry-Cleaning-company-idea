@@ -43,6 +43,37 @@ A backslash inside any injected template literal is written doubled (`\\/`) or
 avoided (RegExp constructor with string patterns); an escape sweep across both
 shells' template literals rides the gate.
 
+## Shell freeze (standing state, James-ruled)
+
+The shells (`mobile/`, `mobile-customer/`) are frozen. **No shell OTA for any
+reason without James's explicit word naming the piece.** The freeze re-closes
+behind every publish. Where the shells rest: **Pro** = R12-era baseline + tamed
+PTR + loader clipping + Stripe escape net + O2/O3 + the three-witness lie check
+
+- Track 1 session lifecycle; **customer** = pre-R13 R8b baseline + tamed PTR +
+  O2/O3 + lie check + Track 1. The lie check stays: harmless, correct, and the
+  net that would catch the stale-socket family if it ever appears for real.
+  Server-side fixes that reach installed binaries on deploy are always preferred
+  to an OTA when they can do the job (the Home-after-login bridge fix was one).
+
+## Bench doctrine (binding)
+
+Nothing is rated harmless by reading it. A change is innocent only when the
+bench says so: a real measurement on the rig (or the device) against the
+current baseline, same conditions, before and after. The burden sits on the
+change to prove innocence, never on the symptom to prove guilt. Two relapses
+wrote this: a template literal that read as valid JS and cooked into a syntax
+error (the piece-1 slowness), and a redirect that worked on every rig because
+the rig's host happened to BE the server's own address (the Home-after-login
+bridge: `request.url` behind Railway resolves to `localhost:<port>`, so a rig
+addressed as localhost passed falsely for three months). So the bench must
+break the coincidences the rig shares with the server: spoof the public `Host`
+header, point the advertised host at a dead address, cook the string, read the
+edge log for the request that never arrived. A rig that cannot fail is not a
+bench. Relative Locations for route-handler redirects; middleware redirects are
+relativised by Next itself and must stay absolute (a hand-built relative
+Location in middleware throws in Next's sandbox).
+
 ## App leak-proofing law (binding)
 
 The native app effort may only touch: **`mobile/`**, **`/app` routes**, and

@@ -3,8 +3,6 @@ import { NextResponse } from 'next/server';
 import { encode, getToken } from 'next-auth/jwt';
 
 import { verifyAndConsumeBridgeCode } from '@/lib/auth/session';
-// TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
-import { loginDiag } from '@/lib/login-diag';
 import { rateLimit } from '@/lib/rate-limit';
 
 // ─── Rena Pro auth bridge ────────────────────────────────────────────────────
@@ -144,12 +142,10 @@ export async function GET(request: NextRequest) {
     // No new access is granted; the session in hand is the only key used.
     const existing = await getToken({ req: request, secret });
     if (existing) {
-      loginDiag('bridge', { outcome: 'replay-redirect', user: existing.sub ?? null, callbackUrl });
       return relativeRedirect(callbackUrl);
     }
     // Tier 2 — genuinely dead (expired before ever redeeming, cookie never
     // landed, or no code at all): the honest dressed page, never raw JSON.
-    loginDiag('bridge', { outcome: 'dead', hadCode: !!code, status: code ? 401 : 400 });
     return bridgeFailurePage(code ? 401 : 400);
   }
 
@@ -169,14 +165,6 @@ export async function GET(request: NextRequest) {
   });
 
   const secure = isSecureContext();
-  loginDiag('bridge', {
-    outcome: 'minted',
-    user: user.id,
-    role: user.role,
-    cookie: sessionCookieName(secure),
-    callbackUrl,
-    shell: request.headers.get('x-rena-shell'),
-  });
   const res = relativeRedirect(callbackUrl);
   res.cookies.set(sessionCookieName(secure), sessionToken, {
     httpOnly: true,

@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { loginDiag } from '@/lib/login-diag';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
 
@@ -39,12 +38,6 @@ export async function PUT(request: NextRequest) {
 export async function GET() {
   try {
     const sessionUser = await getSessionUser();
-    // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
-    loginDiag('api', {
-      route: '/api/auth/profile',
-      user: sessionUser?.id ?? null,
-      status: sessionUser ? 200 : 401,
-    });
     if (!sessionUser) {
       return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
     }
