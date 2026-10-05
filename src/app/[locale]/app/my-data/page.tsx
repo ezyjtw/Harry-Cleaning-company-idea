@@ -26,6 +26,7 @@ interface ExportPayload {
   addresses?: Json[];
   bookings?: Json[];
   cleanerProfile?: Json | null;
+  jobsAsCleaner?: Json[];
   exportedAt?: string;
 }
 
@@ -53,6 +54,21 @@ const LABELS: Record<string, string> = {
   identityVerifiedAt: 'Identity verified',
   rating: 'Rating',
   completedJobs: 'Completed jobs',
+  id: 'Reference',
+  date: 'Date',
+  startTime: 'Start',
+  serviceType: 'Service',
+  area: 'Area',
+  hours: 'Hours',
+  pay: 'Your pay',
+  status: 'Status',
+  payoutStatus: 'Payout',
+  totalPrice: 'Total price',
+  review: 'Review',
+  label: 'Label',
+  line1: 'Address line 1',
+  line2: 'Address line 2',
+  city: 'Town',
 };
 
 function labelOf(key: string): string {
@@ -308,11 +324,29 @@ export default function MyDataRoom() {
 
           <section className="mt-3 rounded-2xl border border-line bg-surface px-4 py-4">
             <h2 className="font-jost text-[15px] font-semibold text-ink">
-              Bookings you made as a customer
+              Jobs you carried out as a cleaner
             </h2>
             <p className="mt-1 font-jost text-[12px] text-ink-3">
-              Cleans you carried out as a cleaner live in your Earnings statements, not here.
+              Every job assigned to you: date, service, area, your pay and its status. The
+              customer&rsquo;s full address is their data, so only the area is here.
             </p>
+            <div className="mt-2 space-y-3" data-testid="my-data-jobs">
+              {data.jobsAsCleaner && data.jobsAsCleaner.length > 0 ? (
+                data.jobsAsCleaner.map((j, i) => (
+                  <div key={String(j.id ?? i)} className="rounded-[10px] bg-page px-3 py-2">
+                    <Rows data={j} />
+                  </div>
+                ))
+              ) : (
+                <p className="font-jost text-[13px] text-ink-3">None yet.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="mt-3 rounded-2xl border border-line bg-surface px-4 py-4">
+            <h2 className="font-jost text-[15px] font-semibold text-ink">
+              Bookings you made as a customer
+            </h2>
             <div className="mt-2 space-y-3">
               {data.bookings && data.bookings.length > 0 ? (
                 data.bookings.map((b, i) => (

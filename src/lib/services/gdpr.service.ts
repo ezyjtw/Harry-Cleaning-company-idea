@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { bookingCity, bookingPostcode } from '@/lib/utils/booking-address';
 
 import { AuditService } from './audit.service';
 import { DocumentStorageService } from './document-storage.service';
@@ -496,6 +497,15 @@ export class GdprService {
         },
         reviewsGiven: true,
         cleanerProfile: true,
+        // James-ruled (Download my data, Pro): a cleaner's work records are
+        // her personal data under a subject-access reading, so her export
+        // carries the jobs she was assigned. Legacy address relation rides
+        // for the pre-A12 area fallback only.
+        bookingsAsCleaner: {
+          where: { status: { not: 'ABANDONED' } },
+          orderBy: { date: 'desc' },
+          include: { address: { select: { city: true, postcode: true } } },
+        },
       },
     });
 
@@ -566,6 +576,33 @@ export class GdprService {
             createdAt: user.cleanerProfile.createdAt,
           }
         : null,
+      // CLEANER accounts only (customers' export is unchanged, the key is
+      // absent): every job assigned to her, by date, with the service, the
+      // area (outward postcode and town, never the customer's full address,
+      // which is the customer's data, not hers), her pay snapshot, the hours,
+      // the status, and for completed cleans whether the payout released.
+      // ABANDONED rows (never paid, no offer ever fired) are not jobs.
+      ...(user.role === 'CLEANER'
+        ? {
+            jobsAsCleaner: user.bookingsAsCleaner.map((b) => {
+              const postcode = bookingPostcode(b);
+              const outward = postcode.split(/\s+/)[0] || null;
+              const town = bookingCity(b) || null;
+              return {
+                id: b.id,
+                date: b.date,
+                startTime: b.startTime,
+                serviceType: b.serviceType,
+                area: [outward, town].filter(Boolean).join(', ') || null,
+                hours: b.duration,
+                pay: b.cleanerEarnings,
+                status: b.status,
+                payoutStatus:
+                  b.status === 'COMPLETED' || b.status === 'REVIEWED' ? b.transferStatus : null,
+              };
+            }),
+          }
+        : {}),
       exportedAt: new Date().toISOString(),
     };
   }
