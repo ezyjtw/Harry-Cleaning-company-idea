@@ -358,15 +358,28 @@ export default function ProfileHubPage() {
           of the customer app's "Your data" door — opens the dressed
           /app/delete-account room on the existing deletion flow. */}
       <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
-        <button
-          type="button"
-          className={`${rowCls} text-danger`}
-          onClick={() => go('/app/delete-account')}
-          data-testid="delete-account-row"
-        >
-          Delete my account
-          {chevron}
-        </button>
+        <div className="divide-y divide-line/60">
+          {/* James-ruled rider: GDPR export parity, same room grammar, the
+              existing /api/gdpr/export path rendered in-shell. */}
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => go('/app/my-data')}
+            data-testid="my-data-row"
+          >
+            Download my data
+            {chevron}
+          </button>
+          <button
+            type="button"
+            className={`${rowCls} text-danger`}
+            onClick={() => go('/app/delete-account')}
+            data-testid="delete-account-row"
+          >
+            Delete my account
+            {chevron}
+          </button>
+        </div>
       </section>
     </div>
   );
