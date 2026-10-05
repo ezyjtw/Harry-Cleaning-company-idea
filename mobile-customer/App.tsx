@@ -8,7 +8,8 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Updates from 'expo-updates';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -139,6 +140,98 @@ const SANS_SEMI = 'Jost-SemiBold';
 // is never a white frame between the OS splash and our first paint.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// ─── TEMPORARY ANDROID STARTUP DIAGNOSTICS (James-ordered, 2026-10-05) ──────
+// Android-only beacons at each startup stage to /api/shell/diag, readable in
+// Railway: JS entry (with the expo-updates identity and the native updates log
+// of the previous launch), boot, secure-store, splash, phase, fonts, reveal,
+// first WebView load, pane errors, and any fatal or render error caught before
+// death. Inert on iOS. Nothing here changes behaviour; a caught fatal is still
+// rethrown after the beacon has had 1.5s to leave. REMOVED on James's word.
+const BOOT_DIAG = Platform.OS === 'android';
+const bootT0 = Date.now();
+function bootDiag(stage: string, fields: Record<string, unknown> = {}): Promise<void> {
+  if (!BOOT_DIAG) return Promise.resolve();
+  try {
+    return fetch(`${BASE_URL}/api/shell/diag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...SHELL_HEADER },
+      body: JSON.stringify({ app: 'customer', stage, ms: Date.now() - bootT0, ...fields }),
+    }).then(
+      () => undefined,
+      () => undefined
+    );
+  } catch {
+    return Promise.resolve();
+  }
+}
+bootDiag('js-entry', {
+  updateId: Updates.updateId,
+  embedded: Updates.isEmbeddedLaunch,
+  runtimeVersion: Updates.runtimeVersion,
+  channel: Updates.channel,
+  createdAt: Updates.createdAt ? String(Updates.createdAt) : null,
+  launchDuration: Updates.launchDuration,
+});
+if (BOOT_DIAG) {
+  Updates.readLogEntriesAsync(60 * 60 * 1000)
+    .then((entries) =>
+      bootDiag('updates-log', {
+        count: entries.length,
+        last: entries.slice(-20).map((e) => ({
+          t: e.timestamp,
+          l: e.level,
+          c: e.code,
+          m: String(e.message).slice(0, 200),
+        })),
+      })
+    )
+    .catch((e) =>
+      bootDiag('updates-log', { error: String((e as { message?: unknown })?.message ?? e) })
+    );
+  type Handler = (error: unknown, isFatal?: boolean) => void;
+  const EU = (
+    globalThis as unknown as {
+      ErrorUtils?: {
+        getGlobalHandler?: () => Handler | undefined;
+        setGlobalHandler?: (h: Handler) => void;
+      };
+    }
+  ).ErrorUtils;
+  const prevHandler = EU?.getGlobalHandler?.();
+  EU?.setGlobalHandler?.((error, isFatal) => {
+    const err = error as { message?: unknown; stack?: unknown };
+    const send = bootDiag('fatal', {
+      isFatal: !!isFatal,
+      message: String(err?.message ?? error).slice(0, 500),
+      stack: String(err?.stack ?? '').slice(0, 2500),
+    });
+    const done = () => prevHandler?.(error, isFatal);
+    Promise.race([send, new Promise((r) => setTimeout(r, 1500))]).then(done, done);
+  });
+}
+
+// Render errors: beacon, then rethrow after 1.5s so the crash still happens.
+class BootErrorBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error, info: { componentStack?: string | null }) {
+    bootDiag('render-error', {
+      message: String(error?.message ?? error).slice(0, 500),
+      stack: String(error?.stack ?? '').slice(0, 1500),
+      component: String(info?.componentStack ?? '').slice(0, 800),
+    }).then(() =>
+      setTimeout(() => {
+        throw error;
+      }, 100)
+    );
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 // Tab bar (James-ruled, the approved mockup): five slots, BOOK raised centre.
 // Phase 2: Home and Book are purpose-built L2 pages; the rest wrap their
 // portal routes (My Cleans arrives skinned in-shell).
@@ -209,7 +302,9 @@ function fireHaptic(style: string) {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <RootView />
+      <BootErrorBoundary>
+        <RootView />
+      </BootErrorBoundary>
     </SafeAreaProvider>
   );
 }
@@ -217,6 +312,12 @@ export default function App() {
 function RootView() {
   const [fontsLoaded] = useFonts(FONTS);
   const [phase, setPhase] = useState<Phase>('boot');
+  useEffect(() => {
+    bootDiag('phase', { phase });
+  }, [phase]);
+  useEffect(() => {
+    if (fontsLoaded) bootDiag('fonts-loaded');
+  }, [fontsLoaded]);
   // The URL the first WebView loads after login: the session-bridge, which sets
   // the WebView session cookie and redirects into the app. Null once bridged.
   const [bridgeUrl, setBridgeUrl] = useState<string | null>(null);
@@ -236,14 +337,19 @@ function RootView() {
   }, [overlay]);
 
   const boot = useCallback(async () => {
+    bootDiag('boot-start');
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    bootDiag('secure-store', { hasToken: !!token });
     // Hand off from the OS splash to our identical JS overlay before deciding.
     await SplashScreen.hideAsync().catch(() => {});
+    bootDiag('splash-hidden');
     setPhase(token ? 'locked' : 'start');
   }, []);
 
   useEffect(() => {
-    boot();
+    boot().catch((e) => {
+      bootDiag('boot-error', { message: String((e as { message?: unknown })?.message ?? e) });
+    });
   }, [boot]);
 
   // ── Deep links: a link can arrive before the shell is up (cold start lands
@@ -340,7 +446,10 @@ function RootView() {
   // Reveal the content the moment we land on a real screen AND the brand fonts
   // are ready — so no system-font text ever flashes behind the fade.
   useEffect(() => {
-    if ((phase === 'start' || phase === 'shell' || phase === 'locked') && fontsLoaded) reveal();
+    if ((phase === 'start' || phase === 'shell' || phase === 'locked') && fontsLoaded) {
+      reveal();
+      bootDiag('overlay-reveal', { phase });
+    }
   }, [phase, fontsLoaded, reveal]);
 
   const onLoggedIn = useCallback(async (token: string, bridgeCode: string) => {
@@ -1256,6 +1365,7 @@ function SeamlessWebView({
   // Post-login lie fix: one extra silent retry per incident, spent only when
   // another pane's genuine render proves the network alive at paint time.
   const lieRetry = useRef(false);
+  const firstLoadDiag = useRef(false);
   // Branch B: this pane's identity in the module-level mid-load registry.
   const paneToken = useRef({}).current;
   useEffect(() => () => void loadingPanes.delete(paneToken), [paneToken]);
@@ -1343,6 +1453,7 @@ function SeamlessWebView({
         retryBudget.current = 0; // O2: a genuine render resets the budget
         lieRetry.current = false;
         lastDressedAt = Date.now(); // the network answered with a real page
+        bootDiag('dressed', { pane: tabKey ?? null });
         setLoaded(true);
       }
     } catch {
@@ -1431,6 +1542,10 @@ function SeamlessWebView({
         // clothes. onLoadStart fires per document load (not for SPA
         // pushState), which is exactly the coverage the ruling names.
         onLoadStart={() => {
+          if (!firstLoadDiag.current) {
+            firstLoadDiag.current = true;
+            bootDiag('first-load-start', { pane: tabKey ?? null });
+          }
           if (longStop.current) {
             clearTimeout(longStop.current);
             longStop.current = null;
@@ -1473,7 +1588,12 @@ function SeamlessWebView({
             setLoaded(true);
           }, 6000);
         }}
-        onError={() => {
+        onError={(e) => {
+          bootDiag('pane-error', {
+            pane: tabKey ?? null,
+            code: e.nativeEvent?.code ?? null,
+            description: e.nativeEvent?.description ?? null,
+          });
           loadingPanes.delete(paneToken); // this pane errored — not a witness
           if (retryBudget.current < 2) {
             retryBudget.current += 1;
