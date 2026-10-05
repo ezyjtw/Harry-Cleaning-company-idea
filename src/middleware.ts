@@ -4,8 +4,6 @@ import { getToken } from 'next-auth/jwt';
 import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
-// TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
-import { LOGIN_DIAG_PATHS, loginDiag } from '@/lib/login-diag';
 
 // ─── Client IP resolution ───────────────────────────────────────────────────
 
@@ -122,36 +120,6 @@ export async function middleware(request: NextRequest) {
   // (or any orchestrator) always gets a fast, unobstructed response.
   if (pathname === '/api/health') {
     return NextResponse.next();
-  }
-
-  // TEMPORARY LOGIN DIAGNOSTICS (James-ordered): for every request on the
-  // Home-window surface, log the session the request CARRIED — which cookie
-  // names were presented (a duplicate session cookie would show as count 2),
-  // which user the token resolves to (or none), and which shell sent it.
-  // Removed in the fix commit.
-  if (LOGIN_DIAG_PATHS.test(pathname)) {
-    try {
-      const names = request.cookies.getAll().map((c) => c.name);
-      const diagToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-      loginDiag('request', {
-        // The bridge's single-use code rides its query — never logged.
-        path: pathname.includes('session-bridge') ? pathname : pathname + request.nextUrl.search,
-        method: request.method,
-        shell: request.headers.get('x-rena-shell'),
-        ua: (request.headers.get('user-agent') || '').match(/Rena(Pro|App)\/[\w.]+/)?.[0] ?? null,
-        cookieNames: names,
-        sessionCookieCount: names.filter((n) => /next-auth\.session-token/.test(n)).length,
-        sessionUser: diagToken
-          ? {
-              id: (diagToken as { id?: string; sub?: string }).id ?? diagToken.sub ?? null,
-              role: (diagToken as { role?: string }).role ?? null,
-              pwdAt: (diagToken as { pwdAt?: number }).pwdAt ?? null,
-            }
-          : null,
-      });
-    } catch {
-      /* diagnostics never block a request */
-    }
   }
 
   // Skip locale processing for API routes and static assets

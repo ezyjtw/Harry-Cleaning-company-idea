@@ -68,22 +68,6 @@ function toHomeBooking(b: Record<string, unknown>): HomeBooking {
   };
 }
 
-// ─── TEMPORARY LOGIN DIAGNOSTICS (James-ordered, 2026-10-05) ────────────────
-// Shell-gated beacon (UA suffix): the page reports what its mount-time
-// fetches actually got to /api/shell/diag, readable in Railway logs. A
-// browser visitor never sends anything. Removed in the fix commit.
-function loginDiagBeacon(fields: Record<string, unknown>) {
-  try {
-    if (typeof navigator === 'undefined' || !/\bRena(Pro|App)\//.test(navigator.userAgent)) return;
-    navigator.sendBeacon(
-      '/api/shell/diag',
-      JSON.stringify({ src: 'web', page: 'home', path: location.pathname, ...fields })
-    );
-  } catch {
-    /* diagnostics never throw */
-  }
-}
-
 export default function CustomerHomePage() {
   const [loading, setLoading] = useState(true);
   const [firstName, setFirstName] = useState('');
@@ -94,15 +78,10 @@ export default function CustomerHomePage() {
   const [unreviewed, setUnreviewed] = useState<HomeBooking | null>(null);
 
   useEffect(() => {
-    // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
-    // Same two fetches, same ok→json/else null semantics; each reports its
-    // status (shell-gated) so the login window reads in Railway logs.
-    const diagFetch = (url: string) =>
-      fetch(url).then((r) => {
-        loginDiagBeacon({ event: 'home-fetch', url, status: r.status });
-        return r.ok ? r.json() : null;
-      });
-    Promise.all([diagFetch('/api/auth/profile'), diagFetch('/api/bookings?pageSize=50')])
+    Promise.all([
+      fetch('/api/auth/profile').then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/bookings?pageSize=50').then((r) => (r.ok ? r.json() : null)),
+    ])
       .then(([prof, data]) => {
         const u = prof?.id ? prof : prof?.user;
         if (u?.name) setFirstName(String(u.name).split(' ')[0]);
@@ -134,13 +113,7 @@ export default function CustomerHomePage() {
           .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
         setUnreviewed(pending[0] ?? null);
       })
-      .catch((err) => {
-        // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
-        loginDiagBeacon({
-          event: 'home-fetch-throw',
-          message: String((err as { message?: unknown } | null)?.message ?? err),
-        });
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 

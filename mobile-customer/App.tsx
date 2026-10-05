@@ -56,45 +56,6 @@ let lastDressedAt = 0;
 let lastNativeOkAt = 0;
 const loadingPanes = new Set<object>();
 
-// ─── TEMPORARY LOGIN DIAGNOSTICS (James-ordered, 2026-10-05) ────────────────
-// Home-after-login investigation: during the login window the shell beacons
-// what reaches it (pane, onError code/description, onHttpError status, the
-// offline paint, whether the bridge had completed, witness ages) to
-// /api/shell/diag, readable in Railway logs. Fire-and-forget, never throws,
-// changes no behaviour. NetInfo-style connectivity is NOT available without a
-// native module, so the witness ages stand in. Removed in the fix commit.
-let diagLoginAt = 0;
-let diagBridged: boolean | null = null;
-const DIAG_WINDOW_MS = 60000;
-const inDiagWindow = () => diagLoginAt > 0 && Date.now() - diagLoginAt < DIAG_WINDOW_MS;
-const diagPath = (u: unknown): string | null =>
-  typeof u === 'string' ? u.replace(/^https?:\/\/[^/]+/, '').split('?')[0] : null;
-function diag(event: string, fields: Record<string, unknown> = {}): void {
-  try {
-    const now = Date.now();
-    fetch(`${BASE_URL}/api/shell/diag`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...SHELL_HEADER },
-      body: JSON.stringify({
-        src: 'shell',
-        app: 'customer',
-        platform: Platform.OS,
-        event,
-        msSinceLogin: diagLoginAt ? now - diagLoginAt : null,
-        bridged: diagBridged,
-        witnesses: {
-          nativeOkAgeMs: lastNativeOkAt ? now - lastNativeOkAt : null,
-          dressedAgeMs: lastDressedAt ? now - lastDressedAt : null,
-          loadingPanes: loadingPanes.size,
-        },
-        connectivity: 'n/a (no native module)',
-        ...fields,
-      }),
-    }).catch(() => {});
-  } catch {
-    /* diagnostics never throw */
-  }
-}
 const TOKEN_KEY = 'rena.customer.bearer';
 const PUSH_TOKEN_KEY = 'rena.customer.pushtoken';
 // Where the Pro app lives when it isn't installed. Empty until the App Store
@@ -396,17 +357,13 @@ function RootView() {
     // the native redemption can't complete, the old in-WebView bridge runs
     // as before — now itself protected server-side by the R8 self-heal.
     let bridged = false;
-    diagLoginAt = Date.now(); // TEMPORARY LOGIN DIAGNOSTICS
     try {
       const res = await fetch(url, { headers: SHELL_HEADER });
       bridged = res.ok; // the follow of the 307 lands 200 with the cookie
       if (res.ok) lastNativeOkAt = Date.now();
-      diag('bridge', { ok: res.ok, status: res.status, landedAt: diagPath(res.url) });
-    } catch (err) {
-      diag('bridge', { ok: false, threw: String((err as { message?: unknown })?.message ?? err) });
+    } catch {
       /* fall back to the in-WebView bridge */
     }
-    diagBridged = bridged; // TEMPORARY LOGIN DIAGNOSTICS
     setBridgeUrl(bridged ? null : url);
     setActiveTab('home');
     setPhase('shell');
@@ -714,7 +671,6 @@ function LoginScreen({
       const data = await res.json().catch(() => null);
       if (res.ok && data?.token && data?.bridgeCode) {
         lastNativeOkAt = Date.now();
-        diag('login-ok', { role: data?.user?.role ?? null }); // TEMPORARY LOGIN DIAGNOSTICS
         // Role gate: a cleaner account never enters the customer shell — the
         // bearer is NOT stored; the door screen points at Rena Pro instead.
         if (data?.user?.role === 'CLEANER') {
@@ -1387,7 +1343,6 @@ function SeamlessWebView({
         retryBudget.current = 0; // O2: a genuine render resets the budget
         lieRetry.current = false;
         lastDressedAt = Date.now(); // the network answered with a real page
-        if (tabKey === 'home' && inDiagWindow()) diag('dressed', { pane: tabKey });
         setLoaded(true);
       }
     } catch {
@@ -1483,8 +1438,6 @@ function SeamlessWebView({
           // Witness (b): only a FRESH load counts as mid-load-without-error —
           // a retry cycle (budget spent) is a pane that has already errored.
           if (retryBudget.current === 0) loadingPanes.add(paneToken);
-          if (tabKey === 'home' && inDiagWindow())
-            diag('loadStart', { pane: tabKey, url: diagPath(overrideUri ?? initialUri.current) });
           setLoaded(false);
           fade.setValue(1);
         }}
@@ -1502,8 +1455,6 @@ function SeamlessWebView({
         onMessage={onMessage}
         onLoadEnd={() => {
           loadingPanes.delete(paneToken); // the document finished, loaded or failed
-          if (tabKey === 'home' && inDiagWindow())
-            diag('loadEnd', { pane: tabKey, pending: retryPending.current });
           if (retryPending.current) return; // silent retry in flight — keep the veil up
           // O2 (James-ruled): no budget reset here — Android synthesises a
           // finish event before every error, which kept the budget at zero
@@ -1522,14 +1473,7 @@ function SeamlessWebView({
             setLoaded(true);
           }, 6000);
         }}
-        onError={(e) => {
-          diag('onError', {
-            pane: tabKey ?? null,
-            code: e.nativeEvent?.code ?? null,
-            description: e.nativeEvent?.description ?? null,
-            url: diagPath(e.nativeEvent?.url),
-            budgetBefore: retryBudget.current,
-          });
+        onError={() => {
           loadingPanes.delete(paneToken); // this pane errored — not a witness
           if (retryBudget.current < 2) {
             retryBudget.current += 1;
@@ -1554,7 +1498,6 @@ function SeamlessWebView({
           const witnessed =
             now - lastDressedAt < 10000 || now - lastNativeOkAt < 10000 || loadingPanes.size > 0;
           if (!lieRetry.current && witnessed) {
-            diag('lie-retry', { pane: tabKey ?? null });
             lieRetry.current = true;
             retryPending.current = true;
             setLoaded(false);
@@ -1565,15 +1508,12 @@ function SeamlessWebView({
             }, 600);
             return;
           }
-          diag('offline-paint', { pane: tabKey ?? null, lieRetrySpent: lieRetry.current });
           setOffline(true);
         }}
         onHttpError={(e) => {
           // A 5xx on OUR origin gets the designed interstitial; sub-resource
           // and third-party errors stay with the web pages' own states.
           const { statusCode, url } = e.nativeEvent;
-          if (typeof url === 'string' && url.startsWith(BASE_URL))
-            diag('onHttpError', { pane: tabKey ?? null, status: statusCode, url: diagPath(url) });
           if (statusCode >= 500 && typeof url === 'string' && url.startsWith(BASE_URL)) {
             setServerError(true);
           }

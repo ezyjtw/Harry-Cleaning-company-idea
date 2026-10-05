@@ -8,16 +8,9 @@ import { getCleanerSession } from '@/lib/auth/session';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { computeGoLive } from '@/lib/cleaner/verification';
 import prisma from '@/lib/db/prisma';
-import { loginDiag } from '@/lib/login-diag';
 
 export async function GET() {
   const user = await getCleanerSession();
-  // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
-  loginDiag('api', {
-    route: '/api/cleaner/badges',
-    user: user?.id ?? null,
-    status: user ? 200 : 401,
-  });
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
