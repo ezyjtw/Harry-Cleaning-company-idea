@@ -9,6 +9,7 @@ import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/time
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { loginDiag } from '@/lib/login-diag';
 import { checkRateLimit, getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { pricingService } from '@/lib/services/pricing.service';
@@ -20,6 +21,8 @@ import { isSaneDurationHours, normalizeUkPostcode } from '@/lib/validation/input
 export async function GET(request: NextRequest) {
   try {
     const user = await getSessionUser();
+    // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
+    loginDiag('api', { route: '/api/bookings', user: user?.id ?? null, status: user ? 200 : 401 });
     if (!user) {
       return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
     }

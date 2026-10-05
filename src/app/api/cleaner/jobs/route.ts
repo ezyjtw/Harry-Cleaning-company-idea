@@ -5,12 +5,19 @@ import { getCleanerSession } from '@/lib/auth/session';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { loginDiag } from '@/lib/login-diag';
 import type { ServiceSlug } from '@/lib/services/pricing.service';
 import { cleanerEarningsBreakdown, pricingService } from '@/lib/services/pricing.service';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export async function GET(request: NextRequest) {
   const user = await getCleanerSession();
+  // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
+  loginDiag('api', {
+    route: '/api/cleaner/jobs',
+    user: user?.id ?? null,
+    status: user ? 200 : 401,
+  });
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

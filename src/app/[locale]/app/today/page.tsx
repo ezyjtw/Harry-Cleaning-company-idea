@@ -432,6 +432,23 @@ function RatesDoor({ lines }: { lines: { label: string; figure: string }[] }) {
   );
 }
 
+// ─── TEMPORARY LOGIN DIAGNOSTICS (James-ordered, 2026-10-05) ────────────────
+// Shell-gated beacon: inside the native shells only (UA suffix), the page
+// reports what its mount-time fetch actually got — status, or the thrown
+// failure class — to /api/shell/diag, readable in Railway logs. A browser
+// visitor never sends anything. Removed in the fix commit.
+function loginDiagBeacon(fields: Record<string, unknown>) {
+  try {
+    if (typeof navigator === 'undefined' || !/\bRena(Pro|App)\//.test(navigator.userAgent)) return;
+    navigator.sendBeacon(
+      '/api/shell/diag',
+      JSON.stringify({ src: 'web', page: 'today', path: location.pathname, ...fields })
+    );
+  } catch {
+    /* diagnostics never throw */
+  }
+}
+
 export default function TodayPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -656,7 +673,11 @@ export default function TodayPage() {
       const [res, offersRes] = await Promise.all([
         fetch(
           '/api/cleaner/jobs?status=ACCEPTED,CONFIRMED,EN_ROUTE,IN_PROGRESS,COMPLETED&limit=50'
-        ),
+        ).then((r) => {
+          // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
+          loginDiagBeacon({ event: 'jobs-fetch', status: r.status });
+          return r;
+        }),
         // Today V2: live offers ride the same jobs API (additive field carries
         // the window end); best-effort — a failed offers read never breaks Today.
         fetch('/api/cleaner/jobs?status=AWAITING_CLEANER&limit=10').catch(() => null),
@@ -686,7 +707,12 @@ export default function TodayPage() {
       setDayOne(list.length === 0 ? await resolveDayOne() : null);
       setJobs(list);
       setLoadError(false);
-    } catch {
+    } catch (err) {
+      // TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
+      loginDiagBeacon({
+        event: 'jobs-fetch-throw',
+        message: String((err as { message?: unknown } | null)?.message ?? err),
+      });
       setLoadError(true);
     } finally {
       setLoading(false);

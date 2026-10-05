@@ -4,6 +4,8 @@ import { getToken } from 'next-auth/jwt';
 import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
+// TEMPORARY LOGIN DIAGNOSTICS (James-ordered) — removed in the fix commit.
+import { LOGIN_DIAG_PATHS, loginDiag } from '@/lib/login-diag';
 
 // ─── Client IP resolution ───────────────────────────────────────────────────
 
@@ -95,6 +97,12 @@ const protectedRoutes = [
 ];
 const authRoutes = ['/login', '/register', '/forgot-password'];
 
+// The session-scoped API surface (every route whose body depends on who is
+// asking). Public, user-agnostic APIs (pricing, the cleaners directory,
+// waitlist, health) stay outside it.
+const AUTHED_API_FAMILY =
+  /^\/api\/(auth|account|addresses|admin|agreements|bookings|calendar|chat|cleaner|customer|disputes|gdpr|messages|notifications|push|recurring|verification)(\/|$)/;
+
 // R1: segment-boundary matching. Plain startsWith over-matched sibling routes —
 // '/cleaners' (the PUBLIC directory) begins with '/cleaner' (the protected
 // portal), so guests hit a login wall on find-a-cleaner. A route matches only
@@ -116,6 +124,36 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // TEMPORARY LOGIN DIAGNOSTICS (James-ordered): for every request on the
+  // Home-window surface, log the session the request CARRIED — which cookie
+  // names were presented (a duplicate session cookie would show as count 2),
+  // which user the token resolves to (or none), and which shell sent it.
+  // Removed in the fix commit.
+  if (LOGIN_DIAG_PATHS.test(pathname)) {
+    try {
+      const names = request.cookies.getAll().map((c) => c.name);
+      const diagToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      loginDiag('request', {
+        // The bridge's single-use code rides its query — never logged.
+        path: pathname.includes('session-bridge') ? pathname : pathname + request.nextUrl.search,
+        method: request.method,
+        shell: request.headers.get('x-rena-shell'),
+        ua: (request.headers.get('user-agent') || '').match(/Rena(Pro|App)\/[\w.]+/)?.[0] ?? null,
+        cookieNames: names,
+        sessionCookieCount: names.filter((n) => /next-auth\.session-token/.test(n)).length,
+        sessionUser: diagToken
+          ? {
+              id: (diagToken as { id?: string; sub?: string }).id ?? diagToken.sub ?? null,
+              role: (diagToken as { role?: string }).role ?? null,
+              pwdAt: (diagToken as { pwdAt?: number }).pwdAt ?? null,
+            }
+          : null,
+      });
+    } catch {
+      /* diagnostics never block a request */
+    }
+  }
+
   // Skip locale processing for API routes and static assets
   if (pathname.startsWith('/api')) {
     const ip = getClientIpFromHeaders(request);
@@ -127,7 +165,18 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    return NextResponse.next();
+    // Privacy (James-ruled, Home-after-login): the authed API family is never
+    // cacheable by anything between the route and the screen. Without this
+    // the responses carried no Cache-Control at all, and the service worker
+    // wrote one account's profile, bookings and jobs into origin-scoped Cache
+    // Storage, where the next account's session could be served them on a
+    // network failure. `private, no-store` is what the SW's own guard and the
+    // WebView HTTP cache both honour.
+    const apiResponse = NextResponse.next();
+    if (AUTHED_API_FAMILY.test(pathname)) {
+      apiResponse.headers.set('Cache-Control', 'private, no-store');
+    }
+    return apiResponse;
   }
 
   // Canonical domain redirect: apex → www
