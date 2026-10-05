@@ -63,6 +63,26 @@ function bridgeFailurePage(status: number): NextResponse {
   });
 }
 
+// Home-after-login root cause (James-read from the 13:03 window): behind
+// Railway's proxy, `request.url` resolves to the server's own listen address,
+// so `new URL(callbackUrl, url.origin)` produced
+// `Location: https://localhost:<port>/app/today`. The device followed it into
+// its own localhost and died instantly: NSURLErrorCannotConnectToHost (-1004,
+// "Could not connect to the server"), identically for the native redemption
+// (RN fetch "Network request failed") and the WebView fallback, on every login
+// since the bridge was built. The Set-Cookie on the 307 still landed, which is
+// why every OTHER pane worked and only the landing (the one pane that boots on
+// the bridge) painted offline. A RELATIVE Location is resolved by the client
+// against the public URL it actually requested, proxy-agnostic, the same
+// pattern the Xero callback already documents. NextResponse.redirect() insists
+// on an absolute URL, so the response is built by hand; cookies still attach.
+function relativeRedirect(path: string): NextResponse {
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: path, 'Cache-Control': 'no-store' },
+  });
+}
+
 function isSecureContext(): boolean {
   return (process.env.NEXTAUTH_URL || '').startsWith('https://');
 }
@@ -125,7 +145,7 @@ export async function GET(request: NextRequest) {
     const existing = await getToken({ req: request, secret });
     if (existing) {
       loginDiag('bridge', { outcome: 'replay-redirect', user: existing.sub ?? null, callbackUrl });
-      return NextResponse.redirect(new URL(callbackUrl, url.origin));
+      return relativeRedirect(callbackUrl);
     }
     // Tier 2 — genuinely dead (expired before ever redeeming, cookie never
     // landed, or no code at all): the honest dressed page, never raw JSON.
@@ -157,7 +177,7 @@ export async function GET(request: NextRequest) {
     callbackUrl,
     shell: request.headers.get('x-rena-shell'),
   });
-  const res = NextResponse.redirect(new URL(callbackUrl, url.origin));
+  const res = relativeRedirect(callbackUrl);
   res.cookies.set(sessionCookieName(secure), sessionToken, {
     httpOnly: true,
     secure,
