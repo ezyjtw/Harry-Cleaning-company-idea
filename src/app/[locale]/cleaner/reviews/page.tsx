@@ -3,6 +3,8 @@
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import ReportReviewButton from '@/components/ReportReviewButton';
+
 interface ReviewItem {
   id: string;
   clientName: string;
@@ -273,6 +275,11 @@ export default function ReviewsPage() {
                   </div>
                 </div>
                 <p className="font-jost text-sm font-light text-ink-2">{review.comment}</p>
+                {/* UGC report door (James-ordered): a cleaner can report a review
+                    about her. Reporting never changes what the review shows. */}
+                <div className="mt-2">
+                  <ReportReviewButton reviewId={review.id} />
+                </div>
 
                 {review.reply && (
                   <div className="mt-3 ml-4 pl-4 border-l-2 border-primary rounded-r-lg bg-primary/5 p-3">

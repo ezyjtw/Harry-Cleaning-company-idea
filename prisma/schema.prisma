@@ -280,6 +280,8 @@ model User {
   blocksReceived         UserBlock[]             @relation("BlocksReceived")
   reportsFiled           MessageReport[]         @relation("ReportsFiled")
   reportsAgainst         MessageReport[]         @relation("ReportsAgainst")
+  contentReportsFiled    ContentReport[]         @relation("ContentReportsFiled")
+  contentReportsAgainst  ContentReport[]         @relation("ContentReportsAgainst")
   notifications          Notification[]
   disputesRaised         Dispute[]               @relation("DisputesRaised")
   ownedCompany           Company?                @relation("CompanyOwner")
@@ -644,9 +646,10 @@ model Review {
   isVerifiedBooking Boolean          @default(true)
   isDisputed        Boolean          @default(false)
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  client  User    @relation("ReviewsGiven", fields: [clientId], references: [id], onDelete: Cascade)
-  cleaner User    @relation("ReviewsReceived", fields: [cleanerId], references: [id], onDelete: Cascade)
+  booking Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  client  User            @relation("ReviewsGiven", fields: [clientId], references: [id], onDelete: Cascade)
+  cleaner User            @relation("ReviewsReceived", fields: [cleanerId], references: [id], onDelete: Cascade)
+  reports ContentReport[]
 
   @@index([clientId])
   @@index([cleanerId])
@@ -741,6 +744,56 @@ model MessageReport {
   @@index([status])
   @@index([reportedUserId])
   @@index([messageId])
+}
+
+// UGC report + block (Apple 1.2 / Play content rating, James-ordered): a
+// user-filed report of a REVIEW or of a whole CONVERSATION partner. Sits
+// beside MessageReport (per-message) rather than widening it; both queues
+// surface in the HQ Reports room and resolve with a written reason. Reports
+// never change review visibility or publication timing on their own.
+enum ContentReportTarget {
+  REVIEW
+  CONVERSATION
+}
+
+enum ContentReportReason {
+  SPAM
+  HARASSMENT
+  OFF_PLATFORM
+  INAPPROPRIATE
+  FALSE_OR_MISLEADING
+  PRIVACY
+  OTHER
+}
+
+enum ContentReportStatus {
+  OPEN
+  RESOLVED
+}
+
+model ContentReport {
+  id             String              @id @default(cuid())
+  target         ContentReportTarget
+  reporterId     String
+  reportedUserId String
+  reviewId       String?
+  bookingId      String?
+  reason         ContentReportReason
+  details        String?             @db.Text
+  status         ContentReportStatus @default(OPEN)
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolution     String?             @db.Text
+  createdAt      DateTime            @default(now())
+
+  reporter     User    @relation("ContentReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User    @relation("ContentReportsAgainst", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  review       Review? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([reportedUserId])
+  @@index([reporterId])
+  @@index([reviewId])
 }
 
 model Notification {

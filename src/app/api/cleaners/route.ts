@@ -9,6 +9,7 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
 import { eligibleCleanerWhere, expandSlots } from '@/lib/services/area-search.service';
 import { AuditService } from '@/lib/services/audit.service';
+import { blockedUserIds } from '@/lib/services/block.service';
 import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
@@ -81,6 +82,17 @@ export async function GET(request: NextRequest) {
     } else {
       const prefix = canonical.split(' ')[0].toUpperCase();
       where.postcode = { startsWith: prefix };
+    }
+  }
+
+  // UGC block (James-ruled): a signed-in viewer never sees a cleaner either of
+  // them has blocked. Logged-out browse is untouched (no viewer, no block).
+  {
+    const { getSessionUser } = await import('@/lib/auth/session');
+    const viewer = await getSessionUser().catch(() => null);
+    const blocked = viewer ? await blockedUserIds(viewer.id) : null;
+    if (blocked && blocked.size > 0) {
+      where.userId = { notIn: Array.from(blocked) };
     }
   }
 

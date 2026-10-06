@@ -36,6 +36,8 @@ async function getGlances() {
     competitorPlaceCount,
     lastObservation,
     declineRows,
+    openContentReports,
+    openMessageReports,
   ] = await Promise.all([
     prisma.apiCallLog.groupBy({
       by: ['provider'],
@@ -66,6 +68,8 @@ async function getGlances() {
       where: { declineReasons: { not: { equals: null } } },
       select: { declineReasons: true },
     }),
+    prisma.contentReport.count({ where: { status: 'OPEN' } }),
+    prisma.messageReport.count({ where: { status: 'OPEN' } }),
   ]);
 
   // R9c glance: decline events in the window + the loudest reason.
@@ -114,6 +118,7 @@ async function getGlances() {
     placesLive: placesConfigured(),
     declines30d,
     topDeclineReason,
+    openReports: openContentReports + openMessageReports,
   };
 }
 
@@ -181,6 +186,15 @@ export default async function HqCommandScreen() {
             {g.declines30d > 0 && g.topDeclineReason
               ? `declines (30 days) · mostly ${g.topDeclineReason}`
               : 'declines (30 days) · none recorded'}
+          </DoorCard>
+
+          <DoorCard href="/admin/hq/reports" title="Reports" glance={g.openReports}>
+            <span className="inline-flex items-center gap-2">
+              <StatusDot tone={g.openReports > 0 ? 'red' : 'ok'} />
+              {g.openReports > 0
+                ? `open report${g.openReports === 1 ? '' : 's'} on reviews, chats and messages`
+                : 'open reports · none waiting'}
+            </span>
           </DoorCard>
 
           <DoorCard

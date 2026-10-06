@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import ReportReviewButton from '@/components/ReportReviewButton';
+
 import CleanerAvatar from './CleanerAvatar';
 import { FoundingBadge } from './CleanerIdentity';
 import StarRating from './StarRating';
@@ -290,11 +292,16 @@ export default function CleanerProfileView({
                       </span>
                     ) : null}
                   </span>
-                  {rev.date && (
-                    <span className="shrink-0 font-jost text-[12px] font-light text-ink-3">
-                      {rev.date}
-                    </span>
-                  )}
+                  <span className="flex shrink-0 items-center gap-2">
+                    {rev.date && (
+                      <span className="font-jost text-[12px] font-light text-ink-3">
+                        {rev.date}
+                      </span>
+                    )}
+                    {/* UGC report door (James-ordered): every Rena review carries
+                        one; imported reviews are not Rena UGC and carry none. */}
+                    {!rev.source && <ReportReviewButton reviewId={rev.id} />}
+                  </span>
                 </div>
                 <div className="mt-1">
                   <StarRating rating={rev.rating} />
