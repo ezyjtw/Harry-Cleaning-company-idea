@@ -82,7 +82,7 @@ These are the register's rules. The ones not already in CLAUDE.md are mirrored t
 ## 4. Overlap groups: one architectural change designed once
 
 - A. Service-worker policy: 048, 055, 058. One sw.js (v6) that never touches /api/\*, caches static assets by extension, precaches the offline page, keeps the push handlers. WEB.
-- B. Session design and session-lost contract: 003, 007, 019 (customer half), 029, 074, with 023's sign-in door and 020/021's auth-derived checkout mode. One design (D-g) with three edges: page (401/403 navigates to /login with callbackUrl; 5xx shows an error card with Retry; never an empty state), native (two consecutive 401s on the badges poll call logout; 403 and 5xx never do), server (DeviceSession, sessionVersion, pwdAt). WEB plus OTA both shells.
+- B. Session design and session-lost contract: 003, 007, 019 (customer half), 029, 074, with 023's sign-in door and 020/021's auth-derived checkout mode, and 084's role-home guards (the website's back path from Messages). One design (D-g) with three edges: page (401/403 navigates to /login with callbackUrl; 5xx shows an error card with Retry; never an empty state), native (two consecutive 401s on the badges poll call logout; 403 and 5xx never do), server (DeviceSession, sessionVersion, pwdAt). WEB plus OTA both shells.
 - C. Deep-link resolvers: 022, 037, 047, fed by 044. One resolver implemented identically in both shells' nav.ts, with the forward machinery ported to Pro and the cold-start notification response read. OTA both shells; 044 adds REBUILD.
 - D. Navigation policy: 024, 039, 036. One classifier by parsed URL and exact host, top-frame only (D-p), with the statement Bearer rule and the Stripe exit rule as branches. OTA both shells.
 - E. Lifecycle CAS, locks and windows: 012, 027, 028, 030, 032, 033. One assignment helper holding the per-cleaner advisory lock, expiry in the CAS, from-status in every transition WHERE, windows per D-f. WEB.
@@ -103,7 +103,7 @@ Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order 
 
 - B0 Governance, CI and decisions: the ruled decisions (section 3), CLAUDE.md and this register, CI on Node 22 with baseline unit and E2E checks, the runtime-bump check, scheduler lease and heartbeat, health 503, monitoring verification. CLOSED 2026-10-06 (James's word on each merge: 8f7e8f3, 6026a97, fd5f75f, 4b3d3b7, 66e891a). Every B0 item is DONE in code and proven in production; two James-side tails run on outside it: RENA-068's Sentry test event (EXTERNAL-VERIFY) and D-e steps four and five under RENA-081 in B7 (the seven-day single-caller watch, then cron-job.org deleted).
 - B1 Authentication, sessions and privacy boundary: 001, 002, 003, 006, 007, 009, 059, 074, 066, 077, 079 (004 held and 008 decided sit here without batch work).
-- B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054.
+- B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054, 084.
 - B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034.
 - B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080.
 - B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, 082 (or B2 if its web half leads), and the JS halves of 041, 043, 046.
@@ -155,7 +155,7 @@ Fix: James confirms both variables in Railway; beforeSend scrubbing lands with R
 Tests: the script. Manual: receipt confirmed in Sentry.
 Delivery WEB plus EXTERNAL. Proof RIG-AUTO plus EXTERNAL-VERIFY.
 Last verified commit 6026a97. Decision owner and date: none needed. Overlap group K. Regression evidence: Script refuses with exit 2 when no DSN is passed (proven on the rig); event receipt pending the James-side run.
-Implementation status: Script DONE (scripts/sentry-test-event.ts, commit a2a0207, merged 6026a97). EXTERNAL-VERIFY pending: James confirms SENTRY_DSN and NEXT_PUBLIC_SENTRY_DSN in Railway and runs the script once against the rig with the DSN passed as an environment variable (never embedded in scripts or shell history), then raises the browser event per the script's instructions.
+Implementation status: DONE, James-ruled 2026-10-06: verified via production dashboard, rig run not required. James checked sentry.io and confirmed SENTRY_DSN and NEXT_PUBLIC_SENTRY_DSN set in Railway. The script (scripts/sentry-test-event.ts, commit a2a0207, merged 6026a97) stays as the tool for any future check; it reads the DSN from the environment only. The rig environment changes (SENTRY_DSN as an environment variable, sentry.io and the project's ingest host allowed by the network policy) stand for whichever future session starts; no rig run is owed. Parked: whether the dashboard showed events present or no events yet at the time of the check is James's to state; the ruling stands either way.
 
 #### RENA-014 and RENA-062 Scheduler trigger outside the repository, doubled ticks, no liveness
 
@@ -419,6 +419,17 @@ Tests: axe-core in Playwright on those pages. Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (join, services).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
 Implementation status: TODO (B2).
+
+#### RENA-084 Website: back to the dashboard from Messages misbehaves again
+
+Severity P2. Status CONFIRMED (James-observed, James-ruled addition 2026-10-06). Batch B2. Web only. Overlap B.
+Mechanism (reconciled against source at c4d5b86, 2026-10-06): the earlier back-from-messages fix (bf5baa6, July 2026) and its sweep still hold: every in-app link goes to the role home directly, /dashboard remains a legacy junction referenced only by the middleware protected list and robots.ts, and the shell-only back-chain backstop (256770f) fires under the customer shell UA alone. The regression is therefore not that fix undone; the source shows three paths the fix never covered. (1) Role-default race: src/app/[locale]/messages/page.tsx derives the back link from currentUserRole, a state that starts as 'customer' and flips only when the /api/auth/profile fetch resolves ok; a non-ok response leaves it 'customer' for the life of the page. The link is a plain next/link, not NavLink. The page shows the skeleton until the conversations fetch resolves, so the window is the gap between the two concurrent fetches, or the whole page life when the profile call fails. A cleaner in that window sees "Back to my account" and lands on /account, whose guard effect (src/app/[locale]/account/page.tsx, the isCleaner branch) calls router.push('/cleaner'), not replace. History then reads dashboard, /messages, /account, /cleaner: the browser back button returns to /account, which pushes /cleaner again, so back is trapped and the dashboard is reached only by a second gesture. The customer side mirrors it through the cleaner page's non-cleaner push to /account (src/app/[locale]/cleaner/page.tsx) should a customer ever land on /cleaner. (2) Phone-width thread view: while a conversation is open the list column, which carries the only back-to-dashboard link, is hidden (hidden md:block); the thread header chevron only closes the thread (state, no history entry), so a browser back from the thread leaves /messages altogether. (3) No pageshow or bfcache handling exists anywhere on the website (one popstate listener in the services booking wizard is the only history code outside the shell); a dashboard restored from the back-forward cache keeps the data it had before Messages was opened, so an unread badge or a new booking can read stale after back. D-o's invalidation contract (RENA-018) is specified for the /app routes only.
+Fix: (1) derive the back link from the session the page already has (useAuth, the same source as the role-home guards) with no default route until the role is known, and make every role-home guard replace rather than push so a wrong landing never leaves a history entry; (2) keep the back-to-dashboard link reachable from the open thread on phone width; (3) extend D-o's pageshow handling to the website dashboards when B2 builds it. The exact scope is settled once James describes the symptom; nothing is built on inference.
+Migration or config: none.
+Tests: Playwright as a cleaner: open /messages, click the back link while the profile response is delayed, assert the landing is /cleaner with no /account history entry and that one browser back returns to Messages; as a customer the mirror; phone viewport: open a thread, assert the back link is reachable; pageshow: assert the dashboard refetches on a bfcache restore. Manual: James's symptom walk on the website before and after.
+Delivery WEB. Proof RIG-AUTO plus James's walk.
+Last verified commit c4d5b86. Decision owner and date: James, 2026-10-06. Overlap group B (session design and role-home guards); D is shell-only and does not apply. Regression evidence: none yet.
+Implementation status: TODO (B2). Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
 
 ### B3 Cleaner lifecycle and concurrency
 
@@ -990,6 +1001,7 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-06: RENA-068 ruled DONE (verified via production dashboard, rig run not required). RENA-084 added (website back to the dashboard from Messages, James-observed, P2, B2, overlap B) with the mechanism reconciled against source at c4d5b86; nothing built.
 - 2026-10-06: B0 CLOSED. D-e step two proven (UptimeRobot scheduler monitor alerted on the deliberate stale test, main health monitor unaffected), step three executed (Railway schedule restored 18:49 UTC, cron-job.org PAUSED), single-caller ticks confirmed from Railway alone (18:50:52 and 18:55:45 UTC, one summary each, no skips) and the heartbeat healed to 200 healthy; the seven-day watch (step four) started; RENA-081 and RENA-014 updated; RENA-068's Sentry verification stays James-side.
 - 2026-10-06: B0 Gate B merged (fd5f75f) and deployed (b303fabb); RENA-014 (with 062) recorded DONE for the code half with production evidence; RENA-081 carries the James-side steps.
 - 2026-10-06: B0 Gate A merged (6026a97) and deployed (8545a5b9); entries 069, 061, 042, 035 (static test) and 068 (script) updated with commits and evidence; 014 recorded as built and awaiting the word.
