@@ -49,6 +49,13 @@ const nextConfig = {
         ],
       },
       {
+        // RENA-048 (B2a): the worker script is revalidated on every visit so a
+        // new service worker (and its cache purge) reaches installed clients on
+        // the next load, not after the browser's heuristic freshness window.
+        source: '/sw.js',
+        headers: [{ key: 'Cache-Control', value: 'no-cache' }],
+      },
+      {
         // H84: Stripe Elements loads our self-hosted Jost INSIDE its iframe
         // (js.stripe.com origin) — cross-origin font fetches require CORS.
         // Font files only; nothing sensitive lives under /fonts.
