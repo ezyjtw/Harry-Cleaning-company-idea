@@ -37,7 +37,7 @@ async function main(): Promise<void> {
       console.error(`Hash law: ${changed.length} route(s) changed: ${changed.join(', ')}`);
       process.exit(1);
     }
-    console.log('Hash law: all 26 routes identical to the base.');
+    console.log(`Hash law: all ${PUBLIC_ROUTES.length} routes identical to the base.`);
   }
   const failed = PUBLIC_ROUTES.filter((r) => result[r].status !== 200);
   if (failed.length) {
