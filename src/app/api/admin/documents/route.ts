@@ -2,7 +2,6 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
-import { resolveClientIp } from '@/lib/http/client-ip';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 /**
@@ -65,7 +64,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const ipAddress = resolveClientIp(request.headers);
+    const ipAddress =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
 
     await DocumentStorageService.verifyDocument(
       documentId,

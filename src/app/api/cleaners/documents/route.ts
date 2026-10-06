@@ -3,7 +3,6 @@ import type { NextRequest } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { resolveClientIp } from '@/lib/http/client-ip';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB base64
@@ -75,7 +74,8 @@ export async function POST(request: NextRequest) {
 
     const { buffer, mimeType } = base64ToBuffer(fileData);
 
-    const ipAddress = resolveClientIp(request.headers);
+    const ipAddress =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
 
     const result = await DocumentStorageService.uploadDocument({
       userId: profile.userId,

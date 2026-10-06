@@ -131,8 +131,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Auth is not configured' }, { status: 500 });
   }
 
-  const redemption = code ? await verifyAndConsumeBridgeCode(code) : null;
-  if (!redemption) {
+  const user = code ? await verifyAndConsumeBridgeCode(code) : null;
+  if (!user) {
     // Field incident, tier 1 — the self-heal: the customer's first redemption
     // SUCCEEDED (307 + Set-Cookie), and what failed is a REPLAY of the spent
     // code (a WebView retry/reload of the bridge URL). That replay carries the
@@ -150,16 +150,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Mint a NextAuth-compatible session token. The claims mirror what the jwt()
-  // callback sets (id, role, pwdAt, sid, sv) plus the standard sub/name/email,
-  // so getServerSession and getToken resolve the same user the portal expects.
-  // RENA-074: pwdAt rides here too, so a bridged session dies on a password
-  // change like every other. Hierarchy law: the cookie's life is capped by
-  // the WEB row's expiry, which never exceeds the parent Bearer's.
-  const { user } = redemption;
-  const maxAge = Math.max(
-    1,
-    Math.min(THIRTY_DAYS_S, Math.floor((redemption.expiresAt.getTime() - Date.now()) / 1000))
-  );
+  // callback sets (id + role) plus the standard sub/name/email, so getServerSession
+  // and getToken resolve the same user the portal expects.
   const sessionToken = await encode({
     token: {
       id: user.id,
@@ -167,12 +159,9 @@ export async function GET(request: NextRequest) {
       role: user.role as 'CLIENT' | 'CLEANER' | 'ADMIN',
       name: user.name,
       email: user.email,
-      pwdAt: Math.floor(Date.now() / 1000),
-      sid: redemption.webJti,
-      sv: redemption.sv,
     },
     secret,
-    maxAge,
+    maxAge: THIRTY_DAYS_S,
   });
 
   const secure = isSecureContext();
@@ -182,7 +171,7 @@ export async function GET(request: NextRequest) {
     secure,
     sameSite: 'lax',
     path: '/',
-    maxAge,
+    maxAge: THIRTY_DAYS_S,
   });
   return res;
 }

@@ -55,8 +55,6 @@ export default function CleanerProfilePage() {
   const [customLanguages, setCustomLanguages] = useState<string[]>([]);
   const [customLanguage, setCustomLanguage] = useState('');
   const [saved, setSaved] = useState(false);
-  // D-g (RENA-007): sign out everywhere, this browser included.
-  const [signOutAllState, setSignOutAllState] = useState<'idle' | 'busy' | 'error'>('idle');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -784,42 +782,6 @@ export default function CleanerProfilePage() {
             .
           </p>
         )}
-
-        {/* D-g (RENA-007): sign out everywhere. Saves nothing on the form;
-            the route revokes every session and bumps the version, then the
-            web sign-out lands on /login (in-shell the navigation watch turns
-            that into the native logout). */}
-        <div className="rounded-2xl border border-line bg-surface p-6">
-          <h2 className="font-newsreader text-xl font-semibold text-ink mb-4">Signed-in devices</h2>
-          <p className="font-jost text-[13px] font-light text-ink-2">
-            Sign out of every device and browser where this account is signed in, including the Rena
-            Pro app and this browser. You will need to sign in again afterwards.
-          </p>
-          {signOutAllState === 'error' && (
-            <p className="mt-2 font-jost text-[12px] text-danger" role="alert">
-              Couldn&apos;t sign out everywhere. Please try again.
-            </p>
-          )}
-          <button
-            type="button"
-            data-testid="sign-out-everywhere"
-            disabled={signOutAllState === 'busy'}
-            onClick={async () => {
-              if (signOutAllState === 'busy') return;
-              setSignOutAllState('busy');
-              try {
-                const res = await fetch('/api/auth/sign-out-all', { method: 'POST' });
-                if (!res.ok) throw new Error();
-                await signOut({ callbackUrl: '/login' });
-              } catch {
-                setSignOutAllState('error');
-              }
-            }}
-            className="mt-4 rounded-[10px] border border-line px-4 py-2.5 font-jost text-[13px] font-light text-ink-2 transition hover:bg-page disabled:opacity-50"
-          >
-            {signOutAllState === 'busy' ? 'Signing out…' : 'Sign out everywhere'}
-          </button>
-        </div>
 
         {/* Save button */}
         <div className="flex items-center justify-end gap-3 pt-2">

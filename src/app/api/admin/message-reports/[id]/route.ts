@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { resolveClientIp } from '@/lib/http/client-ip';
 import { AuditService } from '@/lib/services/audit.service';
 
 // PATCH /api/admin/message-reports/[id] { action: 'ACTION' | 'DISMISS', adminNotes? }
@@ -56,7 +55,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     // Audit the moderation decision (which admin, when, action, notes) — best-effort
     // so an audit failure can't 500 an already-committed resolution.
-    const ipAddress = resolveClientIp(request.headers);
+    const ipAddress =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
     AuditService.log({
       userId: admin.id,
       action: action === 'ACTION' ? 'MESSAGE_REPORT_ACTIONED' : 'MESSAGE_REPORT_DISMISSED',

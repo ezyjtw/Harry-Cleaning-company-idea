@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { resolveClientIp } from '@/lib/http/client-ip';
 import { DBSVerificationService } from '@/lib/services/dbs-verification.service';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 
@@ -51,7 +50,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
 
-    const ipAddress = resolveClientIp(request.headers);
+    const ipAddress =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
 
     // Look up the cleaner profile
     const profile = await prisma.cleanerProfile.findUnique({

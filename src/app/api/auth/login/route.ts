@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-import { sessionLabel } from '@/lib/auth/device-session';
 import { generateApiToken, generateBridgeCode } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { loginUser } from '@/lib/services/auth.service';
@@ -38,24 +37,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.message }, { status: 401 });
     }
 
-    // D-g: the Bearer is a BEARER DeviceSession row (labelled by the shell
-    // header); the bridge code names that row as its parent.
-    const { token, jti } = await generateApiToken(
-      {
-        id: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
-        role: result.user.role,
-      },
-      { label: sessionLabel(request.headers.get('x-rena-shell'), 'native') }
-    );
+    const token = generateApiToken({
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
+    });
 
     return NextResponse.json({
       user: result.user,
       token,
       // Single-use, 60s code the native shell exchanges for a WebView session
       // cookie at /api/auth/session-bridge (never the Bearer in a URL).
-      bridgeCode: generateBridgeCode({ id: result.user.id, bearerJti: jti }),
+      bridgeCode: generateBridgeCode({ id: result.user.id }),
       message: result.message,
     });
   } catch {

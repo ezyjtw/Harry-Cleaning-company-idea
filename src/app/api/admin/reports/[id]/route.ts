@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
-import { resolveClientIp } from '@/lib/http/client-ip';
 import { AuditService } from '@/lib/services/audit.service';
 
 // PATCH /api/admin/reports/[id] { resolution } — resolve a review or
@@ -50,7 +49,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       },
     });
 
-    const ipAddress = resolveClientIp(request.headers);
+    const ipAddress =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
     AuditService.log({
       userId: admin.id,
       action: 'CONTENT_REPORT_RESOLVED',

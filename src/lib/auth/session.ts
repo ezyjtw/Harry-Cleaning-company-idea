@@ -1,29 +1,18 @@
 import { randomUUID } from 'crypto';
 
-import type { DeviceSessionKind } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { headers } from 'next/headers';
 import { getServerSession } from 'next-auth';
 
 import prisma from '@/lib/db/prisma';
 
-import {
-  BEARER_TTL_S,
-  LAST_SEEN_WRITE_INTERVAL_MS,
-  WEB_TTL_S,
-  legacyTokensAccepted,
-  mintDeviceSession,
-  sessionLabel,
-} from './device-session';
 import { authOptions } from './options';
 
-export interface SessionUser {
+interface SessionUser {
   id: string;
   email: string;
   name: string;
   role: string;
-  /** The DeviceSession jti this request authenticated with; null for a grandfathered legacy token. */
-  sessionJti: string | null;
 }
 
 if (!process.env.NEXTAUTH_SECRET) {
@@ -33,51 +22,24 @@ const JWT_SECRET: string = process.env.NEXTAUTH_SECRET;
 
 // R2: tolerance for the password-change/issue-time comparison. JWT issue times
 // (NextAuth pwdAt, jsonwebtoken iat) are floored to whole seconds; the DB's
-// passwordChangedAt keeps milliseconds, so a session minted in the same second
+// passwordChangedAt keeps milliseconds — so a session minted in the same second
 // as the change compared as "older" and was wrongly killed.
 const PASSWORD_CHANGE_GRACE_MS = 2000;
 
-export const BEARER_ISSUER = 'rena-cleaning';
-export const BRIDGE_ISSUER = 'rena-bridge';
-export const BRIDGE_CODE_TTL_S = 60;
-
-interface BearerClaims {
+/**
+ * Generate a signed JWT token for mobile/API clients.
+ */
+export function generateApiToken(user: {
   id: string;
   email: string;
   name: string;
   role: string;
-  sv?: number;
-  jti?: string;
-  iat?: number;
-}
-
-/**
- * RENA-007 (D-g): mint a 30-day Bearer for a native shell. The row is written
- * first; the token carries the row's jti and the user's sessionVersion.
- */
-export async function generateApiToken(
-  user: { id: string; email: string; name: string; role: string },
-  options: { label?: string | null } = {}
-): Promise<{ token: string; jti: string; expiresAt: Date }> {
-  const now = new Date();
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { sessionVersion: true },
-  });
-  if (!dbUser) throw new Error('generateApiToken: user not found');
-  const row = await mintDeviceSession({
-    userId: user.id,
-    kind: 'BEARER',
-    label: sessionLabel(options.label, 'native'),
-    sv: dbUser.sessionVersion,
-    expiresAt: new Date(now.getTime() + BEARER_TTL_S * 1000),
-  });
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role, sv: row.sv },
+}): string {
+  return jwt.sign(
+    { id: user.id, email: user.email, name: user.name, role: user.role },
     JWT_SECRET,
-    { expiresIn: BEARER_TTL_S, issuer: BEARER_ISSUER, jwtid: row.jti }
+    { expiresIn: '30d', issuer: 'rena-cleaning' }
   );
-  return { token, jti: row.jti, expiresAt: row.expiresAt };
 }
 
 // ─── Rena Pro session-bridge code ────────────────────────────────────────────
@@ -87,224 +49,51 @@ export async function generateApiToken(
 // session cookie in the WebView. Deliberately NOT the long-lived Bearer: the code
 // is short-exp and one-time, so its appearance in a redirect URL / server log is
 // low-value. Distinct issuer ('rena-bridge') so the bridge can reject a Bearer
-// (issuer 'rena-cleaning') outright. RENA-003: the code names the Bearer that
-// minted it (bjti); redemption claims the code's jti in BridgeCodeUse and
-// verifies that parent in ONE transaction.
+// (issuer 'rena-cleaning') outright.
+const BRIDGE_CODE_TTL_S = 60;
+const consumedBridgeJtis = new Map<string, number>(); // jti → expiry (ms)
 
-export function generateBridgeCode(user: { id: string; bearerJti: string }): string {
-  return jwt.sign({ id: user.id, bjti: user.bearerJti }, JWT_SECRET, {
+// Drop consumed jtis once they've expired (they can never be replayed after exp).
+setInterval(() => {
+  const now = Date.now();
+  consumedBridgeJtis.forEach((exp, jti) => {
+    if (exp < now) consumedBridgeJtis.delete(jti);
+  });
+}, 60 * 1000);
+
+export function generateBridgeCode(user: { id: string }): string {
+  const jti = randomUUID();
+  return jwt.sign({ id: user.id, jti }, JWT_SECRET, {
     expiresIn: BRIDGE_CODE_TTL_S,
-    issuer: BRIDGE_ISSUER,
-    jwtid: randomUUID(),
+    issuer: 'rena-bridge',
   });
 }
 
-export interface BridgeRedemption {
-  user: SessionUser;
-  /** The WEB row minted for the WebView; the cookie carries it as sid. */
-  webJti: string;
-  expiresAt: Date;
-  sv: number;
-}
-
-class BridgeParentInvalid extends Error {}
-
 /**
- * Verify a bridge code and CONSUME it (single-use, database-backed). Returns
- * the redemption, or null when the code is invalid, expired, already used, or
- * its parent Bearer fails the parent validity law: the row named in the code
- * must exist, belong to the same user, be kind BEARER, unrevoked, unexpired
- * and carry the user's current sessionVersion. Claim and verification run in
- * one transaction; two concurrent redemptions of one code give one winner.
+ * Verify a bridge code and CONSUME it (single-use). Returns the active user, or
+ * null if the code is invalid/expired/already-used or the user is gone/suspended.
  */
-export async function verifyAndConsumeBridgeCode(
-  code: string,
-  now: Date = new Date()
-): Promise<BridgeRedemption | null> {
-  let payload: { id: string; bjti?: string; jti?: string; exp?: number };
+export async function verifyAndConsumeBridgeCode(code: string): Promise<SessionUser | null> {
+  let payload: { id: string; jti: string; exp?: number };
   try {
-    payload = jwt.verify(code, JWT_SECRET, {
-      issuer: BRIDGE_ISSUER,
-      clockTimestamp: Math.floor(now.getTime() / 1000),
-    }) as {
+    payload = jwt.verify(code, JWT_SECRET, { issuer: 'rena-bridge' }) as {
       id: string;
-      bjti?: string;
-      jti?: string;
+      jti: string;
       exp?: number;
     };
   } catch {
     return null;
   }
-  if (!payload.jti || !payload.bjti || !payload.id) return null;
-  const codeJti = payload.jti;
-  const parentJti = payload.bjti;
-  const userId = payload.id;
-  const codeExpiry = new Date(
-    (payload.exp ?? Math.floor(now.getTime() / 1000) + BRIDGE_CODE_TTL_S) * 1000
+
+  if (!payload.jti || consumedBridgeJtis.has(payload.jti)) return null; // replay / missing jti
+  // Mark consumed immediately (before the DB read) so concurrent uses can't both win.
+  consumedBridgeJtis.set(
+    payload.jti,
+    (payload.exp ?? Math.floor(Date.now() / 1000) + BRIDGE_CODE_TTL_S) * 1000
   );
 
-  try {
-    return await prisma.$transaction(async (tx) => {
-      // Insert-as-claim: a unique violation here is a replay.
-      await tx.bridgeCodeUse.create({ data: { jti: codeJti, expiresAt: codeExpiry } });
-
-      const parent = await tx.deviceSession.findUnique({
-        where: { jti: parentJti },
-        select: {
-          userId: true,
-          kind: true,
-          sv: true,
-          revokedAt: true,
-          expiresAt: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              role: true,
-              accountStatus: true,
-              isSuspended: true,
-              sessionVersion: true,
-            },
-          },
-        },
-      });
-      if (
-        !parent ||
-        parent.kind !== 'BEARER' ||
-        parent.userId !== userId ||
-        parent.revokedAt !== null ||
-        parent.expiresAt.getTime() <= now.getTime() ||
-        parent.user.accountStatus !== 'ACTIVE' ||
-        parent.user.isSuspended ||
-        parent.sv !== parent.user.sessionVersion
-      ) {
-        throw new BridgeParentInvalid('bridge parent invalid');
-      }
-
-      // Hierarchy law: the child never outlives its parent.
-      const expiresAt = new Date(
-        Math.min(parent.expiresAt.getTime(), now.getTime() + WEB_TTL_S * 1000)
-      );
-      const web = await mintDeviceSession(
-        {
-          userId,
-          kind: 'WEB',
-          label: 'bridge',
-          sv: parent.sv,
-          expiresAt,
-          parentJti,
-        },
-        tx
-      );
-      return {
-        user: {
-          id: parent.user.id,
-          email: parent.user.email,
-          name: parent.user.name || '',
-          role: parent.user.role,
-          sessionJti: web.jti,
-        },
-        webJti: web.jti,
-        expiresAt,
-        sv: parent.sv,
-      };
-    });
-  } catch {
-    // Replay (unique violation), invalid parent, or a database failure: all null.
-    return null;
-  }
-}
-
-// ─── Per-request checks ──────────────────────────────────────────────────────
-
-const SESSION_ROW_SELECT = {
-  jti: true,
-  userId: true,
-  kind: true,
-  sv: true,
-  revokedAt: true,
-  expiresAt: true,
-  lastSeenAt: true,
-  user: {
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      accountStatus: true,
-      isSuspended: true,
-      passwordChangedAt: true,
-      sessionVersion: true,
-    },
-  },
-} as const;
-
-function issuedBeforePasswordChange(
-  passwordChangedAt: Date | null,
-  issuedAtS: number | undefined
-): boolean {
-  return (
-    !!passwordChangedAt &&
-    !!issuedAtS &&
-    passwordChangedAt.getTime() > issuedAtS * 1000 + PASSWORD_CHANGE_GRACE_MS
-  );
-}
-
-/**
- * The per-request check: ONE indexed lookup by jti carrying the user's
- * security fields, then a conditional lastSeenAt write at most every five
- * minutes. A child's parent is never read here (hierarchy law).
- */
-async function checkSessionRow(input: {
-  jti: string;
-  kind: DeviceSessionKind;
-  userId: string;
-  claimedSv: number | undefined;
-  issuedAtS: number | undefined;
-  now: Date;
-}): Promise<SessionUser | null> {
-  const row = await prisma.deviceSession.findUnique({
-    where: { jti: input.jti },
-    select: SESSION_ROW_SELECT,
-  });
-  if (!row || row.kind !== input.kind || row.userId !== input.userId) return null;
-  if (row.revokedAt !== null || row.expiresAt.getTime() <= input.now.getTime()) return null;
-  const { user } = row;
-  if (user.accountStatus !== 'ACTIVE' || user.isSuspended) return null;
-  if ((input.claimedSv ?? 0) !== user.sessionVersion || row.sv !== user.sessionVersion) return null;
-  if (issuedBeforePasswordChange(user.passwordChangedAt, input.issuedAtS)) return null;
-
-  if (input.now.getTime() - row.lastSeenAt.getTime() > LAST_SEEN_WRITE_INTERVAL_MS) {
-    await prisma.deviceSession
-      .updateMany({
-        where: {
-          jti: input.jti,
-          lastSeenAt: { lt: new Date(input.now.getTime() - LAST_SEEN_WRITE_INTERVAL_MS) },
-        },
-        data: { lastSeenAt: input.now },
-      })
-      .catch(() => {});
-  }
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name || '',
-    role: user.role,
-    sessionJti: row.jti,
-  };
-}
-
-/** Grandfathered pre-B1a token: user read, version read as 0, until the cutoff. */
-async function checkLegacyToken(input: {
-  userId: string;
-  claimedSv: number | undefined;
-  issuedAtS: number | undefined;
-  now: Date;
-}): Promise<SessionUser | null> {
-  if (!legacyTokensAccepted(input.now)) return null;
   const user = await prisma.user.findUnique({
-    where: { id: input.userId },
+    where: { id: payload.id },
     select: {
       id: true,
       email: true,
@@ -312,64 +101,61 @@ async function checkLegacyToken(input: {
       role: true,
       accountStatus: true,
       isSuspended: true,
-      passwordChangedAt: true,
-      sessionVersion: true,
     },
   });
   if (!user || user.accountStatus !== 'ACTIVE' || user.isSuspended) return null;
-  if ((input.claimedSv ?? 0) !== user.sessionVersion) return null;
-  if (issuedBeforePasswordChange(user.passwordChangedAt, input.issuedAtS)) return null;
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name || '',
-    role: user.role,
-    sessionJti: null,
-  };
+
+  return { id: user.id, email: user.email, name: user.name || '', role: user.role };
 }
 
 /**
  * Verify a Bearer token and return the user payload.
- * Returns null if the token is invalid, revoked, version-stale, or the user
- * no longer exists/is active.
+ * Returns null if the token is invalid or the user no longer exists/is active.
  */
-export async function verifyBearerToken(
-  token: string,
-  now: Date = new Date()
-): Promise<SessionUser | null> {
-  let payload: BearerClaims;
+async function verifyBearerToken(token: string): Promise<SessionUser | null> {
   try {
-    payload = jwt.verify(token, JWT_SECRET, {
-      issuer: BEARER_ISSUER,
-      clockTimestamp: Math.floor(now.getTime() / 1000),
-    }) as BearerClaims;
-  } catch {
-    return null;
-  }
-  if (!payload.id) return null;
-  if (payload.jti) {
-    return checkSessionRow({
-      jti: payload.jti,
-      kind: 'BEARER',
-      userId: payload.id,
-      claimedSv: payload.sv,
-      issuedAtS: payload.iat,
-      now,
-    });
-  }
-  return checkLegacyToken({
-    userId: payload.id,
-    claimedSv: payload.sv,
-    issuedAtS: payload.iat,
-    now,
-  });
-}
+    const payload = jwt.verify(token, JWT_SECRET, { issuer: 'rena-cleaning' }) as {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      iat?: number;
+    };
 
-/** Read the Bearer's jti without a database read (for logout paths). */
-export function readBearerJti(token: string): string | null {
-  try {
-    const payload = jwt.verify(token, JWT_SECRET, { issuer: BEARER_ISSUER }) as BearerClaims;
-    return payload.jti ?? null;
+    // Verify the user still exists and is active
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        accountStatus: true,
+        isSuspended: true,
+        passwordChangedAt: true,
+      },
+    });
+
+    if (!user || user.accountStatus !== 'ACTIVE' || user.isSuspended) {
+      return null;
+    }
+    // F6: Bearer tokens issued before a password change are dead too.
+    // R2: issue-time stamps are floored to the second while passwordChangedAt
+    // has ms precision — a token minted in the same second as the change lost
+    // the comparison and a VALID fresh token was rejected. 2s of grace kills
+    // the race (the only sessions inside the window belong to the device that
+    // just set the new password). Tokens without iat predate the F6 deploy and
+    // are accepted rather than rejected: they can't be password-revoked, but
+    // they age out naturally and every new token carries the stamp.
+    if (
+      user.passwordChangedAt &&
+      payload.iat &&
+      user.passwordChangedAt.getTime() > payload.iat * 1000 + PASSWORD_CHANGE_GRACE_MS
+    ) {
+      return null;
+    }
+
+    return { id: user.id, email: user.email, name: user.name || '', role: user.role };
   } catch {
     return null;
   }
@@ -380,23 +166,38 @@ export function readBearerJti(token: string): string | null {
  * Supports both NextAuth session cookies (web) and Bearer tokens (mobile/API).
  * Returns null if not authenticated.
  */
-export async function getSessionUser(now: Date = new Date()): Promise<SessionUser | null> {
+export async function getSessionUser(): Promise<SessionUser | null> {
   // 1. Try NextAuth session first (web clients)
   const session = await getServerSession(authOptions);
   if (session?.user) {
-    const user = session.user as { id?: string; pwdAt?: number; sid?: string; sv?: number };
+    const user = session.user as SessionUser;
     if (user.id) {
-      if (user.sid) {
-        return checkSessionRow({
-          jti: user.sid,
-          kind: 'WEB',
-          userId: user.id,
-          claimedSv: user.sv,
-          issuedAtS: user.pwdAt,
-          now,
-        });
+      // F6/F1: JWT sessions can't be revoked server-side, so EVERY API call
+      // re-checks the DB: dead if the account is no longer ACTIVE (immediate
+      // deactivation on deletion requests / suspensions) or if the password
+      // changed after this session was issued (change-password invalidates
+      // every other session). One indexed point-read per request.
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { accountStatus: true, isSuspended: true, passwordChangedAt: true },
+      });
+      if (!dbUser || dbUser.accountStatus !== 'ACTIVE' || dbUser.isSuspended) return null;
+      // R2: pwdAt is floored to the second while passwordChangedAt keeps ms —
+      // the settings page's silent re-sign-in after a password change could
+      // mint a session in the same second and be rejected as "issued before
+      // the change" (login didn't stick). 2s grace closes the race. Sessions
+      // WITHOUT pwdAt predate the F6 deploy and are accepted, not rejected:
+      // rejecting them permanently bounced valid 30-day sessions for anyone
+      // who had ever changed their password.
+      const issuedAt = (session.user as { pwdAt?: number }).pwdAt;
+      if (
+        dbUser.passwordChangedAt &&
+        issuedAt &&
+        dbUser.passwordChangedAt.getTime() > issuedAt * 1000 + PASSWORD_CHANGE_GRACE_MS
+      ) {
+        return null;
       }
-      return checkLegacyToken({ userId: user.id, claimedSv: user.sv, issuedAtS: user.pwdAt, now });
+      return user;
     }
   }
 
@@ -406,7 +207,7 @@ export async function getSessionUser(now: Date = new Date()): Promise<SessionUse
     const authHeader = headersList.get('authorization');
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
-      return await verifyBearerToken(token, now);
+      return await verifyBearerToken(token);
     }
   } catch {
     // headers() may throw in some contexts; silently fall through

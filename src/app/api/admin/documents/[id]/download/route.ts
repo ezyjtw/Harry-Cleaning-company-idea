@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { resolveClientIp } from '@/lib/http/client-ip';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
@@ -35,7 +34,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     );
   }
 
-  const ipAddress = resolveClientIp(request.headers);
+  const ipAddress =
+    request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
 
   try {
     const doc = await prisma.documentUpload.findUnique({

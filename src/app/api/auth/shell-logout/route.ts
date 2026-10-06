@@ -1,9 +1,4 @@
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-
-import { revokeDeviceByWebSession, revokeSession } from '@/lib/auth/device-session';
-import { readBearerJti } from '@/lib/auth/session';
 
 // ─── Shell logout: end the WEB session ──────────────────────────────────────
 //
@@ -27,31 +22,7 @@ const SESSION_COOKIE_NAMES = [
   'next-auth.session-token.1',
 ];
 
-// D-g device logout (James-ruled): revoke THIS device's session and its
-// children only. With a Bearer (Authorization header) the BEARER row and its
-// bridged WEB children go; with only the cookie (today's shells send the
-// cookie, not the Bearer) the cookie's WEB row names its parent BEARER, which
-// is the device, so that row and its children go; a plain website cookie
-// revokes itself. Still no authentication required: every path revokes only
-// what the caller already holds, and a malformed or foreign token is ignored.
-async function revokeCallerSession(request: NextRequest): Promise<void> {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    const jti = readBearerJti(authHeader.slice(7));
-    if (jti) {
-      await revokeSession(jti, 'logout').catch(() => {});
-      return;
-    }
-  }
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) return;
-  const token = await getToken({ req: request, secret }).catch(() => null);
-  const sid = (token as { sid?: string } | null)?.sid;
-  if (sid) await revokeDeviceByWebSession(sid, 'logout').catch(() => {});
-}
-
-export async function POST(request: NextRequest) {
-  await revokeCallerSession(request);
+export async function POST() {
   const res = new NextResponse(null, { status: 204 });
   for (const name of SESSION_COOKIE_NAMES) {
     res.cookies.set(name, '', {

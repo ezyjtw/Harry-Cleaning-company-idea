@@ -2,7 +2,6 @@ import crypto from 'crypto';
 
 import bcrypt from 'bcryptjs';
 
-import { revokeAllSessionsInTx } from '@/lib/auth/device-session';
 import prisma from '@/lib/db/prisma';
 import {
   sendEmailVerification,
@@ -238,17 +237,11 @@ export async function resetPassword(
   const email = record.identifier.replace('reset:', '');
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
 
-  // H71: passwordChangedAt is the F6 session-invalidation switch — a reset
-  // must kill every session issued before it, same as change-password.
-  // D-g: and bump sessionVersion plus revoke every DeviceSession row, in one
-  // transaction with the hash write.
-  await prisma.$transaction(async (tx) => {
-    const updated = await tx.user.update({
-      where: { email },
-      data: { passwordHash, failedLoginCount: 0, lockedUntil: null, passwordChangedAt: new Date() },
-      select: { id: true },
-    });
-    await revokeAllSessionsInTx(tx, updated.id, 'password');
+  await prisma.user.update({
+    where: { email },
+    // H71: passwordChangedAt is the F6 session-invalidation switch — a reset
+    // must kill every session issued before it, same as change-password.
+    data: { passwordHash, failedLoginCount: 0, lockedUntil: null, passwordChangedAt: new Date() },
   });
 
   // Delete the used token
