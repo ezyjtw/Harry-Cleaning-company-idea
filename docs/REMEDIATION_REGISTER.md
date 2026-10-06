@@ -22,7 +22,7 @@ Proof type (what honestly proves the fix here):
 - RIG-PARTIAL + DEVICE: the rig proves the logic, a device walk proves the shell or OS half.
 - DEVICE-ONLY: only a device or a store console can prove it.
 - STRING-LAW: the change touches an injected template literal; the cooked-parse proof and the dressed-arrival timing table ride the gate (CLAUDE.md, injected-script law).
-- HASH-LAW: the change touches one of the 26 baselined public routes (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies.
+- HASH-LAW: the change touches a route in the governed public route set (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies. Per D-ac the governed set is 30: the 26 baselined routes plus /get-app/pro, /get-app/customer, /open/pro and /open/customer, the four joining the canonical list, CLAUDE.md and the baselines in the gate that builds each (B5 for /get-app, B8 for /open), with deterministic fallback-representation baselines for the user-agent-redirecting ones.
 
 Delivery:
 
@@ -92,6 +92,7 @@ B1 rulings, James, 2026-10-06 (on the B1 design report; the auditor's amendments
 - D-z. CSRF rule, precedence as ordered: GET, HEAD and OPTIONS no check; webhooks and cron keep their own signature or secret security; a valid Authorization or x-rena-shell header passes the CSRF layer (a bypass signal, never authentication); cookie-authenticated mutations require exact Origin equality (scheme, host, port against NEXTAUTH_URL) when Origin is present, else Sec-Fetch-Site same-origin or none; never same-site; everything else 403 JSON. Exempt only NextAuth's own protocol routes, never all of /api/auth/: Rena's own routes under it (bridge, shell-logout, sign-out-all) are covered. A regression test proves an arbitrary-origin CORS preflight is not granted. Applies to RENA-006, RENA-079.
 - D-aa. RENA-031 and RENA-082 are P1 (the recruitment week) and split: B1a updates the signup token-mint paths; B5 builds the wizard-to-native handoff UX for both apps as one design consuming the new primitive. RENA-084 stays parked pending James's reproducible symptom; no fix guessed. RENA-068 is parked, verified after the telemetry changes land.
 - D-ab. B1b rulings (James, 2026-10-06, both reviewers concurring): deviations 1, 2, 4 to 11 of the B1b gate accepted. Deviation 3 not accepted: in production an unavailable or unconfigured email provider never returns send success; the email service returns failure and logs a structured error; callers handle it honestly without necessarily rolling back the underlying operation where email is secondary (signup still creates the account and the person sees "Account created, but we couldn't send the verification email" with a retry); nobody is told a message was sent when it was not; development may warn and return true. Privacy page dated 6 October 2026, sanctioned under the hash law. The hash law baseline is all 26 public routes, listed in CLAUDE.md beside the law and in docs/public-routes.json, which the hash tool and CI read. LOG_HMAC_KEY is James's external: a dedicated fresh 64-character random secret unrelated to any JWT, encryption or provider secret; rotating it later breaks correlation between old and new pseudonyms, which is acceptable. Applies to RENA-059, RENA-066, RENA-077, RENA-085, RENA-086.
+- D-ac. Programme rulings (James, 2026-10-07) on the B2 to B9 design reports. The reports and their rulings are committed in docs/design (README.md, B2.md to B9.md, lanes.md); each batch implements its approved report plus its "Rulings and amendments" section, and where they differ the rulings win. Every deviation named in each report is approved (B2 nine, B3 nine, B4 nine, B5 ten, B6 nine, B7 eleven, B8 six; B9's four are superseded where the programme order moves them). Order: B2 (B2a then B2b), B3, B4, B5, B6, B7, B8, the pre-closure code lane (RENA-004 diag endpoint and preview beacons deleted, string law applies; RENA-007 step two, the signed-in devices UI), N15 (the Next 15 and React 19 migration as scoped in B6.9, revert branch staged, own gate; the final regression runs on Next 15), then B9 (pure closure, no product code). Gate protocol every batch: checklist, results tables, deviations for ruling, parked list, UAT list, hash sweep on the governed set, incognito diff, and a plain list of departures from the design (departures need James's word). Business-rule rulings carried in the batch files, recorded here as rule changes: B2 only a definitive 401 triggers session loss (403 is an access or account-state error and never touches the session; 429 and 5xx retryable; network failure is offline; only a successful empty response renders empty), 15-second coalescing for both apps with explicit invalidation bypassing it; B3 Flexible-time jobs may enter EN_ROUTE and IN_PROGRESS from 06:00 London and COMPLETED anchors to checkedInAt plus duration minus 30 minutes, nonexistent spring times rejected as invalid booking times and ambiguous autumn times take the later occurrence, deletion is blocked by a provisional assignment but not by backup, reserve or unaccepted offer membership; B4 add-on payout follows the parent service's rate unless the add-on defines its own (products stays 90%), a chargeback holds unreleased funds and release resumes only when moneyHoldReasons(booking) is empty, legacy money data is never guessed (unprovable slices migrate UNKNOWN or NEEDS_RECONCILE and block affected money actions until reconciled), admin-managed PlatformConfig defaults are create-if-missing; B5 the native handoff uses a short-lived single-use user- and role-bound code redeemed by native fetch and no long-lived native credential ever exists in page JS, WebView storage, URLs or postMessage, website signup stops minting native Bearers, x-rena-shell selects a response shape and is never authentication, a definitive 403 resets the Pro consecutive-401 counter; B7 legal@ is the one published rights inbox and the storage wording is ruled (external legal review before publish); B8 ADMIN is rejected on fresh login and on restored Bearer at boot, bridge redemption, handoff and account switch. Customer push (ruled 2026-10-07, separately): activates in B5, PUSH_ACTIVATED flipping true in the same OTA as the deep-link resolver and the notification rationale card; the C7 hold is lifted at that point and recorded as James's decision; until then it stays off because taps cannot yet route. RENA-084 builds all three mechanisms in B2 (D-aa's parking superseded). New entries RENA-087 to RENA-095 (the B4 survey additions N1 to N9) recorded under B4. Applies to every B2 to B9 entry.
 
 ## 4. Overlap groups: one architectural change designed once
 
@@ -117,14 +118,16 @@ Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order 
 
 - B0 Governance, CI and decisions: the ruled decisions (section 3), CLAUDE.md and this register, CI on Node 22 with baseline unit and E2E checks, the runtime-bump check, scheduler lease and heartbeat, health 503, monitoring verification. CLOSED 2026-10-06 (James's word on each merge: 8f7e8f3, 6026a97, fd5f75f, 4b3d3b7, 66e891a). Every B0 item is DONE in code and proven in production; two James-side tails run on outside it: RENA-068's Sentry test event (EXTERNAL-VERIFY) and D-e steps four and five under RENA-081 in B7 (the seven-day single-caller watch, then cron-job.org deleted).
 - B1 Authentication, sessions and privacy boundary: 001, 002, 003, 006, 007, 009, 059, 074, 066, 077, 079 (004 held and 008 decided sit here without batch work). Split per D-r: B1a (002, 003, 006 rule, 007, 074) BUILT 2026-10-06 on claude/b1a-session-core, commits 7fd9f92, 70ee97b, bccbfae and 8a52215, at the gate awaiting James's walk and word; B1b (001, 059, 066, 077, 079 deletions, 009 recorded) follows after the B1a merge. CLOSED 2026-10-07: B1a merged 0165dd3 (deployment dda67793), B1b merged ec445c9 (deployment 5bb35e2e), James's word on each; the B1a walk passed on both apps and the website, both lanes. Tails running outside the batch: the first production email or job line read for 066 and 077, James's email-working signup walk for 077, and the Railway-generated domain decision (002, external). The B1a revert branch claude/b1a-revert-ready (f777a97) is retired on James's word; the session's git proxy refuses branch deletion, so the remote ref stays until James removes it in GitHub, and nothing on it is for merge.
-- B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054, 084.
-- B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034.
-- B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080.
-- B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, 082 (or B2 if its web half leads), and the JS halves of 041, 043, 046.
-- B6 Web platform: 005, 049, 050, 051, 052, 057, 083, 086, the controlled Next 15 move if required (056 and 058 closed).
-- B7 Scheduler, operations and GDPR: 062, 063, 064, 065, 067, 070, 071, 072, 076, 081, 085 (014, 061, 068, 069 delivered in B0).
-- B8 Native rebuild: 040, 060, the native half of 041, 044, 045, then 035's device matrix as the release gate.
-- B9 Full regression and register closure.
+- B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054, 084. Split B2a then B2b (D-ac). Design and rulings: docs/design/B2.md.
+- B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034, with the twelve-helper Europe/London sweep (D-ac). Design and rulings: docs/design/B3.md.
+- B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080, 087, 088, 089, 090, 091, 092, 093, 094, 095. Design and rulings: docs/design/B4.md.
+- B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 043, 046, 047, 082, and the JS half of 041 (DECISION, record only); customer push activation (D-ac). Design and rulings: docs/design/B5.md.
+- B6 Web platform: 005, 049, 050, 051, 052, 057, 083, 086, the ui barrel and Input.tsx deletion, and the Next 15 scoping as design only (B6.9; execution is the N15 lane) (056 and 058 closed). Design and rulings: docs/design/B6.md.
+- B7 Scheduler, operations and GDPR: 062, 063, 064, 065, 067, 070, 071, 072, 076, 081, 085 (014, 061, 068, 069 delivered in B0). Design and rulings: docs/design/B7.md.
+- B8 Native rebuild: 040, 060, the native half of 041, 044, 045, then 035's device matrix as the release gate. Design and rulings: docs/design/B8.md.
+- Pre-closure code lane (after B8, before N15): 004 (the diag endpoint and its preview beacons deleted, string law applies) and 007 step two (the signed-in devices UI on DeviceSession: device and platform, last seen, current session marker, sign out this device). Own gate. Rulings: docs/design/lanes.md.
+- N15 Next 15 and React 19 migration (after the pre-closure lane, before B9): 001 step two, exactly as scoped in B6.9, revert branch staged, own gate; the final regression runs on Next 15. Rulings: docs/design/lanes.md.
+- B9 Full regression and register closure: pure closure, no product code; TRUSTED_PROXY verified by a live header test against the real edge topology and the actual value recorded. Design and rulings: docs/design/B9.md.
 
 ## 6. Execution protocol per batch
 
@@ -206,7 +209,7 @@ Migration or config: lockfile only for the bump.
 Tests: a malformed Authorization header on a page request returns the page, not 500; the existing suite. Manual: login and shell login after the bump.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 17f73d1. Decision owner and date: James, 2026-10-06 (B1b build order: next-auth and sharp, transitive patches only within existing ranges, no Next 15). Overlap group none. Regression evidence: e2e/auth-header.spec.ts (six malformed Authorization headers: public page 200, protected page redirects, never 500); the full Playwright suite 28 of 28 and both integration suites on the patched dependencies; rig website login (credentials) and native login (token and bridge code) on next-auth 4.24.15.
-Implementation status: DEPLOYED: merged to main ec445c9 (James's word 2026-10-07 after the B1a walk passed), Railway deployment 5bb35e2e SUCCESS 2026-10-06 22:02Z, boot clean (no pending migrations, seed synced, Ready in 723ms); /privacy live with 6 October 2026 and 7.2a; /api/health 200; scheduler healthy. DONE for the B1 bump. Built for B1 (commit 17f73d1), at the gate: next-auth 4.24.15, sharp 0.35.5; axios 1.20.0, form-data 4.0.6, js-yaml 4.3.2, fast-uri 3.1.8 inside their parents' ranges; forced only by those packages' own ranges: uuid 11.1.1 (next-auth), follow-redirects 1.16.1 (axios), hasown 2.0.4 (form-data), libvips 1.3.4 (sharp). The Next advisories stay the B6 lane.
+Implementation status: step two (Next 15 and React 19) is the N15 lane per D-ac, after the pre-closure code lane and before B9. DEPLOYED: merged to main ec445c9 (James's word 2026-10-07 after the B1a walk passed), Railway deployment 5bb35e2e SUCCESS 2026-10-06 22:02Z, boot clean (no pending migrations, seed synced, Ready in 723ms); /privacy live with 6 October 2026 and 7.2a; /api/health 200; scheduler healthy. DONE for the B1 bump. Built for B1 (commit 17f73d1), at the gate: next-auth 4.24.15, sharp 0.35.5; axios 1.20.0, form-data 4.0.6, js-yaml 4.3.2, fast-uri 3.1.8 inside their parents' ranges; forced only by those packages' own ranges: uuid 11.1.1 (next-auth), follow-redirects 1.16.1 (axios), hasown 2.0.4 (form-data), libvips 1.3.4 (sharp). The Next advisories stay the B6 lane.
 
 #### RENA-002 Rate limiting is process-local and proxy trust is deployment-dependent
 
@@ -250,6 +253,7 @@ Migration or config: User.sessionVersion Int default 0; DeviceSession table; the
 Tests: revoked jti is 401; version bump invalidates every live token; cookie session for the website unaffected; account switch leaves the other account's devices alive. Manual (the heaviest gate): ceremonial drive plus James's walk of login, logout, account switch, password change and sign-out-everywhere on both apps and the web before merge.
 Delivery WEB plus OTA both shells (send the Bearer on logout). Proof RIG-AUTO plus the ruled walk (DEVICE).
 Last verified commit 7fd9f92,. Decision owner and date: James, 2026-10-06 (D-g, D-t to D-x). Overlap group B. Regression evidence: unit (src/lib/auth/session.test.ts): the tracked path is one deviceSession lookup and no user lookup, lastSeenAt written only when older than five minutes and only conditionally, every rejection branch (revoked, expired, wrong kind, wrong user, stale version on row or claim, suspended, deactivated, post-password-change), the cutoff constant 2026-11-07 with an injected clock (accepted the day before, refused at and after, without a database read); route tests for shell-logout (Bearer and cookie paths), sign-out-all and the bridge cookie. Integration on the rig: Bearer minted and verified with the tracked path measured under 500 ms; cookie-only device logout revokes the bridged device (parent and children) and a plain web cookie only itself; sign out everywhere bumps the version and kills Bearer, bridged cookie row and web row while a fresh mint lives and another user is untouched; the password path stamps, bumps and revokes in one transaction; lazy legacy upgrade yields one row per cookie jti with sv 0; the sweep deletes spent codes and ended rows.
+Step two (D-ac, 2026-10-07): the signed-in devices UI (device and platform, last seen, current session marker, sign out this device) is built in the pre-closure code lane after B8, own gate.
 Implementation status: DEPLOYED and DONE: merged to main 0165dd3 (James's word), Railway deployment dda67793 SUCCESS 2026-10-06 21:52Z, boot clean (migration 20261007090000_device_sessions applied, 17 migrations, reference seed synced); James's walk PASSED on both apps and the website, both lanes (login, logout, account switch, password change, sign-out-everywhere), his word 2026-10-07. Built (B1a, commits 7fd9f92, 70ee97b, bccbfae and 8a52215). DeviceSession and BridgeCodeUse models, User.sessionVersion, migration 20261007090000_device_sessions; src/lib/auth/device-session.ts (rows, revocation, sweep, cutoff), src/lib/auth/session.ts (mint, bridge, per-request check), NextAuth callbacks, the bridge route, login and signup, shell-logout, the new /api/auth/sign-out-all with doors on customer settings, the cleaner profile page and the /app/profile room, change-password, reset, the cleaner profile password path, deletion, suspension, the repository soft delete. No shell change: today's shells revoke their device through the cookie's parent; the "Bearer on logout" OTA piece is named for James's word in the B5 lane. At the gate; DONE after James's walk and the merge.
 
 #### RENA-009 Account-state enumeration
@@ -318,7 +322,7 @@ Mechanism: src/app/api/shell/diag/route.ts: POST, no auth, 300 per minute per IP
 Fix at closure, on James's word when the Android diagnostics close: delete the route; republish the preview channels from a bundle without PERF_JS and the beacon calls (STRING-LAW); record the closing commit here.
 Delivery WEB plus preview OTA. Proof RIG-AUTO (route 404) plus the cooked-parse proof.
 Last verified commit 766f98c. Decision owner and date: James (standing order, held). Overlap group K. Regression evidence: none yet.
-Implementation status: HELD.
+Implementation status: HELD. D-ac (2026-10-07): deleted in the pre-closure code lane after B8 (the endpoint and its preview beacons; string law applies).
 
 #### RENA-008 Shell preview bypass
 
@@ -443,7 +447,7 @@ Migration or config: none.
 Tests: Playwright as a cleaner: open /messages, click the back link while the profile response is delayed, assert the landing is /cleaner with no /account history entry and that one browser back returns to Messages; as a customer the mirror; phone viewport: open a thread, assert the back link is reachable; pageshow: assert the dashboard refetches on a bfcache restore. Manual: James's symptom walk on the website before and after.
 Delivery WEB. Proof RIG-AUTO plus James's walk.
 Last verified commit c4d5b86. Decision owner and date: James, 2026-10-06. Overlap group B (session design and role-home guards); D is shell-only and does not apply. Regression evidence: none yet.
-Implementation status: TODO (B2). D-aa (2026-10-06): remains parked pending James's reproducible symptom (role, device, trapped versus wrong page versus stale), no fix guessed. Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
+Implementation status: TODO (B2). D-ac (2026-10-07): all three mechanisms build in B2 (B2a builds mechanisms 1 and 2, B2b mechanism 3); D-aa's parking is superseded; James's symptom walk before and after stays the manual proof. Earlier, D-aa (2026-10-06): remains parked pending James's reproducible symptom (role, device, trapped versus wrong page versus stale), no fix guessed. Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
 
 ### B3 Cleaner lifecycle and concurrency
 
@@ -630,6 +634,105 @@ Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
 Implementation status: TODO (B4, with RENA-015).
 
+#### RENA-087 Top-up booking's anchored transfer slice can exceed its source charge
+
+Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N1, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: transfer.service.ts computes the anchored headroom from totalAmountCharged (:164), which includes top-up charges, but anchors every slice to the original stripeChargeId (:211-212); top-up charge ids are never stored and top-up PaymentIntents carry no transfer_group, so a top-up booking's anchored slice can exceed the original charge, Stripe rejects it and the booking goes FAILED with no automatic retry.
+Fix: B4.2: TopupRecord.stripeChargeId stored; each charge (original and each succeeded top-up) gets its own ANCHORED slice up to that charge's amount; the remainder is one EXCESS slice.
+Migration or config: TopupRecord.stripeChargeId (B4 migration).
+Tests: B4.11 case 5 plus a top-up booking release producing one anchored slice per charge.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-088 Unknown-refund retry uses the original PaymentIntent and drops the allocation
+
+Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N2, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: refund.service.ts handleUnknownRefund retries with booking.stripePaymentIntentId (:418) rather than the slice's PaymentIntent used at :215, so a single slice that LIFO placed on a top-up PaymentIntent is retried with different parameters under the same idempotency key and Stripe returns an idempotency error; the retry success path writes no allocation (:425-436), so later allocations treat that refund as if it hit the original charge.
+Fix: B4.3: every retry uses the slice's own PaymentIntent; slice rows replace the allocation JSON.
+Migration or config: B4 migration.
+Tests: B4.11 case 6 (connection error twice on a top-up slice, reconcile writes the truth).
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-089 Pre-release earnings scaling divides by totalPrice
+
+Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N3, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: writeRefundSuccess scales cleanerEarnings, platformFee, cleanerPayoutAmount and platformCommissionAmount by amount / totalPrice (refund.service.ts:776-777) while calculateCleanerSharePence uses totalAmountCharged, so the two disagree on top-up bookings.
+Fix: B4.1 and B4.3: one formula, cleanerSharePence over chargedPence = round(totalAmountCharged × 100), for reversal and for scaling.
+Migration or config: none.
+Tests: B4.11 case 3 with earnings asserted after a partial pre-release refund on a top-up booking.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-090 Cascade-exhaustion auto refund ignores earlier refunds
+
+Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N4, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: cascade.service.ts autoRefundExhausted (:1708-1746, amount at :1725) and processExhaustedRefunds refund the full totalAmountCharged without subtracting earlier refunds, so on a PARTIALLY_REFUNDED booking the refund is refused by the ceiling guard on every five-minute sweep.
+Fix: B4.3: remainingRefundablePence(booking) used for the exhaustion refund.
+Migration or config: none.
+Tests: an exhausted booking with an earlier partial refund refunds exactly the remainder once.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-091 Stuck-job remainder and retry-refund use totalPrice
+
+Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N5, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: stuck-jobs.service.ts cancelRefund computes the remainder from totalPrice (:355) and then forces transferStatus REFUNDED; POST /api/admin/bookings/retry-refund uses totalPrice (:72) and always the original PaymentIntent (:78), writes no allocation and no Xero push, and sets RELEASED on a partial refund (:88).
+Fix: B4.3: remainingRefundablePence for the stuck-job remainder; retry-refund deleted, replaced by the stuck-money queue's actions (B4.6).
+Migration or config: none.
+Tests: a top-up booking's stuck-job cancel refunds the true remainder; the route answers 404.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-092 Dispute money failure strands the booking with the dispute RESOLVED
+
+Severity P1 (proposed; James to confirm; part of RENA-013's mechanism). Status CONFIRMED (B4 survey addition N6, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: admin-operations.service.ts resolveDispute writes RESOLVED before the money step (:633-655) and the money step is best effort (:661-721); a failed refund restores transferStatus PAUSED, leaving the booking COMPLETED or CANCELLED, PAUSED, with a RESOLVED dispute; nothing re-resolves it and the scheduler picks PENDING only.
+Fix: B4.4: RESOLVING_REFUND and RESOLVING_RELEASE, RESOLVED only on confirmed money movement, retryResolvingDisputes with retry and backoff metadata per D-ac, the row visible in stuck-money.
+Migration or config: the DisputeStatus enum values and Dispute columns (B4 migration).
+Tests: B4.11 case 7.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4, with RENA-013).
+
+#### RENA-093 Stripe chargebacks never pause release
+
+Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N7, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: webhooks/stripe/route.ts handles charge.dispute.created with an alert email only (:375-411) and funds_withdrawn and funds_reinstated with Xero pushes only (:420-456); neither pauses release nor touches the booking.
+Fix (D-ac): unreleased funds get a chargeback hold; a chargeback after release becomes CHARGEBACK_AFTER_RELEASE in stuck-money; release resumes only when moneyHoldReasons(booking) is empty (dispute, shortfall and chargeback holds coexist).
+Migration or config: the hold representation is specified in the B4 build (B4 migration).
+Tests: chargeback before release holds; closed or reinstated with another hold still present keeps the hold; after release lands in stuck-money.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-094 Reference seed resets admin-managed PlatformConfig on every deploy
+
+Severity P3 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N8, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: prisma/seed-reference-data.ts upserts PlatformConfig rows with update: { value, description } (:205), so every deploy overwrites admin edits.
+Fix (D-ac): admin-managed PlatformConfig defaults are create-if-missing, never reset on deploy; the misleading fee controls removed (RENA-075).
+Migration or config: seed change.
+Tests: a seeded key edited by admin survives a seed re-run; a missing key is created.
+Delivery WEB. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
+#### RENA-095 Recurring off-session charge treats an unknown outcome as a failed attempt
+
+Severity P1 (proposed; James to confirm: a possible double charge). Status CONFIRMED (B4 survey addition N9, ruled in by D-ac). Batch B4. Overlap F.
+Mechanism: recurring-charge.service.ts catches a StripeConnectionError on the off-session charge as a failure (:183-187), although the card may have been charged; a later attempt under a new key could charge twice.
+Fix (D-ac): a deterministic stored idempotency key, one same-key retry, then UNKNOWN reconciled by the sweep; never a new-key replacement charge while UNKNOWN.
+Migration or config: the stored key and attempt state (B4 migration).
+Tests: connection error twice leaves UNKNOWN and no second charge; the sweep reconciles to succeeded or failed by the stored key.
+Delivery WEB, full diff review. Proof RIG-AUTO.
+Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
+Implementation status: TODO (B4).
+
 ### B5 Native shell OTA lane
 
 #### RENA-022 Customer deep-link resolver cannot open nested routes
@@ -641,7 +744,7 @@ Migration or config: none.
 Tests: pure resolver table in nav.ts (RIG-AUTO). Manual: one tap per notification type once customer push is activated.
 Delivery OTA (customer), in the same OTA as RENA-037. Proof RIG-PARTIAL + DEVICE.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group C. Regression evidence: none yet.
-Implementation status: TODO (B5 OTA, dormant until the customer push activation word).
+Implementation status: TODO (B5 OTA). D-ac (2026-10-07): customer push activates in B5, PUSH_ACTIVATED flipping true in the same OTA as this resolver and the notification rationale card; the C7 hold is lifted at that point and recorded as James's decision; until then it stays off because taps cannot yet route.
 
 #### RENA-024 and RENA-039 Navigation policy, both shells
 
@@ -1012,7 +1115,7 @@ Implementation status: RESOLVED; static test DONE (commit a2a0207, merged 6026a9
 
 ### B9 Full regression and register closure
 
-No new entries. B9 runs the required final regression matrix (section 8) end to end, confirms every entry's regression evidence field is filled, records the closing commit on each entry, and declares the hardening programme complete only when every entry is RESOLVED, CLOSED, DECISION or an explicitly deferred later-phase item. Later-phase items carried into B9 for confirmation: RENA-001 step two (Next 15), RENA-005 step three (CSP enforcement), RENA-007 step two (device list), RENA-041 JS half (optional per D-c), RENA-052 (after measurement), RENA-056 (second locale), RENA-067 later half (per-document keys), RENA-078 (stale push comments, with RENA-046).
+No new entries. Per D-ac, B9 is pure closure with no product code; RENA-004 and RENA-007 step two move to the pre-closure code lane and RENA-001 step two to N15, both before B9, so they no longer sit on the later-phase list below. B9 runs the required final regression matrix (section 8) end to end, confirms every entry's regression evidence field is filled, records the closing commit on each entry, and declares the hardening programme complete only when every entry is RESOLVED, CLOSED, DECISION or an explicitly deferred later-phase item. Later-phase items carried into B9 for confirmation: RENA-001 step two (Next 15), RENA-005 step three (CSP enforcement), RENA-007 step two (device list), RENA-041 JS half (optional per D-c), RENA-052 (after measurement), RENA-056 (second locale), RENA-067 later half (per-document keys), RENA-078 (stale push comments, with RENA-046).
 
 #### RENA-085 Remaining console calls carry inline disables instead of the structured logger
 
@@ -1039,6 +1142,7 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-07: STEP 0 of the hardening programme (docs only): the nine design reports (B2 to B9) committed verbatim in docs/design with James's rulings and amendments; D-ac recorded (every named deviation approved; order B2a, B2b, B3, B4, B5, B6, B7, B8, the pre-closure code lane, N15, B9; the business-rule rulings; customer push activates in B5 and the C7 hold lifts then); RENA-087 to RENA-095 added under B4 (the survey additions N1 to N9, severities proposed for confirmation); RENA-084 builds all three mechanisms in B2; RENA-004 and RENA-007 step two moved to the pre-closure lane; RENA-001 step two is N15; the governed public route set ruled at 30. No code change.
 - 2026-10-07: B1 CLOSED. B1a DEPLOYED and DONE (0165dd3, deployment dda67793, James's walk passed on both apps and the website, both lanes); B1b merged ec445c9 and DEPLOYED (deployment 5bb35e2e, boot clean, /privacy verified live); RENA-002's retraction recorded; the revert branch retired. RENA-066 and 077 reach DONE on the first production line read and James's signup walk.
 - 2026-10-07: three externals recorded on James's word: NEXTAUTH_URL confirmed present as a build-visible service variable (RENA-006, RENA-002's D-y canonical origin); LOG_HMAC_KEY set in Railway (RENA-066, D-ab); the Cloudflare range snapshot diffed against the live cloudflare.com/ips lists and found identical, 15 IPv4 and 7 IPv6 (RENA-002). No code change.
 - 2026-10-06: B1b rulings D-ab recorded: deviation 3 rebuilt (an unconfigured provider in production is a failure; signup says so with a retry), privacy page dated 6 October 2026, hash law moved to the 26 baselined public routes with one canonical list (docs/public-routes.json, CLAUDE.md, the hash tool and CI), every 21 in this register corrected, RENA-085 (B7) and RENA-086 (B6) added. B1b held at the gate until James's B1a walk passes.
