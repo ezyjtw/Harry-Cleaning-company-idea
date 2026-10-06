@@ -93,6 +93,7 @@ These are the register's rules. The ones not already in CLAUDE.md are mirrored t
 - J. Freshness: 018, 025. WEB.
 - K. Logging and monitoring: 066, 068, 077, and the 004 closure. WEB.
 - L. Governance: 042, 069, CLAUDE.md. WEB plus DOC.
+- M. In-shell account handoff: 031, 082. One design for both shells: a successful in-shell application or signup completes the native handoff exactly as login does (native token minted, bridge redeemed, panes landing signed in). WEB plus OTA.
 
 Design conflicts settled: (1) RENA-061's 503 against the deploy-time probe: safe, plus an external monitor; (2) D's "open external links in the browser" against Stripe 3DS issuer frames: the classifier acts on top-frame navigations only; (3) B's native logout on 401 against bridge replay during a restart: two consecutive 401s; (4) sessionVersion bumps on sign-out-everywhere against account switch on the same device: the switch revokes the leaving device's JTI only.
 
@@ -105,8 +106,8 @@ Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order 
 - B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054.
 - B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034.
 - B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080.
-- B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, and the JS halves of 041, 043, 046.
-- B6 Web platform: 005, 049, 050, 051, 052, 057, the controlled Next 15 move if required (056 and 058 closed).
+- B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, 082 (or B2 if its web half leads), and the JS halves of 041, 043, 046.
+- B6 Web platform: 005, 049, 050, 051, 052, 057, 083, the controlled Next 15 move if required (056 and 058 closed).
 - B7 Scheduler, operations and GDPR: 062, 063, 064, 065, 067, 070, 071, 072, 076, 081 (014, 061, 068, 069 delivered in B0).
 - B8 Native rebuild: 040, 060, the native half of 041, 044, 045, then 035's device matrix as the release gate.
 - B9 Full regression and register closure.
@@ -659,6 +660,18 @@ Delivery Pro OTA. Proof RIG-PARTIAL + DEVICE.
 Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-p). Overlap group D. Regression evidence: none yet.
 Implementation status: TODO (B5, same OTA as RENA-024/039).
 
+#### RENA-082 Customer signup completed inside the Rena app leaves the shell broken
+
+Severity P2. Status CONFIRMED (James-ruled addition). Batch B5 (customer shell OTA lane), or B2 if the web half leads. Overlap M.
+Mechanism: the customer shell opens /en/signup in a dedicated SignupScreen WebView in the logged-out phase (mobile-customer/App.tsx:522, 892-909) with no onSessionLost, onBridged or tab props, so the shell's navigation watcher never reacts; the web signup page auto-signs the new account in and pushes /account (src/app/[locale]/signup/page.tsx:90-101), the website portal, inside that WebView. No native token is minted and the shell never enters the tabbed phase: the tab bar is absent, the user is forced to back out and log in again. Observed on device.
+Expected: signup completes the native handoff exactly as login does (native token minted, bridge redeemed, panes landing signed in) and the customer lands on Home with the verify-email banner at the top.
+Fix: designed together with RENA-031 as one handoff for both shells (overlap M). Shell-gated branch on the signup page: after a successful signup navigate to a shell-recognised completion URL carrying the email; SignupScreen gains an onSignedUp(email) prop; the shell performs the native login with the just-created credentials (or receives a one-time bridge code from the signup response, the mechanism to be reconciled against source in the batch), stores the Bearer, bridges to /app/home and shows the verify-email banner. Website behaviour unchanged (incognito diff).
+Migration or config: none expected; a bridge-code return on the signup response is a server change if chosen.
+Tests: rig: in-shell UA signup reaches the completion URL and the native login path; website UA lands on /account unchanged. Manual: the device walk, signup to Home with the banner, tab bar present. Proof RIG-PARTIAL + DEVICE.
+Delivery WEB plus customer OTA.
+Last verified commit 6026a97. Decision owner and date: James, 2026-10-06. Overlap group M. Regression evidence: none yet.
+Implementation status: TODO (B5, designed with RENA-031; nothing built now).
+
 #### RENA-037 Offer push cannot deep-link to the offer screen
 
 Severity P1. Status CONFIRMED. Batch B5. Overlap C.
@@ -764,6 +777,17 @@ Tests: the schema has no geo or has the centroid. Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (homepage).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
 Implementation status: TODO (B6).
+
+#### RENA-083 Production build fetches Google Fonts at build time
+
+Severity P3. Status CONFIRMED (James-ruled addition). Batch B6. Overlap none.
+Mechanism: src/lib/fonts.ts loads Newsreader and Jost through next/font/google, which fetches fonts.googleapis.com during next build. A transient failure of that fetch fails the whole build: observed on the Gate A build of B0 (Railway deployment 17c36cd3, 2026-10-06 18:01 UTC, "An error occurred in next/font ... TypeError: Cannot read properties of null (reading '1')" in the Google loader) while the same commit built clean on GitHub Actions at the same minute and twice on the rig. The failed deploy left the previous deployment serving; the redeploy of the same commit is the recovery.
+Fix: self-host the font files via next/font/local: the Newsreader (500, 600, normal and italic) and Jost (400, 500, 600) files committed under public/fonts or src/fonts with their OFL licence files, loaded with next/font/local with the same CSS variables, display swap and fallback chains, so the build carries no build-time network dependency. Etna stays as is. Brand-font ruling untouched (same families, same weights).
+Migration or config: none. Font files added to the repository.
+Tests: next build on the rig with outbound network blocked succeeds; the rendered CSS variables and font-face declarations match before and after; Playwright asserts the computed font-family on a heading and a body paragraph. Public pages: HASH-LAW (the font-face output changes the served CSS, so the incognito diff reviews it and baselines update in the gate).
+Delivery WEB. Proof RIG-AUTO.
+Last verified commit 6026a97. Decision owner and date: James, 2026-10-06. Overlap group none. Regression evidence: none yet.
+Implementation status: TODO (B6; nothing built now).
 
 #### RENA-056 SEO locale strategy
 
@@ -964,5 +988,6 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-06: RENA-082 (customer in-shell signup handoff, B5, overlap M with RENA-031) and RENA-083 (build-time Google Fonts fetch, B6, P3) added, James-ruled, nothing built.
 - 2026-10-06: batches reordered to the auditor's final order on James's review (B0 governance, CI and decisions; B1 authentication, sessions and privacy boundary; B2 service worker and customer recovery; B3 cleaner lifecycle and concurrency; B4 money ledger; B5 native shell OTA lane; B6 web platform; B7 scheduler, operations and GDPR; B8 native rebuild; B9 full regression and closure), with 014 and 061 pulled forward into B0.
 - 2026-10-06: register created from the independent audit, the P1 challenge, the reconciliation report and James's rulings D-a to D-q with the auditor's amendments adopted. Last verified commit for all entries: 766f98c (ac917eb and e8076b3 for the two held lanes).
