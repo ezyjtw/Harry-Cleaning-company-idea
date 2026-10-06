@@ -1,8 +1,7 @@
 'use client';
 
 import { Elements } from '@stripe/react-stripe-js';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import AddToCalendar from '@/components/AddToCalendar';
@@ -26,7 +25,6 @@ import {
   minimumHoursForService,
   serviceLabelFromSlug,
 } from '@/lib/constants/services';
-import { markStale } from '@/lib/freshness';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { mapApiCleaner, useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -139,8 +137,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // H83: session truth for gating account-only fetches (guests get no 401 spray).
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
   // Carry the up-front postcode (cleaner card / profile pass ?postcode=) into the
   // address step so it auto-looks-up on mount instead of a manual "Find address".
   // Captured once; empty when absent (direct nav) → the manual path is preserved.
@@ -302,17 +299,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     guestToken: string | null;
   } | null>(null);
   const [showRebook, setShowRebook] = useState(false);
-  // RENA-020 / RENA-021 (B2a): the checkout mode derives from the session. A
-  // signed-in customer is in account mode with no fork at all; a signed-out
-  // one chooses guest explicitly, or signs in or creates an account and comes
-  // back here (the form is restored from the flow store below). The server
-  // still decides guest-ness by session; isGuest stays advisory.
-  const [guestChosen, setGuestChosen] = useState(false);
-  const bookingMode: 'guest' | 'account' | null = isAuthenticated
-    ? 'account'
-    : guestChosen
-      ? 'guest'
-      : null;
+  const [bookingMode, setBookingMode] = useState<'guest' | 'account' | null>(null);
   const [abandonmentCaptured, setAbandonmentCaptured] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [backupCleanerIds, setBackupCleanerIds] = useState<string[]>([]);
@@ -330,62 +317,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     productsFee: number;
   } | null>(null);
   const { trackStep, trackConversion } = useAnalytics('booking');
-
-  // RENA-020 (B2a): flow persistence for the cleaner-first form, website and
-  // shell alike, so Sign in or Create account returns to the same answers.
-  // sessionStorage, one key per cleaner, 60-minute expiry, never the Stripe
-  // secret; the confirmation page clears every rena-flow:* key on completion.
-  const flowKey = `rena-flow:book:${params.id}`;
-  const flowRestored = useRef(false);
-  useEffect(() => {
-    if (flowRestored.current) return;
-    flowRestored.current = true;
-    try {
-      const raw = sessionStorage.getItem(flowKey);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (!saved || typeof saved !== 'object' || !saved.ts || Date.now() - saved.ts > 3600000) {
-        sessionStorage.removeItem(flowKey);
-        return;
-      }
-      if (saved.form && typeof saved.form === 'object') setForm((f) => ({ ...f, ...saved.form }));
-      if (saved.step === 'service' || saved.step === 'details') setStep(saved.step);
-      if (typeof saved.bringsProducts === 'boolean') setBringsProducts(saved.bringsProducts);
-      if (Array.isArray(saved.backupCleanerIds)) setBackupCleanerIds(saved.backupCleanerIds);
-      if (typeof saved.autoAssignBackup === 'boolean') setAutoAssignBackup(saved.autoAssignBackup);
-      if (saved.guestChosen === true) setGuestChosen(true);
-    } catch {
-      /* unreadable state never blocks the flow */
-    }
-  }, [flowKey]);
-  useEffect(() => {
-    if (!flowRestored.current || paymentStep) return;
-    try {
-      sessionStorage.setItem(
-        flowKey,
-        JSON.stringify({
-          ts: Date.now(),
-          form,
-          step,
-          bringsProducts,
-          backupCleanerIds,
-          autoAssignBackup,
-          guestChosen,
-        })
-      );
-    } catch {
-      /* storage unavailable: the flow still works, it just is not restored */
-    }
-  }, [
-    flowKey,
-    paymentStep,
-    form,
-    step,
-    bringsProducts,
-    backupCleanerIds,
-    autoAssignBackup,
-    guestChosen,
-  ]);
 
   const handleSaveCardToggle = useCallback((checked: boolean) => {
     setSaveCard(checked);
@@ -716,8 +647,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
       if (response.ok) {
         const data = await response.json();
-        // RENA-018 (B2a): a new (unpaid) booking shows on Home and My Cleans.
-        markStale(['home', 'mycleans', 'account']);
         setBookingData(
           data.booking ? { id: data.booking.id, guestToken: data.booking.guestToken ?? null } : null
         );
@@ -1148,56 +1077,35 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         {/* Left column — form */}
         <div>
           {/* Guest / Account selection */}
-          {bookingMode === null &&
-            (authLoading ? (
-              <div className="mt-8 h-32 animate-pulse bg-line/40" aria-hidden="true" />
-            ) : (
-              <div className="mt-8 p-6" style={{ border: '0.5px solid #E4E9F0' }}>
-                <h3 className="font-newsreader text-lg font-semibold text-ink mb-4">
-                  How would you like to book?
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={() => setGuestChosen(true)}
-                    className="p-4 text-left hover:bg-page transition"
-                    style={{ border: '0.5px solid #E4E9F0' }}
-                    data-testid="mode-guest"
-                  >
-                    <p className="font-jost font-normal text-ink">Continue as Guest</p>
-                    <p className="font-jost text-sm font-light text-ink-3 mt-1">
-                      No account needed. We&apos;ll email you a link to manage your booking.
-                    </p>
-                  </button>
-                  <Link
-                    href={`/login?callbackUrl=${encodeURIComponent(
-                      `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
-                    )}`}
-                    className="bg-primary-soft p-4 text-left hover:bg-page/80 transition"
-                    style={{ border: '0.5px solid #E4E9F0' }}
-                    data-testid="mode-signin"
-                  >
-                    <p className="font-jost font-normal text-ink">Sign in</p>
-                    <p className="font-jost text-sm font-light text-ink-3 mt-1">
-                      Already with Rena? Sign in and come straight back to this booking.
-                    </p>
-                  </Link>
-                  <Link
-                    href={`/signup?callbackUrl=${encodeURIComponent(
-                      `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
-                    )}`}
-                    className="p-4 text-left hover:bg-page transition"
-                    style={{ border: '0.5px solid #E4E9F0' }}
-                    data-testid="mode-create"
-                  >
-                    <p className="font-jost font-normal text-ink">Create account</p>
-                    <p className="font-jost text-sm font-light text-ink-3 mt-1">
-                      Save your details, rebook easily, and track all your bookings.
-                    </p>
-                  </Link>
-                </div>
+          {bookingMode === null && (
+            <div className="mt-8 p-6" style={{ border: '0.5px solid #E4E9F0' }}>
+              <h3 className="font-newsreader text-lg font-semibold text-ink mb-4">
+                How would you like to book?
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <button
+                  onClick={() => setBookingMode('guest')}
+                  className="p-4 text-left hover:bg-page transition"
+                  style={{ border: '0.5px solid #E4E9F0' }}
+                >
+                  <p className="font-jost font-normal text-ink">Continue as Guest</p>
+                  <p className="font-jost text-sm font-light text-ink-3 mt-1">
+                    No account needed. We&apos;ll email you a link to manage your booking.
+                  </p>
+                </button>
+                <button
+                  onClick={() => setBookingMode('account')}
+                  className="bg-primary-soft p-4 text-left hover:bg-page/80 transition"
+                  style={{ border: '0.5px solid #E4E9F0' }}
+                >
+                  <p className="font-jost font-normal text-ink">Sign in / Create Account</p>
+                  <p className="font-jost text-sm font-light text-ink-3 mt-1">
+                    Save your details, rebook easily, and track all your bookings.
+                  </p>
+                </button>
               </div>
-            ))}
+            </div>
+          )}
 
           <form
             onSubmit={handleSubmit}

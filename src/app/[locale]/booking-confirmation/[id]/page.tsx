@@ -45,11 +45,12 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
     if (isCustomerShellUA() || preview) setInShell(true);
   }, []);
-  // LANE 1 (James-ruled): a completed booking clears the flow persistence:
-  // every rena-flow:* key dies here. RENA-020 (B2a) extends that persistence
-  // to the website's cleaner-first form (rena-flow:book:*), so the sweep is no
-  // longer shell-gated. Effect-only: the served markup is unchanged.
+  // LANE 1 (James-ruled): a completed booking clears the in-shell flow
+  // persistence — every rena-flow:* key dies here. Effect-only and
+  // shell-gated: browsers hold no such keys and see zero change.
   useEffect(() => {
+    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
+    if (!isCustomerShellUA() && !preview) return;
     try {
       for (const k of Object.keys(sessionStorage)) {
         if (k.startsWith('rena-flow:')) sessionStorage.removeItem(k);
