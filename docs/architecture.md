@@ -145,11 +145,66 @@ The database uses PostgreSQL via Prisma ORM. Key models:
 1. User visits /login or /signup
 2. Credentials submitted to NextAuth endpoint
 3. NextAuth validates credentials against database (bcrypt)
-4. Session created and JWT token issued
+4. Session created: a WEB DeviceSession row is written and the JWT cookie
+   carries its jti (sid), the user's sessionVersion (sv) and the issue time
+   (pwdAt)
 5. AuthProvider wraps app with session context
-6. Protected routes check session server-side
-7. API routes validate session via getServerSession()
+6. Protected routes check the cookie signature in the middleware (Edge)
+7. API routes validate the session via getSessionUser(): one indexed
+   DeviceSession lookup by jti carrying the user's security fields
 ```
+
+### Sessions (D-g, register RENA-003, 007, 074)
+
+- Every issued session is a `DeviceSession` row: BEARER for the native
+  shells' 30-day tokens (minted by `/api/auth/login` and `/api/auth/signup`,
+  labelled by the `x-rena-shell` header), WEB for website sign-ins and for
+  bridge-minted WebView sessions. `User.sessionVersion` is the account-wide
+  version; every token carries the version it was minted under.
+- Bridge codes name the Bearer that minted them. Redemption claims the code
+  in `BridgeCodeUse` (insert-as-claim, so a replay is a unique violation on
+  any instance) and verifies the parent in the same transaction: it must
+  exist, belong to the same user, be kind BEARER, unrevoked, unexpired and
+  carry the current sessionVersion. The WEB child's expiry never exceeds the
+  parent's; revoking a Bearer revokes its children in the same statement; a
+  child's own request never reads its parent.
+- Per request: one lookup by jti joined to the user's status, suspension,
+  passwordChangedAt and sessionVersion; `lastSeenAt` is written at most every
+  five minutes. The middleware stays signature-only (no database on the Edge).
+- Revocation: device logout (`/api/auth/shell-logout`, Bearer or cookie)
+  revokes that device's session and its children; account switch revokes the
+  token being left; `/api/auth/sign-out-all` bumps the version and revokes
+  every row, the current device included; password change and reset stamp
+  `passwordChangedAt`, bump the version and revoke every row; deletion and
+  suspension do the same.
+- Grandfather: tokens minted before B1a carry no jti or sid. They are
+  accepted until `LEGACY_TOKEN_CUTOFF` (src/lib/auth/device-session.ts) with
+  a missing sv read as 0; after the cutoff they are invalid. Live website
+  cookies gain a row on their next read.
+
+### Cross-site request rule (RENA-006)
+
+Evaluated in the middleware's API branch (`src/lib/http/csrf.ts`), in this
+fixed order: GET, HEAD and OPTIONS are never checked; webhooks and cron keep
+their own signature or secret security; NextAuth's own protocol routes keep
+NextAuth's double-submit token (Rena's routes under `/api/auth` are not
+exempt); an `Authorization` or `x-rena-shell` header passes the layer as a
+bypass signal only, never as authentication; a mutation carrying a session
+cookie must present an `Origin` equal to `NEXTAUTH_URL`'s origin (scheme,
+host and port) or, with no `Origin`, `Sec-Fetch-Site: same-origin` or `none`;
+`same-site` never passes; everything else is refused with 403. The app never
+answers a CORS preflight, so no cross-site page can add the bypass headers.
+
+### Client IP (RENA-002)
+
+`src/lib/http/client-ip.ts` is the one chooser (middleware, rate limiters and
+audit writers). Railway's edge appends the connecting peer to
+`x-forwarded-for`, so the rightmost entry is the peer that reached Railway.
+In `TRUSTED_PROXY=cloudflare` mode (production: the domain is proxied through
+Cloudflare) `cf-connecting-ip` is trusted only when that peer is inside
+Cloudflare's published ranges; otherwise, and in `railway` mode or unset,
+the rightmost entry then `x-real-ip` is used, so a request sent straight to
+the Railway origin cannot forge its bucket.
 
 ## Booking Flow
 

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { AuditService } from '@/lib/services/audit.service';
 import { sendVerificationDecision } from '@/lib/services/email.service';
 import { maybeMarkLive } from '@/lib/services/go-live.service';
@@ -96,8 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
     }
 
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+    const ipAddress = resolveClientIp(request.headers);
 
     await AuditService.log({
       userId: admin.id,

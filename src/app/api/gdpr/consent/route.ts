@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { GdprService } from '@/lib/services/gdpr.service';
 import type { ConsentType } from '@/lib/services/gdpr.service';
 
@@ -46,9 +47,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ipAddress =
-      forwarded?.split(',').pop()?.trim() ?? request.headers.get('x-real-ip') ?? undefined;
+    const ipAddress = resolveClientIp(request.headers);
     const userAgent = request.headers.get('user-agent') ?? undefined;
 
     // SECURITY: the cookie-consent banner posts anonymously (no session), so we

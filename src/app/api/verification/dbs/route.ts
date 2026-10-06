@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { DBSVerificationService } from '@/lib/services/dbs-verification.service';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 
@@ -50,8 +51,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
 
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+    const ipAddress = resolveClientIp(request.headers);
 
     // Look up the cleaner profile
     const profile = await prisma.cleanerProfile.findUnique({
@@ -103,10 +103,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ result }, { status: result.success ? 200 : 500 });
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action. Must be: liveness_check' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid action. Must be: liveness_check' }, { status: 400 });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[DBSVerification] POST error:', error);

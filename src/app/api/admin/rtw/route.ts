@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { RightToWorkService } from '@/lib/services/right-to-work.service';
 import { isValidShareCode } from '@/lib/validation/inputs';
 
@@ -76,8 +77,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const ipAddress =
-        request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+      const ipAddress = resolveClientIp(request.headers);
 
       const result = await RightToWorkService.verifyShareCode(
         shareCode,

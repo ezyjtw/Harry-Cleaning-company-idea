@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import { getAcknowledgmentStatus, recordAcknowledgment } from '@/lib/services/agreement.service';
 
@@ -49,8 +50,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const ipAddress =
-    request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+  const ipAddress = resolveClientIp(request.headers);
   const userAgent = request.headers.get('user-agent') || undefined;
 
   const status = await recordAcknowledgment({ cleanerId: user.id, ipAddress, userAgent });
