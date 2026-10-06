@@ -44,6 +44,23 @@ const SHELL_HEADER = {
   'x-rena-shell': `app-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}`,
 };
 const UA_SUFFIX = `RenaApp/${Constants.expoConfig?.version ?? '1.0'}`;
+
+// Platform law for the WebView prop block: iOS-shaped props never reach the
+// Android native component. react-native-webview's Android wrapper spreads
+// every prop it does not handle straight onto the Fabric host view, and the
+// generated New-Architecture delegate casts `decelerationRate` to a Double,
+// so the iOS string shortcut "normal" becomes a ClassCastException on the
+// Android UI thread at mount. iOS keeps the whole set unchanged.
+const IOS_WEBVIEW_PROPS =
+  Platform.OS === 'ios'
+    ? ({
+        sharedCookiesEnabled: true,
+        bounces: true,
+        decelerationRate: 'normal',
+        allowsBackForwardNavigationGestures: true,
+        allowsLinkPreview: false,
+      } as const)
+    : {};
 // Post-login lie fix (James-ruled): the moment ANY pane genuinely renders,
 // the network is provably alive. Module-level so every pane shares the truth.
 let lastDressedAt = 0;
@@ -1406,13 +1423,9 @@ function SeamlessWebView({
         ref={ref}
         source={{ uri: overrideUri ?? initialUri.current, headers: SHELL_HEADER }}
         applicationNameForUserAgent={UA_SUFFIX}
-        sharedCookiesEnabled
+        {...IOS_WEBVIEW_PROPS}
         thirdPartyCookiesEnabled
         pullToRefreshEnabled={false}
-        bounces
-        decelerationRate="normal"
-        allowsBackForwardNavigationGestures
-        allowsLinkPreview={false}
         injectedJavaScriptBeforeContentLoaded={injectBefore + PREFETCH_KILL_JS + DRESSED_JS}
         onContentProcessDidTerminate={() => {
           if (activeRef.current !== false) revive();
