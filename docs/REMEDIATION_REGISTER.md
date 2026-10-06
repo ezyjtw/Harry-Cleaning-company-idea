@@ -22,7 +22,7 @@ Proof type (what honestly proves the fix here):
 - RIG-PARTIAL + DEVICE: the rig proves the logic, a device walk proves the shell or OS half.
 - DEVICE-ONLY: only a device or a store console can prove it.
 - STRING-LAW: the change touches an injected template literal; the cooked-parse proof and the dressed-arrival timing table ride the gate (CLAUDE.md, injected-script law).
-- HASH-LAW: the change touches a route in the governed public route set (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies. Per D-ac the governed set is 30: the 26 baselined routes plus /get-app/pro, /get-app/customer, /open/pro and /open/customer, the four joining the canonical list, CLAUDE.md and the baselines in the gate that builds each (B5 for /get-app, B8 for /open), with deterministic fallback-representation baselines for the user-agent-redirecting ones.
+- HASH-LAW: the change touches a route in the governed public route set (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies. Per D-ac the governed set is 30: the 26 baselined routes plus /get-app/pro, /get-app/customer, /open/pro and /open/customer, the set growing with the routes as they are built (James-ruled 2026-10-07): 28 at B5 (/get-app/pro, /get-app/customer), 30 at B8 (/open/pro, /open/customer), each gate adding its routes to docs/public-routes.json, CLAUDE.md and the baselines together, with deterministic fallback-representation baselines for the user-agent-redirecting ones.
 
 Delivery:
 
@@ -636,7 +636,7 @@ Implementation status: TODO (B4, with RENA-015).
 
 #### RENA-087 Top-up booking's anchored transfer slice can exceed its source charge
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N1, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N1, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: transfer.service.ts computes the anchored headroom from totalAmountCharged (:164), which includes top-up charges, but anchors every slice to the original stripeChargeId (:211-212); top-up charge ids are never stored and top-up PaymentIntents carry no transfer_group, so a top-up booking's anchored slice can exceed the original charge, Stripe rejects it and the booking goes FAILED with no automatic retry.
 Fix: B4.2: TopupRecord.stripeChargeId stored; each charge (original and each succeeded top-up) gets its own ANCHORED slice up to that charge's amount; the remainder is one EXCESS slice.
 Migration or config: TopupRecord.stripeChargeId (B4 migration).
@@ -647,7 +647,7 @@ Implementation status: TODO (B4).
 
 #### RENA-088 Unknown-refund retry uses the original PaymentIntent and drops the allocation
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N2, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N2, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: refund.service.ts handleUnknownRefund retries with booking.stripePaymentIntentId (:418) rather than the slice's PaymentIntent used at :215, so a single slice that LIFO placed on a top-up PaymentIntent is retried with different parameters under the same idempotency key and Stripe returns an idempotency error; the retry success path writes no allocation (:425-436), so later allocations treat that refund as if it hit the original charge.
 Fix: B4.3: every retry uses the slice's own PaymentIntent; slice rows replace the allocation JSON.
 Migration or config: B4 migration.
@@ -658,7 +658,7 @@ Implementation status: TODO (B4).
 
 #### RENA-089 Pre-release earnings scaling divides by totalPrice
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N3, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N3, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: writeRefundSuccess scales cleanerEarnings, platformFee, cleanerPayoutAmount and platformCommissionAmount by amount / totalPrice (refund.service.ts:776-777) while calculateCleanerSharePence uses totalAmountCharged, so the two disagree on top-up bookings.
 Fix: B4.1 and B4.3: one formula, cleanerSharePence over chargedPence = round(totalAmountCharged × 100), for reversal and for scaling.
 Migration or config: none.
@@ -669,7 +669,7 @@ Implementation status: TODO (B4).
 
 #### RENA-090 Cascade-exhaustion auto refund ignores earlier refunds
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N4, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N4, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: cascade.service.ts autoRefundExhausted (:1708-1746, amount at :1725) and processExhaustedRefunds refund the full totalAmountCharged without subtracting earlier refunds, so on a PARTIALLY_REFUNDED booking the refund is refused by the ceiling guard on every five-minute sweep.
 Fix: B4.3: remainingRefundablePence(booking) used for the exhaustion refund.
 Migration or config: none.
@@ -680,7 +680,7 @@ Implementation status: TODO (B4).
 
 #### RENA-091 Stuck-job remainder and retry-refund use totalPrice
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N5, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N5, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: stuck-jobs.service.ts cancelRefund computes the remainder from totalPrice (:355) and then forces transferStatus REFUNDED; POST /api/admin/bookings/retry-refund uses totalPrice (:72) and always the original PaymentIntent (:78), writes no allocation and no Xero push, and sets RELEASED on a partial refund (:88).
 Fix: B4.3: remainingRefundablePence for the stuck-job remainder; retry-refund deleted, replaced by the stuck-money queue's actions (B4.6).
 Migration or config: none.
@@ -691,7 +691,7 @@ Implementation status: TODO (B4).
 
 #### RENA-092 Dispute money failure strands the booking with the dispute RESOLVED
 
-Severity P1 (proposed; James to confirm; part of RENA-013's mechanism). Status CONFIRMED (B4 survey addition N6, ruled in by D-ac). Batch B4. Overlap F.
+Severity P1 (James-confirmed 2026-10-07; part of RENA-013's mechanism). Status CONFIRMED (B4 survey addition N6, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: admin-operations.service.ts resolveDispute writes RESOLVED before the money step (:633-655) and the money step is best effort (:661-721); a failed refund restores transferStatus PAUSED, leaving the booking COMPLETED or CANCELLED, PAUSED, with a RESOLVED dispute; nothing re-resolves it and the scheduler picks PENDING only.
 Fix: B4.4: RESOLVING_REFUND and RESOLVING_RELEASE, RESOLVED only on confirmed money movement, retryResolvingDisputes with retry and backoff metadata per D-ac, the row visible in stuck-money.
 Migration or config: the DisputeStatus enum values and Dispute columns (B4 migration).
@@ -702,7 +702,7 @@ Implementation status: TODO (B4, with RENA-013).
 
 #### RENA-093 Stripe chargebacks never pause release
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N7, ruled in by D-ac). Batch B4. Overlap F.
+Severity P1 (James-ruled 2026-10-07, raised from the proposed P2: the chargeback hold is money integrity). Status CONFIRMED (B4 survey addition N7, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: webhooks/stripe/route.ts handles charge.dispute.created with an alert email only (:375-411) and funds_withdrawn and funds_reinstated with Xero pushes only (:420-456); neither pauses release nor touches the booking.
 Fix (D-ac): unreleased funds get a chargeback hold; a chargeback after release becomes CHARGEBACK_AFTER_RELEASE in stuck-money; release resumes only when moneyHoldReasons(booking) is empty (dispute, shortfall and chargeback holds coexist).
 Migration or config: the hold representation is specified in the B4 build (B4 migration).
@@ -713,7 +713,7 @@ Implementation status: TODO (B4).
 
 #### RENA-094 Reference seed resets admin-managed PlatformConfig on every deploy
 
-Severity P3 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N8, ruled in by D-ac). Batch B4. Overlap F.
+Severity P3 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N8, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: prisma/seed-reference-data.ts upserts PlatformConfig rows with update: { value, description } (:205), so every deploy overwrites admin edits.
 Fix (D-ac): admin-managed PlatformConfig defaults are create-if-missing, never reset on deploy; the misleading fee controls removed (RENA-075).
 Migration or config: seed change.
@@ -724,7 +724,7 @@ Implementation status: TODO (B4).
 
 #### RENA-095 Recurring off-session charge treats an unknown outcome as a failed attempt
 
-Severity P1 (proposed; James to confirm: a possible double charge). Status CONFIRMED (B4 survey addition N9, ruled in by D-ac). Batch B4. Overlap F.
+Severity P1 (James-confirmed 2026-10-07; a possible double charge). Status CONFIRMED (B4 survey addition N9, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: recurring-charge.service.ts catches a StripeConnectionError on the off-session charge as a failure (:183-187), although the card may have been charged; a later attempt under a new key could charge twice.
 Fix (D-ac): a deterministic stored idempotency key, one same-key retry, then UNKNOWN reconciled by the sweep; never a new-key replacement charge while UNKNOWN.
 Migration or config: the stored key and attempt state (B4 migration).
@@ -1142,6 +1142,7 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-07: STEP 0 merged to main 6312a83 on James's word. Severities of RENA-087 to RENA-095 confirmed as proposed except RENA-093 raised to P1 (the chargeback hold is money integrity). The governed route set grows with the routes as built: 28 at B5, 30 at B8, each gate adding its routes to docs/public-routes.json, CLAUDE.md and the baselines together. The two labelled notes in docs/design/B6.md and B9.md stand as the record of the programme order superseding the design reports. B2a begins.
 - 2026-10-07: STEP 0 of the hardening programme (docs only): the nine design reports (B2 to B9) committed verbatim in docs/design with James's rulings and amendments; D-ac recorded (every named deviation approved; order B2a, B2b, B3, B4, B5, B6, B7, B8, the pre-closure code lane, N15, B9; the business-rule rulings; customer push activates in B5 and the C7 hold lifts then); RENA-087 to RENA-095 added under B4 (the survey additions N1 to N9, severities proposed for confirmation); RENA-084 builds all three mechanisms in B2; RENA-004 and RENA-007 step two moved to the pre-closure lane; RENA-001 step two is N15; the governed public route set ruled at 30. No code change.
 - 2026-10-07: B1 CLOSED. B1a DEPLOYED and DONE (0165dd3, deployment dda67793, James's walk passed on both apps and the website, both lanes); B1b merged ec445c9 and DEPLOYED (deployment 5bb35e2e, boot clean, /privacy verified live); RENA-002's retraction recorded; the revert branch retired. RENA-066 and 077 reach DONE on the first production line read and James's signup walk.
 - 2026-10-07: three externals recorded on James's word: NEXTAUTH_URL confirmed present as a build-visible service variable (RENA-006, RENA-002's D-y canonical origin); LOG_HMAC_KEY set in Railway (RENA-066, D-ab); the Cloudflare range snapshot diffed against the live cloudflare.com/ips lists and found identical, 15 IPv4 and 7 IPv6 (RENA-002). No code change.
