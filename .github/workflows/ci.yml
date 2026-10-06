@@ -151,6 +151,11 @@ jobs:
       - name: Seed reference data
         run: npm run db:seed-reference
 
+      - name: Scheduler lease concurrency test against Postgres (RENA-014)
+        run: npx vitest run src/lib/services/scheduler-lease.integration.test.ts
+        env:
+          SCHEDULER_LEASE_INTEGRATION: '1'
+
       - name: Build
         run: npm run build
 

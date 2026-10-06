@@ -1,7 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  callerLabel,
+  claimSchedulerLease,
+  releaseSchedulerLease,
+} from '@/lib/services/scheduler-lease.service';
 import { runScheduledJobs } from '@/lib/services/scheduler.service';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   // SECURITY (A6): before this triggers money, require CRON_SECRET to be set
@@ -21,19 +28,42 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // RENA-014: one effective run per tick. A second caller is refused while a
+  // run is in progress (running lock) or within four minutes of the previous
+  // start (cadence), and answered 200 with "skipped" so the second of the two
+  // external triggers never doubles the money sweeps.
+  const lease = await claimSchedulerLease(callerLabel(request.headers.get('user-agent')));
+  if (!lease.claimed) {
+    // eslint-disable-next-line no-console
+    console.log(
+      '[Scheduler] skipped: lease held',
+      JSON.stringify({
+        reason: lease.reason,
+        lockedUntil: lease.lockedUntil,
+        lastStartedAt: lease.lastStartedAt,
+      })
+    );
+    return NextResponse.json({
+      skipped: 'lease held',
+      reason: lease.reason,
+      lockedUntil: lease.lockedUntil,
+      lastStartedAt: lease.lastStartedAt,
+    });
+  }
+
   try {
     const summary = await runScheduledJobs();
 
     // eslint-disable-next-line no-console
     console.log('[Scheduler]', JSON.stringify(summary));
 
+    await releaseSchedulerLease({ summary });
     return NextResponse.json(summary);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[Scheduler] Fatal error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Scheduler failed' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Scheduler failed';
+    await releaseSchedulerLease({ error }).catch(() => {});
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

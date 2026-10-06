@@ -1922,3 +1922,25 @@ model RescheduleOffer {
   @@index([bookingId, status])
   @@index([status, expiresAt])
 }
+
+// RENA-014 (remediation register, B0): single-row lease, cadence debounce and
+// success-aware heartbeat for the five-minute scheduler. Two external callers
+// hit /api/cron/run-jobs every tick today (cron-job.org and the Railway Bun
+// Function, 8 to 60 s apart), so a claim needs BOTH the running lock to be
+// free (lockedUntil in the past) AND the cadence window to have elapsed
+// (lastStartedAt older than four minutes). The heartbeat is lastSucceededAt:
+// only a successful run advances it, so repeated failing ticks turn
+// /api/health/scheduler unhealthy. lastError holds a short message, never a
+// stack or job internals. Always one row, id 'scheduler', inserted by the
+// migration.
+model SchedulerLease {
+  id              String    @id
+  lockedUntil     DateTime?
+  lastStartedAt   DateTime?
+  lastSucceededAt DateTime?
+  lastFailedAt    DateTime?
+  lastCaller      String?
+  lastSummary     Json?
+  lastError       String?
+  updatedAt       DateTime  @updatedAt
+}
