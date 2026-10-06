@@ -1,5 +1,6 @@
 import type { Prisma, Role, AccountStatus } from '@prisma/client';
 
+import { revokeAllSessions } from '@/lib/auth/device-session';
 import { prisma } from '@/lib/db/prisma';
 
 export class UserRepository {
@@ -33,10 +34,13 @@ export class UserRepository {
   }
 
   static async softDelete(id: string) {
-    return prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id },
       data: { isDeleted: true, accountStatus: 'DEACTIVATED' },
     });
+    // D-g: deletion revokes every session row and bumps the version.
+    await revokeAllSessions(id, 'deletion');
+    return updated;
   }
 
   static async findPaginated(options: {

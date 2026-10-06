@@ -57,6 +57,9 @@ export default function SettingsPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [exporting, setExporting] = useState(false);
+  // D-g (RENA-007): sign out everywhere, this browser included.
+  const [signingOutAll, setSigningOutAll] = useState(false);
+  const [signOutAllError, setSignOutAllError] = useState('');
 
   // Fetch profile and addresses on mount
   useEffect(() => {
@@ -210,6 +213,24 @@ export default function SettingsPage() {
       }
     } catch {
       setPasswordError('Failed to change password.');
+    }
+  };
+
+  const handleSignOutEverywhere = async () => {
+    if (signingOutAll) return;
+    setSigningOutAll(true);
+    setSignOutAllError('');
+    try {
+      const res = await fetch('/api/auth/sign-out-all', { method: 'POST' });
+      if (!res.ok) {
+        setSignOutAllError('Could not sign out everywhere. Please try again.');
+        setSigningOutAll(false);
+        return;
+      }
+      await signOut({ callbackUrl: '/login' });
+    } catch {
+      setSignOutAllError('Could not sign out everywhere. Please try again.');
+      setSigningOutAll(false);
     }
   };
 
@@ -527,6 +548,30 @@ export default function SettingsPage() {
             Update Password
           </button>
         </form>
+      </AccountSection>
+
+      {/* D-g (RENA-007): sign out everywhere, the current browser included. */}
+      <AccountSection title="Signed-in devices">
+        <p className="mt-1 text-sm text-ink-2">
+          Sign out of every device and browser where this account is signed in, including the Rena
+          app and this browser. You will need to sign in again afterwards.
+        </p>
+        {signOutAllError && (
+          <p className="mt-3 text-sm text-danger" role="alert">
+            {signOutAllError}
+          </p>
+        )}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={handleSignOutEverywhere}
+            disabled={signingOutAll}
+            data-testid="sign-out-everywhere"
+            className="rounded-[10px] border border-line px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:bg-page disabled:opacity-50"
+          >
+            {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
+          </button>
+        </div>
       </AccountSection>
 
       {/* Privacy & data (F1 + F8) */}

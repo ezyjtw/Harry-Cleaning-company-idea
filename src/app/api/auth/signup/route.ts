@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { sessionLabel } from '@/lib/auth/device-session';
 import { generateApiToken, generateBridgeCode } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
@@ -60,12 +61,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
-    const token = generateApiToken({
-      id: result.user.id,
-      email: result.user.email,
-      name: result.user.name,
-      role: result.user.role,
-    });
+    // D-g: same primitive as login; the RENA-031/082 native handoff (B5)
+    // consumes this mint, never a second path.
+    const { token, jti } = await generateApiToken(
+      {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+      },
+      { label: sessionLabel(request.headers.get('x-rena-shell'), 'native') }
+    );
 
     await AuditService.log({
       userId: result.user.id,
@@ -80,7 +86,7 @@ export async function POST(request: Request) {
       {
         user: result.user,
         token,
-        bridgeCode: generateBridgeCode({ id: result.user.id }),
+        bridgeCode: generateBridgeCode({ id: result.user.id, bearerJti: jti }),
         message: result.message,
       },
       { status: 201 }

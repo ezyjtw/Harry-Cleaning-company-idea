@@ -8,6 +8,7 @@
 // swipe-back also works).
 
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { haptic } from '@/components/app/job-cards';
@@ -116,6 +117,32 @@ export default function ProfileHubPage() {
   const go = (path: string) => {
     haptic('light');
     router.push(path);
+  };
+
+  // D-g (RENA-007): sign out everywhere from the app. Two taps (arm, then
+  // confirm) instead of a native dialog; the route revokes every session and
+  // bumps the version, then the web sign-out lands on /login, which the
+  // shell's navigation watch turns into the native logout.
+  const [signOutAllState, setSignOutAllState] = useState<'idle' | 'armed' | 'busy' | 'error'>(
+    'idle'
+  );
+  const signOutEverywhere = async () => {
+    if (signOutAllState === 'busy') return;
+    if (signOutAllState !== 'armed') {
+      haptic('light');
+      setSignOutAllState('armed');
+      return;
+    }
+    haptic('medium');
+    setSignOutAllState('busy');
+    try {
+      const res = await fetch('/api/auth/sign-out-all', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      await signOut({ callbackUrl: '/en/login' });
+    } catch {
+      haptic('error');
+      setSignOutAllState('error');
+    }
   };
 
   const rowCls =
@@ -352,6 +379,33 @@ export default function ProfileHubPage() {
             {chevron}
           </button>
         </div>
+      </section>
+
+      {/* D-g (RENA-007): sign out everywhere, this device included. */}
+      <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
+        <button
+          type="button"
+          className={rowCls}
+          onClick={signOutEverywhere}
+          disabled={signOutAllState === 'busy'}
+          data-testid="sign-out-all-row"
+        >
+          <span className="min-w-0">
+            <span className="block">
+              {signOutAllState === 'armed'
+                ? 'Tap again to sign out everywhere'
+                : signOutAllState === 'busy'
+                  ? 'Signing out…'
+                  : 'Sign out everywhere'}
+            </span>
+            <span className="mt-0.5 block font-jost text-[12px] font-normal text-ink-3">
+              {signOutAllState === 'error'
+                ? 'Could not sign out everywhere. Tap to try again.'
+                : 'Every device and browser, including this one.'}
+            </span>
+          </span>
+          {chevron}
+        </button>
       </section>
 
       {/* Account deletion door (James-ordered, Apple 5.1.1(v)): the Pro twin

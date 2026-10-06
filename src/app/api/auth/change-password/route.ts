@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { revokeAllSessionsInTx } from '@/lib/auth/device-session';
 import { getSessionUser } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -32,7 +33,10 @@ export async function POST(request: NextRequest) {
 
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.json({ error: 'Please sign in again to change your password.' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Please sign in again to change your password.' },
+      { status: 401 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -75,9 +79,15 @@ export async function POST(request: NextRequest) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash, passwordChangedAt: new Date() },
+  // D-g: stamp passwordChangedAt, bump sessionVersion and revoke every row in
+  // one transaction. The client re-signs in with the new password so this
+  // browser stays signed in through a fresh row; every other session dies.
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { passwordHash, passwordChangedAt: new Date() },
+    });
+    await revokeAllSessionsInTx(tx, user.id, 'password');
   });
 
   await AuditService.log({

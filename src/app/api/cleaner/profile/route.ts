@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { revokeAllSessionsInTx } from '@/lib/auth/device-session';
 import { getCleanerSession } from '@/lib/auth/session';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import { computeGoLive } from '@/lib/cleaner/verification';
@@ -13,6 +14,7 @@ import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/
 import { putObject, resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { displayName } from '@/lib/utils/name';
+import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 import { lookupPostcodeOutcome } from '@/lib/utils/postcode';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -132,6 +134,7 @@ export async function PUT(request: NextRequest) {
     image,
     postcode,
     password,
+    currentPassword,
     testimonials,
     homePostcode,
     maxTravelMinutes,
@@ -206,12 +209,30 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Bio must be 500 characters or fewer' }, { status: 400 });
   }
 
+  // D-g (James-ruled): a password set through the profile route needs the
+  // current password, the policy, the passwordChangedAt stamp and a version
+  // bump with every session revoked, exactly like change-password. No web
+  // form sends a password here today; the rule stands for any caller.
   if (password !== undefined) {
-    if (typeof password !== 'string' || password.length < 8) {
+    if (typeof password !== 'string') {
+      return NextResponse.json({ error: 'Password must be a string' }, { status: 400 });
+    }
+    const policy = validatePasswordPolicy(password);
+    if (!policy.valid) {
+      return NextResponse.json({ error: policy.errors[0] }, { status: 400 });
+    }
+    if (typeof currentPassword !== 'string' || !currentPassword) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
+        { error: 'Enter your current password to set a new one.' },
         { status: 400 }
       );
+    }
+    const current = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { passwordHash: true },
+    });
+    if (!current?.passwordHash || !(await bcrypt.compare(currentPassword, current.passwordHash))) {
+      return NextResponse.json({ error: 'Your current password is incorrect.' }, { status: 403 });
     }
   }
 
@@ -362,12 +383,18 @@ export async function PUT(request: NextRequest) {
       // with a URL that dies in 24h. Only a freshly-uploaded photo (data URL →
       // imageObjectKey above) may change User.image.
     }
-    if (password !== undefined) userUpdate.passwordHash = await bcrypt.hash(password, 12);
+    if (password !== undefined) {
+      userUpdate.passwordHash = await bcrypt.hash(password, 12);
+      userUpdate.passwordChangedAt = new Date();
+    }
     if (Object.keys(userUpdate).length > 0) {
       await tx.user.update({
         where: { id: user.id },
         data: userUpdate,
       });
+    }
+    if (password !== undefined) {
+      await revokeAllSessionsInTx(tx, user.id, 'password');
     }
   });
 
@@ -391,5 +418,13 @@ export async function PUT(request: NextRequest) {
     triggerCatchmentRefresh(user.id);
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    ...(password !== undefined
+      ? {
+          message:
+            'Password changed. For your security every signed-in device has been signed out, so you may need to sign in again.',
+        }
+      : {}),
+  });
 }

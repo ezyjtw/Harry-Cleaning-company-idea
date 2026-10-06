@@ -1,5 +1,6 @@
 import type { BookingStatus, PropertySize } from '@prisma/client';
 
+import { revokeAllSessions } from '@/lib/auth/device-session';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 
@@ -474,6 +475,8 @@ export class AdminOperationsService {
         data: { availableNow: false },
       }),
     ]);
+    // D-g: suspension revokes every session row and bumps the version.
+    await revokeAllSessions(userId, 'admin');
 
     await AuditService.log({
       userId: adminId,
