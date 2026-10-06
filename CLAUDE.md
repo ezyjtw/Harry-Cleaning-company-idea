@@ -17,6 +17,7 @@ silence, or "looks done" — the word must be explicit.
   actual images ONLY when James explicitly asks for them on a specific item.
 - Ambiguities are **parked with a note, never guessed**. The parked list ships
   with every gate report.
+- Report text for James is dash-free.
 
 ## Injected-script verification law (binding — James-ruled after the piece-1 relapse)
 
@@ -73,6 +74,57 @@ bench. Relative Locations for route-handler redirects; middleware redirects are
 relativised by Next itself and must stay absolute (a hand-built relative
 Location in middleware throws in Next's sandbox).
 
+## Remediation register (binding)
+
+`docs/REMEDIATION_REGISTER.md` is the authoritative list of audit findings,
+their agreed mechanism, fix, tests, decisions and status. Every batch starts by
+re-reading the register entries it touches and the current source, and ends by
+updating those entries with the commit, changed files, tests and any deviation
+from the agreed design. No batch widens its scope beyond its entries without
+James's word. An item is DONE only when its acceptance criteria pass; a merge
+is not DONE. If current source disproves an entry, report file and line
+evidence and propose the register change; never build a workaround for a
+finding that no longer exists. Batches run one at a time, each on James's word.
+
+## Engineering laws from the register (binding)
+
+- Server and database state are authoritative for pricing, permissions,
+  booking lifecycle and money. The client never decides any of them.
+- No business rule changes silently. A rule change is named in the gate
+  report and ruled by James.
+- No secret values, customer personal data, tokens, addresses, message
+  bodies, key-access notes or payment data in logs, tests or fixtures. Logs
+  carry internal ids; where correlation is essential, a keyed HMAC of the
+  identifier. Real people named as sweep-exempt in session rulings are never
+  used in fixtures.
+- Nothing in a session writes to the production database or to live Stripe.
+  Stripe work runs in test mode against fixtures. Deploys, OTAs, production
+  migrations and Railway, Stripe or store settings change only on James's
+  explicit word.
+- A concurrency or invariant fix ships with a concurrency test against the
+  rig Postgres, not a unit test alone.
+- A money-state fix ships with idempotency and an unknown-outcome path.
+- A trust decision on a URL (attaching a credential, allowing a navigation,
+  forwarding a deep link) is made on a parsed URL with an exact host match,
+  top frame only. Never string containment.
+- A 401 or 403 is not a network error and an API failure is never shown as
+  an empty state. Each gets its own state and its own door.
+- No arbitrary delay is added to cure an app or WebView timing problem.
+  Timing changes are measured on the bench first.
+- React Native New Architecture is not disabled as a shortcut.
+- No mass upgrade of Expo or React Native and no `npm audit fix --force`.
+  Dependency moves are deliberate, patch-level inside the SDK, and ride a
+  native rebuild bundle.
+- Every completed item carries tests, or an explicit manual verification
+  where automation is not honest.
+
+## Hash law (binding)
+
+The 21 baselined public pages carry content hashes. A sanctioned change names
+every affected page before implementation. The incognito diff is reviewed and
+the baselines are updated in the same approved gate. A changed hash is never
+automatically accepted. An unrelated public-page hash change stops the batch.
+
 ## App leak-proofing law (binding)
 
 The native app effort may only touch: **`mobile/`**, **`/app` routes**, and
@@ -95,8 +147,10 @@ shell gate → the incognito-diff statement.
 
 ## EAS Update / OTA (binding)
 
-The shell (`mobile/`) has EAS Update configured: `expo-updates`, `updates.url`
-to the EAS endpoint, channels `preview`→`preview` and `production`→`production`.
+Both shells (`mobile/` and `mobile-customer/`) have EAS Update configured:
+`expo-updates`, `updates.url` to each app's EAS endpoint, channels
+`preview`→`preview` and `production`→`production`. Every rule in this section
+applies to both shells.
 Pure shell-JS changes (App.tsx and its logic) ship OTA with `eas update
 --channel production` instead of a TestFlight build. L2 `/app/*` pages are plain
 web on Railway and update on deploy — they need neither a build nor an OTA.
@@ -105,9 +159,10 @@ web on Railway and update on deploy — they need neither a build nor an OTA.
   **`appVersion`** policy — runtimeVersion IS `app.json` `version` (e.g.
   `1.0.0`). An OTA update only targets binaries whose runtimeVersion matches, so
   **before ANY native change** (new/upgraded native module or config plugin,
-  entitlements/Info.plist, icon/splash, bundle id, deployment target) you MUST
-  bump `version` in the same change, and cut a fresh build for that version,
-  before publishing OTA against it. Shipping shell JS that assumes a native
+  permission, entitlement or Info.plist key, icon/splash, scheme or intent
+  filter, google-services.json, notification configuration, bundle id,
+  deployment target) you MUST bump `version` in the same change, and cut a
+  fresh build for that version, before publishing OTA against it. Shipping shell JS that assumes a native
   change onto an older binary of the same version will crash it.
 - **Why manual and not automatic:** the `fingerprint` policy (which detects
   native changes and gates OTA automatically) computed a different runtime
@@ -115,7 +170,7 @@ web on Railway and update on deploy — they need neither a build nor an OTA.
   expo-updates build phase, so it was replaced with `appVersion`. The safety
   fingerprint gave for free is now a discipline a human/session must hold.
 - A native change with no version bump is a defect even if it builds. Every
-  session touching `mobile/` native config re-reads this before shipping.
+  session touching either shell's native config re-reads this before shipping.
 
 ## Settled rulings (James — do not relitigate)
 
