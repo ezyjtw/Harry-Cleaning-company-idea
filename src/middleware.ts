@@ -122,7 +122,11 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
       cookieNames: request.cookies.getAll().map((c) => c.name),
       // RENA-006: the canonical origin cookie-authenticated mutations must prove.
-      canonical: canonicalOrigin(process.env.NEXTAUTH_URL),
+      // Read through a computed key so the Edge bundler does not inline the
+      // build-time value: the rig showed a dotted access frozen at build (the
+      // 3000 build served on 3001 refused its own origin). Railway's runtime
+      // NEXTAUTH_URL is the canonical host; the gate names this for James.
+      canonical: canonicalOrigin(process.env['NEXTAUTH_URL']),
     });
     if (!verdict.ok) {
       return NextResponse.json(
