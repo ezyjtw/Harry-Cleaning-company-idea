@@ -7,6 +7,7 @@ import { dayPhrase, fmtSlotTime } from '@/components/app/customer';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import ConversationInfoSheet from '@/components/messages/ConversationInfoSheet';
 import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
+import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { isCustomerShellUA, isShellUA } from '@/lib/shell';
 import { detectContactInfo } from '@/lib/utils/pii';
@@ -118,8 +119,18 @@ export default function MessagesPage() {
   // F16: loud failure feedback (send/block/report) + block pending state.
   const [sendError, setSendError] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<'customer' | 'cleaner'>('customer');
+  // RENA-084 mechanism 1 (B2a): who is reading comes from the session, the
+  // same source as the role-home guards, never a profile fetch defaulting to
+  // 'customer'. The role stays null until the session resolves, and no way
+  // home renders until then, so a cleaner can never be offered the
+  // customer's "Back to my account" (which bounced through /account).
+  const { user: sessionUser } = useAuth();
+  const currentUserId = sessionUser?.id ?? null;
+  const currentUserRole: 'customer' | 'cleaner' | null = sessionUser
+    ? sessionUser.role === 'CLEANER'
+      ? 'cleaner'
+      : 'customer'
+    : null;
 
   // A10 B2b: per-message report UI state
   const [reportingId, setReportingId] = useState<string | null>(null);
@@ -192,16 +203,36 @@ export default function MessagesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversationId]);
 
-  // Fetch current user session
+  // RENA-084 mechanism 2 (B2a): at phone width the open thread hides the list
+  // (and its way home), so opening a thread pushes one history entry and the
+  // browser Back, a swipe or the chevron close the thread instead of leaving
+  // Messages. The entry keeps Next's own history state and adds one namespaced
+  // key (__renaThread); the URL never changes. Never a duplicate entry: an
+  // entry already naming a thread is replaced, not stacked. Wider screens
+  // show list and thread side by side, so no entry is pushed there.
+  const openThread = useCallback((id: string) => {
+    setActiveConversationId(id);
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(min-width: 768px)').matches) return;
+    const current = (window.history.state ?? {}) as Record<string, unknown>;
+    if (current.__renaThread === id) return;
+    const next = { ...current, __renaThread: id };
+    if (typeof current.__renaThread === 'string') window.history.replaceState(next, '');
+    else window.history.pushState(next, '');
+  }, []);
+
   useEffect(() => {
-    fetch('/api/auth/profile')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const u = data?.id ? data : data?.user;
-        if (u?.id) setCurrentUserId(u.id);
-        if (u?.role) setCurrentUserRole(u.role === 'CLEANER' ? 'cleaner' : 'customer');
-      })
-      .catch(() => {});
+    const onPop = (e: PopStateEvent) => {
+      const thread = (e.state as Record<string, unknown> | null)?.__renaThread;
+      if (typeof thread === 'string') {
+        setActiveConversationId(thread);
+      } else {
+        setActiveConversationId(null);
+        setMessages([]);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   // Fetch conversations (extracted so the shell's pull-to-refresh can call it)
@@ -275,12 +306,12 @@ export default function MessagesPage() {
           };
           return [synthetic, ...prev];
         });
-        setActiveConversationId(c.partnerId);
+        openThread(c.partnerId);
       } catch {
         // ignore — user can still pick a conversation manually
       }
     })();
-  }, [loading, currentUserId]);
+  }, [loading, currentUserId, openThread]);
 
   // Fetch messages for active conversation
   const loadMessages = useCallback(async (partnerId: string) => {
@@ -372,6 +403,13 @@ export default function MessagesPage() {
   }
 
   function handleBackToList() {
+    // Our own history entry is on top: step back through it, so the entry is
+    // spent and a later browser Back leaves Messages as expected.
+    const state = (window.history.state ?? {}) as Record<string, unknown>;
+    if (typeof state.__renaThread === 'string') {
+      window.history.back();
+      return;
+    }
     setActiveConversationId(null);
     setMessages([]);
   }
@@ -450,33 +488,35 @@ export default function MessagesPage() {
         {/* H29 ring sweep: the empty state was the ONE messages view without
             the way home — a cleaner with no conversations yet had no back
             link at all. Same role-aware link as the list header. */}
-        <Link
-          href={
-            currentUserRole === 'cleaner'
-              ? isShellUA()
-                ? '/app/today'
-                : '/cleaner'
-              : isCustomerShellUA()
-                ? '/app/home'
-                : '/account'
-          }
-          className="mb-6 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
+        {currentUserRole && (
+          <Link
+            href={
+              currentUserRole === 'cleaner'
+                ? isShellUA()
+                  ? '/app/today'
+                  : '/cleaner'
+                : isCustomerShellUA()
+                  ? '/app/home'
+                  : '/account'
+            }
+            className="mb-6 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
-          {currentUserRole === 'cleaner'
-            ? isShellUA()
-              ? 'Back to Today'
-              : 'Back to dashboard'
-            : 'Back to my account'}
-        </Link>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+            {currentUserRole === 'cleaner'
+              ? isShellUA()
+                ? 'Back to Today'
+                : 'Back to dashboard'
+              : 'Back to my account'}
+          </Link>
+        )}
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
           <svg
             className="h-8 w-8 text-primary"
@@ -531,7 +571,7 @@ export default function MessagesPage() {
                 <button
                   key={conversation.id}
                   type="button"
-                  onClick={() => setActiveConversationId(conversation.id)}
+                  onClick={() => openThread(conversation.id)}
                   data-testid="msg-row"
                   className="flex w-full items-center gap-3 border-b border-line px-4 py-3.5 text-left last:border-b-0 active:bg-page"
                 >
@@ -816,33 +856,39 @@ export default function MessagesPage() {
         <div className="border-b border-line px-4 py-4">
           {/* Role home DIRECTLY — never via the /dashboard junction (legacy
               links only since the junction batch). */}
-          <Link
-            href={
-              currentUserRole === 'cleaner'
-                ? isShellUA()
-                  ? '/app/today'
-                  : '/cleaner'
-                : isCustomerShellUA()
-                  ? '/app/home'
-                  : '/account'
-            }
-            className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
+          {currentUserRole && (
+            <Link
+              href={
+                currentUserRole === 'cleaner'
+                  ? isShellUA()
+                    ? '/app/today'
+                    : '/cleaner'
+                  : isCustomerShellUA()
+                    ? '/app/home'
+                    : '/account'
+              }
+              className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-3 transition hover:text-ink"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-            {currentUserRole === 'cleaner'
-              ? isShellUA()
-                ? 'Back to Today'
-                : 'Back to dashboard'
-              : 'Back to my account'}
-          </Link>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 19.5 8.25 12l7.5-7.5"
+                />
+              </svg>
+              {currentUserRole === 'cleaner'
+                ? isShellUA()
+                  ? 'Back to Today'
+                  : 'Back to dashboard'
+                : 'Back to my account'}
+            </Link>
+          )}
           <h1 className="font-newsreader text-xl font-semibold text-ink">Messages</h1>
         </div>
 
@@ -864,7 +910,7 @@ export default function MessagesPage() {
                 isOwnLast={isOwnMessage}
                 unreadCount={conversation.unreadCount}
                 isActive={isActive}
-                onClick={() => setActiveConversationId(conversation.id)}
+                onClick={() => openThread(conversation.id)}
               />
             );
           })}
@@ -918,7 +964,7 @@ export default function MessagesPage() {
 
               {/* R10-L4 (mock): pinned View booking chip — the linked booking's
                   own page, role-aware. Display-only door to an existing page. */}
-              {activeConversation.activeBookingId && (
+              {activeConversation.activeBookingId && currentUserRole && (
                 <Link
                   href={
                     currentUserRole === 'cleaner'

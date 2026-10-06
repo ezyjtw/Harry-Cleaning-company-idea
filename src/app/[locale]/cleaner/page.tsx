@@ -149,7 +149,8 @@ export default function CleanerDashboard() {
       let cancelled = false;
       getSession().then((session) => {
         if (cancelled) return;
-        if (!session) router.push('/login?callbackUrl=/cleaner');
+        // RENA-084 (B2a): replace, so a wrong landing leaves no history entry.
+        if (!session) router.replace('/login?callbackUrl=/cleaner');
         // Session exists → the provider is about to catch up; the effect
         // re-runs with isAuthenticated=true and the fetch effect takes over.
       });
@@ -159,7 +160,8 @@ export default function CleanerDashboard() {
     }
     if (!isCleaner) {
       // Role home directly — the /dashboard junction serves legacy links only.
-      router.push(isAdmin ? '/admin' : '/account');
+      // RENA-084 (B2a): replace, never push, so Back is never trapped.
+      router.replace(isAdmin ? '/admin' : '/account');
     }
     return undefined;
   }, [authLoading, isAuthenticated, isCleaner, isAdmin, router]);
