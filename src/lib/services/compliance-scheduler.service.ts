@@ -1,3 +1,4 @@
+import { sweepSessionRows } from '@/lib/auth/device-session';
 import { prisma } from '@/lib/db/prisma';
 import { deleteObject } from '@/lib/storage/r2-client';
 
@@ -29,6 +30,29 @@ interface ComplianceJobResult {
  */
 export class ComplianceSchedulerService {
   /**
+   * D-g (RENA-003, 007): spent bridge codes past expiry and session rows
+   * ended more than thirty days ago are deleted daily.
+   */
+  static async sweepSessionRows(): Promise<ComplianceJobResult> {
+    try {
+      const swept = await sweepSessionRows();
+      return {
+        job: 'sweepSessionRows',
+        success: true,
+        details: { bridgeCodes: swept.bridgeCodes, sessions: swept.sessions },
+        executedAt: new Date(),
+      };
+    } catch (error) {
+      return {
+        job: 'sweepSessionRows',
+        success: false,
+        details: { error: error instanceof Error ? error.message : 'unknown' },
+        executedAt: new Date(),
+      };
+    }
+  }
+
+  /**
    * Runs all scheduled compliance jobs.
    * Call this from a cron endpoint (e.g. /api/admin/compliance/cron).
    */
@@ -47,6 +71,7 @@ export class ComplianceSchedulerService {
     results.push(await this.destroyDecidedImportedReviewEvidence());
     results.push(await this.processApprovedDeletionRequests());
     results.push(await this.cleanupBackgroundJobs());
+    results.push(await this.sweepSessionRows());
 
     await AuditService.log({
       action: 'COMPLIANCE_JOB_RUN',

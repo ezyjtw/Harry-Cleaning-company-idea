@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 /**
@@ -64,10 +65,15 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+    const ipAddress = resolveClientIp(request.headers);
 
-    await DocumentStorageService.verifyDocument(documentId, adminId, approved, ipAddress || undefined, reason);
+    await DocumentStorageService.verifyDocument(
+      documentId,
+      adminId,
+      approved,
+      ipAddress || undefined,
+      reason
+    );
 
     return NextResponse.json({
       message: approved ? 'Document verified successfully' : 'Document rejected',

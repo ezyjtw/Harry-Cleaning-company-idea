@@ -258,6 +258,10 @@ model User {
   // F6: bumped on every password change — sessions/tokens issued before this
   // moment are invalidated (checked in getSessionUser / verifyBearerToken).
   passwordChangedAt DateTime?
+  // RENA-007 (D-g): bumped by sign-out-everywhere, password change and reset,
+  // deletion and suspension. Every Bearer, web cookie and bridge-minted
+  // session carries the version it was minted under and dies on mismatch.
+  sessionVersion    Int           @default(0)
   isSuspended       Boolean       @default(false)
   lockedUntil       DateTime?
 
@@ -290,11 +294,56 @@ model User {
   cleanerQueueEntries    BookingCleanerQueue[]   @relation("CleanerQueueEntries")
   pushSubscriptions      PushSubscription[]
   deviceTokens           DeviceToken[]
+  deviceSessions         DeviceSession[]
   importedReviews        ImportedReview[]        @relation("ImportedReviews")
   notificationPreference NotificationPreference?
 
   @@index([email])
   @@index([role])
+}
+
+// RENA-003, 007, 074 (D-g): one row per issued session. BEARER rows are the
+// native shells' 30-day tokens; WEB rows are NextAuth cookie sessions, either
+// signed in on the website or minted by the session bridge for a shell's
+// WebView (then parentJti names the BEARER that minted the bridge code).
+// parentJti is a revocation-group link only: revoking a BEARER revokes its
+// children in the same statement; a child's own request check never reads
+// its parent. sv is the user's sessionVersion at mint.
+enum DeviceSessionKind {
+  BEARER
+  WEB
+}
+
+model DeviceSession {
+  id            String            @id @default(cuid())
+  jti           String            @unique
+  userId        String
+  kind          DeviceSessionKind
+  label         String?
+  parentJti     String?
+  sv            Int               @default(0)
+  createdAt     DateTime          @default(now())
+  lastSeenAt    DateTime          @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([parentJti])
+  @@index([expiresAt])
+}
+
+// RENA-003: insert-as-claim for bridge codes. The first redemption inserts the
+// code's jti; a second insert is a unique violation and therefore a replay,
+// across restarts and instances alike. Rows are swept once expired.
+model BridgeCodeUse {
+  jti       String   @id
+  expiresAt DateTime
+  usedAt    DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model CleanerProfile {

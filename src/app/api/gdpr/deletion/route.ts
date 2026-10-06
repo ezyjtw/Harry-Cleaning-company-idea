@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { revokeAllSessions } from '@/lib/auth/device-session';
 import { getAdminSession, getSessionUser } from '@/lib/auth/session';
 import { GdprService } from '@/lib/services/gdpr.service';
 
@@ -97,6 +98,8 @@ export async function POST(request: NextRequest) {
       where: { id: userId },
       data: { accountStatus: 'DEACTIVATED' },
     });
+    // D-g: deletion revokes every session row and bumps the version too.
+    await revokeAllSessions(userId, 'deletion').catch(() => {});
 
     return NextResponse.json({
       success: true,

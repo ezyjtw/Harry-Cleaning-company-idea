@@ -4,7 +4,14 @@ import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 import prisma from '@/lib/db/prisma';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { claimGuestBookings } from '@/lib/services/auth.service';
+
+import {
+  createWebSessionRow,
+  legacyTokensAccepted,
+  upgradeLegacyWebSession,
+} from './device-session';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
@@ -97,6 +104,28 @@ export const authOptions: NextAuthOptions = {
         // F6: issue-time marker — sessions minted before a later password
         // change are invalidated in getSessionUser (DB comparison).
         token.pwdAt = Math.floor(Date.now() / 1000);
+        // D-g: every website sign-in is a WEB DeviceSession row; the cookie
+        // carries its jti (sid) and the user's sessionVersion (sv). A row
+        // that cannot be written fails the sign-in rather than issuing an
+        // untracked session.
+        const row = await createWebSessionRow({ userId: user.id, label: 'web' });
+        token.sid = row.jti;
+        token.sv = row.sv;
+      } else if (!token.sid && token.id && legacyTokensAccepted()) {
+        // Grandfather: a live pre-B1a cookie gains a row on its next read,
+        // keyed by the cookie's own jti so repeated reads upsert one row.
+        // sv stays 0 by law. Best effort: on failure the token stays legacy
+        // and the per-request check keeps treating it as such.
+        const cookieJti = (token as { jti?: string }).jti;
+        if (cookieJti) {
+          const row = await upgradeLegacyWebSession({ userId: token.id, cookieJti }).catch(
+            () => null
+          );
+          if (row) {
+            token.sid = row.jti;
+            token.sv = 0;
+          }
+        }
       }
       return token;
     },
@@ -104,7 +133,9 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.role = token.role;
         session.user.id = token.id;
-        (session.user as { pwdAt?: number }).pwdAt = token.pwdAt as number | undefined;
+        session.user.pwdAt = token.pwdAt;
+        session.user.sid = token.sid;
+        session.user.sv = token.sv;
       }
       return session;
     },
@@ -125,8 +156,7 @@ export const authOptions: NextAuthOptions = {
         try {
           // Request-scoped in app-router handlers; throws outside — caught.
           const h = headers();
-          const ip =
-            h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown-ip';
+          const ip = resolveClientIp(h) ?? 'unknown-ip';
           const ua = h.get('user-agent') ?? 'no-ua';
           const referer = h.get('referer') ?? 'no-referer';
           ctx = `ip=${ip} ua="${ua}" referer=${referer}`;

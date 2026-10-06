@@ -4,36 +4,14 @@ import { getToken } from 'next-auth/jwt';
 import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
+import { clientIpOrUnknown } from '@/lib/http/client-ip';
+import { canonicalOrigin, csrfVerdict } from '@/lib/http/csrf';
 
 // ─── Client IP resolution ───────────────────────────────────────────────────
-
-/**
- * SECURITY / proxy topology — mirrors getClientIp() in src/lib/rate-limit.ts
- * (duplicated, not imported, to keep the Edge-runtime middleware free of that
- * module's Node timers). Prefer Cloudflare's unspoofable cf-connecting-ip, else
- * the rightmost (trusted-proxy-observed) X-Forwarded-For entry — never the
- * leftmost client-controlled value. Set TRUSTED_PROXY=cloudflare|railway to pin
- * the single correct source once the topology is confirmed.
- */
-function getClientIpFromHeaders(request: NextRequest): string {
-  const mode = process.env.TRUSTED_PROXY;
-  const cf = request.headers.get('cf-connecting-ip')?.trim() || undefined;
-  const realIp = request.headers.get('x-real-ip')?.trim() || undefined;
-
-  const rightmostXff = (): string | undefined => {
-    const forwarded = request.headers.get('x-forwarded-for');
-    if (!forwarded) return undefined;
-    const parts = forwarded
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean);
-    return parts.length > 0 ? parts[parts.length - 1] : undefined;
-  };
-
-  if (mode === 'cloudflare') return cf || realIp || 'unknown';
-  if (mode === 'railway') return rightmostXff() || realIp || 'unknown';
-  return cf || rightmostXff() || realIp || 'unknown';
-}
+//
+// RENA-002: the one chooser, src/lib/http/client-ip.ts (pure, Edge-safe).
+// cf-connecting-ip is honoured only in cloudflare mode and only when the peer
+// that reached Railway is a Cloudflare edge address.
 
 // ─── In-Memory Rate Limiter ─────────────────────────────────────────────────
 
@@ -124,12 +102,39 @@ export async function middleware(request: NextRequest) {
 
   // Skip locale processing for API routes and static assets
   if (pathname.startsWith('/api')) {
-    const ip = getClientIpFromHeaders(request);
+    const ip = clientIpOrUnknown(request.headers);
 
     if (isRateLimited(ip)) {
       return NextResponse.json(
         { error: 'Too many requests. Please try again later.' },
         { status: 429 }
+      );
+    }
+
+    // RENA-006 (James-ruled precedence, see src/lib/http/csrf.ts): a mutation
+    // carrying a session cookie must prove its origin. Bearer and shell
+    // requests pass this layer on their header alone (a bypass signal, never
+    // authentication); webhooks, cron and NextAuth's own protocol routes keep
+    // their own protection.
+    const verdict = csrfVerdict({
+      method: request.method,
+      pathname,
+      headers: request.headers,
+      cookieNames: request.cookies.getAll().map((c) => c.name),
+      // RENA-006: the canonical origin cookie-authenticated mutations must prove.
+      // RENA-006: the canonical origin cookie-authenticated mutations must
+      // prove. next.config publishes NEXTAUTH_URL through its env block, so
+      // this value is fixed at build time from the Railway variable (the rig
+      // proved it: a build made with port 3000 refuses its own port 3001). A
+      // build without NEXTAUTH_URL would inline the Railway public domain and
+      // refuse the canonical host's own mutations; the variable must be set
+      // for builds, which the B1a gate names for James.
+      canonical: canonicalOrigin(process.env.NEXTAUTH_URL),
+    });
+    if (!verdict.ok) {
+      return NextResponse.json(
+        { error: 'Cross-site request refused.' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
@@ -292,7 +297,7 @@ export async function middleware(request: NextRequest) {
   );
 
   // Rate limiting for non-API page routes
-  const ip = getClientIpFromHeaders(request);
+  const ip = clientIpOrUnknown(request.headers);
 
   if (isRateLimited(ip)) {
     return NextResponse.json(

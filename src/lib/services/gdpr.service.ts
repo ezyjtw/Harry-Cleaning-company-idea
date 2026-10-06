@@ -1,3 +1,4 @@
+import { revokeAllSessions } from '@/lib/auth/device-session';
 import { prisma } from '@/lib/db/prisma';
 import { bookingCity, bookingPostcode } from '@/lib/utils/booking-address';
 
@@ -438,6 +439,8 @@ export class GdprService {
       prisma.pushSubscription.deleteMany({ where: { userId } }),
     ]);
     manifest.deviceTokensDeleted = deviceTokens.count + pushSubs.count;
+    // D-g: every DeviceSession row revoked and the version bumped.
+    await revokeAllSessions(userId, 'deletion');
 
     // 6) User identity — tombstone (row retained for booking/payment FK
     //    integrity under the 6-year tax/legal hold). This also anonymises the

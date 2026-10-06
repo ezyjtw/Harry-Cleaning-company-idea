@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { resolveClientIp } from '@/lib/http/client-ip';
 import { rateLimit } from '@/lib/rate-limit';
 import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
@@ -31,8 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+    const ipAddress = resolveClientIp(request.headers);
 
     // Extract text fields
     const name = formData.get('name') as string | null;

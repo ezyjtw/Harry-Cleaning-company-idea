@@ -156,6 +156,12 @@ jobs:
         env:
           SCHEDULER_LEASE_INTEGRATION: '1'
 
+      - name: Session laws against Postgres (RENA-003, 007, 074)
+        run: npx vitest run src/lib/auth/session.integration.test.ts
+        env:
+          AUTH_SESSION_INTEGRATION: '1'
+          NEXTAUTH_SECRET: ci-only-secret-for-session-integration
+
       - name: Build
         run: npm run build
 
