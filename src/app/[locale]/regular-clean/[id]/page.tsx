@@ -13,6 +13,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { markStale } from '@/lib/freshness';
 
 interface EligibleSlot {
   dayOfWeek: number;
@@ -288,6 +289,7 @@ export default function RegularCleanSetupPage() {
       if (!res.ok) {
         throw new Error(data?.error || `Something went wrong (${res.status}).`);
       }
+      markStale(['home', 'mycleans', 'account']);
       // Empty string = sent but respondBy missing — still show the sent state.
       setSentRespondBy(typeof data?.respondBy === 'string' ? data.respondBy : '');
     } catch (e) {

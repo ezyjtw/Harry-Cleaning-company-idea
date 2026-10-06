@@ -23,6 +23,7 @@ import RescuePanel from '@/components/RescuePanel';
 import UnpaidOccurrencePanel from '@/components/UnpaidOccurrencePanel';
 import { bookingCloseState } from '@/lib/booking/close-state';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { markStale } from '@/lib/freshness';
 import { isCustomerShellUA } from '@/lib/shell';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { formatDate } from '@/lib/utils/formatting';
@@ -160,6 +161,7 @@ export default function BookingDetailPage() {
         return;
       }
       setBooking((prev) => (prev ? { ...prev, status: 'CANCELLED' } : prev));
+      markStale(['home', 'mycleans', 'account']);
       setShowCancel(false);
     } catch {
       setCancelError('Failed to cancel booking. Please try again later.');
@@ -203,6 +205,7 @@ export default function BookingDetailPage() {
         setApprovalError(data.error || 'Something went wrong. Please try again.');
         return;
       }
+      markStale(['home', 'mycleans', 'account']);
       window.location.reload();
     } catch {
       setApprovalError('Network error. Please try again.');
@@ -228,6 +231,7 @@ export default function BookingDetailPage() {
         setOfferError(data.error || 'Something went wrong. Please try again.');
         return;
       }
+      markStale(['home', 'mycleans', 'account']);
       window.location.reload();
     } catch {
       setOfferError('Network error. Please try again.');

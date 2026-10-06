@@ -10,6 +10,7 @@ import JunkMailHint from '@/components/JunkMailHint';
 import StarRating from '@/components/StarRating';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { markStale } from '@/lib/freshness';
 import { isCustomerShellUA } from '@/lib/shell';
 import { formatDate } from '@/lib/utils/formatting';
 
@@ -44,12 +45,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
     const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
     if (isCustomerShellUA() || preview) setInShell(true);
   }, []);
-  // LANE 1 (James-ruled): a completed booking clears the in-shell flow
-  // persistence — every rena-flow:* key dies here. Effect-only and
-  // shell-gated: browsers hold no such keys and see zero change.
+  // LANE 1 (James-ruled): a completed booking clears the flow persistence:
+  // every rena-flow:* key dies here. RENA-020 (B2a) extends that persistence
+  // to the website's cleaner-first form (rena-flow:book:*), so the sweep is no
+  // longer shell-gated. Effect-only: the served markup is unchanged.
   useEffect(() => {
-    const preview = document.cookie.split('; ').includes('rena-customer-preview=1');
-    if (!isCustomerShellUA() && !preview) return;
     try {
       for (const k of Object.keys(sessionStorage)) {
         if (k.startsWith('rena-flow:')) sessionStorage.removeItem(k);
@@ -70,6 +70,13 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
   const paidPerStripe = searchParams.get('redirect_status') === 'succeeded';
   const [status, setStatus] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  // RENA-018 (B2a): a paid booking invalidates every pane that lists it, so
+  // Home, My Cleans and the dashboard refetch the moment they are next shown
+  // (or at once, in another tab or WebView pane), whatever their coalescing.
+  const paidConfirmed = status === 'SUCCEEDED' || paidPerStripe;
+  useEffect(() => {
+    if (paidConfirmed) markStale(['home', 'mycleans', 'account']);
+  }, [paidConfirmed]);
   const [booking, setBooking] = useState<{
     serviceType: string;
     date: string;
@@ -309,7 +316,11 @@ function BookingConfirmationContent({ params }: { params: { id: string } }) {
             View booking
           </Link>
           {inShell && (
-            <Link href="/app/home" className={outlineBtn} data-testid="celebration-done">
+            <Link
+              href={`/app/home?paid=${encodeURIComponent(params.id)}`}
+              className={outlineBtn}
+              data-testid="celebration-done"
+            >
               Done
             </Link>
           )}

@@ -8,7 +8,7 @@
 // No dashes, no zeros, ever.
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   CustomerAccountMenu,
@@ -25,6 +25,7 @@ import {
   UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { registerPane } from '@/lib/freshness';
 
 interface HomeBooking {
   id: string;
@@ -77,7 +78,12 @@ export default function CustomerHomePage() {
   const [payNeeded, setPayNeeded] = useState<HomeBooking | null>(null);
   const [unreviewed, setUnreviewed] = useState<HomeBooking | null>(null);
 
-  useEffect(() => {
+  // RENA-018 (B2a): the load is a function so the freshness contract can run
+  // it again: on the shell's pull to refresh, on an explicit stale marker
+  // from a payment, cancellation or reschedule, and on activation (coalesced
+  // at 15 s). Refetches keep the painted cards (stale while revalidate); only
+  // the first load shows the skeleton.
+  const load = useCallback(() => {
     Promise.all([
       fetch('/api/auth/profile').then((r) => (r.ok ? r.json() : null)),
       fetch('/api/bookings?pageSize=50').then((r) => (r.ok ? r.json() : null)),
@@ -116,6 +122,20 @@ export default function CustomerHomePage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    // The confirmation page's Done carries ?paid=<id> so the shell forwards a
+    // real page load into Home (a bare tab root would be a silent switch).
+    // This load is already fresh; strip the query so a later reload or pull
+    // to refresh does not replay it.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('paid')) {
+      url.searchParams.delete('paid');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+    load();
+    return registerPane('home', load);
+  }, [load]);
 
   return (
     <div>

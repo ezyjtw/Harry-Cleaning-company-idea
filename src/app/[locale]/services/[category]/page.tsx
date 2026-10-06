@@ -29,6 +29,7 @@ import {
   bedroomsLabel,
 } from '@/lib/constants/services';
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
+import { markStale } from '@/lib/freshness';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -1351,6 +1352,8 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
       if (response.ok) {
         const data = await response.json();
+        // RENA-018 (B2a): a new (unpaid) booking shows on Home and My Cleans.
+        markStale(['home', 'mycleans', 'account']);
         setConfirmedBookingId(data.booking?.id || '');
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);

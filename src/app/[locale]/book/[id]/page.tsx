@@ -25,6 +25,7 @@ import {
   minimumHoursForService,
   serviceLabelFromSlug,
 } from '@/lib/constants/services';
+import { markStale } from '@/lib/freshness';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { mapApiCleaner, useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -647,6 +648,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
       if (response.ok) {
         const data = await response.json();
+        // RENA-018 (B2a): a new (unpaid) booking shows on Home and My Cleans.
+        markStale(['home', 'mycleans', 'account']);
         setBookingData(
           data.booking ? { id: data.booking.id, guestToken: data.booking.guestToken ?? null } : null
         );
