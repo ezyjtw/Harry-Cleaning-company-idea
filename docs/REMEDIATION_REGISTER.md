@@ -79,6 +79,19 @@ These are the register's rules. The ones not already in CLAUDE.md are mirrored t
 - D-p. Navigation policy is top-frame only; Stripe frames are untouched. Applies to RENA-024, RENA-039, RENA-036.
 - D-q. RENA-041 and RENA-045 carry proof type RIG-PARTIAL + DEVICE.
 
+B1 rulings, James, 2026-10-06 (on the B1 design report; the auditor's amendments adopted in full and the ten parked items ruled as the auditor recommended). The auditor's verbatim text was not relayed to the building session; each ruling below is recorded in James's own words from the build order, and the verbatim text for the B1b-only parked items (in-app consent options, banner suppression by account consent, browser Sentry under D-b, transitive dependency bumps, the unused logger and dead functions) is parked until James supplies it.
+
+- D-r. Sub-batches: B1a (the session architecture and bridge, proxy trust, the CSRF rule; Fable 5.1 builds) and B1b (consent gate, logging, dependency patch, dead-code removal; Opus 5.5 builds after B1a merges). Applies to RENA-001, 002, 003, 006, 007, 059, 066, 074, 077, 079.
+- D-s. Bridge parent validity law: a bridge code mints a WEB session only if the parent BEARER row named in the code exists, belongs to the same user, is kind BEARER, unrevoked, unexpired, and carries the current sessionVersion at redemption; the BridgeCodeUse claim and the parent verification happen in ONE transaction. Applies to RENA-003.
+- D-t. Session hierarchy law: a bridged WEB session's expiry never exceeds its parent's; revoking a BEARER revokes all its WEB children atomically in the same transaction; parentJti is a revocation-group link, never re-checked per child request. Applies to RENA-003, RENA-007.
+- D-u. Per-request check: one indexed session lookup carrying the user's security fields, measured not assumed; lastSeenAt via a conditional write (older than five minutes only). Applies to RENA-007.
+- D-v. Legacy tokens: thirty-day grandfather with a fixed, documented, tested cutoff constant; missing sv reads as 0; after the cutoff a missing jti or sid is invalid. Applies to RENA-007, RENA-074.
+- D-w. Revocation rules: device logout revokes that session and its children only; account switch revokes only the token being left; sign-out-everywhere (new route plus doors on customer settings, the cleaner profile and the /app/profile room) revokes all rows and bumps sessionVersion, current device included; password change and reset stamp passwordChangedAt, bump sessionVersion and revoke rows; the cleaner profile password path gains the current-password check, the stamp and revocation, with copy telling her she may need to sign in again; deletion and suspension revoke rows. Applies to RENA-007.
+- D-x. Mint paths: every current token-mint path (login, signup, bridge, NextAuth callbacks) updates in B1a so no post-B1 path can issue an untracked session; the RENA-031/082 native join UX handoff stays in B5 and consumes this primitive. Applies to RENA-007, RENA-031, RENA-082.
+- D-y. Proxy and IP: one Edge-safe pure getClientIp() used everywhere, replacing both chooser copies and the twelve raw-header routes; default rightmost x-forwarded-for then x-real-ip; cf-connecting-ip honoured only under TRUSTED_PROXY=cloudflare. From the record: TRUSTED_PROXY has been cloudflare since the July pen-test remediation gate and renacleaning.co.uk is proxied through Cloudflare (DNS migrated in May; only the Microsoft 365 mail records are DNS-only), so the challenge's "unset" assumption was wrong and is retracted. In cloudflare mode cf-connecting-ip is trusted only when the immediate peer (rightmost x-forwarded-for as Railway supplies it) is within Cloudflare's published ranges, falling back to the rightmost entry otherwise, so a request sent directly to the .up.railway.app origin cannot forge its bucket. Whether the Railway-generated domain should redirect to the canonical host or be removed is external and James's call, named for later. Applies to RENA-002.
+- D-z. CSRF rule, precedence as ordered: GET, HEAD and OPTIONS no check; webhooks and cron keep their own signature or secret security; a valid Authorization or x-rena-shell header passes the CSRF layer (a bypass signal, never authentication); cookie-authenticated mutations require exact Origin equality (scheme, host, port against NEXTAUTH_URL) when Origin is present, else Sec-Fetch-Site same-origin or none; never same-site; everything else 403 JSON. Exempt only NextAuth's own protocol routes, never all of /api/auth/: Rena's own routes under it (bridge, shell-logout, sign-out-all) are covered. A regression test proves an arbitrary-origin CORS preflight is not granted. Applies to RENA-006, RENA-079.
+- D-aa. RENA-031 and RENA-082 are P1 (the recruitment week) and split: B1a updates the signup token-mint paths; B5 builds the wizard-to-native handoff UX for both apps as one design consuming the new primitive. RENA-084 stays parked pending James's reproducible symptom; no fix guessed. RENA-068 is parked, verified after the telemetry changes land.
+
 ## 4. Overlap groups: one architectural change designed once
 
 - A. Service-worker policy: 048, 055, 058. One sw.js (v6) that never touches /api/\*, caches static assets by extension, precaches the offline page, keeps the push handlers. WEB.
@@ -102,7 +115,7 @@ Design conflicts settled: (1) RENA-061's 503 against the deploy-time probe: safe
 Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order controls reviewability and dependencies; it is not permission to leave later findings unresolved. RENA-014 (lease and heartbeat) and RENA-061 (health 503) are pulled forward from B7 into B0 as foundations, with RENA-069 (CI) and RENA-068 (monitoring verification) alongside them per the approved B0 scope.
 
 - B0 Governance, CI and decisions: the ruled decisions (section 3), CLAUDE.md and this register, CI on Node 22 with baseline unit and E2E checks, the runtime-bump check, scheduler lease and heartbeat, health 503, monitoring verification. CLOSED 2026-10-06 (James's word on each merge: 8f7e8f3, 6026a97, fd5f75f, 4b3d3b7, 66e891a). Every B0 item is DONE in code and proven in production; two James-side tails run on outside it: RENA-068's Sentry test event (EXTERNAL-VERIFY) and D-e steps four and five under RENA-081 in B7 (the seven-day single-caller watch, then cron-job.org deleted).
-- B1 Authentication, sessions and privacy boundary: 001, 002, 003, 006, 007, 009, 059, 074, 066, 077, 079 (004 held and 008 decided sit here without batch work).
+- B1 Authentication, sessions and privacy boundary: 001, 002, 003, 006, 007, 009, 059, 074, 066, 077, 079 (004 held and 008 decided sit here without batch work). Split per D-r: B1a (002, 003, 006 rule, 007, 074) BUILT 2026-10-06 on claude/b1a-session-core, commits 7fd9f92, 70ee97b and bccbfae, at the gate awaiting James's walk and word; B1b (001, 059, 066, 077, 079 deletions, 009 recorded) follows after the B1a merge.
 - B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054, 084.
 - B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034.
 - B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080.
@@ -155,7 +168,7 @@ Fix: James confirms both variables in Railway; beforeSend scrubbing lands with R
 Tests: the script. Manual: receipt confirmed in Sentry.
 Delivery WEB plus EXTERNAL. Proof RIG-AUTO plus EXTERNAL-VERIFY.
 Last verified commit 6026a97. Decision owner and date: none needed. Overlap group K. Regression evidence: Script refuses with exit 2 when no DSN is passed (proven on the rig); event receipt pending the James-side run.
-Implementation status: DONE, James-ruled 2026-10-06: verified via production dashboard, rig run not required. James checked sentry.io and confirmed SENTRY_DSN and NEXT_PUBLIC_SENTRY_DSN set in Railway. The script (scripts/sentry-test-event.ts, commit a2a0207, merged 6026a97) stays as the tool for any future check; it reads the DSN from the environment only. The rig environment changes (SENTRY_DSN as an environment variable, sentry.io and the project's ingest host allowed by the network policy) stand for whichever future session starts; no rig run is owed. Parked: whether the dashboard showed events present or no events yet at the time of the check is James's to state; the ruling stands either way.
+Implementation status: PARKED (James-ruled 2026-10-06, D-aa, superseding the same-day DONE ruling below): verified after the B1b telemetry changes land. Earlier same day: DONE, James-ruled 2026-10-06: verified via production dashboard, rig run not required. James checked sentry.io and confirmed SENTRY_DSN and NEXT_PUBLIC_SENTRY_DSN set in Railway. The script (scripts/sentry-test-event.ts, commit a2a0207, merged 6026a97) stays as the tool for any future check; it reads the DSN from the environment only. The rig environment changes (SENTRY_DSN as an environment variable, sentry.io and the project's ingest host allowed by the network policy) stand for whichever future session starts; no rig run is owed. Parked: whether the dashboard showed events present or no events yet at the time of the check is James's to state; the ruling stands either way.
 
 #### RENA-014 and RENA-062 Scheduler trigger outside the repository, doubled ticks, no liveness
 
@@ -197,13 +210,13 @@ Implementation status: TODO (B1 for next-auth; B6 for Next 15 if required).
 #### RENA-002 Rate limiting is process-local and proxy trust is deployment-dependent
 
 Severity P1. Status PARTIAL. Batch B1. Overlap none.
-Mechanism: three in-memory limiters (src/middleware.ts:40, src/lib/rate-limit.ts:11, src/lib/utils/security.ts:89) reset on restart; one Railway process today. The database-side account lockout (five failures, fifteen minutes; src/lib/auth/options.ts:9-10, 47-57) survives restarts and covers both login paths. With TRUSTED_PROXY unset the code trusts cf-connecting-ip first (rate-limit.ts:100, middleware.ts:35), a header anyone can send without Cloudflare in front.
-Fix: James sets and confirms TRUSTED_PROXY=railway in Railway; a middleware test asserts the rightmost x-forwarded-for entry is used and a spoofed cf-connecting-ip is ignored in that mode; a shared store for the limiters is deferred until replicas exist.
-Migration or config: one Railway variable.
-Tests: spoofed-header cases through getClientIp in both modes. Manual: none.
-Delivery EXTERNAL plus WEB (tests). Proof RIG-AUTO plus EXTERNAL-VERIFY.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B1).
+Mechanism (corrected per D-y, 2026-10-06): three in-memory limiters (src/middleware.ts, src/lib/rate-limit.ts, src/lib/utils/security.ts) reset on restart; one Railway process today. The database-side account lockout (five failures, fifteen minutes; src/lib/auth/options.ts) survives restarts and covers both login paths. The earlier claim that TRUSTED_PROXY was unset is retracted: it has been cloudflare since the July pen-test remediation gate and the domain is proxied through Cloudflare. The residual defect was that cloudflare mode trusted cf-connecting-ip unconditionally, so a request sent straight to the .up.railway.app origin could carry a forged header and a fresh bucket; two copies of the chooser existed (middleware and rate-limit) and twelve audit routes stored the raw, unsplit x-forwarded-for header.
+Fix (D-y, built): src/lib/http/client-ip.ts is the one Edge-safe pure chooser used by the middleware, the route limiters, the consent route, the NextAuth error log line and the twelve audit routes. Default: rightmost x-forwarded-for then x-real-ip; in cloudflare mode cf-connecting-ip is trusted only when the rightmost x-forwarded-for peer sits inside Cloudflare's published ranges (src/lib/http/cloudflare-ranges.ts, a code constant refreshed in a gate). A shared store for the limiters is deferred until replicas exist (railway.json carries none).
+Migration or config: none in the repository. External, James's call, named: whether the Railway-generated domain redirects to the canonical host or is removed. James verifies the Cloudflare range snapshot against the live page in the B1a gate (the building session's egress cannot reach cloudflare.com).
+Tests: src/lib/http/client-ip.test.ts, cloudflare mode with a Cloudflare IPv4 peer, an IPv6 edge peer, a direct-to-origin peer and a non-Cloudflare proxy chain, railway mode, unset mode, each with spoofed cf-connecting-ip and spoofed leftmost x-forwarded-for; src/middleware.test.ts wires it. Manual: none.
+Delivery WEB plus EXTERNAL (the domain question). Proof RIG-AUTO plus EXTERNAL-VERIFY (range snapshot).
+Last verified commit bccbfae. Decision owner and date: James, 2026-10-06 (D-y). Overlap group none. Regression evidence: unit matrix passing (16 cases) on the rig; typecheck and lint clean.
+Implementation status: BUILT (B1a, commits 7fd9f92, 70ee97b and bccbfae), at the gate; DONE only after James's walk and the merge.
 
 #### RENA-003 Session-bridge single use is per process
 
@@ -213,8 +226,8 @@ Fix: part of D-g. The consumed bridge JTI becomes a row (insert-as-claim; unique
 Migration or config: covered by the D-g migration.
 Tests: replay rejected with the Map cleared between calls; two concurrent consumptions against rig Postgres, one wins. Manual: shell login round trip both apps.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-g). Overlap group B. Regression evidence: none yet.
-Implementation status: TODO (B1, inside the session design gate).
+Last verified commit 7fd9f92,. Decision owner and date: James, 2026-10-06 (D-g, D-s, D-t). Overlap group B. Regression evidence: integration suite against the rig Postgres (src/lib/auth/session.integration.test.ts, opt-in, wired into the CI e2e job): two redemptions of one code racing give exactly one winner and one WEB child, the spent code refused afterwards; parent validity law cases (wrong user, unknown parent, WEB parent, revoked, expired, stale version) each refused; hierarchy law (child expiry capped by the parent, a raw parent write leaves the child valid, the helper revokes parent and children in one statement). Unit: claims carry the parent jti and a 60 s life.
+Implementation status: BUILT (B1a, commits 7fd9f92, 70ee97b and bccbfae): the Map is gone; BridgeCodeUse insert-as-claim and the parent check run in one transaction in verifyAndConsumeBridgeCode (src/lib/auth/session.ts); the daily sweep rides the compliance scheduler. At the gate; DONE after James's walk and the merge.
 
 #### RENA-006 CSRF helper unused on cookie-authenticated mutations
 
@@ -224,8 +237,8 @@ Fix: document the model in docs/architecture.md; in the middleware API branch, f
 Migration or config: none.
 Tests: foreign Origin plus cookie 403; same-origin plus cookie passes; Bearer without Origin passes; Stripe webhook passes. Manual: website booking, login, settings save; shell badges poll and statement download.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B1).
+Last verified commit bccbfae. Decision owner and date: James, 2026-10-06 (D-z). Overlap group none. Regression evidence: src/lib/http/csrf.test.ts (the precedence matrix: safe methods, webhook and cron exemptions, NextAuth protocol routes exempt and eight Rena routes under /api/auth not exempt, bypass headers, no-cookie pass, both cookie prefixes and chunks, exact Origin equality against seven near-misses, Origin over Sec-Fetch-Site, same-origin and none pass, same-site and cross-site refused, unknown canonical refused); src/middleware.test.ts (403 JSON with no-store for a foreign Origin, Rena's /api/auth routes covered, same-origin passes, shell header passes, Bearer passes, GET untouched, and the ruled regression: an arbitrary-origin preflight receives no Access-Control-Allow header). Rig curl matrix on the production build in the gate report.
+Implementation status: BUILT for the rule (B1a, commit bccbfae: src/lib/http/csrf.ts evaluated in the middleware's API branch; the model documented in docs/architecture.md). csrf.ts and rbac.ts are deleted in B1b (RENA-079) once the rule has deployed. At the gate.
 
 #### RENA-007 Mobile Bearer has no per-device revocation
 
@@ -235,8 +248,8 @@ Fix: D-g. DeviceSession rows (jti, userId, kind bearer or web, createdAt, lastSe
 Migration or config: User.sessionVersion Int default 0; DeviceSession table; the bridge code table (RENA-003).
 Tests: revoked jti is 401; version bump invalidates every live token; cookie session for the website unaffected; account switch leaves the other account's devices alive. Manual (the heaviest gate): ceremonial drive plus James's walk of login, logout, account switch, password change and sign-out-everywhere on both apps and the web before merge.
 Delivery WEB plus OTA both shells (send the Bearer on logout). Proof RIG-AUTO plus the ruled walk (DEVICE).
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-g). Overlap group B. Regression evidence: none yet.
-Implementation status: TODO (B1, session design gate).
+Last verified commit 7fd9f92,. Decision owner and date: James, 2026-10-06 (D-g, D-t to D-x). Overlap group B. Regression evidence: unit (src/lib/auth/session.test.ts): the tracked path is one deviceSession lookup and no user lookup, lastSeenAt written only when older than five minutes and only conditionally, every rejection branch (revoked, expired, wrong kind, wrong user, stale version on row or claim, suspended, deactivated, post-password-change), the cutoff constant 2026-11-07 with an injected clock (accepted the day before, refused at and after, without a database read); route tests for shell-logout (Bearer and cookie paths), sign-out-all and the bridge cookie. Integration on the rig: Bearer minted and verified with the tracked path measured under 500 ms; cookie-only device logout revokes the bridged device (parent and children) and a plain web cookie only itself; sign out everywhere bumps the version and kills Bearer, bridged cookie row and web row while a fresh mint lives and another user is untouched; the password path stamps, bumps and revokes in one transaction; lazy legacy upgrade yields one row per cookie jti with sv 0; the sweep deletes spent codes and ended rows.
+Implementation status: BUILT (B1a, commits 7fd9f92, 70ee97b and bccbfae). DeviceSession and BridgeCodeUse models, User.sessionVersion, migration 20261007090000_device_sessions; src/lib/auth/device-session.ts (rows, revocation, sweep, cutoff), src/lib/auth/session.ts (mint, bridge, per-request check), NextAuth callbacks, the bridge route, login and signup, shell-logout, the new /api/auth/sign-out-all with doors on customer settings, the cleaner profile page and the /app/profile room, change-password, reset, the cleaner profile password path, deletion, suspension, the repository soft delete. No shell change: today's shells revoke their device through the cookie's parent; the "Bearer on logout" OTA piece is named for James's word in the B5 lane. At the gate; DONE after James's walk and the merge.
 
 #### RENA-009 Account-state enumeration
 
@@ -265,8 +278,8 @@ Fix: set pwdAt at the bridge mint; with D-g the sessionVersion check closes it a
 Migration or config: covered by D-g.
 Tests: bridge-minted session is rejected after a password change; before the change it is accepted. Manual: part of the D-g walk.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-n, P1). Overlap group B. Regression evidence: none yet.
-Implementation status: TODO (B1, session design gate).
+Last verified commit 7fd9f92,. Decision owner and date: James, 2026-10-06 (D-n, P1; D-v). Overlap group B. Regression evidence: src/app/api/auth/session-bridge/route.test.ts decodes the minted cookie and asserts pwdAt, sid and sv are present and the cookie's Max-Age is capped by the WEB row's expiry; the integration suite's version bump kills the bridged cookie's row.
+Implementation status: BUILT (B1a, commits 7fd9f92, 70ee97b and bccbfae): the bridge mints pwdAt, sid and sv (src/app/api/auth/session-bridge/route.ts) and the sessionVersion check closes it a second way. At the gate; DONE after James's walk and the merge.
 
 #### RENA-066 Production logs contain personal data and whole payloads
 
@@ -429,7 +442,7 @@ Migration or config: none.
 Tests: Playwright as a cleaner: open /messages, click the back link while the profile response is delayed, assert the landing is /cleaner with no /account history entry and that one browser back returns to Messages; as a customer the mirror; phone viewport: open a thread, assert the back link is reachable; pageshow: assert the dashboard refetches on a bfcache restore. Manual: James's symptom walk on the website before and after.
 Delivery WEB. Proof RIG-AUTO plus James's walk.
 Last verified commit c4d5b86. Decision owner and date: James, 2026-10-06. Overlap group B (session design and role-home guards); D is shell-only and does not apply. Regression evidence: none yet.
-Implementation status: TODO (B2). Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
+Implementation status: TODO (B2). D-aa (2026-10-06): remains parked pending James's reproducible symptom (role, device, trapped versus wrong page versus stale), no fix guessed. Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
 
 ### B3 Cleaner lifecycle and concurrency
 
@@ -653,14 +666,15 @@ Implementation status: TODO (B5; server half B1).
 
 #### RENA-031 In-shell cleaner application lands in the website portal
 
-Severity P2. Status CONFIRMED. Batch B5. Overlap none.
+Severity P1 (raised 2026-10-06, D-aa: the recruitment week). Status CONFIRMED. Batch B5 (handoff UX; the token-mint half delivered in B1a). Overlap M.
+James's fresh observation (2026-10-06): the in-app cleaner signup still lands in the website shell and then kicks the cleaner out; the R12 checklist homepage did not cure it because the native handoff after web signup never happens.
 Mechanism: join/page.tsx:1533-1538 router.push('/cleaner') unconditionally after sign-in; mobile/App.tsx:929-946 JoinScreen is a full-screen WebView in the logged-out phase with no onSessionLost, onBridged or tab props, so onNav never reacts; no bridge message for join exists; the shell stays in phase join with the website dashboard inside it and no Bearer stored.
 Fix: shell-gated branch on the join page: after the final submit navigate to /app/joined?email=...; JoinScreen gains onJoined(email); the shell switches to the login phase with the email prefilled and the line "Your application is in. Sign in to continue."; native login mints the Bearer and bridges to Today. Website behaviour unchanged.
 Migration or config: none.
 Tests: rig: in-shell UA join completes to /app/joined; website UA lands on /cleaner. Manual: the walk on a device.
 Delivery WEB plus Pro OTA. Proof RIG-PARTIAL + DEVICE.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B5).
+Last verified commit 7fd9f92,. Decision owner and date: James, 2026-10-06 (D-aa, D-x). Overlap group M. Regression evidence: none yet for the handoff.
+Implementation status: SPLIT. B1a (commit 7fd9f92,) updated the token-mint paths: /api/auth/signup and /api/auth/login mint a BEARER DeviceSession row and a bridge code naming it, so the handoff consumes one primitive. B5 builds the wizard-to-native handoff UX for both apps as one design with RENA-082.
 
 #### RENA-036 Rena Pro attaches its Bearer to a URL matched by substring
 
@@ -675,15 +689,16 @@ Implementation status: TODO (B5, same OTA as RENA-024/039).
 
 #### RENA-082 Customer signup completed inside the Rena app leaves the shell broken
 
-Severity P2. Status CONFIRMED (James-ruled addition). Batch B5 (customer shell OTA lane), or B2 if the web half leads. Overlap M.
+Severity P1 (raised 2026-10-06, D-aa: the recruitment week). Status CONFIRMED (James-ruled addition). Batch B5 (handoff UX for both apps as one design with RENA-031; the token-mint half delivered in B1a). Overlap M.
+James's fresh observation (2026-10-06, with RENA-031): the in-app signup still lands in the website shell and then kicks the user out; the native handoff after web signup never happens.
 Mechanism: the customer shell opens /en/signup in a dedicated SignupScreen WebView in the logged-out phase (mobile-customer/App.tsx:522, 892-909) with no onSessionLost, onBridged or tab props, so the shell's navigation watcher never reacts; the web signup page auto-signs the new account in and pushes /account (src/app/[locale]/signup/page.tsx:90-101), the website portal, inside that WebView. No native token is minted and the shell never enters the tabbed phase: the tab bar is absent, the user is forced to back out and log in again. Observed on device.
 Expected: signup completes the native handoff exactly as login does (native token minted, bridge redeemed, panes landing signed in) and the customer lands on Home with the verify-email banner at the top.
 Fix: designed together with RENA-031 as one handoff for both shells (overlap M). Shell-gated branch on the signup page: after a successful signup navigate to a shell-recognised completion URL carrying the email; SignupScreen gains an onSignedUp(email) prop; the shell performs the native login with the just-created credentials (or receives a one-time bridge code from the signup response, the mechanism to be reconciled against source in the batch), stores the Bearer, bridges to /app/home and shows the verify-email banner. Website behaviour unchanged (incognito diff).
 Migration or config: none expected; a bridge-code return on the signup response is a server change if chosen.
 Tests: rig: in-shell UA signup reaches the completion URL and the native login path; website UA lands on /account unchanged. Manual: the device walk, signup to Home with the banner, tab bar present. Proof RIG-PARTIAL + DEVICE.
 Delivery WEB plus customer OTA.
-Last verified commit 6026a97. Decision owner and date: James, 2026-10-06. Overlap group M. Regression evidence: none yet.
-Implementation status: TODO (B5, designed with RENA-031; nothing built now).
+Last verified commit 7fd9f92,. Decision owner and date: James, 2026-10-06 (D-aa, D-x). Overlap group M. Regression evidence: none yet for the handoff.
+Implementation status: SPLIT. B1a (commit 7fd9f92,) updated the signup token-mint path (BEARER row plus a bridge code naming it); B5 builds the handoff UX for both apps as one design with RENA-031.
 
 #### RENA-037 Offer push cannot deep-link to the offer screen
 
@@ -1001,6 +1016,7 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-06: B1a BUILT on claude/b1a-session-core (commits 7fd9f92, 70ee97b and bccbfae): D-g session architecture with the parent validity and hierarchy laws, the grandfather cutoff, every mint and revoke path, one client IP chooser, the CSRF rule; rulings D-r to D-aa recorded; RENA-002 mechanism corrected (TRUSTED_PROXY cloudflare, domain proxied); RENA-031 and 082 raised to P1 and split; RENA-068 parked until the B1b telemetry lands; RENA-084 parked pending the symptom. At the gate, no merge.
 - 2026-10-06: RENA-068 ruled DONE (verified via production dashboard, rig run not required). RENA-084 added (website back to the dashboard from Messages, James-observed, P2, B2, overlap B) with the mechanism reconciled against source at c4d5b86; nothing built.
 - 2026-10-06: B0 CLOSED. D-e step two proven (UptimeRobot scheduler monitor alerted on the deliberate stale test, main health monitor unaffected), step three executed (Railway schedule restored 18:49 UTC, cron-job.org PAUSED), single-caller ticks confirmed from Railway alone (18:50:52 and 18:55:45 UTC, one summary each, no skips) and the heartbeat healed to 200 healthy; the seven-day watch (step four) started; RENA-081 and RENA-014 updated; RENA-068's Sentry verification stays James-side.
 - 2026-10-06: B0 Gate B merged (fd5f75f) and deployed (b303fabb); RENA-014 (with 062) recorded DONE for the code half with production evidence; RENA-081 carries the James-side steps.
