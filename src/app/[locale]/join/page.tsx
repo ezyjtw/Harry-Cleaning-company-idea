@@ -17,7 +17,7 @@ import {
   serviceTypeLabel,
   type ServiceTypeSlug,
 } from '@/lib/constants/services';
-import { setAnalyticsUserId, useAnalytics } from '@/lib/hooks/useAnalytics';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
 import { isShellUA, shellCameraCapable } from '@/lib/shell';
 import {
@@ -1075,7 +1075,6 @@ export default function JoinAsCleanerPage() {
           // F29: a resumed run keeps its attribution.
           if (typeof parsed.userId === 'string' && parsed.userId) {
             setAccountUserId(parsed.userId);
-            setAnalyticsUserId(parsed.userId);
           }
         }
         if (typeof parsed.currentStep === 'number') {
@@ -1370,7 +1369,6 @@ export default function JoinAsCleanerPage() {
         // here on carry its userId (everything earlier stays anonymous).
         if (typeof created?.userId === 'string' && created.userId) {
           setAccountUserId(created.userId);
-          setAnalyticsUserId(created.userId);
         }
         // Establish the session so the final submit can attach the profile to
         // THIS account under ownership proof (no unauthenticated attach).
@@ -1477,7 +1475,9 @@ export default function JoinAsCleanerPage() {
       const cleanerId = result.cleaner?.id;
 
       localStorage.removeItem(STORAGE_KEY);
-      trackConversion({ email: form.email });
+      // RENA-059: no email in analytics metadata; the events route attributes
+      // the event from the session.
+      trackConversion();
 
       // Sign in BEFORE uploading documents. /api/cleaners/documents authorises
       // the caller from their session, so uploading before sign-in returned 401

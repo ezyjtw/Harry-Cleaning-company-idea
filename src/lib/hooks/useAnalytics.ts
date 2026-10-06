@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 
+import { analyticsAllowed, consentPending, subscribeConsent } from '@/lib/consent';
+
 type FunnelType = 'booking' | 'cleaner_signup' | 'client_signup';
 type EventType =
   | 'FUNNEL_STEP'
@@ -10,6 +12,28 @@ type EventType =
   | 'DROP_OFF'
   | 'FORM_ERROR'
   | 'CONVERSION';
+
+// RENA-059 (D-b, B1b, James-ruled): nothing analytics-related happens without
+// stored consent. The session id is written, an event is sent and the unload
+// beacon fires only when analyticsAllowed() is true. While the session is
+// still resolving (consent pending) events wait in memory, are sent if the
+// resolved answer allows them and are discarded otherwise. A visitor who has
+// not answered yet is not tracked at all (the waiting list is for the
+// identity lookup only, never for an undecided visitor).
+const PENDING_MAX = 20;
+let pending: Array<Record<string, unknown>> = [];
+let pendingWired = false;
+
+function wirePending(): void {
+  if (pendingWired || typeof window === 'undefined') return;
+  pendingWired = true;
+  subscribeConsent(() => {
+    if (consentPending()) return;
+    const queued = pending;
+    pending = [];
+    if (analyticsAllowed()) queued.forEach((p) => void postEvent(p));
+  });
+}
 
 function getSessionId(): string {
   if (typeof window === 'undefined') return '';
@@ -39,26 +63,18 @@ function getBrowser(): string {
   return 'Other';
 }
 
-// F29 (James-ruled): attribution. The cleaner-signup wizard knows who the
-// visitor is the moment step 0 creates the account, but events were always
-// sent anonymous. The wizard sets the id at that moment (and on draft
-// resume); every event sent AFTER carries it. The API route and the
-// AnalyticsEvent schema have always accepted userId — this only starts
-// sending it. Pre-step-0 events stay anonymous by construction: nothing
-// sets the id until an account exists.
-let analyticsUserId: string | null = null;
-export function setAnalyticsUserId(id: string | null) {
-  analyticsUserId = id;
-}
+// F29 attribution, RENA-059: the user id is no longer sent from the browser.
+// The events route derives it from the session, so an event is attributed
+// exactly when the visitor is signed in, and a client can never claim
+// another account.
 
-async function sendEvent(payload: Record<string, unknown>) {
+async function postEvent(payload: Record<string, unknown>) {
   try {
     await fetch('/api/analytics/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: getSessionId(),
-        userId: analyticsUserId ?? undefined,
         deviceType: getDeviceType(),
         browser: getBrowser(),
         page: typeof window !== 'undefined' ? window.location.pathname : undefined,
@@ -68,6 +84,18 @@ async function sendEvent(payload: Record<string, unknown>) {
     });
   } catch {
     // Silently fail — analytics should never break UX
+  }
+}
+
+function sendEvent(payload: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+  if (analyticsAllowed()) {
+    void postEvent(payload);
+    return;
+  }
+  if (consentPending() && pending.length < PENDING_MAX) {
+    wirePending();
+    pending.push(payload);
   }
 }
 
@@ -86,14 +114,13 @@ export function useAnalytics(funnel?: FunnelType) {
   // Track drop-off on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
+      // RENA-059: no beacon without consent.
+      if (!analyticsAllowed()) return;
       if (currentStep.current && funnel) {
         const duration = Math.round((Date.now() - stepStartTime.current) / 1000);
         // Use sendBeacon for reliable delivery on page close
         const payload = JSON.stringify({
           sessionId: getSessionId(),
-          // F29: the unload beacon is the abandonment record — it carries the
-          // same attribution as every other post-step-0 event.
-          userId: analyticsUserId ?? undefined,
           eventType: 'DROP_OFF',
           funnel,
           funnelStep: currentStep.current.step,

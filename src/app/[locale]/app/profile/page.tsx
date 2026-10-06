@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useState } from 'react';
 
+import AnalyticsChoice from '@/components/app/AnalyticsChoice';
 import { haptic } from '@/components/app/job-cards';
 
 interface HubProfile {
@@ -379,6 +380,12 @@ export default function ProfileHubPage() {
             {chevron}
           </button>
         </div>
+      </section>
+
+      {/* RENA-059 (D-b): the analytics choice, changeable here after the
+          one-time ask on first signed-in entry. */}
+      <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
+        <AnalyticsChoice />
       </section>
 
       {/* D-g (RENA-007): sign out everywhere, this device included. */}

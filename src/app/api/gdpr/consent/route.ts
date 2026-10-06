@@ -60,12 +60,17 @@ export async function POST(request: NextRequest) {
       ? sessionUser.email.trim().toLowerCase()
       : email.trim().toLowerCase();
 
+    // RENA-059: the consent gate sends its policy version; only known
+    // versions are recorded as such (anything else falls back to the default).
+    const version = body.version === '1.0' ? '1.0' : undefined;
+
     const results = await GdprService.recordBulkConsent({
       userId: effectiveUserId,
       email: effectiveEmail,
       consents,
       ipAddress,
       userAgent,
+      version,
     });
 
     return NextResponse.json({ success: true, recorded: results.length });
