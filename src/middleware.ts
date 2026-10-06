@@ -122,11 +122,14 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
       cookieNames: request.cookies.getAll().map((c) => c.name),
       // RENA-006: the canonical origin cookie-authenticated mutations must prove.
-      // Read through a computed key so the Edge bundler does not inline the
-      // build-time value: the rig showed a dotted access frozen at build (the
-      // 3000 build served on 3001 refused its own origin). Railway's runtime
-      // NEXTAUTH_URL is the canonical host; the gate names this for James.
-      canonical: canonicalOrigin(process.env['NEXTAUTH_URL']),
+      // RENA-006: the canonical origin cookie-authenticated mutations must
+      // prove. next.config publishes NEXTAUTH_URL through its env block, so
+      // this value is fixed at build time from the Railway variable (the rig
+      // proved it: a build made with port 3000 refuses its own port 3001). A
+      // build without NEXTAUTH_URL would inline the Railway public domain and
+      // refuse the canonical host's own mutations; the variable must be set
+      // for builds, which the B1a gate names for James.
+      canonical: canonicalOrigin(process.env.NEXTAUTH_URL),
     });
     if (!verdict.ok) {
       return NextResponse.json(
