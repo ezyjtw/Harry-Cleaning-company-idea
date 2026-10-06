@@ -1922,3 +1922,22 @@ model RescheduleOffer {
   @@index([bookingId, status])
   @@index([status, expiresAt])
 }
+
+// RENA-014 (remediation register, B0): single-row lease and heartbeat for the
+// five-minute scheduler. Two external callers hit /api/cron/run-jobs every
+// tick today (cron-job.org and the Railway Bun Function, straddling minute
+// boundaries), so the lease is a conditional update with a TTL, not a
+// per-minute key: the first caller inside the window runs, the second is told
+// "lease held" and exits. The heartbeat (lastFinishedAt) feeds
+// /api/health/scheduler, which an external monitor polls. Always one row,
+// id 'scheduler', inserted by the migration.
+model SchedulerLease {
+  id             String    @id
+  lockedAt       DateTime?
+  lastStartedAt  DateTime?
+  lastFinishedAt DateTime?
+  lastCaller     String?
+  lastSummary    Json?
+  lastError      String?
+  updatedAt      DateTime  @updatedAt
+}

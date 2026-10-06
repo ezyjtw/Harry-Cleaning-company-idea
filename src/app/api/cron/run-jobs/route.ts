@@ -1,7 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  callerLabel,
+  claimSchedulerLease,
+  releaseSchedulerLease,
+} from '@/lib/services/scheduler-lease.service';
 import { runScheduledJobs } from '@/lib/services/scheduler.service';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   // SECURITY (A6): before this triggers money, require CRON_SECRET to be set
@@ -21,19 +28,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // RENA-014: one effective run per tick. A second caller inside the lease
+  // window (today: the second of the two external triggers) is answered 200
+  // with "skipped" so it never doubles the money sweeps.
+  const lease = await claimSchedulerLease(callerLabel(request.headers.get('user-agent')));
+  if (!lease.claimed) {
+    // eslint-disable-next-line no-console
+    console.log(
+      '[Scheduler] skipped: lease held',
+      JSON.stringify({ lockedAt: lease.lockedAt, lastStartedAt: lease.lastStartedAt })
+    );
+    return NextResponse.json({
+      skipped: 'lease held',
+      lockedAt: lease.lockedAt,
+      lastStartedAt: lease.lastStartedAt,
+    });
+  }
+
   try {
     const summary = await runScheduledJobs();
 
     // eslint-disable-next-line no-console
     console.log('[Scheduler]', JSON.stringify(summary));
 
+    await releaseSchedulerLease({ summary });
     return NextResponse.json(summary);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[Scheduler] Fatal error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Scheduler failed' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Scheduler failed';
+    await releaseSchedulerLease({ error: message }).catch(() => {});
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
