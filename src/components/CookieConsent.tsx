@@ -1,9 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { useState, useEffect, useCallback } from 'react';
 
+import ShellConsentSheet from '@/components/app/ShellConsentSheet';
+import {
+  accountAnswerMissing,
+  consentMode,
+  currentConsent,
+  loadAccountConsent,
+  saveConsent,
+  setConsentIdentity,
+  subscribeConsent,
+} from '@/lib/consent';
 import { isAnyShellUA } from '@/lib/shell';
 
 interface CookiePreferences {
@@ -12,35 +23,13 @@ interface CookiePreferences {
   marketing: boolean;
 }
 
-const COOKIE_CONSENT_KEY = 'rena_cookie_consent';
-const COOKIE_CONSENT_VERSION = '1.0';
-
-function getStoredConsent(): CookiePreferences | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    if (parsed.version !== COOKIE_CONSENT_VERSION) return null;
-    return parsed.preferences;
-  } catch {
-    return null;
-  }
-}
-
-function storeConsent(preferences: CookiePreferences) {
-  localStorage.setItem(
-    COOKIE_CONSENT_KEY,
-    JSON.stringify({
-      version: COOKIE_CONSENT_VERSION,
-      preferences,
-      timestamp: new Date().toISOString(),
-    })
-  );
-}
+// RENA-059 (B1b): the entry panes where the in-shell ask may appear, once,
+// on the first signed-in entry (a pane that mounts later never repeats it).
+const SHELL_ASK_PATHS = /^(?:\/en)?\/app\/(?:home|today)\/?$/;
 
 export default function CookieConsent() {
-  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [forced, setForced] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] = useState<CookiePreferences>({
     essential: true,
@@ -48,57 +37,83 @@ export default function CookieConsent() {
     marketing: false,
   });
   const t = useTranslations('Cookie');
+  const { data: session, status } = useSession();
+  // Re-render whenever the gate changes (identity, ledger answer, a choice).
+  const [, setTick] = useState(0);
+  useEffect(() => subscribeConsent(() => setTick((n) => n + 1)), []);
+
+  // Identity sync: the gate learns who is browsing once the session resolves.
+  // Signed in: the ledger answer is loaded (or the per-account cache used).
+  useEffect(() => {
+    if (status === 'loading') return;
+    const userId = status === 'authenticated' ? (session?.user?.id ?? null) : null;
+    setConsentIdentity(userId);
+    if (userId) void loadAccountConsent(userId);
+  }, [status, session?.user?.id]);
 
   useEffect(() => {
-    const stored = getStoredConsent();
-    if (!stored) {
-      setVisible(true);
-    } else {
-      setPreferences(stored);
-    }
-
+    setMounted(true);
     window.openCookieSettings = () => {
-      setVisible(true);
+      setForced(true);
       setShowDetails(true);
     };
   }, []);
 
-  const saveConsent = useCallback((prefs: CookiePreferences) => {
-    storeConsent(prefs);
-    setPreferences(prefs);
-    setVisible(false);
+  const current = currentConsent();
+  useEffect(() => {
+    if (current)
+      setPreferences({
+        essential: true,
+        analytics: current.analytics,
+        marketing: current.marketing,
+      });
+  }, [current?.analytics, current?.marketing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    fetch('/api/gdpr/consent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'anonymous@cookie-consent',
-        consents: [
-          { type: 'essential', granted: true },
-          { type: 'analytics', granted: prefs.analytics },
-          { type: 'marketing', granted: prefs.marketing },
-        ],
-      }),
-    }).catch(() => {});
+  const choose = useCallback((prefs: CookiePreferences) => {
+    setForced(false);
+    void saveConsent({ analytics: prefs.analytics, marketing: prefs.marketing });
   }, []);
 
   const acceptAll = useCallback(() => {
-    saveConsent({ essential: true, analytics: true, marketing: true });
-  }, [saveConsent]);
+    choose({ essential: true, analytics: true, marketing: true });
+  }, [choose]);
 
   const rejectNonEssential = useCallback(() => {
-    saveConsent({ essential: true, analytics: false, marketing: false });
-  }, [saveConsent]);
+    choose({ essential: true, analytics: false, marketing: false });
+  }, [choose]);
 
   const saveCustom = useCallback(() => {
-    saveConsent(preferences);
-  }, [preferences, saveConsent]);
+    choose(preferences);
+  }, [preferences, choose]);
 
-  // James-ruled chrome strip: the cookie banner never renders inside either
-  // native shell (Pro or the customer app — a genuinely shared rule via
-  // isAnyShellUA). Client-only UA check — browser visitors' HTML is untouched.
-  if (isAnyShellUA()) return null;
-  if (!visible) return null;
+  if (!mounted) return null;
+
+  const mode = consentMode();
+  const inShell = isAnyShellUA();
+
+  // In-shell (D-b, James-ruled): never the website banner. The two-choice ask
+  // appears once on the first signed-in entry pane when the account has no
+  // answer in the ledger; it is changeable later from the profile room.
+  if (inShell) {
+    const onEntryPane =
+      typeof window !== 'undefined' && SHELL_ASK_PATHS.test(window.location.pathname);
+    if (mode === 'account' && accountAnswerMissing() && onEntryPane) {
+      return (
+        <ShellConsentSheet
+          onAllow={() => choose({ essential: true, analytics: true, marketing: false })}
+          onEssential={() => choose({ essential: true, analytics: false, marketing: false })}
+        />
+      );
+    }
+    return null;
+  }
+
+  // Website: anonymous visitors are asked until they answer in this browser;
+  // a signed-in account is asked only once its ledger has been read and found
+  // empty (the stored account answer suppresses the banner once loaded).
+  const needsAnswer =
+    mode === 'anonymous' ? current === null : mode === 'account' ? accountAnswerMissing() : false;
+  if (!forced && !needsAnswer) return null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 p-4 sm:p-6">

@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { getClientIp } from '@/lib/rate-limit';
 import { GdprService } from '@/lib/services/gdpr.service';
 import { updatePreferences } from '@/lib/services/notification-preferences.service';
@@ -38,12 +39,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
     }
 
-    // eslint-disable-next-line no-console
-    console.log(
-      `[LEAD] email=${email.trim()}, postcode=${postcode}, ` +
-        `bedrooms=${bedrooms}, bathrooms=${bathrooms}, ` +
-        `service=${serviceType}, estimate=£${estimatedTotal}, ip=${clientIP}`
-    );
+    // RENA-066: no address, postcode or IP in the log; the durable record is
+    // the Lead row and the consent ledger below.
+    log.info('leads', 'captured', {
+      category: typeof serviceType === 'string' ? serviceType : undefined,
+      amountPence:
+        typeof estimatedTotal === 'number' ? Math.round(estimatedTotal * 100) : undefined,
+    });
 
     // H65 (James ruling a): the tick means something. This endpoint only fires
     // when the promotional-offers box was TICKED, so persist the lead durably

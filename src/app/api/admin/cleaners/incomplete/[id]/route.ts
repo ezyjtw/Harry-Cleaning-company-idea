@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { removeIncompleteSignup } from '@/lib/services/incomplete-signup.service';
 
 export const runtime = 'nodejs';
@@ -25,8 +26,10 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  // eslint-disable-next-line no-console
-  console.log(`[AdminBroom] incomplete signup removed: ${result.email} (by ${admin.id})`);
+  log.info('admin_broom', 'incomplete_signup_removed', {
+    userId: context.params.id,
+    actorId: admin.id,
+  });
 
   return NextResponse.json({ ok: true });
 }

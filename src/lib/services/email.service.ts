@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
 import { logApiCall } from '@/lib/api-metering';
+import { log } from '@/lib/log';
 import {
   buildBookingConfirmation,
   buildBookingReminder,
@@ -102,8 +103,7 @@ async function sendEmail(
   const userId = opts?.userId ?? null;
 
   if (!(await shouldSend(userId, category, 'EMAIL'))) {
-    // eslint-disable-next-line no-console
-    console.log(`[Email] Suppressed by preference (category=${category}) to: ${to}`);
+    log.info('email', 'suppressed', { category, userId });
     return false;
   }
 
@@ -111,25 +111,19 @@ async function sendEmail(
   // report failure so the loud-both-ways legs can be driven without touching
   // the code under test. Ignored in production builds.
   if (process.env.NODE_ENV !== 'production' && process.env.EMAIL_FORCE_FAIL === '1') {
-    // eslint-disable-next-line no-console
-    console.error(`[Email] DEV FORCED FAILURE (${category}) to: ${to} — ${subject}`);
+    log.error('email', 'dev_forced_failure', { category, userId });
     return false;
   }
-  if (process.env.NODE_ENV !== 'production' || !resend) {
-    // eslint-disable-next-line no-console
-    console.log('─────────────────────────────────────────');
-    // eslint-disable-next-line no-console
-    console.log(`[Email] To: ${to}`);
-    // eslint-disable-next-line no-console
-    console.log(`[Email] Subject: ${subject}`);
-    if (opts?.replyTo) {
-      // eslint-disable-next-line no-console
-      console.log(`[Email] Reply-To: ${opts.replyTo}`);
-    }
-    // eslint-disable-next-line no-console
-    console.log(`[Email] Body preview: ${htmlBody.substring(0, 200)}...`);
-    // eslint-disable-next-line no-console
-    console.log('─────────────────────────────────────────');
+  // RENA-077 (James-ruled, B1b): in production an unavailable or unconfigured
+  // provider is a FAILURE, never a send: a structured error and false, so
+  // every caller can be honest about it. Development may warn and return
+  // true. Neither logs the address, subject or body.
+  if (process.env.NODE_ENV === 'production' && !resend) {
+    log.error('email', 'not_sent', { reason: 'provider_unconfigured', category, userId });
+    return false;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    log.warn('email', 'dev_preview', { category, userId, ok: htmlBody.length > 0 });
     return true;
   }
 
@@ -159,17 +153,29 @@ async function sendEmail(
     // message id so any single email's delivery can be traced in the Resend
     // dashboard.
     if (result?.error) {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[Email] Provider REJECTED (${category}) to: ${to} — ${subject}: ` +
-          `${result.error.name}/${result.error.statusCode ?? '-'} ${result.error.message}`
+      log.error(
+        'email',
+        'rejected',
+        {
+          provider: 'resend',
+          category,
+          userId,
+          recipientRef: userId ? undefined : log.pseudonym(to),
+        },
+        result.error
       );
       return false;
     }
     // H68: prod sends were INVISIBLE (success silent, failures easy to miss) —
     // one line per send so "attempted or not" is always answerable from logs.
-    // eslint-disable-next-line no-console
-    console.log(`[Email] Sent (${category}) to: ${to} — ${subject} (id: ${result?.data?.id})`);
+    // RENA-066: the provider message id traces the email in the Resend
+    // dashboard; the address and subject are never logged.
+    log.info('email', 'sent', {
+      provider: 'resend',
+      category,
+      userId,
+      providerMessageId: result?.data?.id,
+    });
     return true;
   } catch (error) {
     logApiCall('resend', 'POST /emails', {
@@ -177,8 +183,17 @@ async function sendEmail(
       durationMs: Date.now() - meterT0,
       meta: { category },
     });
-    // eslint-disable-next-line no-console
-    console.error(`[Email] Failed to send to ${to}:`, error);
+    log.error(
+      'email',
+      'failed',
+      {
+        provider: 'resend',
+        category,
+        userId,
+        recipientRef: userId ? undefined : log.pseudonym(to),
+      },
+      error
+    );
     return false;
   }
 }
@@ -997,7 +1012,7 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
     console.error(`[Cascade] backup-offer emails SKIPPED for ${bookingId}: booking not found`);
     return;
   }
-  const { serviceLabelFromSlug, normalizeToPricingSlug, propertySizeEnumToSlug } =
+  const { normalizeToPricingSlug, propertySizeEnumToSlug } =
     await import('@/lib/constants/services');
   const { pricingService } = await import('@/lib/services/pricing.service');
   const users = await prisma.user.findMany({
@@ -1040,10 +1055,12 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
       { name: u.name || 'there', email: u.email }
     ).catch(() => {});
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Cascade] backup-offer emails attempted for ${bookingId}: ${users.filter((u) => u.email).length} of ${backupIds.length} backups (${serviceLabelFromSlug(b.serviceType)})`
-  );
+  log.info('cascade', 'backup_offer_emails_attempted', {
+    bookingId,
+    attempted: users.filter((u) => u.email).length,
+    total: backupIds.length,
+    type: b.serviceType,
+  });
 }
 
 // F8: the CLEANER's acceptance confirmation — new email; before this only the

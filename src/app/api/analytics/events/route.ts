@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { getSessionUser } from '@/lib/auth/session';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AnalyticsTrackingService } from '@/lib/services/analytics-tracking.service';
 
@@ -34,7 +35,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       sessionId,
-      userId,
       eventType,
       funnel,
       funnelStep,
@@ -69,9 +69,13 @@ export async function POST(request: NextRequest) {
     // Topology-aware client IP (see src/lib/rate-limit.ts)
     const ipAddress = getClientIp(request);
 
+    // RENA-059: attribution comes from the session, never from the body, so
+    // a client cannot attribute events to another account.
+    const sessionUser = await getSessionUser().catch(() => null);
+
     await AnalyticsTrackingService.track({
       sessionId: sanitize(sessionId),
-      userId: userId ? sanitize(String(userId)) : undefined,
+      userId: sessionUser?.id,
       eventType: eventType as Parameters<typeof AnalyticsTrackingService.track>[0]['eventType'],
       funnel: funnel as Parameters<typeof AnalyticsTrackingService.track>[0]['funnel'],
       funnelStep: funnelStep ? Number(funnelStep) : undefined,

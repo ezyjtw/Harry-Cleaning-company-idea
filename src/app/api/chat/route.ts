@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { logApiCall } from '@/lib/api-metering';
 import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
+import { log } from '@/lib/log';
 import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
 
@@ -147,9 +148,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!groqResponse.ok) {
-      const errorBody = await groqResponse.text();
-      // eslint-disable-next-line no-console
-      console.error('Groq API error:', groqResponse.status, errorBody);
+      // RENA-066: the provider's response body is never logged.
+      log.error('chat', 'provider_error', { provider: 'groq', httpStatus: groqResponse.status });
       return NextResponse.json(
         { error: 'An unexpected error occurred. Please try again.' },
         { status: 500 }

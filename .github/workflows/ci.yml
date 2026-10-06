@@ -55,6 +55,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Log hygiene (RENA-066)
+        run: npx tsx scripts/check-log-hygiene.ts
+
       - name: Type check
         run: npx tsc --noEmit
 

@@ -22,7 +22,7 @@ Proof type (what honestly proves the fix here):
 - RIG-PARTIAL + DEVICE: the rig proves the logic, a device walk proves the shell or OS half.
 - DEVICE-ONLY: only a device or a store console can prove it.
 - STRING-LAW: the change touches an injected template literal; the cooked-parse proof and the dressed-arrival timing table ride the gate (CLAUDE.md, injected-script law).
-- HASH-LAW: the change touches one of the 21 baselined public pages; the hash law in CLAUDE.md applies.
+- HASH-LAW: the change touches one of the 26 baselined public routes (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies.
 
 Delivery:
 
@@ -91,6 +91,7 @@ B1 rulings, James, 2026-10-06 (on the B1 design report; the auditor's amendments
 - D-y. Proxy and IP: one Edge-safe pure getClientIp() used everywhere, replacing both chooser copies and the twelve raw-header routes; default rightmost x-forwarded-for then x-real-ip; cf-connecting-ip honoured only under TRUSTED_PROXY=cloudflare. From the record: TRUSTED_PROXY has been cloudflare since the July pen-test remediation gate and renacleaning.co.uk is proxied through Cloudflare (DNS migrated in May; only the Microsoft 365 mail records are DNS-only), so the challenge's "unset" assumption was wrong and is retracted. In cloudflare mode cf-connecting-ip is trusted only when the immediate peer (rightmost x-forwarded-for as Railway supplies it) is within Cloudflare's published ranges, falling back to the rightmost entry otherwise, so a request sent directly to the .up.railway.app origin cannot forge its bucket. Whether the Railway-generated domain should redirect to the canonical host or be removed is external and James's call, named for later. Applies to RENA-002.
 - D-z. CSRF rule, precedence as ordered: GET, HEAD and OPTIONS no check; webhooks and cron keep their own signature or secret security; a valid Authorization or x-rena-shell header passes the CSRF layer (a bypass signal, never authentication); cookie-authenticated mutations require exact Origin equality (scheme, host, port against NEXTAUTH_URL) when Origin is present, else Sec-Fetch-Site same-origin or none; never same-site; everything else 403 JSON. Exempt only NextAuth's own protocol routes, never all of /api/auth/: Rena's own routes under it (bridge, shell-logout, sign-out-all) are covered. A regression test proves an arbitrary-origin CORS preflight is not granted. Applies to RENA-006, RENA-079.
 - D-aa. RENA-031 and RENA-082 are P1 (the recruitment week) and split: B1a updates the signup token-mint paths; B5 builds the wizard-to-native handoff UX for both apps as one design consuming the new primitive. RENA-084 stays parked pending James's reproducible symptom; no fix guessed. RENA-068 is parked, verified after the telemetry changes land.
+- D-ab. B1b rulings (James, 2026-10-06, both reviewers concurring): deviations 1, 2, 4 to 11 of the B1b gate accepted. Deviation 3 not accepted: in production an unavailable or unconfigured email provider never returns send success; the email service returns failure and logs a structured error; callers handle it honestly without necessarily rolling back the underlying operation where email is secondary (signup still creates the account and the person sees "Account created, but we couldn't send the verification email" with a retry); nobody is told a message was sent when it was not; development may warn and return true. Privacy page dated 6 October 2026, sanctioned under the hash law. The hash law baseline is all 26 public routes, listed in CLAUDE.md beside the law and in docs/public-routes.json, which the hash tool and CI read. LOG_HMAC_KEY is James's external: a dedicated fresh 64-character random secret unrelated to any JWT, encryption or provider secret; rotating it later breaks correlation between old and new pseudonyms, which is acceptable. Applies to RENA-059, RENA-066, RENA-077, RENA-085, RENA-086.
 
 ## 4. Overlap groups: one architectural change designed once
 
@@ -120,8 +121,8 @@ Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order 
 - B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034.
 - B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080.
 - B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, 082 (or B2 if its web half leads), and the JS halves of 041, 043, 046.
-- B6 Web platform: 005, 049, 050, 051, 052, 057, 083, the controlled Next 15 move if required (056 and 058 closed).
-- B7 Scheduler, operations and GDPR: 062, 063, 064, 065, 067, 070, 071, 072, 076, 081 (014, 061, 068, 069 delivered in B0).
+- B6 Web platform: 005, 049, 050, 051, 052, 057, 083, 086, the controlled Next 15 move if required (056 and 058 closed).
+- B7 Scheduler, operations and GDPR: 062, 063, 064, 065, 067, 070, 071, 072, 076, 081, 085 (014, 061, 068, 069 delivered in B0).
 - B8 Native rebuild: 040, 060, the native half of 041, 044, 045, then 035's device matrix as the release gate.
 - B9 Full regression and register closure.
 
@@ -204,8 +205,8 @@ Fix: bump next-auth to 4.24.15 now. Open a Next 15 migration lane after launch w
 Migration or config: lockfile only for the bump.
 Tests: a malformed Authorization header on a page request returns the page, not 500; the existing suite. Manual: login and shell login after the bump.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B1 for next-auth; B6 for Next 15 if required).
+Last verified commit 17f73d1. Decision owner and date: James, 2026-10-06 (B1b build order: next-auth and sharp, transitive patches only within existing ranges, no Next 15). Overlap group none. Regression evidence: e2e/auth-header.spec.ts (six malformed Authorization headers: public page 200, protected page redirects, never 500); the full Playwright suite 28 of 28 and both integration suites on the patched dependencies; rig website login (credentials) and native login (token and bridge code) on next-auth 4.24.15.
+Implementation status: BUILT for B1 (commit 17f73d1), at the gate: next-auth 4.24.15, sharp 0.35.5; axios 1.20.0, form-data 4.0.6, js-yaml 4.3.2, fast-uri 3.1.8 inside their parents' ranges; forced only by those packages' own ranges: uuid 11.1.1 (next-auth), follow-redirects 1.16.1 (axios), hasown 2.0.4 (form-data), libvips 1.3.4 (sharp). The Next advisories stay the B6 lane.
 
 #### RENA-002 Rate limiting is process-local and proxy trust is deployment-dependent
 
@@ -256,8 +257,8 @@ Implementation status: BUILT (B1a, commits 7fd9f92, 70ee97b, bccbfae and 8a52215
 Severity P3. Status DECISION (no change). Batch B1. Overlap none.
 Evidence: the web NextAuth path is uniform; the shell JSON login distinguishes suspended and locked (src/lib/services/auth.service.ts:140-146); signup and check-email disclose existence by design and are rate limited; forgot-password and resend-verification use constant messages.
 Delivery none.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-h). Overlap group none. Regression evidence: not applicable.
-Implementation status: DECISION, no action.
+Last verified commit 8677867. Decision owner and date: James, 2026-10-06 (D-h), recorded again in B1b. Overlap group none. Regression evidence: not applicable; nothing in B1a or B1b changes a login, signup, reset or check-email response.
+Implementation status: DECISION, no change (recorded in B1b).
 
 #### RENA-059 First-party analytics sent regardless of consent
 
@@ -267,8 +268,8 @@ Fix: one consent gate (readConsent) that sendEvent, the beacon and the session-i
 Migration or config: none.
 Tests: no consent means zero analytics requests in Playwright; Essential only means zero; accepted means events flow; in-shell UA before the first answer means zero. Manual: first signed-in entry on both apps shows the ask once.
 Delivery WEB (the in-shell ask is an L2 or shell-gated web surface; no OTA). Proof RIG-AUTO. HASH-LAW on /services/[category] if the funnel hook changes there.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-b). Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B1).
+Last verified commit 843b7b5. Decision owner and date: James, 2026-10-06 (D-b; B1b build order: precedence, two in-shell choices, banner suppression by the account answer, browser Sentry outside consent with the scrubber). Overlap group none. Regression evidence: src/lib/consent.test.ts (nine precedence cases); e2e/consent.spec.ts (no choice zero, Essential only zero, Accept All flows, shell user agent zero); rig request-count matrix on both builds (gate report): before, events and the session id fire with no choice, after Essential only, for the signed-out app user agent and after sign-in; after, zero in each of those and on both apps before the answer, events only after Allow or Accept All, the app ask shown once, the stored account answer suppressing the website banner. Hash sweep, same rig, main against the branch, 26 public pages with a self-control: 25 identical, /privacy changed (sanctioned wording).
+Implementation status: BUILT (B1b, commit 843b7b5), at the gate. src/lib/consent.ts; CookieConsent on the gate (same markup and strings, server renders nothing); src/components/app/ShellConsentSheet.tsx (Allow analytics, Essential only, privacy and settings door) on the first signed-in entry pane; src/components/app/AnalyticsChoice.tsx in the Pro profile room and the customer settings page; useAnalytics gated (no session id, events or beacon without consent; calls during the identity lookup wait in memory); join conversion without the email; events route attributes from the session; consent route records the policy version; privacy section 7 updated (in-app ask, account-wide choice, error monitoring disclosed as not analytics, in-app settings). RENA-071 cross-reference: the store declarations reconcile against this behaviour in B7.
 
 #### RENA-074 Bridge-minted web sessions skip the password-change check
 
@@ -289,8 +290,8 @@ Fix: D-l. A structured logger (src/lib/log.ts) that accepts an allowlist of keys
 Migration or config: LOG_HMAC_KEY in Railway (EXTERNAL, one variable).
 Tests: logger drops non-allowlisted keys; HMAC is stable and keyed; the CI grep. Manual: read one production send line after deploy.
 Delivery WEB plus EXTERNAL. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-l). Overlap group K. Regression evidence: none yet.
-Implementation status: TODO (B1).
+Last verified commit 127d0a5. Decision owner and date: James, 2026-10-06 (D-l; B1b build order). Overlap group K. Regression evidence: unit tests src/lib/log.test.ts (allowlist keeps ids, statuses, counts, durations, codes, provider and endpoint names; drops personal and payload keys listing names only; nested objects dropped; strings capped and redacted; \*Ref keys accept only a pseudonym or null; errors reduced with a redacted message and no stack or raw provider object; pseudonym null without LOG_HMAC_KEY, keyed, stable, refuses a short key; one JSON line in production), src/lib/redact.test.ts, src/lib/sentry-scrub.test.ts (headers, cookies, query strings, bodies, extra and unsafe contexts stripped, user to id, console breadcrumbs dropped, console integration removed), src/lib/ci/log-hygiene.test.ts (fixtures plus a clean repository scan), src/app/api/shell/diag/route.test.ts (sanctioned beacon fields only), src/lib/infrastructure/job-processor.log.test.ts (no payload, address or number in any job line); rig production build: a real send failure logged as one JSON line with category, provider, reduced error and recipientRef null (no key on the rig), zero address-like strings in the server log across the full drive.
+Implementation status: BUILT (B1b, claude/b1b-privacy-telemetry, commit 127d0a5), at the gate; not merged until James's B1a walk passes and his word. src/lib/log.ts, src/lib/redact.ts, src/lib/sentry-scrub.ts (server and browser inits), the twenty named sites plus the catchment postcode and one further line the grep flagged (email.service backup-offer count), the diag route schema, eslint no-console as error for src/lib and src/app/api with src/lib/log.ts the only file exemption, scripts/check-log-hygiene.ts in the CI web job. External, named: LOG_HMAC_KEY set in Railway by James (until then pseudonyms are null). 183 pre-existing console lines in those folders keep their inline eslint-disable comments and pass the rule (none carries a payload per the grep); migrating them is outside the locked design and listed for James.
 
 #### RENA-077 Email service dev branch logs addresses and body in production when Resend is unconfigured
 
@@ -298,8 +299,8 @@ Severity P3. Status CONFIRMED. Batch B1. Overlap K.
 Mechanism: src/lib/services/email.service.ts:118 guard is NODE_ENV not production OR no Resend client.
 Fix: folded into RENA-066 (the branch logs through the allowlisted logger and never the body).
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group K. Regression evidence: none yet.
-Implementation status: TODO (B1, with RENA-066).
+Last verified commit (B1b follow-up, see Implementation status). Decision owner and date: James, 2026-10-06 (D-ab). Overlap group K. Regression evidence: src/lib/services/email.service.log.test.ts (production with no provider: one structured error, returns false, nothing identifying; development warns and returns true); src/lib/services/auth.service.register.test.ts (signup creates the account when the send fails, returns false or throws, and the message says the email could not be sent); src/app/api/auth/resend-verification/route.test.ts (the signed-in owner hears the true outcome, everyone else the constant message); e2e/signup-email-failure.spec.ts (the signup page shows the notice, the retry reports it still could not send, Continue reaches the account).
+Implementation status: BUILT (B1b, commit 127d0a5, rebuilt per D-ab in the follow-up commit on the same branch), at the gate. Production with no provider returns failure and logs email.not_sent; registerUser reports verificationEmailSent and an honest message; the signup page shows "Account created, but we couldn't send the verification email" with Try again and Continue; resend-verification tells the signed-in owner the truth and everyone else the constant message (RENA-009 unchanged); the cleaner verification log lines record the real outcome.
 
 #### RENA-079 Dead code: csrf.ts, rbac.ts, ui/Modal.tsx
 
@@ -307,8 +308,8 @@ Severity P3. Status CONFIRMED. Batch B1 (csrf.ts, rbac.ts); Modal.tsx in B6. Ove
 Mechanism: src/lib/utils/csrf.ts, src/lib/utils/rbac.ts and src/components/ui/Modal.tsx have no importers.
 Fix: csrf.ts and rbac.ts removed in RENA-006; Modal.tsx becomes the dialog primitive in RENA-049/050.
 Delivery WEB. Proof RIG-AUTO (tsc, lint).
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO.
+Last verified commit 8677867. Decision owner and date: James, 2026-10-06 (B1b build order). Overlap group none. Regression evidence: repo-wide zero-import greps quoted in the gate (src, root components, scripts, e2e, both shells); typecheck, lint and the unit suite after deletion.
+Implementation status: BUILT (B1b, commit 8677867), at the gate: deleted src/lib/utils/csrf.ts, src/lib/utils/rbac.ts, src/lib/infrastructure/logger.ts, src/lib/infrastructure/error-monitoring.ts (barrel exports removed) and auth.service changePassword and deleteAccount. Modal.tsx stays for B6.
 
 #### RENA-004 Temporary diagnostics endpoint on main
 
@@ -781,8 +782,8 @@ Severity P2. Status CONFIRMED. Batch B6. Overlap none.
 Mechanism: src/app/[locale]/layout.tsx:6 force-dynamic, introduced by 058a939 with no comment; the layout reads no headers, cookies or session; only 'en' exists; the homepage, area pages and cleaners page declare revalidate under it, which the parent overrides.
 Fix: remove the layout-level force-dynamic; each page declares its own mode; the 24 admin pages and any page reading headers or cookies keep force-dynamic; verify with the next build route table and production cache headers.
 Migration or config: none.
-Tests: a check that the build manifest marks the marketing routes static or ISR; Playwright incognito diff of the 21 pages. Manual: none.
-Delivery WEB. Proof RIG-AUTO. HASH-LAW (all 21 pages; every affected page named before implementation).
+Tests: a check that the build manifest marks the marketing routes static or ISR; Playwright incognito diff of the 26 baselined public routes. Manual: none.
+Delivery WEB. Proof RIG-AUTO. HASH-LAW (all 26 baselined public routes; every affected route named before implementation).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
 Implementation status: TODO (B6).
 
@@ -830,6 +831,17 @@ Severity P3. Status CLOSED. Batch B6 (CLOSED). Overlap A.
 Evidence: sw.js:94-95 reference /icons/icon-192x192.png and /icons/icon-72x72.png; both exist in public/icons; the job processor and notification service reference the same paths; every manifest icon exists.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group A. Regression evidence: not applicable.
 Implementation status: CLOSED.
+
+#### RENA-086 App-only strings live in components, not a localisation module
+
+Severity P3. Status CONFIRMED (James-ruled addition, D-ab). Batch B6. Overlap none.
+Mechanism: the in-shell consent ask (src/components/app/ShellConsentSheet.tsx) and the analytics choice (src/components/app/AnalyticsChoice.tsx) carry English strings in the component because messages/en.json is serialised into every public page through NextIntlClientProvider, so adding keys there would change every public route's served payload.
+Fix: a shell and app-only localisation module (its own message file and provider mounted only under app and shell surfaces) receives these strings and future app-only strings. Never back into the public-page translation payload.
+Migration or config: none.
+Tests: the hash tool shows all 26 baselined public routes unchanged; the app surfaces render the same text.
+Delivery WEB. Proof RIG-AUTO. HASH-LAW (proof of no change).
+Last verified commit 843b7b5. Decision owner and date: James, 2026-10-06 (D-ab). Overlap group none. Regression evidence: none yet.
+Implementation status: TODO (B6).
 
 ### B7 Scheduler, operations and GDPR
 
@@ -1002,6 +1014,17 @@ Implementation status: RESOLVED; static test DONE (commit a2a0207, merged 6026a9
 
 No new entries. B9 runs the required final regression matrix (section 8) end to end, confirms every entry's regression evidence field is filled, records the closing commit on each entry, and declares the hardening programme complete only when every entry is RESOLVED, CLOSED, DECISION or an explicitly deferred later-phase item. Later-phase items carried into B9 for confirmation: RENA-001 step two (Next 15), RENA-005 step three (CSP enforcement), RENA-007 step two (device list), RENA-041 JS half (optional per D-c), RENA-052 (after measurement), RENA-056 (second locale), RENA-067 later half (per-document keys), RENA-078 (stale push comments, with RENA-046).
 
+#### RENA-085 Remaining console calls carry inline disables instead of the structured logger
+
+Severity P3. Status CONFIRMED (James-ruled addition, D-ab). Batch B7. Overlap K.
+Mechanism: after B1b, 183 console calls in src/lib and src/app/api keep inline eslint-disable comments and pass the no-console rule; none carries a payload per the log-hygiene grep, but they bypass the allowlist, the redactor and the JSON line format.
+Fix: migrate each onto src/lib/log.ts with allowlisted fields, then make the rule refuse inline disables in those folders so src/lib/log.ts is the only exception in fact. The scheduler summary line keeps a form the seven-day watch and the register read.
+Migration or config: none.
+Tests: the count of inline no-console disables in src/lib and src/app/api reaches zero (a CI check); the log-hygiene grep stays clean.
+Delivery WEB. Proof RIG-AUTO.
+Last verified commit 127d0a5. Decision owner and date: James, 2026-10-06 (D-ab). Overlap group K. Regression evidence: none yet.
+Implementation status: TODO (B7).
+
 ## 8. Required final regression matrix
 
 Customer: signup, login, logout, password reset; authenticated booking; guest booking and guest recovery; Stripe success, decline, 3DS, cancel, abandoned; confirmation to Done to Home and My Cleans showing the new booking; cancellation and refund; app killed and reopened during and after payment; session expiry inside each main tab; account switch never shows prior account data; offline, network and 5xx never shown as a genuine empty state; nested push and deep links route correctly.
@@ -1016,6 +1039,8 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-06: B1b rulings D-ab recorded: deviation 3 rebuilt (an unconfigured provider in production is a failure; signup says so with a retry), privacy page dated 6 October 2026, hash law moved to the 26 baselined public routes with one canonical list (docs/public-routes.json, CLAUDE.md, the hash tool and CI), every 21 in this register corrected, RENA-085 (B7) and RENA-086 (B6) added. B1b held at the gate until James's B1a walk passes.
+- 2026-10-06: B1b BUILT on claude/b1b-privacy-telemetry (commits 127d0a5, 843b7b5, 17f73d1, 8677867): RENA-066 and 077 logging, RENA-059 consent gate, RENA-001 dependency patches, RENA-079 dead code, RENA-009 recorded. At the gate; no merge until James's B1a walk passes and his word.
 - 2026-10-06: B1a BUILT on claude/b1a-session-core (commits 7fd9f92, 70ee97b, bccbfae and 8a52215): D-g session architecture with the parent validity and hierarchy laws, the grandfather cutoff, every mint and revoke path, one client IP chooser, the CSRF rule; rulings D-r to D-aa recorded; RENA-002 mechanism corrected (TRUSTED_PROXY cloudflare, domain proxied); RENA-031 and 082 raised to P1 and split; RENA-068 parked until the B1b telemetry lands; RENA-084 parked pending the symptom. At the gate, no merge.
 - 2026-10-06: RENA-068 ruled DONE (verified via production dashboard, rig run not required). RENA-084 added (website back to the dashboard from Messages, James-observed, P2, B2, overlap B) with the mechanism reconciled against source at c4d5b86; nothing built.
 - 2026-10-06: B0 CLOSED. D-e step two proven (UptimeRobot scheduler monitor alerted on the deliberate stale test, main health monitor unaffected), step three executed (Railway schedule restored 18:49 UTC, cron-job.org PAUSED), single-caller ticks confirmed from Railway alone (18:50:52 and 18:55:45 UTC, one summary each, no skips) and the heartbeat healed to 200 healthy; the seven-day watch (step four) started; RENA-081 and RENA-014 updated; RENA-068's Sentry verification stays James-side.

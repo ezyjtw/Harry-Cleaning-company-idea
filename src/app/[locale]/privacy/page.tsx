@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="mt-4 font-jost text-[11px] uppercase tracking-[0.1em] text-ink-3">
-        Last updated: 1 March 2026
+        Last updated: 6 October 2026
       </p>
 
       <div className="mt-10 max-w-none">
@@ -268,8 +268,11 @@ export default function PrivacyPage() {
         <section className="mt-8 border-b border-line pb-8">
           <h2 className="font-newsreader text-2xl font-semibold text-ink">7. Cookies</h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
-            We use cookies and similar technologies on the Platform. When you first visit, you will
-            be shown a cookie consent banner where you can choose which types of cookies to accept.
+            We use cookies and similar technologies on the Platform. When you first visit the
+            website, you will be shown a cookie consent banner where you can choose which types of
+            cookies to accept. In the Rena and Rena Pro apps, you are asked once, the first time you
+            sign in, whether to allow analytics. If you are signed in, your choice is saved to your
+            account and applies wherever you sign in.
           </p>
 
           <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
@@ -286,7 +289,19 @@ export default function PrivacyPage() {
           <p className="mt-2 font-jost font-normal text-ink-2 leading-relaxed">
             With your consent, we use analytics cookies to understand how you use the Platform,
             which pages you visit, and where you experience difficulties. This data helps us improve
-            the booking experience. Analytics data is anonymised after 2 years.
+            the booking experience. Nothing is measured unless you allow it. Analytics data is
+            anonymised after 2 years.
+          </p>
+
+          <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
+            7.2a Error Monitoring
+          </h3>
+          <p className="mt-2 font-jost font-normal text-ink-2 leading-relaxed">
+            To keep the Platform working, we record technical errors when something breaks, using an
+            error monitoring service. These reports describe the fault (for example the page and the
+            error message) and are stripped of your name, contact details, address, messages and
+            payment details before they leave your device or our servers. Error monitoring is not
+            analytics and is not used to track you.
           </p>
 
           <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">
@@ -299,8 +314,9 @@ export default function PrivacyPage() {
 
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             You can change your cookie preferences at any time by clicking &quot;Cookie
-            Settings&quot; in the footer of any page, or through your browser settings. Disabling
-            essential cookies may affect the functionality of the Platform.
+            Settings&quot; in the footer of any page, in the apps from your profile, or through your
+            browser settings. Disabling essential cookies may affect the functionality of the
+            Platform.
           </p>
         </section>
 

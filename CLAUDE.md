@@ -120,10 +120,45 @@ finding that no longer exists. Batches run one at a time, each on James's word.
 
 ## Hash law (binding)
 
-The 21 baselined public pages carry content hashes. A sanctioned change names
-every affected page before implementation. The incognito diff is reviewed and
-the baselines are updated in the same approved gate. A changed hash is never
-automatically accepted. An unrelated public-page hash change stops the batch.
+All 26 baselined public routes are protected. Every sanctioned change names the
+affected routes before implementation, gets an incognito diff, and re-baselines
+those hashes in the same approved gate. Any unrelated public-route hash change
+stops the batch.
+
+The canonical list is `docs/public-routes.json`; the copy below must match it
+exactly (a unit test fails otherwise), and the hash tool
+(`scripts/public-route-hashes.ts`) and CI (`e2e/public-routes.spec.ts`) read the
+same file:
+
+<!-- public-routes:start -->
+
+- `/`
+- `/about`
+- `/account-deletion`
+- `/cleaners`
+- `/cleaning`
+- `/cleaning/chingford`
+- `/contact`
+- `/faq`
+- `/forgot-password`
+- `/guarantees`
+- `/how-it-works`
+- `/job-check`
+- `/join`
+- `/login`
+- `/offline`
+- `/pricing`
+- `/privacy`
+- `/regular-clean`
+- `/services`
+- `/services/regular`
+- `/services/deep`
+- `/services/end-of-tenancy`
+- `/services/airbnb`
+- `/signup`
+- `/terms`
+- `/unsubscribe`
+<!-- public-routes:end -->
 
 ## App leak-proofing law (binding)
 

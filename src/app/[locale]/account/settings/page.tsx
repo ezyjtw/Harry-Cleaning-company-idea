@@ -4,6 +4,7 @@ import { signIn, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import { AccountSection, Field } from '@/components/account/primitives';
+import AnalyticsChoice from '@/components/app/AnalyticsChoice';
 import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
@@ -548,6 +549,18 @@ export default function SettingsPage() {
             Update Password
           </button>
         </form>
+      </AccountSection>
+
+      {/* RENA-059 (D-b): the account's analytics choice (the ledger answer),
+          on the website and in the Rena app. */}
+      <AccountSection title="Privacy choices">
+        <p className="mt-1 text-sm text-ink-2">
+          Whether we may measure how you use Rena to improve it. Nothing is measured unless you
+          allow it.
+        </p>
+        <div className="mt-4">
+          <AnalyticsChoice variant="section" />
+        </div>
       </AccountSection>
 
       {/* D-g (RENA-007): sign out everywhere, the current browser included. */}

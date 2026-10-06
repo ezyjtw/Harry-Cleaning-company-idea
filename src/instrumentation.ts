@@ -1,5 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 
+import { sentryScrubOptions, withoutConsoleIntegration } from '@/lib/sentry-scrub';
+
 export async function register() {
   // F15: REAL Sentry (server + edge). Dormant without SENTRY_DSN — set it in
   // Railway to activate. No build-plugin wrapping (no sourcemap upload) — the
@@ -9,6 +11,11 @@ export async function register() {
       dsn: process.env.SENTRY_DSN,
       environment: process.env.NODE_ENV,
       tracesSampleRate: 0, // errors only — no performance quota burn
+      // RENA-066 (B1b): the shared scrubber (no PII, no headers, cookies,
+      // query strings, bodies or payloads; user reduced to an id) and no
+      // console integration, so log lines never ride along as breadcrumbs.
+      ...sentryScrubOptions,
+      integrations: (defaults) => withoutConsoleIntegration(defaults),
     });
   }
 

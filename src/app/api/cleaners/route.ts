@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { isNewToRena } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { currentAgreementHash } from '@/lib/services/agreement.service';
 import { eligibleCleanerWhere, expandSlots } from '@/lib/services/area-search.service';
@@ -691,13 +692,21 @@ export async function POST(request: NextRequest) {
     {
       const { resendEmailVerification } = await import('@/lib/services/auth.service');
       resendEmailVerification(result.user.email)
-        .then(() => {
-          // eslint-disable-next-line no-console
-          console.log(`[CleanerSignup] Verification email queued for ${result.user.email}`);
+        .then((outcome) => {
+          // RENA-077: the outcome is the real send result, never assumed.
+          if (outcome === 'failed') {
+            log.error('cleaner_signup', 'verification_email', { userId: result.user.id, outcome });
+          } else {
+            log.info('cleaner_signup', 'verification_email', { userId: result.user.id, outcome });
+          }
         })
         .catch((e) => {
-          // eslint-disable-next-line no-console
-          console.error(`[CleanerSignup] Verification email FAILED for ${result.user.email}:`, e);
+          log.error(
+            'cleaner_signup',
+            'verification_email',
+            { userId: result.user.id, outcome: 'failed' },
+            e
+          );
         });
     }
 

@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { makeXeroClient, xeroConfigured } from '@/lib/xero/client';
 
 export const runtime = 'nodejs';
@@ -54,8 +55,11 @@ export async function GET(request: NextRequest) {
     scope: parsed.searchParams.get('scope'),
     hasState: !!parsed.searchParams.get('state'),
   };
-  // eslint-disable-next-line no-console
-  console.log('[xero] consent URL emitted:', JSON.stringify(emitted));
+  log.info('xero', 'consent_url_emitted', {
+    provider: 'xero',
+    endpoint: emitted.authorizeHost,
+    ok: emitted.hasState,
+  });
 
   if (request.nextUrl.searchParams.get('debug') === '1') {
     return NextResponse.json({ emitted, fullUrl: consentUrl });

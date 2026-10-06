@@ -39,6 +39,11 @@ export default function SignupPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  // RENA-077 (James-ruled): the account exists even when the verification
+  // email could not be sent; the page says so plainly and offers a retry.
+  const [emailNotice, setEmailNotice] = useState<
+    null | 'failed' | 'retrying' | 'sent' | 'still_failed'
+  >(null);
 
   // A16b-3: prefill email when arriving from a guest "create an account" CTA
   // (e.g. /signup?email=...), so guest→account conversion is one step lighter and
@@ -96,6 +101,9 @@ export default function SignupPage() {
       if (signInResult?.error) {
         // Registration succeeded but auto-login failed — redirect to login
         router.push('/login');
+      } else if (data.verificationEmailSent === false) {
+        // Never imply an email went when it did not: stop here and say so.
+        setEmailNotice('failed');
       } else {
         // Customers land on their role home directly (signup is customer-only).
         router.push('/account');
@@ -104,6 +112,21 @@ export default function SignupPage() {
       setErrors({ form: 'Something went wrong. Please try again.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const retryVerification = async () => {
+    setEmailNotice('retrying');
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email }),
+      });
+      const body = await res.json().catch(() => null);
+      setEmailNotice(res.ok && body?.sent === true ? 'sent' : 'still_failed');
+    } catch {
+      setEmailNotice('still_failed');
     }
   };
 
@@ -213,6 +236,48 @@ export default function SignupPage() {
             Sign up to book cleaners and manage your home.
           </p>
         </div>
+
+        {emailNotice && (
+          <div
+            className="mt-6 bg-cream-2 px-4 py-4 font-jost text-sm font-light text-ink"
+            style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
+            role="status"
+            data-testid="signup-email-notice"
+          >
+            <p>
+              {emailNotice === 'sent'
+                ? 'Account created. We have sent your verification email.'
+                : "Account created, but we couldn't send the verification email."}
+            </p>
+            {emailNotice === 'still_failed' && (
+              <p className="mt-2 text-ink-2">
+                We still couldn&apos;t send it. You can try again later from your account.
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-3">
+              {emailNotice !== 'sent' && (
+                <button
+                  type="button"
+                  onClick={retryVerification}
+                  disabled={emailNotice === 'retrying'}
+                  data-testid="signup-email-retry"
+                  className="border px-4 py-2 font-jost text-sm text-ink disabled:opacity-50"
+                  style={{ borderColor: 'rgba(14,14,12,0.2)' }}
+                >
+                  {emailNotice === 'retrying' ? 'Trying again…' : 'Try again'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => router.push('/account')}
+                data-testid="signup-email-continue"
+                className="bg-ink px-4 py-2 font-jost text-sm text-cream"
+              >
+                Continue to my account
+              </button>
+            </div>
+          </div>
+        )}
 
         {errors.form && (
           <div

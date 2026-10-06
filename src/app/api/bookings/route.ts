@@ -9,6 +9,7 @@ import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/time
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { normalizeToPricingSlug, propertySizeSlugToEnum } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { pricingService } from '@/lib/services/pricing.service';
@@ -897,8 +898,12 @@ export async function POST(request: NextRequest) {
       });
       booking.stripePaymentIntentId = paymentIntent.id;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('PaymentIntent creation failed:', error);
+      log.error(
+        'payments',
+        'payment_intent_create_failed',
+        { provider: 'stripe', bookingId: booking.id },
+        error
+      );
 
       // Mark booking as failed — don't leave orphan PENDING bookings
       await prisma.booking.update({

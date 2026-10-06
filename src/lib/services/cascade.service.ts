@@ -16,6 +16,7 @@ import {
   serviceLabelFromSlug,
 } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { getReviewCounts } from '@/lib/services/rating.service';
 import stripe from '@/lib/stripe';
 
@@ -1740,8 +1741,7 @@ async function autoRefundExhausted(bookingId: string): Promise<boolean> {
 
     return result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED';
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Cascade] Auto-refund failed for booking', bookingId, error);
+    log.error('cascade', 'auto_refund_failed', { provider: 'stripe', bookingId }, error);
     return false;
   }
 }
@@ -2182,8 +2182,12 @@ export async function processExhaustedRefunds(): Promise<{ processed: number }> 
       const refunded = await autoRefundExhausted(booking.id);
       if (refunded) processed++;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`[Cascade] Safety-sweep refund failed for ${booking.id}:`, error);
+      log.error(
+        'cascade',
+        'safety_sweep_refund_failed',
+        { provider: 'stripe', bookingId: booking.id },
+        error
+      );
     }
   }
   return { processed };

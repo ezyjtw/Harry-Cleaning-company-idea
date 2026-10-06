@@ -36,6 +36,8 @@ export interface AuthResult {
   success: boolean;
   message: string;
   user?: AuthUser;
+  /** Registration only: whether the verification email was actually sent. */
+  verificationEmailSent?: boolean;
 }
 
 /**
@@ -85,8 +87,10 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
     });
   }
 
-  // Send verification email (fire and forget — don't block registration)
-  sendEmailVerification(email, token).catch(() => {});
+  // RENA-077 (James-ruled): the account is created either way, but the result
+  // of the verification send is reported honestly so the person is never told
+  // an email went when it did not.
+  const verificationEmailSent = await sendEmailVerification(email, token).catch(() => false);
 
   sendSignupNotification({
     name: input.name,
@@ -98,7 +102,10 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
 
   return {
     success: true,
-    message: 'Account created successfully. Please check your email to verify your account.',
+    message: verificationEmailSent
+      ? 'Account created successfully. Please check your email to verify your account.'
+      : "Account created, but we couldn't send the verification email.",
+    verificationEmailSent,
     user: {
       id: user.id,
       email: user.email,
@@ -328,13 +335,15 @@ export async function verifyEmail(token: string): Promise<VerifyEmailStatus> {
  * generic success; a fresh token is only created/sent when an unverified account
  * matches. Rate-limiting is applied at the route.
  */
-export async function resendEmailVerification(email: string): Promise<void> {
+export type ResendVerificationOutcome = 'sent' | 'failed' | 'not_applicable';
+
+export async function resendEmailVerification(email: string): Promise<ResendVerificationOutcome> {
   const normalized = email.toLowerCase().trim();
   const user = await prisma.user.findUnique({
     where: { email: normalized },
     select: { emailVerified: true },
   });
-  if (!user || user.emailVerified) return; // no account, or already verified → no-op
+  if (!user || user.emailVerified) return 'not_applicable'; // no account, or already verified
 
   const token = crypto.randomBytes(32).toString('hex');
   await prisma.verificationToken.create({
@@ -344,126 +353,6 @@ export async function resendEmailVerification(email: string): Promise<void> {
       expires: new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
     },
   });
-  sendEmailVerification(normalized, token).catch(() => {});
-}
-
-/**
- * Change an authenticated user's password.
- */
-export async function changePassword(
-  userId: string,
-  currentPassword: string,
-  newPassword: string
-): Promise<{ success: boolean; message: string }> {
-  const pwCheck = validatePasswordPolicy(newPassword);
-  if (!pwCheck.valid) {
-    return { success: false, message: pwCheck.errors[0] };
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { passwordHash: true },
-  });
-
-  if (!user || !user.passwordHash) {
-    return { success: false, message: 'User not found.' };
-  }
-
-  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
-  if (!isValid) {
-    return { success: false, message: 'Current password is incorrect.' };
-  }
-
-  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
-
-  return { success: true, message: 'Your password has been changed successfully.' };
-}
-
-/**
- * Delete a user's account (soft-delete with GDPR compliance).
- */
-export async function deleteAccount(
-  userId: string
-): Promise<{ success: boolean; message: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true },
-  });
-
-  if (!user) {
-    return { success: false, message: 'User not found.' };
-  }
-
-  // THE FENCE (James-ruled): deletion no longer bulk-cancels with a naked
-  // write. Every active booking rides executeCancellation one by one, so
-  // unpaid rows inherit the intent-cancel fence (no booking dies while its
-  // intent is alive) and PAID rows get the standard time-based refund policy
-  // exactly as if the customer cancelled each herself — "the policy is the
-  // policy", no automatic full refunds at deletion. Fail-soft per booking:
-  // one stubborn booking never blocks the deletion; every failure is logged
-  // loudly and the residue is reported for admin follow-up.
-  const activeBookings = await prisma.booking.findMany({
-    where: {
-      clientId: userId,
-      status: {
-        in: ['PENDING', 'AWAITING_CLEANER', 'CONFIRMED', 'ACCEPTED', 'CASCADE_EXHAUSTED'],
-      },
-    },
-    select: { id: true },
-  });
-  const residue: string[] = [];
-  const { executeCancellation } = await import('./cancellation.service');
-  for (const b of activeBookings) {
-    try {
-      const r = await executeCancellation({
-        bookingId: b.id,
-        cancelledBy: 'client',
-        reason: 'Account deleted by user',
-      });
-      if (!r.ok) {
-        residue.push(b.id);
-        // eslint-disable-next-line no-console
-        console.error(
-          `[DeleteAccount] booking ${b.id} could not be cancelled (${r.status}: ${r.error}) — left for admin follow-up`
-        );
-      }
-    } catch (err) {
-      residue.push(b.id);
-      // eslint-disable-next-line no-console
-      console.error(`[DeleteAccount] booking ${b.id} cancel threw — left for admin follow-up`, err);
-    }
-  }
-  if (residue.length > 0) {
-    // eslint-disable-next-line no-console
-    console.error(
-      `[DeleteAccount] ${residue.length} active booking(s) NOT cancelled for deleted user ${userId}: ${residue.join(', ')} — INVESTIGATE`
-    );
-  }
-
-  // Soft-delete: mark as deleted, anonymise PII
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      isDeleted: true,
-      deletedAt: new Date(),
-      accountStatus: 'DEACTIVATED',
-      name: '[deleted]',
-      phone: null,
-      email: `deleted_${userId}@deleted.rena.com`,
-      passwordHash: null,
-    },
-  });
-
-  // Log the deletion for GDPR audit
-  await prisma.dataRetentionLog.create({
-    data: {
-      entityType: 'User',
-      entityId: userId,
-      action: 'ANONYMISED',
-      reason: 'user_request',
-    },
-  });
-
-  return { success: true, message: 'Your account has been deleted.' };
+  const sent = await sendEmailVerification(normalized, token).catch(() => false);
+  return sent ? 'sent' : 'failed';
 }
