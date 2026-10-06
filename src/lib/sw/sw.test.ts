@@ -43,7 +43,7 @@ function fakeCaches(initial: Record<string, Record<string, Response>> = {}) {
       },
       async match(req: Request | string) {
         const k = keyOf(req);
-        for (const c of store.values()) {
+        for (const c of Array.from(store.values())) {
           const hit = c.get(k);
           if (hit) return hit.clone();
         }

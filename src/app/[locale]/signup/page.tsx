@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 
 import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
+import { safeCallbackUrl } from '@/lib/auth/callback-url';
 import { isCustomerShellUA } from '@/lib/shell';
 import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
@@ -48,9 +49,15 @@ export default function SignupPage() {
   // A16b-3: prefill email when arriving from a guest "create an account" CTA
   // (e.g. /signup?email=...), so guest→account conversion is one step lighter and
   // the verified email matches the guest booking for auto-claim (A16b-2b).
+  // RENA-020 (B2a): a sign-up started from a booking (the checkout's "Create
+  // account" door) returns there, through the same sanitiser as login. Read
+  // in an effect, like the email prefill, so the server render is unchanged.
+  const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
   useEffect(() => {
-    const emailParam = new URLSearchParams(window.location.search).get('email');
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email');
     if (emailParam) setForm((f) => ({ ...f, email: emailParam }));
+    setCallbackUrl(safeCallbackUrl(params.get('callbackUrl')));
   }, []);
 
   const validate = () => {
@@ -100,13 +107,15 @@ export default function SignupPage() {
 
       if (signInResult?.error) {
         // Registration succeeded but auto-login failed — redirect to login
-        router.push('/login');
+        router.push(
+          callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/login'
+        );
       } else if (data.verificationEmailSent === false) {
         // Never imply an email went when it did not: stop here and say so.
         setEmailNotice('failed');
       } else {
         // Customers land on their role home directly (signup is customer-only).
-        router.push('/account');
+        router.push(callbackUrl ?? '/account');
       }
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' });
@@ -269,7 +278,7 @@ export default function SignupPage() {
               )}
               <button
                 type="button"
-                onClick={() => router.push('/account')}
+                onClick={() => router.push(callbackUrl ?? '/account')}
                 data-testid="signup-email-continue"
                 className="bg-ink px-4 py-2 font-jost text-sm text-cream"
               >
