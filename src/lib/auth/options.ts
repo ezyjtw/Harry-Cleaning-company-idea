@@ -5,6 +5,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 
 import prisma from '@/lib/db/prisma';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { claimGuestBookings } from '@/lib/services/auth.service';
 
 import {
@@ -152,27 +153,42 @@ export const authOptions: NextAuthOptions = {
   logger: {
     error(code, metadata) {
       if (code === 'JWT_SESSION_ERROR') {
-        let ctx = 'no request context';
+        // RENA-066: "which device kept knocking" correlates by a keyed
+        // pseudonym of the address (null without LOG_HMAC_KEY), the coarse
+        // client kind and the referring path; never the raw IP, the full user
+        // agent or a query string.
+        const fields: Record<string, unknown> = { code };
         try {
           // Request-scoped in app-router handlers; throws outside — caught.
           const h = headers();
-          const ip = resolveClientIp(h) ?? 'unknown-ip';
-          const ua = h.get('user-agent') ?? 'no-ua';
-          const referer = h.get('referer') ?? 'no-referer';
-          ctx = `ip=${ip} ua="${ua}" referer=${referer}`;
+          fields.clientRef = log.pseudonym(resolveClientIp(h) ?? null);
+          const ua = h.get('user-agent') ?? '';
+          fields.platform = /RenaPro\//.test(ua)
+            ? 'rena-pro'
+            : /RenaApp\//.test(ua)
+              ? 'rena-app'
+              : ua
+                ? 'web'
+                : 'none';
+          const referer = h.get('referer');
+          if (referer) {
+            try {
+              fields.route = new URL(referer).pathname;
+            } catch {
+              /* unparseable referer: omitted */
+            }
+          }
         } catch {
-          /* outside a request scope — keep the fallback label */
+          /* outside a request scope — no context fields */
         }
-        // eslint-disable-next-line no-console
-        console.error(`[Auth] Stale session cookie failed to decrypt (JWT_SESSION_ERROR) — ${ctx}`);
+        log.warn('auth', 'stale_session_cookie', fields);
         return;
       }
-      // eslint-disable-next-line no-console
-      console.error(`[next-auth][error][${code}]`, metadata);
+      const meta = metadata as { error?: unknown } | undefined;
+      log.error('auth', 'nextauth_error', { code }, meta?.error ?? metadata);
     },
     warn(code) {
-      // eslint-disable-next-line no-console
-      console.warn(`[next-auth][warn][${code}]`);
+      log.warn('auth', 'nextauth_warning', { code });
     },
     debug() {
       /* silent */

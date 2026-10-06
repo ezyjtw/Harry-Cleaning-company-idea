@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { log } from '@/lib/log';
+
 // ─── Base Application Error ─────────────────────────────────
 
 export class AppError extends Error {
@@ -54,7 +56,8 @@ export function isAppError(error: unknown): error is AppError {
 // ─── API Error Handler ──────────────────────────────────────
 
 export function handleApiError(error: unknown): NextResponse {
-  console.error('[API Error]', error);
+  // RENA-066: reduced error only (name, code, status, redacted message).
+  log.error('api', 'unhandled_error', {}, error);
 
   if (isAppError(error)) {
     return NextResponse.json(
@@ -72,9 +75,8 @@ export function handleApiError(error: unknown): NextResponse {
     return NextResponse.json(
       {
         error: {
-          message: process.env.NODE_ENV === 'production'
-            ? 'An unexpected error occurred'
-            : error.message,
+          message:
+            process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : error.message,
           code: 'INTERNAL_ERROR',
         },
       },

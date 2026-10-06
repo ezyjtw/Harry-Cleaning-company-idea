@@ -3,6 +3,7 @@ import type { Contact, LineItem, XeroClient } from 'xero-node';
 
 import { countedCall } from '@/lib/api-metering';
 import { prisma } from '@/lib/db/prisma';
+import { log as logger } from '@/lib/log';
 import { JobQueueService } from '@/lib/services/job-queue.service';
 import { getTransferAmountPence } from '@/lib/services/transfer-amount';
 import {
@@ -288,8 +289,9 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
       where: { id: log.id },
       data: { status: 'FAILED', lastError: detail },
     });
-    // eslint-disable-next-line no-console
-    console.error(`[xero-push] ${event} failed for booking ${bookingId}: ${detail}`);
+    // RENA-066: the full detail stays in XeroPushLog.lastError (the database,
+    // not the log); the log keeps the reduced error only.
+    logger.error('xero_push', 'failed', { provider: 'xero', action: event, bookingId }, err);
     throw err; // surface to the job processor for retry/backoff
   }
 }

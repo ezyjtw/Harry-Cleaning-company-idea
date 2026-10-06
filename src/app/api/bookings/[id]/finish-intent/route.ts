@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
 
 // Finish door (James-ruled, phantom follow-up Change 2 → build order):
@@ -88,8 +89,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     pi = await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId);
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(`[finish-intent] PI retrieve failed for ${booking.id}:`, err);
+    log.error(
+      'finish_intent',
+      'retrieve_failed',
+      { provider: 'stripe', bookingId: booking.id },
+      err
+    );
     return NextResponse.json(
       { error: "We couldn't check your payment just now. Please try again.", reason: 'retry' },
       { status: 502 }

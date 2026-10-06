@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { sendCleanerWelcome } from '@/lib/services/email.service';
 import { displayName } from '@/lib/utils/name';
@@ -92,9 +93,6 @@ export async function POST(request: Request) {
   // H101 rider: device forensics for exactly the crash class Charlie hit — an
   // OOM tab-kill leaves no client error, so the UA at account creation is the
   // only durable fingerprint.
-  // eslint-disable-next-line no-console
-  console.log(`[CleanerSignup] signup-start UA for ${email}: ${request.headers.get('user-agent')}`);
-
   const user = await prisma.user.create({
     data: {
       email,
@@ -107,6 +105,13 @@ export async function POST(request: Request) {
 
   // H99 ①: welcome-verify — loud both ways, per the logging law. The send is
   // fire-and-forget (never blocks step 0) but NEVER silent.
+  // H101 rider, RENA-066: the device forensics line keeps the coarse platform
+  // and the user id; never the address or the full user agent.
+  log.info('cleaner_signup', 'signup_start', {
+    userId: user.id,
+    platform: coarsePlatform(request.headers.get('user-agent')),
+  });
+
   const token = crypto.randomBytes(32).toString('hex');
   try {
     await prisma.verificationToken.create({
@@ -118,19 +123,32 @@ export async function POST(request: Request) {
     });
     sendCleanerWelcome(email, token, firstName)
       .then((ok) => {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[CleanerSignup] Welcome-verify ${ok ? 'queued' : 'FAILED (send returned false)'} for ${email}`
-        );
+        if (ok)
+          log.info('cleaner_signup', 'welcome_verify', { userId: user.id, outcome: 'queued' });
+        else
+          log.error('cleaner_signup', 'welcome_verify', { userId: user.id, outcome: 'send_false' });
       })
       .catch((e) => {
-        // eslint-disable-next-line no-console
-        console.error(`[CleanerSignup] Welcome-verify FAILED for ${email}:`, e);
+        log.error('cleaner_signup', 'welcome_verify', { userId: user.id, outcome: 'failed' }, e);
       });
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(`[CleanerSignup] Welcome-verify token mint FAILED for ${email}:`, e);
+    log.error(
+      'cleaner_signup',
+      'welcome_verify_token_mint',
+      { userId: user.id, outcome: 'failed' },
+      e
+    );
   }
 
   return NextResponse.json({ ok: true, userId: user.id });
+}
+
+/** Coarse platform for device forensics: never the full user agent. */
+function coarsePlatform(ua: string | null): string {
+  if (!ua) return 'unknown';
+  if (/RenaPro\//.test(ua)) return 'rena-pro';
+  if (/RenaApp\//.test(ua)) return 'rena-app';
+  if (/iPhone|iPad|iPod/.test(ua)) return 'ios-web';
+  if (/Android/.test(ua)) return 'android-web';
+  return 'desktop-web';
 }

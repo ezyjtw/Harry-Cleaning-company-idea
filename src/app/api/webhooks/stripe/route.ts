@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { sendPaymentFailureNotification } from '@/lib/services/email.service';
 import { processPaymentSuccess } from '@/lib/services/payment-success.service';
 import { handleTopupPiFailed, handleTopupPiSucceeded } from '@/lib/services/topup.service';
@@ -76,8 +77,7 @@ export async function POST(request: NextRequest) {
       .catch((e) => {
         // Non-fatal: the event simply re-runs on the next retry (handlers are
         // re-run-safe); log so a stuck-unprocessed event is visible.
-        // eslint-disable-next-line no-console
-        console.warn('[Stripe Webhook] could not mark processed', event.id, e);
+        log.warn('stripe_webhook', 'mark_processed_failed', { eventId: event.id }, e);
       });
   };
 

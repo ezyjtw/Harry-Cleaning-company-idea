@@ -39,6 +39,7 @@ export interface SchedulerSummary {
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
+import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
 
 import {
@@ -431,15 +432,14 @@ async function processCatchmentHeal(): Promise<HandlerResult> {
       const result = await generateCatchmentForCleaner(c.userId);
       if (result.status === 'generated') {
         processed++;
-        // eslint-disable-next-line no-console
-        console.log(
-          `[CatchmentHeal] minted polygon for ${c.userId} (${c.homePostcode ?? c.postcode ?? 'no postcode'})`
-        );
+        // RENA-066: the cleaner's home postcode is never logged.
+        log.info('catchment_heal', 'minted', { userId: c.userId });
       } else {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[CatchmentHeal] ${result.status} for ${c.userId}: ${result.reason} — next attempt after 24h cooldown`
-        );
+        log.warn('catchment_heal', 'not_minted', {
+          userId: c.userId,
+          status: result.status,
+          reason: result.reason,
+        });
       }
     }
     return { processed };

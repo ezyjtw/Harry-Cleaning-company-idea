@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
 
 // R1-B: the pay-now door for an occurrence whose single off-session attempt
@@ -188,8 +189,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(`[RecurringCharge] pay-now PI creation failed for ${booking.id}:`, err);
+    log.error(
+      'recurring_charge',
+      'pay_now_intent_failed',
+      { provider: 'stripe', bookingId: booking.id },
+      err
+    );
     return NextResponse.json(
       { error: 'Payment could not be started. Please try again.' },
       { status: 500 }

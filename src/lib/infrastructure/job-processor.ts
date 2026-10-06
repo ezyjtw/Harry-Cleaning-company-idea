@@ -8,6 +8,7 @@ import type { Prisma } from '@prisma/client';
 import { logApiCall } from '@/lib/api-metering';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { BookingReminderService } from '@/lib/services/booking-reminder.service';
 import { shouldSend } from '@/lib/services/notification-preferences.service';
 import { processXeroPush, type XeroPushPayload } from '@/lib/services/xero-push.service';
@@ -165,13 +166,14 @@ registerJobHandler('SEND_EMAIL', async (payload) => {
   if (action === 'EMAIL_NOTIFICATION') {
     // Email notifications are handled directly by the notification service
     // via the email service functions. This handler processes queued email jobs.
-    // eslint-disable-next-line no-console
-    console.log('[JobProcessor] Processing email notification to:', payload.to);
+    // RENA-066: the recipient address is never logged.
+    log.info('job', 'email_notification.noop', { userId: payload.userId });
     return;
   }
 
-  // eslint-disable-next-line no-console
-  console.log('[JobProcessor] Sending email:', payload);
+  // RENA-066: the payload (address, name, subject, body) is never logged; the
+  // logger keeps only allowlisted keys and lists the dropped key names.
+  log.info('job', 'send_email.unhandled_action', { action, userId: payload.userId });
 });
 
 registerJobHandler('SEND_SMS', async (payload) => {
@@ -180,8 +182,7 @@ registerJobHandler('SEND_SMS', async (payload) => {
   const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
   if (!accountSid || !authToken || !fromNumber) {
-    // eslint-disable-next-line no-console
-    console.log('[JobProcessor] Twilio not configured, skipping SMS:', payload.to);
+    log.warn('job', 'sms.skipped', { reason: 'twilio_unconfigured', provider: 'twilio' });
     return;
   }
 
@@ -195,11 +196,16 @@ registerJobHandler('SEND_SMS', async (payload) => {
       to: payload.to as string,
     });
 
-    // eslint-disable-next-line no-console
-    console.log('[JobProcessor] SMS sent to:', payload.to);
+    log.info('job', 'sms.sent', { provider: 'twilio' });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[JobProcessor] SMS send failed:', error);
+    // Correlation on failure: the number has no internal id, so a keyed
+    // pseudonym (null when LOG_HMAC_KEY is unset), never the number itself.
+    log.error(
+      'job',
+      'sms.failed',
+      { provider: 'twilio', recipientRef: log.pseudonym(payload.to as string) },
+      error
+    );
     throw error; // Re-throw to trigger retry
   }
 });
@@ -315,8 +321,8 @@ registerJobHandler('SEND_REMINDER', async (payload) => {
 });
 
 registerJobHandler('PROCESS_PAYMENT', async (payload) => {
-  // eslint-disable-next-line no-console
-  console.log('[JobProcessor] Processing payment:', payload);
+  // RENA-066: allowlisted keys of the payload only (ids, amounts in pence).
+  log.info('job', 'process_payment.noop', payload);
 });
 
 // Native (Rena Pro / Expo) push. Sends the queued device tokens to the Expo push
@@ -366,8 +372,8 @@ registerJobHandler('XERO_PUSH', async (payload) => {
 
 registerJobHandler('REQUEST_REVIEW', async (payload) => {
   // Send review request via push notification
-  // eslint-disable-next-line no-console
-  console.log('[JobProcessor] Requesting review:', payload);
+  // RENA-066: ids only; the body text is never logged.
+  log.info('job', 'request_review', { userId: payload.userId, bookingId: payload.bookingId });
 
   const userId = payload.userId as string;
   if (userId) {

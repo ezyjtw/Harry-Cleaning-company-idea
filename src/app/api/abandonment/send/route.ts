@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { sendAbandonmentEmail } from '@/lib/services/email.service';
 
 // ─── Types ──────────────────────────────────────────────
@@ -92,8 +93,7 @@ export async function POST(request: NextRequest) {
     for (const lead of leads) {
       // Rate limit: skip if emailed within 24 hours
       if (wasEmailedWithin24Hours(lead.email)) {
-        // eslint-disable-next-line no-console
-        console.log(`[Abandonment Send] Skipping ${lead.email} - emailed within 24 hours`);
+        log.info('abandonment_send', 'skipped', { reason: 'emailed_within_24h' });
         continue;
       }
 

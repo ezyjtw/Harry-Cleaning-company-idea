@@ -1,4 +1,5 @@
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { AuditService } from '@/lib/services/audit.service';
 
 /**
@@ -119,8 +120,7 @@ export async function sweepIncompleteSignups(): Promise<{ processed: number }> {
       const result = await removeIncompleteSignup({ userId: c.id, swept: true });
       if (result.ok) {
         processed++;
-        // eslint-disable-next-line no-console
-        console.log(`[IncompleteSweep] removed 30-day incomplete signup ${result.email}`);
+        log.info('incomplete_sweep', 'removed', { userId: c.id });
       }
     } catch (err) {
       // eslint-disable-next-line no-console

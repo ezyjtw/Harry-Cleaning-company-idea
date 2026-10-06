@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { log } from '@/lib/log';
 import { rateLimit } from '@/lib/rate-limit';
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -69,8 +70,11 @@ export async function POST(request: NextRequest) {
     //   },
     // });
 
-    // eslint-disable-next-line no-console
-    console.log('[Abandonment] Captured lead:', sanitizedData);
+    // RENA-066: the address and postcode are never logged.
+    log.info('abandonment', 'captured', {
+      cleanerId: sanitizedData.cleanerId,
+      stage: sanitizedData.step,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

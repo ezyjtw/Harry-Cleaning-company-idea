@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { rateLimit } from '@/lib/rate-limit';
 import { triggerCatchmentRefresh } from '@/lib/services/catchment-generation.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
@@ -285,12 +286,18 @@ export async function POST(request: NextRequest) {
     const { resendEmailVerification } = await import('@/lib/services/auth.service');
     resendEmailVerification(result.user.email)
       .then(() => {
-        // eslint-disable-next-line no-console
-        console.log(`[CleanerSignup] Verification email queued for ${result.user.email}`);
+        log.info('cleaner_signup', 'verification_email', {
+          userId: result.user.id,
+          outcome: 'queued',
+        });
       })
       .catch((e) => {
-        // eslint-disable-next-line no-console
-        console.error(`[CleanerSignup] Verification email FAILED for ${result.user.email}:`, e);
+        log.error(
+          'cleaner_signup',
+          'verification_email',
+          { userId: result.user.id, outcome: 'failed' },
+          e
+        );
       });
 
     return NextResponse.json(
