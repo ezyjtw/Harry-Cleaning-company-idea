@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -5,6 +6,7 @@ import { getCleanerSession } from '@/lib/auth/session';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
+import { blockedUserIds } from '@/lib/services/block.service';
 import type { ServiceSlug } from '@/lib/services/pricing.service';
 import { cleanerEarningsBreakdown, pricingService } from '@/lib/services/pricing.service';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
@@ -78,7 +80,7 @@ export async function GET(request: NextRequest) {
   // AWAITING_CLEANER (or no filter was given) — offers live in Pending alone.
   const includeOfferBranches = !statusIn || statusIn.includes('AWAITING_CLEANER');
   // H38: the viewer's OWN customer purchase never appears through the job door.
-  const where = includeOfferBranches
+  const baseWhere = includeOfferBranches
     ? {
         AND: [
           notOwnBookingWhere(user.id),
@@ -92,6 +94,20 @@ export async function GET(request: NextRequest) {
     : {
         AND: [notOwnBookingWhere(user.id), paidVisibleWhere(), { OR: [primaryWhereWithCascade] }],
       };
+
+  // UGC block (James-ruled): offers from a customer either side has blocked
+  // never reach this door. Guest bookings (no clientId) are unaffected, and a
+  // booking already accepted stays visible: the block changes offers, not
+  // bookings already made.
+  const blocked = await blockedUserIds(user.id);
+  const blockFilter: Prisma.BookingWhereInput = {
+    OR: [
+      { clientId: null },
+      { clientId: { notIn: Array.from(blocked) } },
+      { cleanerId: user.id, status: { notIn: ['PENDING', 'AWAITING_CLEANER'] } },
+    ],
+  };
+  const where = blocked.size > 0 ? { AND: [baseWhere, blockFilter] } : baseWhere;
 
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({

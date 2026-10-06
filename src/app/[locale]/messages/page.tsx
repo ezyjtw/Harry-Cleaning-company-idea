@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { dayPhrase, fmtSlotTime } from '@/components/app/customer';
 import CleanerAvatar from '@/components/CleanerAvatar';
+import ConversationInfoSheet from '@/components/messages/ConversationInfoSheet';
 import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { isCustomerShellUA, isShellUA } from '@/lib/shell';
@@ -126,6 +127,8 @@ export default function MessagesPage() {
   const [reportDetails, setReportDetails] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+  // UGC report + block (James-ordered): the conversation info sheet.
+  const [infoOpen, setInfoOpen] = useState(false);
 
   // A10 B3: compose-from-booking (?bookingId=) + before-send PII warning
   const composeHandled = useRef(false);
@@ -294,6 +297,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     setShowPiiWarning(false);
+    setInfoOpen(false);
     if (activeConversationId) {
       loadMessages(activeConversationId);
     }
@@ -590,13 +594,28 @@ export default function MessagesPage() {
             )}
           </div>
           <button
-            onClick={handleToggleBlock}
-            disabled={blockBusy}
-            className="shrink-0 rounded-[10px] border border-line px-2.5 py-1.5 font-jost text-[11px] font-medium text-ink-3 active:bg-page disabled:opacity-60"
+            type="button"
+            onClick={() => setInfoOpen(true)}
+            aria-label="Conversation info"
+            data-testid="msg-info"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line font-jost text-[13px] font-semibold text-ink-2 active:bg-page"
           >
-            {blockBusy ? '…' : activeConversation.blockedByMe ? 'Unblock' : 'Block'}
+            i
           </button>
         </div>
+        {infoOpen && (
+          <ConversationInfoSheet
+            partnerId={other.id}
+            partnerName={other.name}
+            partnerAvatar={other.avatar || null}
+            partnerRole={other.role}
+            contextLine={contextLine}
+            blockedByMe={activeConversation.blockedByMe}
+            blockBusy={blockBusy}
+            onToggleBlock={handleToggleBlock}
+            onClose={() => setInfoOpen(false)}
+          />
+        )}
 
         {/* Bubbles with day dividers */}
         <div className="flex-1 overflow-y-auto bg-page px-4 py-4">
@@ -913,13 +932,28 @@ export default function MessagesPage() {
                 </Link>
               )}
               <button
-                onClick={handleToggleBlock}
-                disabled={blockBusy}
-                className={`${activeConversation.activeBookingId ? '' : 'ml-auto '}shrink-0 rounded-[10px] border border-line px-3 py-1.5 text-xs font-medium text-ink-2 transition hover:bg-page disabled:opacity-60`}
+                type="button"
+                onClick={() => setInfoOpen(true)}
+                aria-label="Conversation info"
+                data-testid="msg-info"
+                className={`${activeConversation.activeBookingId ? '' : 'ml-auto '}flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line text-[13px] font-semibold text-ink-2 transition hover:bg-page`}
               >
-                {blockBusy ? 'Working…' : activeConversation.blockedByMe ? 'Unblock' : 'Block'}
+                i
               </button>
             </div>
+            {infoOpen && (
+              <ConversationInfoSheet
+                partnerId={getOtherParticipant(activeConversation).id}
+                partnerName={getOtherParticipant(activeConversation).name}
+                partnerAvatar={getOtherParticipant(activeConversation).avatar || null}
+                partnerRole={getOtherParticipant(activeConversation).role}
+                contextLine={contextLine}
+                blockedByMe={activeConversation.blockedByMe}
+                blockBusy={blockBusy}
+                onToggleBlock={handleToggleBlock}
+                onClose={() => setInfoOpen(false)}
+              />
+            )}
 
             {/* Messages — R10-L4: date separators + the mock's bubble grammar
                 (navy right for self, white hairline left for them). */}

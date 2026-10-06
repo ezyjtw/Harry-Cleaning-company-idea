@@ -310,6 +310,18 @@ export async function POST(request: NextRequest) {
       if (self && self.id === body.cleanerId) {
         return NextResponse.json({ error: "You can't book yourself." }, { status: 400 });
       }
+      // UGC block (James-ruled): a block in either direction refuses a NEW
+      // request to this cleaner here, before any price or payment step.
+      // Bookings already made between the pair are not touched by a block.
+      if (self && body.cleanerId) {
+        const { isBlockedPair } = await import('@/lib/services/block.service');
+        if (await isBlockedPair(self.id, String(body.cleanerId))) {
+          return NextResponse.json(
+            { error: 'This cleaner is not available for your bookings.' },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     // Service slug resolved early: the fixed-duration derivation and the

@@ -2,6 +2,7 @@ import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import { prisma } from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { eligibleCleanerWhere } from '@/lib/services/area-search.service';
+import { blockedUserIds } from '@/lib/services/block.service';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
 
@@ -79,7 +80,7 @@ export class MatchingService {
     // 1. Get all active, verified cleaners who have acknowledged the CURRENT
     //    self-employment version (A14 gate — un-acknowledged or out-of-date
     //    cleaners aren't offered jobs until they (re-)acknowledge).
-    const allCleaners = await prisma.cleanerProfile.findMany({
+    const fetchedCleaners = await prisma.cleanerProfile.findMany({
       // Two-stage flow: offer eligibility now uses the SAME go-live gate as
       // search (it previously checked verified only — a verified cleaner with
       // no insurance approval or Stripe onboarding could receive offers).
@@ -95,6 +96,16 @@ export class MatchingService {
         availabilitySlots: true,
       },
     });
+
+    // UGC block (James-ruled): a block in EITHER direction between the customer
+    // and a cleaner removes that cleaner from this customer's offers. Enforced
+    // here because every offer path (cascade, rescue, rebroadcast, time-first
+    // discovery) reaches cleaners through findMatches with the clientId.
+    const blocked = criteria.clientId ? await blockedUserIds(criteria.clientId) : null;
+    const allCleaners =
+      blocked && blocked.size > 0
+        ? fetchedCleaners.filter((c) => !blocked.has(c.userId))
+        : fetchedCleaners;
 
     const totalCandidates = allCleaners.length;
 

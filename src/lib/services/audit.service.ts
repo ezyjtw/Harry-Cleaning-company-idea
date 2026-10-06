@@ -118,6 +118,8 @@ export type AuditAction =
   // Message moderation (A10 B2b)
   | 'MESSAGE_REPORT_ACTIONED'
   | 'MESSAGE_REPORT_DISMISSED'
+  // UGC report (review / conversation) resolution
+  | 'CONTENT_REPORT_RESOLVED'
   // Dispute evidence (F1)
   | 'DISPUTE_EVIDENCE_UPLOADED'
   | 'DISPUTE_EVIDENCE_VIEWED'

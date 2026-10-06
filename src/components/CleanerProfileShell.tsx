@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useCustomerShell } from '@/components/app/customer';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import CleanerProfileView, { type CleanerProfileData } from '@/components/CleanerProfileView';
+import ReportReviewButton from '@/components/ReportReviewButton';
 import StarRating from '@/components/StarRating';
 
 const REVIEWS_FIRST_PAGE = 3;
@@ -122,9 +123,13 @@ function ProfileSkin({ data }: { data: CleanerProfileData }) {
                     “{rev.text}”
                   </p>
                 )}
-                <p className="mt-1.5 font-jost text-[12px] text-ink-3">
-                  {rev.name.split(' ')[0]}
-                  {monthOf(rev.date) ? ` · ${monthOf(rev.date)}` : ''}
+                <p className="mt-1.5 flex items-center justify-between font-jost text-[12px] text-ink-3">
+                  <span>
+                    {rev.name.split(' ')[0]}
+                    {monthOf(rev.date) ? ` · ${monthOf(rev.date)}` : ''}
+                  </span>
+                  {/* UGC report door (James-ordered), in-shell. */}
+                  <ReportReviewButton reviewId={rev.id} />
                 </p>
               </div>
             ))}
