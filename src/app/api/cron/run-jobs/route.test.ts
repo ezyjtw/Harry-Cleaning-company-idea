@@ -50,7 +50,7 @@ describe('POST /api/cron/run-jobs lease (RENA-014)', () => {
 
   it('runs the jobs and releases with the summary when the lease is claimed', async () => {
     const now = new Date();
-    claim.mockResolvedValueOnce({ claimed: true, now, lockedAt: now, lastStartedAt: now });
+    claim.mockResolvedValueOnce({ claimed: true, now, lockedUntil: now, lastStartedAt: now });
     run.mockResolvedValueOnce({ timestamp: now.toISOString(), releases: { processed: 0 } });
     const res = await POST(post());
     expect(res.status).toBe(200);
@@ -64,27 +64,30 @@ describe('POST /api/cron/run-jobs lease (RENA-014)', () => {
   });
 
   it('answers 200 skipped and never runs when the lease is held', async () => {
-    const lockedAt = new Date();
+    const now = new Date();
     claim.mockResolvedValueOnce({
       claimed: false,
-      now: lockedAt,
-      lockedAt,
-      lastStartedAt: lockedAt,
+      reason: 'cadence',
+      now,
+      lockedUntil: now,
+      lastStartedAt: now,
     });
     const res = await POST(post());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.skipped).toBe('lease held');
+    expect(body.reason).toBe('cadence');
     expect(run).not.toHaveBeenCalled();
     expect(release).not.toHaveBeenCalled();
   });
 
   it('releases with the error and answers 500 when a job throws', async () => {
     const now = new Date();
-    claim.mockResolvedValueOnce({ claimed: true, now, lockedAt: now, lastStartedAt: now });
-    run.mockRejectedValueOnce(new Error('boom'));
+    claim.mockResolvedValueOnce({ claimed: true, now, lockedUntil: now, lastStartedAt: now });
+    const boom = new Error('boom');
+    run.mockRejectedValueOnce(boom);
     const res = await POST(post());
     expect(res.status).toBe(500);
-    expect(release).toHaveBeenCalledWith({ error: 'boom' });
+    expect(release).toHaveBeenCalledWith({ error: boom });
   });
 });

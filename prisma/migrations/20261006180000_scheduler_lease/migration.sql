@@ -1,9 +1,11 @@
--- RENA-014: scheduler lease and heartbeat (single row, id 'scheduler').
+-- RENA-014: scheduler lease, cadence debounce and success-aware heartbeat
+-- (single row, id 'scheduler').
 CREATE TABLE "SchedulerLease" (
     "id" TEXT NOT NULL,
-    "lockedAt" TIMESTAMP(3),
+    "lockedUntil" TIMESTAMP(3),
     "lastStartedAt" TIMESTAMP(3),
-    "lastFinishedAt" TIMESTAMP(3),
+    "lastSucceededAt" TIMESTAMP(3),
+    "lastFailedAt" TIMESTAMP(3),
     "lastCaller" TEXT,
     "lastSummary" JSONB,
     "lastError" TEXT,

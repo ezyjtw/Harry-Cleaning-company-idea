@@ -28,19 +28,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // RENA-014: one effective run per tick. A second caller inside the lease
-  // window (today: the second of the two external triggers) is answered 200
-  // with "skipped" so it never doubles the money sweeps.
+  // RENA-014: one effective run per tick. A second caller is refused while a
+  // run is in progress (running lock) or within four minutes of the previous
+  // start (cadence), and answered 200 with "skipped" so the second of the two
+  // external triggers never doubles the money sweeps.
   const lease = await claimSchedulerLease(callerLabel(request.headers.get('user-agent')));
   if (!lease.claimed) {
     // eslint-disable-next-line no-console
     console.log(
       '[Scheduler] skipped: lease held',
-      JSON.stringify({ lockedAt: lease.lockedAt, lastStartedAt: lease.lastStartedAt })
+      JSON.stringify({
+        reason: lease.reason,
+        lockedUntil: lease.lockedUntil,
+        lastStartedAt: lease.lastStartedAt,
+      })
     );
     return NextResponse.json({
       skipped: 'lease held',
-      lockedAt: lease.lockedAt,
+      reason: lease.reason,
+      lockedUntil: lease.lockedUntil,
       lastStartedAt: lease.lastStartedAt,
     });
   }
@@ -57,7 +63,7 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line no-console
     console.error('[Scheduler] Fatal error:', error);
     const message = error instanceof Error ? error.message : 'Scheduler failed';
-    await releaseSchedulerLease({ error: message }).catch(() => {});
+    await releaseSchedulerLease({ error }).catch(() => {});
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
