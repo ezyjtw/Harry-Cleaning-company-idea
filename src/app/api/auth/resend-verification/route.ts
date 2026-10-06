@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getSessionUser } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { resendEmailVerification } from '@/lib/services/auth.service';
 
@@ -31,7 +32,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email is required.' }, { status: 400 });
   }
 
-  await resendEmailVerification(email);
+  const outcome = await resendEmailVerification(email);
+
+  // RENA-077 (James-ruled): the signed-in owner of the address (the
+  // signup page's retry) is told the truth about the send; nobody else learns
+  // anything, so the enumeration decision (RENA-009, D-h) is unchanged.
+  const session = await getSessionUser().catch(() => null);
+  if (session && session.email.trim().toLowerCase() === email.trim().toLowerCase()) {
+    return NextResponse.json({
+      ok: outcome !== 'failed',
+      sent: outcome === 'sent',
+      alreadyVerified: outcome === 'not_applicable',
+      message:
+        outcome === 'sent'
+          ? 'Verification email sent.'
+          : outcome === 'failed'
+            ? "We still couldn't send the verification email. Please try again later."
+            : 'Your email address is already verified.',
+    });
+  }
 
   // Generic response — never reveal whether the account exists / is verified.
   return NextResponse.json({

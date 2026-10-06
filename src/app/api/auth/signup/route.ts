@@ -88,6 +88,8 @@ export async function POST(request: Request) {
         token,
         bridgeCode: generateBridgeCode({ id: result.user.id, bearerJti: jti }),
         message: result.message,
+        // RENA-077: the page tells the person honestly when the email failed.
+        verificationEmailSent: result.verificationEmailSent === true,
       },
       { status: 201 }
     );

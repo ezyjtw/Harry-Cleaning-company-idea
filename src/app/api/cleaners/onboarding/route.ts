@@ -285,11 +285,13 @@ export async function POST(request: NextRequest) {
     // the wizard), loud either way per the logging law.
     const { resendEmailVerification } = await import('@/lib/services/auth.service');
     resendEmailVerification(result.user.email)
-      .then(() => {
-        log.info('cleaner_signup', 'verification_email', {
-          userId: result.user.id,
-          outcome: 'queued',
-        });
+      .then((outcome) => {
+        // RENA-077: the outcome is the real send result, never assumed.
+        if (outcome === 'failed') {
+          log.error('cleaner_signup', 'verification_email', { userId: result.user.id, outcome });
+        } else {
+          log.info('cleaner_signup', 'verification_email', { userId: result.user.id, outcome });
+        }
       })
       .catch((e) => {
         log.error(

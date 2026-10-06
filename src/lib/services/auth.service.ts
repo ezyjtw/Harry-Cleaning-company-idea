@@ -36,6 +36,8 @@ export interface AuthResult {
   success: boolean;
   message: string;
   user?: AuthUser;
+  /** Registration only: whether the verification email was actually sent. */
+  verificationEmailSent?: boolean;
 }
 
 /**
@@ -85,8 +87,10 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
     });
   }
 
-  // Send verification email (fire and forget — don't block registration)
-  sendEmailVerification(email, token).catch(() => {});
+  // RENA-077 (James-ruled): the account is created either way, but the result
+  // of the verification send is reported honestly so the person is never told
+  // an email went when it did not.
+  const verificationEmailSent = await sendEmailVerification(email, token).catch(() => false);
 
   sendSignupNotification({
     name: input.name,
@@ -98,7 +102,10 @@ export async function registerUser(input: RegisterUserInput): Promise<AuthResult
 
   return {
     success: true,
-    message: 'Account created successfully. Please check your email to verify your account.',
+    message: verificationEmailSent
+      ? 'Account created successfully. Please check your email to verify your account.'
+      : "Account created, but we couldn't send the verification email.",
+    verificationEmailSent,
     user: {
       id: user.id,
       email: user.email,
@@ -328,13 +335,15 @@ export async function verifyEmail(token: string): Promise<VerifyEmailStatus> {
  * generic success; a fresh token is only created/sent when an unverified account
  * matches. Rate-limiting is applied at the route.
  */
-export async function resendEmailVerification(email: string): Promise<void> {
+export type ResendVerificationOutcome = 'sent' | 'failed' | 'not_applicable';
+
+export async function resendEmailVerification(email: string): Promise<ResendVerificationOutcome> {
   const normalized = email.toLowerCase().trim();
   const user = await prisma.user.findUnique({
     where: { email: normalized },
     select: { emailVerified: true },
   });
-  if (!user || user.emailVerified) return; // no account, or already verified → no-op
+  if (!user || user.emailVerified) return 'not_applicable'; // no account, or already verified
 
   const token = crypto.randomBytes(32).toString('hex');
   await prisma.verificationToken.create({
@@ -344,5 +353,6 @@ export async function resendEmailVerification(email: string): Promise<void> {
       expires: new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
     },
   });
-  sendEmailVerification(normalized, token).catch(() => {});
+  const sent = await sendEmailVerification(normalized, token).catch(() => false);
+  return sent ? 'sent' : 'failed';
 }

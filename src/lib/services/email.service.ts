@@ -114,15 +114,16 @@ async function sendEmail(
     log.error('email', 'dev_forced_failure', { category, userId });
     return false;
   }
-  // RENA-077: this branch also runs in production when Resend is not
-  // configured. Same return as before; it logs through the allowlisted logger
-  // and never the address, subject or body.
-  if (process.env.NODE_ENV !== 'production' || !resend) {
-    if (process.env.NODE_ENV === 'production') {
-      log.warn('email', 'skipped', { reason: 'provider_unconfigured', category, userId });
-    } else {
-      log.info('email', 'dev_preview', { category, userId, ok: htmlBody.length > 0 });
-    }
+  // RENA-077 (James-ruled, B1b): in production an unavailable or unconfigured
+  // provider is a FAILURE, never a send: a structured error and false, so
+  // every caller can be honest about it. Development may warn and return
+  // true. Neither logs the address, subject or body.
+  if (process.env.NODE_ENV === 'production' && !resend) {
+    log.error('email', 'not_sent', { reason: 'provider_unconfigured', category, userId });
+    return false;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    log.warn('email', 'dev_preview', { category, userId, ok: htmlBody.length > 0 });
     return true;
   }
 

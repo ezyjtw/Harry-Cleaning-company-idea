@@ -24,26 +24,26 @@ describe('email.service log hygiene (RENA-066, RENA-077)', () => {
     vi.unstubAllEnvs();
   });
 
-  it('production with no Resend client: one warn line, no address, subject or body; returns true', async () => {
+  it('production with no Resend client: a structured error and FAILURE (James-ruled), nothing identifying', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     const { sendPasswordReset } = await import('./email.service');
     const ok = await sendPasswordReset('someone@example.test', 'tok_abcdef0123456789');
-    expect(ok).toBe(true);
+    expect(ok).toBe(false);
     expect(out).toHaveLength(1);
     const rec = JSON.parse(out[0]);
     expect(rec).toMatchObject({
-      level: 'warn',
+      level: 'error',
       scope: 'email',
-      event: 'skipped',
+      event: 'not_sent',
       reason: 'provider_unconfigured',
     });
     expect(out[0]).not.toMatch(/someone|example\.test|tok_|Reset|password/i);
   });
 
-  it('development preview: no address, subject or body either', async () => {
+  it('development may warn and return true; no address, subject or body either', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const { sendPasswordReset } = await import('./email.service');
-    await sendPasswordReset('someone@example.test', 'tok_abcdef0123456789');
+    expect(await sendPasswordReset('someone@example.test', 'tok_abcdef0123456789')).toBe(true);
     expect(out.join('\n')).not.toMatch(/someone|tok_|<html|Reset your/i);
     expect(out.join('\n')).toContain('dev_preview');
   });
