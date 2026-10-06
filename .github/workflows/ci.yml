@@ -10,30 +10,40 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Placeholder values for build and boot only. They satisfy the boot-time
+# environment validation; nothing here reaches a real provider.
+env:
+  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/rena_ci'
+  NEXTAUTH_URL: 'http://localhost:3000'
+  NEXTAUTH_SECRET: 'ci-test-secret-ci-test-secret-ci'
+  NEXT_PUBLIC_APP_URL: 'http://localhost:3000'
+  NEXT_PUBLIC_APP_NAME: 'Rena Cleaning Network'
+  STRIPE_SECRET_KEY: 'sk_test_dummy_for_build_only'
+  STRIPE_PUBLISHABLE_KEY: 'pk_test_dummy_for_build_only'
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_dummy_for_build_only'
+  STRIPE_WEBHOOK_SECRET: 'whsec_dummy_for_build_only'
+  STRIPE_WEBHOOK_SECRET_PLATFORM: 'whsec_dummy_platform_for_build_only'
+  RESEND_API_KEY: 're_dummy_for_build_only'
+  RESEND_FROM_EMAIL: 'ci@example.invalid'
+  RESEND_NOTIFICATION_EMAIL: 'ci-notify@example.invalid'
+  R2_ACCOUNT_ID: 'ci-dummy'
+  R2_ACCESS_KEY_ID: 'ci-dummy'
+  R2_SECRET_ACCESS_KEY: 'ci-dummy'
+  R2_BUCKET_NAME: 'ci-dummy'
+  DOCUMENT_ENCRYPTION_KEY: 'ci-dummy-document-encryption-key-0123456789abcdef'
+
 jobs:
-  ci:
-    name: Lint, Type Check & Build
+  web:
+    name: Web lint, typecheck, unit tests, build
     runs-on: ubuntu-latest
-
-    env:
-      DATABASE_URL: "postgresql://user:password@localhost:5432/rena_db"
-      NEXTAUTH_URL: "http://localhost:3000"
-      NEXTAUTH_SECRET: "ci-test-secret"
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-      NEXT_PUBLIC_APP_NAME: "Rena Cleaning Network"
-      STRIPE_SECRET_KEY: "sk_test_dummy_for_build_only"
-      STRIPE_PUBLISHABLE_KEY: "pk_test_dummy_for_build_only"
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_dummy_for_build_only"
-      STRIPE_WEBHOOK_SECRET: "whsec_dummy_for_build_only"
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -48,5 +58,114 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Unit tests
+        run: npm test
+
       - name: Build
         run: npm run build
+
+  mobile:
+    name: Shell typecheck (${{ matrix.shell }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [mobile, mobile-customer]
+    defaults:
+      run:
+        working-directory: ${{ matrix.shell }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.shell }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+  runtime-bump:
+    name: Version-bump law (RENA-042)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check native changes carry a version bump
+        run: npx tsx scripts/check-runtime-bump.ts --base origin/${{ github.base_ref }}
+
+  e2e:
+    name: E2E smoke (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rena_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed reference data
+        run: npm run db:seed-reference
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E smoke tests
+        run: npm run test:e2e
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
