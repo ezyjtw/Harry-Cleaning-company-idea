@@ -1,0 +1,31 @@
+{
+  "comment": "Hash law (CLAUDE.md): the canonical list of the 26 baselined public routes. CLAUDE.md lists the same routes; src/lib/ci/public-routes.test.ts fails if the two differ. Read by scripts/public-route-hashes.ts and e2e/public-routes.spec.ts.",
+  "routes": [
+    "/",
+    "/about",
+    "/account-deletion",
+    "/cleaners",
+    "/cleaning",
+    "/cleaning/chingford",
+    "/contact",
+    "/faq",
+    "/forgot-password",
+    "/guarantees",
+    "/how-it-works",
+    "/job-check",
+    "/join",
+    "/login",
+    "/offline",
+    "/pricing",
+    "/privacy",
+    "/regular-clean",
+    "/services",
+    "/services/regular",
+    "/services/deep",
+    "/services/end-of-tenancy",
+    "/services/airbnb",
+    "/signup",
+    "/terms",
+    "/unsubscribe"
+  ]
+}
