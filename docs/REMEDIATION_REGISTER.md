@@ -93,6 +93,7 @@ These are the register's rules. The ones not already in CLAUDE.md are mirrored t
 - J. Freshness: 018, 025. WEB.
 - K. Logging and monitoring: 066, 068, 077, and the 004 closure. WEB.
 - L. Governance: 042, 069, CLAUDE.md. WEB plus DOC.
+- M. In-shell account handoff: 031, 082. One design for both shells: a successful in-shell application or signup completes the native handoff exactly as login does (native token minted, bridge redeemed, panes landing signed in). WEB plus OTA.
 
 Design conflicts settled: (1) RENA-061's 503 against the deploy-time probe: safe, plus an external monitor; (2) D's "open external links in the browser" against Stripe 3DS issuer frames: the classifier acts on top-frame navigations only; (3) B's native logout on 401 against bridge replay during a restart: two consecutive 401s; (4) sessionVersion bumps on sign-out-everywhere against account switch on the same device: the switch revokes the leaving device's JTI only.
 
@@ -105,8 +106,8 @@ Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order 
 - B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054.
 - B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034.
 - B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080.
-- B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, and the JS halves of 041, 043, 046.
-- B6 Web platform: 005, 049, 050, 051, 052, 057, the controlled Next 15 move if required (056 and 058 closed).
+- B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 047, 082 (or B2 if its web half leads), and the JS halves of 041, 043, 046.
+- B6 Web platform: 005, 049, 050, 051, 052, 057, 083, the controlled Next 15 move if required (056 and 058 closed).
 - B7 Scheduler, operations and GDPR: 062, 063, 064, 065, 067, 070, 071, 072, 076, 081 (014, 061, 068, 069 delivered in B0).
 - B8 Native rebuild: 040, 060, the native half of 041, 044, 045, then 035's device matrix as the release gate.
 - B9 Full regression and register closure.
@@ -132,8 +133,8 @@ Mechanism: both app.json use runtimeVersion policy appVersion; CLAUDE.md's versi
 Fix: CLAUDE.md names both shells and the full native-change set (done in the same change as this register); scripts/check-runtime-bump.mjs fails a PR that touches native-affecting paths in either shell without a version change in that shell's app.json; wired into CI by RENA-069. Policy stays appVersion.
 Tests: the script against fixture diffs. Manual: none.
 Delivery WEB plus DOC. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group L. Regression evidence: none yet.
-Implementation status: TODO (B0 for the script; the CLAUDE.md edit ships with this register).
+Last verified commit 6026a97. Decision owner and date: none needed. Overlap group L. Regression evidence: src/lib/ci/runtime-bump.test.ts (seven cases: OTA-safe extra change passes, plugin added without bump fails, same with bump passes, dependency change fails, icon or splash or plugin or google-services counts and fonts do not, key reordering is no change); CLI probe on a throwaway commit: splash plugin without bump fails naming the reason, with version 1.0.4 passes.
+Implementation status: DONE for the guard and the CLAUDE.md law (commit a2a0207, merged 6026a97; CLAUDE.md in 8f7e8f3). The CI job runs on pull requests against main.
 
 #### RENA-069 CI does not run the repository's tests and uses a different Node major from production
 
@@ -143,8 +144,8 @@ Fix: Node 22 in CI; vitest run; tsc for mobile/ and mobile-customer/; a Playwrig
 Migration or config: workflow file and a test:e2e script only.
 Tests: the workflow itself on a PR. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group L. Regression evidence: none yet.
-Implementation status: TODO (B0).
+Last verified commit 6026a97. Decision owner and date: none needed. Overlap group L. Regression evidence: GitHub Actions run 37507767787 on 6026a97: web (lint, tsc, vitest, build), shell typecheck mobile, shell typecheck mobile-customer, E2E smoke (Playwright, 12 specs against the Postgres service) all green; version-bump job correctly skipped on push. @playwright/test 1.63.0 added; e2e/booking.spec.ts and e2e/home.spec.ts corrected to the live site (/services entry, menu-button navigation); e2e/health.spec.ts added.
+Implementation status: DONE. Commit a2a0207 (branch claude/b0-ci-health), merged 6026a97, Railway deployment 8545a5b9 SUCCESS (the first build 17c36cd3 failed on the builder's Google Fonts fetch, see RENA-083; the redeploy of the same commit succeeded).
 
 #### RENA-068 Web monitoring is low fidelity until production configuration is verified
 
@@ -153,8 +154,8 @@ Mechanism: server and edge Sentry init gated on SENTRY_DSN (src/instrumentation.
 Fix: James confirms both variables in Railway; beforeSend scrubbing lands with RENA-066; scripts/sentry-test-event.ts raises one server and one browser event on the rig against a test project; alert ownership set in Sentry. Native crash reporting is RENA-060.
 Tests: the script. Manual: receipt confirmed in Sentry.
 Delivery WEB plus EXTERNAL. Proof RIG-AUTO plus EXTERNAL-VERIFY.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group K. Regression evidence: none yet.
-Implementation status: TODO (B0).
+Last verified commit 6026a97. Decision owner and date: none needed. Overlap group K. Regression evidence: Script refuses with exit 2 when no DSN is passed (proven on the rig); event receipt pending the James-side run.
+Implementation status: Script DONE (scripts/sentry-test-event.ts, commit a2a0207, merged 6026a97). EXTERNAL-VERIFY pending: James confirms SENTRY_DSN and NEXT_PUBLIC_SENTRY_DSN in Railway and runs the script once against the rig with the DSN passed as an environment variable (never embedded in scripts or shell history), then raises the browser event per the script's instructions.
 
 #### RENA-014 and RENA-062 Scheduler trigger outside the repository, doubled ticks, no liveness
 
@@ -164,8 +165,9 @@ Fix: a SchedulerRun table used as a lease (one row per tick minute, insert-as-cl
 Migration or config: one table. CRON_SECRET unchanged.
 Tests: two concurrent POSTs, exactly one runs; a stale heartbeat yields 503; the summary line is written once per tick. Manual: the deliberate stale test for the monitor (James-side, D-e step two).
 Delivery WEB plus EXTERNAL. Proof RIG-AUTO for the lease; EXTERNAL-VERIFY for the monitor and the trigger retirement.
-Last verified commit 766f98c (HTTP log read 2026-10-06 15:35 to 16:05 UTC). Decision owner and date: James, 2026-10-06 (D-e). Overlap group H. Regression evidence: none yet.
-Implementation status: TODO (B0).
+Last verified commit 6026a97 (HTTP log read 2026-10-06 15:35 to 16:05 UTC). Decision owner and date: James, 2026-10-06 (D-e). Overlap group H. Regression evidence: Unit: src/app/api/cron/run-jobs/route.test.ts (401 before the lease, run and release with summary, skip without running, error released and 500); src/app/api/health/scheduler/route.test.ts (200 healthy, 503 stale, 503 failing, 503 unreadable). Integration against Postgres (opt-in SCHEDULER_LEASE_INTEGRATION=1, wired into the CI e2e job): ten simultaneous claims give one winner; a claim after a finished run is refused on cadence and allowed after four minutes; a crashed run is refused as running and reclaimed once lockedUntil passes; repeated failures do not keep the heartbeat healthy, a later success restores it, an aged success reads stale; four passed on the rig. Live on the rig's production build: cron-job.org then Bun eight seconds later then a third gives one summary and two cadence skips; a crashed lock answers running then recovers; the heartbeat reads healthy after a success, failing with a newer failure, stale with an aged success and no newer failure; wrong secret 401.
+Implementation status: BUILT, awaiting James's word: branch claude/b0-scheduler-lease at 4d9dd8d (stacked on the Gate A branch), full diff delivered for review. Not merged, not deployed.
+Built shape (James-ruled amendment, 2026-10-06): the row carries lockedUntil, lastStartedAt, lastSucceededAt, lastFailedAt, lastCaller, lastSummary and a message-only lastError. A claim needs lockedUntil in the past AND lastStartedAt older than four minutes (cadence); on claim lockedUntil = now + 10 minutes and lastStartedAt = now; on finish lockedUntil = now. Only a successful run advances lastSucceededAt. /api/health/scheduler is 200 only while lastSucceededAt is within fifteen minutes; the body reports healthy, stale or failing with the three timestamps and never job internals or error text. The per-minute key first proposed was dropped because the two production callers straddle minute boundaries (16:00:31 and 16:01:01 in the HTTP log), and a release-clears-the-lock draft was dropped because the rig showed a POST one second after a finished run running the sweeps again.
 
 #### RENA-061 Railway health check reports 200 with the database down
 
@@ -175,8 +177,9 @@ Fix: /api/health returns 503 with the same body when the database query fails; r
 Migration or config: none in the repository.
 Tests: mocked query failure returns 503; success returns 200. Manual: the monitor's alert on a deliberate failure.
 Delivery WEB plus EXTERNAL. Proof RIG-AUTO plus EXTERNAL-VERIFY.
-Last verified commit 766f98c (Railway docs read 2026-10-06). Decision owner and date: none needed. Overlap group H. Regression evidence: none yet.
-Implementation status: TODO (B0).
+Last verified commit 6026a97 (Railway docs read 2026-10-06). Decision owner and date: none needed. Overlap group H. Regression evidence: src/app/api/health/route.test.ts (200 connected, 503 disconnected); e2e/health.spec.ts (two calls carry different timestamps, no-store header); rig: live timestamps on every call, 503 with Postgres stopped, 200 on return; production after deploy: two calls at 18:11:59 and 18:12:01 UTC, both 200 connected, cache-control no-store, no x-nextjs-cache header.
+Implementation status: DONE. Commit a2a0207, merged 6026a97, deployed 8545a5b9.
+Finding recorded during the batch: on main before this commit the route was prerendered into Next's static route cache (build output marked it static; production answered a frozen body with x-nextjs-cache HIT, timestamp fixed at the previous build's time and reading degraded because the Railway builder cannot reach Postgres). force-dynamic and revalidate 0 on the route are load-bearing; without them the 503 change would have failed every deploy cutover.
 
 ### B1 Authentication, sessions and privacy boundary
 
@@ -659,6 +662,18 @@ Delivery Pro OTA. Proof RIG-PARTIAL + DEVICE.
 Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-p). Overlap group D. Regression evidence: none yet.
 Implementation status: TODO (B5, same OTA as RENA-024/039).
 
+#### RENA-082 Customer signup completed inside the Rena app leaves the shell broken
+
+Severity P2. Status CONFIRMED (James-ruled addition). Batch B5 (customer shell OTA lane), or B2 if the web half leads. Overlap M.
+Mechanism: the customer shell opens /en/signup in a dedicated SignupScreen WebView in the logged-out phase (mobile-customer/App.tsx:522, 892-909) with no onSessionLost, onBridged or tab props, so the shell's navigation watcher never reacts; the web signup page auto-signs the new account in and pushes /account (src/app/[locale]/signup/page.tsx:90-101), the website portal, inside that WebView. No native token is minted and the shell never enters the tabbed phase: the tab bar is absent, the user is forced to back out and log in again. Observed on device.
+Expected: signup completes the native handoff exactly as login does (native token minted, bridge redeemed, panes landing signed in) and the customer lands on Home with the verify-email banner at the top.
+Fix: designed together with RENA-031 as one handoff for both shells (overlap M). Shell-gated branch on the signup page: after a successful signup navigate to a shell-recognised completion URL carrying the email; SignupScreen gains an onSignedUp(email) prop; the shell performs the native login with the just-created credentials (or receives a one-time bridge code from the signup response, the mechanism to be reconciled against source in the batch), stores the Bearer, bridges to /app/home and shows the verify-email banner. Website behaviour unchanged (incognito diff).
+Migration or config: none expected; a bridge-code return on the signup response is a server change if chosen.
+Tests: rig: in-shell UA signup reaches the completion URL and the native login path; website UA lands on /account unchanged. Manual: the device walk, signup to Home with the banner, tab bar present. Proof RIG-PARTIAL + DEVICE.
+Delivery WEB plus customer OTA.
+Last verified commit 6026a97. Decision owner and date: James, 2026-10-06. Overlap group M. Regression evidence: none yet.
+Implementation status: TODO (B5, designed with RENA-031; nothing built now).
+
 #### RENA-037 Offer push cannot deep-link to the offer screen
 
 Severity P1. Status CONFIRMED. Batch B5. Overlap C.
@@ -764,6 +779,17 @@ Tests: the schema has no geo or has the centroid. Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (homepage).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
 Implementation status: TODO (B6).
+
+#### RENA-083 Production build fetches Google Fonts at build time
+
+Severity P3. Status CONFIRMED (James-ruled addition). Batch B6. Overlap none.
+Mechanism: src/lib/fonts.ts loads Newsreader and Jost through next/font/google, which fetches fonts.googleapis.com during next build. A transient failure of that fetch fails the whole build: observed on the Gate A build of B0 (Railway deployment 17c36cd3, 2026-10-06 18:01 UTC, "An error occurred in next/font ... TypeError: Cannot read properties of null (reading '1')" in the Google loader) while the same commit built clean on GitHub Actions at the same minute and twice on the rig. The failed deploy left the previous deployment serving; the redeploy of the same commit is the recovery.
+Fix: self-host the font files via next/font/local: the Newsreader (500, 600, normal and italic) and Jost (400, 500, 600) files committed under public/fonts or src/fonts with their OFL licence files, loaded with next/font/local with the same CSS variables, display swap and fallback chains, so the build carries no build-time network dependency. Etna stays as is. Brand-font ruling untouched (same families, same weights).
+Migration or config: none. Font files added to the repository.
+Tests: next build on the rig with outbound network blocked succeeds; the rendered CSS variables and font-face declarations match before and after; Playwright asserts the computed font-family on a heading and a body paragraph. Public pages: HASH-LAW (the font-face output changes the served CSS, so the incognito diff reviews it and baselines update in the gate).
+Delivery WEB. Proof RIG-AUTO.
+Last verified commit 6026a97. Decision owner and date: James, 2026-10-06. Overlap group none. Regression evidence: none yet.
+Implementation status: TODO (B6; nothing built now).
 
 #### RENA-056 SEO locale strategy
 
@@ -943,8 +969,8 @@ Severity P1. Status RESOLVED. Batch B8 (device matrix as the release gate); the 
 Evidence: commit 766f98c (merge of 2a9255c): mobile/App.tsx:60-69 IOS_WEBVIEW_PROPS gated on Platform.OS === 'ios', spread at 1502; mobile-customer/App.tsx:54-63 and 1426; decelerationRate appears only inside the gated object in both shells. Both production Android channels run bundles built from 2a9255c. Root cause: react-native-webview 13.15.0's codegen spec declares decelerationRate as Double; the string 'normal' reached the Fabric host on Android and threw on the UI thread.
 Remaining acceptance: a static vitest that reads both App.tsx files and fails if decelerationRate, bounces, allowsBackForwardNavigationGestures, allowsLinkPreview or sharedCookiesEnabled appear outside the IOS_WEBVIEW_PROPS block. The A37 and A24 clean-install, force-close, cold-restart and account-switch matrix is the gate of the next binaries (N1).
 Delivery WEB (test). Proof RIG-AUTO; DEVICE-ONLY for the N1 matrix.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (merge word). Overlap group G. Regression evidence: none yet (static test pending).
-Implementation status: RESOLVED; static test ships in B0; device matrix is the B8 release gate.
+Last verified commit 6026a97. Decision owner and date: James, 2026-10-06 (merge word). Overlap group G. Regression evidence: src/lib/ci/webview-prop-gate.test.ts: fails if decelerationRate, bounces, allowsBackForwardNavigationGestures, allowsLinkPreview or sharedCookiesEnabled appears outside IOS_WEBVIEW_PROPS in either shell; passes on 6026a97.
+Implementation status: RESOLVED; static test DONE (commit a2a0207, merged 6026a97); device matrix remains the B8 release gate.
 
 ### B9 Full regression and register closure
 
@@ -964,5 +990,7 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-06: B0 Gate A merged (6026a97) and deployed (8545a5b9); entries 069, 061, 042, 035 (static test) and 068 (script) updated with commits and evidence; 014 recorded as built and awaiting the word.
+- 2026-10-06: RENA-082 (customer in-shell signup handoff, B5, overlap M with RENA-031) and RENA-083 (build-time Google Fonts fetch, B6, P3) added, James-ruled, nothing built.
 - 2026-10-06: batches reordered to the auditor's final order on James's review (B0 governance, CI and decisions; B1 authentication, sessions and privacy boundary; B2 service worker and customer recovery; B3 cleaner lifecycle and concurrency; B4 money ledger; B5 native shell OTA lane; B6 web platform; B7 scheduler, operations and GDPR; B8 native rebuild; B9 full regression and closure), with 014 and 061 pulled forward into B0.
 - 2026-10-06: register created from the independent audit, the P1 challenge, the reconciliation report and James's rulings D-a to D-q with the auditor's amendments adopted. Last verified commit for all entries: 766f98c (ac917eb and e8076b3 for the two held lanes).
