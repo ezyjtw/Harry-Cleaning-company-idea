@@ -7,6 +7,7 @@ import {
   sendGuestBookingReminder,
   sendReviewRequest,
 } from '@/lib/services/email.service';
+import { bookingStartUtc } from '@/lib/time/booking-time';
 import { deferToMorningLondon, londonDayWord } from '@/lib/utils/quiet-hours';
 
 export interface ReminderSchedule {
@@ -29,9 +30,11 @@ export class BookingReminderService {
     if (!booking) return [];
 
     const reminders: ReminderSchedule[] = [];
-    const bookingDateTime = new Date(booking.date);
-    const [hours, minutes] = booking.startTime.split(':').map(Number);
-    bookingDateTime.setHours(hours, minutes, 0, 0);
+    // B3 sweep: the start is London wall time. A Flexible booking has no
+    // clock to remind against (the old arithmetic produced an Invalid Date and
+    // threw), so it schedules nothing.
+    const bookingDateTime = bookingStartUtc(booking.date, booking.startTime);
+    if (!bookingDateTime) return [];
 
     // B8 quiet hours: reminders and review requests are non-critical — any
     // fire time landing 21:00–08:00 London is deferred to 08:00. Only the
@@ -65,8 +68,7 @@ export class BookingReminderService {
     }
 
     // 3. Arrival alert: 30 minutes before
-    const arrivalAlert = new Date(bookingDateTime);
-    arrivalAlert.setMinutes(arrivalAlert.getMinutes() - 30);
+    const arrivalAlert = new Date(bookingDateTime.getTime() - 30 * 60 * 1000);
     if (arrivalAlert > new Date()) {
       reminders.push({
         bookingId,
@@ -79,8 +81,9 @@ export class BookingReminderService {
     // 4. Review request: 2 hours after booking end. An evening job (ends 23:00)
     // used to schedule this for ~01:00 — the "1 AM reminder" James saw. Now it
     // waits for the morning window.
-    const bookingEndTime = new Date(bookingDateTime);
-    bookingEndTime.setHours(bookingEndTime.getHours() + Number(booking.duration));
+    const bookingEndTime = new Date(
+      bookingDateTime.getTime() + Number(booking.duration) * 60 * 60 * 1000
+    );
     const reviewRequest = deferToMorningLondon(
       new Date(bookingEndTime.getTime() + 2 * 60 * 60 * 1000)
     );

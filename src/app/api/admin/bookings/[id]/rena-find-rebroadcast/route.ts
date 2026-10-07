@@ -6,6 +6,7 @@ import { serviceLabelFromSlug } from '@/lib/constants/services';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
 import { MatchingService } from '@/lib/services/matching.service';
+import { bookingStartUtc } from '@/lib/time/booking-time';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -56,10 +57,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const now = new Date();
-  const parts = booking.startTime.split(':');
-  const slotStart = new Date(booking.date);
-  slotStart.setUTCHours(Number(parts[0]), Number(parts[1] ?? 0), 0, 0);
-  if (slotStart.getTime() <= now.getTime()) {
+  // B3 sweep: London wall time; a Flexible slot has no start to pass.
+  const slotStart = bookingStartUtc(booking.date, booking.startTime);
+  if (slotStart && slotStart.getTime() <= now.getTime()) {
     return NextResponse.json({ error: 'Slot has already passed' }, { status: 400 });
   }
 
@@ -106,9 +106,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const resolveBy = new Date(slotStart.getTime() - 24 * HOUR_MS);
-  const runwayMs = resolveBy.getTime() - now.getTime();
-  const expiresAt = runwayMs > 0 ? resolveBy : new Date(now.getTime() + 12 * HOUR_MS);
+  const resolveBy = slotStart ? new Date(slotStart.getTime() - 24 * HOUR_MS) : null;
+  const runwayMs = resolveBy ? resolveBy.getTime() - now.getTime() : 0;
+  const expiresAt = resolveBy && runwayMs > 0 ? resolveBy : new Date(now.getTime() + 12 * HOUR_MS);
 
   // H21 consent law: admin review only ever holds bookings whose customer
   // opted in at booking time (the enterRenaFindAdminReview claim requires it),

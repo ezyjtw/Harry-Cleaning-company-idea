@@ -19,6 +19,7 @@ import prisma from '@/lib/db/prisma';
 import { log } from '@/lib/log';
 import { getReviewCounts } from '@/lib/services/rating.service';
 import stripe from '@/lib/stripe';
+import { bookingStartUtc } from '@/lib/time/booking-time';
 
 import { AuditService } from './audit.service';
 import { BookingReminderService } from './booking-reminder.service';
@@ -42,18 +43,9 @@ import { refundBooking } from './refund.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 
+// B3 sweep: the slot start is London wall time (D-f); the one helper owns it.
 function parseSlotStart(bookingDate: Date, startTime: string): Date | null {
-  try {
-    const parts = startTime.split(':');
-    const hours = Number(parts[0]);
-    const minutes = Number(parts[1] ?? 0);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-    const slot = new Date(bookingDate);
-    slot.setUTCHours(hours, minutes, 0, 0);
-    return slot;
-  } catch {
-    return null;
-  }
+  return bookingStartUtc(bookingDate, startTime);
 }
 
 /** Cascade-state teardown fields — shared by cancel and reassign paths. */

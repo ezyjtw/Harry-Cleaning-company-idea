@@ -35,6 +35,11 @@
 
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
+import {
+  NONEXISTENT_TIME_MESSAGE,
+  bookingStartOrDayStartUtc,
+  validateBookingSlot,
+} from '@/lib/time/booking-time';
 
 import { AuditService } from './audit.service';
 import type { CancellationResult } from './cancellation.service';
@@ -49,11 +54,10 @@ const RESCUE_WINDOW_MS = 48 * 60 * 60 * 1000;
 // route's VALID_TRANSITIONS targets for CANCELLED).
 const RESCUABLE_FROM = ['ACCEPTED', 'CONFIRMED', 'EN_ROUTE'] as const;
 
+// B3 sweep: London wall time through the one helper (Flexible counts from the
+// day's London midnight, as before).
 function bookingStartDateTime(date: Date, startTime: string): Date {
-  const [h, m] = startTime.split(':').map(Number);
-  const start = new Date(date);
-  start.setHours(h || 0, m || 0, 0, 0);
-  return start;
+  return bookingStartOrDayStartUtc(date, startTime);
 }
 
 // ─── Entry: the cleaner cancelled ────────────────────────────────────────────
@@ -398,10 +402,20 @@ export async function rescueRebook(params: {
   });
   if (!newCleaner) return { ok: false, status: 404, error: 'Cleaner not found or not active' };
 
-  const when = new Date(`${params.date}T00:00:00`);
-  if (Number.isNaN(when.getTime()) || !/^\d{2}:\d{2}$/.test(params.startTime)) {
-    return { ok: false, status: 400, error: 'Invalid date or time' };
+  // B3: the stored day is the UTC midnight of the London date; a time inside
+  // the spring clock change is not a booking time (James-ruled).
+  const slotCheck = validateBookingSlot(params.date, params.startTime);
+  if (!slotCheck.ok || !/^\d{2}:\d{2}$/.test(params.startTime)) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        !slotCheck.ok && slotCheck.reason === 'NONEXISTENT_TIME'
+          ? NONEXISTENT_TIME_MESSAGE
+          : 'Invalid date or time',
+    };
   }
+  const when = slotCheck.day;
   if (bookingStartDateTime(when, params.startTime).getTime() <= Date.now()) {
     return { ok: false, status: 422, error: 'That time is in the past — pick a future slot' };
   }

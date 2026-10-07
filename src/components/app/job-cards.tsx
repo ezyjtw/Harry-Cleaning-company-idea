@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { bookingDayFromIso, bookingStartUtc } from '@/lib/time/booking-time';
+
 // F24.1: recurring occurrences are visibly recurring on the shell too.
 function recurringSuffix(job: { recurringFrequency?: string | null }): string {
   if (!job.recurringFrequency) return '';
@@ -306,11 +308,17 @@ export function pay(job: AppJob): number {
   return job.viewerEarnings ?? job.cleanerEarnings;
 }
 
+/** B3 sweep: a job's start as an instant on the London clock, whatever the
+ *  device's own time zone; null for Flexible. */
+export function jobStartMs(dateIso: string, time: string): number | null {
+  const day = bookingDayFromIso(dateIso.slice(0, 10));
+  return day ? (bookingStartUtc(day, time)?.getTime() ?? null) : null;
+}
+
 export function minutesUntilStart(dateIso: string, time: string): number | null {
-  const [h, m] = time.split(':').map(Number);
-  const start = new Date(`${dateIso}T00:00:00`);
-  start.setHours(h || 0, m || 0, 0, 0);
-  const diffMs = start.getTime() - Date.now();
+  const startMs = jobStartMs(dateIso, time);
+  if (startMs === null) return null;
+  const diffMs = startMs - Date.now();
   if (diffMs <= 0) return null;
   return Math.round(diffMs / 60000);
 }

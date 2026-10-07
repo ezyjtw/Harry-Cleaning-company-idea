@@ -8,6 +8,7 @@ import { computeGoLive, documentStatuses } from '@/lib/cleaner/verification';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
 import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
+import { bookingEndOrDayEndUtc } from '@/lib/time/booking-time';
 import { bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 import { displayName } from '@/lib/utils/name';
 
@@ -353,20 +354,12 @@ export async function GET() {
     noAvailabilityThisWeek = !anyOpen;
   }
 
-  // H75: scheduled end = booking date 00:00 + startTime + duration hours.
-  // A "Flexible" startTime parses to 0:00, so a flexible job on a past date
-  // counts as overdue from that midnight — erring loud beats erring silent
-  // for money-blocking state.
+  // H75: scheduled end = London start + duration hours. A "Flexible" start
+  // counts from the day's London midnight, so a flexible job on a past date is
+  // overdue from then — erring loud beats erring silent for money-blocking
+  // state. B3 sweep: through the one London helper.
   const overdueJobs = overdueRaw
-    .map((b) => {
-      const [h, m] = String(b.startTime || '0:0')
-        .split(':')
-        .map((n) => Number(n) || 0);
-      const end = new Date(b.date.getTime());
-      end.setHours(h, m, 0, 0);
-      end.setTime(end.getTime() + Number(b.duration) * 3600000);
-      return { b, end };
-    })
+    .map((b) => ({ b, end: bookingEndOrDayEndUtc(b.date, b.startTime, Number(b.duration)) }))
     .filter(({ end }) => end < now)
     .map(({ b }) => ({
       id: b.id,

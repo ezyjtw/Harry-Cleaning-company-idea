@@ -19,6 +19,7 @@ import type { BookingStatus, CascadePhase } from '@prisma/client';
 
 import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import { bookingStartUtc, isFlexibleStart, londonDayEndUtc } from '@/lib/time/booking-time';
 
 // ─── H63 (Harry-ruled, availability economics): WHICH bookings block a
 // cleaner's slot ───────────────────────────────────────────────────────────
@@ -81,13 +82,6 @@ export interface SlotQuery {
   excludeBookingId?: string;
 }
 
-function slotStartDateTime(date: Date, startTime: string): Date {
-  const [h, m] = startTime.split(':').map(Number);
-  const start = new Date(date);
-  start.setHours(h || 0, m || 0, 0, 0);
-  return start;
-}
-
 /**
  * Batch form: of these cleaner USER ids, which are genuinely free for the slot?
  * Empty input → empty set. A slot whose start has passed → empty set.
@@ -105,16 +99,19 @@ export async function filterSlotAvailableCleaners(
   // and exhausted+refunded on the spot. For a flexible slot the honest
   // question is "does ANY open range that day fit the duration"; pastness is
   // end-of-day, not a (nonexistent) start time.
-  const isFlexible = !/^\d{1,2}:\d{2}$/.test(slot.startTime);
+  const isFlexible = isFlexibleStart(slot.startTime);
 
+  // The stored booking day is a UTC-midnight date: the row query spans it.
   const startOfDay = new Date(slot.date);
-  startOfDay.setHours(0, 0, 0, 0);
+  startOfDay.setUTCHours(0, 0, 0, 0);
   const endOfDay = new Date(slot.date);
-  endOfDay.setHours(23, 59, 59, 999);
+  endOfDay.setUTCHours(23, 59, 59, 999);
 
+  // B3 sweep: pastness is read on the London clock (the start, or the end of
+  // the London day for a Flexible slot) through the one helper.
   if (isFlexible) {
-    if (endOfDay.getTime() <= Date.now()) return new Set();
-  } else if (slotStartDateTime(slot.date, slot.startTime).getTime() <= Date.now()) {
+    if (londonDayEndUtc(slot.date).getTime() <= Date.now()) return new Set();
+  } else if ((bookingStartUtc(slot.date, slot.startTime)?.getTime() ?? 0) <= Date.now()) {
     return new Set();
   }
 

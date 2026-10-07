@@ -38,6 +38,7 @@ import {
   shouldSend,
   type NotificationCategory,
 } from '@/lib/services/notification-preferences.service';
+import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
 import { generateUnsubscribeToken } from '@/lib/utils/unsubscribe-token';
 
 // A11c: build the PECR unsubscribe URL + List-Unsubscribe headers for a marketing
@@ -1409,17 +1410,17 @@ export async function sendOccurrencePayNow(bookingId: string): Promise<boolean> 
   // R10 Lane 1 (James-ruled): the deadline stated plainly. Release is 24
   // hours before the occurrence's start, the same instant the reap sweep
   // uses (occurrenceStart minus 24h).
-  const [sh, sm] = b.startTime.split(':').map(Number);
+  // B3 sweep: the start is London wall time, and the deadline reads in London.
   const releaseAt = new Date(
-    b.date.getTime() + ((sh || 0) * 60 + (sm || 0)) * 60 * 1000 - 24 * 60 * 60 * 1000
+    bookingStartOrDayStartUtc(b.date, b.startTime).getTime() - 24 * 60 * 60 * 1000
   );
   const heldUntilLong = `${releaseAt
-    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'Europe/London' })
     .replace(':00', '')} on ${releaseAt.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    timeZone: 'UTC',
+    timeZone: 'Europe/London',
   })}`;
   const { buildOccurrencePayNow } = await import('./email-templates');
   const { subject, html } = buildOccurrencePayNow({

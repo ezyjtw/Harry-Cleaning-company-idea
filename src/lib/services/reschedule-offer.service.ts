@@ -22,6 +22,11 @@
 import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import { timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import {
+  NONEXISTENT_TIME_MESSAGE,
+  bookingStartOrDayStartUtc,
+  validateBookingSlot,
+} from '@/lib/time/booking-time';
 
 const HOUR_MS = 60 * 60 * 1000;
 const OFFER_TTL_MS = 48 * HOUR_MS;
@@ -30,9 +35,9 @@ const MIN_LEAD_MS = 24 * HOUR_MS;
 const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// B3 sweep: London wall time through the one helper.
 function slotInstant(date: Date, time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return date.getTime() + ((h || 0) * 60 + (m || 0)) * 60 * 1000;
+  return bookingStartOrDayStartUtc(date, time).getTime();
 }
 
 function fmtWhen(date: Date, time: string): string {
@@ -116,6 +121,18 @@ export async function offerReschedule(params: {
     return { ok: false, status: 400, error: 'Pick a valid date and time.' };
   }
   const proposedDate = new Date(`${params.proposedDate}T00:00:00.000Z`);
+  // B3 (James-ruled): a time inside the spring clock change is not a booking time.
+  const slotCheck = validateBookingSlot(params.proposedDate, params.proposedTime);
+  if (!slotCheck.ok) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        slotCheck.reason === 'NONEXISTENT_TIME'
+          ? NONEXISTENT_TIME_MESSAGE
+          : 'Pick a valid date and time.',
+    };
+  }
   const proposedAt = slotInstant(proposedDate, params.proposedTime);
   if (proposedAt < Date.now() + MIN_LEAD_MS) {
     return {

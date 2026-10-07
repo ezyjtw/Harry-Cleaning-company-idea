@@ -14,6 +14,7 @@ import {
   ReceiptRow,
   haptic,
   isoOf,
+  jobStartMs,
   pay,
 } from '@/components/app/job-cards';
 import VerificationChecklist from '@/components/app/VerificationChecklist';
@@ -748,7 +749,7 @@ export default function TodayPage() {
   const nextUpcoming = useMemo(() => {
     return jobs
       .filter((j) => j.status !== 'completed' && j.status !== 'cancelled')
-      .map((j) => ({ j, start: new Date(`${j.date}T${j.time}:00`).getTime() }))
+      .map((j) => ({ j, start: jobStartMs(j.date, j.time) ?? Number.NaN }))
       .filter((x) => !Number.isNaN(x.start) && x.start > now)
       .sort((a, b) => a.start - b.start)[0]?.j;
   }, [jobs, now]);
