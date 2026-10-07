@@ -98,4 +98,19 @@ describe('middleware API branch: cross-site rule (RENA-006)', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('private, no-store');
   });
+
+  it('marks the personal API routes outside the authed family no-store (RENA-048)', async () => {
+    for (const path of [
+      '/api/cleaners',
+      '/api/cleaners/abc',
+      '/api/job-check',
+      '/api/unsubscribe',
+    ]) {
+      const res = await middleware(req('GET', path));
+      expect(res.headers.get('cache-control'), path).toBe('private, no-store');
+    }
+    // A sibling prefix is not swept in by accident.
+    const pricing = await middleware(req('GET', '/api/pricing/services'));
+    expect(pricing.headers.get('cache-control')).toBeNull();
+  });
 });

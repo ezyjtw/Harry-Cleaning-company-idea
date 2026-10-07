@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { markStale } from '@/lib/freshness';
 import stripePromise, { stripeAppearance, stripeFonts } from '@/lib/stripe-client';
 
 interface TopupData {
@@ -123,6 +124,7 @@ export default function ApproveTopupPage() {
       const result = await res.json();
 
       if (result.result === 'paid') {
+        markStale(['home', 'mycleans', 'account']);
         setState('success');
       } else if (result.result === 'requires_payment' && result.clientSecret) {
         setClientSecret(result.clientSecret);
@@ -146,6 +148,7 @@ export default function ApproveTopupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'decline', ...(guestToken ? { guestToken } : {}) }),
       });
+      markStale(['home', 'mycleans', 'account']);
       setState('declined');
     } catch {
       setError('Network error. Please try again');

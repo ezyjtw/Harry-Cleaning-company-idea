@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 import ChromeHider from '@/components/ChromeHider';
@@ -152,7 +152,15 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     return () => document.body.classList.remove(...classes);
   }, [shellSeg]);
 
+  // RENA-084 (B2a): the profile fetch waits for a definitive CLEANER session.
+  // A customer who lands on /cleaner gets a wrong-role 401 from this route,
+  // which is an access answer, not a lost session (B2 amendment 1); the page
+  // guard sends them to their own home with router.replace. Before this gate
+  // the 401 branch below signed the customer out.
+  const { data: session, status: sessionStatus } = useSession();
+  const isCleanerSession = sessionStatus === 'authenticated' && session?.user?.role === 'CLEANER';
   useEffect(() => {
+    if (!isCleanerSession) return;
     fetch('/api/cleaner/profile')
       .then((res) => {
         if (res.status === 401) {
@@ -184,7 +192,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
         );
       })
       .catch(() => {});
-  }, [router, pathname]);
+  }, [router, pathname, isCleanerSession]);
 
   return (
     <div className="min-h-screen bg-page">

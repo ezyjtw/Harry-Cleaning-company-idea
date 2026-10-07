@@ -88,18 +88,21 @@ export default function AccountHome() {
     null
   );
 
+  // RENA-084 (B2a): a wrong landing never leaves a history entry. replace,
+  // not push, so Back from the role home returns to where the person came
+  // from instead of bouncing through /account again.
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.push('/login?callbackUrl=/account');
+      router.replace('/login?callbackUrl=/account');
       return;
     }
     if (isCleaner) {
-      router.push('/cleaner');
+      router.replace('/cleaner');
       return;
     }
     if (isAdmin) {
-      router.push('/admin');
+      router.replace('/admin');
       return;
     }
   }, [authLoading, isAuthenticated, isCleaner, isAdmin, router]);

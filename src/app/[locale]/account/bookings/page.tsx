@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 import {
   type CancelPreview,
@@ -21,6 +21,7 @@ import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/B
 import CleanerAvatar from '@/components/CleanerAvatar';
 import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { markStale, registerPane } from '@/lib/freshness';
 import { isCustomerShellUA } from '@/lib/shell';
 import { DISPUTE_REASONS } from '@/lib/trust';
 import { bookingFullAddress, type BookingAddressSource } from '@/lib/utils/booking-address';
@@ -263,6 +264,7 @@ export default function BookingsPage() {
             b.fullId === fullId ? { ...b, completionConfirmed: true, fundsHeld: false } : b
           )
         );
+        markStale(['home', 'account']);
         setConfirmResult((prev) => ({
           ...prev,
           [fullId]: {
@@ -353,6 +355,7 @@ export default function BookingsPage() {
           b.fullId === fullId ? { ...b, status: 'Cancelled' as const, rawStatus: 'CANCELLED' } : b
         )
       );
+      markStale(['home', 'account']);
       dismissCancel();
     } catch {
       setCancelError('Failed to cancel booking. Please try again later.');
@@ -402,6 +405,7 @@ export default function BookingsPage() {
         )
       );
       dismissDispute();
+      markStale(['home', 'account']);
       // F9: photos/evidence strengthen the claim — take them straight there.
       window.location.href = '/disputes';
     } catch {
@@ -455,6 +459,7 @@ export default function BookingsPage() {
         setBookings((prev) =>
           prev.map((b) => (b.fullId === fullId ? { ...b, hasReview: true } : b))
         );
+        markStale(['home', 'account']);
         setReviewResult((prev) => ({
           ...prev,
           [fullId]: { ok: true, message: 'Thank you for your review!' },
@@ -476,11 +481,15 @@ export default function BookingsPage() {
     }
   };
 
-  useEffect(() => {
+  // RENA-025 (B2a): the load is a function so the freshness contract can run
+  // it again (pull to refresh, an explicit stale marker, activation coalesced
+  // at 15 s). A refetch repaints page 1 behind the cards already on screen and
+  // never re-opens the review deep link; only the first load does that.
+  const load = useCallback((initial: boolean) => {
     // H72: the review-request email deep-links here as ?review=<bookingId>.
     // Fetched explicitly like rescues/approvals so the link works even when the
     // booking has fallen off the newest-10 general page (pagination-immune).
-    const wanted = new URLSearchParams(window.location.search).get('review');
+    const wanted = initial ? new URLSearchParams(window.location.search).get('review') : null;
     // H11: rescues are fetched explicitly and surfaced FIRST — the general
     // page-1 list (newest 10) can miss an older booking whose cleaner just
     // cancelled, and an action-needed booking belongs at the top anyway.
@@ -531,6 +540,7 @@ export default function BookingsPage() {
         ];
         const items = raw.map(toBookingItem);
         setBookings(items);
+        setGeneralPage(1);
         // P4: the general list paginates (newest 10 per page) — remember where
         // page 1 ended so Load more can continue. Pins/target stay immune.
         setTotalPages(Number(data.totalPages) || 1);
@@ -554,9 +564,16 @@ export default function BookingsPage() {
           }
         }
       })
-      .catch(() => setBookings([]))
+      .catch(() => {
+        if (initial) setBookings([]);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load(true);
+    return registerPane('mycleans', () => load(false));
+  }, [load]);
 
   // H60 (James-ruled): a booking under dispute REMAINS in Completed — the work
   // happened; the case is an overlay, not a different life stage.

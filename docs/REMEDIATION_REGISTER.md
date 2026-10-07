@@ -22,7 +22,7 @@ Proof type (what honestly proves the fix here):
 - RIG-PARTIAL + DEVICE: the rig proves the logic, a device walk proves the shell or OS half.
 - DEVICE-ONLY: only a device or a store console can prove it.
 - STRING-LAW: the change touches an injected template literal; the cooked-parse proof and the dressed-arrival timing table ride the gate (CLAUDE.md, injected-script law).
-- HASH-LAW: the change touches a route in the governed public route set (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies. Per D-ac the governed set is 30: the 26 baselined routes plus /get-app/pro, /get-app/customer, /open/pro and /open/customer, the four joining the canonical list, CLAUDE.md and the baselines in the gate that builds each (B5 for /get-app, B8 for /open), with deterministic fallback-representation baselines for the user-agent-redirecting ones.
+- HASH-LAW: the change touches a route in the governed public route set (canonical list docs/public-routes.json, copied in CLAUDE.md); the hash law in CLAUDE.md applies. Per D-ac the governed set is 30: the 26 baselined routes plus /get-app/pro, /get-app/customer, /open/pro and /open/customer, the set growing with the routes as they are built (James-ruled 2026-10-07): 28 at B5 (/get-app/pro, /get-app/customer), 30 at B8 (/open/pro, /open/customer), each gate adding its routes to docs/public-routes.json, CLAUDE.md and the baselines together, with deterministic fallback-representation baselines for the user-agent-redirecting ones.
 
 Delivery:
 
@@ -342,8 +342,8 @@ Fix: D-j. sw.js v6 never handles /api/_ (pure passthrough, no respondWith); stat
 Migration or config: none.
 Tests: a vitest over the fetch handler with a fake cache (no /api/\* put ever); Playwright same-device account switch then offline cannot show the first account's data. Manual: one offline walk on the website.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c (partial closure 623be47). Decision owner and date: James, 2026-10-06 (D-j). Overlap group A. Regression evidence: none yet.
-Implementation status: TODO (B2).
+Last verified commit 766f98c (partial closure 623be47). Decision owner and date: James, 2026-10-06 (D-j). Overlap group A. Regression evidence: Rig: vitest src/lib/sw/sw.test.ts 11 of 11 on v6, 8 of 11 fail on the v5 file (the bench can fail); Playwright e2e/sw-isolation.spec.ts passes on the branch and fails on the main control build (6312a83).
+Implementation status: BUILT (B2a on claude/b2a-sw-freshness-checkout, commit 8e350ab; e2e bac9577, 6411810). Changed: public/sw.js (v6), src/middleware.ts (NO_STORE_API_FAMILY for /api/cleaners, /api/job-check, /api/unsubscribe, unconditional per deviation (b)), next.config.js (/sw.js Cache-Control: no-cache), src/lib/sw/sw.test.ts, src/middleware.test.ts, e2e/sw-isolation.spec.ts. Install precaches /offline and its /\_next/static assets and never rejects over one asset (amendment 5). The test signs A in, browses, clears the session, signs B in, goes offline, and asserts no rena-dynamic cache, no /api entry, no A data. At the gate; the manual offline walk rides it. Not DONE until merged, deployed and walked. Earlier: TODO (B2).
 
 #### RENA-055 Service-worker strategy more complex than the launch requirement
 
@@ -351,8 +351,8 @@ Severity P2. Status CONFIRMED. Batch B2. Overlap A.
 Mechanism: nothing in src reads cached API data or navigator.onLine; web push has no browser subscriber; the offline page is the only feature the SW serves; PWA install works from the manifest alone.
 Fix: delivered by RENA-048's v6 rewrite.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-j). Overlap group A. Regression evidence: none yet.
-Implementation status: TODO (B2, with RENA-048).
+Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-j). Overlap group A. Regression evidence: As RENA-048.
+Implementation status: BUILT with RENA-048 (B2a, commit 8e350ab). At the gate. Earlier: TODO (B2, with RENA-048).
 
 #### RENA-018 Post-payment return to a stale Home
 
@@ -362,8 +362,8 @@ Fix: D-o. An invalidation contract: a page registers window.\_\_renaRefresh and 
 Migration or config: none.
 Tests: Playwright toggles visibility and asserts a refetch; a stale marker triggers an immediate refetch inside the window. Manual: pay, Done, Home shows the clean, on a device.
 Delivery WEB. Proof RIG-PARTIAL + DEVICE.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-o). Overlap group J. Regression evidence: none yet.
-Implementation status: TODO (B2).
+Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-o). Overlap group J. Regression evidence: Rig: vitest src/lib/freshness.test.ts 12 of 12; Playwright e2e/freshness.spec.ts (Done strips ?paid, no refetch inside the window, a marker refetches at once, a marker from another tab arrives by the storage event) passes on the branch and fails on the main control.
+Implementation status: BUILT (B2a on claude/b2a-sw-freshness-checkout, commit cb0d601). Changed: src/lib/freshness.ts (per-pane localStorage keys rena:stale:<pane> for home, mycleans, account, cleaner; storage event; activation on visibilitychange, pageshow and focus with 15 s coalescing; explicit markers bypass it; markers expire after 60 minutes), app/home/page.tsx (load() registered, ?paid stripped by replaceState), account/bookings/page.tsx (load() registered, markers on confirm, cancel, dispute, review), booking-confirmation (markers when paid, Done to /app/home?paid=<id>), the mutation sites in booking/[id], approve-topup, regular-clean/[id] and the services wizard, AuthProvider (markers cleared on the authenticated to unauthenticated transition). Departures for the gate: the marker reset at sign out sits in AuthProvider once rather than at each caller; a shell logout that never reads unauthenticated in a pane leaves markers until their 60-minute expiry (harmless: a marker only forces a refetch). The device gate (James's walk) proves cross-WebView storage-event propagation on iOS and Android; if it fails, window.\_\_renaShow moves to B2b as a worded OTA (amendment 2). Not DONE until that walk. Earlier: TODO (B2).
 
 #### RENA-019 Customer Home converts API and session failures into "no bookings"
 
@@ -384,8 +384,8 @@ Fix: checkout mode derives from the session: authenticated means account mode wi
 Migration or config: none.
 Tests: Playwright: signed-in user never sees the fork; signed-out account choice lands on /login and returns with state; guest return_url contains gt; confirmation renders the booking in every mode. Manual: one test-mode payment in each mode on the website and in the customer shell.
 Delivery WEB. Proof RIG-AUTO. Incognito diff rides the gate.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group I. Regression evidence: none yet.
-Implementation status: TODO (B2).
+Last verified commit 766f98c. Decision owner and date: none needed. Overlap group I. Regression evidence: Ceremonial drive, branch against main 6312a83 on the rig, both roads (quote-first /services/regular, cleaner-first /book/[id] handing off to /services/regular?cleaner=) in guest and account mode: POST /api/bookings bodies identical field by field (14 of 14, all four cases); account return_url identical; guest return_url carries gt on the branch and lacked it on main; a paid guest booking rendered from the gt return reads Cleo is confirmed for your clean, while main's tokenless return gets four 401s and a generic Payment received. Vitest: callback-url 21, return-url 3. Playwright e2e/signup-callback.spec.ts.
+Implementation status: BUILT (B2a on claude/b2a-sw-freshness-checkout, commits a44cab9, 3b066cf). Changed: src/lib/auth/callback-url.ts (one sanitiser, amendment 3) used by login and signup (signup gains callbackUrl), src/lib/booking/return-url.ts used by StripeCheckoutForm (gt whenever the server minted a token, whatever the mode), services/[category]/page.tsx (keeps the token from the POST response and passes it to checkout; the wizard keeps its inline sign-in as ruled). Register rule 20, source disproves part of this entry: the fork lives in book/[id]'s details step, and nothing has set step to details since d545e23 (2026-03-20), which replaced setStep('details') with router.push to /services/<type>?cleaner=<id>; the only reachable setStep is setStep('service') (book/[id]/page.tsx:1003). The fork changes built there were therefore reverted (3b066cf) rather than shipped to dead code. The live defect was the token: the wizard never passed it to checkout, so every website guest payment returned without gt. That is fixed and measured. Proposed register change for James: the fork half of RENA-020 recorded as disproved at d545e23; deleting the unreachable details step is parked (B6 dead-code sweep candidate). Earlier: TODO (B2).
 
 #### RENA-021 Authenticated users still shown the fork
 
@@ -393,8 +393,8 @@ Severity P2. Status CONFIRMED. Batch B2. Overlap I.
 Mechanism: book/[id]/page.tsx:1080 renders the fork on bookingMode === null only; isAuthenticated gates only convenience fetches; the customer shell sees the same fork.
 Fix: delivered by RENA-020.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group I. Regression evidence: none yet.
-Implementation status: TODO (B2, with RENA-020).
+Last verified commit 766f98c. Decision owner and date: none needed. Overlap group I. Regression evidence: As RENA-020.
+Implementation status: DISPROVED by source (register rule 20): the fork is unreachable since d545e23; the reachable road (the services wizard) derives guest-ness from the session and shows no fork. Proposed for James's ruling: close as disproved. Nothing built. Earlier: TODO (B2, with RENA-020).
 
 #### RENA-023 /pay/[id] error screen has no action
 
@@ -404,8 +404,8 @@ Fix: error card with Try again and Back to booking; on 404 with no session and n
 Migration or config: none.
 Tests: Playwright: logged-out shows the sign-in door; wrong user shows Not found with Back; network error shows Try again. Manual: recurring charge email link while logged out.
 Delivery WEB. Proof RIG-AUTO.
-Last verified commit 766f98c. Decision owner and date: none needed. Overlap group B. Regression evidence: none yet.
-Implementation status: TODO (B2).
+Last verified commit 766f98c. Decision owner and date: none needed. Overlap group B. Regression evidence: Rig: Playwright e2e/pay-page.spec.ts (signed out shows the sign-in door carrying /pay/<id>; network failure offers Try again and the retry reaches the server; 500 and 403 each get their own state; a booking that is not theirs reads Not found with Back and Home) passes on the branch and fails on the main control.
+Implementation status: BUILT (B2a on claude/b2a-sw-freshness-checkout, commit a44cab9). Changed: pay/[id]/page.tsx: failure kinds network, signin, notfound, forbidden, conflict, server, each with its own copy and door; signin applies to a 401, or a 404 with no session and no token (amendment 1: a 403 never touches the session). At the gate. Earlier: TODO (B2).
 
 #### RENA-025 Customer freshness relies on manual full reloads
 
@@ -413,8 +413,8 @@ Severity P3. Status CONFIRMED. Batch B2. Overlap J.
 Mechanism: src/app/[locale]/account/bookings/page.tsx:479-560 fetches once at mount; no refresh registration under /account or /app/home; the shell PTR calls location.reload() when none is registered (mobile-customer/App.tsx:1096).
 Fix: delivered by RENA-018's contract on Home and My Cleans.
 Delivery WEB. Proof RIG-PARTIAL + DEVICE.
-Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-o). Overlap group J. Regression evidence: none yet.
-Implementation status: TODO (B2, with RENA-018).
+Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-o). Overlap group J. Regression evidence: As RENA-018.
+Implementation status: BUILT with RENA-018 (B2a, commit cb0d601): My Cleans registers its load() and honours the markers. At the gate. Earlier: TODO (B2, with RENA-018).
 
 #### RENA-053 Cleaners directory failure state
 
@@ -446,8 +446,8 @@ Fix: (1) derive the back link from the session the page already has (useAuth, th
 Migration or config: none.
 Tests: Playwright as a cleaner: open /messages, click the back link while the profile response is delayed, assert the landing is /cleaner with no /account history entry and that one browser back returns to Messages; as a customer the mirror; phone viewport: open a thread, assert the back link is reachable; pageshow: assert the dashboard refetches on a bfcache restore. Manual: James's symptom walk on the website before and after.
 Delivery WEB. Proof RIG-AUTO plus James's walk.
-Last verified commit c4d5b86. Decision owner and date: James, 2026-10-06. Overlap group B (session design and role-home guards); D is shell-only and does not apply. Regression evidence: none yet.
-Implementation status: TODO (B2). D-ac (2026-10-07): all three mechanisms build in B2 (B2a builds mechanisms 1 and 2, B2b mechanism 3); D-aa's parking is superseded; James's symptom walk before and after stays the manual proof. Earlier, D-aa (2026-10-06): remains parked pending James's reproducible symptom (role, device, trapped versus wrong page versus stale), no fix guessed. Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
+Last verified commit c4d5b86. Decision owner and date: James, 2026-10-06. Overlap group B (session design and role-home guards); D is shell-only and does not apply. Regression evidence: Rig: Playwright e2e/messages-back.spec.ts, five tests: a cleaner's first way home is the cleaner's (fails on main with Back to my account), a customer is offered Back to my account, Back after a role redirect returns to Messages (fails on main, the customer was signed out), phone-width Back closes the thread, Forward reopens it with no duplicate entries, and direct entry with a booking shows the list on Back (both fail on main).
+Implementation status: BUILT, mechanisms 1 and 2 (B2a on claude/b2a-sw-freshness-checkout, commits 0d820c4, 461e765). Changed: messages/page.tsx (role and id from useAuth, no way home until the role is known, the profile fetch removed; below 768 px opening a thread pushes one history entry namespaced as \_\_renaThread inside Next's own state, a popstate listener opens or closes it, the chevron spends the entry), account/page.tsx and cleaner/page.tsx (guards replace, never push), cleaner/layout.tsx (the profile fetch waits for an authenticated CLEANER session: its 401 branch used to sign out a customer who landed on /cleaner; departure named at the gate). Mechanism 3 (pageshow on the website dashboards) is B2b. James's symptom walk before and after stays the manual proof. Earlier: TODO (B2). D-ac (2026-10-07): all three mechanisms build in B2 (B2a builds mechanisms 1 and 2, B2b mechanism 3); D-aa's parking is superseded; James's symptom walk before and after stays the manual proof. Earlier, D-aa (2026-10-06): remains parked pending James's reproducible symptom (role, device, trapped versus wrong page versus stale), no fix guessed. Parked: James to describe the exact symptom on request (which role, which gesture: the in-page link, the browser back button or a swipe; phone or desktop width; whether the dashboard arrived stale or the wrong page arrived); overlap group B assumed from the ruling's wording, to be confirmed.
 
 ### B3 Cleaner lifecycle and concurrency
 
@@ -636,7 +636,7 @@ Implementation status: TODO (B4, with RENA-015).
 
 #### RENA-087 Top-up booking's anchored transfer slice can exceed its source charge
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N1, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N1, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: transfer.service.ts computes the anchored headroom from totalAmountCharged (:164), which includes top-up charges, but anchors every slice to the original stripeChargeId (:211-212); top-up charge ids are never stored and top-up PaymentIntents carry no transfer_group, so a top-up booking's anchored slice can exceed the original charge, Stripe rejects it and the booking goes FAILED with no automatic retry.
 Fix: B4.2: TopupRecord.stripeChargeId stored; each charge (original and each succeeded top-up) gets its own ANCHORED slice up to that charge's amount; the remainder is one EXCESS slice.
 Migration or config: TopupRecord.stripeChargeId (B4 migration).
@@ -647,7 +647,7 @@ Implementation status: TODO (B4).
 
 #### RENA-088 Unknown-refund retry uses the original PaymentIntent and drops the allocation
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N2, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N2, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: refund.service.ts handleUnknownRefund retries with booking.stripePaymentIntentId (:418) rather than the slice's PaymentIntent used at :215, so a single slice that LIFO placed on a top-up PaymentIntent is retried with different parameters under the same idempotency key and Stripe returns an idempotency error; the retry success path writes no allocation (:425-436), so later allocations treat that refund as if it hit the original charge.
 Fix: B4.3: every retry uses the slice's own PaymentIntent; slice rows replace the allocation JSON.
 Migration or config: B4 migration.
@@ -658,7 +658,7 @@ Implementation status: TODO (B4).
 
 #### RENA-089 Pre-release earnings scaling divides by totalPrice
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N3, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N3, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: writeRefundSuccess scales cleanerEarnings, platformFee, cleanerPayoutAmount and platformCommissionAmount by amount / totalPrice (refund.service.ts:776-777) while calculateCleanerSharePence uses totalAmountCharged, so the two disagree on top-up bookings.
 Fix: B4.1 and B4.3: one formula, cleanerSharePence over chargedPence = round(totalAmountCharged × 100), for reversal and for scaling.
 Migration or config: none.
@@ -669,7 +669,7 @@ Implementation status: TODO (B4).
 
 #### RENA-090 Cascade-exhaustion auto refund ignores earlier refunds
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N4, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N4, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: cascade.service.ts autoRefundExhausted (:1708-1746, amount at :1725) and processExhaustedRefunds refund the full totalAmountCharged without subtracting earlier refunds, so on a PARTIALLY_REFUNDED booking the refund is refused by the ceiling guard on every five-minute sweep.
 Fix: B4.3: remainingRefundablePence(booking) used for the exhaustion refund.
 Migration or config: none.
@@ -680,7 +680,7 @@ Implementation status: TODO (B4).
 
 #### RENA-091 Stuck-job remainder and retry-refund use totalPrice
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N5, ruled in by D-ac). Batch B4. Overlap F.
+Severity P2 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N5, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: stuck-jobs.service.ts cancelRefund computes the remainder from totalPrice (:355) and then forces transferStatus REFUNDED; POST /api/admin/bookings/retry-refund uses totalPrice (:72) and always the original PaymentIntent (:78), writes no allocation and no Xero push, and sets RELEASED on a partial refund (:88).
 Fix: B4.3: remainingRefundablePence for the stuck-job remainder; retry-refund deleted, replaced by the stuck-money queue's actions (B4.6).
 Migration or config: none.
@@ -691,7 +691,7 @@ Implementation status: TODO (B4).
 
 #### RENA-092 Dispute money failure strands the booking with the dispute RESOLVED
 
-Severity P1 (proposed; James to confirm; part of RENA-013's mechanism). Status CONFIRMED (B4 survey addition N6, ruled in by D-ac). Batch B4. Overlap F.
+Severity P1 (James-confirmed 2026-10-07; part of RENA-013's mechanism). Status CONFIRMED (B4 survey addition N6, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: admin-operations.service.ts resolveDispute writes RESOLVED before the money step (:633-655) and the money step is best effort (:661-721); a failed refund restores transferStatus PAUSED, leaving the booking COMPLETED or CANCELLED, PAUSED, with a RESOLVED dispute; nothing re-resolves it and the scheduler picks PENDING only.
 Fix: B4.4: RESOLVING_REFUND and RESOLVING_RELEASE, RESOLVED only on confirmed money movement, retryResolvingDisputes with retry and backoff metadata per D-ac, the row visible in stuck-money.
 Migration or config: the DisputeStatus enum values and Dispute columns (B4 migration).
@@ -702,7 +702,7 @@ Implementation status: TODO (B4, with RENA-013).
 
 #### RENA-093 Stripe chargebacks never pause release
 
-Severity P2 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N7, ruled in by D-ac). Batch B4. Overlap F.
+Severity P1 (James-ruled 2026-10-07, raised from the proposed P2: the chargeback hold is money integrity). Status CONFIRMED (B4 survey addition N7, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: webhooks/stripe/route.ts handles charge.dispute.created with an alert email only (:375-411) and funds_withdrawn and funds_reinstated with Xero pushes only (:420-456); neither pauses release nor touches the booking.
 Fix (D-ac): unreleased funds get a chargeback hold; a chargeback after release becomes CHARGEBACK_AFTER_RELEASE in stuck-money; release resumes only when moneyHoldReasons(booking) is empty (dispute, shortfall and chargeback holds coexist).
 Migration or config: the hold representation is specified in the B4 build (B4 migration).
@@ -713,7 +713,7 @@ Implementation status: TODO (B4).
 
 #### RENA-094 Reference seed resets admin-managed PlatformConfig on every deploy
 
-Severity P3 (proposed; James to confirm). Status CONFIRMED (B4 survey addition N8, ruled in by D-ac). Batch B4. Overlap F.
+Severity P3 (James-confirmed 2026-10-07). Status CONFIRMED (B4 survey addition N8, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: prisma/seed-reference-data.ts upserts PlatformConfig rows with update: { value, description } (:205), so every deploy overwrites admin edits.
 Fix (D-ac): admin-managed PlatformConfig defaults are create-if-missing, never reset on deploy; the misleading fee controls removed (RENA-075).
 Migration or config: seed change.
@@ -724,7 +724,7 @@ Implementation status: TODO (B4).
 
 #### RENA-095 Recurring off-session charge treats an unknown outcome as a failed attempt
 
-Severity P1 (proposed; James to confirm: a possible double charge). Status CONFIRMED (B4 survey addition N9, ruled in by D-ac). Batch B4. Overlap F.
+Severity P1 (James-confirmed 2026-10-07; a possible double charge). Status CONFIRMED (B4 survey addition N9, ruled in by D-ac). Batch B4. Overlap F.
 Mechanism: recurring-charge.service.ts catches a StripeConnectionError on the off-session charge as a failure (:183-187), although the card may have been charged; a later attempt under a new key could charge twice.
 Fix (D-ac): a deterministic stored idempotency key, one same-key retry, then UNKNOWN reconciled by the sweep; never a new-key replacement charge while UNKNOWN.
 Migration or config: the stored key and attempt state (B4 migration).
@@ -1142,6 +1142,8 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-07: B2a BUILT on claude/b2a-sw-freshness-checkout (commits 8e350ab, cb0d601, a44cab9, 0d820c4, 3b066cf, 461e765, bac9577, 6411810): RENA-048 and 055 (service worker v6), RENA-018 and 025 (the freshness contract), RENA-020 and 023 (callback sanitiser, guest token on every return_url, honest pay page), RENA-084 mechanisms 1 and 2. Register rule 20: RENA-020's fork half and RENA-021 disproved by source (the book/[id] details step unreachable since d545e23); changes there reverted, register change proposed for James. Ceremonial money-path drive against main 6312a83: payloads identical, the guest return gains gt. All 26 governed routes hash identical. At the gate; no merge until James's word.
+- 2026-10-07: STEP 0 merged to main 6312a83 on James's word. Severities of RENA-087 to RENA-095 confirmed as proposed except RENA-093 raised to P1 (the chargeback hold is money integrity). The governed route set grows with the routes as built: 28 at B5, 30 at B8, each gate adding its routes to docs/public-routes.json, CLAUDE.md and the baselines together. The two labelled notes in docs/design/B6.md and B9.md stand as the record of the programme order superseding the design reports. B2a begins.
 - 2026-10-07: STEP 0 of the hardening programme (docs only): the nine design reports (B2 to B9) committed verbatim in docs/design with James's rulings and amendments; D-ac recorded (every named deviation approved; order B2a, B2b, B3, B4, B5, B6, B7, B8, the pre-closure code lane, N15, B9; the business-rule rulings; customer push activates in B5 and the C7 hold lifts then); RENA-087 to RENA-095 added under B4 (the survey additions N1 to N9, severities proposed for confirmation); RENA-084 builds all three mechanisms in B2; RENA-004 and RENA-007 step two moved to the pre-closure lane; RENA-001 step two is N15; the governed public route set ruled at 30. No code change.
 - 2026-10-07: B1 CLOSED. B1a DEPLOYED and DONE (0165dd3, deployment dda67793, James's walk passed on both apps and the website, both lanes); B1b merged ec445c9 and DEPLOYED (deployment 5bb35e2e, boot clean, /privacy verified live); RENA-002's retraction recorded; the revert branch retired. RENA-066 and 077 reach DONE on the first production line read and James's signup walk.
 - 2026-10-07: three externals recorded on James's word: NEXTAUTH_URL confirmed present as a build-visible service variable (RENA-006, RENA-002's D-y canonical origin); LOG_HMAC_KEY set in Railway (RENA-066, D-ab); the Cloudflare range snapshot diffed against the live cloudflare.com/ips lists and found identical, 15 IPv4 and 7 IPv6 (RENA-002). No code change.

@@ -79,6 +79,14 @@ const authRoutes = ['/login', '/register', '/forgot-password'];
 const AUTHED_API_FAMILY =
   /^\/api\/(auth|account|addresses|admin|agreements|bookings|calendar|chat|cleaner|customer|disputes|gdpr|messages|notifications|push|recurring|verification)(\/|$)/;
 
+// RENA-048 (B2a): API routes outside the authed family whose responses can
+// still be personal (the cleaners directory is personalised per signed-in
+// viewer since acca3e7; job-check and unsubscribe answer about one person).
+// Never cacheable by anything, unconditionally: the condition "signed in"
+// would cost an Edge token read per request and buys nothing, since nothing
+// should cache this JSON for anonymous viewers either.
+const NO_STORE_API_FAMILY = /^\/api\/(cleaners|job-check|unsubscribe)(\/|$)/;
+
 // R1: segment-boundary matching. Plain startsWith over-matched sibling routes —
 // '/cleaners' (the PUBLIC directory) begins with '/cleaner' (the protected
 // portal), so guests hit a login wall on find-a-cleaner. A route matches only
@@ -146,7 +154,7 @@ export async function middleware(request: NextRequest) {
     // network failure. `private, no-store` is what the SW's own guard and the
     // WebView HTTP cache both honour.
     const apiResponse = NextResponse.next();
-    if (AUTHED_API_FAMILY.test(pathname)) {
+    if (AUTHED_API_FAMILY.test(pathname) || NO_STORE_API_FAMILY.test(pathname)) {
       apiResponse.headers.set('Cache-Control', 'private, no-store');
     }
     return apiResponse;

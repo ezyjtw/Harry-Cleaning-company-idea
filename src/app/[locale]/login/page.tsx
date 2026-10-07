@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import { Suspense, useEffect, useState } from 'react';
 
 import PasswordInput from '@/components/ui/PasswordInput';
+import { safeCallbackUrl } from '@/lib/auth/callback-url';
 
 function LoginForm() {
   const router = useRouter();
@@ -13,15 +14,9 @@ function LoginForm() {
   // SECURITY (S2 class): only honour a same-origin RELATIVE callback — a raw
   // router.push of '?callbackUrl=//evil.com' (or a backslash variant) would
   // navigate off-site after login. Anything suspect falls back to the
-  // role-based redirect below.
-  const rawCallback = searchParams.get('callbackUrl');
-  const callbackUrl =
-    rawCallback &&
-    rawCallback.startsWith('/') &&
-    !rawCallback.startsWith('//') &&
-    !rawCallback.includes('\\')
-      ? rawCallback
-      : null;
+  // role-based redirect below. RENA-020 (B2a): the one shared sanitiser,
+  // also used by signup.
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
   const [form, setForm] = useState({ email: '', password: '' });
   // ROUND 3 LANE 2 (James-ruled): the in-shell login wears mockup A's dress
   // for sibling consistency with signup. Mount-gated — browsers render the

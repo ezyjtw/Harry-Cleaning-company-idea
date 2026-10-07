@@ -3,6 +3,8 @@
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useState } from 'react';
 
+import { buildReturnUrl } from '@/lib/booking/return-url';
+
 interface StripeCheckoutFormProps {
   total: number;
   bookingId: string;
@@ -61,10 +63,8 @@ export default function StripeCheckoutForm({
     // Carry the guestToken through the return_url so the confirmation page can
     // read the booking via the guest-safe endpoint (a guest has no session, so
     // the account-only status endpoints would 401 → infinite spinner).
-    const returnUrl =
-      isGuest && guestToken
-        ? `${appUrl}/en/booking-confirmation/${bookingId}?gt=${encodeURIComponent(guestToken)}`
-        : `${appUrl}/en/booking-confirmation/${bookingId}`;
+    // RENA-020 (B2a): whenever the server minted a token, whatever the mode.
+    const returnUrl = buildReturnUrl(appUrl, bookingId, guestToken);
 
     const result = await stripeHook.confirmPayment({
       elements,

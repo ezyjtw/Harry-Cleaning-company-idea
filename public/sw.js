@@ -1,88 +1,140 @@
-// H44: version bumped v3 → v4 to PURGE the poisoned dynamic cache. The old
-// networkFirst cached decrypted dispute-evidence bytes (and any authed API
-// response) into origin-scoped Cache Storage, which ignored the route's
-// `no-store` and served the file with no auth consulted on a network failure.
-// The activate handler deletes every cache whose name isn't in the current
-// set, so the bump wipes rena-dynamic-v3 from every existing client on update.
+// RENA-048 / RENA-055 (B2a, James-ruled D-j): service worker v6.
 //
-// Home-after-login (James-ruled): bumped v4 → v5. The authed API family
-// carried NO Cache-Control, so networkFirst's guard let one account's
-// profile, bookings and jobs into the dynamic cache, where the next account
-// on the same device could be served them on a network failure. The routes
-// now send `private, no-store` (never written again); the bump purges what
-// is already sitting in every installed client.
-const STATIC_CACHE = 'rena-static-v5';
-const DYNAMIC_CACHE = 'rena-dynamic-v5';
+// The SW caches NO /api/* response, ever. Every API request, every non-GET
+// request and every cross-origin request passes straight through to the
+// network (no respondWith), so a route's own auth is the only gate and no
+// account's data can survive in origin-scoped Cache Storage for the next
+// account on the same device. What the SW still does:
+//   - content-hashed build assets under /_next/static/ are served cache-first
+//     (immutable by construction);
+//   - a document navigation that fails twice (R11's one honest retry kept)
+//     falls back to the precached /offline page; a document is never served
+//     from cache otherwise;
+//   - the push and notificationclick handlers.
+//
+// History: v3 → v4 (H44) purged decrypted dispute evidence; v4 → v5
+// (Home-after-login) purged authed API bodies written before the routes sent
+// private, no-store. v5 → v6 removes the dynamic cache entirely; the activate
+// handler deletes every cache that is not the current static cache, so
+// rena-dynamic-v3/v4/v5 and rena-static-v5 are purged from every installed
+// client on the first load after deploy.
+const STATIC_CACHE = 'rena-static-v6';
+const OFFLINE_URL = '/offline';
 
-// H44: sensitive authed API surfaces that must NEVER touch the cache — never
-// written, never served from cache. Evidence is encrypted-at-rest material in
-// an adversarial proceeding; the disputes API carries the same case data. The
-// authed party-scoped route is the EXCLUSIVE path, so the SW bypasses these to
-// the network entirely (a genuine 401/403 must reach the browser, and no byte
-// may survive in a shared origin cache).
-const NEVER_CACHE_PATTERNS = [/^\/api\/disputes\//];
-
-function isNeverCache(pathname) {
-  return NEVER_CACHE_PATTERNS.some((re) => re.test(pathname));
-}
-
-const STATIC_ASSETS = ['/', '/offline', '/manifest.json'];
-
-// Install event
+// Install never fails over one asset (James-ruled amendment): the offline page
+// and each build asset it references are cached independently and every
+// failure is swallowed. A worker that cannot precache still installs; the
+// offline fallback then degrades to the minimal inline page below.
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+  event.waitUntil(precacheOffline());
   self.skipWaiting();
 });
 
-// Activate event
+async function precacheOffline() {
+  try {
+    const cache = await caches.open(STATIC_CACHE);
+    const res = await fetch(OFFLINE_URL, { cache: 'no-store', credentials: 'omit' });
+    if (!res || !res.ok) return;
+    const html = await res.clone().text();
+    await cache.put(OFFLINE_URL, res);
+    const assets = offlineAssetPaths(html);
+    await Promise.all(
+      assets.map((path) =>
+        fetch(path)
+          .then((r) => (r && r.ok ? cache.put(path, r) : undefined))
+          .catch(() => undefined)
+      )
+    );
+  } catch {
+    // Precache is best effort by design: never reject install.
+  }
+}
+
+// Same-origin /_next/static/ paths referenced by the offline page's HTML
+// (stylesheets, scripts, fonts). Plain string scanning, no regex escapes.
+function offlineAssetPaths(html) {
+  const found = new Set();
+  const marker = '/_next/static/';
+  let from = 0;
+  for (;;) {
+    const at = html.indexOf(marker, from);
+    if (at === -1) break;
+    let end = at;
+    while (end < html.length && !'"\' <>)'.includes(html[end])) end += 1;
+    const path = html.slice(at, end).split('?')[0].split('#')[0];
+    if (path.length > marker.length) found.add(path);
+    from = end;
+  }
+  return Array.from(found);
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys
-          .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE)
-          .map((key) => caches.delete(key))
-      );
-    })
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((key) => key !== STATIC_CACHE).map((key) => caches.delete(key)))
+      )
   );
   self.clients.claim();
 });
 
-// Fetch event with network-first strategy for API, cache-first for static
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
 
-  // Skip non-GET requests
+  // Mutations, cross-origin requests (Stripe, fonts, Sentry) and the whole
+  // API surface are never touched: pure passthrough, no respondWith.
   if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return;
 
-  // Skip auth and API mutation requests
-  if (url.pathname.startsWith('/api/auth')) return;
-
-  // H44: sensitive authed surfaces bypass the SW entirely — pure passthrough
-  // to the network so the route's own auth is the ONLY gate and nothing is
-  // ever cached. `return` (no respondWith) lets the browser fetch normally.
-  if (isNeverCache(url.pathname)) return;
-
-  // API requests: network first with cache fallback
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 
-  // Static assets: cache first
-  if (isStaticAsset(url.pathname)) {
-    event.respondWith(cacheFirst(request, STATIC_CACHE));
-    return;
+  if (request.mode === 'navigate') {
+    event.respondWith(navigateWithOfflineFallback(request));
   }
-
-  // Pages: network first with offline fallback
-  event.respondWith(networkFirstWithOffline(request));
+  // Everything else (icons, images, fonts, manifest, ?v= stamped assets):
+  // passthrough to the browser HTTP cache, which honours the server headers.
 });
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response && response.ok) {
+    const cache = await caches.open(STATIC_CACHE);
+    cache.put(request, response.clone());
+  }
+  return response;
+}
+
+async function navigateWithOfflineFallback(request) {
+  try {
+    return await fetch(request);
+  } catch {
+    // R11 (first-landing defect): one honest retry before any fallback, so a
+    // single transient failure never paints the offline screen on a healthy
+    // network. A navigate-mode Request cannot be reconstructed, so the retry
+    // is a plain GET of the same URL.
+    try {
+      return await fetch(request.url, { cache: 'no-store', credentials: 'include' });
+    } catch {
+      const offline = await caches.match(OFFLINE_URL);
+      return offline || minimalOfflineResponse();
+    }
+  }
+}
+
+function minimalOfflineResponse() {
+  return new Response(
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline</title></head><body style="font-family:system-ui,sans-serif;text-align:center;padding:4rem 1rem"><h1>You are offline</h1><p>Check your connection and try again.</p><button onclick="location.reload()">Try again</button></body></html>',
+    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
 
 // Push notification event
 self.addEventListener('push', (event) => {
@@ -118,80 +170,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
-// Helper functions
-async function networkFirst(request, cacheName) {
-  try {
-    const response = await fetch(request);
-    // H44: never cache a response the server marked private/no-store. Any
-    // authed route that opts out of caching (evidence sets `private, no-store`)
-    // is honoured here too — belt-and-braces beside the path allowlist above.
-    const cc = response.headers.get('Cache-Control') || '';
-    const cacheable = response.ok && !/no-store|private/i.test(cc);
-    if (cacheable) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    return (
-      cached ||
-      new Response('{"error":"offline"}', {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-  }
-}
-
-async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    return new Response('', { status: 503 });
-  }
-}
-
-async function networkFirstWithOffline(request) {
-  try {
-    const response = await fetch(request);
-    return response;
-  } catch {
-    // R11 (James-ordered, first-landing defect): a DOCUMENT navigation gets
-    // one honest retry before any fallback. A single transient failure (a
-    // connection reset at the freshly-installed SW's first takeover, a
-    // mobile handoff) used to paint the permanent-looking offline screen on
-    // a healthy network — the first screen of a new customer's life with
-    // Rena. The retry is a fresh plain GET (a navigate-mode Request cannot
-    // be reconstructed); for a document request the full-page response it
-    // returns is exactly what the navigation wants.
-    if (request.mode === 'navigate') {
-      try {
-        return await fetch(request.url, { cache: 'no-store', credentials: 'include' });
-      } catch {
-        // genuinely unreachable twice — fall through to the offline page
-      }
-    }
-    const cached = await caches.match(request);
-    if (cached) return cached;
-
-    // Return offline page for navigation requests
-    if (request.mode === 'navigate') {
-      return caches.match('/offline');
-    }
-    return new Response('', { status: 503 });
-  }
-}
-
-function isStaticAsset(pathname) {
-  return /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$/.test(pathname);
-}

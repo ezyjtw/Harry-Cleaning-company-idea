@@ -29,6 +29,7 @@ import {
   bedroomsLabel,
 } from '@/lib/constants/services';
 import { anyLiveCleanerCovers } from '@/lib/coverage-client';
+import { markStale } from '@/lib/freshness';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { useCleanersApi } from '@/lib/hooks/useCleanersApi';
 import { SERVICE_FEE_PERCENT } from '@/lib/pricing';
@@ -707,6 +708,9 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       </p>
     ) : null;
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
+  // RENA-020 (B2a): the token the server minted for a guest booking rides the
+  // Stripe return_url, or the confirmation page cannot read the booking.
+  const [confirmedGuestToken, setConfirmedGuestToken] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   // F7: authed customers' Elements session — lets the PaymentElement redisplay
   // saved cards. Null for guests (the server never mints one for them).
@@ -1351,7 +1355,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
       if (response.ok) {
         const data = await response.json();
+        // RENA-018 (B2a): a new (unpaid) booking shows on Home and My Cleans.
+        markStale(['home', 'mycleans', 'account']);
         setConfirmedBookingId(data.booking?.id || '');
+        setConfirmedGuestToken(data.booking?.guestToken ?? null);
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
           setCustomerSessionSecret(data.customerSessionClientSecret || null);
@@ -1768,6 +1775,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             saveCard={saveCard}
             onSaveCardChange={setSaveCard}
             isGuest={isGuest}
+            guestToken={confirmedGuestToken}
             onBack={() => {
               setPaymentStep(false);
               setClientSecret(null);
