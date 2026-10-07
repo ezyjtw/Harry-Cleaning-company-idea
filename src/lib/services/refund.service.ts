@@ -67,6 +67,8 @@ export interface RefundOptions {
   bookingDataOverride?: Record<string, unknown>;
   /** Confine the refund to one charge (the TOPUP_WITHOUT_ASSIGNMENT refund). */
   onlyPaymentIntentId?: string;
+  /** The flagged top-up this refund returns: its recovery runs on success. */
+  flaggedTopupRecordId?: string;
 }
 
 interface RecordContext {
@@ -86,6 +88,8 @@ interface RecordContext {
   late?: boolean;
   /** The refund was confined to one charge (a retry keeps it there). */
   onlyPaymentIntentId?: string;
+  /** A TOPUP_WITHOUT_ASSIGNMENT refund: the booking's recovery runs once it succeeds. */
+  flaggedTopupRecordId?: string;
 }
 
 export const LEDGER_RECONCILIATION_PENDING = 'LEDGER_RECONCILIATION_PENDING';
@@ -101,7 +105,13 @@ export async function refundBooking(
   reason: string,
   options: RefundOptions = {}
 ): Promise<RefundResult> {
-  const { triggeredBy, adjustEarnings = true, bookingDataOverride, onlyPaymentIntentId } = options;
+  const {
+    triggeredBy,
+    adjustEarnings = true,
+    bookingDataOverride,
+    onlyPaymentIntentId,
+    flaggedTopupRecordId,
+  } = options;
   const amountPence = Math.round(amountPounds * 100);
 
   const ledger = await loadBookingLedger(prisma, bookingId);
@@ -195,6 +205,7 @@ export async function refundBooking(
     finalizedShareablePence: 0,
     xeroSliceIds: [],
     ...(onlyPaymentIntentId ? { onlyPaymentIntentId } : {}),
+    ...(flaggedTopupRecordId ? { flaggedTopupRecordId } : {}),
   };
 
   const record = await prisma.refundRecord.create({
@@ -634,6 +645,16 @@ export async function finalizeRefundRecord(recordId: string): Promise<RefundResu
       stripeRefundId: refundIds[0],
       reason: `Partially executed (£${(executed / 100).toFixed(2)}) — retry the remainder`,
     };
+  }
+  if (status === 'SUCCEEDED' && ctx.flaggedTopupRecordId) {
+    await completeFlaggedTopupRefund(recordId, ctx).catch((err) => {
+      log.error(
+        'refund',
+        'flagged_topup_recovery_failed',
+        { bookingId, refundRecordId: recordId },
+        err
+      );
+    });
   }
   return {
     status: fullyRefunded ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
@@ -1651,33 +1672,56 @@ export async function refundFlaggedTopup(
   const remaining = charge ? Math.max(0, charge.capturedPence - charge.takenPence) : 0;
   if (remaining <= 0) return { status: 'SKIPPED', reason: 'Nothing left on this top-up' };
 
-  const result = await refundBooking(
+  // The marker, the audit and the booking's recovery run when the refund is
+  // confirmed (inline here, or later when an unknown outcome reconciles):
+  // completeFlaggedTopupRefund, called from finalisation.
+  return refundBooking(
     t.bookingId,
     remaining / 100,
     'Top-up refunded: the reassignment did not go ahead',
-    { triggeredBy: actorId, adjustEarnings: false, onlyPaymentIntentId: t.stripePaymentIntentId }
+    {
+      triggeredBy: actorId,
+      adjustEarnings: false,
+      onlyPaymentIntentId: t.stripePaymentIntentId,
+      flaggedTopupRecordId: t.id,
+    }
   );
-  if (result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED') {
-    // The flag prefix stays (the share maths keys on it); the queue no longer lists it.
-    await prisma.topupRecord.updateMany({
-      where: { id: t.id, failureReason: { startsWith: `${TOPUP_WITHOUT_ASSIGNMENT}:` } },
-      data: {
-        failureReason: `${TOPUP_WITHOUT_ASSIGNMENT}_REFUNDED${(t.failureReason ?? '').slice(TOPUP_WITHOUT_ASSIGNMENT.length)}`,
-      },
-    });
+}
+
+/**
+ * B4 gate ruling 2: a TOPUP_WITHOUT_ASSIGNMENT refund confirmed in full marks
+ * the top-up refunded (the flag prefix stays for the share maths) and runs the
+ * booking's recovery (cascade.service recoverFromRefundedTopup). Idempotent:
+ * the marker is guarded and the recovery is guarded on the provisional state.
+ */
+async function completeFlaggedTopupRefund(recordId: string, ctx: RecordContext): Promise<void> {
+  const topupId = ctx.flaggedTopupRecordId;
+  if (!topupId) return;
+  const rec = await prisma.refundRecord.findUnique({
+    where: { id: recordId },
+    select: { status: true, bookingId: true, executedPence: true, triggeredBy: true },
+  });
+  if (!rec || rec.status !== 'SUCCEEDED') return;
+  const t = await prisma.topupRecord.findUnique({ where: { id: topupId } });
+  if (!t) return;
+  const marked = await prisma.topupRecord.updateMany({
+    where: { id: t.id, failureReason: { startsWith: `${TOPUP_WITHOUT_ASSIGNMENT}:` } },
+    data: {
+      failureReason: `${TOPUP_WITHOUT_ASSIGNMENT}_REFUNDED${(t.failureReason ?? '').slice(TOPUP_WITHOUT_ASSIGNMENT.length)}`,
+    },
+  });
+  if (marked.count === 1) {
     await AuditService.log({
-      userId: actorId,
+      userId: rec.triggeredBy ?? undefined,
       action: 'TOPUP_WITHOUT_ASSIGNMENT_REFUNDED',
       entityType: 'Booking',
-      entityId: t.bookingId,
-      metadata: {
-        topupRecordId: t.id,
-        amountPence: remaining,
-        refundRecordId: result.refundRecordId,
-      },
+      entityId: rec.bookingId,
+      metadata: { topupRecordId: t.id, amountPence: rec.executedPence, refundRecordId: recordId },
     }).catch(() => {});
   }
-  return result;
+  const { recoverFromRefundedTopup } = await import('./cascade.service');
+  const outcome = await recoverFromRefundedTopup(rec.bookingId);
+  log.warn('refund', 'flagged_topup_recovery', { bookingId: rec.bookingId, outcome });
 }
 
 /**

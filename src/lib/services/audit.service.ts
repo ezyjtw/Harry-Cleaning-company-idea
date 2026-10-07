@@ -102,6 +102,7 @@ export type AuditAction =
   | 'REASSIGN_REVERT_RETRIED'
   | 'TOPUP_WITHOUT_ASSIGNMENT_REFUNDED'
   | 'PAYOUT_STOPPED_FULL_REFUND'
+  | 'TOPUP_RECOVERY_COMPLETED'
   | 'REFUND_SLICE_MATCHED_BY_ADMIN'
   | 'REFUND_SLICE_MARKED_NOT_EXECUTED'
   // R4 LANE 5A: a revert tried to cancel the on-session top-up PaymentIntent

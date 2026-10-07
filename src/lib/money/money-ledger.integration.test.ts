@@ -28,6 +28,7 @@ const enabled = process.env.MONEY_LEDGER_INTEGRATION === '1' && !!process.env.DA
 const REPS = Number(process.env.MONEY_LEDGER_REPS || 15);
 const EMAILS = {
   cleaner: 'b4-cleaner@integration.invalid',
+  cleaner2: 'b4-cleaner-two@integration.invalid',
   customer: 'b4-customer@integration.invalid',
   admin: 'b4-admin@integration.invalid',
 };
@@ -45,7 +46,7 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
   let recurring: typeof RecurringModule;
   let abnormal: typeof AbnormalModule;
   let actions: typeof ActionsModule;
-  const ids = { cleaner: '', customer: '', admin: '' };
+  const ids = { cleaner: '', cleaner2: '', customer: '', admin: '' };
   const startedAt = new Date();
   let n = 0;
 
@@ -210,6 +211,31 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
       },
     });
     ids.cleaner = cleaner.id;
+    const cleaner2 = await prisma.user.create({
+      data: {
+        email: EMAILS.cleaner2,
+        name: 'Integration Cleaner Two',
+        role: 'CLEANER',
+        passwordHash: 'x',
+        emailVerified: new Date(),
+      },
+    });
+    await prisma.cleanerProfile.create({
+      data: {
+        userId: cleaner2.id,
+        verified: true,
+        hourlyRateRegular: 25,
+        bookingBufferMinutes: 30,
+        availabilitySlots: {
+          create: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            startTime: '00:00',
+            endTime: '23:59',
+          })),
+        },
+      },
+    });
+    ids.cleaner2 = cleaner2.id;
     const customer = await prisma.user.create({
       data: {
         email: EMAILS.customer,
@@ -1237,6 +1263,182 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     // Applying again changes nothing.
     expect(await refund.applyExternalRefund(dash.id)).toBe('DONE');
     expect(Number((await bookingRow(b.id)).cleanerEarnings)).toBe(25);
+  });
+
+  // ─── Gate delta ruling 2: TOPUP_WITHOUT_ASSIGNMENT recovery ─────
+
+  /** The B3 fixture: a provisional reassignment whose top-up lands after the new cleaner's slot was taken. */
+  async function flaggedTopupBooking(opts: {
+    source: 'ADMIN_REASSIGN' | 'CASCADE';
+    previousSlotTaken?: boolean;
+    autoAssignBackup?: boolean;
+    backupCleanerIds?: string[];
+  }) {
+    const inHour = new Date(Date.now() + 60 * 60 * 1000);
+    const b = await paidBooking({
+      status: 'AWAITING_CLEANER',
+      extra: {
+        completedAt: null,
+        cascadePhase: 'PROVISIONAL_APPROVAL',
+        cascadeExpiresAt: inHour,
+        provisionalCleanerId: ids.cleaner2,
+        provisionalPrice: 70,
+        topupAmount: 10,
+        topupApproved: true,
+        approvalExpiresAt: inHour,
+        provisionalSource: opts.source,
+        autoAssignBackup: opts.autoAssignBackup ?? false,
+        backupCleanerIds: opts.backupCleanerIds ?? [],
+        ...(opts.source === 'ADMIN_REASSIGN'
+          ? { reassignPreviousStatus: 'CONFIRMED', reassignPreviousCleanerId: ids.cleaner }
+          : {}),
+      },
+    });
+    const row = await bookingRow(b.id);
+    const taken = (cleanerId: string) =>
+      prisma.booking.create({
+        data: {
+          clientId: ids.customer,
+          cleanerId,
+          serviceType: 'regular',
+          date: row.date,
+          startTime: '11:00',
+          duration: 2,
+          totalPrice: 40,
+          platformFee: 4,
+          cleanerEarnings: 36,
+          status: 'ACCEPTED',
+          paymentStatus: 'SUCCEEDED',
+          addressPostcode: 'E4 7AA',
+        },
+      });
+    await taken(ids.cleaner2);
+    if (opts.previousSlotTaken) await taken(ids.cleaner);
+    n += 1;
+    const tpi = `pi_b4_flag_${n}`;
+    const tch = `ch_b4_flag_${n}`;
+    fake.addPaymentIntent({ id: tpi, amount: 1000, latest_charge: tch });
+    const t = await prisma.topupRecord.create({
+      data: {
+        bookingId: b.id,
+        amount: 10,
+        reason: 'integration',
+        stripePaymentIntentId: tpi,
+        paymentMethodType: 'on_session',
+      },
+    });
+    const { handleTopupPiSucceeded } = await import('@/lib/services/topup.service');
+    await handleTopupPiSucceeded(tpi, b.id, tch);
+    const flagged = await prisma.topupRecord.findUniqueOrThrow({ where: { id: t.id } });
+    expect(flagged.failureReason).toBe('TOPUP_WITHOUT_ASSIGNMENT: SLOT_TAKEN');
+    expect(Number((await bookingRow(b.id)).totalAmountCharged)).toBe(70);
+    return { ...b, topupId: t.id, tpi };
+  }
+
+  async function refundFlagged(bookingId: string, topupId: string) {
+    const rows = await abnormal.listAbnormalStates();
+    const row = rows.find((r) => r.state === 'TOPUP_WITHOUT_ASSIGNMENT' && r.refId === topupId);
+    expect(row?.actions).toContain('REFUND_TOPUP');
+    const res = await actions.runStuckMoneyAction('REFUND_TOPUP', bookingId, topupId, ids.admin);
+    expect(res.ok, res.message).toBe(true);
+    const after = await abnormal.listAbnormalStates();
+    expect(after.some((r) => r.state === 'TOPUP_WITHOUT_ASSIGNMENT' && r.refId === topupId)).toBe(
+      false
+    );
+    const t = await prisma.topupRecord.findUniqueOrThrow({ where: { id: topupId } });
+    expect(t.failureReason?.startsWith('TOPUP_WITHOUT_ASSIGNMENT_REFUNDED')).toBe(true);
+  }
+
+  async function outcomeOf(bookingId: string) {
+    const a = await prisma.auditLog.findFirst({
+      where: { entityId: bookingId, action: 'TOPUP_RECOVERY_COMPLETED' },
+    });
+    return (a?.metadata as { outcome?: string } | null)?.outcome;
+  }
+
+  it('T1. admin reassignment: the top-up refund is confirmed, the provisional cleared, the previous cleaner restored through the locked helper', async () => {
+    const b = await flaggedTopupBooking({ source: 'ADMIN_REASSIGN' });
+    await refundFlagged(b.id, b.topupId);
+    // Only the top-up's own charge was refunded.
+    expect(fake.refundsFor(b.tpi).reduce((x, r) => x + r.amount, 0)).toBe(1000);
+    expect(fake.refundsFor(b.pi)).toHaveLength(0);
+    const row = await bookingRow(b.id);
+    expect(row.status).toBe('CONFIRMED');
+    expect(row.cleanerId).toBe(ids.cleaner);
+    expect(row.cascadePhase).toBeNull();
+    expect(row.provisionalCleanerId).toBeNull();
+    expect(row.provisionalSource).toBeNull();
+    expect(row.reassignPreviousCleanerId).toBeNull();
+    expect(row.paymentStatus).toBe('PARTIALLY_REFUNDED');
+    expect(await refund.remainingRefundableFor(b.id)).toBe(6000);
+    expect(await outcomeOf(b.id)).toBe('RESTORED');
+    // Fully reconciled: nothing about this booking is left in the queue.
+    expect((await abnormal.listAbnormalStates()).filter((r) => r.bookingId === b.id)).toEqual([]);
+  });
+
+  it('T2. admin reassignment whose previous cleaner lost the slot: opted in, the booking goes to the admin assignment queue', async () => {
+    const b = await flaggedTopupBooking({
+      source: 'ADMIN_REASSIGN',
+      previousSlotTaken: true,
+      autoAssignBackup: true,
+    });
+    await refundFlagged(b.id, b.topupId);
+    const row = await bookingRow(b.id);
+    expect(row.status).toBe('AWAITING_CLEANER');
+    expect(row.cascadePhase).toBe('RENA_FIND_ADMIN_REVIEW');
+    expect(row.provisionalCleanerId).toBeNull();
+    expect(row.reassignRevertConflictAt).toBeNull();
+    expect(await outcomeOf(b.id)).toBe('ADMIN_REVIEW');
+  });
+
+  it('T3. admin reassignment whose previous cleaner lost the slot, not opted in: the standard no-cleaner exhaustion refunds the rest', async () => {
+    const b = await flaggedTopupBooking({
+      source: 'ADMIN_REASSIGN',
+      previousSlotTaken: true,
+      autoAssignBackup: false,
+    });
+    await refundFlagged(b.id, b.topupId);
+    const row = await bookingRow(b.id);
+    expect(row.status).toBe('CANCELLED');
+    expect(row.provisionalCleanerId).toBeNull();
+    expect(row.paymentStatus).toBe('REFUNDED');
+    expect(await refund.remainingRefundableFor(b.id)).toBe(0);
+    expect(await outcomeOf(b.id)).toBe('EXHAUSTED');
+  });
+
+  it('T4. cascade-sourced provisional: the refund resumes the cascade (Phase 2), never a stranded provisional', async () => {
+    const b = await flaggedTopupBooking({ source: 'CASCADE', backupCleanerIds: [ids.cleaner] });
+    await refundFlagged(b.id, b.topupId);
+    const row = await bookingRow(b.id);
+    expect(row.status).toBe('AWAITING_CLEANER');
+    expect(row.cascadePhase).toBe('PHASE2_RESERVE');
+    expect(row.provisionalCleanerId).toBeNull();
+    expect(row.declinedCleanerIds).toContain(ids.cleaner2);
+    expect(await outcomeOf(b.id)).toBe('CASCADE_RESUMED');
+  });
+
+  it('T4b. cascade-sourced with no backup left: the cascade own law exhausts it and refunds the rest (coherent, terminal)', async () => {
+    const b = await flaggedTopupBooking({ source: 'CASCADE' });
+    await refundFlagged(b.id, b.topupId);
+    const row = await bookingRow(b.id);
+    expect(row.status).toBe('CANCELLED');
+    expect(row.provisionalCleanerId).toBeNull();
+    expect(row.paymentStatus).toBe('REFUNDED');
+    expect(await refund.remainingRefundableFor(b.id)).toBe(0);
+  });
+
+  it('T5. the refund outcome is unknown first: the recovery runs only once Stripe confirms it, and only once', async () => {
+    const b = await flaggedTopupBooking({ source: 'ADMIN_REASSIGN' });
+    fake.script('refunds.create', 'lost', 'lost');
+    await actions.runStuckMoneyAction('REFUND_TOPUP', b.id, b.topupId, ids.admin);
+    expect((await bookingRow(b.id)).cascadePhase).toBe('PROVISIONAL_APPROVAL');
+    const [slice] = await slicesOf(b.id);
+    expect(await refund.reconcileRefundSlice(slice.id)).toBe('SUCCEEDED');
+    expect((await bookingRow(b.id)).status).toBe('CONFIRMED');
+    await refund.reconcileRefundSlice(slice.id);
+    expect(
+      await prisma.auditLog.count({ where: { entityId: b.id, action: 'TOPUP_RECOVERY_COMPLETED' } })
+    ).toBe(1);
   });
 
   // ─── 10 ─────────────────────────────────────────────────────

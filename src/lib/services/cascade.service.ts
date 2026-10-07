@@ -1858,6 +1858,111 @@ export async function retryAdminRevert(
   return { ok: false, outcome: r === false ? 'NOT_APPLICABLE' : r };
 }
 
+/**
+ * B4 gate ruling 2: the complete recovery after a TOPUP_WITHOUT_ASSIGNMENT
+ * charge is confirmed refunded. Law: no successful money recovery leaves a
+ * booking stranded in an impossible assignment state. The provisional
+ * cleaner is cleared through the same path a decline or expiry takes: an
+ * admin-sourced provisional restores the previous cleaner through the B3
+ * locked helper; a cascade-sourced one resumes the cascade (Phase 2 or the
+ * next reserve). When the restore is refused because the previous cleaner's
+ * slot is gone, the booking leaves the provisional state for a coherent one:
+ * the admin assignment queue (RENA_FIND_ADMIN_REVIEW) when the customer
+ * opted in to Rena choosing a cleaner, otherwise the standard no-cleaner
+ * exhaustion (CASCADE_EXHAUSTED, the remainder refunded by its own law).
+ * Idempotent: every step is guarded on the provisional state.
+ */
+export async function recoverFromRefundedTopup(
+  bookingId: string
+): Promise<'RESTORED' | 'CASCADE_RESUMED' | 'ADMIN_REVIEW' | 'EXHAUSTED' | 'NOT_PROVISIONAL'> {
+  const reason = 'Top-up refunded: the reassignment did not go ahead';
+  const before = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      cascadePhase: true,
+      provisionalSource: true,
+      autoAssignBackup: true,
+      clientId: true,
+    },
+  });
+  if (
+    !before ||
+    before.status !== 'AWAITING_CLEANER' ||
+    before.cascadePhase !== 'PROVISIONAL_APPROVAL'
+  ) {
+    return 'NOT_PROVISIONAL';
+  }
+  const adminSourced =
+    before.provisionalSource === 'ADMIN_REASSIGN' ||
+    before.provisionalSource === 'ADMIN_PRICE_ADJUST';
+  const r = await handleProvisionalFailure(bookingId, reason);
+  let outcome: 'RESTORED' | 'CASCADE_RESUMED' | 'ADMIN_REVIEW' | 'EXHAUSTED' | 'NOT_PROVISIONAL' =
+    'NOT_PROVISIONAL';
+  if (r === true) {
+    outcome = adminSourced ? 'RESTORED' : 'CASCADE_RESUMED';
+  } else if (r === REASSIGN_REVERT_CONFLICT) {
+    const clear = {
+      provisionalCleanerId: null,
+      provisionalPrice: null,
+      topupAmount: null,
+      approvalExpiresAt: null,
+      topupApproved: false,
+      provisionalSource: null,
+      reassignPreviousStatus: null,
+      reassignPreviousCleanerId: null,
+      reassignRevertConflictAt: null,
+    };
+    const where = {
+      id: bookingId,
+      status: 'AWAITING_CLEANER' as const,
+      cascadePhase: 'PROVISIONAL_APPROVAL' as const,
+    };
+    if (before.autoAssignBackup) {
+      const moved = await prisma.booking.updateMany({
+        where,
+        data: {
+          ...clear,
+          cascadePhase: 'RENA_FIND_ADMIN_REVIEW',
+          cascadeExpiresAt: null,
+          cascadeBackupExpiresAt: null,
+          reserveCleanerIds: [],
+        },
+      });
+      if (moved.count === 1) {
+        outcome = 'ADMIN_REVIEW';
+        if (before.clientId) {
+          await prisma.notification
+            .create({
+              data: {
+                userId: before.clientId,
+                type: 'SYSTEM',
+                title: 'Finding you a cleaner',
+                body: 'Your extra payment has been refunded. Our team is finding you a cleaner for this booking and will be in touch shortly.',
+                data: { bookingId },
+              },
+            })
+            .catch(() => {});
+        }
+      }
+    } else {
+      const moved = await prisma.booking.updateMany({ where, data: clear });
+      if (moved.count === 1 && (await cascadeExhaust(bookingId, 'PROVISIONAL_APPROVAL'))) {
+        outcome = 'EXHAUSTED';
+      }
+    }
+  }
+  if (outcome !== 'NOT_PROVISIONAL') {
+    await AuditService.log({
+      action: 'TOPUP_RECOVERY_COMPLETED',
+      entityType: 'Booking',
+      entityId: bookingId,
+      metadata: { outcome },
+    }).catch(() => {});
+  }
+  return outcome;
+}
+
 /** B3: a top-up was charged but its assignment refused (flagged for B4). */
 async function hasTopupWithoutAssignment(bookingId: string): Promise<boolean> {
   const n = await prisma.topupRecord.count({
