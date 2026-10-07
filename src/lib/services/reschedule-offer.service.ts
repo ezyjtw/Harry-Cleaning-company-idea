@@ -334,7 +334,13 @@ export async function resolveRescheduleOffer(params: {
   const moved = await assignCleaner({
     bookingId: offer.bookingId,
     cleanerId: offer.cleanerId,
-    expect: { date: offer.originalDate, startTime: offer.originalTime },
+    // The proposing cleaner must still hold the booking: an admin reassign in
+    // between would otherwise move the new cleaner's row on this diary read.
+    expect: {
+      cleanerId: offer.cleanerId,
+      date: offer.originalDate,
+      startTime: offer.originalTime,
+    },
     expectWhere: { status: { in: ['SCHEDULED', 'ACCEPTED', 'CONFIRMED'] } },
     requireUnexpiredOffer: false,
     slot: {

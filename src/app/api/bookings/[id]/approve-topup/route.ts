@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { handleProvisionalFailure } from '@/lib/services/cascade.service';
-import { executeTopup } from '@/lib/services/topup.service';
+import { TOPUP_WITHOUT_ASSIGNMENT, executeTopup } from '@/lib/services/topup.service';
 import stripe from '@/lib/stripe';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       startTime: true,
       topupRecords: {
         where: { status: 'SUCCEEDED' },
-        select: { id: true, amount: true },
+        select: { id: true, amount: true, failureReason: true },
       },
       cleaner: { select: { name: true } },
     },
@@ -100,6 +100,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   if (!isAuthorized(booking, user, token) && !isAdminViewer) {
     return refusal(booking, user);
+  }
+
+  // B3: the top-up was taken but the cleaner was no longer free
+  // (TOPUP_WITHOUT_ASSIGNMENT). Neither the paid state nor the approved
+  // confirmation is true for this visitor, in the window or after it, so the
+  // link says what happened. A later clean top-up outranks the flag.
+  const flagged = booking.topupRecords.filter((r) =>
+    r.failureReason?.startsWith(TOPUP_WITHOUT_ASSIGNMENT)
+  );
+  if (flagged.length > 0 && flagged.length === booking.topupRecords.length) {
+    return NextResponse.json({
+      reason: 'resolved',
+      outcome: 'taken_unassigned',
+      topupAmount: Number(flagged[0].amount),
+    });
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {

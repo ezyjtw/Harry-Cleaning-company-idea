@@ -116,6 +116,20 @@ describe('isAssignedTo', () => {
     }
     expect(isAssignedTo({ cleanerId: PRIMARY, status: 'ACCEPTED' } as never, VIEWER)).toBe(false);
   });
+
+  it('a booking cancelled before the pinned primary accepted is not assigned to them', () => {
+    // Customer cancels a paid PRIMARY_OFFER: cleanerId stays pinned, the
+    // cascade fields clear, acceptedAt was never set.
+    expect(
+      isAssignedTo({ cleanerId: VIEWER, status: 'CANCELLED', acceptedAt: null } as never, VIEWER)
+    ).toBe(false);
+    expect(
+      isAssignedTo(
+        { cleanerId: VIEWER, status: 'CANCELLED', acceptedAt: new Date() } as never,
+        VIEWER
+      )
+    ).toBe(true);
+  });
 });
 
 describe('outwardCode and firstNameOf', () => {

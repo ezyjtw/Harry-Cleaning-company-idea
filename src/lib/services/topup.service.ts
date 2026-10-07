@@ -611,6 +611,13 @@ async function writeTopupSuccess(
 // charge (SUCCEEDED, so no retry ever charges twice) and carries the flag the
 // B4 queue reads; the booking stays in its provisional state and its window
 // runs out as normal. The admin stuck-money page lists these until B4.
+//
+// The booking's captured total is raised by the same amount in the same
+// transaction: refundBooking's ceiling is totalAmountCharged and its LIFO
+// allocation counts every SUCCEEDED top-up PI, so the two must agree or a
+// later full refund comes up short by the top-up. Only the writer that moves
+// the record to SUCCEEDED raises the total, so a webhook racing the direct
+// path cannot add it twice.
 export const TOPUP_WITHOUT_ASSIGNMENT = 'TOPUP_WITHOUT_ASSIGNMENT';
 
 async function flagTopupWithoutAssignment(args: {
@@ -622,16 +629,27 @@ async function flagTopupWithoutAssignment(args: {
   amountPounds: number;
   reason: AssignFailure;
 }): Promise<void> {
-  await prisma.topupRecord.update({
-    where: { id: args.topupRecordId },
-    data: {
-      stripePaymentIntentId: args.stripePaymentIntentId,
-      status: 'SUCCEEDED',
-      paymentMethodType: args.paymentMethodType,
-      attempt: args.attempt,
-      failureReason: `${TOPUP_WITHOUT_ASSIGNMENT}: ${args.reason}`,
-    },
+  const won = await prisma.$transaction(async (tx) => {
+    const moved = await tx.topupRecord.updateMany({
+      where: { id: args.topupRecordId, status: { not: 'SUCCEEDED' } },
+      data: {
+        stripePaymentIntentId: args.stripePaymentIntentId,
+        status: 'SUCCEEDED',
+        paymentMethodType: args.paymentMethodType,
+        attempt: args.attempt,
+        failureReason: `${TOPUP_WITHOUT_ASSIGNMENT}: ${args.reason}`,
+      },
+    });
+    if (moved.count !== 1) return false;
+    await tx.$executeRaw`
+      UPDATE "Booking"
+      SET "totalAmountCharged" = COALESCE("totalAmountCharged", "totalPrice") + ${args.amountPounds}::numeric
+      WHERE id = ${args.bookingId}
+    `;
+    return true;
   });
+  // A second writer for the same charge found it already recorded.
+  if (!won) return;
   await AuditService.log({
     action: TOPUP_WITHOUT_ASSIGNMENT,
     entityType: 'Booking',

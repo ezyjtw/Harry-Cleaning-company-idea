@@ -2,7 +2,11 @@
 // before they are assigned it.
 //
 // assigned = booking.cleanerId === viewer && status not in
-// {PENDING, AWAITING_CLEANER, CASCADE_EXHAUSTED}. An assigned row keeps each
+// {PENDING, AWAITING_CLEANER, CASCADE_EXHAUSTED}, and a CANCELLED row only when
+// the viewer had accepted it (acceptedAt set): a customer cancel before the
+// primary accepted leaves cleanerId pinned to someone who never took the job.
+// An admin-placed CONFIRMED job cancelled before the cleaner's accept reads as
+// unassigned too; nothing remains to do on it. An assigned row keeps each
 // route's existing full payload. Before that, the payload is EXACTLY the
 // PRE_ACCEPT_KEYS below — no other key is present, not even as undefined:
 // first name, outward postcode plus town, service, date and time, duration,
@@ -90,14 +94,15 @@ type ViewableBooking = Pick<
 
 /** The assignment test the serializer and every route share. */
 export function isAssignedTo(
-  booking: Pick<Booking, 'cleanerId' | 'status'>,
+  booking: Pick<Booking, 'cleanerId' | 'status' | 'acceptedAt'>,
   viewerId: string
 ): boolean {
   return (
     booking.cleanerId === viewerId &&
     booking.status !== 'PENDING' &&
     booking.status !== 'AWAITING_CLEANER' &&
-    booking.status !== 'CASCADE_EXHAUSTED'
+    booking.status !== 'CASCADE_EXHAUSTED' &&
+    !(booking.status === 'CANCELLED' && !booking.acceptedAt)
   );
 }
 

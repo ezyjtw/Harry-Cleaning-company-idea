@@ -655,6 +655,119 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
     expect(rec.failureReason).toBeNull();
   });
 
+  it(`10c. a flagged top-up raises the captured total exactly once, even with both writers racing (${REPS} reps)`, async () => {
+    for (let i = 0; i < REPS; i++) {
+      await wipeBookings();
+      const pi = `pi_b3_topup_race_${Date.now()}_${i}`;
+      const x = await booking({
+        cleanerId: ids.a,
+        backupCleanerIds: [ids.b],
+        cascadePhase: 'PROVISIONAL_APPROVAL',
+        cascadeExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        extra: {
+          provisionalCleanerId: ids.b,
+          provisionalPrice: 70,
+          topupAmount: 10,
+          topupApproved: true,
+          approvalExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          provisionalSource: 'CASCADE',
+        },
+      });
+      await booking({
+        cleanerId: ids.b,
+        status: 'ACCEPTED',
+        cascadePhase: null,
+        cascadeExpiresAt: null,
+        startTime: '11:00',
+      });
+      await prisma.topupRecord.create({
+        data: {
+          bookingId: x,
+          amount: 10,
+          reason: 'integration',
+          stripePaymentIntentId: pi,
+          paymentMethodType: 'on_session',
+        },
+      });
+      // The direct path and the webhook both land on the same charge.
+      await Promise.all([
+        topup.handleTopupPiSucceeded(pi, x),
+        after(20, () => topup.handleTopupPiSucceeded(pi, x)),
+      ]);
+      const row = await prisma.booking.findUniqueOrThrow({
+        where: { id: x },
+        include: { topupRecords: { where: { status: 'SUCCEEDED' } } },
+      });
+      // refundBooking's ceiling (totalAmountCharged) must equal what its LIFO
+      // allocation counts: the original 60 plus every SUCCEEDED top-up PI.
+      const stack = 60 + row.topupRecords.reduce((sum, t) => sum + Number(t.amount), 0);
+      expect(Number(row.totalAmountCharged)).toBe(70);
+      expect(Number(row.totalAmountCharged)).toBe(stack);
+      expect(
+        await prisma.auditLog.count({ where: { entityId: x, action: 'TOPUP_WITHOUT_ASSIGNMENT' } })
+      ).toBe(1);
+    }
+  }, 300_000);
+
+  it("11. a reschedule accept after an admin reassign is refused; the new cleaner's row stays put", async () => {
+    const { resolveRescheduleOffer } = await import('@/lib/services/reschedule-offer.service');
+    const x = await booking({
+      cleanerId: ids.a,
+      status: 'ACCEPTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      startTime: '10:00',
+    });
+    const offer = await prisma.rescheduleOffer.create({
+      data: {
+        bookingId: x,
+        cleanerId: ids.a,
+        proposedDate: day,
+        proposedTime: '15:00',
+        originalDate: day,
+        originalTime: '10:00',
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+    // Admin moves the job to B before the customer answers.
+    await prisma.booking.update({ where: { id: x }, data: { cleanerId: ids.b } });
+    const res = await resolveRescheduleOffer({ offerId: offer.id, action: 'accept' });
+    expect(res.ok).toBe(false);
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+    expect(row.cleanerId).toBe(ids.b);
+    expect(row.startTime).toBe('10:00');
+  });
+
+  it('12. a transition read on the old slot is refused once the booking has moved', async () => {
+    const { transitionBooking } = await import('./transition');
+    const nowDay = new Date(
+      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())
+    );
+    const x = await booking({
+      cleanerId: ids.a,
+      status: 'ACCEPTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      startTime: 'Flexible',
+      date: nowDay,
+    });
+    const stale = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+    // A reschedule lands between the read and the write.
+    await prisma.booking.update({ where: { id: x }, data: { date: day, startTime: '10:00' } });
+    const res = await transitionBooking({
+      booking: stale,
+      cleanerId: ids.a,
+      to: 'EN_ROUTE',
+      now: new Date(
+        Date.UTC(nowDay.getUTCFullYear(), nowDay.getUTCMonth(), nowDay.getUTCDate(), 12)
+      ),
+      actor: { kind: 'CLEANER', id: ids.a },
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe('STATE_CHANGED');
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: x } })).status).toBe('ACCEPTED');
+  });
+
   describe('deletion blockers (RENA-034, James-ruled)', () => {
     async function blockersFor(userId: string) {
       const { GdprService } = await import('@/lib/services/gdpr.service');

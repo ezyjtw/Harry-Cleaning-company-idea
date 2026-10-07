@@ -242,6 +242,66 @@ test.describe('B3 cleaner lifecycle', () => {
     expect((await page.request.get(`/api/cleaner/jobs/${theirs}`)).status()).toBe(404);
   });
 
+  test('a booking the customer cancelled before the primary accepted stays pre-accept', async ({
+    page,
+  }) => {
+    // The cancel teardown clears the cascade but leaves cleanerId pinned to a
+    // primary who never accepted (acceptedAt null).
+    const cancelled = await booking({
+      status: 'CANCELLED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      paymentStatus: 'REFUNDED',
+      cancelledAt: new Date(),
+      date: londonSlot(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)).date,
+      startTime: '10:00',
+    });
+    await asCleaner(page);
+    const res = await page.request.get(`/api/cleaner/jobs/${cancelled}`);
+    expect(res.status()).toBe(200);
+    const job = (await res.json()).job;
+    expect(Object.keys(job).sort()).toEqual([...PRE_ACCEPT_KEYS].sort());
+    const raw = JSON.stringify(job);
+    for (const leak of ['Fixture Road', '7AA', 'gate code', FIXTURES.customerA.email]) {
+      expect(raw).not.toContain(leak);
+    }
+  });
+
+  test('a top-up taken without the cleaner shows the honest state, never paid or approved', async ({
+    page,
+  }) => {
+    for (const inWindow of [true, false]) {
+      const id = await booking({
+        cleanerId: ids.cleanerB,
+        status: 'AWAITING_CLEANER',
+        cascadePhase: inWindow ? 'PROVISIONAL_APPROVAL' : 'BACKUP_OFFER',
+        cascadeExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        provisionalCleanerId: inWindow ? ids.cleaner : null,
+        provisionalPrice: inWindow ? 70 : null,
+        topupAmount: inWindow ? 10 : null,
+        topupApproved: inWindow,
+        approvalExpiresAt: inWindow ? new Date(Date.now() + 60 * 60 * 1000) : null,
+        date: londonSlot(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)).date,
+        startTime: '10:00',
+      });
+      await prisma.topupRecord.create({
+        data: {
+          bookingId: id,
+          amount: 10,
+          reason: 'e2e',
+          status: 'SUCCEEDED',
+          stripePaymentIntentId: `pi_e2e_flag_${id}`,
+          paymentMethodType: 'on_session',
+          failureReason: 'TOPUP_WITHOUT_ASSIGNMENT: SLOT_TAKEN',
+        },
+      });
+      if (inWindow) await signIn(page, 'customerA');
+      await page.goto(`/booking/${id}/approve-topup`);
+      await expect(page.getByTestId('topup-unassigned')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText('Your payment went through')).toBeVisible();
+    }
+  });
+
   test('backup acceptance: the first accept wins, the second gets a 409', async ({
     page,
     browser,

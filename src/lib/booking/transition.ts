@@ -98,8 +98,16 @@ export async function transitionBooking(params: {
     data.cascadeBackupExpiresAt = null;
   }
 
+  // The window above was read off this row's date and time, so the CAS pins
+  // them too: a reschedule landing in between makes this a STATE_CHANGED.
   const claim = await prisma.booking.updateMany({
-    where: { id: booking.id, cleanerId, status: from },
+    where: {
+      id: booking.id,
+      cleanerId,
+      status: from,
+      date: booking.date,
+      startTime: booking.startTime,
+    },
     data,
   });
   if (claim.count === 0) return { ok: false, code: 'STATE_CHANGED' };
