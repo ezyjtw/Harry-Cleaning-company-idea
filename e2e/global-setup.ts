@@ -58,11 +58,26 @@ export default async function globalSetup(): Promise<void> {
       visibleInDirectory: true,
       postcode: 'E4 9AA',
       location: 'Chingford',
+      // The coverage gate (eligibleCleanerWhere): a geocoded point and a
+      // travel radius, or no customer can ever be matched to this cleaner.
+      latitude: 51.6316,
+      longitude: -0.0003,
+      maxTravelMinutes: 30,
     };
-    await prisma.cleanerProfile.upsert({
+    const profile = await prisma.cleanerProfile.upsert({
       where: { userId: cleaner.id },
       update: bookable,
       create: { userId: cleaner.id, specialties: [], languages: ['English'], ...bookable },
+    });
+    // A weekly 09:00 to 17:00 every day, so the booking flows have real slots.
+    await prisma.availabilitySlot.deleteMany({ where: { cleanerProfileId: profile.id } });
+    await prisma.availabilitySlot.createMany({
+      data: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+        cleanerProfileId: profile.id,
+        dayOfWeek,
+        startTime: '09:00',
+        endTime: '17:00',
+      })),
     });
   } catch (e) {
     // A database that cannot be prepared is not a reason to fail the public

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { hasFixtures, isolateRateBucket, signIn } from './fixtures';
 
@@ -21,18 +21,25 @@ test('a cleaner never sees the customer way home, and Back returns to Messages',
   page,
 }) => {
   await signIn(page, 'cleaner');
-  // Hold the session read so the role is unknown for a while.
-  await page.route('**/api/auth/session', async (route) => {
+  // Hold every role source so the role is unknown for a while: the session
+  // read (this build) and the profile read the page used before B2a.
+  const hold = async (route: Route) => {
     await new Promise((r) => setTimeout(r, 2500));
     await route.continue();
-  });
+  };
+  await page.route('**/api/auth/session', hold);
+  await page.route('**/api/auth/profile', hold);
   const seen = trackPaths(page);
   await page.goto('/messages');
-  await expect(page.getByText('Back to my account')).toHaveCount(0);
+  // The first way home to appear, read at once (no retry): it must already be
+  // the cleaner's, never a customer default that corrects itself later.
+  const firstHome = page.getByRole('link', { name: /Back to (my account|dashboard)/ }).first();
+  await expect(firstHome).toBeVisible({ timeout: 15000 });
+  expect(await firstHome.textContent()).toMatch(/Back to dashboard/);
   const home = page.getByRole('link', { name: /Back to dashboard/ }).first();
-  await expect(home).toBeVisible({ timeout: 15000 });
   await expect(page.getByText('Back to my account')).toHaveCount(0);
   await page.unroute('**/api/auth/session');
+  await page.unroute('**/api/auth/profile');
   await home.click();
   await expect(page).toHaveURL(/\/cleaner$/);
   await page.goBack();
