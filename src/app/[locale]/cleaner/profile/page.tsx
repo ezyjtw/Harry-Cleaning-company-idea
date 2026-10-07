@@ -846,6 +846,20 @@ export default function CleanerProfilePage() {
         </div>
       </div>
 
+      {/* B3.4 (RENA-034): the web door to close the account — the same form
+          and engine as the Pro room. */}
+      <div className="mt-10 border-t border-line pt-6" data-testid="profile-delete-account-row">
+        <Link
+          href="/cleaner/delete-account"
+          className="font-jost text-sm text-danger underline-offset-4 hover:underline"
+        >
+          Delete my account
+        </Link>
+        <p className="mt-1 font-jost text-xs font-light text-ink-3">
+          Closes your account and requests erasure of your data.
+        </p>
+      </div>
+
       {showWebcam && (
         <WebcamCaptureModal
           onCapture={(dataUrl) => {

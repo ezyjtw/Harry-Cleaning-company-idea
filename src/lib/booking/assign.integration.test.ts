@@ -655,6 +655,85 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
     expect(rec.failureReason).toBeNull();
   });
 
+  describe('deletion blockers (RENA-034, James-ruled)', () => {
+    async function blockersFor(userId: string) {
+      const { GdprService } = await import('@/lib/services/gdpr.service');
+      return GdprService.getCleanerDeletionBlockers(userId);
+    }
+
+    it('backup, reserve and unaccepted primary offers do not block', async () => {
+      await booking({ cleanerId: ids.a, backupCleanerIds: [ids.b], cascadePhase: 'PRIMARY_OFFER' });
+      await booking({ cleanerId: ids.a, backupCleanerIds: [ids.b], startTime: '14:00' });
+      await booking({
+        cleanerId: ids.a,
+        backupCleanerIds: [ids.b],
+        cascadePhase: 'PHASE2_RESERVE',
+        startTime: '16:00',
+        extra: { reserveCleanerIds: [ids.b] },
+      });
+      expect(await blockersFor(ids.b)).toEqual([]);
+      expect(await blockersFor(ids.a)).toEqual([]);
+    });
+
+    it('a provisional assignment blocks', async () => {
+      await booking({
+        cleanerId: ids.a,
+        backupCleanerIds: [ids.b],
+        cascadePhase: 'PROVISIONAL_APPROVAL',
+        extra: { provisionalCleanerId: ids.b, provisionalSource: 'CASCADE' },
+      });
+      const b = await blockersFor(ids.b);
+      expect(b).toHaveLength(1);
+      expect(b[0]).toContain('approves a price change');
+    });
+
+    it('a live accepted job and a pending payout block, with their named text', async () => {
+      await booking({
+        cleanerId: ids.b,
+        status: 'ACCEPTED',
+        cascadePhase: null,
+        cascadeExpiresAt: null,
+      });
+      await booking({
+        cleanerId: ids.b,
+        status: 'COMPLETED',
+        cascadePhase: null,
+        cascadeExpiresAt: null,
+        startTime: '15:00',
+        extra: { transferStatus: 'PENDING' },
+      });
+      const b = await blockersFor(ids.b);
+      expect(b.some((x) => x.includes('upcoming or in-progress booking'))).toBe(true);
+      expect(b.some((x) => x.includes('payout still in flight'))).toBe(true);
+    });
+
+    it('a deactivated cleaner is skipped by the cascade and their live offers move on', async () => {
+      const x = await booking({
+        cleanerId: ids.a,
+        backupCleanerIds: [ids.b],
+        cascadePhase: 'PRIMARY_OFFER',
+        cascadeBackupExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000),
+      });
+      await prisma.user.update({ where: { id: ids.a }, data: { accountStatus: 'DEACTIVATED' } });
+      try {
+        const { filterSlotAvailableCleaners } = await import('@/lib/availability/slot-eligibility');
+        const free = await filterSlotAvailableCleaners([ids.a, ids.b], {
+          date: day,
+          startTime: '18:00',
+          durationHours: 1,
+        });
+        expect(free.has(ids.a)).toBe(false);
+        expect(free.has(ids.b)).toBe(true);
+        expect(await cascade.releaseOffersForDeletedCleaner(ids.a)).toBe(1);
+        const row = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+        expect(row.cascadePhase).toBe('BACKUP_OFFER');
+        expect(row.declinedCleanerIds).toContain(ids.a);
+      } finally {
+        await prisma.user.update({ where: { id: ids.a }, data: { accountStatus: 'ACTIVE' } });
+      }
+    });
+  });
+
   it('the lock serialises: a helper write for one cleaner waits for another holding the lock', async () => {
     const x = await booking({ cleanerId: ids.b, backupCleanerIds: [ids.a] });
     let released = false;

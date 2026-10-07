@@ -245,6 +245,37 @@ export async function advanceFromPrimaryAfterPayment(bookingId: string): Promise
   await advanceFromPrimary(bookingId, booking);
 }
 
+/**
+ * B3 (James-ruled 2026-10-07): a cleaner who deletes their account while
+ * offered a job (primary, backup, combined, Rena-Find or reserve phase) is
+ * skipped by the cascade rather than blocking the deletion: each live offer is
+ * declined on their behalf through the same guarded decline, so the offer
+ * moves on now instead of waiting out the window. Reserve membership needs
+ * nothing here: promotion's slot read skips a deactivated cleaner.
+ */
+export async function releaseOffersForDeletedCleaner(cleanerId: string): Promise<number> {
+  const offered = await prisma.booking.findMany({
+    where: {
+      status: 'AWAITING_CLEANER',
+      NOT: { declinedCleanerIds: { has: cleanerId } },
+      OR: [
+        { cleanerId, cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+        {
+          backupCleanerIds: { has: cleanerId },
+          cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'RENA_FIND', 'PHASE2_RESERVE'] },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  let released = 0;
+  for (const b of offered) {
+    const r = await handleDecline(b.id, cleanerId).catch(() => null);
+    if (r?.success) released++;
+  }
+  return released;
+}
+
 // ─── Decline ───────────────────────────────────────────────────
 
 export interface DeclineResult {

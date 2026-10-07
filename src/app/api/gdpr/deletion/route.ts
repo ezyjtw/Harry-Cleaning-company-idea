@@ -100,6 +100,12 @@ export async function POST(request: NextRequest) {
     });
     // D-g: deletion revokes every session row and bumps the version too.
     await revokeAllSessions(userId, 'deletion').catch(() => {});
+    // B3 (James-ruled): the cascade skips a deleted cleaner — their live
+    // offers move on now (unaccepted offers never block a deletion).
+    if (requester.role === 'CLEANER' && userId === requester.id) {
+      const { releaseOffersForDeletedCleaner } = await import('@/lib/services/cascade.service');
+      await releaseOffersForDeletedCleaner(userId).catch(() => 0);
+    }
 
     return NextResponse.json({
       success: true,

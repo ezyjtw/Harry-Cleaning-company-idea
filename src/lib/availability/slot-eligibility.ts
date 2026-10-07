@@ -128,7 +128,13 @@ export async function filterSlotAvailableCleaners(
   const durationMins = slot.durationHours * 60;
 
   const profiles = await db.cleanerProfile.findMany({
-    where: { userId: { in: ids } },
+    // B3 (James-ruled): a cleaner who has deleted their account is skipped by
+    // every offer, promotion and accept (backup, reserve and unaccepted offer
+    // membership never block a deletion).
+    where: {
+      userId: { in: ids },
+      user: { accountStatus: { not: 'DEACTIVATED' }, isDeleted: false },
+    },
     select: {
       id: true,
       userId: true,
