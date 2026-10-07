@@ -23,6 +23,7 @@ import {
   pay,
 } from '@/components/app/job-cards';
 import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 
 type Filter = 'upcoming' | 'done';
 
@@ -69,7 +70,7 @@ export default function AppJobsPage() {
         return;
       }
       const data = await res.json().catch(() => null);
-      setJobs(Array.isArray(data?.jobs) ? data.jobs : []);
+      setJobs(Array.isArray(data?.jobs) ? data.jobs.map(normalizeCleanerJob) : []);
       setLoadError(false);
     } catch {
       setLoadError(true);

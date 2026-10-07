@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
 import { logApiCall } from '@/lib/api-metering';
+import { outwardCode } from '@/lib/booking/cleaner-view';
 import { log } from '@/lib/log';
 import {
   buildBookingConfirmation,
@@ -1020,7 +1021,8 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
     where: { id: { in: backupIds } },
     select: { id: true, name: true, email: true },
   });
-  const area = [b.addressCity, b.addressPostcode].filter(Boolean).join(' ');
+  // B3 (RENA-026, ruled): pre-accept location is the outward code and town.
+  const area = [b.addressCity, outwardCode(b.addressPostcode)].filter(Boolean).join(' ');
   const dateStr = b.date.toISOString().split('T')[0];
   for (const u of users) {
     if (!u.email) continue;

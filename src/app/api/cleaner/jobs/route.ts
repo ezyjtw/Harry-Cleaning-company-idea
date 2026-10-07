@@ -3,12 +3,12 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { isAssignedTo, serializePreAccept } from '@/lib/booking/cleaner-view';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
-import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
+import { viewerQuote } from '@/lib/booking/viewer-quote';
 import prisma from '@/lib/db/prisma';
 import { blockedUserIds } from '@/lib/services/block.service';
-import type { ServiceSlug } from '@/lib/services/pricing.service';
-import { cleanerEarningsBreakdown, pricingService } from '@/lib/services/pricing.service';
+import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 
 export async function GET(request: NextRequest) {
@@ -140,28 +140,25 @@ export async function GET(request: NextRequest) {
       const isRenaFind = b.cascadePhase === 'RENA_FIND' && b.backupCleanerIds.includes(user.id);
 
       if (!isPrimary && !isProvisional && !isRenaFind) {
-        try {
-          const pricingSlug = normalizeToPricingSlug(b.serviceType);
-          const propertySize = b.propertySize
-            ? propertySizeEnumToSlug(b.propertySize as Parameters<typeof propertySizeEnumToSlug>[0])
-            : undefined;
-          const quote = await pricingService.calculateQuote({
-            cleanerId: user.id,
-            serviceSlug: pricingSlug as ServiceSlug,
-            hours: Number(b.duration),
-            propertySize,
-            addons: b.extras,
-          });
-          viewerEarnings = quote.cleanerPayout;
-          viewerBreakdown = cleanerEarningsBreakdown({
-            serviceType: b.serviceType,
-            customerSubtotal: quote.cleanerListedPrice,
-            cleanerEarnings: quote.cleanerPayout,
-            extras: b.extras,
-          });
-        } catch {
-          // If quoting fails, fall back to stored values — better than hiding the job
-        }
+        ({ viewerEarnings, viewerBreakdown } = await viewerQuote(b, user.id));
+      }
+
+      // B3 (RENA-026): before assignment the ONE serializer decides the
+      // payload — first name, outward code and town, the viewer's own figure;
+      // never the email, surname, street, notes or payment status.
+      const storedBreakdown = cleanerEarningsBreakdown({
+        serviceType: b.serviceType,
+        customerSubtotal: b.customerSubtotal,
+        cleanerEarnings: Number(b.cleanerEarnings),
+        extras: b.extras,
+      });
+      if (!isAssignedTo(b, user.id)) {
+        return serializePreAccept(b, user.id, {
+          viewerEarnings,
+          viewerBreakdown,
+          storedBreakdown,
+          lowercaseStatus: true,
+        });
       }
 
       return {
@@ -198,12 +195,7 @@ export async function GET(request: NextRequest) {
         // F24.3: the cleaner's own arithmetic from the stored snapshot —
         // "Your rate £X − Rena fee (N%) £Y = You receive £Z". Null when the
         // stored numbers don't reconcile to the penny (render labelled net).
-        earningsBreakdown: cleanerEarningsBreakdown({
-          serviceType: b.serviceType,
-          customerSubtotal: b.customerSubtotal,
-          cleanerEarnings: Number(b.cleanerEarnings),
-          extras: b.extras,
-        }),
+        earningsBreakdown: storedBreakdown,
         status: b.status.toLowerCase(),
         paymentStatus: b.paymentStatus,
         // (3) James-ruled receipt detail: release state for DONE rows only —

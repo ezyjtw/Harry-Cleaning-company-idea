@@ -12,6 +12,7 @@
 // a cleaner has since accepted — the status is no longer PENDING.
 
 import { assignCleaner } from '@/lib/booking/assign';
+import { firstNameOf, outwardCode } from '@/lib/booking/cleaner-view';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import { log } from '@/lib/log';
@@ -314,7 +315,13 @@ export async function processPaymentSuccess(
     await sendCleanerAssignment(
       {
         ...emailData,
-        area: [booking.addressCity, booking.addressPostcode].filter(Boolean).join(' '),
+        // B3 (RENA-026): an offer never carries the surname or the street —
+        // first name and area only (the template already ignored the rest).
+        customerName: firstNameOf(booking.client?.name ?? booking.guestName) ?? 'Customer',
+        address: [booking.addressCity, outwardCode(booking.addressPostcode)]
+          .filter(Boolean)
+          .join(' '),
+        area: [booking.addressCity, outwardCode(booking.addressPostcode)].filter(Boolean).join(' '),
         cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
         suppliesProvided: booking.suppliesProvided,
       },

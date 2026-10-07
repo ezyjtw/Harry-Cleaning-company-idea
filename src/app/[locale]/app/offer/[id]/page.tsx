@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BackPill from '@/components/app/BackPill';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { suppliesLabel } from '@/lib/booking/supplies';
 import { bedroomsLabel } from '@/lib/constants/services';
 
@@ -191,7 +192,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
         return;
       }
       const data = await res.json().catch(() => null);
-      if (data?.job) setOffer(data.job);
+      if (data?.job) setOffer(normalizeCleanerJob(data.job));
       else setLoadError(true);
     } catch {
       setLoadError(true);
@@ -407,7 +408,7 @@ export default function OfferPage({ params }: { params: { id: string } }) {
             value={`${new Date(`${offer.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${offer.time}`}
           />
           <Row label="Duration" value={`${offer.duration} hours`} />
-          <Row label="Area" value={offer.postcode || offer.address} />
+          <Row label="Area" value={offer.address} />
           {/* LB-7: decision-relevant pre-accept — a cleaner without a kit
               can't take a bring-your-own job. Sits with date/area/pay. */}
           <Row label="Supplies" value={suppliesLabel(offer.suppliesProvided)} />

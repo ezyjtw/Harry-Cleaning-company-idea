@@ -3,8 +3,11 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import { applyCleanerTransition } from '@/lib/booking/cleaner-transition';
+import { isAssignedTo, serializePreAccept } from '@/lib/booking/cleaner-view';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
+import { viewerQuote } from '@/lib/booking/viewer-quote';
 import prisma from '@/lib/db/prisma';
+import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
 import { getTransferAmountPence } from '@/lib/services/transfer-amount';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
 import { haversineDistance, lookupPostcode } from '@/lib/utils/postcode';
@@ -96,6 +99,29 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     } catch {
       /* context is decorative — never block the offer on it */
     }
+  }
+
+  // B3 (RENA-026): before assignment the ONE serializer decides the payload —
+  // first name, outward code and town, the viewer's own figure, the
+  // documented context; never the email, surname, street, notes, key access
+  // or payment status.
+  if (!isAssignedTo(booking, user.id)) {
+    const quote =
+      booking.cleanerId === user.id
+        ? { viewerEarnings: null, viewerBreakdown: null }
+        : await viewerQuote(booking, user.id);
+    return NextResponse.json({
+      job: serializePreAccept(booking, user.id, {
+        ...quote,
+        storedBreakdown: cleanerEarningsBreakdown({
+          serviceType: booking.serviceType,
+          customerSubtotal: booking.customerSubtotal,
+          cleanerEarnings: Number(booking.cleanerEarnings),
+          extras: booking.extras,
+        }),
+        context: { travelMinutes, sameDayJobs },
+      }),
+    });
   }
 
   return NextResponse.json({

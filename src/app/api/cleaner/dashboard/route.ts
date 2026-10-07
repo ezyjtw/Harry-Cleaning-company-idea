@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import { computeCleanerOpenRanges } from '@/lib/availability/timesheet';
+import { isAssignedTo, serializePreAccept } from '@/lib/booking/cleaner-view';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { isProfileComplete } from '@/lib/cleaner/profile-completion';
 import { computeGoLive, documentStatuses } from '@/lib/cleaner/verification';
@@ -431,38 +432,52 @@ export async function GET() {
       backupBookingCount,
     },
     dailyPercents,
-    upcomingJobs: upcomingJobs.map((j) => ({
-      id: j.id,
-      clientName: j.client?.name || j.guestName || 'Guest',
-      // A12: read from booking columns (legacy relation fallback in helper).
-      // F14: the F1/H104 area-only law, one more consumer — the card gated
-      // only on PENDING, so an AWAITING_CLEANER offer (the real pre-accept
-      // state) leaked the full street. Pre-accept is postcode-only SERVER-side;
-      // the street flips in on accept.
-      address:
-        j.status === 'PENDING' || j.status === 'AWAITING_CLEANER'
-          ? bookingPostcode(j) || 'TBD'
-          : `${bookingLine1(j)}, ${bookingPostcode(j)}`,
-      date: j.date.toISOString().split('T')[0],
-      time: j.startTime,
-      serviceType: j.serviceType,
-      // F24.3: the customer total (6%-inclusive) no longer rides to cleaner
-      // surfaces at all — the card renders the cleaner's OWN arithmetic.
-      cleanerEarnings: Number(j.cleanerEarnings),
-      earningsBreakdown: cleanerEarningsBreakdown({
-        serviceType: j.serviceType,
-        customerSubtotal: j.customerSubtotal,
-        cleanerEarnings: Number(j.cleanerEarnings),
-        extras: j.extras,
-      }),
-      status: j.status.toLowerCase(),
-      // A live offer the cleaner can Accept (only AWAITING_CLEANER rows reach
-      // here, and the query already restricted those to active primary phases).
-      isOffer: j.status === 'AWAITING_CLEANER',
-      bedrooms: (j.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
-      // F24.1: non-null frequency marks a recurring occurrence.
-      recurringFrequency: j.agreement?.frequency ?? null,
-    })),
+    // B3 (RENA-026): an offer (pre-assignment) row goes through the ONE
+    // serializer; an assigned row keeps the card's existing fields.
+    upcomingJobs: upcomingJobs.map((j) =>
+      !isAssignedTo(j, user.id)
+        ? serializePreAccept(j, user.id, {
+            storedBreakdown: cleanerEarningsBreakdown({
+              serviceType: j.serviceType,
+              customerSubtotal: j.customerSubtotal,
+              cleanerEarnings: Number(j.cleanerEarnings),
+              extras: j.extras,
+            }),
+            lowercaseStatus: true,
+          })
+        : {
+            id: j.id,
+            clientName: j.client?.name || j.guestName || 'Guest',
+            // A12: read from booking columns (legacy relation fallback in helper).
+            // F14: the F1/H104 area-only law, one more consumer — the card gated
+            // only on PENDING, so an AWAITING_CLEANER offer (the real pre-accept
+            // state) leaked the full street. Pre-accept is postcode-only SERVER-side;
+            // the street flips in on accept.
+            address:
+              j.status === 'PENDING' || j.status === 'AWAITING_CLEANER'
+                ? bookingPostcode(j) || 'TBD'
+                : `${bookingLine1(j)}, ${bookingPostcode(j)}`,
+            date: j.date.toISOString().split('T')[0],
+            time: j.startTime,
+            serviceType: j.serviceType,
+            // F24.3: the customer total (6%-inclusive) no longer rides to cleaner
+            // surfaces at all — the card renders the cleaner's OWN arithmetic.
+            cleanerEarnings: Number(j.cleanerEarnings),
+            earningsBreakdown: cleanerEarningsBreakdown({
+              serviceType: j.serviceType,
+              customerSubtotal: j.customerSubtotal,
+              cleanerEarnings: Number(j.cleanerEarnings),
+              extras: j.extras,
+            }),
+            status: j.status.toLowerCase(),
+            // A live offer the cleaner can Accept (only AWAITING_CLEANER rows reach
+            // here, and the query already restricted those to active primary phases).
+            isOffer: j.status === 'AWAITING_CLEANER',
+            bedrooms: (j.rooms as Record<string, unknown>)?.bedrooms as number | undefined,
+            // F24.1: non-null frequency marks a recurring occurrence.
+            recurringFrequency: j.agreement?.frequency ?? null,
+          }
+    ),
     recentReviews: recentReviews.map((r) => ({
       id: r.id,
       clientName: r.client.name || 'Anonymous',

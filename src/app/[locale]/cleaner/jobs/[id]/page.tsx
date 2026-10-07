@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { OfferTimeChange, lifecycleRefusal } from '@/components/app/job-cards';
 import BookingStatusChip from '@/components/BookingStatusChip';
 import RegularCleanChip, { recurringFrequencyLabel } from '@/components/cleaner/RegularCleanChip';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { suppliesLabel } from '@/lib/booking/supplies';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 import { buildGoogleCalendarLink } from '@/lib/services/job-ics';
@@ -122,7 +123,7 @@ export default function CleanerJobDetailPage() {
       setError(res.status === 404 ? 'Job not found.' : 'Could not load this job.');
       return;
     }
-    setJob((await res.json()).job);
+    setJob(normalizeCleanerJob((await res.json()).job));
   }, [params.id]);
 
   useEffect(() => {
@@ -295,7 +296,7 @@ export default function CleanerJobDetailPage() {
 
         <Section title="Where">
           <p className="font-jost text-sm text-ink">
-            {job.assigned && job.fullAddress ? job.fullAddress : (job.postcode ?? job.address)}
+            {job.assigned && job.fullAddress ? job.fullAddress : job.address}
           </p>
           {!job.assigned && (
             <p className="mt-1 font-jost text-[12px] font-light text-ink-3">

@@ -19,6 +19,7 @@ import {
   pay,
 } from '@/components/app/job-cards';
 import VerificationChecklist from '@/components/app/VerificationChecklist';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { COALESCE_MS } from '@/lib/freshness';
 
 function dateEyebrow(): string {
@@ -666,7 +667,7 @@ export default function TodayPage() {
       ]);
       if (offersRes?.ok) {
         const od = await offersRes.json().catch(() => null);
-        const olist: Job[] = Array.isArray(od?.jobs) ? od.jobs : [];
+        const olist: Job[] = Array.isArray(od?.jobs) ? od.jobs.map(normalizeCleanerJob) : [];
         olist.sort((a, b) =>
           String(a.cascadeExpiresAt || '9999').localeCompare(String(b.cascadeExpiresAt || '9999'))
         );
@@ -681,7 +682,7 @@ export default function TodayPage() {
         return;
       }
       const data = await res.json().catch(() => null);
-      const list: Job[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      const list: Job[] = Array.isArray(data?.jobs) ? data.jobs.map(normalizeCleanerJob) : [];
       // Day-one discriminator resolves BEFORE loading clears so the first
       // paint is already the right state (no Day-off flash). It re-runs on
       // every refetch, so setting availability flips State 1 → 2 on the next
