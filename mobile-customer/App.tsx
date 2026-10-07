@@ -189,6 +189,16 @@ bootDiag('js-entry', {
   createdAt: Updates.createdAt ? String(Updates.createdAt) : null,
   launchDuration: Updates.launchDuration,
 });
+// The beacon route keeps only app, stage, phase, pane, code (<= 40 chars) and
+// ms (RENA-066 schema), so the bundle identity rides those fields too.
+bootDiag('bundle', {
+  phase: Updates.isEmbeddedLaunch ? 'embedded' : 'ota',
+  code: String(Updates.updateId ?? 'none').slice(0, 40),
+});
+bootDiag('channel', {
+  phase: String(Updates.channel ?? 'none').slice(0, 40),
+  code: String(Updates.runtimeVersion ?? 'none').slice(0, 40),
+});
 if (BOOT_DIAG) {
   Updates.readLogEntriesAsync(60 * 60 * 1000)
     .then((entries) =>
@@ -1476,7 +1486,62 @@ function SeamlessWebView({
     const r = perf.current;
     if (!NAV_PERF || !r || r.sent) return;
     r.sent = true;
-    bootDiag('nav', { ...r, reason });
+    // Sanctioned fields only (the route drops everything else): one 'nav'
+    // header (phase = how the navigation began and ended, code = its id),
+    // then the marks packed as "key=ms" tokens into <= 40-char 'code' strings,
+    // shell marks relative to T0 on stage 'nav-t', page marks relative to the
+    // page's navigation start on stage 'nav-w'.
+    const flags = `${r.via}:${reason}${r.warm ? '+warm' : ''}${r.longStop ? '+ls' : ''}`;
+    void bootDiag('nav', { pane: r.pane, phase: flags.slice(0, 40), code: r.id.slice(0, 40) });
+    const base = r.t0 ?? r.t1;
+    const shellMarks: [string, number | null][] = [
+      ['t1', r.t1],
+      ['t2', r.t2],
+      ['p50', r.p50],
+      ['p100', r.p100],
+      ['t4', r.t4],
+      ['t5', r.t5],
+      ['t6', r.t6],
+      ['t7', r.t7],
+    ];
+    const tokens = (marks: [string, unknown][], origin: number) =>
+      marks
+        .filter((m): m is [string, number] => typeof m[1] === 'number' && Number.isFinite(m[1]))
+        .map(([k, v]) => `${k}=${Math.round(v - origin)}`);
+    const sendPacked = (stage: string, list: string[]) => {
+      let chunk = '';
+      for (const t of list) {
+        if (chunk && chunk.length + 1 + t.length > 40) {
+          void bootDiag(stage, { pane: r.pane, code: chunk });
+          chunk = '';
+        }
+        chunk = chunk ? `${chunk},${t}` : t;
+      }
+      if (chunk) void bootDiag(stage, { pane: r.pane, code: chunk });
+    };
+    if (base !== null) sendPacked('nav-t', tokens(shellMarks, base));
+    const w = r.web as Record<string, unknown> | null;
+    if (w) {
+      const n = (w.nav ?? {}) as Record<string, unknown>;
+      sendPacked(
+        'nav-w',
+        tokens(
+          [
+            ['rs', n.resS],
+            ['re', n.resE],
+            ['di', n.domI],
+            ['dcl', n.dcl],
+            ['ld', n.load],
+            ['fcp', w.fcp],
+            ['mut', w.lastMut],
+            ['q', w.quiet],
+            ['dr', w.dressed],
+            ['po', w.posted],
+          ],
+          typeof n.start === 'number' ? n.start : 0
+        )
+      );
+    }
   };
   // T1: the pane became visible (tab show) or was constructed (first mount).
   useEffect(() => {
