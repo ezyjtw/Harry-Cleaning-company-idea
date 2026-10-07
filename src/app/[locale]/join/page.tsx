@@ -822,9 +822,9 @@ function JoinLandingPage({ onApply }: { onApply: () => void }) {
             We Handle the Rest.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-jost font-light text-cream/80 leading-relaxed">
-            Set your own hours, choose your clients, and keep 90% on hourly cleans and 85% on End of
-            Tenancy and Airbnb. Rena takes care of payments, customer support, and finding you
-            bookings — so you can focus on what you do best.
+            Set your own hours, choose your clients, and keep 90% of what you earn. Rena takes care
+            of payments, customer support, and finding you bookings — so you can focus on what you
+            do best.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <button
