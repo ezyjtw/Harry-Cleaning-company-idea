@@ -1,0 +1,11 @@
+same-key retry removed (refund slice) [test 6a]: RED (caught) Tests  1 failed | 22 skipped (23)
+unknown refund not blocking new refunds [test 6a]: RED (caught) Tests  1 failed | 22 skipped (23)
+finalisation CAS dropped (concurrent finalisers both apply) [test 1\.]: RED (caught) Tests  1 failed | 2 passed | 20 skipped (23)
+refund allocation original-only (no LIFO top-up) [test 3\.]: RED (caught) Tests  1 failed | 1 passed | 21 skipped (23)
+top-up not anchored (one slice on the original) [test 5\.]: RED (caught) Tests  1 failed | 1 passed | 21 skipped (23)
+dispute RESOLVED written before money (old status-first) [test 7a]: RED (caught) Tests  1 failed | 22 skipped (23)
+dispute transition unguarded [test 7b]: RED (caught) Tests  1 failed | 22 skipped (23)
+shortfall not held [test 8\.]: RED (caught) Tests  1 failed | 22 skipped (23)
+chargeback hold ignored by release: ANCHOR MISSING
+N9 unknown treated as failed attempt [test N9]: RED (caught) Tests  1 failed | 22 skipped (23)
+transfer unknown re-executed with a new key [test 6d]: GREEN (NOT caught) Tests  1 passed | 22 skipped (23)
