@@ -18,13 +18,13 @@ export async function POST(request: NextRequest) {
   if (!admin) {
     return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
   }
-  let body: { action?: unknown; bookingId?: unknown; refId?: unknown };
+  let body: { action?: unknown; bookingId?: unknown; refId?: unknown; input?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  const { action, bookingId, refId } = body;
+  const { action, bookingId, refId, input } = body;
   if (typeof action !== 'string' || !STUCK_MONEY_ACTIONS.includes(action as AbnormalAction)) {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   }
@@ -32,7 +32,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'bookingId and refId are required' }, { status: 400 });
   }
   try {
-    const result = await runStuckMoneyAction(action as AbnormalAction, bookingId, refId, admin.id);
+    const result = await runStuckMoneyAction(
+      action as AbnormalAction,
+      bookingId,
+      refId,
+      admin.id,
+      typeof input === 'string' ? input.slice(0, 100) : undefined
+    );
     return NextResponse.json(result, { status: result.ok ? 200 : 409 });
   } catch (err) {
     log.error('stuck_money', 'action_failed', { action, bookingId }, err);

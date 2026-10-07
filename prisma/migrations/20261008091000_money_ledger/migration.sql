@@ -25,6 +25,7 @@ ADD COLUMN     "reassignRevertConflictAt" TIMESTAMP(3);
 
 -- AlterTable
 ALTER TABLE "Dispute" ADD COLUMN     "lastMoneyError" TEXT,
+ADD COLUMN     "moneyStepLockedAt" TIMESTAMP(3),
 ADD COLUMN     "nextRetryAt" TIMESTAMP(3),
 ADD COLUMN     "refundRecordId" TEXT,
 ADD COLUMN     "resolutionAmountPence" INTEGER,

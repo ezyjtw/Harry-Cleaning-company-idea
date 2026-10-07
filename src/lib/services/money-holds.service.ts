@@ -141,7 +141,11 @@ export async function settleLostChargeback(
 ): Promise<{ ok: boolean; error?: string }> {
   const hold = await prisma.chargebackHold.findUnique({ where: { id: holdId } });
   if (!hold || hold.status !== 'LOST') return { ok: false, error: 'Not a lost chargeback' };
-  await prisma.chargebackHold.update({ where: { id: holdId }, data: { status: 'CLOSED' } });
+  const moved = await prisma.chargebackHold.updateMany({
+    where: { id: holdId, status: 'LOST' },
+    data: { status: 'CLOSED' },
+  });
+  if (moved.count !== 1) return { ok: false, error: 'Not a lost chargeback' };
   await AuditService.log({
     userId: actorId,
     action: 'CHARGEBACK_HOLD_CLOSED',

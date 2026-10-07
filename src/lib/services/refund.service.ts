@@ -85,9 +85,14 @@ interface RecordContext {
   xeroSliceIds?: string[];
   /** The record finished later than its request (send the confirmation email). */
   late?: boolean;
+  /** The refund was confined to one charge (a retry keeps it there). */
+  onlyPaymentIntentId?: string;
 }
 
 export const LEDGER_RECONCILIATION_PENDING = 'LEDGER_RECONCILIATION_PENDING';
+
+/** A RETRYING record older than this was left by a crash and may be retried. */
+const RETRY_LEASE_MS = 10 * 60_000;
 
 // ─── refundBooking ─────────────────────────────────────────
 
@@ -190,6 +195,7 @@ export async function refundBooking(
     reversalTargetPence,
     finalizedShareablePence: 0,
     xeroSliceIds: [],
+    ...(onlyPaymentIntentId ? { onlyPaymentIntentId } : {}),
   };
 
   const record = await prisma.refundRecord.create({
@@ -811,7 +817,12 @@ export async function retryRefundRemainder(
       reason: 'Still reconciling with Stripe',
     };
   }
-  if (record.status !== 'FAILED' && record.status !== 'PARTIAL') {
+  const staleRetry = Date.now() - record.updatedAt.getTime() > RETRY_LEASE_MS;
+  if (
+    record.status !== 'FAILED' &&
+    record.status !== 'PARTIAL' &&
+    !(record.status === 'RETRYING' && staleRetry)
+  ) {
     return { status: 'SKIPPED', refundRecordId: recordId, reason: `Record is ${record.status}` };
   }
   const requested = record.requestedPence ?? toPence(record.amount);
@@ -821,22 +832,71 @@ export async function retryRefundRemainder(
 
   const ledger = await loadBookingLedger(prisma, record.bookingId);
   if (!ledger) return { status: 'FAILED', reason: 'Booking not found' };
+  // Any unresolved slice on the booking (not only this record's) blocks it.
+  if (remainingRefundablePence(ledger.chargedPence, ledger.slices) === null) {
+    return {
+      status: 'FAILED',
+      code: LEDGER_RECONCILIATION_PENDING,
+      reason: 'A refund on this booking is still being reconciled with Stripe',
+    };
+  }
   const ctx = record.context as unknown as RecordContext;
-  const claimable = ctx.isPostRelease
-    ? ['RELEASED', 'REFUNDING']
-    : ['PENDING', 'FAILED', 'PAUSED', 'REFUNDING'];
+
+  // Single flight per record (gate review finding 1): a CAS moves the record
+  // to RETRYING; a second caller (a double click, the dispute retry job
+  // beside an admin retry) finds nothing to claim. A RETRYING record left by
+  // a crash is claimable again after the lease.
+  const restoreStatus = record.status === 'RETRYING' ? 'FAILED' : record.status;
+  const locked = await prisma.refundRecord.updateMany({
+    where: {
+      id: recordId,
+      OR: [
+        { status: { in: ['FAILED', 'PARTIAL'] } },
+        { status: 'RETRYING', updatedAt: { lt: new Date(Date.now() - RETRY_LEASE_MS) } },
+      ],
+    },
+    data: { status: 'RETRYING' },
+  });
+  if (locked.count !== 1) {
+    return {
+      status: 'SKIPPED',
+      refundRecordId: recordId,
+      reason: 'A retry of this refund is already running',
+    };
+  }
+  const unlock = () =>
+    prisma.refundRecord.updateMany({
+      where: { id: recordId, status: 'RETRYING' },
+      data: { status: restoreStatus },
+    });
+
+  // The booking claim: REFUNDING is accepted only when this record holds it
+  // (its reversal landed and kept the claim); a refund in flight for another
+  // record never shares it.
+  const holdsClaim =
+    ledger.booking.transferStatus === 'REFUNDING' && (await reversedForRecord(recordId)) > 0;
+  const claimable = [
+    ...(ctx.isPostRelease ? ['RELEASED'] : ['PENDING', 'FAILED', 'PAUSED']),
+    ...(holdsClaim ? ['REFUNDING'] : []),
+  ];
   const claimed = await prisma.booking.updateMany({
     where: { id: record.bookingId, transferStatus: { in: claimable } },
     data: { transferStatus: 'REFUNDING' },
   });
-  if (claimed.count === 0) return { status: 'SKIPPED', reason: 'Another operation is in progress' };
+  if (claimed.count === 0) {
+    await unlock();
+    return { status: 'SKIPPED', reason: 'Another operation is in progress' };
+  }
 
-  const plan = allocateRefund(chargesLifo(ledger), remainder);
+  const plan = allocateRefund(chargesLifo(ledger), remainder, ctx.onlyPaymentIntentId);
   if (plan.shortfallPence > 0) {
-    await prisma.booking.updateMany({
-      where: { id: record.bookingId, transferStatus: 'REFUNDING' },
-      data: { transferStatus: ctx.prevTransferStatus },
-    });
+    if (!holdsClaim) {
+      await prisma.booking.updateMany({
+        where: { id: record.bookingId, transferStatus: 'REFUNDING' },
+        data: { transferStatus: ctx.prevTransferStatus },
+      });
+    }
+    await unlock();
     return { status: 'FAILED', reason: 'The remainder does not fit the charges on this booking' };
   }
   await prisma.refundRecord.update({
@@ -976,12 +1036,15 @@ async function bumpSliceRetry(sliceId: string, retryCount: number, result: strin
 async function finalizeAfterReconcile(recordId: string): Promise<void> {
   const rec = await prisma.refundRecord.findUnique({
     where: { id: recordId },
-    select: { context: true, slices: { select: { status: true } } },
+    select: { context: true, createdAt: true, slices: { select: { status: true } } },
   });
   if (!rec || rec.slices.some((s) => isUnresolved(s.status) || s.status === 'PENDING')) return;
   if (rec.context) {
     const ctx = rec.context as unknown as RecordContext;
-    if (!ctx.late) {
+    // Late (the confirmation email is sent here) only when the request is
+    // long over; a webhook racing a live caller leaves the email to the
+    // caller (gate review finding 10).
+    if (!ctx.late && Date.now() - rec.createdAt.getTime() > RETRY_LEASE_MS) {
       await prisma.refundRecord.update({
         where: { id: recordId },
         data: { context: { ...ctx, late: true } as unknown as Prisma.InputJsonValue },
@@ -1185,7 +1248,26 @@ export async function handleChargeRefunded(charge: {
       if ((err as { code?: string }).code !== 'P2002') throw err;
     }
   }
-  await prisma.$transaction((tx) => recomputeBookingRefundState(tx, booking.id));
+  const state = await prisma.$transaction((tx) => recomputeBookingRefundState(tx, booking.id));
+  // Gate review finding 7: a booking fully refunded outside the platform
+  // before its payout must not pay the cleaner. The payout is stopped
+  // (REFUNDED, guarded on the unreleased states) and audited; a partial
+  // dashboard refund changes nothing here (parked: an admin decision).
+  if (!state.unresolved && state.paymentStatus === 'REFUNDED') {
+    const stopped = await prisma.booking.updateMany({
+      where: { id: booking.id, transferStatus: { in: ['PENDING', 'FAILED', 'PAUSED'] } },
+      data: { transferStatus: 'REFUNDED' },
+    });
+    if (stopped.count === 1) {
+      await AuditService.log({
+        action: 'PAYOUT_STOPPED_FULL_REFUND',
+        entityType: 'Booking',
+        entityId: booking.id,
+        metadata: { chargeId: charge.id },
+      }).catch(() => {});
+      log.warn('refund', 'payout_stopped_full_refund', { bookingId: booking.id });
+    }
+  }
 }
 
 /** The cleaner's share of a chargeback or refund amount (Xero, the dispute webhook). */
@@ -1428,4 +1510,87 @@ export async function refundFlaggedTopup(
     }).catch(() => {});
   }
   return result;
+}
+
+/**
+ * Stuck-money "Match refund id" (gate review finding 6): an admin who found
+ * the slice's refund in Stripe attaches its id; Stripe is read to confirm the
+ * refund belongs to the slice's payment intent before anything is written.
+ */
+export async function attachRefundToSlice(
+  sliceId: string,
+  stripeRefundId: string,
+  actorId: string
+): Promise<{ ok: boolean; message: string }> {
+  const slice = await prisma.refundSlice.findUnique({
+    where: { id: sliceId },
+    include: { record: { select: { bookingId: true } } },
+  });
+  if (!slice || !['PENDING', 'UNKNOWN', 'NEEDS_RECONCILE'].includes(slice.status)) {
+    return { ok: false, message: 'Not an unresolved refund slice' };
+  }
+  if (!/^re_[A-Za-z0-9]+$/.test(stripeRefundId)) {
+    return { ok: false, message: 'That is not a Stripe refund id' };
+  }
+  const taken = await prisma.refundSlice.findUnique({ where: { stripeRefundId } });
+  if (taken) return { ok: false, message: 'That refund is already recorded on another slice' };
+  const refund = await stripe.refunds.retrieve(stripeRefundId);
+  const pi =
+    typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+  if (pi !== slice.stripePaymentIntentId) {
+    return { ok: false, message: 'That refund belongs to a different payment' };
+  }
+  const status = await writeSliceFromRefund(slice.id, slice.record.bookingId, refund);
+  await AuditService.log({
+    userId: actorId,
+    action: 'REFUND_SLICE_MATCHED_BY_ADMIN',
+    entityType: 'Booking',
+    entityId: slice.record.bookingId,
+    metadata: { refundSliceId: slice.id, stripeRefundId, outcome: status },
+  }).catch(() => {});
+  await finalizeAfterReconcile(slice.refundRecordId);
+  return { ok: true, message: `Matched: slice is ${status}` };
+}
+
+/**
+ * Stuck-money "Mark not executed" (gate review finding 6): an admin who
+ * checked Stripe and found no refund for the slice records that decision.
+ * Refused when the slice carries a refund id (that id is read, not decided).
+ */
+export async function markSliceNotExecuted(
+  sliceId: string,
+  actorId: string
+): Promise<{ ok: boolean; message: string }> {
+  const slice = await prisma.refundSlice.findUnique({
+    where: { id: sliceId },
+    include: { record: { select: { bookingId: true } } },
+  });
+  if (!slice || !['UNKNOWN', 'NEEDS_RECONCILE'].includes(slice.status)) {
+    return { ok: false, message: 'Not an unknown or unmatched refund slice' };
+  }
+  if (slice.stripeRefundId) {
+    return { ok: false, message: 'This slice carries a Stripe refund id; reconcile reads it' };
+  }
+  const bookingId = slice.record.bookingId;
+  await prisma.$transaction(async (tx) => {
+    await tx.refundSlice.updateMany({
+      where: { id: slice.id, status: { in: ['UNKNOWN', 'NEEDS_RECONCILE'] }, stripeRefundId: null },
+      data: {
+        status: 'FAILED',
+        lastReconciledAt: new Date(),
+        lastReconcileResult: 'admin decision after checking Stripe: not executed',
+      },
+    });
+    await recomputeRefundRecord(tx, slice.refundRecordId);
+    await recomputeBookingRefundState(tx, bookingId);
+  });
+  await AuditService.log({
+    userId: actorId,
+    action: 'REFUND_SLICE_MARKED_NOT_EXECUTED',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata: { refundSliceId: slice.id },
+  }).catch(() => {});
+  await finalizeAfterReconcile(slice.refundRecordId);
+  return { ok: true, message: 'Recorded as not executed' };
 }

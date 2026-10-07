@@ -198,6 +198,11 @@ describe('moneyHoldReasons (holds coexist)', () => {
         chargebackStatuses: ['OPEN', 'WON'],
       })
     ).toEqual(['DISPUTE', 'SHORTFALL', 'CHARGEBACK']);
+    // A lost chargeback keeps holding; won or closed does not.
+    expect(moneyHoldReasons({ chargebackStatuses: ['LOST'] })).toEqual(['CHARGEBACK']);
+    expect(moneyHoldReasons({ chargebackStatuses: ['WON', 'CLOSED', 'AFTER_RELEASE'] })).toEqual(
+      []
+    );
     expect(moneyHoldReasons({ disputeStatus: 'RESOLVING_RELEASE' })).toEqual([]);
     expect(moneyHoldReasons({ chargebackStatuses: ['WON', 'AFTER_RELEASE'] })).toEqual([]);
   });

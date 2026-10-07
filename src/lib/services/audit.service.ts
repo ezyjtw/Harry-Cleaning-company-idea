@@ -101,6 +101,9 @@ export type AuditAction =
   | 'RECURRING_CHARGE_RECONCILED'
   | 'REASSIGN_REVERT_RETRIED'
   | 'TOPUP_WITHOUT_ASSIGNMENT_REFUNDED'
+  | 'PAYOUT_STOPPED_FULL_REFUND'
+  | 'REFUND_SLICE_MATCHED_BY_ADMIN'
+  | 'REFUND_SLICE_MARKED_NOT_EXECUTED'
   // R4 LANE 5A: a revert tried to cancel the on-session top-up PaymentIntent
   // at Stripe and could not — loud trail for the stuck-money sweep.
   | 'TOPUP_PI_CANCEL_FAILED'

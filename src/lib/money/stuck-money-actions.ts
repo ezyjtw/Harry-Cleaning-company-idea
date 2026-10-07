@@ -7,10 +7,13 @@ import type { AbnormalAction } from './abnormal-states';
 
 export const STUCK_MONEY_ACTIONS: readonly AbnormalAction[] = [
   'RECONCILE_REFUND_SLICE',
+  'ATTACH_REFUND_ID',
+  'MARK_SLICE_NOT_EXECUTED',
   'RETRY_REFUND_REMAINDER',
   'RECONCILE_REVERSAL',
   'RECONCILE_BOOKING_REFUNDS',
   'RELEASE_NOW',
+  'RESUME_RELEASE',
   'CLEAR_SHORTFALL',
   'ACKNOWLEDGE_CHARGEBACK',
   'SETTLE_LOST_CHARGEBACK',
@@ -26,13 +29,24 @@ export async function runStuckMoneyAction(
   action: AbnormalAction,
   bookingId: string,
   refId: string,
-  adminId: string
+  adminId: string,
+  /** Free input some actions take (the refund id for ATTACH_REFUND_ID). */
+  input?: string
 ): Promise<{ ok: boolean; message: string }> {
   switch (action) {
     case 'RECONCILE_REFUND_SLICE': {
       const { reconcileRefundSlice } = await import('@/lib/services/refund.service');
       const status = await reconcileRefundSlice(refId);
       return { ok: true, message: `Refund slice is ${status}` };
+    }
+    case 'ATTACH_REFUND_ID': {
+      const { attachRefundToSlice } = await import('@/lib/services/refund.service');
+      if (!input) return { ok: false, message: 'A Stripe refund id is required' };
+      return attachRefundToSlice(refId, input.trim(), adminId);
+    }
+    case 'MARK_SLICE_NOT_EXECUTED': {
+      const { markSliceNotExecuted } = await import('@/lib/services/refund.service');
+      return markSliceNotExecuted(refId, adminId);
     }
     case 'RETRY_REFUND_REMAINDER': {
       const { retryRefundRemainder } = await import('@/lib/services/refund.service');
@@ -53,6 +67,13 @@ export async function runStuckMoneyAction(
     case 'RELEASE_NOW': {
       const { releaseBookingFunds } = await import('@/lib/services/transfer.service');
       const r = await releaseBookingFunds(bookingId, { trigger: 'ADMIN', actorId: adminId });
+      const ok = r.status === 'RELEASED' || r.status === 'ALREADY_RELEASED';
+      return { ok, message: `${r.status}${r.reason ? `: ${r.reason}` : ''}` };
+    }
+    case 'RESUME_RELEASE': {
+      // Refused while any hold remains; otherwise PAUSED to PENDING and release.
+      const { resumeIfUnheld } = await import('@/lib/services/money-holds.service');
+      const r = await resumeIfUnheld(bookingId, { trigger: 'ADMIN', actorId: adminId });
       const ok = r.status === 'RELEASED' || r.status === 'ALREADY_RELEASED';
       return { ok, message: `${r.status}${r.reason ? `: ${r.reason}` : ''}` };
     }

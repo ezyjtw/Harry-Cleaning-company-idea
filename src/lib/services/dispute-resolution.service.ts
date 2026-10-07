@@ -75,6 +75,13 @@ export async function startDisputeResolution(params: {
       outcome === 'refund-customer' ? remainderPence : Math.round((params.refundAmount ?? 0) * 100);
     if (!amountPence || amountPence <= 0)
       throw new Error('A refund amount is required for this outcome');
+    // A split that refunds everything leaves nothing to release: that is a
+    // refund-customer outcome (gate review finding 5).
+    if (outcome === 'split' && amountPence >= remainderPence) {
+      throw new Error(
+        'A split must leave part of the payment to release; use refund-customer instead'
+      );
+    }
     if (amountPence > remainderPence + 1) {
       throw new Error(
         `Refund £${(amountPence / 100).toFixed(2)} exceeds refundable remainder £${(remainderPence / 100).toFixed(2)}`
@@ -134,8 +141,47 @@ export async function startDisputeResolution(params: {
   return runDisputeMoneyStep(disputeId);
 }
 
-/** The money step, idempotent: safe to run any number of times. */
+const MONEY_STEP_LEASE_MS = 10 * 60_000;
+
+/**
+ * The money step, idempotent and single flight (gate review finding 3): a
+ * lease on the dispute, claimed by CAS, so the scheduler's retry and an
+ * admin's Retry never run it at once. A lease left by a crash expires.
+ */
 export async function runDisputeMoneyStep(disputeId: string): Promise<DisputeResolutionResult> {
+  const now = new Date();
+  const lease = await prisma.dispute.updateMany({
+    where: {
+      id: disputeId,
+      OR: [
+        { moneyStepLockedAt: null },
+        { moneyStepLockedAt: { lt: new Date(now.getTime() - MONEY_STEP_LEASE_MS) } },
+      ],
+    },
+    data: { moneyStepLockedAt: now },
+  });
+  if (lease.count !== 1) {
+    const d = await prisma.dispute.findUniqueOrThrow({ where: { id: disputeId } });
+    return {
+      outcome: (d.resolutionOutcome ?? 'release-to-cleaner') as DisputeOutcome,
+      refundedAmount: 0,
+      disputeStatus: d.status,
+      lastMoneyError: 'The money step is already running',
+    };
+  }
+  try {
+    return await moneyStepUnderLease(disputeId);
+  } finally {
+    await prisma.dispute
+      .updateMany({
+        where: { id: disputeId, moneyStepLockedAt: now },
+        data: { moneyStepLockedAt: null },
+      })
+      .catch(() => {});
+  }
+}
+
+async function moneyStepUnderLease(disputeId: string): Promise<DisputeResolutionResult> {
   let d = await prisma.dispute.findUniqueOrThrow({ where: { id: disputeId } });
   const outcome = (d.resolutionOutcome ?? 'release-to-cleaner') as DisputeOutcome;
   const base = { outcome, refundedAmount: 0 } as DisputeResolutionResult;
@@ -232,12 +278,26 @@ async function ensureDisputeRefund(d: {
         : {}),
     }
   );
-  if (!result.refundRecordId)
+  // Never adopt a record that did not run (SKIPPED: the booking claim was
+  // held elsewhere); the step is retried instead (gate review finding 3).
+  if (!result.refundRecordId || result.status === 'SKIPPED') {
     return { recordStatus: 'FAILED', executedPence: 0, error: result.reason };
-  await prisma.dispute.update({
-    where: { id: d.id },
+  }
+  const adopted = await prisma.dispute.updateMany({
+    where: { id: d.id, refundRecordId: null },
     data: { refundRecordId: result.refundRecordId },
   });
+  if (adopted.count !== 1) {
+    log.error('dispute', 'second_refund_record_not_adopted', {
+      disputeId: d.id,
+      refundRecordId: result.refundRecordId,
+    });
+    return {
+      recordStatus: 'FAILED',
+      executedPence: 0,
+      error: 'A refund record is already attached',
+    };
+  }
   const rec = await prisma.refundRecord.findUniqueOrThrow({ where: { id: result.refundRecordId } });
   return { recordStatus: rec.status, executedPence: rec.executedPence, error: result.reason };
 }

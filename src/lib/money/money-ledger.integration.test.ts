@@ -972,6 +972,157 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     await run('never');
   });
 
+  // ─── Gate review findings (Fable 5.1) ───────────────────────
+
+  it(`R1. two remainder retries of one record at once: one runs, the remainder is refunded once (${REPS} reps)`, async () => {
+    for (let i = 0; i < REPS; i++) {
+      fake.reset();
+      await wipeBookings();
+      const b = await paidBooking({ originalPence: 6000, topups: [{ pence: 2000 }] });
+      fake.script('refunds.create', 'ok', 'definitive');
+      await refund.refundBooking(b.id, 30, 'two slices, second refused');
+      const rec = await prisma.refundRecord.findFirstOrThrow({ where: { bookingId: b.id } });
+      expect(rec.status).toBe('PARTIAL');
+      const results = await Promise.all([
+        refund.retryRefundRemainder(rec.id, ids.admin),
+        refund.retryRefundRemainder(rec.id, ids.admin),
+      ]);
+      expect(results.filter((r) => r.status === 'PARTIALLY_REFUNDED')).toHaveLength(1);
+      const executed = Array.from(fake.refundsById.values()).reduce((t, r) => t + r.amount, 0);
+      expect(executed).toBe(3000);
+      const after = await prisma.refundRecord.findUniqueOrThrow({ where: { id: rec.id } });
+      expect(after.status).toBe('SUCCEEDED');
+      expect(after.executedPence).toBe(3000);
+    }
+  }, 300_000);
+
+  it('R2. a lost chargeback refuses every resume until an admin settles it', async () => {
+    const b = await paidBooking({ transferStatus: 'PAUSED', extra: { amountShortfallPence: 100 } });
+    const dp = { id: `dp_r2_${b.id}`, charge: b.charge, amount: 5900 };
+    await holds.recordChargeback({ ...dp, status: 'needs_response' } as never);
+    await holds.closeChargeback({ ...dp, status: 'lost' } as never);
+    expect((await holds.clearShortfall(b.id, ids.admin)).ok).toBe(true);
+    expect((await bookingRow(b.id)).transferStatus).toBe('PAUSED');
+    expect((await holds.resumeIfUnheld(b.id, { trigger: 'ADMIN' })).status).toBe('SKIPPED');
+    expect((await transfer.resumePausedRelease(b.id)).status).toBe('SKIPPED');
+    const h = await prisma.chargebackHold.findUniqueOrThrow({ where: { stripeDisputeId: dp.id } });
+    expect((await holds.settleLostChargeback(h.id, ids.admin)).ok).toBe(true);
+    expect((await bookingRow(b.id)).transferStatus).toBe('RELEASED');
+  });
+
+  it(`R3. the dispute money step runs single flight: the retry job and an admin retry at once refund once (${REPS} reps)`, async () => {
+    for (let i = 0; i < REPS; i++) {
+      fake.reset();
+      await wipeBookings();
+      const b = await disputed();
+      fake.script('refunds.create', 'definitive');
+      await dispute.startDisputeResolution({
+        disputeId: b.disputeId,
+        outcome: 'split',
+        resolution: 'r3',
+        refundAmount: 20,
+        adminId: ids.admin,
+      });
+      await prisma.dispute.update({
+        where: { id: b.disputeId },
+        data: { resolvingSince: new Date(Date.now() - 5 * 60_000), nextRetryAt: new Date(0) },
+      });
+      await Promise.all([
+        dispute.retryResolvingDisputes(),
+        dispute.runDisputeMoneyStep(b.disputeId),
+      ]);
+      // Whatever ran, the customer was refunded the split amount exactly once.
+      const refunded = Array.from(fake.refundsById.values()).reduce((t, r) => t + r.amount, 0);
+      expect(refunded).toBe(2000);
+      expect(
+        await prisma.refundRecord.count({ where: { bookingId: b.id, status: { not: 'FAILED' } } })
+      ).toBeLessThanOrEqual(1);
+      const d = await prisma.dispute.findUniqueOrThrow({ where: { id: b.disputeId } });
+      expect(d.moneyStepLockedAt).toBeNull();
+      if (d.status !== 'RESOLVED') {
+        await dispute.runDisputeMoneyStep(b.disputeId);
+        expect(
+          (await prisma.dispute.findUniqueOrThrow({ where: { id: b.disputeId } })).status
+        ).toBe('RESOLVED');
+      }
+      expect(Array.from(fake.refundsById.values()).reduce((t, r) => t + r.amount, 0)).toBe(2000);
+    }
+  }, 300_000);
+
+  it('R4 and R5. a split of the whole remainder is refused; PAUSED with no hold is listed and resumes', async () => {
+    const b = await disputed();
+    await expect(
+      dispute.startDisputeResolution({
+        disputeId: b.disputeId,
+        outcome: 'split',
+        resolution: 'everything',
+        refundAmount: 60,
+        adminId: ids.admin,
+      })
+    ).rejects.toThrow(/refund-customer/);
+    const stray = await paidBooking({ transferStatus: 'PAUSED' });
+    const rows = await abnormal.listAbnormalStates();
+    const row = rows.find((r) => r.state === 'TRANSFER_PAUSED_NO_HOLD' && r.bookingId === stray.id);
+    expect(row?.actions).toEqual(['RESUME_RELEASE']);
+    const res = await actions.runStuckMoneyAction('RESUME_RELEASE', stray.id, stray.id, ids.admin);
+    expect(res.ok).toBe(true);
+    expect((await bookingRow(stray.id)).transferStatus).toBe('RELEASED');
+  });
+
+  it('R6. a parked slice: the admin matches a refund id (Stripe read first) or records it not executed', async () => {
+    const b = await paidBooking();
+    fake.script('refunds.create', 'lost', 'lost');
+    await refund.refundBooking(b.id, 20, 'parked');
+    const [slice] = await slicesOf(b.id);
+    await prisma.refundSlice.update({
+      where: { id: slice.id },
+      data: { status: 'NEEDS_RECONCILE' },
+    });
+    const landed = Array.from(fake.refundsById.values())[0];
+    const wrong = await actions.runStuckMoneyAction(
+      'ATTACH_REFUND_ID',
+      b.id,
+      slice.id,
+      ids.admin,
+      're_not_this_one'
+    );
+    expect(wrong.ok).toBe(false);
+    const ok = await actions.runStuckMoneyAction(
+      'ATTACH_REFUND_ID',
+      b.id,
+      slice.id,
+      ids.admin,
+      landed.id
+    );
+    expect(ok.ok).toBe(true);
+    expect((await slicesOf(b.id))[0].status).toBe('SUCCEEDED');
+    expect(await refund.remainingRefundableFor(b.id)).toBe(4000);
+
+    const c = await paidBooking();
+    fake.script('refunds.create', 'connection', 'connection');
+    await refund.refundBooking(c.id, 20, 'never landed');
+    const [s2] = await slicesOf(c.id);
+    const marked = await actions.runStuckMoneyAction(
+      'MARK_SLICE_NOT_EXECUTED',
+      c.id,
+      s2.id,
+      ids.admin
+    );
+    expect(marked.ok).toBe(true);
+    expect(await refund.remainingRefundableFor(c.id)).toBe(6000);
+  });
+
+  it('R7. a full dashboard refund before release stops the payout', async () => {
+    const b = await paidBooking();
+    fake.addDashboardRefund(b.pi, b.charge, 6000);
+    await refund.handleChargeRefunded(fake.chargeRefundedEvent(b.charge, b.pi, 6000));
+    const row = await bookingRow(b.id);
+    expect(row.paymentStatus).toBe('REFUNDED');
+    expect(row.transferStatus).toBe('REFUNDED');
+    expect((await transfer.releaseBookingFunds(b.id)).status).toBe('SKIPPED');
+    expect(fake.transfersById.size).toBe(0);
+  });
+
   // ─── 10 ─────────────────────────────────────────────────────
   // The backfill rehearsal runs as scripts/b4-migration-rehearsal.ts on a
   // scratch database (production-shaped legacy rows, migrate deploy, counts,

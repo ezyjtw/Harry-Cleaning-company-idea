@@ -8,7 +8,7 @@
 import { prisma } from '@/lib/db/prisma';
 import { TOPUP_WITHOUT_ASSIGNMENT } from '@/lib/services/topup-flag';
 
-import { PERSISTENT_FAILURE_AFTER, toPence } from './ledger';
+import { moneyHoldReasons, PERSISTENT_FAILURE_AFTER, toPence } from './ledger';
 
 export type AbnormalStateName =
   | 'REFUND_UNKNOWN'
@@ -21,6 +21,7 @@ export type AbnormalStateName =
   | 'TRANSFER_PAUSED_DISPUTE'
   | 'TRANSFER_PAUSED_SHORTFALL'
   | 'TRANSFER_PAUSED_CHARGEBACK'
+  | 'TRANSFER_PAUSED_NO_HOLD'
   | 'CHARGEBACK_AFTER_RELEASE'
   | 'CHARGEBACK_LOST'
   | 'REFUNDING_STALE'
@@ -37,10 +38,13 @@ export type AbnormalStateName =
 
 export type AbnormalAction =
   | 'RECONCILE_REFUND_SLICE'
+  | 'ATTACH_REFUND_ID'
+  | 'MARK_SLICE_NOT_EXECUTED'
   | 'RETRY_REFUND_REMAINDER'
   | 'RECONCILE_REVERSAL'
   | 'RECONCILE_BOOKING_REFUNDS'
   | 'RELEASE_NOW'
+  | 'RESUME_RELEASE'
   | 'CLEAR_SHORTFALL'
   | 'ACKNOWLEDGE_CHARGEBACK'
   | 'SETTLE_LOST_CHARGEBACK'
@@ -114,7 +118,13 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
     // B4-era records (context set) that stopped short, and are the latest
     // record on their booking (a later record superseded older failures).
     prisma.refundRecord.findMany({
-      where: { status: { in: ['FAILED', 'PARTIAL'] } },
+      where: {
+        OR: [
+          { status: { in: ['FAILED', 'PARTIAL'] } },
+          // A remainder retry left mid-flight by a crash (lease expired).
+          { status: 'RETRYING', updatedAt: { lt: stale } },
+        ],
+      },
       select: {
         id: true,
         bookingId: true,
@@ -171,7 +181,8 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
         cleanerEarnings: true,
         updatedAt: true,
         dispute: { select: { id: true, status: true } },
-        chargebackHolds: { where: { status: 'OPEN' }, select: { id: true } },
+        status: true,
+        chargebackHolds: { select: { status: true } },
       },
       orderBy: { updatedAt: 'asc' },
       take: LIMIT,
@@ -277,7 +288,15 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
       refId: s.id,
       detail: s.lastReconcileResult,
       persistent: s.retryCount >= PERSISTENT_FAILURE_AFTER,
-      actions: ['RECONCILE_REFUND_SLICE'],
+      // A slice still open after a day (or parked for an admin) also offers
+      // the admin's own match or decision, both audited.
+      actions:
+        s.status !== 'PENDING' &&
+        (s.status === 'NEEDS_RECONCILE' || ageOf(s.createdAt, now) > 86_400)
+          ? s.stripeRefundId
+            ? ['RECONCILE_REFUND_SLICE', 'ATTACH_REFUND_ID']
+            : ['RECONCILE_REFUND_SLICE', 'ATTACH_REFUND_ID', 'MARK_SLICE_NOT_EXECUTED']
+          : ['RECONCILE_REFUND_SLICE'],
       links: [stripeLink('payments', s.stripePaymentIntentId)],
     });
   }
@@ -350,6 +369,27 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
         persistent: false,
         actions: ['CLEAR_SHORTFALL'],
         links: [],
+      });
+    }
+    // PAUSED with nothing holding it (gate review finding 4): RENA-092's
+    // strays (dispute RESOLVED, payout left PAUSED), a dismissed dispute.
+    const holds = moneyHoldReasons({
+      disputeStatus: b.dispute?.status ?? null,
+      amountShortfallPence: b.amountShortfallPence,
+      chargebackStatuses: b.chargebackHolds.map((h) => h.status),
+    });
+    if (b.transferStatus === 'PAUSED' && holds.length === 0) {
+      rows.push({
+        key: `TRANSFER_PAUSED_NO_HOLD:${b.id}`,
+        state: 'TRANSFER_PAUSED_NO_HOLD',
+        bookingId: b.id,
+        ageSeconds: ageOf(b.updatedAt, now),
+        amountPence: toPence(b.cleanerEarnings),
+        refId: b.id,
+        detail: `Booking ${b.status.toLowerCase().replace(/_/g, ' ')}; nothing holds this payout`,
+        persistent: false,
+        actions: ['RESUME_RELEASE'],
+        links: b.dispute ? [{ label: 'Dispute', href: `/admin/disputes/${b.dispute.id}` }] : [],
       });
     }
     const disputeOpen =

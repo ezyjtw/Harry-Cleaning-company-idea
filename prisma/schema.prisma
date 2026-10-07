@@ -1037,6 +1037,8 @@ model Dispute {
   // The refund this resolution runs: a retry reuses it (same record, same keys).
   refundRecordId        String?
   lastMoneyError        String?
+  // Single flight for the money step: a lease, claimed by CAS, cleared after.
+  moneyStepLockedAt     DateTime?
   retryCount            Int           @default(0)
   nextRetryAt           DateTime?
   updatedAt             DateTime      @updatedAt

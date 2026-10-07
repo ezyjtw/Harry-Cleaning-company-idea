@@ -23,6 +23,8 @@ const STATE_HELP: Record<AbnormalStateName, string> = {
   TRANSFER_PAUSED_SHORTFALL:
     'Stripe received less than expected. Check Stripe, then clear the shortfall.',
   TRANSFER_PAUSED_CHARGEBACK: 'A card chargeback is open. The payout waits for its outcome.',
+  TRANSFER_PAUSED_NO_HOLD:
+    'The payout is paused but nothing holds it. Resume releases it (refused if a hold appears).',
   CHARGEBACK_AFTER_RELEASE:
     'A chargeback arrived after the cleaner was paid. Deal with it, then record it.',
   CHARGEBACK_LOST: 'A chargeback was lost. The payout stays held until an admin decides.',
@@ -49,10 +51,13 @@ const STATE_HELP: Record<AbnormalStateName, string> = {
 
 const ACTION_LABEL: Record<AbnormalAction, string> = {
   RECONCILE_REFUND_SLICE: 'Reconcile with Stripe',
+  ATTACH_REFUND_ID: 'Match refund id',
+  MARK_SLICE_NOT_EXECUTED: 'Mark not executed',
   RETRY_REFUND_REMAINDER: 'Retry remainder',
   RECONCILE_REVERSAL: 'Reconcile reversal',
   RECONCILE_BOOKING_REFUNDS: 'Reconcile',
   RELEASE_NOW: 'Release now',
+  RESUME_RELEASE: 'Resume release',
   CLEAR_SHORTFALL: 'Clear shortfall',
   ACKNOWLEDGE_CHARGEBACK: 'Record as dealt with',
   SETTLE_LOST_CHARGEBACK: 'Release to cleaner anyway',
@@ -66,8 +71,10 @@ const ACTION_LABEL: Record<AbnormalAction, string> = {
 
 // Actions that move money ask for a second tap.
 const MOVES_MONEY: AbnormalAction[] = [
+  'MARK_SLICE_NOT_EXECUTED',
   'RETRY_REFUND_REMAINDER',
   'RELEASE_NOW',
+  'RESUME_RELEASE',
   'CLEAR_SHORTFALL',
   'SETTLE_LOST_CHARGEBACK',
   'REFUND_TOPUP',
@@ -84,15 +91,19 @@ function ActionButton({ row, action }: { row: AbnormalRow; action: AbnormalActio
   const router = useRouter();
   const [state, setState] = useState<'idle' | 'confirming' | 'loading'>('idle');
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [refundId, setRefundId] = useState('');
+  const needsInput = action === 'ATTACH_REFUND_ID';
 
   const go = useCallback(async () => {
+    const input = needsInput ? refundId.trim() : undefined;
+    if (needsInput && !input) return;
     setState('loading');
     setResult(null);
     try {
       const res = await fetch('/api/admin/stuck-money/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, bookingId: row.bookingId, refId: row.refId }),
+        body: JSON.stringify({ action, bookingId: row.bookingId, refId: row.refId, input }),
       });
       const data = await res.json().catch(() => null);
       setResult({ ok: !!data?.ok, message: data?.message ?? data?.error ?? `HTTP ${res.status}` });
@@ -102,14 +113,24 @@ function ActionButton({ row, action }: { row: AbnormalRow; action: AbnormalActio
     } finally {
       setState('idle');
     }
-  }, [action, row.bookingId, row.refId, router]);
+  }, [action, row.bookingId, row.refId, router, needsInput, refundId]);
 
   const label = ACTION_LABEL[action];
   return (
     <div className="inline-flex flex-wrap items-center gap-2">
       {state === 'confirming' ? (
         <>
-          <span className="text-xs text-ink-3">{label}?</span>
+          {needsInput ? (
+            <input
+              value={refundId}
+              onChange={(e) => setRefundId(e.target.value)}
+              placeholder="re_… from Stripe"
+              aria-label="Stripe refund id"
+              className="w-40 rounded border border-line px-2 py-1 text-xs"
+            />
+          ) : (
+            <span className="text-xs text-ink-3">{label}?</span>
+          )}
           <button
             onClick={go}
             className="px-2 py-1 text-xs font-medium text-white rounded bg-danger hover:bg-danger"
@@ -127,7 +148,9 @@ function ActionButton({ row, action }: { row: AbnormalRow; action: AbnormalActio
         <span className="text-xs text-ink-3">Working…</span>
       ) : (
         <button
-          onClick={() => (MOVES_MONEY.includes(action) ? setState('confirming') : go())}
+          onClick={() =>
+            MOVES_MONEY.includes(action) || needsInput ? setState('confirming') : go()
+          }
           className="px-2 py-1 text-xs font-medium text-primary rounded border border-line hover:bg-page"
         >
           {label}

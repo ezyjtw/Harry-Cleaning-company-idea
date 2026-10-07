@@ -75,7 +75,7 @@ new-format money mutation (James-ruled wording). After that point:
   `Booking.stripeTransferId` and its post-release refund reverses that one
   transfer only;
 - a dispute in RESOLVING_REFUND or RESOLVING_RELEASE is a status the old
-  code does not know;
+  code does not know (nor RefundRecord status RETRYING or PARTIAL);
 - a booking held by a chargeback or a shortfall sits PAUSED; the old code
   has no way to resume it except dispute resolution or break-glass.
 

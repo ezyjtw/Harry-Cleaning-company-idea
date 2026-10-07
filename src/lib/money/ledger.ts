@@ -239,7 +239,11 @@ export function moneyHoldReasons(booking: {
     reasons.push('DISPUTE');
   }
   if ((booking.amountShortfallPence ?? 0) > 0) reasons.push('SHORTFALL');
-  if ((booking.chargebackStatuses ?? []).includes('OPEN')) reasons.push('CHARGEBACK');
+  // An open chargeback holds, and so does a lost one: the money left Rena and
+  // only an admin's recorded decision (settleLostChargeback) lifts it.
+  if ((booking.chargebackStatuses ?? []).some((st) => st === 'OPEN' || st === 'LOST')) {
+    reasons.push('CHARGEBACK');
+  }
   return reasons;
 }
 
