@@ -14,7 +14,8 @@ import InboxBell from '@/components/app/InboxBell';
 import {
   type AppJob as Job,
   JobCard,
-  LIFECYCLE_ACTION,
+  lifecycleActionFor,
+  lifecycleRefusal,
   OfferCard,
   ReceiptRow,
   haptic,
@@ -132,7 +133,7 @@ export default function AppJobsPage() {
   }, [jobs, filter]);
 
   const advance = async (job: Job) => {
-    const action = LIFECYCLE_ACTION[job.status];
+    const action = lifecycleActionFor(job);
     if (!action) return;
     haptic('medium');
     setProcessingId(job.id);
@@ -156,7 +157,10 @@ export default function AppJobsPage() {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           haptic('error');
-          setActionError(data?.error || 'Could not update the job.');
+          // B3: TOO_EARLY names the London time it opens; STATE_CHANGED refetches.
+          const refusal = lifecycleRefusal(res.status, data);
+          setActionError(refusal.message);
+          if (refusal.refetch && i === 0) await fetchJobs(filter);
           if (i > 0) await fetchJobs(filter);
           return;
         }

@@ -2,7 +2,6 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
-import prisma from '@/lib/db/prisma';
 import { handleDecline } from '@/lib/services/cascade.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -17,33 +16,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
 
-  // B3: optional decline reason from the shell's bottom sheet — appended to
-  // Booking.declineReasons ([{cleanerId, reason, at}]) for cascade analytics.
-  // Best-effort BEFORE the decline (never blocks it); invalid values ignored.
-  try {
-    const body = await request.json().catch(() => null);
-    const reason = body?.reason;
-    if (typeof reason === 'string' && (DECLINE_REASONS as readonly string[]).includes(reason)) {
-      const existing = await prisma.booking.findUnique({
-        where: { id },
-        select: { declineReasons: true },
-      });
-      const list = Array.isArray(existing?.declineReasons) ? existing.declineReasons : [];
-      await prisma.booking.update({
-        where: { id },
-        data: {
-          declineReasons: [
-            ...(list as object[]),
-            { cleanerId: user.id, reason, at: new Date().toISOString() },
-          ],
-        },
-      });
-    }
-  } catch {
-    /* analytics only — the decline itself must always proceed */
-  }
+  // Optional decline reason from the shell's bottom sheet ([{cleanerId,
+  // reason, at}] on Booking.declineReasons, for cascade analytics). Invalid
+  // values are ignored. B3 (RENA-028): the reason is now written in the same
+  // guarded statement as the decline itself, never as a separate
+  // read-modify-write.
+  const body = await request.json().catch(() => null);
+  const raw = body?.reason;
+  const reason =
+    typeof raw === 'string' && (DECLINE_REASONS as readonly string[]).includes(raw)
+      ? raw
+      : undefined;
 
-  const result = await handleDecline(id, user.id);
+  const result = await handleDecline(id, user.id, reason);
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: result.statusCode || 400 });

@@ -254,7 +254,12 @@ export interface DeclineResult {
   message?: string;
 }
 
-export async function handleDecline(bookingId: string, cleanerId: string): Promise<DeclineResult> {
+export async function handleDecline(
+  bookingId: string,
+  cleanerId: string,
+  /** B3: the shell's optional reason, written in the same statement. */
+  reason?: string
+): Promise<DeclineResult> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -289,11 +294,32 @@ export async function handleDecline(bookingId: string, cleanerId: string): Promi
     return { success: false, error: 'Already declined', statusCode: 400 };
   }
 
-  // Atomic push — Prisma generates array_append(), safe under concurrency
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: { declinedCleanerIds: { push: cleanerId } },
-  });
+  // B3 (RENA-028): ONE guarded statement records the decline (and its
+  // reason) only while the row is still in the phase this read saw and the
+  // cleaner has not already declined. Zero rows means the sweep, an accept or
+  // another decline moved first: nothing is advanced from this stale read.
+  const entry = reason
+    ? JSON.stringify([{ cleanerId, reason, at: new Date().toISOString() }])
+    : null;
+  const written = await prisma.$executeRaw`
+    UPDATE "Booking"
+       SET "declinedCleanerIds" = array_append("declinedCleanerIds", ${cleanerId}),
+           "declineReasons" = CASE
+             WHEN ${entry}::jsonb IS NULL THEN "declineReasons"
+             ELSE COALESCE("declineReasons", '[]'::jsonb) || ${entry}::jsonb
+           END,
+           "updatedAt" = now()
+     WHERE id = ${bookingId}
+       AND status = 'AWAITING_CLEANER'::"BookingStatus"
+       AND "cascadePhase" = ${booking.cascadePhase}::"CascadePhase"
+       AND NOT (${cleanerId} = ANY("declinedCleanerIds"))`;
+  if (written === 0) {
+    return {
+      success: false,
+      error: 'This offer changed a moment ago — refresh to see where it stands.',
+      statusCode: 409,
+    };
+  }
 
   if (booking.cascadePhase === 'PRIMARY_OFFER' && isPrimary) {
     await advanceFromPrimary(bookingId, booking);

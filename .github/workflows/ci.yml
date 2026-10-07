@@ -165,6 +165,12 @@ jobs:
           AUTH_SESSION_INTEGRATION: '1'
           NEXTAUTH_SECRET: ci-only-secret-for-session-integration
 
+      - name: Booking lifecycle concurrency matrix against Postgres (B3, RENA-012, 028, 030, 033)
+        run: npx vitest run src/lib/booking/assign.integration.test.ts
+        env:
+          BOOKING_LIFECYCLE_INTEGRATION: '1'
+          NEXTAUTH_SECRET: ci-only-secret-for-booking-integration
+
       - name: Build
         run: npm run build
 

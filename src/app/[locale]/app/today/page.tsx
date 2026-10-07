@@ -10,7 +10,8 @@ import {
   type AppJob as Job,
   HeroJob,
   JobCard,
-  LIFECYCLE_ACTION,
+  lifecycleActionFor,
+  lifecycleRefusal,
   ReceiptRow,
   haptic,
   isoOf,
@@ -792,7 +793,7 @@ export default function TodayPage() {
   }, [jobs]);
 
   const advance = async (job: Job) => {
-    const action = LIFECYCLE_ACTION[job.status];
+    const action = lifecycleActionFor(job);
     if (!action) return;
     haptic('medium');
     setProcessingId(job.id);
@@ -820,7 +821,10 @@ export default function TodayPage() {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           haptic('error');
-          setActionError(data?.error || 'Could not update the job.');
+          // B3: TOO_EARLY names the London time it opens; STATE_CHANGED refetches.
+          const refusal = lifecycleRefusal(res.status, data);
+          setActionError(refusal.message);
+          if (refusal.refetch && i === 0) await fetchJobs();
           if (i > 0) await fetchJobs();
           return;
         }
