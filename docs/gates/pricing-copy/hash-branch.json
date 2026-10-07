@@ -1,0 +1,106 @@
+{
+  "/": {
+    "status": 200,
+    "hash": "1437fd6c2cab8844"
+  },
+  "/about": {
+    "status": 200,
+    "hash": "d35351d60dbd51dc"
+  },
+  "/account-deletion": {
+    "status": 200,
+    "hash": "28cb76f55d56cd50"
+  },
+  "/cleaners": {
+    "status": 200,
+    "hash": "84a24914a7181ca0"
+  },
+  "/cleaning": {
+    "status": 200,
+    "hash": "25b355fca13bbd6a"
+  },
+  "/cleaning/chingford": {
+    "status": 200,
+    "hash": "82dc070917e3f848"
+  },
+  "/contact": {
+    "status": 200,
+    "hash": "332c8e3b41891547"
+  },
+  "/faq": {
+    "status": 200,
+    "hash": "bfc178fdebf34dbc"
+  },
+  "/forgot-password": {
+    "status": 200,
+    "hash": "6e7f929a3fda174e"
+  },
+  "/guarantees": {
+    "status": 200,
+    "hash": "6dcdea601eeaaa26"
+  },
+  "/how-it-works": {
+    "status": 200,
+    "hash": "dbe3b3294b173460"
+  },
+  "/job-check": {
+    "status": 200,
+    "hash": "6bdc815c91a37927"
+  },
+  "/join": {
+    "status": 200,
+    "hash": "bc8e75352a4b07a9"
+  },
+  "/login": {
+    "status": 200,
+    "hash": "6d2437fc28cf7881"
+  },
+  "/offline": {
+    "status": 200,
+    "hash": "9cad100d1e3edcaf"
+  },
+  "/pricing": {
+    "status": 200,
+    "hash": "8c3c0bbfd5192420"
+  },
+  "/privacy": {
+    "status": 200,
+    "hash": "c9615149a28a71bf"
+  },
+  "/regular-clean": {
+    "status": 200,
+    "hash": "eb6bfbcf9a4f15a3"
+  },
+  "/services": {
+    "status": 200,
+    "hash": "26dd21d33a64e338"
+  },
+  "/services/regular": {
+    "status": 200,
+    "hash": "8b739d9cc971793d"
+  },
+  "/services/deep": {
+    "status": 200,
+    "hash": "428df5b97f0ae393"
+  },
+  "/services/end-of-tenancy": {
+    "status": 200,
+    "hash": "9a1929ae33f4dda8"
+  },
+  "/services/airbnb": {
+    "status": 200,
+    "hash": "fa9f3c358866c0d7"
+  },
+  "/signup": {
+    "status": 200,
+    "hash": "1b5efa1be5447ae7"
+  },
+  "/terms": {
+    "status": 200,
+    "hash": "452502e661a9abd1"
+  },
+  "/unsubscribe": {
+    "status": 200,
+    "hash": "b44964ad70a802b1"
+  }
+}

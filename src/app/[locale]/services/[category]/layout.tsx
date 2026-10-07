@@ -30,13 +30,13 @@ const CATEGORY_SEO: Record<string, { title: string; description: string; service
   airbnb: {
     title: 'Airbnb & Short-Let Cleaning',
     description:
-      'Reliable turnover cleans for Airbnb and short-let hosts in north-east London and surrounding areas of Essex, by vetted independent cleaners with transparent fixed prices.',
+      'Reliable turnover cleans for Airbnb and short-let hosts in north-east London and surrounding areas of Essex, by vetted independent cleaners, each setting their own price by property size.',
     serviceName: 'Airbnb / short-let turnover cleaning',
   },
   'end-of-tenancy': {
     title: 'End of Tenancy Cleaning',
     description:
-      'Fixed-price end of tenancy cleans by vetted independent cleaners in north-east London and surrounding areas of Essex. See the full price before you book.',
+      'End of tenancy cleans by vetted independent cleaners in north-east London and surrounding areas of Essex, each setting their own price by property size. See the full price before you book.',
     serviceName: 'End of tenancy cleaning',
   },
 };

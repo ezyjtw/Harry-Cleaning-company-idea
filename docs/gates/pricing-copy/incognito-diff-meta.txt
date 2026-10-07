@@ -1,0 +1,15 @@
+Logged-out server HTML, meta descriptions only, control main 2c09138 vs branch.
+=== /about (no meta change)
+=== /join (no meta change)
+=== /pricing (no meta change)
+=== /services (no meta change)
+=== /services/airbnb 
+-<meta name="description" content="Reliable turnover cleans for Airbnb and short-let hosts in north-east London and surrounding areas of Essex, by vetted independent cleaners with transparent fixed prices."/>
+-<meta property="og:description" content="Reliable turnover cleans for Airbnb and short-let hosts in north-east London and surrounding areas of Essex, by vetted independent cleaners with transparent fixed prices."/>
++<meta name="description" content="Reliable turnover cleans for Airbnb and short-let hosts in north-east London and surrounding areas of Essex, by vetted independent cleaners, each setting their own price by property size."/>
++<meta property="og:description" content="Reliable turnover cleans for Airbnb and short-let hosts in north-east London and surrounding areas of Essex, by vetted independent cleaners, each setting their own price by property size."/>
+=== /services/end-of-tenancy 
+-<meta name="description" content="Fixed-price end of tenancy cleans by vetted independent cleaners in north-east London and surrounding areas of Essex. See the full price before you book."/>
+-<meta property="og:description" content="Fixed-price end of tenancy cleans by vetted independent cleaners in north-east London and surrounding areas of Essex. See the full price before you book."/>
++<meta name="description" content="End of tenancy cleans by vetted independent cleaners in north-east London and surrounding areas of Essex, each setting their own price by property size. See the full price before you book."/>
++<meta property="og:description" content="End of tenancy cleans by vetted independent cleaners in north-east London and surrounding areas of Essex, each setting their own price by property size. See the full price before you book."/>

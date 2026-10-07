@@ -1,0 +1,19 @@
+Logged-out Chromium render (fresh context), control main 2c09138 vs branch, same rig database.
+=== /join (no visible change)
+=== /about (no visible change)
+=== /pricing 
+-Fixed price by property size
+-	£150 – £580	Fixed by property size
++Cleaner-set price by property size
++	£150 – £580	Set by your cleaner, per property size
+-Fixed price turnaround between guests
+-	£45 – £165	Fixed by property size
++Turnaround between guests, at your cleaner's price
++	£45 – £165	Set by your cleaner, per property size
+=== /services 
+-Fixed price based on property size
++Cleaner-set prices by property size
+=== /services/end-of-tenancy (no visible change)
+=== /services/airbnb (no visible change)
+=== /services/regular (no visible change)
+=== /services/deep (no visible change)
