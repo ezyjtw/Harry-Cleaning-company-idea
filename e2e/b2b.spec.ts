@@ -231,7 +231,8 @@ test('Pro Today: on-show refetch coalesces at 15 s', async ({ page }) => {
   await page.clock.install();
   let hits = 0;
   page.on('request', (r) => {
-    if (r.url().includes('/api/cleaner/jobs?status=')) hits += 1;
+    // fetchJobs reads two lists; count the first only.
+    if (r.url().includes('/api/cleaner/jobs?status=ACCEPTED')) hits += 1;
   });
   await page.goto('/app/today');
   await page.waitForLoadState('networkidle');
@@ -269,6 +270,7 @@ test('wizard: a guest who signs in mid-flow returns to their answers', async ({ 
   );
   await page.goto('/services/regular?postcode=E4%209AA');
   await page.getByRole('button', { name: '3h', exact: true }).click();
+  await expect(page.getByRole('button', { name: '3h', exact: true })).toHaveClass(/bg-ink/);
   await page.fill('#guest-email-input', FIXTURES.customerA.email);
   await page.locator('#guest-email-input').blur();
   const notice = page.getByTestId('guest-email-account-notice');
@@ -279,7 +281,8 @@ test('wizard: a guest who signs in mid-flow returns to their answers', async ({ 
   await page.locator('input[type="password"]').first().fill('E2e-Fixture-Pass-2026!');
   await page.locator('form button[type="submit"]').click();
   await expect(page).toHaveURL(/\/services\/regular\?postcode=E4/, { timeout: 20000 });
-  await expect(page.getByRole('button', { name: /^3h/ })).toContainText('✓');
+  // The chosen hours come back selected (the filled button).
+  await expect(page.getByRole('button', { name: '3h', exact: true })).toHaveClass(/bg-ink/);
   // One shot: a reload starts clean.
   const left = await page.evaluate(() => sessionStorage.getItem('rena-flow-signin'));
   expect(left).toBeNull();
@@ -302,22 +305,23 @@ test.describe('phone width: the Book action stays reachable', () => {
     const box = await band.first().boundingBox();
     expect(box).not.toBeNull();
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(844);
-    const usesDvh = await page.evaluate(() =>
-      Array.from(document.styleSheets).some((sheet) => {
-        try {
-          return Array.from(sheet.cssRules).some((r) => r.cssText.includes('100dvh'));
-        } catch {
-          return false;
-        }
-      })
-    );
-    expect(usesDvh).toBe(true);
+    // Headless Chromium has no dynamic toolbar (dvh equals vh there), so the
+    // sheet's own rule is asserted: it must size to the dynamic viewport.
+    const sheetClass = await page.locator('div.slide-up').first().getAttribute('class');
+    expect(sheetClass ?? '').toContain('max-h-[calc(100dvh-80px)]');
   });
 
   test('on the profile page the contact button does not cover Book', async ({ page }) => {
     test.skip(!hasFixtures, 'needs the fixture cleaner');
     await page.goto(`/cleaners/${await fixtureCleanerId()}`);
     await expect(page.locator('a[aria-label="Contact us"]')).toBeHidden();
+    // First-visit consent sits over the bar until answered (kept by design).
+    const essential = page.getByRole('button', { name: /Essential only/i });
+    await essential
+      .waitFor({ timeout: 5000 })
+      .then(() => essential.click())
+      .catch(() => {});
+    await expect(essential).toBeHidden();
     const book = page.getByRole('link', { name: /Book now/ }).last();
     const box = await book.boundingBox();
     expect(box).not.toBeNull();
