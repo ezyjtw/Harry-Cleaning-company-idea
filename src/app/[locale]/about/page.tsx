@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${BASE_URL}/about` },
   title: 'About Rena — Our Mission to Transform Home Cleaning',
   description:
-    'Learn about Rena, the cleaning marketplace that puts cleaners first. One all-inclusive price for customers, and cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb. Discover our mission, values, and how we vet every cleaner.',
+    'Learn about Rena, the cleaning marketplace that puts cleaners first. One all-inclusive price for customers, and cleaners keep 90%. Discover our mission, values, and how we vet every cleaner.',
   openGraph: {
     title: 'About Rena — Our Mission to Transform Home Cleaning',
     description:
@@ -41,7 +41,7 @@ const values = [
   {
     title: 'Fairness',
     description:
-      'Our model means cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb, and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
+      'Our model means cleaners keep 90% of their rate and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
     icon: (
       <svg
         className="h-8 w-8"

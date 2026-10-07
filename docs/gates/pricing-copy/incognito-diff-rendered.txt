@@ -1,8 +1,6 @@
 Logged-out Chromium render (fresh context), control main 2c09138 vs branch, same rig database.
 === /join (no visible change)
-=== /about 
--Our model means cleaners keep 90% of their rate and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.
-+Our model means cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb, and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.
+=== /about (no visible change)
 === /pricing 
 -Fixed price by property size
 -	£150 – £580	Fixed by property size

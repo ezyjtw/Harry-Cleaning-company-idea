@@ -1,7 +1,5 @@
 Logged-out server HTML, meta descriptions only, control main 2c09138 vs branch.
-=== /about 
--<meta name="description" content="Learn about Rena, the cleaning marketplace that puts cleaners first. One all-inclusive price for customers, and cleaners keep 90%. Discover our mission, values, and how we vet every cleaner."/>
-+<meta name="description" content="Learn about Rena, the cleaning marketplace that puts cleaners first. One all-inclusive price for customers, and cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb. Discover our mission, values, and how we vet every cleaner."/>
+=== /about (no meta change)
 === /join (no meta change)
 === /pricing (no meta change)
 === /services (no meta change)
