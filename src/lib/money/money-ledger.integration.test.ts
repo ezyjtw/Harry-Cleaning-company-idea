@@ -69,6 +69,7 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
       await prisma.auditLog.deleteMany({ where: { entityId: { in: bookingIds } } });
       await prisma.booking.deleteMany({ where: { id: { in: bookingIds } } });
     }
+    await prisma.recurringAgreement.deleteMany({ where: { cleanerId: { in: uids } } });
     await prisma.auditLog.deleteMany({ where: { userId: { in: uids } } });
     await prisma.notification.deleteMany({ where: { userId: { in: uids } } });
     await prisma.backgroundJob.deleteMany({ where: { createdAt: { gte: startedAt } } });
@@ -269,6 +270,14 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
       const recs = await prisma.refundRecord.findMany({ where: { bookingId: b.id } });
       expect(recs).toHaveLength(1);
       expect(recs[0].executedPence).toBe(2000);
+      expect(recs[0].finalizedExecutedPence).toBe(2000);
+      // The consequences ran exactly once: one customer refund notice.
+      const notices = await prisma.notification.findMany({
+        where: { userId: ids.customer, title: { contains: 'refund issued' } },
+      });
+      expect(
+        notices.filter((x) => (x.data as { bookingId?: string } | null)?.bookingId === b.id)
+      ).toHaveLength(1);
     }
     // A dashboard refund delivered twice at once records one STRIPE_DASHBOARD row.
     fake.reset();
@@ -708,6 +717,28 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
       status: 'won',
     } as never);
     expect((await bookingRow(b.id)).transferStatus).toBe('RELEASED');
+
+    // Holds coexist (James-ruled): clearing a shortfall never releases money
+    // an open chargeback still guards.
+    const both = await paidBooking({
+      transferStatus: 'PAUSED',
+      extra: { amountShortfallPence: 200 },
+    });
+    await holds.recordChargeback({
+      id: `dp_${both.id}`,
+      charge: both.charge,
+      amount: 5800,
+      status: 'needs_response',
+    } as never);
+    expect((await holds.clearShortfall(both.id, ids.admin)).ok).toBe(true);
+    expect((await bookingRow(both.id)).transferStatus).toBe('PAUSED');
+    await holds.closeChargeback({
+      id: `dp_${both.id}`,
+      charge: both.charge,
+      amount: 5800,
+      status: 'won',
+    } as never);
+    expect((await bookingRow(both.id)).transferStatus).toBe('RELEASED');
 
     const lost = await paidBooking();
     await holds.recordChargeback({

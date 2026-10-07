@@ -597,7 +597,14 @@ export async function finalizeRefundRecord(recordId: string): Promise<RefundResu
   }
 
   if (delta > 0) {
-    await applyExecutedDelta(record.id, ledger, ctx, record.slices, delta);
+    await applyExecutedDelta(
+      record.id,
+      ledger,
+      ctx,
+      record.slices,
+      delta,
+      record.finalizedExecutedPence
+    );
   } else {
     await prisma.booking.updateMany({
       where: { id: bookingId, transferStatus: 'REFUNDING' },
@@ -653,9 +660,10 @@ async function applyExecutedDelta(
     executedPence: number;
     stripeRefundId: string | null;
   }[],
-  delta: number
+  delta: number,
+  /** The finalised total the delta was computed from: the CAS compares to it. */
+  finalizedBefore: number
 ): Promise<void> {
-  const record = await prisma.refundRecord.findUniqueOrThrow({ where: { id: recordId } });
   const bookingId = ledger.booking.id;
   const flaggedPis = new Set(
     ledger.topups.filter((t) => t.flagged).map((t) => t.stripePaymentIntentId)
@@ -712,9 +720,9 @@ async function applyExecutedDelta(
   };
   const won = await prisma.$transaction(async (tx) => {
     const claim = await tx.refundRecord.updateMany({
-      where: { id: recordId, finalizedExecutedPence: record.finalizedExecutedPence },
+      where: { id: recordId, finalizedExecutedPence: finalizedBefore },
       data: {
-        finalizedExecutedPence: record.finalizedExecutedPence + delta,
+        finalizedExecutedPence: finalizedBefore + delta,
         finalizedAt: new Date(),
         context: nextCtx as unknown as Prisma.InputJsonValue,
         failureReason: null,
