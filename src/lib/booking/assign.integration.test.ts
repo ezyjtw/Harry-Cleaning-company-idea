@@ -266,6 +266,31 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
     expect((await cascade.atomicAccept(y, ids.a)).code).toBe('SLOT_TAKEN');
   });
 
+  it('3d. the single buffer boundary: a job ending 12:00 with a 30 minute buffer blocks 12:29 and allows 12:30', async () => {
+    await booking({
+      cleanerId: ids.a,
+      status: 'ACCEPTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      startTime: '10:00',
+      duration: 2,
+    });
+    const blocked = await booking({
+      cleanerId: ids.b,
+      backupCleanerIds: [ids.a],
+      startTime: '12:29',
+      duration: 1,
+    });
+    const allowed = await booking({
+      cleanerId: ids.b,
+      backupCleanerIds: [ids.a],
+      startTime: '12:30',
+      duration: 1,
+    });
+    expect((await cascade.atomicAccept(blocked, ids.a)).code).toBe('SLOT_TAKEN');
+    expect((await cascade.atomicAccept(allowed, ids.a)).success).toBe(true);
+  });
+
   it('3c. a job crossing midnight blocks the next London day (I1 across days)', async () => {
     const next = new Date(day.getTime() + DAY_MS);
     // A's own 23:00 three-hour job (admin-placed, past the template's day
@@ -709,6 +734,58 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
     }
   }, 300_000);
 
+  it('10d. a flagged top-up never moves the cleaner side (R2 boundary)', async () => {
+    const pi = `pi_b3_topup_boundary_${Date.now()}`;
+    const x = await booking({
+      cleanerId: ids.a,
+      backupCleanerIds: [ids.b],
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      cascadeExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      extra: {
+        provisionalCleanerId: ids.b,
+        provisionalPrice: 70,
+        topupAmount: 10,
+        topupApproved: true,
+        approvalExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        provisionalSource: 'CASCADE',
+      },
+    });
+    await booking({
+      cleanerId: ids.b,
+      status: 'ACCEPTED',
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      startTime: '11:00',
+    });
+    await prisma.topupRecord.create({
+      data: {
+        bookingId: x,
+        amount: 10,
+        reason: 'integration',
+        stripePaymentIntentId: pi,
+        paymentMethodType: 'on_session',
+      },
+    });
+    const before = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+    await topup.handleTopupPiSucceeded(pi, x);
+    const after = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+    // Captured, charged and refundable money rose; nothing cleaner-side moved.
+    expect(Number(after.totalAmountCharged)).toBe(70);
+    expect(Number(after.cleanerEarnings)).toBe(Number(before.cleanerEarnings));
+    expect(after.cleanerPayoutAmount).toEqual(before.cleanerPayoutAmount);
+    expect(after.transferStatus).toBe(before.transferStatus);
+    expect(after.releaseDueAt).toEqual(before.releaseDueAt);
+    // The cleaner's share of a refund reads the total net of the flag, so it
+    // is exactly the pre-flag figure (50 of 60 for a 60 refund, not 50 of 70).
+    const { calculateCleanerSharePence } = await import('@/lib/services/refund.service');
+    const { flaggedTopupPounds } = await import('@/lib/services/topup-flag');
+    const flagged = await flaggedTopupPounds(x);
+    expect(flagged).toBe(10);
+    expect(calculateCleanerSharePence(60, { ...after, flaggedTopupPounds: flagged })).toBe(
+      calculateCleanerSharePence(60, before)
+    );
+  });
+
   it("11. a reschedule accept after an admin reassign is refused; the new cleaner's row stays put", async () => {
     const { resolveRescheduleOffer } = await import('@/lib/services/reschedule-offer.service');
     const x = await booking({
@@ -767,6 +844,129 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
     if (!res.ok) expect(res.code).toBe('STATE_CHANGED');
     expect((await prisma.booking.findUniqueOrThrow({ where: { id: x } })).status).toBe('ACCEPTED');
   });
+
+  describe('admin revert (R1, James-ruled at the B3 gate)', () => {
+    const ADMIN_EMAIL = 'b3-admin@integration.invalid';
+    let adminId = '';
+
+    beforeAll(async () => {
+      const admin = await prisma.user.upsert({
+        where: { email: ADMIN_EMAIL },
+        update: { role: 'ADMIN' },
+        create: { email: ADMIN_EMAIL, name: 'Integration Admin', role: 'ADMIN', passwordHash: 'x' },
+      });
+      adminId = admin.id;
+    });
+
+    afterAll(async () => {
+      await prisma.notification.deleteMany({ where: { userId: adminId } });
+      await prisma.user.deleteMany({ where: { email: ADMIN_EMAIL } });
+    });
+
+    async function provisionalReassign(): Promise<string> {
+      return booking({
+        cleanerId: ids.a,
+        cascadePhase: 'PROVISIONAL_APPROVAL',
+        cascadeExpiresAt: new Date(Date.now() - 60 * 1000),
+        startTime: '10:00',
+        extra: {
+          provisionalCleanerId: ids.b,
+          provisionalPrice: 70,
+          topupAmount: 10,
+          approvalExpiresAt: new Date(Date.now() - 60 * 1000),
+          provisionalSource: 'ADMIN_REASSIGN',
+          reassignPreviousStatus: 'ACCEPTED',
+          reassignPreviousCleanerId: ids.a,
+        },
+      });
+    }
+
+    it('13. a lost slot refuses the revert: state kept, no double booking, one audit row and one alert across two sweeps', async () => {
+      const x = await provisionalReassign();
+      // The original cleaner took an overlapping job during the approval window.
+      const taken = await booking({
+        cleanerId: ids.a,
+        status: 'ACCEPTED',
+        cascadePhase: null,
+        cascadeExpiresAt: null,
+        startTime: '11:00',
+      });
+      expect(await cascade.expireProvisionalApproval(x)).toBe(false);
+      expect(await cascade.expireProvisionalApproval(x)).toBe(false);
+      const row = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+      expect(row.status).toBe('AWAITING_CLEANER');
+      expect(row.cascadePhase).toBe('PROVISIONAL_APPROVAL');
+      expect(row.reassignPreviousCleanerId).toBe(ids.a);
+      const blocking = await blockingFor(ids.a);
+      expect(blocking.map((b) => b.id)).toEqual([taken]);
+      expect(
+        await prisma.auditLog.count({
+          where: { entityId: x, action: 'ADMIN_REASSIGN_REVERT_REFUSED' },
+        })
+      ).toBe(1);
+      expect(
+        await prisma.notification.count({
+          where: { userId: adminId, data: { path: ['bookingId'], equals: x } },
+        })
+      ).toBe(1);
+      // The customer hears nothing false: no "window closed, nothing charged" bell.
+      expect(await prisma.notification.count({ where: { userId: ids.customer } })).toBe(0);
+    });
+
+    it('13b. with the slot still free the revert lands as before', async () => {
+      const x = await provisionalReassign();
+      expect(await cascade.expireProvisionalApproval(x)).toBe(true);
+      const row = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+      expect(row.status).toBe('ACCEPTED');
+      expect(row.cleanerId).toBe(ids.a);
+      expect(row.cascadePhase).toBeNull();
+    });
+  });
+
+  it('14. reserve promotion writes a new explicit expiry (cascadeExpiresAt and approvalExpiresAt)', async () => {
+    const stale = new Date(Date.now() - 60 * 1000);
+    const x = await booking({
+      cleanerId: ids.a,
+      cascadePhase: 'PHASE2_RESERVE',
+      cascadeExpiresAt: stale,
+      extra: { reserveCleanerIds: [ids.b], phase2Entered: true },
+    });
+    expect(await cascade.promoteReserves(x)).toBe(true);
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+    expect(row.cascadePhase).toBe('PROVISIONAL_APPROVAL');
+    expect(row.provisionalCleanerId).toBe(ids.b);
+    expect(row.approvalExpiresAt).not.toBeNull();
+    expect(row.cascadeExpiresAt?.getTime()).toBe(row.approvalExpiresAt?.getTime());
+    expect(row.cascadeExpiresAt?.getTime() ?? 0).toBeGreaterThan(Date.now());
+  });
+
+  it('15. a lock wait that spends the transaction budget is CleanerBusyError; nothing is written', async () => {
+    const x = await booking({ cleanerId: ids.b, backupCleanerIds: [ids.a] });
+    const key = `cleaner:${ids.a}`;
+    // A holder outside the helper keeps A's lock past the helper's 20s budget.
+    const holder = prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+        await new Promise((r) => setTimeout(r, 22_000));
+      },
+      { maxWait: 5_000, timeout: 40_000 }
+    );
+    await new Promise((r) => setTimeout(r, 300));
+    const err = await cascade.atomicAccept(x, ids.a).then(
+      () => null,
+      (e: unknown) => e
+    );
+    await holder;
+    expect(err).toBeInstanceOf(assign.CleanerBusyError);
+    const { busyResponse } = await import('@/lib/http/busy');
+    const res = busyResponse(err);
+    expect(res?.status).toBe(503);
+    expect(res?.headers.get('Retry-After')).toBe('5');
+    expect(await res?.json()).toEqual({ error: 'BUSY', message: expect.any(String) });
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id: x } });
+    expect(row.status).toBe('AWAITING_CLEANER');
+    expect(row.cleanerId).toBe(ids.b);
+  }, 60_000);
 
   describe('deletion blockers (RENA-034, James-ruled)', () => {
     async function blockersFor(userId: string) {

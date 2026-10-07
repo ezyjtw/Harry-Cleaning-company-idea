@@ -954,7 +954,9 @@ export async function expireBackupOrCombinedOffer(
 }
 
 export async function expireProvisionalApproval(bookingId: string): Promise<boolean> {
-  const advanced = await handleProvisionalFailure(bookingId, 'Approval window expired');
+  // A refused admin revert is not an advance: the booking stays put and the
+  // admins were alerted, so no customer comms go out here.
+  const advanced = (await handleProvisionalFailure(bookingId, 'Approval window expired')) === true;
   // R10 Lane 1 (James-ruled): the customer hears the release moment itself,
   // honestly PER CASCADE PATH. When the advance keeps the search alive the
   // notice promises the next step; when it exhausted the cascade, the
@@ -1004,7 +1006,7 @@ export async function expireProvisionalApproval(bookingId: string): Promise<bool
 export async function handleProvisionalFailure(
   bookingId: string,
   reason: string
-): Promise<boolean> {
+): Promise<boolean | typeof REASSIGN_REVERT_CONFLICT> {
   const b = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -1275,7 +1277,11 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
   // re-read. No offer-window check: promotion is the system acting at or after
   // the reserve window's end (the sweep calls it on expiry), not a cleaner
   // answering a live offer. A lost slot leaves the phase for the next tick,
-  // whose pre-filter skips the winner.
+  // whose pre-filter skips the winner. B3 gate condition (James-ruled): the
+  // promotion always writes a new explicit expiry (cascadeExpiresAt and
+  // approvalExpiresAt, both from a window computed now), and the acceptance
+  // that follows, the customer's approve, is still refused server-side once
+  // that expiry passes (approve-topup POST, 410).
   const claim = await assignCleaner({
     bookingId,
     cleanerId: winner.cleanerId,
@@ -1567,11 +1573,22 @@ export async function enterAdminPriceAdjust(args: {
   return { success: true, approvalExpiresAt };
 }
 
+/**
+ * B3 gate (James-ruled): an admin revert whose original cleaner has lost the
+ * slot is refused, never written. The booking stays in its reassignment or
+ * provisional state, the refusal is audited and every admin gets an urgent
+ * bell. B4 adds the REASSIGN_REVERT_CONFLICT queue state that holds it.
+ */
+export const REASSIGN_REVERT_CONFLICT = 'REASSIGN_REVERT_CONFLICT' as const;
+
 // Revert an admin-reassign provisional on customer decline / expiry / charge
 // fail. Restores the EXACT pre-reassign state (status + cleaner). For a
 // CASCADE_EXHAUSTED booking this returns it to CASCADE_EXHAUSTED (James
 // decision 1). Atomic + idempotent: count===0 ⇒ no-op.
-async function revertAdminReassign(bookingId: string, reason: string): Promise<boolean> {
+async function revertAdminReassign(
+  bookingId: string,
+  reason: string
+): Promise<boolean | typeof REASSIGN_REVERT_CONFLICT> {
   const b = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -1582,6 +1599,7 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       // R4 LANE 5B: captured BEFORE the revert clears it — the copy fork
       // (adjust vs reassign) depends on it.
       provisionalSource: true,
+      approvalExpiresAt: true,
     },
   });
   if (!b?.reassignPreviousStatus || !b.reassignPreviousCleanerId) return false;
@@ -1594,10 +1612,8 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
 
   // B3: the restore moves the row back into the blocking set for the previous
   // cleaner, whose slot was open to others during the approval window, so it
-  // runs through the assignment helper (lock, locked slot re-read, CAS). The
-  // restore is the customer's original booking and must not strand in an
-  // expired provisional state, so a lost slot is recorded (audited, logged,
-  // named for James's ruling) rather than refused.
+  // runs through the assignment helper: the cleaner's lock, the I1 overlap
+  // re-read, then the CAS. A lost slot refuses the restore (James-ruled).
   const res = await assignCleaner({
     bookingId,
     cleanerId: b.reassignPreviousCleanerId,
@@ -1611,7 +1627,7 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       provisionalSource: { in: ['ADMIN_REASSIGN', 'ADMIN_PRICE_ADJUST'] },
     },
     requireUnexpiredOffer: false,
-    slotPolicy: 'report',
+    slotPolicy: 'overlap',
     actor: { kind: 'SYSTEM' },
     data: {
       status: b.reassignPreviousStatus,
@@ -1629,18 +1645,15 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       reassignPreviousCleanerId: null,
     },
   });
-  if (!res.ok) return false;
-  if (res.slotConflict) {
-    await AuditService.log({
-      action: 'ADMIN_REASSIGN_REVERT_SLOT_CONFLICT',
-      entityType: 'Booking',
-      entityId: bookingId,
-      metadata: { restoredCleanerId: b.reassignPreviousCleanerId },
-    }).catch(() => {});
-    log.error('cascade', 'admin_revert_slot_conflict', {
+  if (!res.ok) {
+    if (res.reason !== 'SLOT_TAKEN') return false;
+    await raiseRevertConflict({
       bookingId,
       cleanerId: b.reassignPreviousCleanerId,
+      reason,
+      episode: b.approvalExpiresAt?.toISOString() ?? 'none',
     });
+    return REASSIGN_REVERT_CONFLICT;
   }
 
   // R4 LANE 5A (James-ruled): the fence extends to top-ups — cancel the
@@ -1749,6 +1762,63 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
   }
 
   return true;
+}
+
+/**
+ * The refusal's audit row and urgent admin alert. The expiry sweep retries
+ * the revert every tick (a slot that frees again lets it land), so the alert
+ * is raised once per provisional episode (keyed on its approval expiry); the
+ * error log line is written on every refusal.
+ */
+async function raiseRevertConflict(args: {
+  bookingId: string;
+  cleanerId: string;
+  reason: string;
+  episode: string;
+}): Promise<void> {
+  log.error('cascade', 'admin_revert_refused_slot_taken', {
+    bookingId: args.bookingId,
+    cleanerId: args.cleanerId,
+  });
+  const already = await prisma.auditLog.count({
+    where: {
+      entityId: args.bookingId,
+      action: 'ADMIN_REASSIGN_REVERT_REFUSED',
+      metadata: { path: ['episode'], equals: args.episode },
+    },
+  });
+  if (already > 0) return;
+  await AuditService.log({
+    action: 'ADMIN_REASSIGN_REVERT_REFUSED',
+    entityType: 'Booking',
+    entityId: args.bookingId,
+    metadata: {
+      code: REASSIGN_REVERT_CONFLICT,
+      previousCleanerId: args.cleanerId,
+      trigger: args.reason,
+      episode: args.episode,
+    },
+  }).catch(() => {});
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
+  const ref = args.bookingId.substring(0, 8).toUpperCase();
+  for (const admin of admins) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: admin.id,
+          type: 'SYSTEM',
+          title: 'Urgent: reassignment could not be reverted',
+          body: `Booking ${ref}: the original cleaner is no longer free at that time, so the booking was not returned to them. It stays in its reassignment state until someone resolves it.`,
+          data: {
+            bookingId: args.bookingId,
+            severity: 'high',
+            code: REASSIGN_REVERT_CONFLICT,
+            url: `/admin/bookings/${args.bookingId}`,
+          },
+        },
+      })
+      .catch(() => {});
+  }
 }
 
 /** B3: a top-up was charged but its assignment refused (flagged for B4). */

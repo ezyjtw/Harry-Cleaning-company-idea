@@ -3,11 +3,13 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { mapBusy } from '@/lib/http/busy';
 import { renaFindAccept } from '@/lib/services/cascade.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: NextRequest, context: RouteContext) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(_request: NextRequest, context: RouteContext) {
   const user = await getCleanerSession();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,4 +48,4 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     message: 'Job accepted',
     job: { id, status: 'ACCEPTED' },
   });
-}
+});

@@ -16,10 +16,11 @@ import { FIXTURE_PASSWORD } from './global-setup';
 const SAME_ORIGIN = { origin: 'http://localhost:3000' };
 
 const CLEANER_B = { email: 'e2e-cleaner-b@integration.invalid', name: 'Brio Fixture' };
+const ADMIN = { email: 'e2e-admin-b3@integration.invalid', name: 'Ada Fixture' };
 
 type Prisma = PrismaClient;
 let prisma: Prisma;
-const ids = { cleaner: '', cleanerB: '', customer: '' };
+const ids = { cleaner: '', cleanerB: '', customer: '', admin: '' };
 const created: string[] = [];
 let savedProfile: { bio: string | null; specialties: string[] } | null = null;
 
@@ -93,6 +94,19 @@ test.describe('B3 cleaner lifecycle', () => {
       },
     });
     ids.cleanerB = b.id;
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN.email },
+      update: { passwordHash, accountStatus: 'ACTIVE', role: 'ADMIN' },
+      create: {
+        email: ADMIN.email,
+        name: ADMIN.name,
+        role: 'ADMIN',
+        passwordHash,
+        emailVerified: new Date(),
+        emailVerifiedAt: new Date(),
+      },
+    });
+    ids.admin = admin.id;
     await prisma.cleanerProfile.upsert({
       where: { userId: b.id },
       update: { verified: true, hourlyRateRegular: 20 },
@@ -111,7 +125,7 @@ test.describe('B3 cleaner lifecycle', () => {
     if (created.length) {
       await prisma.auditLog.deleteMany({ where: { entityId: { in: created } } });
       await prisma.notification.deleteMany({
-        where: { userId: { in: [ids.customer, ids.cleaner, ids.cleanerB] } },
+        where: { userId: { in: [ids.customer, ids.cleaner, ids.cleanerB, ids.admin] } },
       });
       await prisma.booking.deleteMany({ where: { id: { in: created.splice(0) } } });
     }
@@ -121,6 +135,10 @@ test.describe('B3 cleaner lifecycle', () => {
     if (savedProfile) {
       await prisma.cleanerProfile.update({ where: { userId: ids.cleaner }, data: savedProfile });
     }
+    // The admin-filed deletion case files a request for cleaner B; undo it.
+    await prisma.dataDeletionRequest.deleteMany({ where: { userId: ids.cleanerB } });
+    await prisma.notification.deleteMany({ where: { userId: ids.admin } });
+    await prisma.user.deleteMany({ where: { email: ADMIN.email } });
     // A blocked deletion never deactivates; this is the belt if one ever did.
     await prisma.user.updateMany({
       where: { email: { in: [FIXTURES.cleaner.email, CLEANER_B.email] } },
@@ -135,6 +153,14 @@ test.describe('B3 cleaner lifecycle', () => {
 
   async function asCleaner(page: Page) {
     await signIn(page, 'cleaner');
+  }
+
+  async function asAdmin(page: Page) {
+    await page.goto('/login');
+    await page.fill('input[type="email"]', ADMIN.email);
+    await page.locator('input[type="password"]').first().fill(FIXTURE_PASSWORD);
+    await page.locator('form button[type="submit"]').click();
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 20000 });
   }
 
   test('happy path: On my way then Mark complete, releaseDueAt set', async ({ page }) => {
@@ -300,6 +326,125 @@ test.describe('B3 cleaner lifecycle', () => {
       await expect(page.getByTestId('topup-unassigned')).toBeVisible({ timeout: 15000 });
       await expect(page.getByText('Your payment went through')).toBeVisible();
     }
+  });
+
+  test('admin-filed cleaner deletion declines unaccepted offers and advances; accepted work is untouched', async ({
+    page,
+  }) => {
+    const later = londonSlot(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)).date;
+    const offer = await booking({
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'BACKUP_OFFER',
+      cascadeExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      backupCleanerIds: [ids.cleanerB],
+      date: later,
+      startTime: '10:00',
+    });
+    const accepted = await booking({
+      cleanerId: ids.cleanerB,
+      date: later,
+      startTime: '15:00',
+    });
+    await asAdmin(page);
+    const res = await page.request.post('/api/gdpr/deletion', {
+      headers: SAME_ORIGIN,
+      data: { userId: ids.cleanerB, email: CLEANER_B.email, reason: 'e2e admin filed' },
+    });
+    expect(res.status()).toBe(200);
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id: offer } });
+    expect(row.declinedCleanerIds).toContain(ids.cleanerB);
+    expect(row.cascadePhase).not.toBe('BACKUP_OFFER');
+    const kept = await prisma.booking.findUniqueOrThrow({ where: { id: accepted } });
+    expect(kept.status).toBe('ACCEPTED');
+    expect(kept.cleanerId).toBe(ids.cleanerB);
+    await prisma.dataDeletionRequest.deleteMany({ where: { userId: ids.cleanerB } });
+    await prisma.user.update({ where: { id: ids.cleanerB }, data: { accountStatus: 'ACTIVE' } });
+  });
+
+  test('an override into IN_PROGRESS on a Flexible job stamps checkedInAt, so completion has a window', async ({
+    page,
+  }) => {
+    const today = londonSlot(new Date()).date;
+    const id = await booking({ status: 'EN_ROUTE', startTime: 'Flexible', date: today });
+    await asAdmin(page);
+    const res = await page.request.post('/api/admin/bookings/override-status', {
+      headers: SAME_ORIGIN,
+      data: { bookingId: id, status: 'IN_PROGRESS', reason: 'e2e override stamp check' },
+    });
+    // The break-glass route is off unless ADMIN_DESTRUCTIVE_ENABLED=true on the
+    // server; the stamp rule itself is unit-tested (override-stamps.test.ts).
+    const disabled =
+      res.status() === 403 && /disabled/i.test(String((await res.json()).error ?? ''));
+    test.skip(disabled, 'break-glass override disabled on this server');
+    expect(res.status()).toBe(200);
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('IN_PROGRESS');
+    expect(row.checkedInAt).not.toBeNull();
+    // The cleaner now meets the completion window (422 TOO_EARLY), never NEEDS_START.
+    await page.context().clearCookies();
+    await asCleaner(page);
+    const done = await page.request.patch(`/api/cleaner/jobs/${id}`, {
+      headers: SAME_ORIGIN,
+      data: { status: 'COMPLETED' },
+    });
+    expect(done.status()).toBe(422);
+    expect((await done.json()).error).toBe('TOO_EARLY');
+  });
+
+  test('a declined admin reassign whose original cleaner lost the slot shows the conflict, not "Declined"', async ({
+    page,
+  }) => {
+    const later = londonSlot(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)).date;
+    const id = await booking({
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      cascadeExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      provisionalCleanerId: ids.cleanerB,
+      provisionalPrice: 70,
+      topupAmount: 10,
+      approvalExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      provisionalSource: 'ADMIN_REASSIGN',
+      reassignPreviousStatus: 'ACCEPTED',
+      reassignPreviousCleanerId: ids.cleaner,
+      date: later,
+      startTime: '10:00',
+    });
+    // The original cleaner took an overlapping job during the approval window.
+    await booking({ date: later, startTime: '11:00' });
+    await signIn(page, 'customerA');
+    await page.goto(`/booking/${id}/approve-topup`);
+    await page.getByRole('button', { name: 'Decline' }).click();
+    await expect(page.getByTestId('topup-revert-conflict')).toBeVisible({ timeout: 15000 });
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id } });
+    expect(row.cascadePhase).toBe('PROVISIONAL_APPROVAL');
+    expect(row.reassignPreviousCleanerId).toBe(ids.cleaner);
+    await prisma.auditLog.deleteMany({ where: { entityId: id } });
+  });
+
+  test('a promoted reserve whose approval window passed is refused server-side (410)', async ({
+    page,
+  }) => {
+    const later = londonSlot(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)).date;
+    const id = await booking({
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      cascadeExpiresAt: new Date(Date.now() - 60 * 1000),
+      provisionalCleanerId: ids.cleanerB,
+      provisionalPrice: 70,
+      topupAmount: 10,
+      approvalExpiresAt: new Date(Date.now() - 60 * 1000),
+      provisionalSource: 'CASCADE',
+      date: later,
+      startTime: '10:00',
+    });
+    await signIn(page, 'customerA');
+    const res = await page.request.post(`/api/bookings/${id}/approve-topup`, {
+      headers: SAME_ORIGIN,
+      data: { action: 'approve' },
+    });
+    expect(res.status()).toBe(410);
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id } });
+    expect(row.topupApproved).toBe(false);
   });
 
   test('backup acceptance: the first accept wins, the second gets a 409', async ({

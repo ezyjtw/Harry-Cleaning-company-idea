@@ -35,7 +35,8 @@ type PageState =
   | 'error'
   | 'resolved'
   | 'approved'
-  | 'unassigned';
+  | 'unassigned'
+  | 'revertConflict';
 
 /** H67: what a link whose provisional already resolved APPROVED renders from. */
 interface ApprovedOutcome {
@@ -151,13 +152,15 @@ export default function ApproveTopupPage() {
     setState('processing');
     setError(null);
     try {
-      await fetch(`/api/bookings/${bookingId}/approve-topup`, {
+      const res = await fetch(`/api/bookings/${bookingId}/approve-topup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'decline', ...(guestToken ? { guestToken } : {}) }),
       });
       markStale(['home', 'mycleans', 'account']);
-      setState('declined');
+      const result = await res.json().catch(() => ({}));
+      // B3: the original cleaner lost the slot; the team takes it from here.
+      setState(result.error === 'REASSIGN_REVERT_CONFLICT' ? 'revertConflict' : 'declined');
     } catch {
       setError('Network error. Please try again');
       setState('loaded');
@@ -242,6 +245,24 @@ export default function ApproveTopupPage() {
             for {approvedOutcome.date} at {approvedOutcome.time}. The extra &pound;
             {approvedOutcome.topupAmount.toFixed(2)} has been charged, bringing your total to
             &pound;{approvedOutcome.newPrice.toFixed(2)}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === 'revertConflict') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div
+          className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7"
+          data-testid="topup-revert-conflict"
+        >
+          <h2 className="font-newsreader text-2xl text-ink">Declined</h2>
+          <p className="mt-2 text-sm text-ink-2">
+            You declined the price change, so nothing has been charged. Your original cleaner is no
+            longer free at that time, so our team has been alerted and will contact you about your
+            booking.
           </p>
         </div>
       </div>

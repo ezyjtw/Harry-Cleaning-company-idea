@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { mapBusy } from '@/lib/http/busy';
 import { AuditService } from '@/lib/services/audit.service';
 import {
   expireBackupOrCombinedOffer,
@@ -11,7 +12,8 @@ import {
   promoteReserves,
 } from '@/lib/services/cascade.service';
 
-export async function POST(request: NextRequest) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(request: NextRequest) {
   const admin = await getAdminSession();
   if (!admin) {
     return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
@@ -98,4 +100,4 @@ export async function POST(request: NextRequest) {
     toPhase: after?.cascadePhase ?? null,
     toStatus: after?.status ?? null,
   });
-}
+});

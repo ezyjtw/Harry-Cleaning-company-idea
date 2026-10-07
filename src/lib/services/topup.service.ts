@@ -12,6 +12,7 @@
 import { assignCleaner, type AssignFailure } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
 import { log } from '@/lib/log';
+import { TOPUP_WITHOUT_ASSIGNMENT } from '@/lib/services/topup-flag';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
@@ -618,7 +619,7 @@ async function writeTopupSuccess(
 // later full refund comes up short by the top-up. Only the writer that moves
 // the record to SUCCEEDED raises the total, so a webhook racing the direct
 // path cannot add it twice.
-export const TOPUP_WITHOUT_ASSIGNMENT = 'TOPUP_WITHOUT_ASSIGNMENT';
+export { TOPUP_WITHOUT_ASSIGNMENT };
 
 async function flagTopupWithoutAssignment(args: {
   bookingId: string;

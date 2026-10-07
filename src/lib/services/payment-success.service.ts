@@ -220,6 +220,13 @@ export async function processPaymentSuccess(
   // has paid, so the transition still happens: the primary is recorded as
   // declined and the offer moves straight to the backups (advanceFromPrimary's
   // own CAS, PRIMARY_OFFER → BACKUP_OFFER). No customer is refused after paying.
+  //
+  // B3 gate (James-ruled): between this second claim and the advance, the row
+  // sits in PRIMARY_OFFER pinned to the declined primary, which the blocking
+  // set counts. That is a narrow, logged, recoverable transitional exception,
+  // not continuous I1: the lost slot is logged (warn), a failed advance is
+  // logged (error), and the PRIMARY_OFFER window sweep advances it if the
+  // in-line advance did not.
   let primaryLostSlot = false;
   if (!claimed.ok && claimed.reason === 'SLOT_TAKEN') {
     primaryLostSlot = true;

@@ -7,6 +7,7 @@ import { isAssignedTo, serializePreAccept } from '@/lib/booking/cleaner-view';
 import { notOwnBookingWhere, paidVisibleWhere } from '@/lib/booking/own-booking';
 import { viewerQuote } from '@/lib/booking/viewer-quote';
 import prisma from '@/lib/db/prisma';
+import { mapBusy } from '@/lib/http/busy';
 import { cleanerEarningsBreakdown } from '@/lib/services/pricing.service';
 import { getTransferAmountPence } from '@/lib/services/transfer-amount';
 import { bookingFullAddress, bookingLine1, bookingPostcode } from '@/lib/utils/booking-address';
@@ -48,7 +49,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       client: { select: { name: true, email: true } },
       address: true,
       // F24.1: occurrences must be visibly recurring on every surface.
-      agreement: { select: { frequency: true } },
+      agreement: { select: { frequency: true, cleanerId: true } },
     },
   });
 
@@ -204,7 +205,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   });
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const PATCH = mapBusy(async function PATCH(request: NextRequest, context: RouteContext) {
   const user = await getCleanerSession();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -235,4 +237,4 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     cancellationReason,
   });
   return NextResponse.json(result.body, { status: result.status });
-}
+});

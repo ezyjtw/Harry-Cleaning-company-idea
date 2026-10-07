@@ -3,10 +3,14 @@
 //
 // assigned = booking.cleanerId === viewer && status not in
 // {PENDING, AWAITING_CLEANER, CASCADE_EXHAUSTED}, and a CANCELLED row only when
-// the viewer had accepted it (acceptedAt set): a customer cancel before the
-// primary accepted leaves cleanerId pinned to someone who never took the job.
-// An admin-placed CONFIRMED job cancelled before the cleaner's accept reads as
-// unassigned too; nothing remains to do on it. An assigned row keeps each
+// the viewer had accepted it: a customer cancel before the primary accepted
+// leaves cleanerId pinned to someone who never took the job. Acceptance is
+// read from the authoritative state, never the current status alone (James,
+// B3 gate): the booking's acceptedAt, or, for a recurring occurrence, the
+// agreement belonging to this cleaner (occurrences mint only from an agreement
+// its cleaner accepted, or a pre-F23 agreement created active). An admin-placed
+// CONFIRMED job cancelled before the cleaner's accept reads as unassigned too;
+// nothing remains to do on it. An assigned row keeps each
 // route's existing full payload. Before that, the payload is EXACTLY the
 // PRE_ACCEPT_KEYS below — no other key is present, not even as undefined:
 // first name, outward postcode plus town, service, date and time, duration,
@@ -89,12 +93,14 @@ type ViewableBooking = Pick<
   provisionalCleanerId?: string | null;
   client?: { name: string | null } | null;
   address?: { postcode?: string | null; city?: string | null } | null;
-  agreement?: { frequency: string } | null;
+  agreement?: { frequency: string; cleanerId?: string } | null;
 };
 
 /** The assignment test the serializer and every route share. */
 export function isAssignedTo(
-  booking: Pick<Booking, 'cleanerId' | 'status' | 'acceptedAt'>,
+  booking: Pick<Booking, 'cleanerId' | 'status' | 'acceptedAt'> & {
+    agreement?: { cleanerId?: string } | null;
+  },
   viewerId: string
 ): boolean {
   return (
@@ -102,8 +108,17 @@ export function isAssignedTo(
     booking.status !== 'PENDING' &&
     booking.status !== 'AWAITING_CLEANER' &&
     booking.status !== 'CASCADE_EXHAUSTED' &&
-    !(booking.status === 'CANCELLED' && !booking.acceptedAt)
+    !(booking.status === 'CANCELLED' && !hasAccepted(booking, viewerId))
   );
+}
+
+/** Did this viewer ever accept the job (authoritative state, not status)? */
+function hasAccepted(
+  booking: Pick<Booking, 'acceptedAt'> & { agreement?: { cleanerId?: string } | null },
+  viewerId: string
+): boolean {
+  if (booking.acceptedAt) return true;
+  return !!booking.agreement && booking.agreement.cleanerId === viewerId;
 }
 
 /** "E4 7AA" → "E4"; "SW1A1AA" → "SW1A". Null for anything that is not a postcode. */

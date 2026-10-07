@@ -130,6 +130,31 @@ describe('isAssignedTo', () => {
       )
     ).toBe(true);
   });
+
+  it("a cancelled occurrence of the viewer's own agreement stays assigned (acceptance is the agreement)", () => {
+    expect(
+      isAssignedTo(
+        {
+          cleanerId: VIEWER,
+          status: 'CANCELLED',
+          acceptedAt: null,
+          agreement: { cleanerId: VIEWER },
+        } as never,
+        VIEWER
+      )
+    ).toBe(true);
+    expect(
+      isAssignedTo(
+        {
+          cleanerId: VIEWER,
+          status: 'CANCELLED',
+          acceptedAt: null,
+          agreement: { cleanerId: PRIMARY },
+        } as never,
+        VIEWER
+      )
+    ).toBe(false);
+  });
 });
 
 describe('outwardCode and firstNameOf', () => {

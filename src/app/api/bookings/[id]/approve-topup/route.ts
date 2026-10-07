@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { handleProvisionalFailure } from '@/lib/services/cascade.service';
+import { mapBusy } from '@/lib/http/busy';
+import { REASSIGN_REVERT_CONFLICT, handleProvisionalFailure } from '@/lib/services/cascade.service';
 import { TOPUP_WITHOUT_ASSIGNMENT, executeTopup } from '@/lib/services/topup.service';
 import stripe from '@/lib/stripe';
 
@@ -200,7 +201,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   });
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
 
   const { id } = await context.params;
@@ -238,7 +240,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (action === 'decline') {
-    await handleProvisionalFailure(id, 'Customer declined');
+    const outcome = await handleProvisionalFailure(id, 'Customer declined');
+    // B3 gate (James-ruled): the original cleaner lost the slot, so the
+    // revert was refused and the admins alerted; the booking stays as it is.
+    if (outcome === REASSIGN_REVERT_CONFLICT) {
+      return NextResponse.json(
+        {
+          error: REASSIGN_REVERT_CONFLICT,
+          message:
+            'You declined the price change, so nothing has been charged. Your original cleaner is no longer free at that time, so our team has been alerted and will contact you about your booking.',
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ result: 'declined' });
   }
 
@@ -293,4 +307,4 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-}
+});

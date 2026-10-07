@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
+import { mapBusy } from '@/lib/http/busy';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { rescueChooseRefund, rescueFindAnother, rescueRebook } from '@/lib/services/rescue.service';
 
@@ -20,7 +21,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // (body.guestToken — the F5 pattern: every guest action works tokened end to
 // end). Both actors reach the same service functions; races with the timeout
 // sweep are settled by atomic claims inside them.
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const ip = getClientIp(request);
   const rl = checkRateLimit(`rescue:${ip}`, 10, 15 * 60 * 1000);
   if (!rl.allowed) {
@@ -141,4 +146,4 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         ? `Request sent to ${result.newCleanerName}. If they accept, we'll ask you to approve the £${result.priceDelta.toFixed(2)} difference before anything is charged.`
         : `Request sent to ${result.newCleanerName}. Your payment moves to the new booking automatically${result.priceDelta && result.priceDelta < -0.01 ? ` and we'll refund the £${Math.abs(result.priceDelta).toFixed(2)} difference` : ''}.`,
   });
-}
+});

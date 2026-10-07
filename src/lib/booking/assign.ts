@@ -51,9 +51,7 @@ export interface AssignExpect {
 
 export type AssignFailure = 'NOT_FOUND' | 'STATE_CHANGED' | 'OFFER_EXPIRED' | 'SLOT_TAKEN';
 
-export type AssignResult =
-  | { ok: true; booking: Booking; slotConflict: boolean }
-  | { ok: false; reason: AssignFailure };
+export type AssignResult = { ok: true; booking: Booking } | { ok: false; reason: AssignFailure };
 
 /**
  * diary:   the cleaner's diary must take the slot: open hours, time off and
@@ -65,11 +63,12 @@ export type AssignResult =
  * skip:    the row already holds this cleaner's slot (a move inside the
  *          blocking set, same cleaner, same slot) or does not enter it, so
  *          the claim cannot change I1; the lock still serialises the write.
- * report:  the I1 read runs but the write proceeds and the result says so
- *          (used only by the admin revert, which restores the customer's
- *          original booking; see the caller).
+ *
+ * There is no policy that writes past a failed I1 read (James-ruled at the B3
+ * gate): only the labelled break-glass override-status route bypasses the
+ * invariants, and every use of it is audited.
  */
-export type SlotPolicy = 'diary' | 'overlap' | 'skip' | 'report';
+export type SlotPolicy = 'diary' | 'overlap' | 'skip';
 
 export interface AssignInput {
   bookingId: string;
@@ -93,6 +92,67 @@ export interface AssignInput {
 }
 
 const TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 } as const;
+
+/**
+ * B3 gate (James-ruled): the one condition that answers 503 BUSY. The wait
+ * for a cleaner's lock spent the whole transaction budget, so Postgres handed
+ * over the lock to a transaction Prisma had already expired. Measured, not
+ * guessed: the lock wait itself is timed, and an expired-transaction error
+ * (P2028) raised while waiting for the lock counts too. Every other database
+ * failure, a pool that could not start a transaction included, is rethrown
+ * untouched.
+ */
+export class CleanerBusyError extends Error {
+  readonly code = 'BUSY' as const;
+  constructor() {
+    super('cleaner lock wait exceeded the transaction budget');
+    this.name = 'CleanerBusyError';
+  }
+}
+
+function isExpiredTransaction(err: unknown): boolean {
+  const e = err as { code?: string; meta?: { error?: unknown }; message?: string } | null;
+  if (!e || e.code !== 'P2028') return false;
+  return /expired transaction/i.test(String(e.meta?.error ?? e.message ?? ''));
+}
+
+/** Take the cleaner's lock inside a transaction that began at startedAt. */
+async function lockWithinBudget(tx: AssignTx, cleanerId: string, startedAt: number) {
+  try {
+    await lockCleaner(tx, cleanerId);
+  } catch (err) {
+    if (isExpiredTransaction(err)) throw new CleanerBusyError();
+    throw err;
+  }
+  if (Date.now() - startedAt >= TX_OPTIONS.timeout) throw new CleanerBusyError();
+}
+
+/**
+ * Run a locked transaction; a lock wait that spent the budget surfaces as
+ * CleanerBusyError even when Prisma's own rollback of the expired transaction
+ * raises first.
+ */
+async function lockedTransaction<T>(
+  cleanerId: string,
+  fn: (tx: AssignTx) => Promise<T>
+): Promise<T> {
+  let busy = false;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const startedAt = Date.now();
+      try {
+        await lockWithinBudget(tx, cleanerId, startedAt);
+      } catch (err) {
+        if (err instanceof CleanerBusyError) busy = true;
+        throw err;
+      }
+      return fn(tx);
+    }, TX_OPTIONS);
+  } catch (err) {
+    if (busy) throw new CleanerBusyError();
+    throw err;
+  }
+}
 
 /** Serialise every writer for one cleaner (released at commit or rollback). */
 export async function lockCleaner(tx: AssignTx, cleanerId: string): Promise<void> {
@@ -174,20 +234,15 @@ export async function withCleanerLock<T>(
   cleanerId: string,
   fn: (tx: AssignTx) => Promise<T>
 ): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await lockCleaner(tx, cleanerId);
-    return fn(tx);
-  }, TX_OPTIONS);
+  return lockedTransaction(cleanerId, fn);
 }
 
 export async function assignCleaner(input: AssignInput): Promise<AssignResult> {
   const now = input.now ?? new Date();
   const policy = input.slotPolicy ?? 'diary';
 
-  return prisma.$transaction(async (tx) => {
-    // 1. Every writer for this cleaner serialises here.
-    await lockCleaner(tx, input.cleanerId);
-
+  // 1. Every writer for this cleaner serialises on the lock (taken first).
+  return lockedTransaction(input.cleanerId, async (tx) => {
     // 2. Re-read the row under the lock.
     const row = await tx.booking.findUnique({ where: { id: input.bookingId } });
     if (!row) return { ok: false, reason: 'NOT_FOUND' } as const;
@@ -208,7 +263,6 @@ export async function assignCleaner(input: AssignInput): Promise<AssignResult> {
     }
 
     // 4. Overlap re-read inside the transaction.
-    let slotConflict = false;
     if (policy !== 'skip') {
       const slot = input.slot ?? {
         date: row.date,
@@ -220,10 +274,7 @@ export async function assignCleaner(input: AssignInput): Promise<AssignResult> {
           ? await slotFreeForCleaner(tx, input.cleanerId, slot, row.id)
           : (await blockingOverlap(tx, input.cleanerId, slot, row.id)) === null;
       const extraOk = input.extraSlotCheck ? await input.extraSlotCheck(tx, row) : true;
-      if (!free || !extraOk) {
-        if (policy !== 'report') return { ok: false, reason: 'SLOT_TAKEN' } as const;
-        slotConflict = true;
-      }
+      if (!free || !extraOk) return { ok: false, reason: 'SLOT_TAKEN' } as const;
     }
 
     // 5. The claim: a non-cleaner actor (a customer cancel, say) may have
@@ -250,8 +301,8 @@ export async function assignCleaner(input: AssignInput): Promise<AssignResult> {
     // 6. The re-read row.
     const booking = await tx.booking.findUniqueOrThrow({ where: { id: row.id } });
     if (input.afterClaim) await input.afterClaim(tx, booking);
-    return { ok: true, booking, slotConflict } as const;
-  }, TX_OPTIONS);
+    return { ok: true, booking } as const;
+  });
 }
 
 /** Cleaner-facing words for a refusal. */

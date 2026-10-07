@@ -442,6 +442,8 @@ export async function POST(request: NextRequest) {
       const txns = dispute.balance_transactions ?? [];
       const latestTxn = txns.length > 0 ? txns[txns.length - 1] : null;
       const { calculateCleanerSharePence } = await import('@/lib/services/refund.service');
+      const { flaggedTopupPounds } = await import('@/lib/services/topup-flag');
+      const flagged = await flaggedTopupPounds(booking.id);
       const { enqueueXeroPush } = await import('@/lib/services/xero-push.service');
       await enqueueXeroPush({
         bookingId: booking.id,
@@ -450,7 +452,9 @@ export async function POST(request: NextRequest) {
         occurredAt: new Date(event.created * 1000).toISOString(),
         disputeAmount: amountPounds,
         disputeFee: latestTxn ? Math.abs(latestTxn.fee) / 100 : undefined,
-        cleanerRefundPortion: calculateCleanerSharePence(amountPounds, booking) / 100,
+        cleanerRefundPortion:
+          calculateCleanerSharePence(amountPounds, { ...booking, flaggedTopupPounds: flagged }) /
+          100,
       }).catch(() => {});
     }
   }

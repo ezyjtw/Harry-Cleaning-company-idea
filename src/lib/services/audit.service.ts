@@ -86,7 +86,7 @@ export type AuditAction =
   // Price reconciliation (A5.3)
   | 'TOPUP_SUCCEEDED'
   | 'TOPUP_WITHOUT_ASSIGNMENT'
-  | 'ADMIN_REASSIGN_REVERT_SLOT_CONFLICT'
+  | 'ADMIN_REASSIGN_REVERT_REFUSED'
   // R4 LANE 5A: a revert tried to cancel the on-session top-up PaymentIntent
   // at Stripe and could not — loud trail for the stuck-money sweep.
   | 'TOPUP_PI_CANCEL_FAILED'

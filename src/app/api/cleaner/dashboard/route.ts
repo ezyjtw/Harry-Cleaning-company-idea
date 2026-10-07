@@ -179,7 +179,7 @@ export async function GET() {
         client: { select: { name: true } },
         address: { select: { line1: true, postcode: true } },
         // F24.1: occurrences must be visibly recurring on every surface.
-        agreement: { select: { frequency: true } },
+        agreement: { select: { frequency: true, cleanerId: true } },
       },
       orderBy: { date: 'asc' },
       take: 5,

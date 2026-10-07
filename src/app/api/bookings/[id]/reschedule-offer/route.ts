@@ -3,13 +3,18 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { mapBusy } from '@/lib/http/busy';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // R10 Lane 2 (James-ruled): the customer answers a reschedule offer.
 // Authorization mirrors approve-topup (F5 pattern): the booking's registered
 // owner, or its guest token — guest parity end to end.
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
   const action =
@@ -56,4 +61,4 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ? 'Done. Just this visit moves to the new time. Everything else stays the same.'
         : 'Kept as it was. The visit stays at its original time.',
   });
-}
+});

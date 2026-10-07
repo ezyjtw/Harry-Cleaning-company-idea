@@ -17,6 +17,7 @@ import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
+import { flaggedTopupPounds } from './topup-flag';
 import { enqueueXeroPush } from './xero-push.service';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -162,7 +163,10 @@ export async function refundBooking(
   //    Future mitigation: payout hold period.
   let reversalSucceeded = false;
   if (isPostRelease && booking.stripeTransferId) {
-    const cleanerSharePence = calculateCleanerSharePence(amountPounds, booking);
+    const cleanerSharePence = calculateCleanerSharePence(amountPounds, {
+      ...booking,
+      flaggedTopupPounds: await flaggedTopupPounds(booking.id),
+    });
     if (cleanerSharePence > 0) {
       const reversalResult = await executeReversal(
         booking.stripeTransferId,
@@ -474,12 +478,19 @@ async function handleUnknownRefund(
 // proportional cleaner share a refund of that amount would carry.
 export function calculateCleanerSharePence(
   refundAmountPounds: number,
-  booking: { totalPrice: unknown; totalAmountCharged?: unknown; cleanerEarnings: unknown }
+  booking: {
+    totalPrice: unknown;
+    totalAmountCharged?: unknown;
+    cleanerEarnings: unknown;
+    /** B3 R2: flagged top-ups never move the cleaner's share (topup-flag.ts). */
+    flaggedTopupPounds?: number;
+  }
 ): number {
   // M5: the reversal ratio anchors to the TRUE captured total (original +
   // top-ups), not totalPrice — after a top-up the two can differ and the share
   // must be proportional to what the customer actually paid.
-  const trueTotal = Number(booking.totalAmountCharged ?? booking.totalPrice);
+  const trueTotal =
+    Number(booking.totalAmountCharged ?? booking.totalPrice) - (booking.flaggedTopupPounds ?? 0);
   if (trueTotal === 0) return 0;
   const ratio = refundAmountPounds / trueTotal;
   return Math.round(Number(booking.cleanerEarnings) * ratio * 100);
@@ -847,7 +858,11 @@ async function writeRefundSuccess(params: WriteSuccessParams): Promise<void> {
   // share NOW — `booking` still holds the PRE-mutation cleanerEarnings, so a
   // later worker run is correct even after this refund reduces it (pre-release)
   // or across multiple partial refunds. Never blocks the refund flow.
-  const cleanerRefundPortion = calculateCleanerSharePence(amountPounds, booking) / 100;
+  const cleanerRefundPortion =
+    calculateCleanerSharePence(amountPounds, {
+      ...booking,
+      flaggedTopupPounds: await flaggedTopupPounds(booking.id),
+    }) / 100;
   await enqueueXeroPush({
     bookingId: booking.id,
     event: 'REFUND',
