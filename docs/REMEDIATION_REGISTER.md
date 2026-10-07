@@ -119,7 +119,7 @@ Order as adopted (the auditor's final order, James-ruled 2026-10-06). The order 
 - B0 Governance, CI and decisions: the ruled decisions (section 3), CLAUDE.md and this register, CI on Node 22 with baseline unit and E2E checks, the runtime-bump check, scheduler lease and heartbeat, health 503, monitoring verification. CLOSED 2026-10-06 (James's word on each merge: 8f7e8f3, 6026a97, fd5f75f, 4b3d3b7, 66e891a). Every B0 item is DONE in code and proven in production; two James-side tails run on outside it: RENA-068's Sentry test event (EXTERNAL-VERIFY) and D-e steps four and five under RENA-081 in B7 (the seven-day single-caller watch, then cron-job.org deleted).
 - B1 Authentication, sessions and privacy boundary: 001, 002, 003, 006, 007, 009, 059, 074, 066, 077, 079 (004 held and 008 decided sit here without batch work). Split per D-r: B1a (002, 003, 006 rule, 007, 074) BUILT 2026-10-06 on claude/b1a-session-core, commits 7fd9f92, 70ee97b, bccbfae and 8a52215, at the gate awaiting James's walk and word; B1b (001, 059, 066, 077, 079 deletions, 009 recorded) follows after the B1a merge. CLOSED 2026-10-07: B1a merged 0165dd3 (deployment dda67793), B1b merged ec445c9 (deployment 5bb35e2e), James's word on each; the B1a walk passed on both apps and the website, both lanes. Tails running outside the batch: the first production email or job line read for 066 and 077, James's email-working signup walk for 077, and the Railway-generated domain decision (002, external). The B1a revert branch claude/b1a-revert-ready (f777a97) is retired on James's word; the session's git proxy refuses branch deletion, so the remote ref stays until James removes it in GitHub, and nothing on it is for merge.
 - B2 Service worker and customer recovery: 048, 055, 018, 019, 020, 021, 023, 025, 053, 054, 084, with 098 added to B2b (2026-10-07). CLOSED 2026-10-07 on James's word: B2a walk passed and B2b UAT passed (all items, including the Book tab's offline card above live service rows, the wizard sign-in round trip, both dashboards fresh after Messages, and RENA-098 on a real Android browser); every entry DONE, RENA-021 DISPROVED. Tails outside the batch: RENA-018 step 2 and RENA-020's guest return ride the live-money rehearsal; RENA-054's B6 follow-up. Split B2a then B2b (D-ac). Design and rulings: docs/design/B2.md. B2a DEPLOYED 2026-10-07 (merged 8a4d7a9, deployment 8f3b8e34, James's walk passed; step 2 rides the live-money rehearsal). B2b DEPLOYED 2026-10-07 (merged 3de2949 from claude/b2b-states-sweep at 19976b2, deployment d6942d71), pending James's UAT; queued James-side: the B2b UAT, the RENA-098 Android check and the fresh-APK timing run. Named B6 follow-up: RENA-054's 12 unlinked join fields.
-- B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034, with the twelve-helper Europe/London sweep (D-ac). Design and rulings: docs/design/B3.md.
+- B3 Cleaner lifecycle and concurrency: 012, 026, 027, 028, 030, 032, 033, 034, with the twelve-helper Europe/London sweep (D-ac). Design and rulings: docs/design/B3.md. BUILT 2026-10-07 on claude/b3-lifecycle-concurrency (commits 478ae58, 54e0694, c0a8521, d92888c, d156ae1, 72ae7a2); at the gate, no merge until James's word.
 - B4 Money ledger: 010, 011, 013, 015, 016, 017, 073, 075, 080, 087, 088, 089, 090, 091, 092, 093, 094, 095. Design and rulings: docs/design/B4.md.
 - B5 Native shell OTA lane: 022, 024, 029, 031, 036, 037, 038, 039, 043, 046, 047, 082, and the JS half of 041 (DECISION, record only); customer push activation (D-ac). Design and rulings: docs/design/B5.md.
 - B6 Web platform: 005, 049, 050, 051, 052, 057, 083, 086, the ui barrel and Input.tsx deletion, and the Next 15 scoping as design only (B6.9; execution is the N15 lane) (056 and 058 closed). Design and rulings: docs/design/B6.md.
@@ -479,7 +479,7 @@ Migration or config: none (advisory locks need no schema).
 Tests: two simultaneous overlapping accepts against rig Postgres, exactly one wins; non-overlapping accepts both succeed; chosen-cleaner booking creation against a concurrent accept, one wins. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group E. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commits 54e0694, c0a8521). src/lib/booking/assign.ts: assignCleaner takes pg_advisory_xact_lock on the cleaner, re-reads the row and the diary inside the transaction (timesheet engine plus an instant overlap read across neighbouring days with the cleaner's buffer), then claims by CAS. Every path that writes cleanerId into, or moves a row into, the blocking set goes through it: live, Rena-Find and provisional accepts, reserve promotion, the provisional finalise (both branches), payment success, rescue rebook, admin reassign (all three cases), the admin revert, the recurring mint (created under the lock), reschedule accept, occurrence reschedule and the CONFIRMED accept. Invariant I1 as built: two blocking bookings of one cleaner are always at least the cleaner's buffer apart (the spacing the timesheet engine already enforced; the design's wording doubled it). The dead AdminOperationsService.assignCleaner is deleted. Exclusion constraint deferred and documented (Flexible rows, per-cleaner buffer, London clock). Rig: matrix cases 1, 2, 3, 3b, 3c, 6 pass; the bench on main 8a4d7a9's successor c944aad shows 29 of 30 double assignments and 17 of 30 paid-plus-accept doubles, the branch 0 and 0. At the gate. Earlier: TODO (B3).
 
 #### RENA-026 Pre-accept offer payload exposes customer details
 
@@ -490,7 +490,7 @@ Migration or config: none.
 Tests: list and detail for an AWAITING_CLEANER row contain no email, surname or notes; for an assigned row they do. Manual: the Offer screen on a device shows the postcode and first name.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commit d92888c). src/lib/booking/cleaner-view.ts is the one gate for the jobs list, job detail, dashboard offers and the offer emails: before assignment exactly the ruled key set (first name, outward postcode and town, service, date and time, duration, property, structured extras, supplies, the viewer's own figure, a documented context { travelMinutes, sameDayJobs }); no paymentStatus, email, surname, street, notes or key access. Assigned rows keep each route's full set. The backup offer emails also carry the outward code and town (named). Unit 16 pass; Playwright checks the key set over HTTP. Bench on main: email or surname or full postcode present and paymentStatus present; branch neither. At the gate. Earlier: TODO (B3).
 
 #### RENA-027 Completion allowed by date rather than scheduled time
 
@@ -501,7 +501,7 @@ Migration or config: none.
 Tests: boundary table including a BST transition day and a job crossing midnight. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-f). Overlap group E. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commits 478ae58, c0a8521). src/lib/time/booking-time.ts transitionWindow: COMPLETED from end minus 30 minutes on the London clock; Flexible jobs (James-ruled) complete only after IN_PROGRESS, from checkedInAt plus duration minus 30 minutes; admin override outside it. The full London sweep (14 server sites and 2 Pro client clocks) rides this entry with the spring gap rejected at every creation and move boundary and autumn ambiguity taking the later occurrence. Unit: 33 window and DST cases (both 2026 change days, midnight crossing, 23:30 with two hours, multi-hour) pass under three host time zones. Bench on main: a same-day job three hours out completes (200); branch 422. At the gate. Earlier: TODO (B3).
 
 #### RENA-028 Lifecycle updates vulnerable to a stale-read race
 
@@ -512,7 +512,7 @@ Migration or config: none.
 Tests: complete racing a customer cancel, one wins; double-tap complete writes once; decline racing a sweep advances once. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group E. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commits 54e0694, c0a8521). src/lib/booking/transition.ts: every cleaner move is a CAS on (id, cleanerId, status = from); STATE_CHANGED answers 409 with a refetch hint, and a repeat of a move that already landed answers the same; side effects run only for the winning writer. The decline is one guarded statement (array_append plus the reason, WHERE status, phase and not already declined). The PATCH ACCEPTED branch calls the accept route's own function (reconciliation included, deviation 8 ruled). Rig: matrix 7a, 7b, 8 and 9 pass. Design case 7 (customer cancel racing COMPLETED from IN_PROGRESS) cannot occur: CANCELLABLE_STATUS excludes EN_ROUTE and IN_PROGRESS (register rule 20, proven by 7b); the live race, cancel against On my way from ACCEPTED, is 7a (50 reps, both orders). Bench on main: 30 of 30 double completions doubled the side effects; branch 0. At the gate. Earlier: TODO (B3).
 
 #### RENA-030 Offer expiry not enforced at accept
 
@@ -523,7 +523,7 @@ Migration or config: none.
 Tests: accept after expiry refused; one second before expiry succeeds; sweep racing an accept yields one winner. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group E. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commit 54e0694). The offer window sits in the helper's CAS (cascadeExpiresAt null or later than now) on the live, Rena-Find and provisional accepts; a refusal reads "This offer has expired." Reserve promotion runs without it (the sweep promotes at the window's end; departure named). Rig: matrix 4 and 5 pass; bench on main: 5 of 5 expired accepts taken, branch 0. At the gate. Earlier: TODO (B3).
 
 #### RENA-032 Premature "On my way"
 
@@ -534,7 +534,7 @@ Migration or config: none.
 Tests: boundary table. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-f). Overlap group E. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commit c0a8521). EN_ROUTE from start minus 2 hours, IN_PROGRESS from start minus 30 minutes; Flexible from 06:00 London. The PATCH answers 422 { error: TOO_EARLY, target, opensAt }; Today, Jobs, the job cards and the web job page render "You can set On my way from HH:MM on Day D Month". Bench on main: three hours early answers 200; branch 422. At the gate. Earlier: TODO (B3).
 
 #### RENA-033 Cleaner lifecycle lacks end-to-end regression coverage
 
@@ -543,7 +543,7 @@ Mechanism: e2e holds three logged-out smoke specs; no cleaner flow; no test:e2e 
 Fix: Playwright suites on the rig database for: verified cleaner happy path through release; backup offer acceptance and loser race; stale or expired offer rejection; cancellation racing a status update; premature EN_ROUTE and COMPLETED rejection; cleaner session invalidated inside the shell (rig half); Stripe onboarding incomplete and complete return; deletion blocked by a live job and a pending payout. Run in CI once RENA-069 lands.
 Delivery WEB (tests). Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group E. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commits c0a8521, 72ae7a2). src/lib/booking/assign.integration.test.ts (opt-in BOOKING_LIFECYCLE_INTEGRATION=1, added to CI): 19 cases against rig Postgres, races jittered so both orders occur, three consecutive full runs green. e2e/b3.spec.ts: 9 cases, 9 of 9 on the branch over 13 consecutive runs, 6 of 9 fail on main (the 3 that pass are invariants). Full Playwright 102 of 102. The Stripe return room's checking state needs a live Stripe account and is not exercised. At the gate. Earlier: TODO (B3).
 
 #### RENA-034 Web cleaner portal has no deletion door
 
@@ -554,7 +554,7 @@ Migration or config: none.
 Tests: Playwright: the door renders; the POST is refused with blockers when a live job exists. Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (/account-deletion).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B3).
+Implementation status: BUILT (B3 on claude/b3-lifecycle-concurrency, commit d156ae1). src/components/account/AccountDeletionForm.tsx is the one form (the Pro room unchanged); /cleaner/delete-account serves it in portal chrome from a row at the bottom of the web Profile; /account-deletion names the website door (HASH-LAW: the only governed hash to change, re-baselined at the gate, incognito diff is the one cleaner paragraph). Blockers per James's ruling: a provisional assignment (and an admin reassign that reverts to the cleaner) blocks; unaccepted offers, backup and reserve membership do not. The cascade skips a deleted cleaner: the slot read excludes deactivated accounts and deletion declines their live offers through the guarded decline. Rig and Playwright prove both. At the gate. Earlier: TODO (B3).
 
 ### B4 Money ledger
 
@@ -1172,6 +1172,7 @@ Privacy and operations: no consent means zero analytics sends, web and in-app; s
 
 ## 9. Change log
 
+- 2026-10-07: B3 BUILT on claude/b3-lifecycle-concurrency: RENA-012, 026, 027, 028, 030, 032, 033, 034 and the full Europe/London sweep (14 server sites, 2 Pro client clocks). The bench on main fails every lifecycle case it can reach and the branch holds them all; one governed hash changes (/account-deletion, named). At the gate; no merge until James's word.
 - 2026-10-07: B2 CLOSED. James's B2b UAT passed (all items; RENA-098 confirmed fixed on a real Android browser). RENA-048, 055, 018, 019, 020, 023, 025, 053, 054 (for B2; its B6 follow-up stays open), 084 and 098 DONE with the B2a walk and the B2b UAT as evidence; RENA-021 stays DISPROVED. B3 worded to build to docs/design/B3.md.
 - 2026-10-07: B2b merged to main 3de2949 on James's word (claude/b2b-states-sweep at 19976b2) and DEPLOYED (deployment d6942d71), pending James's UAT: RENA-019, 053, 054, 084 (all three mechanisms now built), 098 and the B2b item under RENA-020. All five gate departures accepted; RENA-054's 12 unlinked join fields recorded as a named B6 follow-up. RENA-099 CLOSED on James's ruling (the product is correct as built; no booking-time "Rena picks" option; the backup tick box is the only delegation; options dropped, nothing builds). RENA-097 keeps its number for the Google Pay investigation James has already worded; the numbering gap is intentional and the entry is written when that investigation opens. The diagnostic shell branch claude/android-navperf-current (9ed3261) stays preview-only and is never merged; the preview channel publishes stand as made.
 - 2026-10-07: B2b BUILT on claude/b2b-states-sweep: RENA-019, 053, 054, 084 mechanism 3, the RENA-020 wizard sign-in round trip, RENA-098, Pro Today's on-show window at the shared 15 s; RENA-099 reported for ruling; the 7 October preview window read (instrumented group 780ae4db applied on every logged launch, natives identical to the store build, timings lost to the route's field schema) and fresh preview APKs built from main with the instrumentation ported onto the current shells (preview channel only). At the gate; no merge until James's word.
