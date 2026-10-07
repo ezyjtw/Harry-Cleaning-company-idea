@@ -567,18 +567,18 @@ Migration or config: new table plus a backfill that splits existing comma-joined
 Tests: split-transfer booking full and partial post-release refund reverses each slice; single-slice booking unchanged; backfill splits a joined value. Manual: none (Stripe mocked); one test-mode walk on the rig with a deep promo discount.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). TransferSlice and TransferReversal tables; every transfer found or created is a slice (ANCHORED, EXCESS, ADOPTED); post-release reversals allocated proportionally across slices (largest remainder) with per-slice keys reversal*<record>*<slice>\_v<attempt> and a PENDING row before each call, UNKNOWN after one same-key retry, reconciled by listReversals metadata. Booking.stripeTransferId mirrors the first slice (dropped in B9). Files: transfer.service.ts, refund.service.ts, ledger.ts, migration 20261008091000_money_ledger. Tests: money-ledger.integration.test.ts against rig Postgres with the scripted Stripe fake (17 cases, concurrency cases at 30 reps), case 5 (anchored plus top-up slices then a full post-release refund reverses 6000 and 1000 under two keys; single slice partial reverses the computed 2500), 6c (reversal unknown reconciled, the remainder retry never reverses twice). Mutation bench: removing top-up anchoring turns case 5 red. Deviation: TransferReversal table (ruled deviation 1). Earlier: TODO (B4).
 
 #### RENA-011 Multi-charge refund partial failure overstates the ledger
 
 Severity P1. Status PARTIAL. Batch B4. Overlap F.
-Mechanism: on partial execution the booking is written honestly as PARTIALLY_REFUNDED (refund.service.ts:642-673) but the RefundRecord keeps amount = requested while becoming SUCCEEDED (657-667; writeRefundSuccess never rewrites amount), so alreadyRefunded (111) over-counts and the remainder retry is refused. The charge.refunded webhook judges full refund from the original charge alone (webhooks/stripe/route.ts:336-346), so a dashboard refund of the original charge on a booking with an unrefunded top-up flips the booking to REFUNDED.
+Mechanism: on partial execution the booking is written honestly as PARTIALLY*REFUNDED (refund.service.ts:642-673) but the RefundRecord keeps amount = requested while becoming SUCCEEDED (657-667; writeRefundSuccess never rewrites amount), so alreadyRefunded (111) over-counts and the remainder retry is refused. The charge.refunded webhook judges full refund from the original charge alone (webhooks/stripe/route.ts:336-346), so a dashboard refund of the original charge on a booking with an unrefunded top-up flips the booking to REFUNDED.
 Fix: a RefundSlice table (refundRecordId, stripePaymentIntentId, requestedPence, executedPence, stripeRefundId, status); RefundRecord carries requestedPence and executedPence; booking refund state is aggregated from executed slices across the original charge and every top-up; the webhook matches by payment intent and recomputes the aggregate against totalAmountCharged.
 Migration or config: new table, two columns, backfill from the existing allocation JSON.
 Tests: slice two fails after slice one, record shows executed less than requested, remainder retry succeeds; webhook on the original charge with an unrefunded top-up leaves PARTIALLY_REFUNDED; duplicate webhook is idempotent. Manual: none.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). RefundSlice per charge allocated LIFO (top-ups newest first, then the original), PENDING with key refund*<record>\_<slice>\_v<attempt> before any call; SUCCEEDED, FAILED, or UNKNOWN after one same-key retry; the record's status (PENDING, SUCCEEDED, PARTIAL, FAILED, UNKNOWN) and executedPence derived from its slices; the booking's REFUNDED and PARTIALLY_REFUNDED written only by recomputeBookingRefundState and only when no slice is unresolved; finalisation (earnings, Xero per slice, messages) exactly once by a CAS on finalizedExecutedPence. charge.refunded confirms slices by refund id or metadata, records unmatched refunds as STRIPE_DASHBOARD records, P2002 handled. Tests: cases 1 (duplicate webhook concurrently, 15 and 30 reps: one confirmation, one notice), 3 (LIFO slices, REFUNDED only at the full charged total, a dashboard refund of the original alone is PARTIALLY_REFUNDED), 4 (slice two refused: PARTIAL, then the remainder retry), 6a and 6b (unknown refunds reconciled, never re-executed; FAILED only after 24h with no unmatched refund on the intent). The gate's own test found and fixed a double-finalisation race (the CAS compared to a fresh read while the delta came from an older one). Departures named in the gate: the share uses the remaining basis (cleaner remaining times refund over remaining shareable); RefundRecord gains context and finalisation columns. Earlier: TODO (B4).
 
 #### RENA-013 Disputes marked RESOLVED before the money action is known
 
@@ -589,7 +589,7 @@ Migration or config: enum or string value RESOLVING; no new table.
 Tests: refund fails after the transition, dispute stays RESOLVING and the retry resolves it; lost race leaves both rows untouched; happy path resolves. Manual: none.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). dispute-resolution.service.ts: one interactive transaction moves the dispute to RESOLVING_REFUND or RESOLVING_RELEASE and the booking out of DISPUTED, both guarded; a miss throws DisputeConflictError and the route answers 409 with nothing written. RESOLVED (and the final messages) written only by a CAS after the refund record is SUCCEEDED or the transfer is RELEASED. Failures keep RESOLVING with lastMoneyError and backoff; retryResolvingDisputes (scheduler, 20 per tick, older than 2 minutes) re-runs the same record and keys; DISPUTE_RESOLVING in stuck-money with Retry. RESOLVING_REFUND also holds release. The admin dispute page guards OPEN to UNDER_REVIEW so a page load cannot overwrite a resolving dispute. Tests: cases 7a, 7b (two resolves at once, 15 and 30 reps: one wins, one conflict, no partial write), 7c (split crosses both states; a release failure retries to RESOLVED). Mutations: status-first RESOLVED and an unguarded transition both turn red. Earlier: TODO (B4).
 
 #### RENA-015 Stuck-money tooling does not cover every failure state
 
@@ -600,7 +600,7 @@ Migration or config: none.
 Tests: a rig fixture per state renders and each action works with Stripe mocked. Manual: one admin walk of the room.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). src/lib/money/abnormal-states.ts lists every state of the B4.6 table plus LEGACY_RECONCILE, CHARGEBACK_AFTER_RELEASE, CHARGEBACK_LOST, RECURRING_CHARGE_UNKNOWN and REASSIGN_REVERT_CONFLICT, each row with age, amount, detail, a persistent marker after six failed reads, its actions and links; the stuck-money page is rebuilt on it; actions run through src/lib/money/stuck-money-actions.ts behind POST /api/admin/stuck-money/action; /api/admin/bookings/retry-refund deleted. Test: case 11 (six fixture states listed with their action, each action succeeds with the fake and the row clears; the flagged top-up refunds on its own intent only). Parked: Retry assignment for TOPUP_WITHOUT_ASSIGNMENT (needs its own design: the captured total was already raised and the snapshot must not apply twice); the row offers Refund top-up. Earlier: TODO (B4).
 
 #### RENA-016 Payment-critical state machines lack regression coverage
 
@@ -609,7 +609,7 @@ Mechanism: six test files; none covers payment-success idempotency, duplicate we
 Fix: each money entry ships its tests; standalone cases for webhook dedupe and cancel-versus-success; Stripe mocked at the SDK boundary; concurrency against rig Postgres.
 Delivery WEB (tests). Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). money-ledger.integration.test.ts against rig Postgres with the scripted Stripe fake (17 cases, concurrency cases at 30 reps); the Stripe fake at the SDK boundary (vi.mock('@/lib/stripe')) honours idempotency keys and can lose a response after landing; added to the CI e2e job (MONEY_LEDGER_INTEGRATION=1). Mutation bench: eleven guards removed one at a time, each turns its test red (the transfer double-pay guard is two independent guards: either alone stays green, both removed turns red). Unit: 21 ledger cases. Earlier: TODO (B4).
 
 #### RENA-017 amount_received shortfall does not hold money
 
@@ -620,7 +620,7 @@ Migration or config: one column.
 Tests: shortfall pauses release and writes the field; equal amount does not. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). processPaymentSuccess writes amountShortfallPence and transferStatus PAUSED in the same claim, audits PAYMENT_SHORTFALL; the ledger's charged money is what Stripe received while the shortfall is held; Clear shortfall (stuck-money) folds the shortfall into the captured total and resumes only if no other hold remains. Test: case 8 (short pauses and writes the field; equal does not; clearing releases), N7 coexistence (clearing a shortfall under an open chargeback keeps it held). Departure named: clearing corrects totalAmountCharged to the received amount. Earlier: TODO (B4).
 
 #### RENA-073 Add-on revenue has no cleaner share
 
@@ -631,7 +631,7 @@ Migration or config: one nullable column on ServiceAddon.
 Tests: hourly booking with an add-on pays 90% of the add-on; EOT with an add-on pays 85%; an add-on with its own split uses it; transfer amount matches. Manual: none.
 Delivery WEB, full diff review. Proof RIG-AUTO. HASH-LAW if the services page copy changes.
 Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-a). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). pricing.service.ts addonSplit: each database add-on pays the cleaner the parent service's share (1 minus commission) unless ServiceAddon.cleanerSharePct is set; QuoteResult gains addonCleanerShare and addonCommission; cleanerPayout and so cleanerEarnings and the transfer include it; products keeps its own 90 percent. Test: case 9 (hourly 90, fixed 85, own split 50, products 4.50, transfer equals cleanerEarnings); mutation turns it red. Rule 20 finding: the services page's 85 percent claim is a source comment, never rendered (services/[category]/page.tsx:147), and the booking wizard never sends database add-on ids, so no charged quote carries one today; the comment is corrected, no route hash changes. Parked: the cleaner-facing breakdown line for add-ons (no booking can carry one yet). Earlier: TODO (B4).
 
 #### RENA-075 Admin pricing control drifts from the computation
 
@@ -642,7 +642,7 @@ Migration or config: seed change (idempotent upsert removal plus a one-off delet
 Tests: admin pricing page shows the constants; seed no longer writes the row. Manual: none.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: James, 2026-10-06 (D-n). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). cleaner_fee_pct and customer_fee_pct removed from the seed and deleted by the migration; the rates live in src/lib/pricing/rates.ts (read by pricing.service.ts); the admin pricing page shows them read only and its margin calculator uses them; the config POST accepts only allowlisted keys with a non-negative numeric value (scheduler markers refused). Deviation 5 (allowlist) as ruled. Earlier: TODO (B4).
 
 #### RENA-080 Reconciliation route queries a status never written
 
@@ -651,7 +651,7 @@ Mechanism: admin/reconciliation/route.ts:97 queries RefundRecord status COMPLETE
 Fix: folded into RENA-015.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4, with RENA-015).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). admin/reconciliation reads SUCCEEDED refund slices (executedPence, one Stripe refund each) and gross from totalAmountCharged. Earlier: TODO (B4, with RENA-015).
 
 #### RENA-087 Top-up booking's anchored transfer slice can exceed its source charge
 
@@ -662,7 +662,7 @@ Migration or config: TopupRecord.stripeChargeId (B4 migration).
 Tests: B4.11 case 5 plus a top-up booking release producing one anchored slice per charge.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). TopupRecord.stripeChargeId stored on every success path (unique); each charge gets its own ANCHORED slice up to its amount (top-up charge ids read once from the intent for older rows), a flagged top-up anchors nothing, the rest is one EXCESS slice. Test: case 5; mutation red. Earlier: TODO (B4).
 
 #### RENA-088 Unknown-refund retry uses the original PaymentIntent and drops the allocation
 
@@ -673,7 +673,7 @@ Migration or config: B4 migration.
 Tests: B4.11 case 6 (connection error twice on a top-up slice, reconcile writes the truth).
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). Every retry uses the slice's own payment intent; slices replace the allocation JSON (left populated for rollback). Tests: cases 4, 6a. Earlier: TODO (B4).
 
 #### RENA-089 Pre-release earnings scaling divides by totalPrice
 
@@ -684,7 +684,7 @@ Migration or config: none.
 Tests: B4.11 case 3 with earnings asserted after a partial pre-release refund on a top-up booking.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). One cleaner-share formula for reversal and pre-release scaling, on the remaining basis (named departure from the design's totals formula; the two coincide when there are no prior refunds; a flagged top-up carries no share). Tests: cases 5, 7c. Earlier: TODO (B4).
 
 #### RENA-090 Cascade-exhaustion auto refund ignores earlier refunds
 
@@ -695,7 +695,7 @@ Migration or config: none.
 Tests: an exhausted booking with an earlier partial refund refunds exactly the remainder once.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). autoRefundExhausted refunds remainingRefundableFor (charged less executed); a booking still reconciling waits for the scheduler. Earlier: TODO (B4).
 
 #### RENA-091 Stuck-job remainder and retry-refund use totalPrice
 
@@ -706,7 +706,7 @@ Migration or config: none.
 Tests: a top-up booking's stuck-job cancel refunds the true remainder; the route answers 404.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). Stuck-job cancel-refund uses remainingRefundableFor and answers 409 while reconciling; retry-refund deleted. Cancellation (customer, guest, admin) uses the same ledger remainder and refuses with 409 while an earlier refund is reconciling. Earlier: TODO (B4).
 
 #### RENA-092 Dispute money failure strands the booking with the dispute RESOLVED
 
@@ -717,7 +717,7 @@ Migration or config: the DisputeStatus enum values and Dispute columns (B4 migra
 Tests: B4.11 case 7.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4, with RENA-013).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). With RENA-013. Tests: 7a, 7c. Earlier: TODO (B4, with RENA-013).
 
 #### RENA-093 Stripe chargebacks never pause release
 
@@ -728,7 +728,7 @@ Migration or config: the hold representation is specified in the B4 build (B4 mi
 Tests: chargeback before release holds; closed or reinstated with another hold still present keeps the hold; after release lands in stuck-money.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). ChargebackHold table; charge.dispute.created pauses an unreleased booking (OPEN) or records CHARGEBACK_AFTER_RELEASE; charge.dispute.closed won or closed lifts the hold and resumes only when moneyHoldReasons is empty; a lost chargeback keeps holding (parked for ruling: the stuck-money action Release to cleaner anyway records the decision). Duplicate events change nothing (unique dispute id). Test: N7 (hold, won releases, lost keeps holding, after release, duplicate, coexistence); mutation red. Config needed (James-side, on his word): the platform webhook destination must also send charge.dispute.created and charge.dispute.closed. Earlier: TODO (B4).
 
 #### RENA-094 Reference seed resets admin-managed PlatformConfig on every deploy
 
@@ -739,7 +739,7 @@ Migration or config: seed change.
 Tests: a seeded key edited by admin survives a seed re-run; a missing key is created.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). Seed PlatformConfig upserts are create-if-missing (update {}). Bench on the rig: an admin edit (deep_multiplier 1.99) survives the branch seed and a deleted key is recreated; main's seed resets the edit to 1.45 and recreates the two fee rows. Earlier: TODO (B4).
 
 #### RENA-095 Recurring off-session charge treats an unknown outcome as a failed attempt
 
@@ -750,7 +750,7 @@ Migration or config: the stored key and attempt state (B4 migration).
 Tests: connection error twice leaves UNKNOWN and no second charge; the sweep reconciles to succeeded or failed by the stored key.
 Delivery WEB, full diff review. Proof RIG-AUTO.
 Last verified commit 7f54ec5. Decision owner and date: James, 2026-10-07 (D-ac). Overlap group F. Regression evidence: none yet.
-Implementation status: TODO (B4).
+Implementation status: BUILT on branch claude/b4-money-ledger (gate pending, not merged). attemptOccurrenceCharge stores the deterministic key, retries once with the same key on a connection or API error, then marks the occurrence UNKNOWN (chargeOutcomeUnknownAt, no pay-now email); both recurring sweeps skip it; sweepStrandedPayments reconciles it read only (the customer's intents matched by metadata bookingId): succeeded runs the success path, declined or never arrived after 24h runs the single failed attempt; RECURRING_CHARGE_UNKNOWN in stuck-money. Test: N9 (landed and never-landed); mutation red. Earlier: TODO (B4).
 
 ### B5 Native shell OTA lane
 
